@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/judge.schema.json",
+  "title": "Judge",
+  "description": "server ↔ judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。JudgeRequest 不含 userId/Pending 等业务态。mode=official 时测试点由 judge 按 problemId 加载；mode=custom 时用请求内 cases（用户自定义测试）。",
+  "definitions": {
+    "JudgeMode": {
+      "type": "string",
+      "description": "official=题目正式测例；custom=用户自定义测例（可只跑不比）",
+      "enum": ["official", "custom"]
+    },
+    "CaseSpec": {
+      "type": "object",
+      "required": ["input"],
+      "description": "一个测试点的输入（及可选期望输出）。expected 缺省表示只跑不比对。",
+      "properties": {
+        "input": {
+          "type": "string",
+          "description": "喂给程序的 stdin 内容"
+        },
+        "expected": {
+          "type": "string",
+          "description": "标准答案；缺省则该点不跑 checker，不产生 AC/WA"
+        }
+      }
+    },
+    "JudgeRequest": {
+      "type": "object",
+      "required": ["submissionId", "problemId", "language", "source"],
+      "properties": {
+        "submissionId": {
+          "type": "string",
+          "description": "提交 id，便于日志与对账；可不参与判题逻辑"
+        },
+        "problemId": {
+          "type": "string",
+          "description": "题目 id：official 用来加载测例；custom 仍用来加载 time/memory 等 meta"
+        },
+        "language": {
+          "type": "string",
+          "description": "如 cpp"
+        },
+        "source": {
+          "type": "string",
+          "description": "源码全文"
+        },
+        "mode": {
+          "$ref": "#/definitions/JudgeMode",
+          "description": "缺省 official"
+        },
+        "cases": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/CaseSpec" },
+          "description": "mode=custom 时必填；mode=official 时忽略（由 judge 按 problemId 读盘）"
+        }
+      }
+    },
+    "CaseResult": {
+      "type": "object",
+      "required": ["idx", "verdict"],
+      "properties": {
+        "idx": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "verdict": {
+          "$ref": "verdict.json"
+        },
+        "time": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "ns"
+        },
+        "memory": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "bytes"
+        },
+        "message": {
+          "type": "string"
+        },
+        "stdout": {
+          "type": "string",
+          "description": "可选；custom 且无 expected 时带回程序输出，便于前端展示。正式提交可不填。"
+        }
+      }
+    },
+    "JudgeResult": {
+      "type": "object",
+      "required": ["verdict"],
+      "properties": {
+        "verdict": {
+          "$ref": "verdict.json"
+        },
+        "time": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "各 case 用户 CPU 时间最大值，ns"
+        },
+        "memory": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "各 case 内存峰值最大值，bytes"
+        },
+        "score": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message": {
+          "type": "string",
+          "description": "如 CE 的编译错误信息"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CaseResult"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/run.schema.json",
+  "title": "Run",
+  "description": "judge ↔ sandbox：跑一条命令。字段按 CI 构建步骤设计（inputs/outputs/artifacts），不沿用 go-judge 的 fd 数组。时间 ns，内存 bytes。status 是执行事实，不是 OJ 的 AC/WA。",
+  "definitions": {
+    "FileSource": {
+      "type": "object",
+      "description": "工作目录文件来源：ref（store 引用）或 text（内联），二选一。",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "store 引用"
+        },
+        "text": {
+          "type": "string",
+          "description": "内联文本（小文件调试用）"
+        }
+      }
+    },
+    "Limits": {
+      "type": "object",
+      "description": "资源上限。字段名自带单位。",
+      "properties": {
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "CPU 时间上限"
+        },
+        "clockNs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "墙钟时间上限（防 sleep）"
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "内存上限"
+        },
+        "maxProcesses": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "进程数上限"
+        },
+        "stdoutMaxBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "最多收集多少字节 stdout，超出 → OutputLimitExceeded"
+        },
+        "stderrMaxBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "最多收集多少字节 stderr"
+        }
+      }
+    },
+    "RunSpec": {
+      "type": "object",
+      "required": ["command"],
+      "description": "一次只跑一条命令（MVP）。编译与运行都走这里——对 sandbox 而言编译只是「跑 g++」。多命令管道以后再说。",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "description": "可选，日志关联"
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "要执行的命令，等同终端里空格拆开：command[0] 是程序路径"
+        },
+        "env": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "环境变量，如 PATH=/usr/bin:/bin"
+        },
+        "stdin": {
+          "description": "程序的标准输入。小内容直接给字符串；大内容先 POST /store，再传 {\"ref\":\"...\"}。二者选一。",
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "内联文本。缺省或空串 = 无输入。适合普通测例（通常 KB～数百 KB）。"
+            },
+            {
+              "type": "object",
+              "required": ["ref"],
+              "properties": {
+                "ref": {
+                  "type": "string",
+                  "description": "store 引用；sandbox 从 store 读出后接到程序 stdin"
+                }
+              }
+            }
+          ]
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/FileSource" },
+          "description": "开跑前写入工作目录的文件。键 = 相对路径，如 main.cpp、main"
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "跑完后，把工作目录里这些文件的内容内联放进响应 outputs"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "跑完后存进 store，在响应 artifacts 里返回新 ref（给下一步 /run 用）"
+        },
+        "limits": {
+          "$ref": "#/definitions/Limits"
+        }
+      }
+    },
+    "RunStatus": {
+      "type": "string",
+      "description": "执行事实。OK = exit 0，不是 OJ 的 AC。",
+      "enum": [
+        "OK",
+        "TimeLimitExceeded",
+        "MemoryLimitExceeded",
+        "OutputLimitExceeded",
+        "WorkspaceError",
+        "NonzeroExitStatus",
+        "Signalled",
+        "InternalError"
+      ]
+    },
+    "RunResult": {
+      "type": "object",
+      "required": ["status"],
+      "description": "POST /run 的响应体（MVP 直接返回本对象，不再包一层 results[]）。",
+      "properties": {
+        "status": { "$ref": "#/definitions/RunStatus" },
+        "exitCode": {
+          "type": "integer",
+          "description": "进程退出码"
+        },
+        "error": {
+          "type": "string",
+          "description": "错误或信号说明"
+        },
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "用户 CPU 时间"
+        },
+        "clockNs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "墙钟时间"
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "内存峰值"
+        },
+        "stdout": {
+          "type": "string",
+          "description": "程序标准输出（受 stdoutMaxBytes 限制）"
+        },
+        "stderr": {
+          "type": "string",
+          "description": "程序标准错误"
+        },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "outputs 取回的文件内容，键为相对路径"
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "artifacts 存进 store 得到的 ref，键为相对路径"
+        }
+      }
+    }
+  }
+}

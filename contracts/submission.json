@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/submission.json",
+  "title": "Submission",
+  "description": "用户提交（server 持久化资源）。status 是生命周期；verdict 是 OJ 判分。时间单位 ns，内存单位 bytes。cases 持久化每个测试点明细（MVP 可用 JSON 列存储）。",
+  "type": "object",
+  "required": ["id", "problemId", "userId", "language", "source", "status", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "提交 id"
+    },
+    "problemId": {
+      "type": "string",
+      "description": "题目 id"
+    },
+    "userId": {
+      "type": "string",
+      "description": "提交用户 id（创建时从登录态写入，不由客户端随意指定）"
+    },
+    "language": {
+      "type": "string",
+      "description": "语言 id，如 cpp / python"
+    },
+    "source": {
+      "type": "string",
+      "description": "源码全文（后期可改为对象存储 key，MVP 直接存文本）"
+    },
+    "status": {
+      "$ref": "#/definitions/SubmissionStatus"
+    },
+    "verdict": {
+      "$ref": "verdict.json",
+      "description": "有终态结果后才有；Pending/Judging 时可省略"
+    },
+    "time": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "各测试点用户 CPU 时间最大值，ns"
+    },
+    "memory": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "各测试点内存峰值最大值，bytes"
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "得分；ICPC 风格通常 AC=100 否则 0"
+    },
+    "message": {
+      "type": "string",
+      "description": "补充信息，如 CE 的编译器 stderr、SE 原因"
+    },
+    "cases": {
+      "type": "array",
+      "description": "每个测试点的结果明细（持久化）",
+      "items": {
+        "$ref": "#/definitions/CaseResult"
+      }
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "创建时间（ISO-8601）"
+    },
+    "finishedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "判题结束时间；Done 后有值"
+    }
+  },
+  "definitions": {
+    "SubmissionStatus": {
+      "type": "string",
+      "description": "提交生命周期（不是 AC/WA）。Pending=已创建未送判；Judging=正在调 judge；Done=已有终态（含 CE/SE）。",
+      "enum": ["Pending", "Judging", "Done"]
+    },
+    "CaseResult": {
+      "type": "object",
+      "required": ["idx", "verdict"],
+      "properties": {
+        "idx": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "测试点编号"
+        },
+        "verdict": {
+          "$ref": "verdict.json"
+        },
+        "time": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "该点用户 CPU 时间，ns"
+        },
+        "memory": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "该点内存峰值，bytes"
+        },
+        "message": {
+          "type": "string",
+          "description": "该点补充信息"
+        },
+        "stdout": {
+          "type": "string",
+          "description": "可选；自定义测试无标准答案时带回输出。正式提交通常不存。"
+        }
+      }
+    },
+    "CreateSubmissionRequest": {
+      "type": "object",
+      "description": "浏览器创建正式提交。自定义测试请走独立调试 API，不要与正式提交混用。",
+      "required": ["problemId", "language", "source"],
+      "properties": {
+        "problemId": { "type": "string" },
+        "language": { "type": "string" },
+        "source": { "type": "string" }
+      }
+    }
+  }
+}
