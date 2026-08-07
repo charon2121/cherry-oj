@@ -198,7 +198,7 @@ func classify(lim contract.Limits, u container.Usage, outOverflow bool, ctxErr e
 		return contract.StatusOutputLimitExceeded // 输出超限
 	case u.Signal != 0:
 		return contract.StatusSignalled // SIGSEGV 等
-	case u.Signal == 0:
+	case u.ExitCode == 0:
 		return contract.StatusOK
 	default:
 		return contract.StatusNonzeroExit // 非 0 退出
