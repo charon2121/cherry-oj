@@ -88,10 +88,12 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 		Setpgid: true,
 	}
 
+	// 当 pid 参数为负数时，向一个进程组发送信号，而不是单个进程。
 	cmd.Cancel = func() error {
 		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 
+	// 解决子进程退出后，Wait 无限等待的问题
 	cmd.WaitDelay = 2 * time.Second
 
 	if err := cmd.Start(); err != nil {

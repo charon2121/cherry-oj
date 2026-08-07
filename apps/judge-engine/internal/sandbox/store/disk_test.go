@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestDiskStorePutOpenDelete(t *testing.T) {
+func TestDiskStorePutGetDelete(t *testing.T) {
 	s, err := NewDiskStoreWithRoot(t.TempDir())
 
 	if err != nil {
@@ -26,10 +26,10 @@ func TestDiskStorePutOpenDelete(t *testing.T) {
 		t.Fatalf("unexpected empty ref")
 	}
 
-	reader, err := s.Open(ref)
+	reader, err := s.Get(ref)
 
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		t.Fatalf("Get: %v", err)
 	}
 
 	got, err := io.ReadAll(reader)
@@ -51,7 +51,7 @@ func TestDiskStorePutOpenDelete(t *testing.T) {
 		t.Fatalf("delete: %v", err)
 	}
 
-	_, err = s.Open(ref)
+	_, err = s.Get(ref)
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unexpeced ErrNotFound after delete, got %v", err)
 	}

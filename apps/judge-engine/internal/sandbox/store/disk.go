@@ -99,7 +99,7 @@ func (s *diskStore) Put(r io.Reader) (string, error) {
 	return ref, nil
 }
 
-func (s *diskStore) Open(ref string) (io.ReadCloser, error) {
+func (s *diskStore) Get(ref string) (io.ReadCloser, error) {
 	path, err := s.lookup(ref)
 	if err != nil {
 		return nil, err
