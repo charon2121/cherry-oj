@@ -8,18 +8,24 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
+	"regexp"
 )
 
+// diskStore 把每袋字节存成 root 下的一个文件，文件名就是 ref。
+// 于是 path 恒等于 root+ref——文件系统本身就是那张索引表，
+// 不需要内存 map（它冗余、不耐进程重启、还会随漏删泄漏内存）。
 type diskStore struct {
 	root string
-	mu   sync.Mutex
-	refs map[string]string // ref -> absolute path
 }
 
 var ErrNotFound = errors.New("store reference not found")
 
-func NewdiskStore() (*diskStore, error) {
+// ref 只可能是 newID 生成的 32 位小写 hex。
+// 这条正则同时是安全边界：它挡住 "../../etc/passwd" 这类路径穿越，
+// 让「ref 拼进路径」这件事变得安全。
+var refPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+func NewDiskStore() (*diskStore, error) {
 	root := defaultRoot()
 	return NewDiskStoreWithRoot(root)
 }
@@ -39,10 +45,7 @@ func NewDiskStoreWithRoot(root string) (*diskStore, error) {
 		return nil, fmt.Errorf("create store root %q: %w", root, err)
 	}
 
-	return &diskStore{
-		root: absRoot,
-		refs: make(map[string]string),
-	}, nil
+	return &diskStore{root: absRoot}, nil
 }
 
 func newID() (string, error) {
@@ -51,6 +54,14 @@ func newID() (string, error) {
 		return "", fmt.Errorf("generate random ID: %w", err)
 	}
 	return hex.EncodeToString(buf), nil
+}
+
+// path 由 ref 直接算出落点，格式不合法的一律当成「找不到」。
+func (s *diskStore) path(ref string) (string, error) {
+	if !refPattern.MatchString(ref) {
+		return "", fmt.Errorf("%w: %q", ErrNotFound, ref)
+	}
+	return filepath.Join(s.root, ref), nil
 }
 
 func (s *diskStore) Put(r io.Reader) (string, error) {
@@ -91,16 +102,13 @@ func (s *diskStore) Put(r io.Reader) (string, error) {
 		return "", fmt.Errorf("close store file %q: %w", path, err)
 	}
 
-	s.mu.Lock()
-	s.refs[ref] = path
-	s.mu.Unlock()
 	success = true
 
 	return ref, nil
 }
 
 func (s *diskStore) Get(ref string) (io.ReadCloser, error) {
-	path, err := s.lookup(ref)
+	path, err := s.path(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -109,8 +117,6 @@ func (s *diskStore) Get(ref string) (io.ReadCloser, error) {
 
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// 映射文件存在，实际文件丢失，清理 ref 记录
-			s.removeRefIfMatch(ref, path)
 			return nil, fmt.Errorf("%w: %s", ErrNotFound, ref)
 		}
 		return nil, fmt.Errorf("open store reference %q: %w", ref, err)
@@ -120,68 +126,18 @@ func (s *diskStore) Get(ref string) (io.ReadCloser, error) {
 }
 
 func (s *diskStore) Delete(ref string) error {
-	path, err := s.take(ref)
+	path, err := s.path(ref)
 	if err != nil {
 		return err
 	}
 
-	if err := os.Remove(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-
-		// 删除失败恢复映射，方便重试
-		s.mu.Lock()
-		s.refs[ref] = path
-		s.mu.Unlock()
-
+	// 删一个已经不在的 ref 视为成功——Delete 要幂等，
+	// 否则 judge 的清理路径重试一次就会报假错。
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("delete store reference %q: %w", ref, err)
 	}
 
 	return nil
-}
-
-func (s *diskStore) lookup(ref string) (string, error) {
-	if ref == "" {
-		return "", fmt.Errorf("%w: empty reference", ErrNotFound)
-	}
-
-	s.mu.Lock()
-	path, ok := s.refs[ref]
-	s.mu.Unlock()
-
-	if !ok {
-		return "", fmt.Errorf("%w: %s", ErrNotFound, ref)
-	}
-	return path, nil
-}
-
-func (s *diskStore) removeRefIfMatch(ref, path string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	current, ok := s.refs[ref]
-	if ok && current == path {
-		delete(s.refs, ref)
-	}
-}
-
-func (s *diskStore) take(ref string) (string, error) {
-	if ref == "" {
-		return "", fmt.Errorf("%w: empty reference", ErrNotFound)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	path, ok := s.refs[ref]
-
-	if !ok {
-		return "", fmt.Errorf("%w: %s", ErrNotFound, ref)
-	}
-
-	delete(s.refs, ref)
-	return path, nil
 }
 
 func defaultRoot() string {

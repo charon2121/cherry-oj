@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// 没设上限时的兜底，避免 Limits 零值被当成「一个字节都不许写」
+const defaultOutputMaxBytes = 64 << 10 // 64 KiB
+
 // 收集子进程的 stdout, 超过限制之后进行截断
 type capWriter struct {
 	buf      bytes.Buffer
@@ -20,16 +23,27 @@ type capWriter struct {
 	overflow bool
 }
 
+func newCapWriter(max int64) *capWriter {
+	if max <= 0 {
+		max = defaultOutputMaxBytes
+	}
+	return &capWriter{max: max}
+}
+
 func (w *capWriter) Write(p []byte) (int, error) {
 
-	if remain := w.max - w.current; remain > 0 {
+	remain := w.max - w.current
+
+	// 只有真的有字节要被丢掉才算溢出。
+	// 写「满」不等于写「溢出」——恰好写到上限一个字节没丢，不该报 OLE。
+	if int64(len(p)) > remain {
+		w.overflow = true
+	}
+
+	if remain > 0 {
 		take := min(int64(len(p)), remain)
 		w.buf.Write(p[:take])
 		w.current += take
-	}
-
-	if w.current >= w.max && len(p) > 0 {
-		w.overflow = true
 	}
 
 	return len(p), nil
@@ -87,11 +101,18 @@ func Run(ctx context.Context, c container.Container, st store.Store, spec contra
 	}
 
 	// 创建带上限的收集器，收集标准错误和标准输出
-	stdout := &capWriter{max: spec.Limits.StdoutMaxBytes}
-	stderr := &capWriter{max: spec.Limits.StderrMaxBytes}
+	stdout := newCapWriter(spec.Limits.StdoutMaxBytes)
+	stderr := newCapWriter(spec.Limits.StderrMaxBytes)
 
-	// 墙钟超时时间，程序最多能执行的时间
-	runCtx, cancel := context.WithTimeout(ctx, time.Duration(spec.Limits.ClockNs))
+	// 墙钟超时时间，程序最多能执行的时间。
+	// ClockNs 没设（=0）就是「不限时」——不能直接 WithTimeout(ctx, 0)，那会立刻超时。
+	var runCtx context.Context
+	var cancel context.CancelFunc
+	if spec.Limits.ClockNs > 0 {
+		runCtx, cancel = context.WithTimeout(ctx, time.Duration(spec.Limits.ClockNs))
+	} else {
+		runCtx, cancel = context.WithCancel(ctx)
+	}
 	defer cancel()
 
 	// 起进程 + 等结束 + 量墙钟时间
@@ -144,6 +165,7 @@ func Run(ctx context.Context, c container.Container, st store.Store, spec contra
 		if err != nil {
 			res.Status = contract.StatusWorkspaceError
 			res.Error = err.Error()
+			return res // 读了半截的内容不能算数
 		}
 		res.Outputs[name] = string(data)
 	}

@@ -20,7 +20,7 @@ func setup(t *testing.T) (container.Container, store.Store) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { c.Close() })
-	st, err := store.NewdiskStore()
+	st, err := store.NewDiskStore()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +80,40 @@ func TestNonzero(t *testing.T) {
 	}
 	if res.ExitCode != 3 {
 		t.Fatalf("exitCode=%d want 3", res.ExitCode)
+	}
+}
+
+// Limits 全零 = 不限时、不限输出，不该被当成「限制为 0」
+func TestZeroLimits(t *testing.T) {
+	c, st := setup(t)
+	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+		Command: []string{"/bin/echo", "hi"},
+		Limits:  contract.Limits{},
+	})
+	if res.Status != contract.StatusOK {
+		t.Fatalf("status=%s err=%s", res.Status, res.Error) // 没 guard 时是 TimeLimitExceeded
+	}
+	if !strings.Contains(res.Stdout, "hi") {
+		t.Fatalf("stdout=%q", res.Stdout) // 没 guard 时是空的
+	}
+}
+
+// 输出真的超限时要截断并报 OLE
+func TestOutputLimitExceeded(t *testing.T) {
+	c, st := setup(t)
+	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+		Command: []string{"/bin/sh", "-c", "printf '0123456789'"},
+		Limits: contract.Limits{
+			ClockNs:        int64(2 * time.Second),
+			StdoutMaxBytes: 4,
+			StderrMaxBytes: 65536,
+		},
+	})
+	if res.Status != contract.StatusOutputLimitExceeded {
+		t.Fatalf("status=%s want OutputLimitExceeded", res.Status)
+	}
+	if res.Stdout != "0123" {
+		t.Fatalf("stdout=%q want %q", res.Stdout, "0123")
 	}
 }
 
