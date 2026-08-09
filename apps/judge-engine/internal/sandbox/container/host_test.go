@@ -180,6 +180,119 @@ func TestCPUNsAndMemoryBytes(t *testing.T) {
 	}
 }
 
+// Reset 清空内容但保留工作目录本身 —— 这是它和 Close 的全部区别，
+// 也是 pool 复用工作间（借出→用完→Reset→还池）的前提。
+func TestResetClearsButKeepsWorkDir(t *testing.T) {
+	c := newBox(t)
+
+	if err := c.PutFile("main.cpp", strings.NewReader("int main(){}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 子目录也要一并清掉（Reset 用的是 RemoveAll，不是 Remove）
+	if err := os.MkdirAll(filepath.Join(c.workDir, "sub", "deep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.PutFile("sub/deep/a.txt", strings.NewReader("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := c.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	// ① 目录还在，而且还是个目录
+	fi, err := os.Stat(c.workDir)
+	if err != nil {
+		t.Fatalf("Reset 把 workDir 本身删了: %v", err)
+	}
+	if !fi.IsDir() {
+		t.Fatalf("workDir 不再是目录")
+	}
+
+	// ② 里面空了
+	entries, err := os.ReadDir(c.workDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("Reset 后残留 %v", names)
+	}
+}
+
+// Reset 之后工作间还能用 —— 光「目录还在」不够，得真能再跑一轮
+func TestResetKeepsContainerUsable(t *testing.T) {
+	c := newBox(t)
+
+	if err := c.PutFile("Main.sh", strings.NewReader("#!/bin/sh\necho first\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	// 旧文件确实没了
+	if _, err := c.GetFile("Main.sh"); err == nil {
+		t.Errorf("Reset 后旧文件仍能读到")
+	}
+
+	// 重新铺一份并跑起来
+	if err := c.PutFile("Main.sh", strings.NewReader("#!/bin/sh\necho second\n"), 0o755); err != nil {
+		t.Fatalf("Reset 后 PutFile 失败: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	p, err := c.Start(context.Background(), Spec{Command: []string{"Main.sh"}, Stdout: &stdout})
+	if err != nil {
+		t.Fatalf("Reset 后 Start 失败: %v", err)
+	}
+	if _, err := p.Wait(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != "second\n" {
+		t.Errorf("stdout=%q want %q", stdout.String(), "second\n")
+	}
+}
+
+// 连续 Reset 要成功（空目录上再 Reset 不是错误）
+func TestResetIsIdempotent(t *testing.T) {
+	c := newBox(t)
+
+	for i := range 3 {
+		if err := c.Reset(); err != nil {
+			t.Fatalf("第 %d 次 Reset: %v", i+1, err)
+		}
+	}
+}
+
+// Close 删掉整个工作目录 —— 和 Reset 对照着看语义差别。
+// Close 之后 Reset 必须报错：pool 的 giveBack 就靠这个信号丢弃坏掉的工作间。
+func TestCloseRemovesWorkDir(t *testing.T) {
+	c, err := NewHost() // 不用 newBox：这个用例要自己控制 Close 时机
+	if err != nil {
+		t.Fatalf("NewHost: %v", err)
+	}
+	workDir := c.workDir
+
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	if _, err := os.Stat(workDir); !os.IsNotExist(err) {
+		t.Errorf("Close 后 workDir 仍在: err=%v", err)
+	}
+	if err := c.Reset(); err == nil {
+		t.Errorf("Close 之后 Reset 应当报错，好让 pool 丢弃这个工作间")
+	}
+	// Close 幂等：pool 走异常路径时可能重复调
+	if err := c.Close(); err != nil {
+		t.Errorf("重复 Close 应当成功，got %v", err)
+	}
+}
+
 // stdin 透传
 func TestStdinPipe(t *testing.T) {
 	c := newBox(t)
