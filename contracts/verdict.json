@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/verdict.json",
   "title": "Verdict",
-  "description": "判题结果。AC=通过, WA=答案错误, TLE=超时, MLE=超内存, RE=运行时错误, CE=编译错误, PE=格式错误, SE=判题机系统故障, RAN=已运行但未比对（自定义测试无 expected）。",
+  "description": "判题结果。AC=通过, WA=答案错误, TLE=超时, MLE=超内存, OLE=输出超限, RE=运行时错误, CE=编译错误, PE=格式错误, SE=判题机系统故障, RAN=已运行但未比对（自定义测试无 expected）。",
   "type": "string",
-  "enum": ["AC", "WA", "TLE", "MLE", "RE", "CE", "PE", "SE", "RAN"]
+  "enum": ["AC", "WA", "TLE", "MLE", "OLE", "RE", "CE", "PE", "SE", "RAN"]
 }

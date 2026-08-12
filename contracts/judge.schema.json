@@ -2,12 +2,56 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/judge.schema.json",
   "title": "Judge",
-  "description": "server ↔ judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。JudgeRequest 不含 userId/Pending 等业务态。mode=official 时测试点由 judge 按 problemId 加载；mode=custom 时用请求内 cases（用户自定义测试）。",
+  "description": "server ↔ judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。JudgeRequest 不含 userId/Pending 等业务态。\n\n职责边界：judge 的磁盘上只有测试数据文件本身（<testdata-root>/<problemId>/ 下成对的 *.in / *.out），没有任何题目元信息——时空限制、题面样例存在 server 的数据库里，判题时随请求下发。这样题目配置只有一个真源，改了后台下一次提交就生效，也不必把配置同步到每台判题机。\n\nmode 决定测例从哪来：submit 由 judge 按 problemId 读磁盘；trial 用请求内 cases（题面样例和用户自定义输入都走这条）。结果是否入库由 server 决定，不进本契约。\n\n比对策略、是否回传标准答案、各类大小上限等属于判题机的运行配置，走 YAML 配置文件 + 环境变量，不进本契约。",
   "definitions": {
     "JudgeMode": {
       "type": "string",
-      "description": "official=题目正式测例；custom=用户自定义测例（可只跑不比）",
-      "enum": ["official", "custom"]
+      "description": "submit=正式提交，judge 按 problemId 从测试数据目录读该题全部测例；trial=试运行，用请求内 cases（题面样例由 server 从库里取出内联发来，或用户自己敲的输入）。注意：本字段只决定「测例从哪来」，不决定「结果入不入库」——那是 server 的决定，不进本契约。",
+      "enum": ["submit", "trial"]
+    },
+    "Output": {
+      "type": "object",
+      "required": ["excerpt", "bytes"],
+      "description": "用户程序的输出。非 AC 时回传，供用户排查。注意 sandbox 侧已按 stdoutMaxBytes 截过一次，这里的 bytes 是 judge 实际收到的字节数，不一定是程序真实产出的长度。",
+      "properties": {
+        "excerpt": {
+          "type": "string",
+          "description": "前若干字节（判题机策略，通常几 KB）"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "judge 收到的总字节数"
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "excerpt 短于 bytes，即还有内容没带回"
+        },
+        "ref": {
+          "type": "string",
+          "description": "可选：完整内容的存储引用，带 TTL。MVP 可不填。"
+        }
+      }
+    },
+    "Diff": {
+      "type": "object",
+      "required": ["line"],
+      "description": "WA 时第一处不同的位置。want 填不填由判题机的运行配置决定（judge.revealExpected）：商业 OJ 关掉，避免用户刷 WA 把题库答案拖走；教学场景打开，让学生看到自己的输出和答案差在哪。关掉时只给 line 和 got。",
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "第一处不同的行号，从 1 起"
+        },
+        "got": {
+          "type": "string",
+          "description": "该行用户输出的截断片段；为空表示用户输出没有这一行（少输出了）"
+        },
+        "want": {
+          "type": "string",
+          "description": "该行标准答案的截断片段；配置 revealExpected=false 时留空。为空也可能表示答案没有这一行（用户多输出了）"
+        }
+      }
     },
     "CaseSpec": {
       "type": "object",
@@ -24,17 +68,43 @@
         }
       }
     },
+    "JudgeLimits": {
+      "type": "object",
+      "required": ["cpuNs", "memoryBytes"],
+      "description": "本次判题的时空限制。真源在 server 的题目表里，由 server 查库后随请求下发——judge 不猜、不读题目目录里的限制。只放「出题人定的」两项；墙钟倍率、输出上限等属于判题机策略，由 judge 自己决定。",
+      "properties": {
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "每个测试点的 CPU 时间上限"
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "每个测试点的内存上限"
+        },
+        "clockNs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选：墙钟上限（防 sleep 空转）。缺省由 judge 按 cpuNs 推算，通常取其数倍。IO 极重的题才需要显式指定。"
+        }
+      }
+    },
     "JudgeRequest": {
       "type": "object",
-      "required": ["submissionId", "problemId", "language", "source"],
+      "required": ["submissionId", "problemId", "language", "source", "limits"],
       "properties": {
         "submissionId": {
           "type": "string",
-          "description": "提交 id，便于日志与对账；可不参与判题逻辑"
+          "description": "提交 id，便于日志与对账；不参与判题逻辑"
         },
         "problemId": {
           "type": "string",
-          "description": "题目 id：official 用来加载测例；custom 仍用来加载 time/memory 等 meta"
+          "description": "题目 id：定位测试数据目录（<testdata-root>/<problemId>/），mode=submit 时用来加载测例文件。除此之外不承担别的含义——时空限制走 limits 字段。"
+        },
+        "limits": {
+          "$ref": "#/definitions/JudgeLimits",
+          "description": "时空限制；server 从题目表查出后下发"
         },
         "language": {
           "type": "string",
@@ -51,7 +121,7 @@
         "cases": {
           "type": "array",
           "items": { "$ref": "#/definitions/CaseSpec" },
-          "description": "mode=custom 时必填；mode=official 时忽略（由 judge 按 problemId 读盘）"
+          "description": "mode=trial 时必填；mode=submit 时忽略（由 judge 按 problemId 从测试数据目录读）"
         }
       }
     },
@@ -77,11 +147,20 @@
           "description": "bytes"
         },
         "message": {
-          "type": "string"
-        },
-        "stdout": {
           "type": "string",
-          "description": "可选；custom 且无 expected 时带回程序输出，便于前端展示。正式提交可不填。"
+          "description": "补充说明，如 RE 时的 stderr 片段"
+        },
+        "name": {
+          "type": "string",
+          "description": "测试点名，仅 mode=submit 时有值，取自文件名（1.in → \"1\"），用于日志与运维定位。mode=trial 时为空——调用方靠 idx 对应回自己发的第几个 case。"
+        },
+        "output": {
+          "$ref": "#/definitions/Output",
+          "description": "用户程序输出；非 AC 时带回供排查"
+        },
+        "diff": {
+          "$ref": "#/definitions/Diff",
+          "description": "WA 时第一处不同的位置"
         }
       }
     },
@@ -112,6 +191,7 @@
         },
         "cases": {
           "type": "array",
+          "description": "★ 顺序保证：cases[i] 对应本次实际执行的第 i 个测试点，idx 从 1 递增。mode=trial 时严格对应请求里 cases[i]；mode=submit 时对应测试数据目录排序后的第 i 个。调用方靠这个顺序把结果对回去，judge 不得重排。",
           "items": {
             "$ref": "#/definitions/CaseResult"
           }

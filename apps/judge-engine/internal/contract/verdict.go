@@ -7,6 +7,7 @@ const (
 	VerdictWA  Verdict = "WA"  // 答案错误
 	VerdictTLE Verdict = "TLE" // 超时
 	VerdictMLE Verdict = "MLE" // 超内存
+	VerdictOLE Verdict = "OLE" // 输出超限
 	VerdictRE  Verdict = "RE"  // 运行错误
 	VerdictCE  Verdict = "CE"  // 编译错误
 	VerdictPE  Verdict = "PE"  // 格式错误
@@ -21,6 +22,7 @@ func (v Verdict) IsValid() bool {
 		VerdictWA,
 		VerdictTLE,
 		VerdictMLE,
+		VerdictOLE,
 		VerdictRE,
 		VerdictCE,
 		VerdictPE,
