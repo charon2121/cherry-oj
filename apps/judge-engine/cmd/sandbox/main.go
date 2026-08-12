@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/sandbox/api"
 	"cherry-oj/judge-engine/internal/sandbox/pool"
 	"cherry-oj/judge-engine/internal/sandbox/store"
@@ -11,27 +12,37 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 )
 
 func main() {
-	addr := flag.String("http-addr", "127.0.0.1:5050", "监听地址")
-	parallelism := flag.Int("parallelism", runtime.NumCPU(), "最大并发执行数")
+	// 只有这一个 flag：配置文件路径。
+	// 每个配置项都配一个 flag 的话就有三套真源（flag / YAML / 环境变量），
+	// 谁覆盖谁得记一张表。一个 -config 指路，其余走「默认值 → YAML → 环境变量」。
+	configPath := flag.String("config", "", "配置文件路径；留空则只用默认值 + 环境变量")
 	flag.Parse()
 
-	st, err := store.NewDiskStore()
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		// 配错了就别启动。一个 maxBlobBytes: 0 的配置能让服务正常起来、
+		// 然后每次上传都失败——宁可起不来，也别悄悄跑错。
+		log.Fatalf("加载配置: %v", err)
+	}
+
+	st, err := newStore(cfg.Sandbox.Store)
 	if err != nil {
 		log.Fatalf("init store: %v", err)
 	}
 
-	p := pool.New(*parallelism, st)
+	p := pool.New(cfg.Sandbox.Parallelism, st)
 	defer p.Close()
 
 	srv := &http.Server{
-		Addr:    *addr,
-		Handler: api.New(p, st).Handler(),
+		Addr: cfg.Sandbox.HTTPAddr,
+		Handler: api.New(p, st, api.Options{
+			MaxBlobBytes: cfg.Sandbox.Store.MaxBlobBytes,
+		}).Handler(),
 	}
 
 	// Ctrl-C / SIGTERM 时取消这个 ctx
@@ -39,7 +50,8 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("sandbox listening on %s (parallelism=%d)", *addr, *parallelism)
+		log.Printf("sandbox listening on %s (parallelism=%d)",
+			cfg.Sandbox.HTTPAddr, cfg.Sandbox.Parallelism)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("listen: %v", err)
 		}
@@ -54,4 +66,12 @@ func main() {
 	if err := srv.Shutdown(shutCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}
+}
+
+// newStore：root 留空表示「自动探测」，不是「用当前目录」。
+func newStore(c config.StoreConfig) (store.Store, error) {
+	if c.Root == "" {
+		return store.NewDiskStore()
+	}
+	return store.NewDiskStoreWithRoot(c.Root)
 }

@@ -26,7 +26,7 @@ func (f *fakeExec) Run(ctx context.Context, spec contract.RunSpec) (contract.Run
 
 func TestHandleRunDecodesSpec(t *testing.T) {
 	fake := &fakeExec{res: contract.RunResult{Status: contract.StatusOK, Stdout: "hello\n"}}
-	h := api.New(fake, nil).Handler() // store 用不到，传 nil 即可
+	h := api.New(fake, nil, api.Options{}).Handler() // store 用不到，传 nil 即可
 
 	body := `{"command":["/bin/echo","hello"],"stdin":"1 2\n"}`
 	req := httptest.NewRequest("POST", "/run", strings.NewReader(body))
@@ -52,7 +52,7 @@ func TestHandleRunDecodesSpec(t *testing.T) {
 }
 
 func TestHandleRunBadJSON(t *testing.T) {
-	h := api.New(&fakeExec{}, nil).Handler()
+	h := api.New(&fakeExec{}, nil, api.Options{}).Handler()
 	req := httptest.NewRequest("POST", "/run", strings.NewReader("{"))
 	rec := httptest.NewRecorder()
 
@@ -64,7 +64,7 @@ func TestHandleRunBadJSON(t *testing.T) {
 }
 
 func TestHandleRunEmptyCommand(t *testing.T) {
-	h := api.New(&fakeExec{}, nil).Handler()
+	h := api.New(&fakeExec{}, nil, api.Options{}).Handler()
 	req := httptest.NewRequest("POST", "/run", strings.NewReader(`{"command":[]}`))
 	rec := httptest.NewRecorder()
 
@@ -80,7 +80,7 @@ func TestBlobRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := api.New(&fakeExec{}, st).Handler()
+	h := api.New(&fakeExec{}, st, api.Options{}).Handler()
 
 	const body = "blob-payload"
 	req := httptest.NewRequest("POST", "/blobs", strings.NewReader(body))
@@ -129,7 +129,7 @@ func TestBlobNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := api.New(&fakeExec{}, st).Handler()
+	h := api.New(&fakeExec{}, st, api.Options{}).Handler()
 
 	req := httptest.NewRequest("GET", "/blobs/0123456789abcdef0123456789abcdef", nil)
 	rec := httptest.NewRecorder()
@@ -137,5 +137,39 @@ func TestBlobNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("code=%d body=%s, want 404", rec.Code, rec.Body)
+	}
+}
+
+// 上传上限来自 Options，不是写死的常量
+func TestBlobPutRespectsMaxBytes(t *testing.T) {
+	st, err := store.NewDiskStoreWithRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := api.New(&fakeExec{}, st, api.Options{MaxBlobBytes: 8}).Handler()
+
+	req := httptest.NewRequest("POST", "/blobs", strings.NewReader("0123456789")) // 10 > 8
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusOK {
+		t.Fatalf("超过 MaxBlobBytes 的上传不该成功: body=%s", rec.Body)
+	}
+}
+
+// 零值兜底：没配 MaxBlobBytes 不等于「不许上传」
+func TestBlobPutZeroOptionUsesDefault(t *testing.T) {
+	st, err := store.NewDiskStoreWithRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := api.New(&fakeExec{}, st, api.Options{}).Handler()
+
+	req := httptest.NewRequest("POST", "/blobs", strings.NewReader("hi"))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("MaxBlobBytes 零值应当回退到默认上限，code=%d body=%s", rec.Code, rec.Body)
 	}
 }

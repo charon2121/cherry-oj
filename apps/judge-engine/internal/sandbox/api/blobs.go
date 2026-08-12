@@ -7,11 +7,9 @@ import (
 	"net/http"
 )
 
-const maxBlobBytes = 64 << 20
-
 func (s *Server) handleBlobPut(w http.ResponseWriter, r *http.Request) {
 	// 限制 body 大小
-	body := http.MaxBytesReader(w, r.Body, maxBlobBytes)
+	body := http.MaxBytesReader(w, r.Body, s.opts.MaxBlobBytes)
 	ref, err := s.store.Put(body)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
