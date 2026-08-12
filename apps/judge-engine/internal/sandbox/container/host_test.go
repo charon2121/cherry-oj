@@ -181,7 +181,7 @@ func TestCPUNsAndMemoryBytes(t *testing.T) {
 }
 
 // Reset 清空内容但保留工作目录本身 —— 这是它和 Close 的全部区别，
-// 也是 pool 复用工作间（借出→用完→Reset→还池）的前提。
+// 也是 pool 复用工作间（get→用完→Reset→put 回池）的前提。
 func TestResetClearsButKeepsWorkDir(t *testing.T) {
 	c := newBox(t)
 
@@ -269,7 +269,7 @@ func TestResetIsIdempotent(t *testing.T) {
 }
 
 // Close 删掉整个工作目录 —— 和 Reset 对照着看语义差别。
-// Close 之后 Reset 必须报错：pool 的 giveBack 就靠这个信号丢弃坏掉的工作间。
+// Close 之后 Reset 必须报错：pool 的 put 就靠这个信号丢弃坏掉的工作间。
 func TestCloseRemovesWorkDir(t *testing.T) {
 	c, err := NewHost() // 不用 newBox：这个用例要自己控制 Close 时机
 	if err != nil {
