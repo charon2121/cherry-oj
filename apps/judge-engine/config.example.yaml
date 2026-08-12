@@ -1,0 +1,77 @@
+# cherry-oj 判题引擎配置示例
+#
+# 加载顺序：默认值 → 本文件 → 环境变量（后者覆盖前者）。
+# 只需要写要改的项，没写的保持默认——「不填」不等于「填 0」。
+#
+# 环境变量名由下面的路径推出来，全大写、下划线分隔，前缀 CHERRY_OJ_：
+#   judge.testdataRoot         → CHERRY_OJ_JUDGE_TESTDATA_ROOT
+#   judge.compile.cpuNs        → CHERRY_OJ_JUDGE_COMPILE_CPU_NS
+#   sandbox.store.maxBlobBytes → CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES
+#
+# 这里只放**运行策略**（换个部署环境可能要改，但和某一次判题请求无关）。
+# 随请求变的东西——题目的时空限制、源码、测例——走 JudgeRequest，不在这里。
+
+sandbox:
+  httpAddr: 127.0.0.1:5050
+
+  # 最多同时跑几个程序。0 = 按 CPU 核数。
+  parallelism: 0
+
+  store:
+    # blob 落盘的根目录。留空 = 自动探测 /dev/shm，不可用则回退系统临时目录。
+    root: ""
+    # 单次上传上限。/dev/shm 是内存盘，没有上限一次大上传就能撑爆 RAM。
+    maxBlobBytes: 67108864 # 64 MiB
+
+judge:
+  httpAddr: 127.0.0.1:5051
+  sandboxURL: http://127.0.0.1:5050
+
+  # 单次调用 sandbox 的超时。必须大于「编译 + 最慢的那个测试点」，
+  # 否则会出现「沙箱正常跑着，judge 自己先超时了」，报出来是 SE，极难查。
+  sandboxTimeout: 60s
+
+  # 测试数据根目录，下面按 problemId 分子目录：<root>/<problemId>/{1.in,1.out,...}
+  # 开发时可指向 ./testdata/problems
+  testdataRoot: /srv/cherry-oj/testdata
+
+  # 默认比对方式：
+  #   ignoreTrailing —— 按行去掉行尾空白、忽略末尾空行后逐行比（绝大多数题）
+  #   exact          —— 逐字节严格相等
+  checker: ignoreTrailing
+
+  # ★ WA 时要不要把标准答案（diff.want）回给调用方。
+  #
+  #   false —— 商业 OJ。否则用户刷几次 WA 就能把整套题库答案拖走。
+  #   true  —— 教学场景。让学生看清自己的输出和答案差在哪，这正是判题的教学价值。
+  #
+  # 关掉时仍然回传行号和用户自己的那一行，够定位，不泄题。
+  revealExpected: false
+
+  # 请求没指定墙钟上限时，墙钟 = cpuNs × 本值。
+  # 程序可能在等 IO（不烧 CPU 但耗墙钟），要留富余；
+  # 太大则死锁的程序要吊很久才被杀。
+  clockRatio: 10
+
+  # 测例输入超过这个大小，就先传进 sandbox 的 store 走 ref，否则内联进 /run 的 JSON。
+  # 小数据内联省一次 HTTP 往返，大数据走 ref 省内存。
+  inlineThresholdBytes: 262144 # 256 KiB
+
+  # 非 AC 时回传多少字节的用户输出。
+  outputExcerptBytes: 4096
+  # CE 的编译器输出 / RE 的 stderr 截多长。
+  # g++ 一个模板错误能吐几十万字，原样存进数据库很快就会后悔。
+  messageExcerptBytes: 8192
+
+  # 让 sandbox 最多替程序收多少输出。judge 把它填进 RunSpec.Limits 发过去——
+  # 所以在 judge 段而不是 sandbox 段。这是判题机策略，不是出题人能定的。
+  output:
+    stdoutMaxBytes: 67108864 # 64 MiB
+    stderrMaxBytes: 16777216 # 16 MiB
+
+  # 编译那一步的资源上限。和题目的时空限制无关——
+  # 出题人管的是「跑得多快算超时」，编译该给多少资源是判题机的事。
+  compile:
+    cpuNs: 10000000000 # 10s
+    memoryBytes: 1073741824 # 1 GiB
+    clockNs: 20000000000 # 20s
