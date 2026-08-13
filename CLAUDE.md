@@ -1,0 +1,216 @@
+# cherry-oj
+
+学习型 Online Judge。**先跑通端到端 MVP，再逐层硬化**——每一步都要能解释「为什么这么写」，
+所以本仓库里的注释和文档密度高于一般项目，改代码时请一并维护。
+
+## 系统拓扑
+
+```
+浏览器 → apps/web (TS)
+           │ REST
+         apps/server (Java, SpringBoot)   业务：用户 / 题目 / 提交 / 鉴权 / 数据库
+           │ POST /judge          跨语言 HTTP，契约以 contracts/*.json 为准
+         judge  (Go)                      判题编排：编译 → 逐测试点 → 比对 → 汇总 verdict
+           │ POST /run, /blobs    同为 Go，共享 internal/contract 的类型
+         sandbox (Go)                     安全执行：跑一条命令，报资源用量和输出
+```
+
+**最重要的一条边界**：sandbox 只回答「安全地跑一段程序，给我资源用量和输出」，
+**完全不懂判题**。编译、比对、verdict 全在 judge。这条守不住，整个分层就没意义了。
+
+## 仓库结构
+
+顶层每个目录 = 一套构建工具 / 一种技术栈，互不侵入；跨语言唯一的耦合点是 `contracts/`。
+
+```
+cherry-oj/
+├── contracts/          ★ 跨语言契约（JSON Schema），唯一真源
+├── apps/
+│   ├── judge-engine/   Go 单模块，产出 judge + sandbox 两个二进制
+│   │   ├── cmd/{judge,sandbox}/
+│   │   ├── internal/{config,contract,judge,sandbox}/
+│   │   └── config.example.yaml
+│   ├── server/         Java / SpringBoot —— 尚未开工
+│   └── web/            TypeScript —— 尚未开工
+├── docs/               设计文档（architecture / engine / data-model / backlog）
+└── tutorial/           分阶段动手教程
+```
+
+> ⚠️ `docs/`、`tutorial/`、`notes/`、`test/`、`draft/`、`dev-dependency/` 都在 `.gitignore` 里，
+> **不进版本库**。新克隆的仓库看不到它们；本地有就读，没有别去找。
+
+## 当前进度
+
+| 部分 | 状态 |
+|---|---|
+| `contracts/` | ✅ run / judge / verdict / submission |
+| sandbox（store, container, runner, pool, api, cmd） | ✅ 可独立 `curl` |
+| `internal/config` | ✅ YAML + 环境变量 |
+| judge：`contract`、`testcase`、`language` | ✅ |
+| judge：`checker`、`client`、`flow`、`api`、`cmd/judge` | 未开始 |
+| `apps/server`、`apps/web` | 未开始 |
+
+---
+
+# 编码规范
+
+以下多数条款是从这个项目实际踩过的坑里提炼的，括号里给了对应的代码位置。
+
+## 一、通用（不分语言）
+
+### 1.1 命名
+
+- **名字要能被「主语 = 接收者」读通。** `pool.borrow()` 是错的——池子是出借方，
+  借东西的是调用方；应为 `pool.get()` / `pool.put()`。
+- **动词成对，且全仓统一。** 取/存一律 `Get` / `Put`：`store.Get/Put`、
+  `container.GetFile/PutFile`、`pool.get/put`。少记一对词，读代码不用切换语感。
+  如果一个名字的天然反义词恰好用不了（`borrow` 的反义是关键字 `return`），
+  说明该换的是**整对**，而不是给它配个替补。
+- **限定词只在存在对立面时才有信息量。** 池子里的容器天然就是闲置的
+  （在用的已经被取走了），字段就叫 `containers` 而不是 `idle` ——
+  写上 `idle` 等于把一条本就成立的不变量又抄了一遍。
+- **别让名字结巴。** `pool.New()` 而不是 `pool.NewPool()`；`container` 包里的文件
+  叫 `host.go` 而不是 `host_container.go`。
+- **给意图起个名字，别把判断散出去。** `lang.NeedsCompile()` 而不是到处
+  `len(lang.Compile) > 0`；`mode.UsesProblemTestdata()` 而不是到处比较枚举值。
+
+### 1.2 单位与契约
+
+- **时间一律 ns，内存一律 bytes，字段名自带单位**：`cpuNs`、`clockNs`、`memoryBytes`、
+  `stdoutMaxBytes`。数字长，但永远不会有单位歧义。
+  例外：给人编辑的配置文件里时长写 `60s`（受众不同，规则可以不同）。
+- **`contracts/*.json` 是唯一真源**，各语言的类型照着它写，别自己发明字段。
+- **契约会和实现漂移**，所以要有对齐测试：把 schema 里的示例 JSON 解到本语言类型，
+  断言关键字段落位（`internal/contract/judge_test.go`）。
+  这条是从「schema 说 stdin 可以是裸字符串、Go 那边是结构体、直到 curl 第一下才发现」
+  学来的。
+
+### 1.3 什么进配置，什么进请求
+
+| | 进请求（`JudgeRequest` 等） | 进配置（`internal/config`） |
+|---|---|---|
+| 判据 | **每次请求都可能不同** | **进程生命周期内不变** |
+| 例子 | 源码、语言、题目 id、时空限制 | 测试数据根目录、比对方式、是否回传标准答案、各类大小上限、监听地址 |
+| 谁定的 | 出题人 / 提交者 | 部署方 |
+
+推论：**判题机的自保策略（输出上限、墙钟倍率、编译资源）不塞进跨语言契约**——
+那等于逼调用方去理解判题机的内部机制。
+
+### 1.4 零值陷阱（本项目最高频的 bug 来源）
+
+结构体字段不填就是零值，而 `0` 往往是一个**合法但极端**的取值：
+
+| 字段 | 直接用零值的后果 |
+|---|---|
+| `cpuNs` | 每个测试点秒 TLE，而结论看着完全合理 |
+| `stdoutMaxBytes` | 一个字节都不收，且必定 OLE |
+| `ClockNs` | `WithTimeout(ctx, 0)` 立刻超时，进程还没起就 TLE |
+| `parallelism` | 无缓冲 channel，第一个请求就永久阻塞 |
+
+规矩：**「没配置」和「限制为 0」必须在入口掰开**。构造函数兜底（`newCapWriter`、
+`pool.New`、`api.New`），或显式 `Validate()` 并拒绝启动/拒绝请求。
+**宁可起不来，也别悄悄跑错**——伪装成合理结论的错误最难查。
+
+### 1.5 错误与边界
+
+- **区分「这次对话成不成」和「那个程序跑得怎么样」。** HTTP 状态码描述前者，
+  业务状态字段（`RunResult.Status` / `JudgeResult.Verdict`）描述后者。
+  TLE、WA、段错误一律 **200**——沙箱工作正常，只是被跑的程序失败了。
+  只有 JSON 解不开、缺必填字段才 400。
+- **未知情况往严格的方向倒。** `worse()` 查不到的 verdict 当成最严重——
+  写成「查不到返回 a」的话，某天加了新 verdict 忘了进表，结果是**错题判成 AC**。
+- **错误信息要能定位。** 带上路径、字段名、对方返回的 body 片段。
+  `unexpected status 400` 会让人调试到怀疑人生。
+- **外部字符串拼进路径前先用正则关死。** `problemId`、`ref` 都来自 HTTP 请求，
+  `filepath.Join(root, "../../etc")` 会老老实实跳出去。
+  已出现三次：`container.resolve`、`store.refPattern`、`testcase.idPattern`。
+- **不返回恒为 nil 的 error**——只会让每个调用点白写一次 `if err != nil`。
+
+### 1.6 资源
+
+- **能流式就别攒全量。** 几十 MB 的测例 / 编译产物用 `io.Copy` 搬，别 `ReadAll`。
+  只存「怎么打开」而不是内容（`testcase.Blob`）。
+- **循环内的资源循环内关。** `defer` 是**函数级**的，写在 `for` 里会攒到函数返回才一起释放。
+- **清理动作别用那个正在被取消的 ctx。** 请求取消后 `ctx` 已死，`defer sb.Delete(ctx, ref)`
+  会立刻失败、ref 永久泄漏。用 `context.WithoutCancel(ctx)`。
+- **HTTP 客户端必须设 `Timeout`**（零值是永不超时），且要大于对端最慢的一次操作。
+
+### 1.7 依赖方向
+
+- **接口由消费方定义。** `api.Executor`、`flow.Sandbox`、`api.Judger` 都声明在使用方，
+  实现方完全不知道它们存在。好处：依赖单向、不成环，且测试能塞一个十几行的假替身。
+- **接受接口，返回结构体。** `api.New(exec Executor, ...)` 收接口，`pool.New(...) *Pool` 返回具体类型。
+- **一段逻辑该挂在数据类型上还是放在别处，看它依不依赖配置。** `JudgeLimits.Validate()`
+  只看数据本身，挂类型上正好；算墙钟要读 `clockRatio`（配置），就不能挂在 `contract` 上，
+  否则纯数据包要去 import `config`。
+
+### 1.8 测试
+
+- **测设计意图，而不只是测输出。** `testcase` 的 `Load` 之后删掉文件、断言 `Open` 必须失败——
+  若哪天被改成加载时就读进内存，其它用例照样全绿，只有这条会响。
+- **两个方向都要断言。** 并发上限的测试只断言「不超过 2」是不够的——写成完全串行也能过。
+  加上「峰值 ≥ 2」才证明并发确实发生了。
+- **不变量用测试钉住，而不是靠记性。** 例：响应里不得出现标准答案（泄题防线）、
+  从磁盘读答案的模式不得回传答案。
+- **表驱动 + `t.Run`**，用例是数据、断言只有一份。
+- **假替身优先于真环境**：`httptest` 假装 sandbox、`fakeSandbox` 假装整个执行层。
+  判题逻辑的单测**不该需要真起一个沙箱**。
+- **并发代码必须 `-race`**。
+- 边界用例要专门写：集成用例的限额通常离边界很远，off-by-one 撞不出来。
+
+## 二、Go（`apps/judge-engine`）
+
+- 提交前必须干净：`gofmt -l .` 无输出、`go vet ./...` 无输出、`go test ./...` 全绿。
+- 包名**小写、单数、不用下划线**。复数只用于「注册表」类（`languages`）。
+- 文件名 = 里面装什么，**会一起改的放一起**（`blobs.go` 装三个 blob handler）。
+  和包同名的文件放核心类型。
+- **类型不导出、构造函数导出**：`diskStore` + `NewDiskStore()`。对外的契约是接口，
+  实现类型随时能换。
+- 第三方依赖能不加就不加（目前只有 `gopkg.in/yaml.v3`，因为标准库不解析 YAML）。
+- HTTP 路由用标准库 `ServeMux` 的 `"POST /run"` / `"GET /blobs/{ref}"` 语法（Go 1.22+），
+  不引第三方路由。
+- 日志用 `log/slog`；库代码**不要用包级 `log.Printf`**——调用方接管不了，
+  测试也没法断言「确实警告了」。走可注入的 `*slog.Logger`（见 `testcase.Options`）。
+- 结构体按值返回时注意**切片字段共享底层数组**：`slices.Clone` 一下，
+  否则调用方一改就污染全局（`language.Get` 踩过）。
+- 可选参数用 `Options` 结构体，别堆裸参数——`api.New(p, st, 67108864)` 得回来翻签名。
+- 子进程命令一律写**裸名字**走 PATH（`g++`、`python3`），别硬编码 `/usr/bin/xxx`；
+  工作目录内的可执行文件也直接写名字，不要 `./x`。
+
+## 三、Java（`apps/server`，尚未开工）
+
+先立约定，开工时补充：
+
+- SpringBoot + Maven，独立构建，不与 Go 侧共享构建产物。
+- 与 judge 之间的 DTO **照着 `contracts/judge.schema.json` 写**，字段名、单位、
+  `omitempty` 语义都以 schema 为准；同样要有契约对齐测试。
+- 时间 ns、内存 bytes，字段名自带单位——不要在 Java 侧改成 `timeoutMs` 之类。
+- 「结果入不入库」是 server 的决定，不要试图让 judge 关心。
+- 题目元信息（时空限制、题面样例、比对方式）的真源在 server 的数据库里，
+  判题时随请求下发；**判题机磁盘上只有测试数据文件本身**。
+
+## 四、TypeScript（`apps/web`，尚未开工）
+
+- npm / vite，独立构建。
+- 面向 server 的 REST，不直接调 judge / sandbox。
+- 展示 verdict 时注意：`OLE`、`RAN`、`SE` 都是合法状态，别只处理 AC/WA。
+
+## 五、提交规范
+
+- Conventional Commits + 中文正文：`feat(scope): 摘要`、`fix(runner): …`、
+  `refactor(sandbox): …`、`test(container): …`、`chore: …`。
+- **正文写「为什么」，不写「改了什么」**——改了什么 diff 里有。
+  重点记：这个改动解决的问题不改会怎样、当时在两个方案间是怎么权衡的。
+- 一个 commit 一件事。跨越多个关注点时拆开（如「契约」「配置模块」「接线」分三个）。
+- 每个 commit 都应能独立编译通过。
+- 提交前跑一遍该语言的格式化 + 静态检查 + 测试。
+
+---
+
+## 给 AI 助手的额外说明
+
+- **改动前先问清楚。** 本项目的很多设计（命名、契约字段、职责边界）是反复讨论定下来的，
+  不要顺手「优化」。拿不准就先问，别先改。
+- **设计变更写 `docs/`，操作步骤写 `tutorial/`**，两边都要跟着代码更新。
+- 已知技术债记在 `docs/backlog.md`，格式是「位置 · 现状 · 目标 · 何时该做」，做完就删条目。
+- 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。
