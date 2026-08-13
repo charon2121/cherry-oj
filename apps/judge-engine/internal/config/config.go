@@ -42,25 +42,6 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// CheckerKind：怎么比对选手输出和标准答案。
-type CheckerKind string
-
-const (
-	// CheckerIgnoreTrailing：按行去掉行尾空白、忽略末尾空行后逐行比。绝大多数题用这个。
-	CheckerIgnoreTrailing CheckerKind = "ignoreTrailing"
-	// CheckerExact：逐字节严格相等。
-	CheckerExact CheckerKind = "exact"
-)
-
-func (c CheckerKind) IsValid() bool {
-	switch c {
-	case CheckerIgnoreTrailing, CheckerExact:
-		return true
-	default:
-		return false
-	}
-}
-
 type Config struct {
 	Sandbox SandboxConfig `yaml:"sandbox"`
 	Judge   JudgeConfig   `yaml:"judge"`
@@ -97,8 +78,17 @@ type JudgeConfig struct {
 	// TestdataRoot：测试数据根目录，下面按 problemId 分子目录。
 	TestdataRoot string `yaml:"testdataRoot"`
 
-	// Checker：默认比对方式。
-	Checker CheckerKind `yaml:"checker"`
+	// StrictWhitespace：token 全对、但空白排布和标准答案不一致时，判 PE 还是 AC。
+	//
+	// 比对器一律**检测**空白差异——行首缩进、行内空格数量、行尾空白、
+	// 换行位置、缺末尾换行、\r\n，全都算。这里只决定拿这个事实怎么定性：
+	//
+	//   true  —— 严格，判 PE。对输出格式有要求的比赛 / 想让学生养成规范的教学场景。
+	//   false —— 宽松，判 AC。选手 cout << x 不写 endl 也能过。
+	//
+	// 注意空白差异**永远不会**变成 WA：答案的内容是对的，只是排版不同。
+	// 判成 WA 会让选手去查一个根本不存在的算法错误。
+	StrictWhitespace bool `yaml:"strictWhitespace"`
 
 	// RevealExpected：WA 时要不要把标准答案（Diff.Want）回给调用方。
 	//
@@ -154,7 +144,7 @@ func Default() Config {
 			SandboxURL:           "http://127.0.0.1:5050",
 			SandboxTimeout:       Duration(60 * time.Second),
 			TestdataRoot:         "/srv/cherry-oj/testdata",
-			Checker:              CheckerIgnoreTrailing,
+			StrictWhitespace:     false, // 默认宽松：一个换行不该卡住新手
 			RevealExpected:       false, // ★ 默认不泄题；教学部署自己打开
 			ClockRatio:           10,
 			InlineThresholdBytes: 256 << 10,
@@ -235,10 +225,6 @@ func (c Config) Validate() error {
 	}
 	if j.TestdataRoot == "" {
 		return fmt.Errorf("judge.testdataRoot 不能为空")
-	}
-	if !j.Checker.IsValid() {
-		return fmt.Errorf("judge.checker 未知：%q（可选 %s / %s）",
-			j.Checker, CheckerIgnoreTrailing, CheckerExact)
 	}
 	if j.ClockRatio <= 0 {
 		return fmt.Errorf("judge.clockRatio 必须为正，得到 %d", j.ClockRatio)

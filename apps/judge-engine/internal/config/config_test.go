@@ -142,7 +142,6 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		{"stdoutMaxBytes 为 0", func(c *Config) { c.Judge.Output.StdoutMaxBytes = 0 }},
 		{"maxBlobBytes 为 0", func(c *Config) { c.Sandbox.Store.MaxBlobBytes = 0 }},
 		{"testdataRoot 为空", func(c *Config) { c.Judge.TestdataRoot = "" }},
-		{"checker 未知", func(c *Config) { c.Judge.Checker = "spj" }},
 		{"compile 全零", func(c *Config) { c.Judge.Compile = CompileConfig{} }},
 		{"parallelism 为负", func(c *Config) { c.Sandbox.Parallelism = -1 }},
 	}
@@ -188,5 +187,35 @@ func TestCamelToUpperSnake(t *testing.T) {
 		if got := camelToUpperSnake(tt.in); got != tt.want {
 			t.Errorf("camelToUpperSnake(%q)=%q want %q", tt.in, got, tt.want)
 		}
+	}
+}
+
+// 空白严格度是独立于比对算法的一档配置：checker 只管「检测到空白不一致」，
+// 判 AC 还是 PE 由这里定。默认必须是宽松的——一个换行不该卡住新手。
+func TestStrictWhitespaceDefaultsOff(t *testing.T) {
+	if Default().Judge.StrictWhitespace {
+		t.Error("strictWhitespace 默认应为 false")
+	}
+}
+
+func TestStrictWhitespaceFromYAML(t *testing.T) {
+	p := writeYAML(t, "judge:\n  strictWhitespace: true\n")
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Judge.StrictWhitespace {
+		t.Error("YAML 里写了 true 却没生效")
+	}
+}
+
+func TestStrictWhitespaceFromEnv(t *testing.T) {
+	t.Setenv("CHERRY_OJ_JUDGE_STRICT_WHITESPACE", "true")
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Judge.StrictWhitespace {
+		t.Error("环境变量没生效")
 	}
 }

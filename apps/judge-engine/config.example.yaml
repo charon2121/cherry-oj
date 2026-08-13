@@ -35,10 +35,19 @@ judge:
   # 开发时可指向 ./testdata/problems
   testdataRoot: /srv/cherry-oj/testdata
 
-  # 默认比对方式：
-  #   ignoreTrailing —— 按行去掉行尾空白、忽略末尾空行后逐行比（绝大多数题）
-  #   exact          —— 逐字节严格相等
-  checker: ignoreTrailing
+  # ★ 选手输出的 token 全对、但空白排布和标准答案不一致时，判 PE 还是 AC。
+  #
+  # 「空白」包括：行首缩进、行内空格数量、行尾空白、换行位置、缺末尾换行、\r\n。
+  # 比对器一律**检测**这些差异，这里只决定拿这个事实怎么定性：
+  #
+  #   true  —— 严格，判 PE。对输出格式有要求的比赛 / 想让学生养成规范的场景。
+  #             注意：选手写 cout << x 不带 endl 就会得 PE（标准答案文件通常
+  #             以 \n 结尾），这是有意的，但新手容易困惑。
+  #   false —— 宽松，判 AC（默认）。一个换行不该卡住新手。
+  #
+  # 空白差异**永远不会**变成 WA：内容是对的，只是排版不同。
+  # 判成 WA 会让选手去查一个根本不存在的算法错误。
+  strictWhitespace: false
 
   # ★ WA 时要不要把标准答案（diff.want）回给调用方。
   #

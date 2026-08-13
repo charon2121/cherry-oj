@@ -8,8 +8,8 @@ func TestExampleConfigLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("示例配置加载失败: %v", err)
 	}
-	if cfg.Judge.Checker != CheckerIgnoreTrailing {
-		t.Errorf("checker=%q", cfg.Judge.Checker)
+	if cfg.Judge.StrictWhitespace {
+		t.Errorf("示例配置的 strictWhitespace 应为 false")
 	}
 	if cfg.Judge.ClockRatio != 10 {
 		t.Errorf("clockRatio=%d", cfg.Judge.ClockRatio)
