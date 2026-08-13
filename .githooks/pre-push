@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# pre-push：跑测试（实测 ~6s）。
+#
+# 为什么不放 pre-commit：6 秒 × 一天十几次提交，人会开始用 --no-verify 绕过，
+# 那 hook 就形同虚设。放在 push 前跑一次，频率低得多，又能赶在 CI 之前发现问题。
+#
+# -race 是硬要求：pool 的并发用例在普通模式下可能几百次都不复现竞态。
+# -count=1 关掉结果缓存，别让「上次绿过」冒充这次的结论。
+#
+# 绕过：git push --no-verify
+
+set -eu
+
+ENGINE=apps/judge-engine
+
+# 只在真有 Go 改动要推的时候跑。纯文档提交没必要等 6 秒。
+# 注：docs/ tutorial/ 在 .gitignore 里，本来就不会出现在这里。
+range=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
+if [ -n "$range" ]; then
+    changed=$(git diff --name-only "$range"...HEAD -- "$ENGINE" || true)
+    if [ -z "$changed" ]; then
+        echo "→ 本次推送没有 $ENGINE 的改动，跳过测试"
+        exit 0
+    fi
+fi
+
+echo "→ go test -race ./...（约 6s，跳过用 git push --no-verify）"
+if ! (cd "$ENGINE" && go test -race -count=1 ./...); then
+    echo
+    echo "✗ 测试未通过，已阻止推送。"
+    echo "（确实要跳过：git push --no-verify）"
+    exit 1
+fi
+exit 0

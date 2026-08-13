@@ -197,19 +197,42 @@ cherry-oj/
 
 ## 五、提交流程
 
-### 5.1 五步
-
-**① 本地自检**——和 CI 跑的是同一套命令，所以本地绿了推上去基本不会红：
+### 5.0 先启用 git hooks（每个新克隆跑一次）
 
 ```bash
-cd apps/judge-engine
-gofmt -w .                    # 有改动就格式化
-go vet ./...
-go test -race -count=1 ./...  # -race 必须带，-count=1 关掉结果缓存
-go mod tidy                   # 动过依赖才需要；之后确认 git diff 无输出
+sh scripts/setup-hooks.sh
 ```
 
-跳过这一步直接推，只是把等待反馈的时间从 10 秒变成 2 分钟。
+它做的事只有一行 `git config core.hooksPath .githooks`。**不能自动生效**——
+`.git/hooks/` 不进版本库，而 git 也不会自动信任仓库里的可执行脚本
+（否则 clone 一个陌生仓库就等于给了它任意代码执行权限）。
+
+| hook | 检查 | 耗时 |
+|---|---|---|
+| `pre-commit` | 暂存的 Go 文件 gofmt 格式 + `go vet` + `contracts/*.json` 语法 | ~0.4s |
+| `commit-msg` | 标题符合 Conventional Commits | 瞬时 |
+| `pre-push` | `go test -race -count=1 ./...`（无 Go 改动时自动跳过） | ~6s |
+
+两条设计取舍：
+
+- **pre-commit 只检查、不改写。** 自动 `gofmt -w` 再 `git add` 回去看着省事，
+  但 `git add -p` 只暂存一半时，它会把你没打算提交的另一半也带进去。
+  「提交的内容 == 你亲手暂存的内容」不该被 hook 破坏，所以只报错并打印该跑的命令。
+- **测试放 pre-push 不放 pre-commit。** 6 秒 × 一天十几次提交，人会开始用
+  `--no-verify` 绕过，hook 就形同虚设。
+
+临时跳过：`git commit --no-verify` / `git push --no-verify`。
+**hook 不是执行边界，CI 才是**——它只是把反馈从 2 分钟提前到 1 秒。
+
+### 5.1 五步
+
+**① 本地自检。** 装了 hooks 的话这步基本自动完成，剩下要手动的只有动过依赖时：
+
+```bash
+cd apps/judge-engine && go mod tidy   # 之后确认 git diff 无输出
+```
+
+hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会红。
 
 **② 分 commit，一个 commit 一件事。** 跨越多个关注点就拆开
 （例：一次改动拆成「契约」「配置模块」「sandbox 接线」三个）。
@@ -240,7 +263,7 @@ go mod tidy                   # 动过依赖才需要；之后确认 git diff �
 |---|---|---|
 | `contracts` | `contracts/*.json` 可解析 | 跨语言唯一耦合点，坏了同时影响 Go 和 Java 侧；且一直是手改的 |
 | `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
-| `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到 |
+| `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
 
 `go` job 末尾会打印 g++ / python3 / java 版本：`language` 的集成测试缺工具链时会
 `t.Skip`，不打印的话某天镜像变了、测试静默跳过也没人发现。

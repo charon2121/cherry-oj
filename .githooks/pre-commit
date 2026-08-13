@@ -1,0 +1,72 @@
+#!/bin/sh
+#
+# pre-commit：只做「快」的检查（目标 < 1s），慢的放 pre-push。
+#
+# 原则：**只检查，不改写**。
+# hook 自动 gofmt -w 再 git add 回去看着省事，但会撞上这个：
+#   git add -p main.go   # 只暂存了一半的改动
+#   git commit           # hook 格式化整个文件并 add → 把没打算提交的另一半也带进去了
+# 「提交的内容 == 你亲手暂存的内容」这条不该被 hook 破坏，所以这里只报错并给出命令。
+#
+# 绕过：git commit --no-verify（CI 仍会拦，hook 只是把反馈从 2 分钟提前到 1 秒）
+
+set -eu
+
+ENGINE=apps/judge-engine
+fail=0
+
+# --diff-filter=ACMR：只看新增/复制/修改/改名，跳过删除的文件
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+go_files=$(printf '%s\n' "$staged" | grep "^$ENGINE/.*\.go$" || true)
+json_files=$(printf '%s\n' "$staged" | grep '^contracts/.*\.json$' || true)
+
+# ── Go：格式 ───────────────────────────────────────────────
+# 注：检查的是工作区内容而非暂存内容。两者不一致（暂存后又改乱了格式）
+# 属于罕见情况，为它引入临时文件不划算；真漏了 CI 会拦住。
+if [ -n "$go_files" ]; then
+    # shellcheck disable=SC2086
+    unformatted=$(gofmt -l $go_files || true)
+    if [ -n "$unformatted" ]; then
+        echo "✗ 以下文件未格式化："
+        printf '%s\n' "$unformatted" | sed 's/^/    /'
+        echo
+        echo "  请跑："
+        printf '%s\n' "$unformatted" | sed 's|^|    gofmt -w |'
+        printf '%s\n' "$unformatted" | sed 's|^|    git add |'
+        fail=1
+    fi
+
+    # go vet 跑整个模块（实测 0.3s），不值得为了省这点时间去算受影响的包
+    if ! vet_out=$(cd "$ENGINE" && go vet ./... 2>&1); then
+        echo "✗ go vet 失败："
+        printf '%s\n' "$vet_out" | sed 's/^/    /'
+        fail=1
+    fi
+fi
+
+# ── contracts：JSON 语法 ──────────────────────────────────
+# 跨语言唯一的耦合点，且一直是手改的，坏掉会同时影响 Go 和 Java 侧
+if [ -n "$json_files" ] && command -v python3 >/dev/null 2>&1; then
+    for f in $json_files; do
+        # 只要 JSONDecodeError 那一行，不要整个 traceback
+        if ! err=$(python3 -c '
+import json, sys
+try:
+    json.load(open(sys.argv[1]))
+except json.JSONDecodeError as e:
+    sys.exit(str(e))
+' "$f" 2>&1); then
+            echo "✗ $f JSON 解析失败：$err"
+            fail=1
+        fi
+    done
+fi
+
+[ "$fail" -eq 0 ] || {
+    echo
+    echo "（确实要跳过：git commit --no-verify）"
+    exit 1
+}
+exit 0

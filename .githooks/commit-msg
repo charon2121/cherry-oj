@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# commit-msg：校验标题行符合 Conventional Commits。
+#
+# 在这里拦，是因为事后再改就要 rebase 改历史——已经 push 过就更麻烦。
+#
+# 绕过：git commit --no-verify
+
+set -eu
+
+msg_file=$1
+
+# 取第一行「有内容且不是注释」的行作为标题
+subject=$(grep -v '^#' "$msg_file" | grep -v '^[[:space:]]*$' | head -1 || true)
+
+# merge / revert / fixup / squash 是 git 自己生成的，不套规则
+case "$subject" in
+    "Merge "* | "Revert "* | "fixup!"* | "squash!"* | "amend!"*) exit 0 ;;
+esac
+
+# type(scope)!: 摘要    —— scope 和 ! 可选
+pattern='^(feat|fix|refactor|perf|test|docs|ci|build|chore|style|revert)(\([a-zA-Z0-9_/-]+\))?!?: .+'
+
+if ! printf '%s' "$subject" | grep -Eq "$pattern"; then
+    echo "✗ commit 标题不符合 Conventional Commits："
+    echo "    $subject"
+    echo
+    echo "  格式：type(scope): 中文摘要"
+    echo "  type：feat fix refactor perf test docs ci build chore style revert"
+    echo "  例子：feat(checker): 流式比对并给出第一处不同的行号"
+    echo "        fix(runner): 修正「写满」被当成「写溢出」导致误报 OLE"
+    echo
+    echo "  正文写「为什么」而不是「改了什么」——改了什么 diff 里有。"
+    echo "（确实要跳过：git commit --no-verify）"
+    exit 1
+fi
+
+# 标题过长在 git log --oneline 里会被截断
+len=$(printf '%s' "$subject" | wc -m | tr -d ' ')
+if [ "$len" -gt 72 ]; then
+    echo "! 标题 $len 字，偏长（建议 ≤ 72），git log --oneline 会截断"
+    echo "  细节挪到正文里去，标题只留一句话。"
+    # 只警告，不拦
+fi
+
+exit 0
