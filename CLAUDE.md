@@ -195,15 +195,66 @@ cherry-oj/
 - 面向 server 的 REST，不直接调 judge / sandbox。
 - 展示 verdict 时注意：`OLE`、`RAN`、`SE` 都是合法状态，别只处理 AC/WA。
 
-## 五、提交规范
+## 五、提交流程
+
+### 5.1 五步
+
+**① 本地自检**——和 CI 跑的是同一套命令，所以本地绿了推上去基本不会红：
+
+```bash
+cd apps/judge-engine
+gofmt -w .                    # 有改动就格式化
+go vet ./...
+go test -race -count=1 ./...  # -race 必须带，-count=1 关掉结果缓存
+go mod tidy                   # 动过依赖才需要；之后确认 git diff 无输出
+```
+
+跳过这一步直接推，只是把等待反馈的时间从 10 秒变成 2 分钟。
+
+**② 分 commit，一个 commit 一件事。** 跨越多个关注点就拆开
+（例：一次改动拆成「契约」「配置模块」「sandbox 接线」三个）。
+
+**每个 commit 都要能独立编译。** 拆的时候检查一下：后面 commit 才引入的符号，
+前面的 commit 有没有引用到。
+
+**③ 写 commit message**（格式见 §5.2）。
+
+**④ `git push origin main`。**
+
+**⑤ 看 CI 结果。** 红了先修再继续，**别在红的基础上叠新提交**——
+第二个人来看时分不清是谁弄红的。
+
+### 5.2 commit message
 
 - Conventional Commits + 中文正文：`feat(scope): 摘要`、`fix(runner): …`、
-  `refactor(sandbox): …`、`test(container): …`、`chore: …`。
+  `refactor(sandbox): …`、`test(container): …`、`ci: …`、`docs: …`、`chore: …`。
 - **正文写「为什么」，不写「改了什么」**——改了什么 diff 里有。
-  重点记：这个改动解决的问题不改会怎样、当时在两个方案间是怎么权衡的。
-- 一个 commit 一件事。跨越多个关注点时拆开（如「契约」「配置模块」「接线」分三个）。
-- 每个 commit 都应能独立编译通过。
-- 提交前跑一遍该语言的格式化 + 静态检查 + 测试。
+  重点记两件事：**这个问题不改会怎样**，以及**当时在两个方案间是怎么权衡的**。
+  三个月后 blame 到这一行时，需要的正是这两样。
+
+### 5.3 CI 会检查什么
+
+`.github/workflows/ci.yml`，push 到 main 和所有 PR 都跑：
+
+| job | 检查 | 为什么单独一条 |
+|---|---|---|
+| `contracts` | `contracts/*.json` 可解析 | 跨语言唯一耦合点，坏了同时影响 Go 和 Java 侧；且一直是手改的 |
+| `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
+| `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到 |
+
+`go` job 末尾会打印 g++ / python3 / java 版本：`language` 的集成测试缺工具链时会
+`t.Skip`，不打印的话某天镜像变了、测试静默跳过也没人发现。
+
+### 5.4 CI 检查不到的，只能靠人
+
+**`docs/`、`tutorial/`、`notes/` 在 `.gitignore` 里，不进版本库。**
+改了不会出现在 `git status`，CI 也不会碰。这是目前流程里最容易漏的一环：
+
+- 设计变了 → 同步 `docs/`（architecture / engine / data-model）
+- 操作步骤变了 → 同步 `tutorial/`
+- 欠下技术债 → 记进 `docs/backlog.md`，做完就删条目
+
+**契约先行**：改 `contracts/*.json` → 再改各语言类型 → 再改实现。反过来做必然漂移。
 
 ---
 
