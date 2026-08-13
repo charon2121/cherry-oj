@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一分支上新的 push 会取消还在跑的旧任务，别让队列堆着过时的结果
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 跨语言契约是唯一的耦合点，语法坏掉会同时影响 Go 和将来的 Java 侧，
+  # 所以单独一个最快的 job 先把它挡住。
+  contracts:
+    name: contracts (JSON 语法)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 校验 contracts/*.json 可解析
+        run: |
+          for f in contracts/*.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" \
+              || { echo "::error file=$f::JSON 解析失败"; exit 1; }
+            echo "✓ $f"
+          done
+
+  go:
+    name: judge-engine (Go)
+    runs-on: ubuntu-latest # sandbox 的目标平台就是 Linux，CI 也只在这里跑
+    defaults:
+      run:
+        working-directory: apps/judge-engine
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # 从 go.mod 读版本，别在两处各写一遍版本号
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+
+      # CLAUDE.md 里写的「提交前必须干净」，在这里变成强制的
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::以下文件未格式化，请跑 gofmt -w ："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      # -race 是硬要求：pool 的并发用例在普通模式下可能几百次都不复现竞态。
+      # 顺带 -count=1 关掉结果缓存，别让「上次绿过」冒充这次的结论。
+      - name: go test (race)
+        run: go test -race -count=1 ./...
+
+      - name: 工具链自检
+        # language 包的集成测试在缺工具链时会 t.Skip。
+        # 这里显式打印一遍版本，免得某天镜像变了、测试静默跳过而没人发现。
+        run: |
+          g++ --version | head -1
+          python3 --version
+          java --version | head -1 || echo "!! 没有 java：language 的 e2e 会被跳过"
+
+  # go.mod / go.sum 不同步会让别人 clone 下来跑不起来，但本地往往察觉不到
+  tidy:
+    name: go.mod 是否整洁
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/judge-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+      - name: go mod tidy 后不应有改动
+        run: |
+          go mod tidy
+          if ! git diff --exit-code -- go.mod go.sum; then
+            echo "::error::go.mod / go.sum 与代码不同步，请在本地跑 go mod tidy 后提交"
+            exit 1
+          fi
