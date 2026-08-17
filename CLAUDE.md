@@ -47,7 +47,7 @@ cherry-oj/
 | sandbox（store, container, runner, pool, api, cmd） | ✅ 可独立 `curl` |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
-| judge：`api`、`cmd/judge` | 未开始 |
+| judge：`api`、`cmd/judge` | ✅ `POST /judge`，可与 sandbox 双进程联调 |
 | `apps/server`、`apps/web` | 未开始 |
 
 ---
