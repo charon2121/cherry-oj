@@ -35,26 +35,6 @@ func TestJudgeRequestUnmarshal(t *testing.T) {
 	}
 }
 
-func TestJudgeLimitsEffectiveClockNs(t *testing.T) {
-	tests := []struct {
-		name string
-		lim  JudgeLimits
-		want int64
-	}{
-		{"没给 clockNs 就按 cpuNs 推算", JudgeLimits{CPUNs: 1000, MemoryBytes: 1}, 1000 * clockRatio},
-		{"给了就用给的", JudgeLimits{CPUNs: 1000, MemoryBytes: 1, ClockNs: 77}, 77},
-		{"给的比 cpuNs 小也听调用方的", JudgeLimits{CPUNs: 1000, MemoryBytes: 1, ClockNs: 10}, 10},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.lim.EffectiveClockNs(); got != tt.want {
-				t.Errorf("EffectiveClockNs()=%d want %d", got, tt.want)
-			}
-		})
-	}
-}
-
 // 零值必须被挡住：cpuNs=0 会让每个测试点秒 TLE，memoryBytes=0 会秒 MLE
 func TestJudgeLimitsValidate(t *testing.T) {
 	tests := []struct {

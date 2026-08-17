@@ -37,24 +37,11 @@ type CaseSpec struct {
 //
 // 真源在 server 的题目表里，由 server 查库后随请求下发——judge 不猜，
 // 也不从题目目录里读。这里只放「出题人定的」两项；墙钟倍率、输出上限
-// 等属于判题机策略，由 judge 自己决定（见 EffectiveClockNs）。
+// 等属于判题机策略，由拿得到 JudgeConfig 的 flow 决定。
 type JudgeLimits struct {
 	CPUNs       int64 `json:"cpuNs"`             // 每个测试点的 CPU 时间上限
 	MemoryBytes int64 `json:"memoryBytes"`       // 每个测试点的内存上限
 	ClockNs     int64 `json:"clockNs,omitempty"` // 可选：墙钟上限；缺省按 CPUNs 推算
-}
-
-// clockRatio：没给 ClockNs 时，墙钟按 CPU 上限的几倍算。
-// 程序可能在等 IO（不烧 CPU 但耗墙钟），所以要留出富余；
-// 但又不能太大，否则死锁的程序要吊死很久才被杀。
-const clockRatio = 10
-
-// EffectiveClockNs 返回实际该用的墙钟上限。
-func (l JudgeLimits) EffectiveClockNs() int64 {
-	if l.ClockNs > 0 {
-		return l.ClockNs
-	}
-	return l.CPUNs * clockRatio
 }
 
 // Validate 检查限制是否可用。
