@@ -46,13 +46,24 @@ cherry-oj/
 | `contracts/` | ✅ run / judge / verdict / submission |
 | sandbox（store, container, runner, pool, api, cmd） | ✅ 可独立 `curl` |
 | `internal/config` | ✅ YAML + 环境变量 |
-| judge：`contract`、`testcase`、`language` | ✅ |
-| judge：`checker`、`client`、`flow`、`api`、`cmd/judge` | 未开始 |
+| judge：`contract`、`testcase`、`language`、`checker` | ✅ |
+| judge：`client`、`flow`、`api`、`cmd/judge` | 未开始 |
 | `apps/server`、`apps/web` | 未开始 |
 
 ---
 
 # 编码规范
+
+本文只写**跨语言通用**的约定。**各语言的具体规范另放一处**：
+
+| 语言 | 规范 |
+|---|---|
+| Go（`apps/judge-engine`） | [`.claude/rules/go.md`](./.claude/rules/go.md) |
+| Java（`apps/server`） | 见下方 §二（尚未开工，先立约定） |
+| TypeScript（`apps/web`） | 见下方 §三（尚未开工） |
+
+写 Go 代码前请先读 `.claude/rules/go.md`——包与文件组织、命名、接口与依赖方向、
+错误处理、资源与生命周期、并发、日志、子进程、测试写法都在那里。
 
 以下多数条款是从这个项目实际踩过的坑里提炼的，括号里给了对应的代码位置。
 
@@ -128,12 +139,14 @@ cherry-oj/
 
 ### 1.6 资源
 
-- **能流式就别攒全量。** 几十 MB 的测例 / 编译产物用 `io.Copy` 搬，别 `ReadAll`。
+- **能流式就别攒全量。** 几十 MB 的测例 / 编译产物边读边写，别整份读进内存。
   只存「怎么打开」而不是内容（`testcase.Blob`）。
-- **循环内的资源循环内关。** `defer` 是**函数级**的，写在 `for` 里会攒到函数返回才一起释放。
-- **清理动作别用那个正在被取消的 ctx。** 请求取消后 `ctx` 已死，`defer sb.Delete(ctx, ref)`
-  会立刻失败、ref 永久泄漏。用 `context.WithoutCancel(ctx)`。
-- **HTTP 客户端必须设 `Timeout`**（零值是永不超时），且要大于对端最慢的一次操作。
+- **循环内的资源循环内释放**，别攒到函数返回。
+- **清理动作别用那个正在被取消的上下文**——请求一取消，清理立刻失败，资源永久泄漏。
+- **网络客户端必须设超时**，且要大于对端最慢的一次操作。
+
+> 这几条在 Go 里的具体写法（`defer` 是函数级、`context.WithoutCancel`、
+> `http.Client` 零值永不超时）见 [`.claude/rules/go.md`](./.claude/rules/go.md) §6。
 
 ### 1.7 依赖方向
 
@@ -158,26 +171,7 @@ cherry-oj/
 - **并发代码必须 `-race`**。
 - 边界用例要专门写：集成用例的限额通常离边界很远，off-by-one 撞不出来。
 
-## 二、Go（`apps/judge-engine`）
-
-- 提交前必须干净：`gofmt -l .` 无输出、`go vet ./...` 无输出、`go test ./...` 全绿。
-- 包名**小写、单数、不用下划线**。复数只用于「注册表」类（`languages`）。
-- 文件名 = 里面装什么，**会一起改的放一起**（`blobs.go` 装三个 blob handler）。
-  和包同名的文件放核心类型。
-- **类型不导出、构造函数导出**：`diskStore` + `NewDiskStore()`。对外的契约是接口，
-  实现类型随时能换。
-- 第三方依赖能不加就不加（目前只有 `gopkg.in/yaml.v3`，因为标准库不解析 YAML）。
-- HTTP 路由用标准库 `ServeMux` 的 `"POST /run"` / `"GET /blobs/{ref}"` 语法（Go 1.22+），
-  不引第三方路由。
-- 日志用 `log/slog`；库代码**不要用包级 `log.Printf`**——调用方接管不了，
-  测试也没法断言「确实警告了」。走可注入的 `*slog.Logger`（见 `testcase.Options`）。
-- 结构体按值返回时注意**切片字段共享底层数组**：`slices.Clone` 一下，
-  否则调用方一改就污染全局（`language.Get` 踩过）。
-- 可选参数用 `Options` 结构体，别堆裸参数——`api.New(p, st, 67108864)` 得回来翻签名。
-- 子进程命令一律写**裸名字**走 PATH（`g++`、`python3`），别硬编码 `/usr/bin/xxx`；
-  工作目录内的可执行文件也直接写名字，不要 `./x`。
-
-## 三、Java（`apps/server`，尚未开工）
+## 二、Java（`apps/server`，尚未开工）
 
 先立约定，开工时补充：
 
@@ -189,15 +183,15 @@ cherry-oj/
 - 题目元信息（时空限制、题面样例、比对方式）的真源在 server 的数据库里，
   判题时随请求下发；**判题机磁盘上只有测试数据文件本身**。
 
-## 四、TypeScript（`apps/web`，尚未开工）
+## 三、TypeScript（`apps/web`，尚未开工）
 
 - npm / vite，独立构建。
 - 面向 server 的 REST，不直接调 judge / sandbox。
 - 展示 verdict 时注意：`OLE`、`RAN`、`SE` 都是合法状态，别只处理 AC/WA。
 
-## 五、提交流程
+## 四、提交流程
 
-### 5.0 先启用 git hooks（每个新克隆跑一次）
+### 4.0 先启用 git hooks（每个新克隆跑一次）
 
 ```bash
 sh scripts/setup-hooks.sh
@@ -224,7 +218,7 @@ sh scripts/setup-hooks.sh
 临时跳过：`git commit --no-verify` / `git push --no-verify`。
 **hook 不是执行边界，CI 才是**——它只是把反馈从 2 分钟提前到 1 秒。
 
-### 5.1 五步
+### 4.1 五步
 
 **① 本地自检。** 装了 hooks 的话这步基本自动完成，剩下要手动的只有动过依赖时：
 
@@ -240,14 +234,14 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 **每个 commit 都要能独立编译。** 拆的时候检查一下：后面 commit 才引入的符号，
 前面的 commit 有没有引用到。
 
-**③ 写 commit message**（格式见 §5.2）。
+**③ 写 commit message**（格式见 §4.2）。
 
 **④ `git push origin main`。**
 
 **⑤ 看 CI 结果。** 红了先修再继续，**别在红的基础上叠新提交**——
 第二个人来看时分不清是谁弄红的。
 
-### 5.2 commit message
+### 4.2 commit message
 
 - Conventional Commits + 中文正文：`feat(scope): 摘要`、`fix(runner): …`、
   `refactor(sandbox): …`、`test(container): …`、`ci: …`、`docs: …`、`chore: …`。
@@ -255,7 +249,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
   重点记两件事：**这个问题不改会怎样**，以及**当时在两个方案间是怎么权衡的**。
   三个月后 blame 到这一行时，需要的正是这两样。
 
-### 5.3 CI 会检查什么
+### 4.3 CI 会检查什么
 
 `.github/workflows/ci.yml`，push 到 main 和所有 PR 都跑：
 
@@ -268,7 +262,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 `go` job 末尾会打印 g++ / python3 / java 版本：`language` 的集成测试缺工具链时会
 `t.Skip`，不打印的话某天镜像变了、测试静默跳过也没人发现。
 
-### 5.4 CI 检查不到的，只能靠人
+### 4.4 CI 检查不到的，只能靠人
 
 **`docs/`、`tutorial/`、`notes/` 在 `.gitignore` 里，不进版本库。**
 改了不会出现在 `git status`，CI 也不会碰。这是目前流程里最容易漏的一环：
