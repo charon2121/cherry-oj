@@ -90,3 +90,39 @@ jobs:
             echo "::error::go.mod / go.sum 与代码不同步，请在本地跑 go mod tidy 后提交"
             exit 1
           fi
+
+  # Dockerfile 产出两个镜像，Compose 再验证它们确实能通过私网协作完成一次判题。
+  # 这条同时钉住：运行时工具链、非 root / 只读文件系统、测试数据挂载和端口拓扑。
+  containers:
+    name: judge + sandbox（Docker Compose）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验 Compose 配置
+        run: docker compose config --quiet
+
+      - name: 构建 judge / sandbox 镜像
+        run: docker compose build
+
+      - name: A+B 容器联调
+        run: |
+          set -eu
+          cleanup() {
+            docker compose logs --no-color judge sandbox || true
+            docker compose down
+          }
+          trap cleanup EXIT
+
+          docker compose up -d --no-build --wait
+          response=$(curl -sS -X POST http://127.0.0.1:5051/judge \
+            -H 'Content-Type: application/json' \
+            -d '{"submissionId":"ci-docker","problemId":"a-plus-b","language":"cpp","source":"#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<\"\\n\";}","limits":{"cpuNs":1000000000,"memoryBytes":268435456}}')
+          echo "$response"
+          printf '%s' "$response" | python3 -c '
+          import json, sys
+          result = json.load(sys.stdin)
+          assert result["verdict"] == "AC", result
+          assert len(result["cases"]) == 3, result
+          assert all(case["verdict"] == "AC" for case in result["cases"]), result
+          '

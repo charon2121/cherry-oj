@@ -5,3 +5,4 @@ docs/
 notes/
 draft/
 .DS_Store
+.env

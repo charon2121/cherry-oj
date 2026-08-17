@@ -1,0 +1,8 @@
+.git
+.DS_Store
+config.yaml
+judge
+sandbox
+coverage.out
+**/*_test.go
+**/testdata

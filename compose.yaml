@@ -1,0 +1,105 @@
+name: cherry-oj-engine
+
+services:
+  sandbox:
+    image: cherry-oj-sandbox:local
+    build:
+      context: ./apps/judge-engine
+      dockerfile: Dockerfile
+      target: sandbox
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CHERRY_OJ_SANDBOX_HTTP_ADDR: 0.0.0.0:5050
+      CHERRY_OJ_SANDBOX_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
+      CHERRY_OJ_SANDBOX_STORE_ROOT: /var/lib/cherry-oj/store
+      CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}
+    expose:
+      - "5050"
+    tmpfs:
+      # store 只放跨 /run 使用的临时 ref；容器停止后自动清空，且不需要执行权限。
+      - /var/lib/cherry-oj/store:rw,nosuid,nodev,noexec,size=${SANDBOX_STORE_SIZE:-256m},mode=0700,uid=10001,gid=10001
+      # host Container 的工作目录在 /tmp，编译产物会从这里执行，因此不能挂 noexec。
+      - /tmp:rw,nosuid,nodev,exec,size=${SANDBOX_WORKSPACE_SIZE:-1g},mode=1777
+    cpus: ${SANDBOX_CPUS:-2.0}
+    mem_limit: ${SANDBOX_MEMORY_LIMIT:-2g}
+    pids_limit: ${SANDBOX_PIDS_LIMIT:-512}
+    networks:
+      - engine
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:5050/version"]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+      start_period: 5s
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  judge:
+    image: cherry-oj-judge:local
+    build:
+      context: ./apps/judge-engine
+      dockerfile: Dockerfile
+      target: judge
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      sandbox:
+        condition: service_healthy
+    environment:
+      CHERRY_OJ_JUDGE_HTTP_ADDR: 0.0.0.0:5051
+      CHERRY_OJ_JUDGE_SANDBOX_URL: http://sandbox:5050
+      CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT: ${JUDGE_SANDBOX_TIMEOUT:-60s}
+      CHERRY_OJ_JUDGE_TESTDATA_ROOT: /srv/cherry-oj/testdata
+      CHERRY_OJ_JUDGE_STRICT_WHITESPACE: ${JUDGE_STRICT_WHITESPACE:-false}
+      CHERRY_OJ_JUDGE_REVEAL_EXPECTED: ${JUDGE_REVEAL_EXPECTED:-false}
+    ports:
+      # MVP 先只开放给本机 server / curl；生产部署应移除端口映射并接入后端私网。
+      - "${JUDGE_BIND_ADDRESS:-127.0.0.1}:${JUDGE_PORT:-5051}:5051"
+    volumes:
+      # 默认挂测试 fixture 方便 smoke test；部署题库时用 TESTDATA_PATH 覆盖宿主机路径。
+      - type: bind
+        source: ${TESTDATA_PATH:-./apps/judge-engine/internal/judge/testcase/testdata}
+        target: /srv/cherry-oj/testdata
+        read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777
+    cpus: ${JUDGE_CPUS:-1.0}
+    mem_limit: ${JUDGE_MEMORY_LIMIT:-512m}
+    pids_limit: ${JUDGE_PIDS_LIMIT:-128}
+    networks:
+      - engine
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:5051/version"]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+      start_period: 5s
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  engine:
+    # sandbox 没有宿主机端口，只能被同一私网里的 judge 访问。
+    internal: true
+  backend:
+    # judge 的北向入口；后续 apps/server 接入此网络，sandbox 不加入。

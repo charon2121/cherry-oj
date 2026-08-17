@@ -48,6 +48,7 @@ cherry-oj/
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，可与 sandbox 双进程联调 |
+| Docker 部署 | ✅ judge / sandbox 双容器 Compose（开发与 MVP） |
 | `apps/server`、`apps/web` | 未开始 |
 
 ---
