@@ -29,9 +29,30 @@ func TestJudgeRequestUnmarshal(t *testing.T) {
 	if req.Limits.CPUNs != 1000000000 || req.Limits.MemoryBytes != 268435456 {
 		t.Errorf("limits 没解对: %+v", req.Limits)
 	}
-	// mode 缺省是零值 ""，不是 official —— 兜底由 flow 入口负责，不在 contract 里做
+	// mode 缺省是零值 ""；兜底成 submit 由 flow 入口负责，不在 contract 里做。
 	if req.Mode != "" {
 		t.Errorf("Mode=%q，contract 不该自己兜底", req.Mode)
+	}
+}
+
+// trial case 的 name 是跨语言契约字段：server 发来后，judge 会原样回填到 CaseResult.Name。
+func TestCaseSpecNameRoundTrip(t *testing.T) {
+	want := CaseSpec{Input: "1 2\n", Expected: "3\n", Name: "样例 1"}
+
+	body, err := json.Marshal(want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"name":"样例 1"`) {
+		t.Fatalf("CaseSpec.name 没有编码进 JSON: %s", body)
+	}
+
+	var got CaseSpec
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("round trip=%+v want %+v", got, want)
 	}
 }
 

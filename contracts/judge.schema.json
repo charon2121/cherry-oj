@@ -65,6 +65,10 @@
         "expected": {
           "type": "string",
           "description": "标准答案；缺省则该点不跑 checker，不产生 AC/WA"
+        },
+        "name": {
+          "type": "string",
+          "description": "可选的测试点名称；judge 原样回填到对应 CaseResult.name，便于调用方展示和对账"
         }
       }
     },
@@ -116,7 +120,7 @@
         },
         "mode": {
           "$ref": "#/definitions/JudgeMode",
-          "description": "缺省 official"
+          "description": "缺省 submit"
         },
         "cases": {
           "type": "array",
@@ -152,7 +156,7 @@
         },
         "name": {
           "type": "string",
-          "description": "测试点名，仅 mode=submit 时有值，取自文件名（1.in → \"1\"），用于日志与运维定位。mode=trial 时为空——调用方靠 idx 对应回自己发的第几个 case。"
+          "description": "测试点名。mode=submit 时取自文件名（1.in → \"1\"），用于日志与运维定位；mode=trial 时原样回填请求中对应 CaseSpec.name，未提供则省略。"
         },
         "output": {
           "$ref": "#/definitions/Output",

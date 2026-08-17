@@ -66,7 +66,7 @@ type JudgeRequest struct {
 	Language     string      `json:"language"`        // 决定编译/运行怎么编排
 	Source       string      `json:"source"`          // 源码全文
 	Limits       JudgeLimits `json:"limits"`          // 时空限制
-	Mode         JudgeMode   `json:"mode,omitempty"`  // 缺省 official
+	Mode         JudgeMode   `json:"mode,omitempty"`  // 缺省由 flow 兜底为 submit
 	Cases        []CaseSpec  `json:"cases,omitempty"` // 仅 mode=trial
 }
 
