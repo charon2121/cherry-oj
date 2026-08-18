@@ -7,6 +7,26 @@
 
 二者来自同一个 Go module，但部署为**两个独立容器**，通过私有 HTTP 网络通信。
 
+## 开发任务中心
+
+进入 Git 的开发任务统一放在 [`tasks/`](./tasks/README.md)。开始开发前先查看可认领任务：
+
+```bash
+scripts/task list --ready
+scripts/task show TASK-0001
+```
+
+Agent 或开发者必须先认领并同步认领提交，再修改代码：
+
+```bash
+scripts/task claim TASK-0001 \
+  --agent codex/example \
+  --branch codex/task-0001
+```
+
+任务的状态、硬依赖、租约、验收标准和完成证据都记录在对应 Markdown 文件中。提交前可运行
+`scripts/task check` 校验整个依赖图和状态不变量。
+
 ## Docker Compose 启动
 
 前置条件：Docker Engine / Docker Desktop，并启用 Compose v2。

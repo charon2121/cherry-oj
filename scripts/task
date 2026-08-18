@@ -1,0 +1,751 @@
+#!/usr/bin/env python3
+"""cherry-oj 的无第三方依赖开发任务管理工具。"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import re
+import sys
+import tempfile
+import unicodedata
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+
+FIELDS = (
+    "id",
+    "title",
+    "type",
+    "area",
+    "priority",
+    "status",
+    "assignee",
+    "depends_on",
+    "related",
+    "created_at",
+    "updated_at",
+    "claim_branch",
+    "claimed_at",
+    "lease_until",
+    "completed_at",
+    "review_required",
+)
+STATUSES = {"todo", "in_progress", "blocked", "review", "done", "cancelled"}
+TYPES = {"feature", "bug", "refactor", "docs", "tech-debt", "spike", "epic", "chore", "test"}
+PRIORITIES = {"P0", "P1", "P2", "P3"}
+ACTIVE_STATUSES = {"in_progress", "blocked", "review"}
+ID_PATTERN = re.compile(r"^TASK-[0-9]{4}$")
+REQUIRED_SECTIONS = ("背景", "目标", "范围", "验收标准", "执行记录", "阻塞信息", "完成结果")
+
+
+class TaskError(Exception):
+    """可以直接展示给用户的任务错误。"""
+
+
+@dataclass
+class TaskDocument:
+    path: Path
+    metadata: dict[str, Any]
+    body: str
+
+    @property
+    def id(self) -> str:
+        value = self.metadata.get("id")
+        return value if isinstance(value, str) else self.path.stem
+
+
+def now() -> datetime:
+    return datetime.now().astimezone().replace(microsecond=0)
+
+
+def timestamp(value: datetime | None = None) -> str:
+    return (value or now()).isoformat(timespec="seconds")
+
+
+def parse_timestamp(value: Any, field: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} 必须是带时区的 ISO 8601 字符串")
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{field} 必须包含时区")
+    return parsed
+
+
+def parse_document(path: Path) -> TaskDocument:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        raise TaskError(f"{path}: 缺少起始 front matter 分隔符")
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        raise TaskError(f"{path}: 缺少结束 front matter 分隔符")
+
+    front_matter = text[4:end]
+    body = text[end + 5 :]
+    metadata: dict[str, Any] = {}
+    for line_number, raw_line in enumerate(front_matter.splitlines(), start=2):
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        if raw_line[:1].isspace() or ":" not in raw_line:
+            raise TaskError(
+                f"{path}:{line_number}: front matter 只允许 `字段: JSON值`，不允许缩进对象"
+            )
+        key, raw_value = raw_line.split(":", 1)
+        key = key.strip()
+        raw_value = raw_value.strip()
+        if key in metadata:
+            raise TaskError(f"{path}:{line_number}: 字段 {key} 重复")
+        try:
+            metadata[key] = json.loads(raw_value)
+        except json.JSONDecodeError as error:
+            raise TaskError(
+                f"{path}:{line_number}: {key} 的值必须使用 JSON 兼容写法：{error.msg}"
+            ) from error
+    return TaskDocument(path=path, metadata=metadata, body=body)
+
+
+def render_document(task: TaskDocument) -> str:
+    lines = ["---"]
+    for field in FIELDS:
+        lines.append(f"{field}: {json.dumps(task.metadata[field], ensure_ascii=False)}")
+    lines.extend(("---", "", task.body.rstrip(), ""))
+    return "\n".join(lines)
+
+
+def write_document(task: TaskDocument) -> None:
+    task.path.parent.mkdir(parents=True, exist_ok=True)
+    content = render_document(task)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=task.path.parent, prefix=f".{task.path.name}.", delete=False
+    ) as temporary:
+        temporary.write(content)
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(task.path)
+
+
+def discover_task_paths(root: Path) -> list[Path]:
+    paths = list((root / "tasks" / "items").glob("*.md"))
+    archive = root / "tasks" / "archive"
+    if archive.exists():
+        paths.extend(archive.rglob("*.md"))
+    return sorted(paths)
+
+
+def load_tasks(root: Path) -> dict[str, TaskDocument]:
+    tasks: dict[str, TaskDocument] = {}
+    for path in discover_task_paths(root):
+        task = parse_document(path)
+        if task.id in tasks:
+            raise TaskError(f"任务 ID 重复：{task.id} 同时出现在 {tasks[task.id].path} 和 {path}")
+        tasks[task.id] = task
+    return tasks
+
+
+def section(body: str, title: str) -> str | None:
+    match = re.search(rf"(?ms)^## {re.escape(title)}\n+(.*?)(?=^## |\Z)", body)
+    return match.group(1).strip() if match else None
+
+
+def replace_section(body: str, title: str, content: str) -> str:
+    pattern = re.compile(rf"(?ms)(^## {re.escape(title)}\n+).*?(?=^## |\Z)")
+    if not pattern.search(body):
+        raise TaskError(f"缺少正文段落：## {title}")
+    replacement = rf"\g<1>{content.strip()}\n\n"
+    return pattern.sub(replacement, body, count=1).rstrip() + "\n"
+
+
+def append_activity(body: str, message: str) -> str:
+    current = section(body, "执行记录")
+    if current is None:
+        raise TaskError("缺少正文段落：## 执行记录")
+    entry = f"- {timestamp()}：{message}"
+    if current in {"- 尚未开始。", "尚未开始。"}:
+        updated = entry
+    else:
+        updated = f"{current}\n{entry}"
+    return replace_section(body, "执行记录", updated)
+
+
+def acceptance_state(body: str) -> tuple[int, int]:
+    content = section(body, "验收标准")
+    if content is None:
+        return 0, 0
+    boxes = re.findall(r"(?m)^\s*- \[([ xX])\] ", content)
+    return len(boxes), sum(marker.lower() == "x" for marker in boxes)
+
+
+def completion_is_filled(body: str) -> bool:
+    content = section(body, "完成结果")
+    return bool(content and content not in {"尚未完成。", "尚未完成", "无。", "无"})
+
+
+def write_validated(task: TaskDocument, tasks: dict[str, TaskDocument]) -> None:
+    errors, _ = validate_tasks(tasks)
+    if errors:
+        raise TaskError("状态变更会破坏任务中心不变量：\n- " + "\n- ".join(errors))
+    write_document(task)
+
+
+def validate_task_shape(task: TaskDocument) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    metadata = task.metadata
+    prefix = str(task.path)
+
+    missing = [field for field in FIELDS if field not in metadata]
+    unknown = [field for field in metadata if field not in FIELDS]
+    if missing:
+        errors.append(f"{prefix}: 缺少字段：{', '.join(missing)}")
+    if unknown:
+        errors.append(f"{prefix}: 未知字段：{', '.join(unknown)}")
+    if missing:
+        return errors, warnings
+
+    task_id = metadata["id"]
+    if not isinstance(task_id, str) or not ID_PATTERN.fullmatch(task_id):
+        errors.append(f"{prefix}: id 必须匹配 TASK-0001 格式")
+    elif not task.path.name.startswith(f"{task_id}-"):
+        errors.append(f"{prefix}: 文件名必须以 {task_id}- 开头")
+
+    for field in ("title", "area"):
+        if not isinstance(metadata[field], str) or not metadata[field].strip():
+            errors.append(f"{prefix}: {field} 必须是非空字符串")
+    if not isinstance(metadata["type"], str) or metadata["type"] not in TYPES:
+        errors.append(f"{prefix}: 非法 type：{metadata['type']!r}")
+    if not isinstance(metadata["priority"], str) or metadata["priority"] not in PRIORITIES:
+        errors.append(f"{prefix}: 非法 priority：{metadata['priority']!r}")
+    if not isinstance(metadata["status"], str) or metadata["status"] not in STATUSES:
+        errors.append(f"{prefix}: 非法 status：{metadata['status']!r}")
+    if not isinstance(metadata["review_required"], bool):
+        errors.append(f"{prefix}: review_required 必须是布尔值")
+
+    for field in ("assignee", "claim_branch", "claimed_at", "lease_until", "completed_at"):
+        value = metadata[field]
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            errors.append(f"{prefix}: {field} 必须是非空字符串或 null")
+
+    for field in ("depends_on", "related"):
+        values = metadata[field]
+        if not isinstance(values, list):
+            errors.append(f"{prefix}: {field} 必须是字符串数组")
+            continue
+        string_values = [value for value in values if isinstance(value, str)]
+        if len(string_values) != len(values):
+            errors.append(f"{prefix}: {field} 必须是字符串数组")
+        if len(string_values) != len(set(string_values)):
+            errors.append(f"{prefix}: {field} 不能包含重复 ID")
+        if isinstance(task_id, str) and task_id in string_values:
+            errors.append(f"{prefix}: {field} 不能包含任务自身")
+        for value in string_values:
+            if not ID_PATTERN.fullmatch(value):
+                errors.append(f"{prefix}: {field} 中的 {value!r} 不是合法任务 ID")
+
+    dates: dict[str, datetime] = {}
+    for field in ("created_at", "updated_at"):
+        try:
+            dates[field] = parse_timestamp(metadata[field], field)
+        except (TypeError, ValueError) as error:
+            errors.append(f"{prefix}: {error}")
+    for field in ("claimed_at", "lease_until", "completed_at"):
+        if metadata[field] is None:
+            continue
+        try:
+            dates[field] = parse_timestamp(metadata[field], field)
+        except (TypeError, ValueError) as error:
+            errors.append(f"{prefix}: {error}")
+    if dates.get("updated_at") and dates.get("created_at") and dates["updated_at"] < dates["created_at"]:
+        errors.append(f"{prefix}: updated_at 不能早于 created_at")
+    if dates.get("lease_until") and dates.get("claimed_at") and dates["lease_until"] <= dates["claimed_at"]:
+        errors.append(f"{prefix}: lease_until 必须晚于 claimed_at")
+
+    status = metadata["status"]
+    claim_values = (metadata["assignee"], metadata["claim_branch"], metadata["claimed_at"], metadata["lease_until"])
+    if isinstance(status, str) and status in ACTIVE_STATUSES and any(value is None for value in claim_values):
+        errors.append(f"{prefix}: {status} 任务必须保留完整的认领信息")
+    if status == "todo" and any(value is not None for value in claim_values):
+        errors.append(f"{prefix}: todo 任务不能保留 assignee 或认领信息")
+    if isinstance(status, str) and status in {"todo", "in_progress", "blocked", "review"} and metadata["completed_at"] is not None:
+        errors.append(f"{prefix}: 未结束任务的 completed_at 必须为 null")
+    if status == "done" and metadata["completed_at"] is None:
+        errors.append(f"{prefix}: done 任务必须填写 completed_at")
+    if status != "done" and metadata["completed_at"] is not None:
+        errors.append(f"{prefix}: 只有 done 任务可以填写 completed_at")
+
+    for title in REQUIRED_SECTIONS:
+        if section(task.body, title) is None:
+            errors.append(f"{prefix}: 缺少正文段落 `## {title}`")
+    total, checked = acceptance_state(task.body)
+    if total == 0:
+        errors.append(f"{prefix}: 验收标准至少需要一个 checkbox")
+    if isinstance(status, str) and status in {"review", "done"}:
+        if checked != total:
+            errors.append(f"{prefix}: {status} 任务必须勾选全部验收标准（{checked}/{total}）")
+        if not completion_is_filled(task.body):
+            errors.append(f"{prefix}: {status} 任务必须填写完成结果")
+    if status == "blocked" and section(task.body, "阻塞信息") in {None, "", "无。", "无"}:
+        errors.append(f"{prefix}: blocked 任务必须填写阻塞原因和下一步")
+    if status == "cancelled" and not completion_is_filled(task.body):
+        errors.append(f"{prefix}: cancelled 任务必须在完成结果中记录取消原因")
+
+    if isinstance(status, str) and status in ACTIVE_STATUSES and dates.get("lease_until") and dates["lease_until"] < now():
+        warnings.append(f"{prefix}: {task_id} 的认领租约已过期，需要检查原工作后续租或接管")
+    return errors, warnings
+
+
+def validate_tasks(tasks: dict[str, TaskDocument]) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    for task in tasks.values():
+        task_errors, task_warnings = validate_task_shape(task)
+        errors.extend(task_errors)
+        warnings.extend(task_warnings)
+
+    for task in tasks.values():
+        for field in ("depends_on", "related"):
+            values = task.metadata.get(field)
+            if not isinstance(values, list):
+                continue
+            for dependency in values:
+                if isinstance(dependency, str) and dependency not in tasks:
+                    errors.append(f"{task.path}: {field} 引用了不存在的任务 {dependency}")
+
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(task_id: str) -> None:
+        if task_id in visited:
+            return
+        if task_id in visiting:
+            cycle = visiting[visiting.index(task_id) :] + [task_id]
+            errors.append(f"任务依赖形成环：{' -> '.join(cycle)}")
+            return
+        visiting.append(task_id)
+        dependencies = tasks[task_id].metadata.get("depends_on", [])
+        if isinstance(dependencies, list):
+            for dependency in dependencies:
+                if isinstance(dependency, str) and dependency in tasks:
+                    visit(dependency)
+        visiting.pop()
+        visited.add(task_id)
+
+    for task_id in tasks:
+        visit(task_id)
+
+    for task in tasks.values():
+        if task.metadata.get("status") not in {"review", "done"}:
+            continue
+        for dependency in task.metadata.get("depends_on", []):
+            if isinstance(dependency, str) and dependency in tasks and tasks[dependency].metadata.get("status") != "done":
+                errors.append(f"{task.path}: review/done 任务的依赖 {dependency} 尚未 done")
+    return errors, warnings
+
+
+def checked_tasks(root: Path) -> dict[str, TaskDocument]:
+    tasks = load_tasks(root)
+    errors, _ = validate_tasks(tasks)
+    if errors:
+        raise TaskError("任务中心校验失败：\n- " + "\n- ".join(errors))
+    return tasks
+
+
+def require_task(tasks: dict[str, TaskDocument], task_id: str) -> TaskDocument:
+    try:
+        return tasks[task_id]
+    except KeyError as error:
+        raise TaskError(f"找不到任务 {task_id}") from error
+
+
+def dependencies_done(task: TaskDocument, tasks: dict[str, TaskDocument]) -> bool:
+    return all(tasks[dependency].metadata["status"] == "done" for dependency in task.metadata["depends_on"])
+
+
+def availability(task: TaskDocument, tasks: dict[str, TaskDocument]) -> str:
+    status = task.metadata["status"]
+    if status == "todo":
+        return "READY" if dependencies_done(task, tasks) else "WAITING"
+    if status in ACTIVE_STATUSES and task.metadata["lease_until"]:
+        if parse_timestamp(task.metadata["lease_until"], "lease_until") < now():
+            return f"{status.upper()}/EXPIRED"
+    return status.upper()
+
+
+def mutate(task: TaskDocument, message: str) -> None:
+    task.metadata["updated_at"] = timestamp()
+    task.body = append_activity(task.body, message)
+
+
+def ensure_acceptance_complete(task: TaskDocument) -> None:
+    total, checked = acceptance_state(task.body)
+    if total == 0 or checked != total:
+        raise TaskError(f"{task.id} 的验收标准尚未全部勾选（{checked}/{total}）")
+
+
+def ensure_completion(task: TaskDocument, result: str | None) -> None:
+    if result:
+        current = section(task.body, "完成结果")
+        if completion_is_filled(task.body):
+            result = f"{current}\n\n{result}"
+        task.body = replace_section(task.body, "完成结果", result)
+    if not completion_is_filled(task.body):
+        raise TaskError("必须先填写完成结果，或通过 --result 提供实现和验证摘要")
+
+
+def command_check(args: argparse.Namespace) -> None:
+    schema_path = args.root / "tasks" / "schema" / "task.schema.json"
+    if not schema_path.is_file():
+        raise TaskError(f"缺少任务 schema：{schema_path}")
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise TaskError(f"{schema_path}: JSON 解析失败：{error}") from error
+    if set(schema.get("required", [])) != set(FIELDS) or set(schema.get("properties", {})) != set(FIELDS):
+        raise TaskError(f"{schema_path}: required/properties 必须与任务工具字段完全一致")
+
+    template_path = args.root / "tasks" / "templates" / "task.md"
+    if not template_path.is_file():
+        raise TaskError(f"缺少任务模板：{template_path}")
+    template = parse_document(template_path)
+    if set(template.metadata) != set(FIELDS):
+        raise TaskError(f"{template_path}: front matter 字段必须与任务工具完全一致")
+    for title in REQUIRED_SECTIONS:
+        if section(template.body, title) is None:
+            raise TaskError(f"{template_path}: 缺少正文段落 `## {title}`")
+
+    tasks = load_tasks(args.root)
+    if not tasks:
+        raise TaskError("任务中心至少要保留一个任务；完成任务应移入 archive/，不能全部删除")
+    errors, warnings = validate_tasks(tasks)
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    if errors:
+        for error in errors:
+            print(f"error: {error}", file=sys.stderr)
+        raise TaskError(f"发现 {len(errors)} 个任务错误")
+    print(f"✓ {len(tasks)} 个任务通过校验")
+
+
+def command_list(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    rows = []
+    for task in tasks.values():
+        state = availability(task, tasks)
+        if args.ready and state != "READY":
+            continue
+        rows.append(
+            (
+                int(task.metadata["priority"][1]),
+                task.id,
+                task.metadata["priority"],
+                state,
+                task.metadata["area"],
+                task.metadata["assignee"] or "-",
+                task.metadata["title"],
+            )
+        )
+    rows.sort()
+    print("ID\t优先级\t状态\t领域\t负责人\t标题")
+    for _, task_id, priority, state, area, assignee, title in rows:
+        print(f"{task_id}\t{priority}\t{state}\t{area}\t{assignee}\t{title}")
+
+
+def command_show(args: argparse.Namespace) -> None:
+    task = require_task(checked_tasks(args.root), args.task_id)
+    print(task.path)
+    print()
+    print(render_document(task), end="")
+
+
+def slugify(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+    return slug[:48] or "task"
+
+
+def validate_slug(value: str) -> str:
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value):
+        raise argparse.ArgumentTypeError("slug 只能包含小写 ASCII 字母、数字和单个连字符")
+    return value
+
+
+def require_positive_hours(value: float) -> None:
+    if not math.isfinite(value) or value <= 0 or value > 24 * 30:
+        raise TaskError("--lease-hours 必须在 0 到 720 之间")
+
+
+def command_new(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    next_number = max((int(task_id[5:]) for task_id in tasks), default=0) + 1
+    if next_number > 9999:
+        raise TaskError("任务 ID 已超过 TASK-9999")
+    task_id = f"TASK-{next_number:04d}"
+    created = timestamp()
+    metadata = {
+        "id": task_id,
+        "title": args.title,
+        "type": args.type,
+        "area": args.area,
+        "priority": args.priority,
+        "status": "todo",
+        "assignee": None,
+        "depends_on": args.depends_on,
+        "related": args.related,
+        "created_at": created,
+        "updated_at": created,
+        "claim_branch": None,
+        "claimed_at": None,
+        "lease_until": None,
+        "completed_at": None,
+        "review_required": not args.no_review,
+    }
+    body = f"""# {task_id}：{args.title}
+
+## 背景
+
+说明为什么需要这项工作，以及不做会发生什么。
+
+## 目标
+
+用可观察的结果描述任务目标。
+
+## 范围
+
+包含：
+
+- 补充本任务负责的内容。
+
+不包含：
+
+- 补充容易被误解为本任务范围的内容。
+
+## 验收标准
+
+- [ ] 补充可以客观检查的完成条件。
+
+## 执行记录
+
+- {created}：创建任务。
+
+## 阻塞信息
+
+无。
+
+## 完成结果
+
+尚未完成。
+"""
+    path = args.root / "tasks" / "items" / f"{task_id}-{args.slug or slugify(args.title)}.md"
+    task = TaskDocument(path=path, metadata=metadata, body=body)
+    prospective = dict(tasks)
+    prospective[task_id] = task
+    errors, _ = validate_tasks(prospective)
+    if errors:
+        raise TaskError("无法创建任务：\n- " + "\n- ".join(errors))
+    write_document(task)
+    print(f"✓ 已创建 {path}")
+    print("下一步：补全背景、范围和验收标准，再提交任务文件。")
+
+
+def command_claim(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    if task.metadata["status"] != "todo":
+        raise TaskError(f"{task.id} 当前状态为 {task.metadata['status']}，不能认领")
+    pending = [dependency for dependency in task.metadata["depends_on"] if tasks[dependency].metadata["status"] != "done"]
+    if pending:
+        raise TaskError(f"{task.id} 的依赖尚未完成：{', '.join(pending)}")
+    require_positive_hours(args.lease_hours)
+    claimed = now()
+    task.metadata.update(
+        {
+            "status": "in_progress",
+            "assignee": args.agent,
+            "claim_branch": args.branch,
+            "claimed_at": timestamp(claimed),
+            "lease_until": timestamp(claimed + timedelta(hours=args.lease_hours)),
+        }
+    )
+    mutate(task, f"{args.agent} 在分支 {args.branch} 认领任务，租约 {args.lease_hours:g} 小时。")
+    write_validated(task, tasks)
+    print(f"✓ 已在工作区认领 {task.id}")
+    print(f"请单独提交：git add {task.path.relative_to(args.root)} && git commit -m 'chore(tasks): 认领 {task.id}'")
+    print("只有该认领提交同步成功后，才开始修改代码。")
+
+
+def command_block(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    if task.metadata["status"] != "in_progress":
+        raise TaskError(f"只有 in_progress 任务可以进入 blocked；当前为 {task.metadata['status']}")
+    task.metadata["status"] = "blocked"
+    task.body = replace_section(task.body, "阻塞信息", args.reason)
+    mutate(task, f"任务阻塞：{args.reason}")
+    write_validated(task, tasks)
+    print(f"✓ {task.id} 已标记为 blocked")
+
+
+def command_resume(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    if task.metadata["status"] != "blocked":
+        raise TaskError(f"只有 blocked 任务可以恢复；当前为 {task.metadata['status']}")
+    require_positive_hours(args.lease_hours)
+    resumed = now()
+    task.metadata["status"] = "in_progress"
+    task.metadata["lease_until"] = timestamp(resumed + timedelta(hours=args.lease_hours))
+    task.body = replace_section(task.body, "阻塞信息", "无。")
+    mutate(task, f"阻塞解除，恢复开发并续租 {args.lease_hours:g} 小时。")
+    write_validated(task, tasks)
+    print(f"✓ {task.id} 已恢复为 in_progress")
+
+
+def command_release(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    if task.metadata["status"] not in {"in_progress", "blocked"}:
+        raise TaskError(f"只有 in_progress 或 blocked 任务可以释放；当前为 {task.metadata['status']}")
+    mutate(task, f"释放认领：{args.reason}")
+    task.metadata.update(
+        {
+            "status": "todo",
+            "assignee": None,
+            "claim_branch": None,
+            "claimed_at": None,
+            "lease_until": None,
+        }
+    )
+    task.body = replace_section(task.body, "阻塞信息", "无。")
+    write_validated(task, tasks)
+    print(f"✓ {task.id} 已释放并回到 todo")
+
+
+def command_review(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    if task.metadata["status"] != "in_progress":
+        raise TaskError(f"只有 in_progress 任务可以送审；当前为 {task.metadata['status']}")
+    ensure_acceptance_complete(task)
+    ensure_completion(task, args.result)
+    task.metadata["status"] = "review"
+    mutate(task, "实现与验证完成，进入 review。")
+    write_validated(task, tasks)
+    print(f"✓ {task.id} 已进入 review")
+
+
+def command_done(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    allowed = {"review"} if task.metadata["review_required"] else {"in_progress", "review"}
+    if task.metadata["status"] not in allowed:
+        expected = "review" if task.metadata["review_required"] else "in_progress 或 review"
+        raise TaskError(f"{task.id} 必须从 {expected} 进入 done；当前为 {task.metadata['status']}")
+    if not dependencies_done(task, tasks):
+        raise TaskError(f"{task.id} 仍有未完成的硬依赖")
+    ensure_acceptance_complete(task)
+    ensure_completion(task, args.result)
+    task.metadata["status"] = "done"
+    task.metadata["completed_at"] = timestamp()
+    mutate(task, "验收完成，任务关闭。")
+    write_validated(task, tasks)
+    print(f"✓ {task.id} 已完成")
+
+
+def command_cancel(args: argparse.Namespace) -> None:
+    tasks = checked_tasks(args.root)
+    task = require_task(tasks, args.task_id)
+    if task.metadata["status"] in {"done", "cancelled"}:
+        raise TaskError(f"{task.id} 当前状态为 {task.metadata['status']}，不能取消")
+    task.metadata["status"] = "cancelled"
+    task.body = replace_section(task.body, "完成结果", f"已取消：{args.reason}")
+    mutate(task, f"取消任务：{args.reason}")
+    write_validated(task, tasks)
+    print(f"✓ {task.id} 已取消")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="管理 cherry-oj 的 Git 开发任务中心")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path(__file__).resolve().parents[1],
+        help=argparse.SUPPRESS,
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    check_parser = subparsers.add_parser("check", help="校验字段、状态和依赖图")
+    check_parser.set_defaults(handler=command_check)
+
+    list_parser = subparsers.add_parser("list", help="列出任务")
+    list_parser.add_argument("--ready", action="store_true", help="只列出当前可认领任务")
+    list_parser.set_defaults(handler=command_list)
+
+    show_parser = subparsers.add_parser("show", help="显示一个任务")
+    show_parser.add_argument("task_id")
+    show_parser.set_defaults(handler=command_show)
+
+    new_parser = subparsers.add_parser("new", help="按模板创建下一个任务")
+    new_parser.add_argument("--title", required=True)
+    new_parser.add_argument("--type", choices=sorted(TYPES), required=True)
+    new_parser.add_argument("--area", required=True)
+    new_parser.add_argument("--priority", choices=sorted(PRIORITIES), required=True)
+    new_parser.add_argument("--depends-on", action="append", default=[])
+    new_parser.add_argument("--related", action="append", default=[])
+    new_parser.add_argument("--slug", type=validate_slug, help="文件名中的 ASCII 短名")
+    new_parser.add_argument("--no-review", action="store_true", help="允许开发者验证后直接完成")
+    new_parser.set_defaults(handler=command_new)
+
+    claim_parser = subparsers.add_parser("claim", help="认领一个 READY 任务")
+    claim_parser.add_argument("task_id")
+    claim_parser.add_argument("--agent", required=True)
+    claim_parser.add_argument("--branch", required=True)
+    claim_parser.add_argument("--lease-hours", type=float, default=24)
+    claim_parser.set_defaults(handler=command_claim)
+
+    block_parser = subparsers.add_parser("block", help="记录实际执行阻塞")
+    block_parser.add_argument("task_id")
+    block_parser.add_argument("--reason", required=True)
+    block_parser.set_defaults(handler=command_block)
+
+    resume_parser = subparsers.add_parser("resume", help="解除阻塞并恢复开发")
+    resume_parser.add_argument("task_id")
+    resume_parser.add_argument("--lease-hours", type=float, default=24)
+    resume_parser.set_defaults(handler=command_resume)
+
+    release_parser = subparsers.add_parser("release", help="放弃认领并把任务放回 todo")
+    release_parser.add_argument("task_id")
+    release_parser.add_argument("--reason", required=True)
+    release_parser.set_defaults(handler=command_release)
+
+    review_parser = subparsers.add_parser("review", help="提交实现和验证结果等待审核")
+    review_parser.add_argument("task_id")
+    review_parser.add_argument("--result")
+    review_parser.set_defaults(handler=command_review)
+
+    done_parser = subparsers.add_parser("done", help="验收并完成任务")
+    done_parser.add_argument("task_id")
+    done_parser.add_argument("--result")
+    done_parser.set_defaults(handler=command_done)
+
+    cancel_parser = subparsers.add_parser("cancel", help="取消任务")
+    cancel_parser.add_argument("task_id")
+    cancel_parser.add_argument("--reason", required=True)
+    cancel_parser.set_defaults(handler=command_cancel)
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    args.root = args.root.resolve()
+    try:
+        args.handler(args)
+        return 0
+    except (OSError, TaskError) as error:
+        print(f"task: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

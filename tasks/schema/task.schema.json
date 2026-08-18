@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cherry-oj.local/schemas/development-task.schema.json",
+  "title": "cherry-oj development task metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "type",
+    "area",
+    "priority",
+    "status",
+    "assignee",
+    "depends_on",
+    "related",
+    "created_at",
+    "updated_at",
+    "claim_branch",
+    "claimed_at",
+    "lease_until",
+    "completed_at",
+    "review_required"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^TASK-[0-9]{4}$" },
+    "title": { "type": "string", "minLength": 1 },
+    "type": {
+      "enum": ["feature", "bug", "refactor", "docs", "tech-debt", "spike", "epic", "chore", "test"]
+    },
+    "area": { "type": "string", "minLength": 1 },
+    "priority": { "enum": ["P0", "P1", "P2", "P3"] },
+    "status": { "enum": ["todo", "in_progress", "blocked", "review", "done", "cancelled"] },
+    "assignee": { "type": ["string", "null"] },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^TASK-[0-9]{4}$" }
+    },
+    "related": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^TASK-[0-9]{4}$" }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "claim_branch": { "type": ["string", "null"] },
+    "claimed_at": { "type": ["string", "null"], "format": "date-time" },
+    "lease_until": { "type": ["string", "null"], "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "review_required": { "type": "boolean" }
+  }
+}
+

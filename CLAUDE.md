@@ -32,7 +32,8 @@ cherry-oj/
 │   │   └── config.example.yaml
 │   ├── server/         Java / SpringBoot —— 尚未开工
 │   └── web/            TypeScript —— 尚未开工
-├── docs/               设计文档（architecture / engine / data-model / backlog）
+├── tasks/              ★ 进入 Git 的开发任务中心，任务状态与依赖的唯一真源
+├── docs/               本地设计文档（architecture / engine / data-model）
 └── tutorial/           分阶段动手教程
 ```
 
@@ -256,6 +257,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 | job | 检查 | 为什么单独一条 |
 |---|---|---|
+| `tasks` | 任务字段、状态不变量、依赖图与工具测试 | 多 agent 协作的执行边界，错误状态不能进入 main |
 | `contracts` | `contracts/*.json` 可解析 | 跨语言唯一耦合点，坏了同时影响 Go 和 Java 侧；且一直是手改的 |
 | `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
 | `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
@@ -270,7 +272,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 - 设计变了 → 同步 `docs/`（architecture / engine / data-model）
 - 操作步骤变了 → 同步 `tutorial/`
-- 欠下技术债 → 记进 `docs/backlog.md`，做完就删条目
+- 出现可执行工作或技术债 → 在 `tasks/items/` 建任务；不要再写进本地 `docs/backlog.md`
 
 **契约先行**：改 `contracts/*.json` → 再改各语言类型 → 再改实现。反过来做必然漂移。
 
@@ -280,6 +282,10 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 - **改动前先问清楚。** 本项目的很多设计（命名、契约字段、职责边界）是反复讨论定下来的，
   不要顺手「优化」。拿不准就先问，别先改。
+- **开发前先认领任务。** 先读 `tasks/README.md`，运行 `scripts/task list --ready`；有对应任务时
+  必须先用 `scripts/task claim` 认领并同步认领提交，再开始改代码。没有任务时先创建并补全验收标准。
+- **开发后更新状态。** 阻塞、送审和完成分别使用 `scripts/task block/review/done`；进入 review
+  前必须勾选验收标准并写明验证结果。依赖未完成的任务不能认领。
 - **设计变更写 `docs/`，操作步骤写 `tutorial/`**，两边都要跟着代码更新。
-- 已知技术债记在 `docs/backlog.md`，格式是「位置 · 现状 · 目标 · 何时该做」，做完就删条目。
+- 已知技术债写进 `tasks/items/`，代码锚点使用 `TODO(TASK-0001): ...`；`tasks/` 是唯一真源。
 - 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。

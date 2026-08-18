@@ -11,6 +11,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # tasks/ 是多 agent 协作的唯一真源。字段或依赖图坏掉会导致重复认领、提前开工，
+  # 因此先用无第三方依赖的工具校验格式和完整状态流转。
+  tasks:
+    name: 开发任务中心
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 任务工具测试
+        run: python3 scripts/task_test.py
+      - name: 校验任务字段、状态和依赖图
+        run: scripts/task check
+
   # 跨语言契约是唯一的耦合点，语法坏掉会同时影响 Go 和将来的 Java 侧，
   # 所以单独一个最快的 job 先把它挡住。
   contracts:
