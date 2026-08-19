@@ -85,7 +85,7 @@ type Output struct {
 //
 // ★ Want 填不填由判题机的运行配置决定（judge.revealExpected）：
 // 商业 OJ 关掉，避免用户刷 WA 把题库答案拖走；教学场景打开，
-// 让学生看到自己的输出和答案差在哪。关掉时只给 Line 和 Got。
+// 让用户看到自己的输出和答案差在哪。关掉时只给 Line 和 Got。
 type Diff struct {
 	Line int    `json:"line"`           // 第一处不同的行号，从 1 起
 	Got  string `json:"got,omitempty"`  // 该行用户输出；空 = 用户少输出了这一行

@@ -36,7 +36,7 @@
     "Diff": {
       "type": "object",
       "required": ["line"],
-      "description": "WA 时第一处不同的位置。want 填不填由判题机的运行配置决定（judge.revealExpected）：商业 OJ 关掉，避免用户刷 WA 把题库答案拖走；教学场景打开，让学生看到自己的输出和答案差在哪。关掉时只给 line 和 got。",
+      "description": "WA 时第一处不同的位置。want 填不填由判题机的运行配置决定（judge.revealExpected）：商业 OJ 关掉，避免用户刷 WA 把题库答案拖走；教学场景打开，让用户看到自己的输出和答案差在哪。关掉时只给 line 和 got。",
       "properties": {
         "line": {
           "type": "integer",

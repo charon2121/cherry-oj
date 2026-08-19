@@ -187,9 +187,39 @@ cherry-oj/
 
 ## 三、TypeScript（`apps/web`，尚未开工）
 
-- npm / vite，独立构建。
-- 面向 server 的 REST，不直接调 judge / sandbox。
+前端采用 **TanStack-first、按需引入**，不是无条件安装 TanStack 全家桶：
+
+- 基础：React 19 + TypeScript strict + npm + Vite，独立构建为静态站。
+- 路由：TanStack Router；分页、筛选、关键字等可分享状态放类型安全的 search params。
+- 服务端状态：TanStack Query；请求、缓存、失效、Mutation 和判题结果轮询都归它。
+- 业务组件：TanStack Table、TanStack Form + Zod；TanStack Virtual 只在长列表确有需要时引入。
+- UI：Tailwind CSS + shadcn/ui + Lucide React；代码编辑用 Monaco Editor。
+- 题面：react-markdown + remark-gfm + rehype-sanitize，默认不执行原始 HTML。
+- HTTP：原生 `fetch` 的项目级薄封装，不引入 Axios；前端只调用 server 的 REST，
+  不直接调 judge / sandbox。
+- 状态边界：URL 状态归 Router，服务端状态归 Query，表单归 Form，表格归 Table，
+  局部交互用 `useState` / `useReducer`。初期不引入 Zustand、Redux Toolkit 或 TanStack Store。
+- 测试：Vitest + React Testing Library + MSW；关键用户链路用 Playwright。
+- 质量：ESLint Flat Config + typescript-eslint 管正确性，Prettier + Tailwind 插件管格式，
+  TypeScript 管类型；三者不配置重复规则。稳定主版本优先，不把 alpha/beta/RC 依赖放进主链路。
+- TypeScript：除 `strict` 外启用 `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、
+  `noFallthroughCasesInSwitch` 和 `verbatimModuleSyntax`；边界输入用 `unknown` + Zod，禁用无理由
+  `any`、非空断言和 `enum`，纯类型使用 `import type`。
+- 代码组织：文件/目录 `kebab-case`，组件/类型 `PascalCase`，变量/函数 `camelCase`；
+  默认具名导出，组件不用 `React.FC`。依赖方向固定为 `app/routes → features → components/lib`。
+- React：不拿 Effect 做派生状态或常规请求；请求归 Query，可恢复页面状态归 Router；
+  loading / empty / error / unauthorized / success 都要有明确 UI。
+- 样式与可访问性：条件 class 统一走 `cn()`，优先设计 token 和语义 HTML；交互必须支持键盘，
+  verdict 不能只靠颜色表达。
+- 前端初始化时统一提供 `format(:check)`、`lint(:fix)`、`typecheck`、`test(:run)`、
+  `test:e2e`、`build`、`check` 脚本，并扩展 hook / CI：hook 只检查、不改写；CI 使用
+  `npm ci` 后跑 check、build 和 E2E。
+- 当前不使用 TanStack Start / Next.js / TanStack DB：已有独立 Spring Boot 后端，
+  MVP 不需要 SSR/RSC 或客户端关系数据层。
 - 展示 verdict 时注意：`OLE`、`RAN`、`SE` 都是合法状态，别只处理 AC/WA。
+
+详细选型、状态归属、目录结构和分阶段引入顺序见本地 `docs/frontend.md`（`docs/` 不入库，
+所以本节是新克隆也必须保留的核心约定）。
 
 ## 四、提交流程
 
