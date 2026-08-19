@@ -596,8 +596,8 @@ CORE P0 验收：
 7. 用户正式判题与运营批任务需要资源隔离、优先级和独立可观测性。
 8. contracts 仍是跨语言边界唯一真源；实现上述能力时应先补产品数据模型和契约，再改 server/judge。
 9. ProblemVersion 和 Submission 必须携带可追溯的代码模式；CORE 的完整源码模板保存在
-   ProblemVersionLanguage。server 合并模板后向 judge 下发普通完整源码，judge 与 sandbox 不需要
-   理解 ACM/CORE。
+   ProblemVersionLanguage。submission-service 在冻结 JudgeInput 时合并模板，Go judge 与 sandbox
+   收到的始终是普通完整源码，不需要理解 ACM/CORE。
 
 ---
 

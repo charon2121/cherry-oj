@@ -5,15 +5,29 @@
 
 ## 系统拓扑
 
-```
+```text
 浏览器 → apps/web (TS)
-           │ REST
-         apps/server (Java, SpringBoot)   业务：用户 / 题目 / 提交 / 鉴权 / 数据库
-           │ POST /judge          跨语言 HTTP，契约以 contracts/*.json 为准
-         judge  (Go)                      判题编排：编译 → 逐测试点 → 比对 → 汇总 verdict
-           │ POST /run, /blobs    同为 Go，共享 internal/contract 的类型
-         sandbox (Go)                     安全执行：跑一条命令，报资源用量和输出
+           │ REST / Session Cookie
+         gateway-service (Java)
+           ├─ user-service               用户、密码、角色、内部 JWT
+           ├─ problem-service            题目版本、语言模板、测试数据元信息
+           └─ submission-service         Submission、JudgeInput、Outbox/Inbox
+                    │ Kafka judge.requests.v1
+                    ▼
+              judging-service            环境、部署、标定、任务租约与重试
+                    │ POST /judge         跨语言 HTTP，契约以 contracts/*.json 为准
+                    ▼
+                 judge (Go)              编译 → 逐测试点 → 比对 → 汇总 verdict
+                    │ POST /run, /blobs
+                    ▼
+                sandbox (Go)             安全执行一条命令，返回资源事实
+
+judging-service ── Kafka judge.lifecycle.v1 ──► submission-service
 ```
+
+五个 Java 服务位于 `apps/server` Maven 聚合工程中。每个有状态服务独立数据库，只写自己的表；
+正式提交先由 submission-service 冻结不可变 JudgeInput，再通过 Kafka 异步判题。源码不进 Kafka，
+judging-service 按 submissionId 从受保护的内部 API 拉取 JudgeInput。
 
 **最重要的一条边界**：sandbox 只回答「安全地跑一段程序，给我资源用量和输出」，
 **完全不懂判题**。编译、比对、verdict 全在 judge。这条守不住，整个分层就没意义了。
@@ -30,7 +44,12 @@ cherry-oj/
 │   │   ├── cmd/{judge,sandbox}/
 │   │   ├── internal/{config,contract,judge,sandbox}/
 │   │   └── config.example.yaml
-│   ├── server/         Java / SpringBoot —— 尚未开工
+│   ├── server/         Java / SpringBoot Maven 聚合工程 —— 尚未开工
+│   │   ├── gateway-service/
+│   │   ├── user-service/
+│   │   ├── problem-service/
+│   │   ├── submission-service/
+│   │   └── judging-service/
 │   └── web/            TypeScript —— 尚未开工
 ├── tasks/              ★ 进入 Git 的开发任务中心，任务状态与依赖的唯一真源
 ├── docs/               本地设计文档（architecture / engine / data-model）
@@ -50,7 +69,7 @@ cherry-oj/
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，可与 sandbox 双进程联调 |
 | Docker 部署 | ✅ judge / sandbox 双容器 Compose（开发与 MVP） |
-| `apps/server`、`apps/web` | 未开始 |
+| `apps/server`（五个 Java 服务）、`apps/web` | 未开始 |
 
 ---
 
@@ -177,13 +196,20 @@ cherry-oj/
 
 先立约定，开工时补充：
 
-- SpringBoot + Maven，独立构建，不与 Go 侧共享构建产物。
+- Java 25 + Spring Boot 4.1 + Maven 聚合工程；五个服务独立构建和部署，不与 Go 侧共享构建产物。
+- 服务只写自己的 MySQL schema；禁止跨库 JOIN、共享 Mapper、共享业务实体和分布式 XA 事务。
+- Gateway 使用 WebFlux；user/problem/submission/judging 使用 Spring MVC。MyBatis + Flyway 负责持久化。
+- 正式提交使用 Kafka + Outbox/Inbox 异步推进；不能改回 HTTP 请求线程同步等待 judge。
+- problem-service 拥有题目版本与 CORE 模板；judging-service 拥有环境、数据部署和语言标定；
+  submission-service 拥有 Submission 与不可变 JudgeInput。
+- CORE 模板在 submission-service 创建 JudgeInput 时合并；Go judge 收到的始终是完整源码。
+- Kafka 不传源码、模板、测试数据、密码或 JWT；judging-service 通过内部 API 拉取 JudgeInput。
 - 与 judge 之间的 DTO **照着 `contracts/judge.schema.json` 写**，字段名、单位、
   `omitempty` 语义都以 schema 为准；同样要有契约对齐测试。
 - 时间 ns、内存 bytes，字段名自带单位——不要在 Java 侧改成 `timeoutMs` 之类。
-- 「结果入不入库」是 server 的决定，不要试图让 judge 关心。
-- 题目元信息（时空限制、题面样例、比对方式）的真源在 server 的数据库里，
-  判题时随请求下发；**判题机磁盘上只有测试数据文件本身**。
+- 「结果入不入库」是 submission-service 的决定，不要试图让 judge 关心。
+- 题目元信息真源在 problem-service；环境相关绝对限制真源在 judging-service；判题时解析并冻结到
+  JudgeInput。**判题机磁盘上只有按 testDataVersionId 定位的测试数据文件本身**。
 
 ## 三、TypeScript（`apps/web`，尚未开工）
 
