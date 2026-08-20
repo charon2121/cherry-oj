@@ -4,16 +4,16 @@ title: "升级 contracts v2 并对齐 Go judge"
 type: "feature"
 area: "contracts"
 priority: "P0"
-status: "review"
+status: "done"
 assignee: "codex/root"
 depends_on: ["TASK-0007"]
 related: []
 created_at: "2026-08-20T10:33:22+08:00"
-updated_at: "2026-08-20T10:57:34+08:00"
+updated_at: "2026-08-20T11:08:51+08:00"
 claim_branch: "codex/task-0008"
 claimed_at: "2026-08-20T10:33:44+08:00"
 lease_until: "2026-08-21T10:33:44+08:00"
-completed_at: null
+completed_at: "2026-08-20T11:08:51+08:00"
 review_required: true
 ---
 
@@ -72,6 +72,7 @@ Submission 也没有版本、环境和绝对限制快照。如果直接初始化
 - 2026-08-20：`python3 scripts/contracts_test.py`、`scripts/task check`、`git diff --check`、
   `docker compose config --quiet`、gofmt、go vet、go build、`go test -race -count=1 ./...` 全部通过。
 - 2026-08-20T10:57:34+08:00：实现与验证完成，进入 review。
+- 2026-08-20T11:08:51+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -85,3 +86,5 @@ contracts v2 与 Go judge 已完成对齐。`run.schema.json`、`verdict.json` �
 重建后的 Compose A+B 联调；Compose 配置已校验，远端 CI 保留并更新了真实容器联调步骤。
 
 contracts v2、Go judge、环境指纹、testDataVersionId 和 CI 边界均已对齐；完整 Go race 测试通过，容器重建待远端 CI 验证
+
+用户确认验收通过；contracts v2 与 Go judge 对齐结果正式接受，下一步转入 Java Maven 初始化教程
