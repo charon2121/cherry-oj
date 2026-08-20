@@ -4,18 +4,19 @@ title: "编写 Java Maven 五服务初始化教程"
 type: "docs"
 area: "tutorial/server"
 priority: "P0"
-status: "review"
+status: "done"
 assignee: "codex/root"
 depends_on: ["TASK-0008"]
 related: []
 created_at: "2026-08-20T11:09:55+08:00"
-updated_at: "2026-08-20T14:42:35+08:00"
+updated_at: "2026-08-20T15:59:42+08:00"
 claim_branch: "codex/task-0009"
 claimed_at: "2026-08-20T11:10:43+08:00"
 lease_until: "2026-08-21T11:10:43+08:00"
-completed_at: null
+completed_at: "2026-08-20T15:59:42+08:00"
 review_required: true
 ---
+
 
 # TASK-0009：编写 Java Maven 五服务初始化教程
 
@@ -77,6 +78,7 @@ Maven Wrapper 一次构建、也可单独启动的五服务 Spring Boot 聚合�
 - 2026-08-20：同步更新 `CLAUDE.md`、`docs/backend.md` 与 M3 教程；复查 102 个 Markdown 围栏、
   6 份完整 XML、5 份 YAML 和本地链接，`scripts/task check` 与 `git diff --check` 均通过。
 - 2026-08-20T14:42:35+08:00：实现与验证完成，进入 review。
+- 2026-08-20T15:59:42+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -89,4 +91,5 @@ Maven Wrapper 一次构建、也可单独启动的五服务 Spring Boot 聚合�
 启动类/配置/测试、依赖树边界、构建与健康检查，并明确推迟数据库、Kafka、Redis、Security、业务 API
 和 contracts DTO 实现。已核对 Boot 4.1.0/Cloud 2025.1.2/Java 21 兼容性；102 个 Markdown 围栏、
 6 份完整 XML、5 份 YAML、本地链接与任务状态检查均通过。`apps/server` 是用户正在创建的内容，
-本任务没有修改；实际 Maven 构建与健康检查由用户按教程执行。
+本任务没有直接实现；用户确认继续整合开发成果，TASK-0010 中的实际工程已在 Java 21 下通过
+`clean verify`，Java Maven 五服务初始化流程验收完成。

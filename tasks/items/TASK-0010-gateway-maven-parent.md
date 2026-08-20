@@ -9,7 +9,7 @@ assignee: "codex/root"
 depends_on: ["TASK-0008"]
 related: ["TASK-0009"]
 created_at: "2026-08-20T14:47:28+08:00"
-updated_at: "2026-08-20T14:50:20+08:00"
+updated_at: "2026-08-20T15:59:42+08:00"
 claim_branch: "codex/task-0010"
 claimed_at: "2026-08-20T14:48:20+08:00"
 lease_until: "2026-08-21T14:48:20+08:00"
@@ -60,6 +60,8 @@ Gateway 也就无法继承根 POM 导入的 Spring Cloud BOM，IDEA 因而不能
   `spring-cloud-starter-gateway-server-webflux` 解析为 `5.0.2`，未出现 `${project.version}`。
 - 2026-08-20T14:48:20+08:00：codex/root 在分支 codex/task-0010 认领任务，租约 24 小时。
 - 2026-08-20T14:50:20+08:00：验收完成，任务关闭。
+- 2026-08-20：按用户指示将完整 Java Maven 五服务骨架纳入 TASK-0010 分支；修正父 POM 的重复
+  `user-service` module 为 `submission-service`，并在 Java 21 下通过聚合 `clean verify`。
 
 ## 阻塞信息
 
@@ -68,6 +70,6 @@ Gateway 也就无法继承根 POM 导入的 Spring Cloud BOM，IDEA 因而不能
 ## 完成结果
 
 Gateway 已能正确继承根 POM 及其 Spring Cloud 2025.1.2 BOM，starter 版本解析恢复正常。
-`apps/server` 整体仍是用户未跟踪的初始化工程，因此本任务只修改工作区中的 Gateway POM，
-不单独提交该子文件，避免生成缺少根 POM、不能独立构建的远端提交。Maven `validate` 成功，
-`dependency:tree` 将 WebFlux Gateway starter 解析为 5.0.2。
+根据用户后续的分支整合指示，`apps/server` 完整五服务 Maven 骨架与根 `.gitignore` 调整一并提交，
+没有提交 `.idea`、`target` 或生成的 `HELP.md`。Maven `validate` 成功，`dependency:tree` 将 WebFlux
+Gateway starter 解析为 5.0.2；Java 21 下的聚合 `clean verify` 全部通过。
