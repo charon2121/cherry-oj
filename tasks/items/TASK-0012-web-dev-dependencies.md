@@ -4,18 +4,19 @@ title: "修复 Web 前端依赖缺失导致启动失败"
 type: "bug"
 area: "web/tooling"
 priority: "P0"
-status: "in_progress"
+status: "review"
 assignee: "codex/root"
 depends_on: []
 related: ["TASK-0011"]
 created_at: "2026-08-20T17:58:32+08:00"
-updated_at: "2026-08-20T17:58:54+08:00"
+updated_at: "2026-08-20T18:00:51+08:00"
 claim_branch: "codex/task-0012"
 claimed_at: "2026-08-20T17:58:54+08:00"
 lease_until: "2026-08-21T17:58:54+08:00"
 completed_at: null
 review_required: true
 ---
+
 
 
 # TASK-0012：修复 Web 前端依赖缺失导致启动失败
@@ -46,16 +47,21 @@ review_required: true
 
 ## 验收标准
 
-- [ ] `apps/web/package-lock.json` 已生成并与 `package.json` 一致。
-- [ ] `npm run dev` 启动后打印可访问的本地地址，不再出现 unresolved import。
-- [ ] `npm run lint` 成功。
-- [ ] `npm run build` 成功。
-- [ ] 修复没有覆盖或重写用户现有的 `src/` 内容。
+- [x] `apps/web/package-lock.json` 已生成并与 `package.json` 一致。
+- [x] `npm run dev` 启动后打印可访问的本地地址，不再出现 unresolved import。
+- [x] `npm run lint` 成功。
+- [x] `npm run build` 成功。
+- [x] 修复没有覆盖或重写用户现有的 `src/` 内容。
 
 ## 执行记录
 
 - 2026-08-20T17:58:32+08:00：创建任务。
 - 2026-08-20T17:58:54+08:00：codex/root 在分支 codex/task-0012 认领任务，租约 24 小时。
+- 2026-08-20：复现 `vite` 与 `@vitejs/plugin-react` unresolved import；确认根因是依赖与锁文件缺失。
+- 2026-08-20：在 `apps/web` 执行 `npm install`，安装 28 个包并生成 `package-lock.json`。
+- 2026-08-20：`npm run dev -- --host 127.0.0.1` 以 Vite 8.2.2 启动，访问根路径返回 HTTP 200；
+  `npm run lint` 与 `npm run build` 均成功。
+- 2026-08-20T18:00:51+08:00：实现与验证完成，进入 review。
 
 ## 阻塞信息
 
@@ -63,4 +69,4 @@ review_required: true
 
 ## 完成结果
 
-尚未完成。
+根因是 apps/web 未安装 package.json 声明的依赖。已执行 npm install 生成 package-lock.json；Vite 8.2.2 开发服务器在 127.0.0.1:5173 正常启动且返回 HTTP 200，npm run lint 与 npm run build 通过，未改写用户 src 内容。
