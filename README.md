@@ -51,14 +51,17 @@ curl -sS -X POST http://127.0.0.1:5051/judge \
   -H 'Content-Type: application/json' \
   -d '{
     "submissionId":"docker-smoke",
-    "problemId":"a-plus-b",
-    "language":"cpp",
+    "problemId":"problem-a-plus-b",
+    "problemVersionId":"problem-a-plus-b-v1",
+    "testDataVersionId":"a-plus-b",
+    "languageId":"cpp",
     "source":"#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<\"\\n\";}",
     "limits":{"cpuNs":1000000000,"memoryBytes":268435456}
   }'
 ```
 
-期望返回 `"verdict":"AC"`，并且三个测试点全部为 AC。
+期望返回 `"verdict":"AC"`、`"environmentFingerprint":"local-compose"`，并且
+`caseResults` 中三个测试点全部为 AC。
 
 查看状态和日志：
 
@@ -82,6 +85,7 @@ Compose 支持通过环境变量或项目根目录的 `.env` 文件覆盖：
 | `TESTDATA_PATH` | 仓库测试 fixture | 宿主机测试数据目录，只读挂载给 judge |
 | `JUDGE_BIND_ADDRESS` | `127.0.0.1` | judge 的宿主机监听地址 |
 | `JUDGE_PORT` | `5051` | judge 的宿主机端口 |
+| `JUDGE_ENVIRONMENT_FINGERPRINT` | `local-compose` | 实际判题环境指纹；生产必须设为已注册环境值 |
 | `SANDBOX_PARALLELISM` | `2` | sandbox 同时执行的任务数 |
 | `SANDBOX_CPUS` | `2.0` | sandbox 容器 CPU 配额 |
 | `SANDBOX_MEMORY_LIMIT` | `2g` | sandbox 容器总内存上限 |

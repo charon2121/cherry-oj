@@ -14,4 +14,7 @@ func TestExampleConfigLoads(t *testing.T) {
 	if cfg.Judge.ClockRatio != 10 {
 		t.Errorf("clockRatio=%d", cfg.Judge.ClockRatio)
 	}
+	if cfg.Judge.EnvironmentFingerprint != "local-development" {
+		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
+	}
 }

@@ -27,7 +27,11 @@ type Sandbox interface {
 
 // Judge 执行一次判题。请求或基础设施问题也会被收敛成 VerdictSE，
 // 让上层始终拿到可持久化的 JudgeResult。
-func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract.JudgeRequest) contract.JudgeResult {
+func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract.JudgeRequest) (result contract.JudgeResult) {
+	// 指纹描述实际运行本进程的环境，不能从请求回显。即使提前返回 CE/SE，
+	// judging-service 也必须能验证任务没有被路由到错误环境。
+	defer func() { result.EnvironmentFingerprint = cfg.EnvironmentFingerprint }()
+
 	se := func(format string, args ...any) contract.JudgeResult {
 		return contract.JudgeResult{
 			Verdict: contract.VerdictSE,
@@ -45,9 +49,9 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract
 		return se("invalid judge limits: %v", err)
 	}
 
-	lang, ok := language.Get(req.Language)
+	lang, ok := language.Get(req.LanguageID)
 	if !ok {
-		return se("unknown language: %q", req.Language)
+		return se("unknown language: %q", req.LanguageID)
 	}
 
 	cases, err := loadCases(cfg, req)
@@ -80,12 +84,12 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract
 		defer deleteRef(ctx, sb, executableRef)
 	}
 
-	result := contract.JudgeResult{Verdict: contract.VerdictAC}
+	result = contract.JudgeResult{Verdict: contract.VerdictAC}
 	for i, tc := range cases {
 		caseResult := runCase(ctx, sb, cfg, req.Limits, clock, lang, sourceRef, executableRef, i+1, tc)
-		result.Cases = append(result.Cases, caseResult)
-		result.Time = max(result.Time, caseResult.Time)
-		result.Memory = max(result.Memory, caseResult.Memory)
+		result.CaseResults = append(result.CaseResults, caseResult)
+		result.CPUNs = max(result.CPUNs, caseResult.CPUNs)
+		result.MemoryBytes = max(result.MemoryBytes, caseResult.MemoryBytes)
 		result.Verdict = worse(result.Verdict, caseResult.Verdict)
 	}
 	result.Score = scoreOf(result.Verdict)
@@ -93,8 +97,8 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract
 }
 
 func loadCases(cfg config.JudgeConfig, req contract.JudgeRequest) ([]testcase.TestCase, error) {
-	if req.Mode.UsesProblemTestdata() {
-		return testcase.Load(cfg.TestdataRoot, req.ProblemID, testcase.Options{})
+	if req.Mode.UsesVersionedTestdata() {
+		return testcase.Load(cfg.TestdataRoot, req.TestDataVersionID, testcase.Options{})
 	}
 	return testcase.FromSpecs(req.Cases), nil
 }
@@ -254,10 +258,10 @@ func stdinFor(
 
 func evalCase(idx int, tc testcase.TestCase, run contract.RunResult, cfg config.JudgeConfig) contract.CaseResult {
 	result := contract.CaseResult{
-		Idx:    idx,
-		Name:   tc.Name,
-		Time:   run.CPUNs,
-		Memory: run.MemoryBytes,
+		Idx:         idx,
+		Name:        tc.Name,
+		CPUNs:       run.CPUNs,
+		MemoryBytes: run.MemoryBytes,
 	}
 
 	switch run.Status {

@@ -43,14 +43,14 @@ func (o Options) logger() *slog.Logger {
 	return slog.Default()
 }
 
-func Load(testdataRoot, problemID string, opts Options) ([]TestCase, error) {
+func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, error) {
 	log := opts.logger()
 
-	if !idPattern.MatchString(problemID) {
-		return nil, fmt.Errorf("非法 problemId: %q", problemID)
+	if !idPattern.MatchString(testDataVersionID) {
+		return nil, fmt.Errorf("非法 testDataVersionId: %q", testDataVersionID)
 	}
 
-	dir := filepath.Join(testdataRoot, problemID)
+	dir := filepath.Join(testdataRoot, testDataVersionID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("读测试数据目录 %q: %w", dir, err)
@@ -74,7 +74,7 @@ func Load(testdataRoot, problemID string, opts Options) ([]TestCase, error) {
 			if os.IsNotExist(err) {
 				// 出题人少传一个文件是常见事故：跳过这个点，但必须留痕。
 				log.Warn("测试点缺少对应的 .out，已跳过",
-					"problemID", problemID, "case", name, "expect", outPath)
+					"testDataVersionID", testDataVersionID, "case", name, "expect", outPath)
 				continue
 			}
 			return nil, fmt.Errorf("stat %q: %w", outPath, err)
@@ -94,7 +94,7 @@ func Load(testdataRoot, problemID string, opts Options) ([]TestCase, error) {
 	}
 
 	if len(cases) == 0 {
-		return nil, fmt.Errorf("题目 %q 没有配对的测试点", problemID)
+		return nil, fmt.Errorf("测试数据版本 %q 没有配对的测试点", testDataVersionID)
 	}
 	sort.Slice(cases, func(i, j int) bool {
 		return lessName(cases[i].Name, cases[j].Name)

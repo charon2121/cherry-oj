@@ -181,7 +181,7 @@ func TestLoadWarnsOnUnpaired(t *testing.T) {
 	if got == "" {
 		t.Fatal("跳过测试点时没有发出任何警告")
 	}
-	// 警告里要能定位到是哪道题的哪个点，否则运维看到也不知道去查什么
+	// 警告里要能定位到是哪个数据版本的哪个点，否则运维看到也不知道去查什么
 	for _, want := range []string{"unpaired", "2"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("警告里缺少 %q，无法定位: %s", want, got)
@@ -215,11 +215,11 @@ func TestLoadEmptyDirIsError(t *testing.T) {
 
 func TestLoadMissingDirIsError(t *testing.T) {
 	if _, err := testcase.Load(root, "no-such-problem", testcase.Options{}); err == nil {
-		t.Error("题目目录不存在应当报错")
+		t.Error("测试数据版本目录不存在应当报错")
 	}
 }
 
-// ★ problemId 来自 HTTP 请求，绝不能直接拼进路径。
+// ★ testDataVersionId 来自 HTTP 请求，绝不能直接拼进路径。
 // 只断言 Load 报错，不去真造一个 ../ 目录 —— 测防护不该以触发它为代价。
 func TestLoadRejectsBadID(t *testing.T) {
 	bad := []string{

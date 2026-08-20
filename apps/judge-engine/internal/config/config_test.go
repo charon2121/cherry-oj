@@ -90,6 +90,7 @@ func TestEnvOverridesYAML(t *testing.T) {
 	t.Setenv("CHERRY_OJ_JUDGE_REVEAL_EXPECTED", "true")
 	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_ROOT", "/srv/from-env")
 	t.Setenv("CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT", "5s")
+	t.Setenv("CHERRY_OJ_JUDGE_ENVIRONMENT_FINGERPRINT", "sha256:test-environment")
 	t.Setenv("CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES", "123456")
 	t.Setenv("CHERRY_OJ_JUDGE_COMPILE_CPU_NS", "999")
 
@@ -109,6 +110,9 @@ func TestEnvOverridesYAML(t *testing.T) {
 	}
 	if cfg.Judge.SandboxTimeout.Std() != 5*time.Second {
 		t.Errorf("sandboxTimeout=%s want 5s", cfg.Judge.SandboxTimeout)
+	}
+	if cfg.Judge.EnvironmentFingerprint != "sha256:test-environment" {
+		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
 	}
 	if cfg.Sandbox.Store.MaxBlobBytes != 123456 {
 		t.Errorf("maxBlobBytes=%d", cfg.Sandbox.Store.MaxBlobBytes)
@@ -142,6 +146,7 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		{"stdoutMaxBytes 为 0", func(c *Config) { c.Judge.Output.StdoutMaxBytes = 0 }},
 		{"maxBlobBytes 为 0", func(c *Config) { c.Sandbox.Store.MaxBlobBytes = 0 }},
 		{"testdataRoot 为空", func(c *Config) { c.Judge.TestdataRoot = "" }},
+		{"environmentFingerprint 为空", func(c *Config) { c.Judge.EnvironmentFingerprint = "" }},
 		{"compile 全零", func(c *Config) { c.Judge.Compile = CompileConfig{} }},
 		{"parallelism 为负", func(c *Config) { c.Sandbox.Parallelism = -1 }},
 	}

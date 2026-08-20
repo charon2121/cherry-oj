@@ -34,11 +34,12 @@ judging-service 按 submissionId 从受保护的内部 API 拉取 JudgeInput。
 
 ## 仓库结构
 
-顶层每个目录 = 一套构建工具 / 一种技术栈，互不侵入；跨语言唯一的耦合点是 `contracts/`。
+顶层每个目录 = 一套构建工具 / 一种技术栈，互不侵入；跨服务与跨语言的共享 DTO 只在
+`contracts/` 定义。
 
 ```
 cherry-oj/
-├── contracts/          ★ 跨语言契约（JSON Schema），唯一真源
+├── contracts/          ★ 跨服务 / 跨语言契约（JSON Schema），唯一真源
 ├── apps/
 │   ├── judge-engine/   Go 单模块，产出 judge + sandbox 两个二进制
 │   │   ├── cmd/{judge,sandbox}/
@@ -63,7 +64,7 @@ cherry-oj/
 
 | 部分 | 状态 |
 |---|---|
-| `contracts/` | ✅ run / judge / verdict / submission |
+| `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events；run / verdict 保持稳定 |
 | sandbox（store, container, runner, pool, api, cmd） | ✅ 可独立 `curl` |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
@@ -122,7 +123,7 @@ cherry-oj/
 | | 进请求（`JudgeRequest` 等） | 进配置（`internal/config`） |
 |---|---|---|
 | 判据 | **每次请求都可能不同** | **进程生命周期内不变** |
-| 例子 | 源码、语言、题目 id、时空限制 | 测试数据根目录、比对方式、是否回传标准答案、各类大小上限、监听地址 |
+| 例子 | 完整源码、languageId、版本 id、绝对时空限制 | 环境指纹、测试数据根目录、比对方式、输出上限、监听地址 |
 | 谁定的 | 出题人 / 提交者 | 部署方 |
 
 推论：**判题机的自保策略（输出上限、墙钟倍率、编译资源）不塞进跨语言契约**——
@@ -153,7 +154,7 @@ cherry-oj/
   写成「查不到返回 a」的话，某天加了新 verdict 忘了进表，结果是**错题判成 AC**。
 - **错误信息要能定位。** 带上路径、字段名、对方返回的 body 片段。
   `unexpected status 400` 会让人调试到怀疑人生。
-- **外部字符串拼进路径前先用正则关死。** `problemId`、`ref` 都来自 HTTP 请求，
+- **外部字符串拼进路径前先用正则关死。** `testDataVersionId`、`ref` 都来自 HTTP 请求，
   `filepath.Join(root, "../../etc")` 会老老实实跳出去。
   已出现三次：`container.resolve`、`store.refPattern`、`testcase.idPattern`。
 - **不返回恒为 nil 的 error**——只会让每个调用点白写一次 `if err != nil`。
@@ -204,8 +205,10 @@ cherry-oj/
   submission-service 拥有 Submission 与不可变 JudgeInput。
 - CORE 模板在 submission-service 创建 JudgeInput 时合并；Go judge 收到的始终是完整源码。
 - Kafka 不传源码、模板、测试数据、密码或 JWT；judging-service 通过内部 API 拉取 JudgeInput。
-- 与 judge 之间的 DTO **照着 `contracts/judge.schema.json` 写**，字段名、单位、
-  `omitempty` 语义都以 schema 为准；同样要有契约对齐测试。
+- 服务间 DTO 分别照着 `problem-judge-snapshot`、`execution-profile`、`judge-input`、`judge-events`
+  schema 写；与 Go judge 之间的 DTO 照着 `judge.schema.json` 写。字段名、单位、可选性都以 schema
+  为准，并用 schema 示例做契约对齐测试。
+- Go judge 的 `environmentFingerprint` 来自部署配置并出现在所有结果中；不能从请求回显。
 - 时间 ns、内存 bytes，字段名自带单位——不要在 Java 侧改成 `timeoutMs` 之类。
 - 「结果入不入库」是 submission-service 的决定，不要试图让 judge 关心。
 - 题目元信息真源在 problem-service；环境相关绝对限制真源在 judging-service；判题时解析并冻结到
@@ -314,7 +317,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 | job | 检查 | 为什么单独一条 |
 |---|---|---|
 | `tasks` | 任务字段、状态不变量、依赖图与工具测试 | 多 agent 协作的执行边界，错误状态不能进入 main |
-| `contracts` | `contracts/*.json` 可解析 | 跨语言唯一耦合点，坏了同时影响 Go 和 Java 侧；且一直是手改的 |
+| `contracts` | JSON 可解析 + `$ref` / v2 字段 / 事件安全边界 | 共享 DTO 坏了会同时影响多个服务与 Go；且一直是手改的 |
 | `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
 | `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
 

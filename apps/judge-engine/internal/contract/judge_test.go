@@ -2,28 +2,24 @@ package contract
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// 契约对齐：judge.schema.json 里的必填字段都要解得到。
-// schema 和 Go 类型会漂移，用这条钉住。
-func TestJudgeRequestUnmarshal(t *testing.T) {
-	const body = `{
-      "submissionId": "s1",
-      "problemId": "a-plus-b",
-      "language": "cpp",
-      "source": "int main(){}",
-      "limits": { "cpuNs": 1000000000, "memoryBytes": 268435456 }
-    }`
+// 契约对齐：直接读取 judge.schema.json 的示例，而不是在测试里复制一份“看起来一样”的 JSON。
+// schema 和 Go 类型会漂移，用同一份示例才能让字段改名在测试里立即暴露。
+func TestJudgeRequestUnmarshalsSchemaExample(t *testing.T) {
+	body := judgeSchemaExample(t, "JudgeRequest")
 
 	var req JudgeRequest
-	if err := json.Unmarshal([]byte(body), &req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		t.Fatal(err)
 	}
 
-	if req.SubmissionID != "s1" || req.ProblemID != "a-plus-b" ||
-		req.Language != "cpp" || req.Source != "int main(){}" {
+	if req.SubmissionID == "" || req.ProblemID == "" || req.ProblemVersionID == "" ||
+		req.TestDataVersionID == "" || req.LanguageID != "cpp" || req.Source == "" {
 		t.Errorf("必填字段没解全: %+v", req)
 	}
 	if req.Limits.CPUNs != 1000000000 || req.Limits.MemoryBytes != 268435456 {
@@ -32,6 +28,22 @@ func TestJudgeRequestUnmarshal(t *testing.T) {
 	// mode 缺省是零值 ""；兜底成 submit 由 flow 入口负责，不在 contract 里做。
 	if req.Mode != "" {
 		t.Errorf("Mode=%q，contract 不该自己兜底", req.Mode)
+	}
+}
+
+func TestJudgeResultUnmarshalsSchemaExample(t *testing.T) {
+	body := judgeSchemaExample(t, "JudgeResult")
+
+	var result JudgeResult
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Verdict != VerdictAC || result.EnvironmentFingerprint == "" ||
+		result.CPUNs == 0 || result.MemoryBytes == 0 || len(result.CaseResults) != 1 {
+		t.Errorf("JudgeResult 示例没有完整落入 Go 类型: %+v", result)
+	}
+	if result.CaseResults[0].CPUNs == 0 || result.CaseResults[0].MemoryBytes == 0 {
+		t.Errorf("CaseResult v2 资源字段没有解码: %+v", result.CaseResults[0])
 	}
 }
 
@@ -85,7 +97,7 @@ func TestJudgeLimitsValidate(t *testing.T) {
 // limits 缺省时解出来是零值 —— 所以 flow 入口必须调 Validate，
 // 否则一次「限制为 0」的判题会全程静默跑完，结论看着还挺合理。
 func TestJudgeRequestWithoutLimitsIsInvalid(t *testing.T) {
-	const body = `{"submissionId":"s1","problemId":"a","language":"cpp","source":"x"}`
+	const body = `{"submissionId":"s1","problemId":"p1","problemVersionId":"pv1","testDataVersionId":"tdv1","languageId":"cpp","source":"x"}`
 
 	var req JudgeRequest
 	if err := json.Unmarshal([]byte(body), &req); err != nil {
@@ -110,7 +122,7 @@ func TestJudgeModeIsValid(t *testing.T) {
 	}
 }
 
-func TestJudgeModeUsesProblemTestdata(t *testing.T) {
+func TestJudgeModeUsesVersionedTestdata(t *testing.T) {
 	tests := []struct {
 		mode         JudgeMode
 		usesTestdata bool
@@ -120,8 +132,8 @@ func TestJudgeModeUsesProblemTestdata(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {
-			if got := tt.mode.UsesProblemTestdata(); got != tt.usesTestdata {
-				t.Errorf("UsesProblemTestdata()=%v want %v", got, tt.usesTestdata)
+			if got := tt.mode.UsesVersionedTestdata(); got != tt.usesTestdata {
+				t.Errorf("UsesVersionedTestdata()=%v want %v", got, tt.usesTestdata)
 			}
 		})
 	}
@@ -201,7 +213,11 @@ func TestOutputEncodes(t *testing.T) {
 }
 
 func TestJudgeResultOmitsEmpty(t *testing.T) {
-	b, err := json.Marshal(JudgeResult{Verdict: VerdictAC, Score: 100})
+	b, err := json.Marshal(JudgeResult{
+		Verdict:                VerdictAC,
+		EnvironmentFingerprint: "sha256:test-environment",
+		Score:                  100,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -211,14 +227,67 @@ func TestJudgeResultOmitsEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, key := range []string{"verdict", "score"} {
+	for _, key := range []string{"verdict", "environmentFingerprint", "score"} {
 		if _, ok := m[key]; !ok {
 			t.Errorf("%q 应当总是出现", key)
 		}
 	}
-	for _, key := range []string{"cases", "message", "time", "memory"} {
+	for _, key := range []string{"caseResults", "message", "cpuNs", "memoryBytes"} {
 		if _, ok := m[key]; ok {
 			t.Errorf("%q 为空时应被 omitempty 掉", key)
 		}
 	}
+}
+
+func TestJudgeResultUsesV2ResourceNames(t *testing.T) {
+	b, err := json.Marshal(JudgeResult{
+		Verdict:                VerdictAC,
+		EnvironmentFingerprint: "sha256:test-environment",
+		CPUNs:                  12,
+		MemoryBytes:            34,
+		CaseResults: []CaseResult{{
+			Idx:         1,
+			Verdict:     VerdictAC,
+			CPUNs:       10,
+			MemoryBytes: 30,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	encoded := string(b)
+	for _, key := range []string{`"cpuNs"`, `"memoryBytes"`, `"caseResults"`} {
+		if !strings.Contains(encoded, key) {
+			t.Errorf("v2 字段 %s 没有编码: %s", key, encoded)
+		}
+	}
+	for _, oldKey := range []string{`"time"`, `"memory"`, `"cases"`} {
+		if strings.Contains(encoded, oldKey) {
+			t.Errorf("结果仍包含旧字段 %s: %s", oldKey, encoded)
+		}
+	}
+}
+
+func judgeSchemaExample(t *testing.T, definition string) json.RawMessage {
+	t.Helper()
+
+	path := filepath.Join("..", "..", "..", "..", "contracts", "judge.schema.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("读取 %s: %v", path, err)
+	}
+	var schema struct {
+		Definitions map[string]struct {
+			Examples []json.RawMessage `json:"examples"`
+		} `json:"definitions"`
+	}
+	if err := json.Unmarshal(body, &schema); err != nil {
+		t.Fatalf("解析 %s: %v", path, err)
+	}
+	examples := schema.Definitions[definition].Examples
+	if len(examples) == 0 {
+		t.Fatalf("%s definitions.%s.examples 不能为空", path, definition)
+	}
+	return examples[0]
 }

@@ -75,7 +75,10 @@ type JudgeConfig struct {
 	HTTPAddr       string   `yaml:"httpAddr"`
 	SandboxURL     string   `yaml:"sandboxURL"`
 	SandboxTimeout Duration `yaml:"sandboxTimeout"`
-	// TestdataRoot：测试数据根目录，下面按 problemId 分子目录。
+	// EnvironmentFingerprint：实际部署环境的不可变标识，随每个 JudgeResult 返回。
+	// judging-service 用它核对任务是否被路由到了 JudgeInput 冻结的环境。
+	EnvironmentFingerprint string `yaml:"environmentFingerprint"`
+	// TestdataRoot：测试数据根目录，下面按 testDataVersionId 分子目录。
 	TestdataRoot string `yaml:"testdataRoot"`
 
 	// StrictWhitespace：token 全对、但空白排布和标准答案不一致时，判 PE 还是 AC。
@@ -140,16 +143,17 @@ func Default() Config {
 			},
 		},
 		Judge: JudgeConfig{
-			HTTPAddr:             "127.0.0.1:5051",
-			SandboxURL:           "http://127.0.0.1:5050",
-			SandboxTimeout:       Duration(60 * time.Second),
-			TestdataRoot:         "/srv/cherry-oj/testdata",
-			StrictWhitespace:     false, // 默认宽松：一个换行不该卡住新手
-			RevealExpected:       false, // ★ 默认不泄题；教学部署自己打开
-			ClockRatio:           10,
-			InlineThresholdBytes: 256 << 10,
-			OutputExcerptBytes:   4 << 10,
-			MessageExcerptBytes:  8 << 10,
+			HTTPAddr:               "127.0.0.1:5051",
+			SandboxURL:             "http://127.0.0.1:5050",
+			SandboxTimeout:         Duration(60 * time.Second),
+			EnvironmentFingerprint: "local-development",
+			TestdataRoot:           "/srv/cherry-oj/testdata",
+			StrictWhitespace:       false, // 默认宽松：一个换行不该卡住新手
+			RevealExpected:         false, // ★ 默认不泄题；教学部署自己打开
+			ClockRatio:             10,
+			InlineThresholdBytes:   256 << 10,
+			OutputExcerptBytes:     4 << 10,
+			MessageExcerptBytes:    8 << 10,
 			Output: OutputConfig{
 				StdoutMaxBytes: 64 << 20,
 				StderrMaxBytes: 16 << 20,
@@ -222,6 +226,9 @@ func (c Config) Validate() error {
 	}
 	if j.SandboxTimeout <= 0 {
 		return fmt.Errorf("judge.sandboxTimeout 必须为正，得到 %s", j.SandboxTimeout)
+	}
+	if j.EnvironmentFingerprint == "" {
+		return fmt.Errorf("judge.environmentFingerprint 不能为空")
 	}
 	if j.TestdataRoot == "" {
 		return fmt.Errorf("judge.testdataRoot 不能为空")

@@ -6,7 +6,7 @@ import "fmt"
 type JudgeMode string
 
 const (
-	// ModeSubmit：正式提交。judge 按 problemId 从测试数据目录读该题全部测例。
+	// ModeSubmit：正式提交。judge 按 testDataVersionId 从测试数据目录读取测例。
 	ModeSubmit JudgeMode = "submit"
 	// ModeTrial：试运行。用请求里带的 cases——题面样例（server 从库里取出内联发来）
 	// 和用户自己敲的输入都走这条。
@@ -22,8 +22,8 @@ func (m JudgeMode) IsValid() bool {
 	}
 }
 
-// UsesProblemTestdata 报告这个模式要不要去测试数据目录读盘
-func (m JudgeMode) UsesProblemTestdata() bool { return m == ModeSubmit }
+// UsesVersionedTestdata 报告这个模式是否按 testDataVersionId 从测试数据目录读盘。
+func (m JudgeMode) UsesVersionedTestdata() bool { return m == ModeSubmit }
 
 // CaseSpec：一个测试点的输入，以及可选的期望输出。
 // expected 缺省 = 只跑不比对（结果是 RAN，不是 AC/WA）。
@@ -61,13 +61,15 @@ func (l JudgeLimits) Validate() error {
 
 // JudgeRequest：判题请求
 type JudgeRequest struct {
-	SubmissionID string      `json:"submissionId"`    // 只用于标识/对账，不参与判题逻辑
-	ProblemID    string      `json:"problemId"`       // 只用于加载测例文件
-	Language     string      `json:"language"`        // 决定编译/运行怎么编排
-	Source       string      `json:"source"`          // 源码全文
-	Limits       JudgeLimits `json:"limits"`          // 时空限制
-	Mode         JudgeMode   `json:"mode,omitempty"`  // 缺省由 flow 兜底为 submit
-	Cases        []CaseSpec  `json:"cases,omitempty"` // 仅 mode=trial
+	SubmissionID      string      `json:"submissionId"`      // 只用于标识/对账，不参与判题逻辑
+	ProblemID         string      `json:"problemId"`         // 只用于日志/对账
+	ProblemVersionID  string      `json:"problemVersionId"`  // 只用于日志/对账
+	TestDataVersionID string      `json:"testDataVersionId"` // 正式测例目录键
+	LanguageID        string      `json:"languageId"`        // 决定编译/运行怎么编排
+	Source            string      `json:"source"`            // 完整源码；CORE 已在上游合并
+	Limits            JudgeLimits `json:"limits"`            // 环境相关绝对限制
+	Mode              JudgeMode   `json:"mode,omitempty"`    // 缺省由 flow 兜底为 submit
+	Cases             []CaseSpec  `json:"cases,omitempty"`   // 仅 mode=trial
 }
 
 // Output：用户程序的输出，非 AC 时带回供排查。
@@ -94,24 +96,25 @@ type Diff struct {
 
 // CaseResult：单个测试点的判题结果
 type CaseResult struct {
-	Idx     int     `json:"idx"`            // 本次判题中的序号，从 1 开始
-	Name    string  `json:"name,omitempty"` // 测试点名：submit 取自文件名，trial 取自 CaseSpec.Name
-	Verdict Verdict `json:"verdict"`
-	Time    int64   `json:"time,omitempty"`   // ns
-	Memory  int64   `json:"memory,omitempty"` // bytes
-	Message string  `json:"message,omitempty"`
-	Output  *Output `json:"output,omitempty"` // 非 AC 时带回
-	Diff    *Diff   `json:"diff,omitempty"`   // 仅 WA 时
+	Idx         int     `json:"idx"`            // 本次判题中的序号，从 1 开始
+	Name        string  `json:"name,omitempty"` // 测试点名：submit 取自文件名，trial 取自 CaseSpec.Name
+	Verdict     Verdict `json:"verdict"`
+	CPUNs       int64   `json:"cpuNs,omitempty"`
+	MemoryBytes int64   `json:"memoryBytes,omitempty"`
+	Message     string  `json:"message,omitempty"`
+	Output      *Output `json:"output,omitempty"` // 非 AC 时带回
+	Diff        *Diff   `json:"diff,omitempty"`   // 仅 WA 时
 }
 
 // JudgeResult：判题结果
 type JudgeResult struct {
-	Verdict Verdict `json:"verdict"`
-	Time    int64   `json:"time,omitempty"`   // 各点最大值，ns
-	Memory  int64   `json:"memory,omitempty"` // 各点最大值，bytes
-	Score   int     `json:"score"`
-	Message string  `json:"message,omitempty"` // 如 CE 的编译器输出
-	// Cases 的顺序即实际执行顺序，Idx 从 1 递增。
+	Verdict                Verdict `json:"verdict"`
+	EnvironmentFingerprint string  `json:"environmentFingerprint"` // 来自 judge 部署配置，不从请求回显
+	CPUNs                  int64   `json:"cpuNs,omitempty"`        // 各点最大值
+	MemoryBytes            int64   `json:"memoryBytes,omitempty"`  // 各点峰值最大值
+	Score                  int     `json:"score"`
+	Message                string  `json:"message,omitempty"` // 如 CE 的编译器输出
+	// CaseResults 的顺序即实际执行顺序，Idx 从 1 递增。
 	// trial 模式下严格对应请求里的 Cases[i]——调用方靠这个把结果对回去，judge 不得重排。
-	Cases []CaseResult `json:"cases,omitempty"`
+	CaseResults []CaseResult `json:"caseResults,omitempty"`
 }

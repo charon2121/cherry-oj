@@ -23,10 +23,10 @@ jobs:
       - name: 校验任务字段、状态和依赖图
         run: scripts/task check
 
-  # 跨语言契约是唯一的耦合点，语法坏掉会同时影响 Go 和将来的 Java 侧，
+  # 跨服务 / 跨语言契约是共享 DTO 的唯一真源，语法、引用或安全边界坏掉会同时影响多侧，
   # 所以单独一个最快的 job 先把它挡住。
   contracts:
-    name: contracts (JSON 语法)
+    name: contracts (结构与边界)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +37,8 @@ jobs:
               || { echo "::error file=$f::JSON 解析失败"; exit 1; }
             echo "✓ $f"
           done
+      - name: 校验 schema 引用、v2 字段和事件安全边界
+        run: python3 scripts/contracts_test.py
 
   go:
     name: judge-engine (Go)
@@ -129,12 +131,13 @@ jobs:
           docker compose up -d --no-build --wait
           response=$(curl -sS -X POST http://127.0.0.1:5051/judge \
             -H 'Content-Type: application/json' \
-            -d '{"submissionId":"ci-docker","problemId":"a-plus-b","language":"cpp","source":"#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<\"\\n\";}","limits":{"cpuNs":1000000000,"memoryBytes":268435456}}')
+            -d '{"submissionId":"ci-docker","problemId":"problem-a-plus-b","problemVersionId":"problem-a-plus-b-v1","testDataVersionId":"a-plus-b","languageId":"cpp","source":"#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<\"\\n\";}","limits":{"cpuNs":1000000000,"memoryBytes":268435456}}')
           echo "$response"
           printf '%s' "$response" | python3 -c '
           import json, sys
           result = json.load(sys.stdin)
           assert result["verdict"] == "AC", result
-          assert len(result["cases"]) == 3, result
-          assert all(case["verdict"] == "AC" for case in result["cases"]), result
+          assert result["environmentFingerprint"] == "local-compose", result
+          assert len(result["caseResults"]) == 3, result
+          assert all(case["verdict"] == "AC" for case in result["caseResults"]), result
           '

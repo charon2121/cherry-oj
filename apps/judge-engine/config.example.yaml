@@ -5,6 +5,7 @@
 #
 # 环境变量名由下面的路径推出来，全大写、下划线分隔，前缀 CHERRY_OJ_：
 #   judge.testdataRoot         → CHERRY_OJ_JUDGE_TESTDATA_ROOT
+#   judge.environmentFingerprint → CHERRY_OJ_JUDGE_ENVIRONMENT_FINGERPRINT
 #   judge.compile.cpuNs        → CHERRY_OJ_JUDGE_COMPILE_CPU_NS
 #   sandbox.store.maxBlobBytes → CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES
 #
@@ -27,11 +28,16 @@ judge:
   httpAddr: 127.0.0.1:5051
   sandboxURL: http://127.0.0.1:5050
 
+  # 实际部署环境的不可变标识。每个 JudgeResult 都会返回它，judging-service
+  # 据此确认任务没有被路由到错误环境。生产环境必须替换默认开发值。
+  environmentFingerprint: local-development
+
   # 单次调用 sandbox 的超时。必须大于「编译 + 最慢的那个测试点」，
   # 否则会出现「沙箱正常跑着，judge 自己先超时了」，报出来是 SE，极难查。
   sandboxTimeout: 60s
 
-  # 测试数据根目录，下面按 problemId 分子目录：<root>/<problemId>/{1.in,1.out,...}
+  # 测试数据根目录，下面按不可变 testDataVersionId 分目录：
+  # <root>/<testDataVersionId>/{1.in,1.out,...}
   # 开发时可指向 ./testdata/problems
   testdataRoot: /srv/cherry-oj/testdata
 

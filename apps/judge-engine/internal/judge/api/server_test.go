@@ -49,12 +49,18 @@ func TestVersion(t *testing.T) {
 }
 
 func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
-	fake := &fakeJudger{result: contract.JudgeResult{Verdict: contract.VerdictAC, Score: 100}}
+	fake := &fakeJudger{result: contract.JudgeResult{
+		Verdict:                contract.VerdictAC,
+		EnvironmentFingerprint: "sha256:test-environment",
+		Score:                  100,
+	}}
 	h := api.New(fake).Handler()
 	body := `{
       "submissionId":"s1",
       "problemId":"a-plus-b",
-      "language":"cpp",
+      "problemVersionId":"pv1",
+      "testDataVersionId":"tdv1",
+      "languageId":"cpp",
       "source":"",
       "limits":{"cpuNs":1000,"memoryBytes":2000,"clockNs":3000},
       "mode":"trial",
@@ -75,7 +81,8 @@ func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
 		t.Fatalf("Judge calls = %d", fake.called)
 	}
 	if fake.got.SubmissionID != "s1" || fake.got.ProblemID != "a-plus-b" ||
-		fake.got.Language != "cpp" || fake.got.Source != "" || fake.got.Mode != contract.ModeTrial {
+		fake.got.ProblemVersionID != "pv1" || fake.got.TestDataVersionID != "tdv1" ||
+		fake.got.LanguageID != "cpp" || fake.got.Source != "" || fake.got.Mode != contract.ModeTrial {
 		t.Errorf("request = %+v", fake.got)
 	}
 	if fake.got.Limits.CPUNs != 1000 || fake.got.Limits.MemoryBytes != 2000 || fake.got.Limits.ClockNs != 3000 {
@@ -93,7 +100,8 @@ func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != contract.VerdictAC || result.Score != 100 {
+	if result.Verdict != contract.VerdictAC || result.Score != 100 ||
+		result.EnvironmentFingerprint != "sha256:test-environment" {
 		t.Errorf("result = %+v", result)
 	}
 }
@@ -107,14 +115,17 @@ func TestJudgeRejectsMalformedOrIncompleteJSON(t *testing.T) {
 		{"empty body", "", "解析 JudgeRequest"},
 		{"invalid JSON", "{", "解析 JudgeRequest"},
 		{"multiple values", `{}` + `{}`, "多余"},
-		{"missing submissionId", `{"problemId":"p","language":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "submissionId"},
-		{"missing problemId", `{"submissionId":"s","language":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "problemId"},
-		{"missing language", `{"submissionId":"s","problemId":"p","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "language"},
-		{"missing source", `{"submissionId":"s","problemId":"p","language":"cpp","limits":{"cpuNs":1,"memoryBytes":1}}`, "source"},
-		{"missing limits", `{"submissionId":"s","problemId":"p","language":"cpp","source":"x"}`, "limits"},
-		{"missing cpuNs", `{"submissionId":"s","problemId":"p","language":"cpp","source":"x","limits":{"memoryBytes":1}}`, "limits.cpuNs"},
-		{"missing memoryBytes", `{"submissionId":"s","problemId":"p","language":"cpp","source":"x","limits":{"cpuNs":1}}`, "limits.memoryBytes"},
-		{"missing case input", `{"submissionId":"s","problemId":"p","language":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1},"mode":"trial","cases":[{"expected":"3"}]}`, "cases[0].input"},
+		{"unknown field", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1},"codeMode":"CORE"}`, "unknown field"},
+		{"missing submissionId", `{"problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "submissionId"},
+		{"missing problemId", `{"submissionId":"s","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "problemId"},
+		{"missing problemVersionId", `{"submissionId":"s","problemId":"p","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "problemVersionId"},
+		{"missing testDataVersionId", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "testDataVersionId"},
+		{"missing languageId", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "languageId"},
+		{"missing source", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","limits":{"cpuNs":1,"memoryBytes":1}}`, "source"},
+		{"missing limits", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x"}`, "limits"},
+		{"missing cpuNs", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"memoryBytes":1}}`, "limits.cpuNs"},
+		{"missing memoryBytes", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1}}`, "limits.memoryBytes"},
+		{"missing case input", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1},"mode":"trial","cases":[{"expected":"3"}]}`, "cases[0].input"},
 	}
 
 	for _, tt := range tests {
@@ -148,10 +159,13 @@ func TestJudgeVerdictsAreHTTP200(t *testing.T) {
 		contract.VerdictSE,
 	} {
 		t.Run(string(verdict), func(t *testing.T) {
-			fake := &fakeJudger{result: contract.JudgeResult{Verdict: verdict}}
+			fake := &fakeJudger{result: contract.JudgeResult{
+				Verdict:                verdict,
+				EnvironmentFingerprint: "sha256:test-environment",
+			}}
 			h := api.New(fake).Handler()
 			req := httptest.NewRequest(http.MethodPost, "/judge", strings.NewReader(
-				`{"submissionId":"s","problemId":"p","language":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`,
+				`{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`,
 			))
 			rec := httptest.NewRecorder()
 
