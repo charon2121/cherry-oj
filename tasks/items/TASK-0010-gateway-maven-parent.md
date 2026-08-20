@@ -4,19 +4,18 @@ title: "修复 Gateway Maven 父继承与依赖解析"
 type: "bug"
 area: "server/gateway"
 priority: "P0"
-status: "in_progress"
+status: "done"
 assignee: "codex/root"
 depends_on: ["TASK-0008"]
 related: ["TASK-0009"]
 created_at: "2026-08-20T14:47:28+08:00"
-updated_at: "2026-08-20T14:48:20+08:00"
+updated_at: "2026-08-20T14:50:20+08:00"
 claim_branch: "codex/task-0010"
 claimed_at: "2026-08-20T14:48:20+08:00"
 lease_until: "2026-08-21T14:48:20+08:00"
-completed_at: null
+completed_at: "2026-08-20T14:50:20+08:00"
 review_required: false
 ---
-
 
 # TASK-0010：修复 Gateway Maven 父继承与依赖解析
 
@@ -48,14 +47,19 @@ Gateway 也就无法继承根 POM 导入的 Spring Cloud BOM，IDEA 因而不能
 
 ## 验收标准
 
-- [ ] Gateway parent 坐标等于根 POM 的 `com.cherryoj:server:0.0.1-SNAPSHOT`。
-- [ ] Gateway POM 不显式声明 Spring Cloud Gateway 版本，版本继续由父 POM 的 BOM 管理。
-- [ ] Maven `validate` 和 Gateway `dependency:tree` 成功，依赖树中不存在 `${project.version}` 占位符。
+- [x] Gateway parent 坐标等于根 POM 的 `com.cherryoj:server:0.0.1-SNAPSHOT`。
+- [x] Gateway POM 不显式声明 Spring Cloud Gateway 版本，版本继续由父 POM 的 BOM 管理。
+- [x] Maven `validate` 和 Gateway `dependency:tree` 成功，依赖树中不存在 `${project.version}` 占位符。
 
 ## 执行记录
 
 - 2026-08-20T14:47:28+08:00：创建任务。
+- 2026-08-20：将 Gateway parent 从错误的 `com.cherryoj:cherry-oj-server` 及非法复合 version
+  修正为根 POM 的 `com.cherryoj:server:0.0.1-SNAPSHOT`。
+- 2026-08-20：`./apps/server/mvnw -f apps/server/pom.xml validate` 成功；Gateway 依赖树将
+  `spring-cloud-starter-gateway-server-webflux` 解析为 `5.0.2`，未出现 `${project.version}`。
 - 2026-08-20T14:48:20+08:00：codex/root 在分支 codex/task-0010 认领任务，租约 24 小时。
+- 2026-08-20T14:50:20+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -63,4 +67,7 @@ Gateway 也就无法继承根 POM 导入的 Spring Cloud BOM，IDEA 因而不能
 
 ## 完成结果
 
-尚未完成。
+Gateway 已能正确继承根 POM 及其 Spring Cloud 2025.1.2 BOM，starter 版本解析恢复正常。
+`apps/server` 整体仍是用户未跟踪的初始化工程，因此本任务只修改工作区中的 Gateway POM，
+不单独提交该子文件，避免生成缺少根 POM、不能独立构建的远端提交。Maven `validate` 成功，
+`dependency:tree` 将 WebFlux Gateway starter 解析为 5.0.2。
