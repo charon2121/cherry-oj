@@ -1,13 +1,13 @@
-package com.cherryoj.judgeservice;
+package com.cherryoj.judgingservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class JudgeServiceApplication {
+public class JudgingServiceApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(JudgeServiceApplication.class, args);
+        SpringApplication.run(JudgingServiceApplication.class, args);
     }
 
 }

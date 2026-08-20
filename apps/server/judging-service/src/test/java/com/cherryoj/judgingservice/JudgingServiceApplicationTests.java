@@ -1,10 +1,10 @@
-package com.cherryoj.judgeservice;
+package com.cherryoj.judgingservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class JudgeServiceApplicationTests {
+class JudgingServiceApplicationTests {
 
     @Test
     void contextLoads() {

@@ -10,9 +10,9 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>judge-service</artifactId>
-    <name>judge-service</name>
-    <description>Cherry OJ judge orchestration and execution profiles</description>
+    <artifactId>judging-service</artifactId>
+    <name>judging-service</name>
+    <description>Cherry OJ judging orchestration and execution profiles</description>
 
     <dependencies>
         <dependency>

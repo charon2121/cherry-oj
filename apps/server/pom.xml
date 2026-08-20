@@ -23,7 +23,7 @@
         <module>user-service</module>
         <module>problem-service</module>
         <module>submission-service</module>
-        <module>judge-service</module>
+        <module>judging-service</module>
     </modules>
 
     <properties>
