@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/judge-events.schema.json",
+  "title": "Judge Events v1",
+  "description": "judge.requests.v1 与 judge.lifecycle.v1 的 Kafka 信封。Kafka key 必须是 submissionId。生产者必须把序列化后的整条消息限制在 1 MiB 以内；字段级上限由本 schema 约束，broker/producer 负责总字节上限。所有 payload 都使用 additionalProperties=false，因此 source、completeSource、judgeTemplate、测试数据、密码和 JWT 均不允许进入事件。",
+  "x-contract-version": 1,
+  "oneOf": [
+    { "$ref": "#/definitions/JudgeRequestedEvent" },
+    { "$ref": "#/definitions/JudgeStartedEvent" },
+    { "$ref": "#/definitions/JudgeCompletedEvent" },
+    { "$ref": "#/definitions/JudgeFailedEvent" }
+  ],
+  "definitions": {
+    "EventEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "traceId",
+        "aggregateId",
+        "payload"
+      ],
+      "properties": {
+        "eventId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "eventType": { "type": "string" },
+        "eventVersion": { "type": "integer", "minimum": 1 },
+        "occurredAt": { "type": "string", "format": "date-time" },
+        "traceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "aggregateId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "submissionId；必须与 Kafka key 和 payload.submissionId 一致"
+        },
+        "payload": { "type": "object" }
+      }
+    },
+    "JudgeRequested": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submissionId", "judgeInputContractVersion"],
+      "properties": {
+        "submissionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "judgeInputContractVersion": { "type": "string", "const": "2" }
+      }
+    },
+    "JudgeStarted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submissionId", "taskId", "attemptNo", "startedAt"],
+      "properties": {
+        "submissionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "attemptNo": { "type": "integer", "minimum": 1 },
+        "startedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "JudgeCompleted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["submissionId", "taskId", "attemptNo", "finishedAt", "result"],
+      "properties": {
+        "submissionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "attemptNo": { "type": "integer", "minimum": 1 },
+        "finishedAt": { "type": "string", "format": "date-time" },
+        "result": { "$ref": "judge.schema.json#/definitions/JudgeResult" }
+      }
+    },
+    "JudgeFailed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "submissionId",
+        "taskId",
+        "attemptNo",
+        "finishedAt",
+        "errorCode",
+        "message"
+      ],
+      "properties": {
+        "submissionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "taskId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "attemptNo": { "type": "integer", "minimum": 1 },
+        "finishedAt": { "type": "string", "format": "date-time" },
+        "errorCode": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+          "description": "稳定、可聚合的错误码"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 8192,
+          "description": "安全摘要；不得包含源码、测试数据、密码、JWT 或完整标准答案"
+        }
+      }
+    },
+    "JudgeRequestedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "properties": {
+            "eventType": { "const": "JudgeRequested" },
+            "eventVersion": { "const": 1 },
+            "payload": { "$ref": "#/definitions/JudgeRequested" }
+          }
+        }
+      ]
+    },
+    "JudgeStartedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "properties": {
+            "eventType": { "const": "JudgeStarted" },
+            "eventVersion": { "const": 1 },
+            "payload": { "$ref": "#/definitions/JudgeStarted" }
+          }
+        }
+      ]
+    },
+    "JudgeCompletedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "properties": {
+            "eventType": { "const": "JudgeCompleted" },
+            "eventVersion": { "const": 1 },
+            "payload": { "$ref": "#/definitions/JudgeCompleted" }
+          }
+        }
+      ]
+    },
+    "JudgeFailedEvent": {
+      "allOf": [
+        { "$ref": "#/definitions/EventEnvelope" },
+        {
+          "properties": {
+            "eventType": { "const": "JudgeFailed" },
+            "eventVersion": { "const": 1 },
+            "payload": { "$ref": "#/definitions/JudgeFailed" }
+          }
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "eventId": "0198cafe-0000-7000-8000-000000000010",
+      "eventType": "JudgeRequested",
+      "eventVersion": 1,
+      "occurredAt": "2026-08-20T02:00:00Z",
+      "traceId": "trace-0198cafe",
+      "aggregateId": "0198cafe-0000-7000-8000-000000000001",
+      "payload": {
+        "submissionId": "0198cafe-0000-7000-8000-000000000001",
+        "judgeInputContractVersion": "2"
+      }
+    }
+  ]
+}

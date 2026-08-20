@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/execution-profile.schema.json",
+  "title": "ExecutionProfile v1",
+  "description": "judging-service 为 submission-service 解析的不可变执行配置。只有 ACTIVE 环境、目标语言启用、测试数据部署 READY 且 hash 一致、语言标定 VALID 时返回；失败时禁止生成默认限制。",
+  "x-contract-version": 1,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "problemVersionId",
+    "testDataVersionId",
+    "languageId",
+    "judgeEnvironmentId",
+    "environmentFingerprint",
+    "languageCalibrationId",
+    "effectiveLimits"
+  ],
+  "properties": {
+    "problemVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "testDataVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "languageId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+    "judgeEnvironmentId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "environmentFingerprint": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "languageCalibrationId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "effectiveLimits": { "$ref": "judge.schema.json#/definitions/JudgeLimits" }
+  },
+  "definitions": {
+    "ResolveExecutionProfileRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "problemVersionId",
+        "testDataVersionId",
+        "testDataContentSha256",
+        "languageId"
+      ],
+      "properties": {
+        "problemVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "testDataVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "testDataContentSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "languageId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" }
+      },
+      "examples": [
+        {
+          "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
+          "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
+          "testDataContentSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "languageId": "cpp"
+        }
+      ]
+    }
+  },
+  "examples": [
+    {
+      "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
+      "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
+      "languageId": "cpp",
+      "judgeEnvironmentId": "0198cafe-0000-7000-8000-000000000005",
+      "environmentFingerprint": "sha256:judge-env-amd64-v1",
+      "languageCalibrationId": "0198cafe-0000-7000-8000-000000000006",
+      "effectiveLimits": {
+        "cpuNs": 1000000000,
+        "memoryBytes": 268435456
+      }
+    }
+  ]
+}

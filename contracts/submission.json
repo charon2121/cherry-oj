@@ -1,122 +1,108 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/submission.json",
-  "title": "Submission",
-  "description": "用户提交（server 持久化资源）。status 是生命周期；verdict 是 OJ 判分。时间单位 ns，内存单位 bytes。cases 持久化每个测试点明细（MVP 可用 JSON 列存储）。",
+  "title": "Submission v2",
+  "description": "submission-service 拥有的用户提交读模型。它保存用户原始源码、不可变题目版本、数据版本、环境、标定和绝对限制快照；完整送判源码只存在 JudgeInput。时间单位 ns，内存单位 bytes。",
+  "x-contract-version": 2,
   "type": "object",
-  "required": ["id", "problemId", "userId", "language", "source", "status", "createdAt"],
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "problemId",
+    "problemVersionId",
+    "problemVersionNo",
+    "problemTitle",
+    "testDataVersionId",
+    "userId",
+    "languageId",
+    "codeMode",
+    "languageCalibrationId",
+    "judgeEnvironmentId",
+    "environmentFingerprint",
+    "effectiveLimits",
+    "source",
+    "status",
+    "createdAt"
+  ],
   "properties": {
-    "id": {
-      "type": "string",
-      "description": "提交 id"
-    },
-    "problemId": {
-      "type": "string",
-      "description": "题目 id"
-    },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "problemId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "problemVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "problemVersionNo": { "type": "integer", "minimum": 1 },
+    "problemTitle": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "testDataVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
     "userId": {
       "type": "string",
-      "description": "提交用户 id（创建时从登录态写入，不由客户端随意指定）"
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "从登录态取得，不由创建请求指定"
     },
-    "language": {
+    "languageId": {
       "type": "string",
-      "description": "语言 id，如 cpp / python"
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
     },
+    "codeMode": { "$ref": "#/definitions/CodeMode" },
+    "languageCalibrationId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "judgeEnvironmentId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "environmentFingerprint": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "effectiveLimits": { "$ref": "judge.schema.json#/definitions/JudgeLimits" },
     "source": {
       "type": "string",
-      "description": "源码全文（后期可改为对象存储 key，MVP 直接存文本）"
+      "description": "用户原始源码；CORE 不含 judgeTemplate"
     },
-    "status": {
-      "$ref": "#/definitions/SubmissionStatus"
-    },
+    "status": { "$ref": "#/definitions/SubmissionStatus" },
     "verdict": {
       "$ref": "verdict.json",
-      "description": "有终态结果后才有；Pending/Judging 时可省略"
+      "description": "DONE 后必填；PENDING/JUDGING 时省略"
     },
-    "time": {
+    "cpuNs": {
       "type": "integer",
       "minimum": 0,
-      "description": "各测试点用户 CPU 时间最大值，ns"
+      "description": "各测试点 CPU 时间最大值"
     },
-    "memory": {
+    "memoryBytes": {
       "type": "integer",
       "minimum": 0,
-      "description": "各测试点内存峰值最大值，bytes"
+      "description": "各测试点内存峰值最大值"
     },
-    "score": {
-      "type": "integer",
-      "minimum": 0,
-      "description": "得分；ICPC 风格通常 AC=100 否则 0"
-    },
-    "message": {
-      "type": "string",
-      "description": "补充信息，如 CE 的编译器 stderr、SE 原因"
-    },
-    "cases": {
+    "score": { "type": "integer", "minimum": 0 },
+    "message": { "type": "string", "maxLength": 8192 },
+    "caseResults": {
       "type": "array",
-      "description": "每个测试点的结果明细（持久化）",
-      "items": {
-        "$ref": "#/definitions/CaseResult"
-      }
+      "maxItems": 1000,
+      "items": { "$ref": "judge.schema.json#/definitions/CaseResult" }
     },
-    "createdAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "创建时间（ISO-8601）"
-    },
-    "finishedAt": {
-      "type": "string",
-      "format": "date-time",
-      "description": "判题结束时间；Done 后有值"
-    }
+    "createdAt": { "type": "string", "format": "date-time" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" }
   },
   "definitions": {
+    "CodeMode": {
+      "type": "string",
+      "enum": ["ACM", "CORE"]
+    },
     "SubmissionStatus": {
       "type": "string",
-      "description": "提交生命周期（不是 AC/WA）。Pending=已创建未送判；Judging=正在调 judge；Done=已有终态（含 CE/SE）。",
-      "enum": ["Pending", "Judging", "Done"]
-    },
-    "CaseResult": {
-      "type": "object",
-      "required": ["idx", "verdict"],
-      "properties": {
-        "idx": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "测试点编号"
-        },
-        "verdict": {
-          "$ref": "verdict.json"
-        },
-        "time": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "该点用户 CPU 时间，ns"
-        },
-        "memory": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "该点内存峰值，bytes"
-        },
-        "message": {
-          "type": "string",
-          "description": "该点补充信息"
-        },
-        "stdout": {
-          "type": "string",
-          "description": "可选；自定义测试无标准答案时带回输出。正式提交通常不存。"
-        }
-      }
+      "description": "PENDING=已冻结并等待调度；JUDGING=至少收到一次 JudgeStarted；DONE=已有终态，不能回退。",
+      "enum": ["PENDING", "JUDGING", "DONE"]
     },
     "CreateSubmissionRequest": {
       "type": "object",
-      "description": "浏览器创建正式提交。自定义测试请走独立调试 API，不要与正式提交混用。",
-      "required": ["problemId", "language", "source"],
+      "additionalProperties": false,
+      "description": "浏览器创建正式提交。userId、版本、环境和限制均由服务端解析。",
+      "required": ["problemId", "languageId", "source"],
       "properties": {
-        "problemId": { "type": "string" },
-        "language": { "type": "string" },
+        "problemId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "languageId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
         "source": { "type": "string" }
-      }
+      },
+      "examples": [
+        {
+          "problemId": "0198cafe-0000-7000-8000-000000000002",
+          "languageId": "cpp",
+          "source": "int main() { return 0; }"
+        }
+      ]
     }
   }
 }

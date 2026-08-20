@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/problem-judge-snapshot.schema.json",
+  "title": "ProblemJudgeSnapshot v1",
+  "description": "problem-service → submission-service 的内部不可变判题快照。只在题目 ACTIVE/PUBLIC、当前版本 PUBLISHED、语言已允许且测试数据 READY 时返回。judgeTemplate 是内部敏感字段，不得透传浏览器、日志或 Kafka。",
+  "x-contract-version": 1,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "problemId",
+    "problemVersionId",
+    "problemVersionNo",
+    "problemTitle",
+    "testDataVersionId",
+    "testDataContentSha256",
+    "languageId",
+    "codeMode"
+  ],
+  "properties": {
+    "problemId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "problemVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "problemVersionNo": { "type": "integer", "minimum": 1 },
+    "problemTitle": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "testDataVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "testDataContentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "READY TestDataVersion 内容摘要"
+    },
+    "languageId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+    "codeMode": { "type": "string", "enum": ["ACM", "CORE"] },
+    "judgeTemplate": {
+      "type": "string",
+      "maxLength": 1048576,
+      "description": "仅 CORE 返回；发布校验保证包含且只包含一个字面量 {{USER_CODE}}"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "codeMode": { "const": "CORE" } },
+        "required": ["codeMode"]
+      },
+      "then": { "required": ["judgeTemplate"] },
+      "else": { "not": { "required": ["judgeTemplate"] } }
+    }
+  ],
+  "examples": [
+    {
+      "problemId": "0198cafe-0000-7000-8000-000000000002",
+      "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
+      "problemVersionNo": 1,
+      "problemTitle": "A + B",
+      "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
+      "testDataContentSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "languageId": "cpp",
+      "codeMode": "CORE",
+      "judgeTemplate": "#include <iostream>\n{{USER_CODE}}\nint main() { return 0; }"
+    }
+  ]
+}
