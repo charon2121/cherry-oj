@@ -197,7 +197,7 @@ cherry-oj/
 
 先立约定，开工时补充：
 
-- Java 25 + Spring Boot 4.1 + Maven 聚合工程；五个服务独立构建和部署，不与 Go 侧共享构建产物。
+- Java 21 LTS + Spring Boot 4.1 + Maven 聚合工程；五个服务独立构建和部署，不与 Go 侧共享构建产物。
 - 服务只写自己的 MySQL schema；禁止跨库 JOIN、共享 Mapper、共享业务实体和分布式 XA 事务。
 - Gateway 使用 WebFlux；user/problem/submission/judging 使用 Spring MVC。MyBatis + Flyway 负责持久化。
 - 正式提交使用 Kafka + Outbox/Inbox 异步推进；不能改回 HTTP 请求线程同步等待 judge。
