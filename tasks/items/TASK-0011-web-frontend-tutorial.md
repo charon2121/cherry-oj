@@ -4,18 +4,19 @@ title: "编写 Web 前端项目初始化教程"
 type: "docs"
 area: "tutorial/web"
 priority: "P0"
-status: "in_progress"
+status: "review"
 assignee: "codex/root"
 depends_on: ["TASK-0009"]
 related: []
 created_at: "2026-08-20T17:21:23+08:00"
-updated_at: "2026-08-20T17:22:01+08:00"
+updated_at: "2026-08-20T17:36:12+08:00"
 claim_branch: "codex/task-0011"
 claimed_at: "2026-08-20T17:22:01+08:00"
 lease_until: "2026-08-21T17:22:01+08:00"
 completed_at: null
 review_required: true
 ---
+
 
 
 # TASK-0011：编写 Web 前端项目初始化教程
@@ -43,6 +44,7 @@ review_required: true
 - Tailwind CSS、shadcn/ui/Radix、Lucide、`cn()` 与 Cherry OJ 语义 token 的初始化。
 - TypeScript strict 加强项、ESLint Flat Config、Prettier 与统一 npm scripts。
 - Vitest、React Testing Library、user-event、MSW、Storybook a11y 与 Playwright smoke 的初始验证方式。
+- 将前端统一脚本接入现有 Git hooks 与 CI 的操作说明。
 - 最小目录结构、完整关键配置、每步检查点、最终验收和常见问题。
 - 更新 `tutorial/README.md` 的 M4 阶段地图和前后篇链接。
 
@@ -51,24 +53,32 @@ review_required: true
 - 实际创建或修改 `apps/web` 下的项目文件。
 - 登录、题库、编辑器、提交、判题轮询等业务页面实现。
 - 提前引入 TanStack Table/Form/Virtual、Monaco、Markdown、IndexedDB 或 OpenAPI 生成器。
-- 修改 Gateway、部署配置、CI、Git hooks，或创建阶段 Tag/发布制品。
+- 实际修改 Gateway、部署配置、CI、Git hooks，或创建阶段 Tag/发布制品。
 
 ## 验收标准
 
-- [ ] 教程头部明确 M4、依赖、产物和“不代写 `apps/web`”边界。
-- [ ] 所有命令以仓库根目录为基准，并写明关键交互选择、期望文件或输出。
-- [ ] 依赖分批安装且与 `docs/frontend.md` 的按需引入顺序一致，不混入已明确排除的库。
-- [ ] Router、Query、Vite、Tailwind、shadcn/ui 和语义 token 的最小接线完整且依赖方向正确。
-- [ ] TypeScript、ESLint、Prettier 和 npm scripts 与 `CLAUDE.md` 的前端规则一致。
-- [ ] Vitest/Testing Library/MSW、Storybook a11y 与 Playwright smoke 都有可执行的最小验证。
-- [ ] 验收覆盖 `format:check`、`lint`、`typecheck`、`test:run`、`build`、Storybook build 和 E2E。
-- [ ] 常见坑覆盖 Node 版本、在错误目录生成工程、Router 生成文件、别名、Provider、Tailwind 和代理边界。
-- [ ] `tutorial/README.md` 已加入 M4，Markdown 围栏成对，本地链接有效。
+- [x] 教程头部明确 M4、依赖、产物和“不代写 `apps/web`”边界。
+- [x] 所有命令以仓库根目录为基准，并写明关键交互选择、期望文件或输出。
+- [x] 依赖分批安装且与 `docs/frontend.md` 的按需引入顺序一致，不混入已明确排除的库。
+- [x] Router、Query、Vite、Tailwind、shadcn/ui 和语义 token 的最小接线完整且依赖方向正确。
+- [x] TypeScript、ESLint、Prettier 和 npm scripts 与 `CLAUDE.md` 的前端规则一致。
+- [x] Vitest/Testing Library/MSW、Storybook a11y 与 Playwright smoke 都有可执行的最小验证。
+- [x] 教程说明现有 hook 的早退陷阱，并给出前端 pre-commit、pre-push 与 CI 接入方式。
+- [x] 验收覆盖 `format:check`、`lint`、`typecheck`、`test:run`、`build`、Storybook build 和 E2E。
+- [x] 常见坑覆盖 Node 版本、在错误目录生成工程、Router 生成文件、别名、Provider、Tailwind 和代理边界。
+- [x] `tutorial/README.md` 已加入 M4，Markdown 围栏成对，本地链接有效。
 
 ## 执行记录
 
 - 2026-08-20T17:21:23+08:00：创建任务。
 - 2026-08-20T17:22:01+08:00：codex/root 在分支 codex/task-0011 认领任务，租约 24 小时。
+- 2026-08-20：新增 `tutorial/07-m4-web-frontend-skeleton.md`，并将 M4 加入教程阶段地图；未修改
+  空的 `apps/web`。
+- 2026-08-20：对照 Node.js、Vite、TanStack Router/Query、Tailwind CSS、shadcn/ui、Storybook、
+  Vitest、Testing Library 与 typescript-eslint 官方文档，采用 Node 24 LTS、稳定依赖加锁文件的基线。
+- 2026-08-20：验证 56 个 Markdown 代码块均有语言标记且闭合，5 个 JSON、1 个 YAML、29 个 shell
+  代码块可解析，教程与索引的全部本地链接存在；`scripts/task check` 与 `git diff --check` 通过。
+- 2026-08-20T17:36:12+08:00：实现与验证完成，进入 review。
 
 ## 阻塞信息
 
@@ -76,4 +86,4 @@ review_required: true
 
 ## 完成结果
 
-尚未完成。
+已完成 M4 Web 前端初始化教程与阶段索引；覆盖架构边界、按需依赖、Router/Query、Tailwind/shadcn token、严格 TypeScript、质量工具、测试、Storybook、Playwright、hooks/CI 接入和验收。未修改 apps/web。已验证 56 个带语言代码块闭合，5 个 JSON、1 个 YAML、29 个 shell 块可解析，本地链接有效，task check 与 diff check 通过。
