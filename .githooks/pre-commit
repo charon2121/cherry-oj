@@ -13,6 +13,7 @@
 set -eu
 
 ENGINE=apps/judge-engine
+WEB=apps/web
 fail=0
 
 # --diff-filter=ACMR：只看新增/复制/修改/改名，跳过删除的文件
@@ -21,6 +22,12 @@ staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
 go_files=$(printf '%s\n' "$staged" | grep "^$ENGINE/.*\.go$" || true)
 json_files=$(printf '%s\n' "$staged" | grep '^contracts/.*\.json$' || true)
+web_format_files=$(printf '%s\n' "$staged" \
+    | sed -n "s|^$WEB/||p" \
+    | grep -E '\.(cjs|css|js|json|jsx|md|mjs|ts|tsx)$' || true)
+web_lint_files=$(printf '%s\n' "$staged" \
+    | sed -n "s|^$WEB/||p" \
+    | grep -E '\.(cjs|js|jsx|mjs|ts|tsx)$' || true)
 
 # ── Go：格式 ───────────────────────────────────────────────
 # 注：检查的是工作区内容而非暂存内容。两者不一致（暂存后又改乱了格式）
@@ -43,6 +50,36 @@ if [ -n "$go_files" ]; then
         echo "✗ go vet 失败："
         printf '%s\n' "$vet_out" | sed 's/^/    /'
         fail=1
+    fi
+fi
+
+# ── Web：Prettier / ESLint ────────────────────────────────
+# 只检查暂存文件对应的工作区内容；不 --write、不 --fix，也不重新 git add。
+if [ -n "$web_format_files" ] || [ -n "$web_lint_files" ]; then
+    if [ ! -x "$WEB/node_modules/.bin/prettier" ] || [ ! -x "$WEB/node_modules/.bin/eslint" ]; then
+        echo "✗ 缺少 $WEB 的本地质量工具，请先运行："
+        echo "    cd $WEB && npm ci"
+        fail=1
+    else
+        if [ -n "$web_format_files" ]; then
+            # shellcheck disable=SC2086
+            if ! prettier_out=$(cd "$WEB" && ./node_modules/.bin/prettier --check $web_format_files 2>&1); then
+                echo "✗ 前端 Prettier 检查失败："
+                printf '%s\n' "$prettier_out" | sed 's/^/    /'
+                echo "    请运行：cd $WEB && npm run format"
+                fail=1
+            fi
+        fi
+
+        if [ -n "$web_lint_files" ]; then
+            # shellcheck disable=SC2086
+            if ! eslint_out=$(cd "$WEB" && ./node_modules/.bin/eslint $web_lint_files 2>&1); then
+                echo "✗ 前端 ESLint 检查失败："
+                printf '%s\n' "$eslint_out" | sed 's/^/    /'
+                echo "    请运行：cd $WEB && npm run lint:fix"
+                fail=1
+            fi
+        fi
     fi
 fi
 

@@ -13,23 +13,39 @@
 set -eu
 
 ENGINE=apps/judge-engine
+WEB=apps/web
+go_changed=1
+web_changed=1
 
-# 只在真有 Go 改动要推的时候跑。纯文档提交没必要等 6 秒。
+# 只在对应工程真有改动要推的时候跑，Go 和 Web 独立判断，不能互相提前退出。
 # 注：docs/ tutorial/ 在 .gitignore 里，本来就不会出现在这里。
 range=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
 if [ -n "$range" ]; then
-    changed=$(git diff --name-only "$range"...HEAD -- "$ENGINE" || true)
-    if [ -z "$changed" ]; then
-        echo "→ 本次推送没有 $ENGINE 的改动，跳过测试"
-        exit 0
-    fi
+    [ -n "$(git diff --name-only "$range"...HEAD -- "$ENGINE" || true)" ] || go_changed=0
+    [ -n "$(git diff --name-only "$range"...HEAD -- "$WEB" || true)" ] || web_changed=0
 fi
 
-echo "→ go test -race ./...（约 6s，跳过用 git push --no-verify）"
-if ! (cd "$ENGINE" && go test -race -count=1 ./...); then
-    echo
-    echo "✗ 测试未通过，已阻止推送。"
-    echo "（确实要跳过：git push --no-verify）"
-    exit 1
+if [ "$go_changed" -eq 1 ]; then
+    echo "→ go test -race ./...（约 6s，跳过用 git push --no-verify）"
+    if ! (cd "$ENGINE" && go test -race -count=1 ./...); then
+        echo
+        echo "✗ Go 测试未通过，已阻止推送。"
+        echo "（确实要跳过：git push --no-verify）"
+        exit 1
+    fi
+else
+    echo "→ 本次推送没有 $ENGINE 的改动，跳过 Go 测试"
+fi
+
+if [ "$web_changed" -eq 1 ]; then
+    echo "→ npm run check && npm run build（跳过用 git push --no-verify）"
+    if ! (cd "$WEB" && npm run check && npm run build); then
+        echo
+        echo "✗ Web 检查未通过，已阻止推送。"
+        echo "（确实要跳过：git push --no-verify）"
+        exit 1
+    fi
+else
+    echo "→ 本次推送没有 $WEB 的改动，跳过 Web 检查"
 fi
 exit 0
