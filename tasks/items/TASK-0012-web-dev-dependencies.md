@@ -4,18 +4,19 @@ title: "修复 Web 前端依赖缺失导致启动失败"
 type: "bug"
 area: "web/tooling"
 priority: "P0"
-status: "review"
+status: "done"
 assignee: "codex/root"
 depends_on: []
 related: ["TASK-0011"]
 created_at: "2026-08-20T17:58:32+08:00"
-updated_at: "2026-08-20T18:00:51+08:00"
+updated_at: "2026-08-21T17:58:12+08:00"
 claim_branch: "codex/task-0012"
 claimed_at: "2026-08-20T17:58:54+08:00"
 lease_until: "2026-08-21T17:58:54+08:00"
-completed_at: null
+completed_at: "2026-08-21T17:58:12+08:00"
 review_required: true
 ---
+
 
 
 
@@ -62,6 +63,7 @@ review_required: true
 - 2026-08-20：`npm run dev -- --host 127.0.0.1` 以 Vite 8.2.2 启动，访问根路径返回 HTTP 200；
   `npm run lint` 与 `npm run build` 均成功。
 - 2026-08-20T18:00:51+08:00：实现与验证完成，进入 review。
+- 2026-08-21T17:58:12+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -70,3 +72,5 @@ review_required: true
 ## 完成结果
 
 根因是 apps/web 未安装 package.json 声明的依赖。已执行 npm install 生成 package-lock.json；Vite 8.2.2 开发服务器在 127.0.0.1:5173 正常启动且返回 HTTP 200，npm run lint 与 npm run build 通过，未改写用户 src 内容。
+
+前端依赖、开发服务器与完整工程门禁均已验证通过。
