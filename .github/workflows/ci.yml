@@ -17,7 +17,7 @@ jobs:
     name: 开发任务中心
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 任务工具测试
         run: python3 scripts/task_test.py
       - name: 校验任务字段、状态和依赖图
@@ -30,9 +30,9 @@ jobs:
       run:
         working-directory: apps/web
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -62,7 +62,7 @@ jobs:
     name: contracts (结构与边界)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: 校验 contracts/*.json 可解析
         run: |
           for f in contracts/*.json; do
@@ -80,9 +80,9 @@ jobs:
       run:
         working-directory: apps/judge-engine
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           # 从 go.mod 读版本，别在两处各写一遍版本号
           go-version-file: apps/judge-engine/go.mod
@@ -125,8 +125,8 @@ jobs:
       run:
         working-directory: apps/judge-engine
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: apps/judge-engine/go.mod
           cache-dependency-path: apps/judge-engine/go.sum
@@ -144,7 +144,7 @@ jobs:
     name: judge + sandbox（Docker Compose）
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 校验 Compose 配置
         run: docker compose config --quiet
