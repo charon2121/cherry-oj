@@ -23,6 +23,39 @@ jobs:
       - name: 校验任务字段、状态和依赖图
         run: scripts/task check
 
+  web:
+    name: web (React SPA)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: 安装锁定依赖
+        run: npm ci
+
+      - name: 格式、Lint、类型与组件测试
+        run: npm run check
+
+      - name: 生产构建
+        run: npm run build
+
+      - name: Storybook 静态构建
+        run: npm run storybook:build
+
+      - name: 安装 Chromium 与系统依赖
+        run: npx playwright install --with-deps chromium
+
+      - name: 浏览器 smoke
+        run: npm run test:e2e
+
   # 跨服务 / 跨语言契约是共享 DTO 的唯一真源，语法、引用或安全边界坏掉会同时影响多侧，
   # 所以单独一个最快的 job 先把它挡住。
   contracts:

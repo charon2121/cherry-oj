@@ -4,18 +4,19 @@ title: "编写 Web 前端项目初始化教程"
 type: "docs"
 area: "tutorial/web"
 priority: "P0"
-status: "review"
+status: "done"
 assignee: "codex/root"
 depends_on: ["TASK-0009"]
 related: []
 created_at: "2026-08-20T17:21:23+08:00"
-updated_at: "2026-08-20T17:36:12+08:00"
+updated_at: "2026-08-21T17:58:12+08:00"
 claim_branch: "codex/task-0011"
 claimed_at: "2026-08-20T17:22:01+08:00"
 lease_until: "2026-08-21T17:22:01+08:00"
-completed_at: null
+completed_at: "2026-08-21T17:58:12+08:00"
 review_required: true
 ---
+
 
 
 
@@ -79,6 +80,7 @@ review_required: true
 - 2026-08-20：验证 56 个 Markdown 代码块均有语言标记且闭合，5 个 JSON、1 个 YAML、29 个 shell
   代码块可解析，教程与索引的全部本地链接存在；`scripts/task check` 与 `git diff --check` 通过。
 - 2026-08-20T17:36:12+08:00：实现与验证完成，进入 review。
+- 2026-08-21T17:58:12+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -87,3 +89,5 @@ review_required: true
 ## 完成结果
 
 已完成 M4 Web 前端初始化教程与阶段索引；覆盖架构边界、按需依赖、Router/Query、Tailwind/shadcn token、严格 TypeScript、质量工具、测试、Storybook、Playwright、hooks/CI 接入和验收。未修改 apps/web。已验证 56 个带语言代码块闭合，5 个 JSON、1 个 YAML、29 个 shell 块可解析，本地链接有效，task check 与 diff check 通过。
+
+M4 前端初始化教程已由用户按步骤落地并完成验收。
