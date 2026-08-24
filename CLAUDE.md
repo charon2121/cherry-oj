@@ -52,7 +52,8 @@ cherry-oj/
 │   │   ├── submission-service/
 │   │   └── judging-service/
 │   └── web/            TypeScript —— 尚未开工
-├── tasks/              ★ 进入 Git 的开发任务中心，任务状态与依赖的唯一真源
+├── product/            ★ 进入 Git 的产品需求中心，REQ / PD / 版本验收的唯一真源
+├── tasks/              ★ 进入 Git 的研发任务中心，执行状态与依赖的唯一真源
 ├── docs/               本地设计文档（architecture / engine / data-model）
 └── tutorial/           分阶段动手教程
 ```
@@ -316,7 +317,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 | job | 检查 | 为什么单独一条 |
 |---|---|---|
-| `tasks` | 任务字段、状态不变量、依赖图与工具测试 | 多 agent 协作的执行边界，错误状态不能进入 main |
+| `tasks` | 产品文档与任务字段、状态、双向追踪、依赖图及工具测试 | 产品审核与多 agent 执行边界不能漂移 |
 | `contracts` | JSON 可解析 + `$ref` / v2 字段 / 事件安全边界 | 共享 DTO 坏了会同时影响多个服务与 Go；且一直是手改的 |
 | `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
 | `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
@@ -333,6 +334,10 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 - 操作步骤变了 → 同步 `tutorial/`
 - 出现可执行工作或技术债 → 在 `tasks/items/` 建任务；不要再写进本地 `docs/backlog.md`
 
+**产品与研发分层**：改变用户能力、流程、权限、可见信息或业务规则时，先在 `product/requirements/`
+创建或更新 REQ，经产品审核达到 `ready` 后再拆 TASK。TASK 的 `review` 是技术审核；REQ 的
+`product_acceptance` 才是产品验收。两边使用 ID 双向关联，并由 `scripts/product check` 校验。
+
 **契约先行**：改 `contracts/*.json` → 再改各语言类型 → 再改实现。反过来做必然漂移。
 
 ---
@@ -343,8 +348,12 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
   不要顺手「优化」。拿不准就先问，别先改。
 - **开发前先认领任务。** 先读 `tasks/README.md`，运行 `scripts/task list --ready`；有对应任务时
   必须先用 `scripts/task claim` 认领并同步认领提交，再开始改代码。没有任务时先创建并补全验收标准。
+- **产品行为先看 REQ。** 涉及用户能力、流程、权限或可见信息时，先读 `product/README.md` 和关联
+  REQ；没有达到 `ready` 的 REQ 时，不要自行把未决产品假设固化进业务实现。
 - **开发后更新状态。** 阻塞、送审和完成分别使用 `scripts/task block/review/done`；进入 review
   前必须勾选验收标准并写明验证结果。依赖未完成的任务不能认领。
+- **技术完成不等于产品接受。** TASK 完成后只能汇总产品验收证据；REQ 进入 `accepted` 必须由产品
+  验收人确认，Agent 不能根据测试全绿自动代签。
 - **设计变更写 `docs/`，操作步骤写 `tutorial/`**，两边都要跟着代码更新。
-- 已知技术债写进 `tasks/items/`，代码锚点使用 `TODO(TASK-0001): ...`；`tasks/` 是唯一真源。
+- 已知技术债写进 `tasks/items/`，代码锚点使用 `TODO(TASK-0001): ...`；研发执行以 `tasks/` 为唯一真源。
 - 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。

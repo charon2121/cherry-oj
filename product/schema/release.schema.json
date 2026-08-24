@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cherry-oj.local/schemas/product-release.schema.json",
+  "title": "cherry-oj product release metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "milestone",
+    "status",
+    "owner",
+    "reviewer",
+    "requirements",
+    "created_at",
+    "updated_at",
+    "accepted_at",
+    "released_at"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^REL-[0-9]{4}$" },
+    "title": { "type": "string", "minLength": 1 },
+    "milestone": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["draft", "review", "accepted", "released", "cancelled"] },
+    "owner": { "type": "string", "minLength": 1 },
+    "reviewer": { "type": "string", "minLength": 1 },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^REQ-[0-9]{4}$" }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "accepted_at": { "type": ["string", "null"], "format": "date-time" },
+    "released_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}
+

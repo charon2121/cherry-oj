@@ -81,6 +81,29 @@ class TaskCommandTest(unittest.TestCase):
         self.assertIn('status: "done"', final_text)
         self.assertNotIn("completed_at: null", final_text)
 
+    def test_new_task_records_product_links(self) -> None:
+        self.create(
+            "产品关联测试",
+            "--slug",
+            "product-link",
+            "--requirement",
+            "REQ-0001",
+            "--milestone",
+            "M1-traditional-oj",
+        )
+        text = self.task_path("TASK-0001").read_text(encoding="utf-8")
+        self.assertIn('requirement_ids: ["REQ-0001"]', text)
+        self.assertIn('milestone: "M1-traditional-oj"', text)
+
+    def test_legacy_task_without_product_fields_remains_valid(self) -> None:
+        self.create("旧任务兼容", "--slug", "legacy")
+        path = self.task_path("TASK-0001")
+        text = path.read_text(encoding="utf-8")
+        text = text.replace("requirement_ids: []\n", "").replace("milestone: null\n", "")
+        path.write_text(text, encoding="utf-8")
+        result = self.run_task("check")
+        self.assertIn("1 个任务通过校验", result.stdout)
+
     def test_dependencies_control_readiness(self) -> None:
         self.create("前置任务", "--slug", "first", "--no-review")
         self.create("下游任务", "--slug", "second", "--depends-on", "TASK-0001")

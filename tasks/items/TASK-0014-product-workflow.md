@@ -4,18 +4,21 @@ title: "建立产品需求与交付工作流"
 type: "docs"
 area: "product/workflow"
 priority: "P1"
-status: "in_progress"
+status: "review"
 assignee: "codex/root"
 depends_on: []
 related: []
+requirement_ids: []
+milestone: null
 created_at: "2026-08-24T10:13:25+08:00"
-updated_at: "2026-08-24T10:14:50+08:00"
+updated_at: "2026-08-24T10:29:39+08:00"
 claim_branch: "codex/task-0014"
 claimed_at: "2026-08-24T10:14:50+08:00"
 lease_until: "2026-08-25T10:14:50+08:00"
 completed_at: null
 review_required: true
 ---
+
 
 
 # TASK-0014：建立产品需求与交付工作流
@@ -57,14 +60,14 @@ review_required: true
 
 ## 验收标准
 
-- [ ] `product/` 进入 Git，并提供清晰的文档导航、真源边界、状态流转、审核职责和变更规则。
-- [ ] REQ、PD 和版本验收模板可直接复制使用，REQ 模板以用户能力而非技术模块为中心。
-- [ ] REQ-0001 能独立说明目标用户、流程、规则、体验状态、范围、产品验收场景、成功信号和未决问题。
-- [ ] 新建 TASK 可以关联 `requirement_ids` 与 `milestone`，未关联产品需求的历史任务仍能通过校验。
-- [ ] 产品文档检查能够拒绝非法字段、重复或失效 ID、错误状态、断裂引用和 REQ/TASK 单边关联。
-- [ ] 产品检查与任务检查均有自动化测试，并接入现有 CI 的任务边界。
-- [ ] `scripts/product check`、`scripts/task check`、相关 Python 测试和 `git diff --check` 全部通过。
-- [ ] 没有创建 REQ-0001 的业务交付任务，也没有修改运行时代码或业务契约。
+- [x] `product/` 进入 Git，并提供清晰的文档导航、真源边界、状态流转、审核职责和变更规则。
+- [x] REQ、PD 和版本验收模板可直接复制使用，REQ 模板以用户能力而非技术模块为中心。
+- [x] REQ-0001 能独立说明目标用户、流程、规则、体验状态、范围、产品验收场景、成功信号和未决问题。
+- [x] 新建 TASK 可以关联 `requirement_ids` 与 `milestone`，未关联产品需求的历史任务仍能通过校验。
+- [x] 产品文档检查能够拒绝非法字段、重复或失效 ID、错误状态、断裂引用和 REQ/TASK 单边关联。
+- [x] 产品检查与任务检查均有自动化测试，并接入现有 CI 的任务边界。
+- [x] `scripts/product check`、`scripts/task check`、相关 Python 测试和 `git diff --check` 全部通过。
+- [x] 没有创建 REQ-0001 的业务交付任务，也没有修改运行时代码或业务契约。
 
 ## 产品影响
 
@@ -75,6 +78,15 @@ review_required: true
 
 - 2026-08-24T10:13:25+08:00：创建任务。
 - 2026-08-24T10:14:50+08:00：codex/root 在分支 codex/task-0014 认领任务，租约 24 小时。
+- 2026-08-24：建立进入 Git 的 `product/`，提供正式规范、REQ/PD/REL 模板与 Schema，并将
+  “C++ ACM 答题闭环”整理为 `REQ-0001` 草稿；未拆分任何业务 TASK。
+- 2026-08-24：扩展任务工具，使新 TASK 可以记录 `requirement_ids` 和 `milestone`；字段对历史任务
+  保持可选，避免为既有技术债制造虚假产品归属。
+- 2026-08-24：新增 `scripts/product check/list` 与 7 个端到端用例，校验产品字段、状态、日期、文件名、
+  Markdown 本地链接、REQ/PD/REL 引用及 REQ/TASK 双向关系；CI 已与现有任务工具一起执行。
+- 2026-08-24：`python3 scripts/product_test.py`（7 passed）、`python3 scripts/task_test.py`
+  （5 passed）、`scripts/product check`、`scripts/task check` 和 `git diff --check` 全部通过。
+- 2026-08-24T10:29:39+08:00：实现与验证完成，进入 review。
 
 ## 阻塞信息
 
@@ -82,4 +94,8 @@ review_required: true
 
 ## 完成结果
 
-尚未完成。
+产品需求与研发交付已经形成两层真源：产品负责人通过 `scripts/product list` 看到按用户能力组织的
+REQ 摘要，研发人员继续在 `tasks/` 管理实现工作；技术审核与产品验收拥有独立状态和证据。
+
+REQ-0001 当前有意保持 `draft` 且“尚未拆分”，其中三个产品问题仍等待产品负责人确认；本任务没有
+把未确认假设转化为业务实现，也没有修改运行时代码或业务契约。

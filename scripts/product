@@ -1,0 +1,607 @@
+#!/usr/bin/env python3
+"""校验并展示 cherry-oj 的产品需求、产品决策和版本验收文档。"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from urllib.parse import unquote
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+
+REQUIREMENT_FIELDS = (
+    "id",
+    "title",
+    "product_area",
+    "milestone",
+    "priority",
+    "status",
+    "owner",
+    "reviewer",
+    "target_users",
+    "source_prd",
+    "related_requirements",
+    "related_decisions",
+    "delivery_tasks",
+    "created_at",
+    "updated_at",
+    "accepted_at",
+)
+DECISION_FIELDS = (
+    "id",
+    "title",
+    "status",
+    "owner",
+    "related_requirements",
+    "created_at",
+    "updated_at",
+    "accepted_at",
+    "superseded_by",
+)
+RELEASE_FIELDS = (
+    "id",
+    "title",
+    "milestone",
+    "status",
+    "owner",
+    "reviewer",
+    "requirements",
+    "created_at",
+    "updated_at",
+    "accepted_at",
+    "released_at",
+)
+FIELDS = {
+    "requirement": REQUIREMENT_FIELDS,
+    "decision": DECISION_FIELDS,
+    "release": RELEASE_FIELDS,
+}
+PATTERNS = {
+    "requirement": re.compile(r"^REQ-[0-9]{4}$"),
+    "decision": re.compile(r"^PD-[0-9]{4}$"),
+    "release": re.compile(r"^REL-[0-9]{4}$"),
+}
+STATUSES = {
+    "requirement": {
+        "draft",
+        "product_review",
+        "ready",
+        "delivering",
+        "product_acceptance",
+        "accepted",
+        "released",
+        "paused",
+        "cancelled",
+    },
+    "decision": {"proposed", "accepted", "superseded"},
+    "release": {"draft", "review", "accepted", "released", "cancelled"},
+}
+SECTIONS = {
+    "requirement": (
+        "一句话结果",
+        "目标用户与使用场景",
+        "问题与依据",
+        "用户流程",
+        "产品规则",
+        "体验状态",
+        "范围",
+        "产品验收场景",
+        "成功信号",
+        "交付映射",
+        "决策与变更记录",
+        "未决问题",
+    ),
+    "decision": (
+        "背景",
+        "候选方案",
+        "最终决策",
+        "选择理由",
+        "产品影响",
+        "关联需求",
+        "重新评估条件",
+    ),
+    "release": (
+        "版本目标",
+        "需求范围",
+        "演示路径",
+        "验收结果",
+        "已知限制与延期项",
+        "发布结论",
+    ),
+}
+PRIORITIES = {"P0", "P1", "P2", "P3"}
+TASK_ID_PATTERN = re.compile(r"^TASK-[0-9]{4}$")
+MARKDOWN_LINK_PATTERN = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+
+
+class ProductError(Exception):
+    """可以直接展示给用户的产品文档错误。"""
+
+
+@dataclass
+class Document:
+    path: Path
+    kind: str
+    metadata: dict[str, Any]
+    body: str
+
+    @property
+    def id(self) -> str:
+        value = self.metadata.get("id")
+        return value if isinstance(value, str) else self.path.stem
+
+
+def parse_document(path: Path, kind: str) -> Document:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        raise ProductError(f"{path}: 缺少起始 front matter 分隔符")
+    end = text.find("\n---\n", 4)
+    if end < 0:
+        raise ProductError(f"{path}: 缺少结束 front matter 分隔符")
+
+    metadata: dict[str, Any] = {}
+    for line_number, raw_line in enumerate(text[4:end].splitlines(), start=2):
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        if raw_line[:1].isspace() or ":" not in raw_line:
+            raise ProductError(
+                f"{path}:{line_number}: front matter 只允许 `字段: JSON值`，不允许缩进对象"
+            )
+        key, raw_value = raw_line.split(":", 1)
+        key = key.strip()
+        if key in metadata:
+            raise ProductError(f"{path}:{line_number}: 字段 {key} 重复")
+        try:
+            metadata[key] = json.loads(raw_value.strip())
+        except json.JSONDecodeError as error:
+            raise ProductError(
+                f"{path}:{line_number}: {key} 的值必须使用 JSON 兼容写法：{error.msg}"
+            ) from error
+    return Document(path=path, kind=kind, metadata=metadata, body=text[end + 5 :])
+
+
+def parse_timestamp(value: Any, field: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} 必须是带时区的 ISO 8601 字符串")
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{field} 必须包含时区")
+    return parsed
+
+
+def section(body: str, title: str) -> str | None:
+    match = re.search(rf"(?ms)^## {re.escape(title)}\n+(.*?)(?=^## |\Z)", body)
+    return match.group(1).strip() if match else None
+
+
+def discover(root: Path, kind: str) -> list[Path]:
+    locations = {
+        "requirement": (root / "product" / "requirements", "REQ-*.md"),
+        "decision": (root / "product" / "decisions", "PD-*.md"),
+        "release": (root / "product" / "releases", "REL-*.md"),
+    }
+    directory, pattern = locations[kind]
+    return sorted(directory.glob(pattern))
+
+
+def load_documents(root: Path) -> dict[str, dict[str, Document]]:
+    documents: dict[str, dict[str, Document]] = {kind: {} for kind in FIELDS}
+    for kind in FIELDS:
+        for path in discover(root, kind):
+            document = parse_document(path, kind)
+            if document.id in documents[kind]:
+                previous = documents[kind][document.id].path
+                raise ProductError(f"{kind} ID 重复：{document.id} 同时出现在 {previous} 和 {path}")
+            documents[kind][document.id] = document
+    return documents
+
+
+def validate_string(metadata: dict[str, Any], field: str, prefix: str, errors: list[str]) -> None:
+    value = metadata[field]
+    if not isinstance(value, str) or not value.strip():
+        errors.append(f"{prefix}: {field} 必须是非空字符串")
+
+
+def validate_id_list(
+    metadata: dict[str, Any],
+    field: str,
+    pattern: re.Pattern[str],
+    prefix: str,
+    errors: list[str],
+    *,
+    minimum: int = 0,
+) -> list[str]:
+    values = metadata[field]
+    if not isinstance(values, list):
+        errors.append(f"{prefix}: {field} 必须是字符串数组")
+        return []
+    strings = [value for value in values if isinstance(value, str)]
+    if len(strings) != len(values):
+        errors.append(f"{prefix}: {field} 必须是字符串数组")
+    if len(strings) != len(set(strings)):
+        errors.append(f"{prefix}: {field} 不能包含重复 ID")
+    if len(strings) < minimum:
+        errors.append(f"{prefix}: {field} 至少需要 {minimum} 项")
+    for value in strings:
+        if not pattern.fullmatch(value):
+            errors.append(f"{prefix}: {field} 中的 {value!r} 格式非法")
+    return strings
+
+
+def validate_text_list(
+    metadata: dict[str, Any], field: str, prefix: str, errors: list[str], *, minimum: int = 0
+) -> None:
+    values = metadata[field]
+    if not isinstance(values, list):
+        errors.append(f"{prefix}: {field} 必须是字符串数组")
+        return
+    if len(values) < minimum:
+        errors.append(f"{prefix}: {field} 至少需要 {minimum} 项")
+    if any(not isinstance(value, str) or not value.strip() for value in values):
+        errors.append(f"{prefix}: {field} 必须是非空字符串数组")
+    if len(values) != len(set(value for value in values if isinstance(value, str))):
+        errors.append(f"{prefix}: {field} 不能包含重复值")
+
+
+def validate_common(document: Document) -> list[str]:
+    errors: list[str] = []
+    metadata = document.metadata
+    prefix = str(document.path)
+    expected = set(FIELDS[document.kind])
+    missing = expected - set(metadata)
+    unknown = set(metadata) - expected
+    if missing:
+        errors.append(f"{prefix}: 缺少字段：{', '.join(sorted(missing))}")
+    if unknown:
+        errors.append(f"{prefix}: 未知字段：{', '.join(sorted(unknown))}")
+    if missing:
+        return errors
+
+    document_id = metadata["id"]
+    pattern = PATTERNS[document.kind]
+    if not isinstance(document_id, str) or not pattern.fullmatch(document_id):
+        errors.append(f"{prefix}: id 格式非法")
+    elif not document.path.name.startswith(f"{document_id}-"):
+        errors.append(f"{prefix}: 文件名必须以 {document_id}- 开头")
+
+    validate_string(metadata, "title", prefix, errors)
+    validate_string(metadata, "owner", prefix, errors)
+    status = metadata["status"]
+    if not isinstance(status, str) or status not in STATUSES[document.kind]:
+        errors.append(f"{prefix}: 非法 status：{status!r}")
+
+    dates: dict[str, datetime] = {}
+    for field in ("created_at", "updated_at", "accepted_at", "released_at"):
+        if field not in metadata or metadata[field] is None:
+            continue
+        try:
+            dates[field] = parse_timestamp(metadata[field], field)
+        except ValueError as error:
+            errors.append(f"{prefix}: {error}")
+    if dates.get("updated_at") and dates.get("created_at") and dates["updated_at"] < dates["created_at"]:
+        errors.append(f"{prefix}: updated_at 不能早于 created_at")
+
+    for title in SECTIONS[document.kind]:
+        if section(document.body, title) is None:
+            errors.append(f"{prefix}: 缺少正文段落 `## {title}`")
+    return errors
+
+
+def validate_requirement(document: Document) -> list[str]:
+    errors = validate_common(document)
+    if errors and set(FIELDS["requirement"]) - set(document.metadata):
+        return errors
+    metadata = document.metadata
+    prefix = str(document.path)
+    for field in ("product_area", "milestone", "reviewer"):
+        validate_string(metadata, field, prefix, errors)
+    if not isinstance(metadata["priority"], str) or metadata["priority"] not in PRIORITIES:
+        errors.append(f"{prefix}: 非法 priority：{metadata['priority']!r}")
+    validate_text_list(metadata, "target_users", prefix, errors, minimum=1)
+    validate_text_list(metadata, "source_prd", prefix, errors, minimum=1)
+    related = validate_id_list(
+        metadata, "related_requirements", PATTERNS["requirement"], prefix, errors
+    )
+    if metadata["id"] in related:
+        errors.append(f"{prefix}: related_requirements 不能包含自身")
+    validate_id_list(metadata, "related_decisions", PATTERNS["decision"], prefix, errors)
+    validate_id_list(metadata, "delivery_tasks", TASK_ID_PATTERN, prefix, errors)
+    accepted = metadata["status"] in {"accepted", "released"}
+    if accepted and metadata["accepted_at"] is None:
+        errors.append(f"{prefix}: {metadata['status']} 需求必须填写 accepted_at")
+    if not accepted and metadata["accepted_at"] is not None:
+        errors.append(f"{prefix}: 只有 accepted/released 需求可以填写 accepted_at")
+    if metadata["status"] in {"delivering", "product_acceptance", "accepted", "released"}:
+        if not metadata["delivery_tasks"]:
+            errors.append(f"{prefix}: {metadata['status']} 需求必须关联至少一个交付 TASK")
+    return errors
+
+
+def validate_decision(document: Document) -> list[str]:
+    errors = validate_common(document)
+    if errors and set(FIELDS["decision"]) - set(document.metadata):
+        return errors
+    metadata = document.metadata
+    prefix = str(document.path)
+    validate_id_list(
+        metadata, "related_requirements", PATTERNS["requirement"], prefix, errors, minimum=1
+    )
+    accepted = metadata["status"] in {"accepted", "superseded"}
+    if accepted and metadata["accepted_at"] is None:
+        errors.append(f"{prefix}: {metadata['status']} 决策必须填写 accepted_at")
+    if not accepted and metadata["accepted_at"] is not None:
+        errors.append(f"{prefix}: proposed 决策不能填写 accepted_at")
+    superseded_by = metadata["superseded_by"]
+    if metadata["status"] == "superseded":
+        if not isinstance(superseded_by, str) or not PATTERNS["decision"].fullmatch(superseded_by):
+            errors.append(f"{prefix}: superseded 决策必须填写合法 superseded_by")
+        elif superseded_by == metadata["id"]:
+            errors.append(f"{prefix}: superseded_by 不能指向自身")
+    elif superseded_by is not None:
+        errors.append(f"{prefix}: 只有 superseded 决策可以填写 superseded_by")
+    return errors
+
+
+def validate_release(document: Document) -> list[str]:
+    errors = validate_common(document)
+    if errors and set(FIELDS["release"]) - set(document.metadata):
+        return errors
+    metadata = document.metadata
+    prefix = str(document.path)
+    for field in ("milestone", "reviewer"):
+        validate_string(metadata, field, prefix, errors)
+    validate_id_list(
+        metadata, "requirements", PATTERNS["requirement"], prefix, errors, minimum=1
+    )
+    accepted = metadata["status"] in {"accepted", "released"}
+    if accepted and metadata["accepted_at"] is None:
+        errors.append(f"{prefix}: {metadata['status']} 版本必须填写 accepted_at")
+    if not accepted and metadata["accepted_at"] is not None:
+        errors.append(f"{prefix}: 当前版本状态不能填写 accepted_at")
+    if metadata["status"] == "released" and metadata["released_at"] is None:
+        errors.append(f"{prefix}: released 版本必须填写 released_at")
+    if metadata["status"] != "released" and metadata["released_at"] is not None:
+        errors.append(f"{prefix}: 只有 released 版本可以填写 released_at")
+    return errors
+
+
+def load_task_metadata(root: Path) -> dict[str, tuple[Path, dict[str, Any]]]:
+    paths = list((root / "tasks" / "items").glob("*.md"))
+    archive = root / "tasks" / "archive"
+    if archive.exists():
+        paths.extend(archive.rglob("*.md"))
+    tasks: dict[str, tuple[Path, dict[str, Any]]] = {}
+    for path in sorted(paths):
+        document = parse_document(path, "task")
+        task_id = document.metadata.get("id")
+        if not isinstance(task_id, str) or not TASK_ID_PATTERN.fullmatch(task_id):
+            raise ProductError(f"{path}: 无法读取合法 TASK id")
+        if task_id in tasks:
+            raise ProductError(f"TASK ID 重复：{task_id}")
+        tasks[task_id] = (path, document.metadata)
+    return tasks
+
+
+def validate_schema_and_templates(root: Path) -> list[str]:
+    errors: list[str] = []
+    names = {
+        "requirement": "requirement",
+        "decision": "decision",
+        "release": "release",
+    }
+    for kind, name in names.items():
+        schema_path = root / "product" / "schema" / f"{name}.schema.json"
+        template_path = root / "product" / "templates" / f"{name}.md"
+        try:
+            schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            errors.append(f"{schema_path}: 无法读取 schema：{error}")
+            continue
+        expected = set(FIELDS[kind])
+        if set(schema.get("required", [])) != expected:
+            errors.append(f"{schema_path}: required 必须与 {kind} 字段完全一致")
+        if set(schema.get("properties", {})) != expected:
+            errors.append(f"{schema_path}: properties 必须与 {kind} 字段完全一致")
+        schema_statuses = schema.get("properties", {}).get("status", {}).get("enum", [])
+        if set(schema_statuses) != STATUSES[kind]:
+            errors.append(f"{schema_path}: status enum 必须与 {kind} 状态完全一致")
+        if kind == "requirement":
+            schema_priorities = schema.get("properties", {}).get("priority", {}).get("enum", [])
+            if set(schema_priorities) != PRIORITIES:
+                errors.append(f"{schema_path}: priority enum 必须与产品优先级完全一致")
+        try:
+            template = parse_document(template_path, kind)
+        except (OSError, ProductError) as error:
+            errors.append(str(error))
+            continue
+        if set(template.metadata) != expected:
+            errors.append(f"{template_path}: front matter 字段必须与 {kind} 字段完全一致")
+        for title in SECTIONS[kind]:
+            if section(template.body, title) is None:
+                errors.append(f"{template_path}: 缺少正文段落 `## {title}`")
+    return errors
+
+
+def validate_markdown_links(root: Path) -> list[str]:
+    errors: list[str] = []
+    product_root = (root / "product").resolve()
+    repository_root = root.resolve()
+    for path in sorted(product_root.rglob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        for raw_target in MARKDOWN_LINK_PATTERN.findall(text):
+            target = raw_target.strip().strip("<>")
+            if not target or target.startswith(("#", "http://", "https://", "mailto:")):
+                continue
+            target_path = target.split("#", 1)[0]
+            if not target_path:
+                continue
+            resolved = (path.parent / unquote(target_path)).resolve()
+            if repository_root not in resolved.parents and resolved != repository_root:
+                errors.append(f"{path}: 本地链接越出仓库：{raw_target}")
+            elif not resolved.exists():
+                errors.append(f"{path}: 本地链接不存在：{raw_target}")
+    return errors
+
+
+def validate_relations(
+    documents: dict[str, dict[str, Document]],
+    tasks: dict[str, tuple[Path, dict[str, Any]]],
+) -> list[str]:
+    errors: list[str] = []
+    requirements = documents["requirement"]
+    decisions = documents["decision"]
+
+    for requirement in requirements.values():
+        metadata = requirement.metadata
+        for related in metadata["related_requirements"]:
+            if related not in requirements:
+                errors.append(f"{requirement.path}: related_requirements 引用了不存在的 {related}")
+        for decision_id in metadata["related_decisions"]:
+            if decision_id not in decisions:
+                errors.append(f"{requirement.path}: related_decisions 引用了不存在的 {decision_id}")
+        for task_id in metadata["delivery_tasks"]:
+            if task_id not in tasks:
+                errors.append(f"{requirement.path}: delivery_tasks 引用了不存在的 {task_id}")
+                continue
+            task_path, task = tasks[task_id]
+            if requirement.id not in task.get("requirement_ids", []):
+                errors.append(
+                    f"{requirement.path}: 已引用 {task_id}，但 {task_path} 未反向引用 {requirement.id}"
+                )
+
+    for decision in decisions.values():
+        for requirement_id in decision.metadata["related_requirements"]:
+            if requirement_id not in requirements:
+                errors.append(f"{decision.path}: related_requirements 引用了不存在的 {requirement_id}")
+        target = decision.metadata["superseded_by"]
+        if target is not None and target not in decisions:
+            errors.append(f"{decision.path}: superseded_by 引用了不存在的 {target}")
+
+    for release in documents["release"].values():
+        for requirement_id in release.metadata["requirements"]:
+            if requirement_id not in requirements:
+                errors.append(f"{release.path}: requirements 引用了不存在的 {requirement_id}")
+
+    for task_id, (task_path, task) in tasks.items():
+        requirement_ids = task.get("requirement_ids", [])
+        if not isinstance(requirement_ids, list):
+            errors.append(f"{task_path}: requirement_ids 必须是字符串数组")
+            continue
+        for requirement_id in requirement_ids:
+            if not isinstance(requirement_id, str) or not PATTERNS["requirement"].fullmatch(
+                requirement_id
+            ):
+                errors.append(f"{task_path}: requirement_ids 中的 {requirement_id!r} 格式非法")
+                continue
+            if requirement_id not in requirements:
+                errors.append(f"{task_path}: requirement_ids 引用了不存在的 {requirement_id}")
+                continue
+            requirement = requirements[requirement_id]
+            if task_id not in requirement.metadata["delivery_tasks"]:
+                errors.append(
+                    f"{task_path}: 已引用 {requirement_id}，但 {requirement.path} 未反向引用 {task_id}"
+                )
+    return errors
+
+
+def checked(root: Path) -> tuple[dict[str, dict[str, Document]], dict[str, tuple[Path, dict[str, Any]]]]:
+    documents = load_documents(root)
+    if not documents["requirement"]:
+        raise ProductError("产品文档中心至少需要一份 REQ")
+    tasks = load_task_metadata(root)
+    errors = validate_schema_and_templates(root)
+    errors.extend(validate_markdown_links(root))
+    for document in documents["requirement"].values():
+        errors.extend(validate_requirement(document))
+    for document in documents["decision"].values():
+        errors.extend(validate_decision(document))
+    for document in documents["release"].values():
+        errors.extend(validate_release(document))
+    if not errors:
+        errors.extend(validate_relations(documents, tasks))
+    if errors:
+        raise ProductError("产品文档校验失败：\n- " + "\n- ".join(errors))
+    return documents, tasks
+
+
+def command_check(args: argparse.Namespace) -> None:
+    documents, tasks = checked(args.root)
+    print(
+        "✓ "
+        f"{len(documents['requirement'])} 个 REQ、"
+        f"{len(documents['decision'])} 个 PD、"
+        f"{len(documents['release'])} 个 REL 与 {len(tasks)} 个 TASK 通过校验"
+    )
+
+
+def task_summary(requirement: Document, tasks: dict[str, tuple[Path, dict[str, Any]]]) -> str:
+    task_ids = requirement.metadata["delivery_tasks"]
+    if not task_ids:
+        return "尚未拆分"
+    counts: dict[str, int] = {}
+    for task_id in task_ids:
+        status = tasks[task_id][1].get("status", "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    labels = {
+        "todo": "待开始",
+        "in_progress": "进行中",
+        "blocked": "阻塞",
+        "review": "技术审核",
+        "done": "完成",
+        "cancelled": "取消",
+    }
+    order = ("done", "in_progress", "review", "blocked", "todo", "cancelled", "unknown")
+    return "、".join(f"{labels.get(status, status)} {counts[status]}" for status in order if status in counts)
+
+
+def command_list(args: argparse.Namespace) -> None:
+    documents, tasks = checked(args.root)
+    rows = sorted(
+        documents["requirement"].values(),
+        key=lambda item: (int(item.metadata["priority"][1]), item.id),
+    )
+    print("ID\t优先级\t产品状态\t里程碑\t负责人\t研发任务\t用户能力")
+    for requirement in rows:
+        metadata = requirement.metadata
+        print(
+            f"{requirement.id}\t{metadata['priority']}\t{metadata['status']}\t"
+            f"{metadata['milestone']}\t{metadata['owner']}\t{task_summary(requirement, tasks)}\t"
+            f"{metadata['title']}"
+        )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="检查并展示 cherry-oj 产品文档中心")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path(__file__).resolve().parents[1],
+        help=argparse.SUPPRESS,
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    check_parser = subparsers.add_parser("check", help="校验字段、状态和双向追踪关系")
+    check_parser.set_defaults(handler=command_check)
+    list_parser = subparsers.add_parser("list", help="按产品视角列出需求和研发摘要")
+    list_parser.set_defaults(handler=command_list)
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    args.root = args.root.resolve()
+    try:
+        args.handler(args)
+        return 0
+    except (OSError, ProductError) as error:
+        print(f"product: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
