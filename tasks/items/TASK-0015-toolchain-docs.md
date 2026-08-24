@@ -4,20 +4,21 @@ title: "重写前后端工具链文档"
 type: "docs"
 area: "tooling/docs"
 priority: "P1"
-status: "in_progress"
+status: "review"
 assignee: "codex/root"
 depends_on: []
 related: []
 requirement_ids: []
 milestone: null
 created_at: "2026-08-24T14:51:56+08:00"
-updated_at: "2026-08-24T14:54:06+08:00"
+updated_at: "2026-08-24T15:08:13+08:00"
 claim_branch: "codex/task-0015"
 claimed_at: "2026-08-24T14:54:06+08:00"
 lease_until: "2026-08-25T14:54:06+08:00"
 completed_at: null
 review_required: true
 ---
+
 
 
 # TASK-0015：重写前后端工具链文档
@@ -65,15 +66,15 @@ Git 的 README 或工具链说明；`CLAUDE.md` 仍把已经落地的前后端�
 
 ## 验收标准
 
-- [ ] 前后端 README 不再包含脚手架默认文案，并能从新克隆开始给出可执行入口和预期结果。
-- [ ] 前端 TOOLCHAIN 覆盖 `package.json` 中全部直接依赖和 devDependency，不只解释工具名称。
-- [ ] 后端 TOOLCHAIN 覆盖根 POM、五个服务当前使用的直接 Starter、Maven Wrapper 和构建插件。
-- [ ] 文档能按一次页面/服务开发流程解释开发服务器、类型检查、静态检查、组件测试、E2E 和打包的关系。
-- [ ] 文档明确产品负责人需要关注 Storybook、可访问性、用户链路和构建结果，不要求其理解内部转换细节。
-- [ ] 根 README 与 `CLAUDE.md` 的导航和当前进度与实际目录一致。
-- [ ] Markdown 本地链接存在、代码围栏成对，命令和配置名称均能在当前仓库中找到对应真源。
-- [ ] `npm run check`、`npm run build`、Maven `verify`、产品/任务检查和 `git diff --check` 通过。
-- [ ] 未修改依赖清单、锁文件、POM、运行时代码、业务契约或产品需求。
+- [x] 前后端 README 不再包含脚手架默认文案，并能从新克隆开始给出可执行入口和预期结果。
+- [x] 前端 TOOLCHAIN 覆盖 `package.json` 中全部直接依赖和 devDependency，不只解释工具名称。
+- [x] 后端 TOOLCHAIN 覆盖根 POM、五个服务当前使用的直接 Starter、Maven Wrapper 和构建插件。
+- [x] 文档能按一次页面/服务开发流程解释开发服务器、类型检查、静态检查、组件测试、E2E 和打包的关系。
+- [x] 文档明确产品负责人需要关注 Storybook、可访问性、用户链路和构建结果，不要求其理解内部转换细节。
+- [x] 根 README 与 `CLAUDE.md` 的导航和当前进度与实际目录一致。
+- [x] Markdown 本地链接存在、代码围栏成对，命令和配置名称均能在当前仓库中找到对应真源。
+- [x] `npm run check`、`npm run build`、Maven `verify`、产品/任务检查和 `git diff --check` 通过。
+- [x] 未修改依赖清单、锁文件、POM、运行时代码、业务契约或产品需求。
 
 ## 产品影响
 
@@ -84,6 +85,7 @@ Git 的 README 或工具链说明；`CLAUDE.md` 仍把已经落地的前后端�
 
 - 2026-08-24T14:51:56+08:00：创建任务。
 - 2026-08-24T14:54:06+08:00：codex/root 在分支 codex/task-0015 认领任务，租约 24 小时。
+- 2026-08-24T15:08:13+08:00：实现与验证完成，进入 review。
 
 ## 阻塞信息
 
@@ -91,4 +93,4 @@ Git 的 README 或工具链说明；`CLAUDE.md` 仍把已经落地的前后端�
 
 ## 完成结果
 
-尚未完成。
+已重写前后端 README，新增前后端 TOOLCHAIN，并同步根 README 与 CLAUDE.md 的导航和项目状态。前端 43 个直接依赖均有说明，本地 Markdown 链接和代码围栏校验通过；npm run check、npm run build、Maven clean verify、Gateway 启动及健康检查、产品/任务校验和 git diff --check 均通过。依赖清单、锁文件、POM、运行时代码、契约和产品需求未修改。

@@ -45,13 +45,13 @@ cherry-oj/
 │   │   ├── cmd/{judge,sandbox}/
 │   │   ├── internal/{config,contract,judge,sandbox}/
 │   │   └── config.example.yaml
-│   ├── server/         Java / SpringBoot Maven 聚合工程 —— 尚未开工
+│   ├── server/         Java / Spring Boot Maven 聚合工程 —— 五服务基础骨架已建立
 │   │   ├── gateway-service/
 │   │   ├── user-service/
 │   │   ├── problem-service/
 │   │   ├── submission-service/
 │   │   └── judging-service/
-│   └── web/            TypeScript —— 尚未开工
+│   └── web/            React / TypeScript —— 前端基础骨架已建立
 ├── product/            ★ 进入 Git 的产品需求中心，REQ / PD / 版本验收的唯一真源
 ├── tasks/              ★ 进入 Git 的研发任务中心，执行状态与依赖的唯一真源
 ├── docs/               本地设计文档（architecture / engine / data-model）
@@ -71,7 +71,8 @@ cherry-oj/
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，可与 sandbox 双进程联调 |
 | Docker 部署 | ✅ judge / sandbox 双容器 Compose（开发与 MVP） |
-| `apps/server`（五个 Java 服务）、`apps/web` | 未开始 |
+| `apps/server`（五个 Java 服务） | ✅ Maven 聚合、独立端口、健康检查与基础测试；业务 API 待实现 |
+| `apps/web` | ✅ React、Router、Query、样式、组件与测试工具骨架；业务页面待实现 |
 
 ---
 
@@ -82,8 +83,8 @@ cherry-oj/
 | 语言 | 规范 |
 |---|---|
 | Go（`apps/judge-engine`） | [`.claude/rules/go.md`](./.claude/rules/go.md) |
-| Java（`apps/server`） | 见下方 §二（尚未开工，先立约定） |
-| TypeScript（`apps/web`） | 见下方 §三（尚未开工） |
+| Java（`apps/server`） | 见下方 §二和 [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md) |
+| TypeScript（`apps/web`） | 见下方 §三和 [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
 
 写 Go 代码前请先读 `.claude/rules/go.md`——包与文件组织、命名、接口与依赖方向、
 错误处理、资源与生命周期、并发、日志、子进程、测试写法都在那里。
@@ -194,9 +195,9 @@ cherry-oj/
 - **并发代码必须 `-race`**。
 - 边界用例要专门写：集成用例的限额通常离边界很远，off-by-one 撞不出来。
 
-## 二、Java（`apps/server`，尚未开工）
+## 二、Java（`apps/server`）
 
-先立约定，开工时补充：
+五服务基础工程已经建立，业务实现继续遵循以下约定：
 
 - Java 21 LTS + Spring Boot 4.1 + Maven 聚合工程；五个服务独立构建和部署，不与 Go 侧共享构建产物。
 - 服务只写自己的 MySQL schema；禁止跨库 JOIN、共享 Mapper、共享业务实体和分布式 XA 事务。
@@ -215,7 +216,7 @@ cherry-oj/
 - 题目元信息真源在 problem-service；环境相关绝对限制真源在 judging-service；判题时解析并冻结到
   JudgeInput。**判题机磁盘上只有按 testDataVersionId 定位的测试数据文件本身**。
 
-## 三、TypeScript（`apps/web`，尚未开工）
+## 三、TypeScript（`apps/web`）
 
 前端采用 **TanStack-first、按需引入**，不是无条件安装 TanStack 全家桶：
 
@@ -241,15 +242,15 @@ cherry-oj/
   loading / empty / error / unauthorized / success 都要有明确 UI。
 - 样式与可访问性：条件 class 统一走 `cn()`，优先设计 token 和语义 HTML；交互必须支持键盘，
   verdict 不能只靠颜色表达。
-- 前端初始化时统一提供 `format(:check)`、`lint(:fix)`、`typecheck`、`test(:run)`、
-  `test:e2e`、`build`、`check` 脚本，并扩展 hook / CI：hook 只检查、不改写；CI 使用
+- 前端已经统一提供 `format(:check)`、`lint(:fix)`、`typecheck`、`test(:run)`、
+  `test:e2e`、`build`、`check` 脚本；继续保持 hook 只检查、不改写，CI 使用
   `npm ci` 后跑 check、build 和 E2E。
 - 当前不使用 TanStack Start / Next.js / TanStack DB：已有独立 Spring Boot 后端，
   MVP 不需要 SSR/RSC 或客户端关系数据层。
 - 展示 verdict 时注意：`OLE`、`RAN`、`SE` 都是合法状态，别只处理 AC/WA。
 
-详细选型、状态归属、目录结构和分阶段引入顺序见本地 `docs/frontend.md`（`docs/` 不入库，
-所以本节是新克隆也必须保留的核心约定）。
+直接依赖、开发工具和验收入口见 [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md)；更细的
+分阶段引入顺序见本地 `docs/frontend.md`（`docs/` 不入库，所以本节是新克隆也必须保留的核心约定）。
 
 ## 四、提交流程
 
