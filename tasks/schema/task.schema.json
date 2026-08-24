@@ -42,6 +42,12 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^TASK-[0-9]{4}$" }
     },
+    "requirement_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^REQ-[0-9]{4}$" }
+    },
+    "milestone": { "type": ["string", "null"], "minLength": 1 },
     "created_at": { "type": "string", "format": "date-time" },
     "updated_at": { "type": "string", "format": "date-time" },
     "claim_branch": { "type": ["string", "null"] },
@@ -51,4 +57,3 @@
     "review_required": { "type": "boolean" }
   }
 }
-

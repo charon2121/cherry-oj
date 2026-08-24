@@ -26,6 +26,8 @@ FIELDS = (
     "assignee",
     "depends_on",
     "related",
+    "requirement_ids",
+    "milestone",
     "created_at",
     "updated_at",
     "claim_branch",
@@ -34,11 +36,13 @@ FIELDS = (
     "completed_at",
     "review_required",
 )
+REQUIRED_FIELDS = tuple(field for field in FIELDS if field not in {"requirement_ids", "milestone"})
 STATUSES = {"todo", "in_progress", "blocked", "review", "done", "cancelled"}
 TYPES = {"feature", "bug", "refactor", "docs", "tech-debt", "spike", "epic", "chore", "test"}
 PRIORITIES = {"P0", "P1", "P2", "P3"}
 ACTIVE_STATUSES = {"in_progress", "blocked", "review"}
 ID_PATTERN = re.compile(r"^TASK-[0-9]{4}$")
+REQUIREMENT_ID_PATTERN = re.compile(r"^REQ-[0-9]{4}$")
 REQUIRED_SECTIONS = ("背景", "目标", "范围", "验收标准", "执行记录", "阻塞信息", "完成结果")
 
 
@@ -110,7 +114,8 @@ def parse_document(path: Path) -> TaskDocument:
 def render_document(task: TaskDocument) -> str:
     lines = ["---"]
     for field in FIELDS:
-        lines.append(f"{field}: {json.dumps(task.metadata[field], ensure_ascii=False)}")
+        if field in task.metadata:
+            lines.append(f"{field}: {json.dumps(task.metadata[field], ensure_ascii=False)}")
     lines.extend(("---", "", task.body.rstrip(), ""))
     return "\n".join(lines)
 
@@ -195,7 +200,7 @@ def validate_task_shape(task: TaskDocument) -> tuple[list[str], list[str]]:
     metadata = task.metadata
     prefix = str(task.path)
 
-    missing = [field for field in FIELDS if field not in metadata]
+    missing = [field for field in REQUIRED_FIELDS if field not in metadata]
     unknown = [field for field in metadata if field not in FIELDS]
     if missing:
         errors.append(f"{prefix}: 缺少字段：{', '.join(missing)}")
@@ -242,6 +247,25 @@ def validate_task_shape(task: TaskDocument) -> tuple[list[str], list[str]]:
         for value in string_values:
             if not ID_PATTERN.fullmatch(value):
                 errors.append(f"{prefix}: {field} 中的 {value!r} 不是合法任务 ID")
+
+    if "requirement_ids" in metadata:
+        values = metadata["requirement_ids"]
+        if not isinstance(values, list):
+            errors.append(f"{prefix}: requirement_ids 必须是字符串数组")
+        else:
+            string_values = [value for value in values if isinstance(value, str)]
+            if len(string_values) != len(values):
+                errors.append(f"{prefix}: requirement_ids 必须是字符串数组")
+            if len(string_values) != len(set(string_values)):
+                errors.append(f"{prefix}: requirement_ids 不能包含重复 ID")
+            for value in string_values:
+                if not REQUIREMENT_ID_PATTERN.fullmatch(value):
+                    errors.append(f"{prefix}: requirement_ids 中的 {value!r} 不是合法产品需求 ID")
+
+    if "milestone" in metadata:
+        value = metadata["milestone"]
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            errors.append(f"{prefix}: milestone 必须是非空字符串或 null")
 
     dates: dict[str, datetime] = {}
     for field in ("created_at", "updated_at"):
@@ -401,8 +425,10 @@ def command_check(args: argparse.Namespace) -> None:
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
         raise TaskError(f"{schema_path}: JSON 解析失败：{error}") from error
-    if set(schema.get("required", [])) != set(FIELDS) or set(schema.get("properties", {})) != set(FIELDS):
-        raise TaskError(f"{schema_path}: required/properties 必须与任务工具字段完全一致")
+    if set(schema.get("required", [])) != set(REQUIRED_FIELDS):
+        raise TaskError(f"{schema_path}: required 必须与任务工具必填字段完全一致")
+    if set(schema.get("properties", {})) != set(FIELDS):
+        raise TaskError(f"{schema_path}: properties 必须与任务工具字段完全一致")
 
     template_path = args.root / "tasks" / "templates" / "task.md"
     if not template_path.is_file():
@@ -492,6 +518,8 @@ def command_new(args: argparse.Namespace) -> None:
         "assignee": None,
         "depends_on": args.depends_on,
         "related": args.related,
+        "requirement_ids": args.requirement,
+        "milestone": args.milestone,
         "created_at": created,
         "updated_at": created,
         "claim_branch": None,
@@ -692,6 +720,13 @@ def build_parser() -> argparse.ArgumentParser:
     new_parser.add_argument("--priority", choices=sorted(PRIORITIES), required=True)
     new_parser.add_argument("--depends-on", action="append", default=[])
     new_parser.add_argument("--related", action="append", default=[])
+    new_parser.add_argument(
+        "--requirement",
+        action="append",
+        default=[],
+        help="关联产品需求 ID，可重复传入",
+    )
+    new_parser.add_argument("--milestone", help="关联产品里程碑，例如 M1-traditional-oj")
     new_parser.add_argument("--slug", type=validate_slug, help="文件名中的 ASCII 短名")
     new_parser.add_argument("--no-review", action="store_true", help="允许开发者验证后直接完成")
     new_parser.set_defaults(handler=command_new)

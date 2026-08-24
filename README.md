@@ -7,6 +7,19 @@
 
 二者来自同一个 Go module，但部署为**两个独立容器**，通过私有 HTTP 网络通信。
 
+## 产品需求中心
+
+产品需求、产品决策与版本验收统一放在 [`product/`](./product/README.md)。产品负责人审核以用户能力
+为单位的 REQ，研发任务通过稳定 ID 与 REQ 双向关联：
+
+```bash
+scripts/product list
+scripts/product check
+```
+
+总体产品方向和路线图以 [`PRD.md`](./PRD.md) 为准；产品需求描述“交付什么用户结果”，研发任务描述
+“具体怎样实现和验证”。
+
 ## 开发任务中心
 
 进入 Git 的开发任务统一放在 [`tasks/`](./tasks/README.md)。开始开发前先查看可认领任务：
@@ -24,8 +37,8 @@ scripts/task claim TASK-0001 \
   --branch codex/task-0001
 ```
 
-任务的状态、硬依赖、租约、验收标准和完成证据都记录在对应 Markdown 文件中。提交前可运行
-`scripts/task check` 校验整个依赖图和状态不变量。
+任务的状态、硬依赖、租约、技术验收标准和完成证据都记录在对应 Markdown 文件中。提交前可运行
+`scripts/task check` 校验整个依赖图和状态不变量。TASK 的技术完成不自动代表 REQ 已通过产品验收。
 
 ## Docker Compose 启动
 

@@ -1,7 +1,8 @@
 # 开发任务中心
 
-`tasks/` 是本仓库开发任务的唯一真源，并随 Git 一起提交。设计文档仍放在 `docs/`，但凡是
-需要被认领、实现和验收的工作，都要在这里建立独立任务。
+`tasks/` 是本仓库研发执行任务的唯一真源，并随 Git 一起提交。产品需求与产品验收以
+[`product/`](../product/README.md) 为真源，技术设计仍放在 `docs/`；凡是需要被认领、实现和技术
+验收的工作，都要在这里建立独立任务。
 
 ## 目录
 
@@ -28,12 +29,16 @@ front matter 使用受限子集：每行一个字段，值使用 JSON 兼容写�
 正文必须回答：为什么做、目标是什么、包含和不包含什么、怎样算完成。代码中的对应锚点写成
 `TODO(TASK-0001): ...`，不要再写无法追踪的 `TODO(backlog)`。
 
+新任务可以用 `requirement_ids` 关联一个或多个产品需求，用 `milestone` 标识交付里程碑。纯技术治理
+和历史任务允许不关联产品需求；不要为了填字段制造虚假关系。REQ 与 TASK 的双向关系由
+`scripts/product check` 校验。
+
 ## 状态
 
 - `todo`：尚未认领。
 - `in_progress`：已认领并正在开发。
 - `blocked`：开发中遇到依赖任务以外的实际阻塞。
-- `review`：实现和验证已经完成，等待检查。
+- `review`：实现和技术验证已经完成，等待技术检查。
 - `done`：验收完成。
 - `cancelled`：明确不再执行，正文中必须记录原因。
 
@@ -81,6 +86,7 @@ READY = status 为 todo，并且 depends_on 中所有任务均为 done
 - 同步必要的测试、契约、设计文档或教程。
 
 “代码已经写完”不等于任务完成。验证证据和验收标准都是完成定义的一部分。
+TASK 完成也不等于产品需求已经接受；REQ 的产品验收状态以 `product/` 为准。
 
 ## 命令
 
@@ -88,7 +94,8 @@ READY = status 为 todo，并且 depends_on 中所有任务均为 done
 scripts/task list
 scripts/task list --ready
 scripts/task show TASK-0001
-scripts/task new --title "任务标题" --type feature --area server --priority P1
+scripts/task new --title "任务标题" --type feature --area server --priority P1 \
+  --requirement REQ-0001 --milestone M1-traditional-oj
 scripts/task claim TASK-0001 --agent codex/example --branch codex/task-0001
 scripts/task block TASK-0001 --reason "阻塞原因和下一步"
 scripts/task resume TASK-0001
@@ -101,4 +108,3 @@ scripts/task check
 
 命令只修改工作区，不会替用户执行 `git add`、commit 或 push。`scripts/task check` 是 CI
 执行边界，会校验字段、状态不变量、依赖图和完成定义。
-

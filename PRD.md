@@ -8,6 +8,9 @@
 >
 > **文档地位**：本文是前端与后端产品设计的需求真源。页面、接口和数据模型设计必须能追溯到
 > 本文中的角色、工作流、优先级或验收场景；若实现需要改变产品行为，应先更新本文并记录决策。
+> 进入实际交付的纵向用户能力、产品决策和版本验收分别在 [`product/requirements/`](./product/requirements/)、
+> [`product/decisions/`](./product/decisions/) 和 [`product/releases/`](./product/releases/) 管理；
+> 研发执行仍以 `tasks/` 为真源。
 
 ### 已确认的 MVP 基线
 

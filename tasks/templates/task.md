@@ -8,6 +8,8 @@ status: "todo"
 assignee: null
 depends_on: []
 related: []
+requirement_ids: []
+milestone: null
 created_at: "2026-08-18T00:00:00+08:00"
 updated_at: "2026-08-18T00:00:00+08:00"
 claim_branch: null
@@ -42,6 +44,10 @@ review_required: true
 - [ ] 写出可以客观检查的完成条件。
 - [ ] 写出必要的边界测试或验证命令。
 
+## 产品影响
+
+说明本任务支撑哪个 REQ 的哪一部分用户结果；纯技术治理说明其稳定性、安全性或维护影响。
+
 ## 执行记录
 
 - 尚未开始。
@@ -53,4 +59,3 @@ review_required: true
 ## 完成结果
 
 尚未完成。
-
