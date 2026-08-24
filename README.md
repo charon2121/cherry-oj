@@ -1,6 +1,6 @@
 # cherry-oj
 
-学习型 Online Judge。当前判题引擎由两个 Go 服务组成：
+学习型 Online Judge。浏览器端和五个 Java 服务已经建立基础工程，当前可工作的判题引擎由两个 Go 服务组成：
 
 - `judge`：判题编排、测试数据读取、答案比对。
 - `sandbox`：执行一条编译或运行命令，返回资源用量与输出。
@@ -39,6 +39,18 @@ scripts/task claim TASK-0001 \
 
 任务的状态、硬依赖、租约、技术验收标准和完成证据都记录在对应 Markdown 文件中。提交前可运行
 `scripts/task check` 校验整个依赖图和状态不变量。TASK 的技术完成不自动代表 REQ 已通过产品验收。
+
+## 应用开发入口
+
+前后端的启动方式和工具解释分别维护在应用目录中：
+
+- [Web 开发说明](./apps/web/README.md)：怎样运行、开发和验收一个页面。
+- [Web 工具链说明](./apps/web/TOOLCHAIN.md)：`package.json` 中每个直接依赖和开发依赖的职责。
+- [Java 服务开发说明](./apps/server/README.md)：五个服务的端口、构建、启动与健康检查。
+- [Java 服务工具链说明](./apps/server/TOOLCHAIN.md)：Maven、Spring Boot Parent、BOM、Plugin 和 Starter 的区别。
+
+这些文档解释“怎样工作、工具为何存在”；产品能力与验收口径仍以 [`product/`](./product/README.md)
+中的 REQ 为准。
 
 ## Docker Compose 启动
 
