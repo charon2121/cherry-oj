@@ -4,20 +4,21 @@ title: "建立产品需求与交付工作流"
 type: "docs"
 area: "product/workflow"
 priority: "P1"
-status: "review"
+status: "done"
 assignee: "codex/root"
 depends_on: []
 related: []
 requirement_ids: []
 milestone: null
 created_at: "2026-08-24T10:13:25+08:00"
-updated_at: "2026-08-24T10:29:39+08:00"
+updated_at: "2026-08-24T10:39:12+08:00"
 claim_branch: "codex/task-0014"
 claimed_at: "2026-08-24T10:14:50+08:00"
 lease_until: "2026-08-25T10:14:50+08:00"
-completed_at: null
+completed_at: "2026-08-24T10:39:12+08:00"
 review_required: true
 ---
+
 
 
 
@@ -87,6 +88,7 @@ review_required: true
 - 2026-08-24：`python3 scripts/product_test.py`（7 passed）、`python3 scripts/task_test.py`
   （5 passed）、`scripts/product check`、`scripts/task check` 和 `git diff --check` 全部通过。
 - 2026-08-24T10:29:39+08:00：实现与验证完成，进入 review。
+- 2026-08-24T10:39:12+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -99,3 +101,5 @@ REQ 摘要，研发人员继续在 `tasks/` 管理实现工作；技术审核与
 
 REQ-0001 当前有意保持 `draft` 且“尚未拆分”，其中三个产品问题仍等待产品负责人确认；本任务没有
 把未确认假设转化为业务实现，也没有修改运行时代码或业务契约。
+
+用户确认产品文档中心、REQ/TASK 双层工作流、首份 REQ 和自动校验结果验收通过，同意合并 main。
