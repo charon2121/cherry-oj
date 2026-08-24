@@ -4,20 +4,21 @@ title: "重写前后端工具链文档"
 type: "docs"
 area: "tooling/docs"
 priority: "P1"
-status: "review"
+status: "done"
 assignee: "codex/root"
 depends_on: []
 related: []
 requirement_ids: []
 milestone: null
 created_at: "2026-08-24T14:51:56+08:00"
-updated_at: "2026-08-24T15:08:13+08:00"
+updated_at: "2026-08-24T15:10:34+08:00"
 claim_branch: "codex/task-0015"
 claimed_at: "2026-08-24T14:54:06+08:00"
 lease_until: "2026-08-25T14:54:06+08:00"
-completed_at: null
+completed_at: "2026-08-24T15:10:34+08:00"
 review_required: true
 ---
+
 
 
 
@@ -86,6 +87,7 @@ Git 的 README 或工具链说明；`CLAUDE.md` 仍把已经落地的前后端�
 - 2026-08-24T14:51:56+08:00：创建任务。
 - 2026-08-24T14:54:06+08:00：codex/root 在分支 codex/task-0015 认领任务，租约 24 小时。
 - 2026-08-24T15:08:13+08:00：实现与验证完成，进入 review。
+- 2026-08-24T15:10:34+08:00：验收完成，任务关闭。
 
 ## 阻塞信息
 
@@ -94,3 +96,5 @@ Git 的 README 或工具链说明；`CLAUDE.md` 仍把已经落地的前后端�
 ## 完成结果
 
 已重写前后端 README，新增前后端 TOOLCHAIN，并同步根 README 与 CLAUDE.md 的导航和项目状态。前端 43 个直接依赖均有说明，本地 Markdown 链接和代码围栏校验通过；npm run check、npm run build、Maven clean verify、Gateway 启动及健康检查、产品/任务校验和 git diff --check 均通过。依赖清单、锁文件、POM、运行时代码、契约和产品需求未修改。
+
+产品负责人已确认验收通过，同意合并到 main 并清理开发分支。
