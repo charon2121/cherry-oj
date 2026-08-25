@@ -62,7 +62,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 职责：
 
 - 浏览器访问后端的唯一入口，提供 BFF 边界。
-- 路由、统一错误格式、请求 ID / trace ID、基础限流和跨域处理。
+- 路由、统一 REST 成功/错误格式、公开 request ID 与内部 trace 关联、基础限流和跨域处理。
 - 接收注册、登录和退出请求，但不在 Gateway 内实现密码校验；认证逻辑交给自建 user-service。
 - 登录成功后持有浏览器 Session，并向下游转发自建用户服务签发的内部短期 JWT。
 - 隐藏内部微服务拓扑；前端不直接访问任何内部服务。
@@ -160,6 +160,19 @@ OIDC 登录跳转或独立的 OAuth 授权服务器。
 - 各资源服务必须自行验证签名、issuer、audience、有效期和权限，不能只相信 Gateway 请求头。
 - 服务间身份不使用可伪造的 `X-User-Id` 作为安全依据；业务 userId 只能从验证后的 `sub` 读取。
 - 密钥通过 `kid` 支持轮换；轮换期间同时保留当前与上一把公钥，避免在途请求瞬间失效。
+
+### 4.4 浏览器 REST 协议
+
+- `contracts/web-api.openapi.json` 是浏览器 ↔ Gateway 的 OpenAPI 3.1 唯一真源；内部服务 DTO 不直接
+  暴露，也不套用浏览器 envelope。
+- 请求 body 由 endpoint schema 直接描述。普通 JSON 成功响应使用
+  `{ data: T, meta: { requestId, pagination? } }`；无 body 的成功使用 204。
+- 错误使用 RFC 9457 `application/problem+json` 和正确 4xx/5xx，并扩展稳定 `code`、
+  `meta.requestId` 与可选 `violations`。Bean Validation 为 422，无法解析的请求为 400；未知 5xx
+  只能返回安全摘要。
+- Gateway 忽略不可信的来访 request ID，为每次请求生成 opaque `X-Request-Id`；响应 header、成功
+  meta 和 Problem meta 必须相同。request ID、内部 trace ID、Session 与 Idempotency-Key 不能混用。
+- 普通响应 schema 的新增可选字段属于兼容演进；破坏性修改必须提供迁移窗口或新 `/api/v2`。
 
 外部 API 使用 HTTPS + REST/JSON。普通查询和立即需要结果的命令使用同步 HTTP；判题这种长流程使用
 Kafka 异步推进。HTTP 状态码描述本次协议交互是否成功，verdict 描述用户程序的运行结果：

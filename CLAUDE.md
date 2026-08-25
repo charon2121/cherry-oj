@@ -202,6 +202,12 @@ cherry-oj/
 - Java 21 LTS + Spring Boot 4.1 + Maven 聚合工程；五个服务独立构建和部署，不与 Go 侧共享构建产物。
 - 服务只写自己的 MySQL schema；禁止跨库 JOIN、共享 Mapper、共享业务实体和分布式 XA 事务。
 - Gateway 使用 WebFlux；user/problem/submission/judging 使用 Spring MVC。MyBatis + Flyway 负责持久化。
+- 浏览器公开 REST 契约以 `contracts/web-api.openapi.json` 为唯一真源。请求 body 使用 endpoint DTO，
+  普通 JSON 成功响应统一为 `{ data, meta: { requestId, pagination? } }`，失败统一为 RFC 9457
+  `application/problem+json`，并携带稳定 `code` 与相同的 `meta.requestId`。
+- Gateway 为每次公开请求生成 `X-Request-Id`，且 header 必须与响应 body 一致；不能把客户端传入值、
+  Session、Idempotency-Key 或内部 trace ID 当作 public request ID。`204`、二进制和流式响应是明确例外，
+  不能为了形式统一强行包装。
 - 正式提交使用 Kafka + Outbox/Inbox 异步推进；不能改回 HTTP 请求线程同步等待 judge。
 - problem-service 拥有题目版本与 CORE 模板；judging-service 拥有环境、数据部署和语言标定；
   submission-service 拥有 Submission 与不可变 JudgeInput。
@@ -226,8 +232,11 @@ cherry-oj/
 - 业务组件：TanStack Table、TanStack Form + Zod；TanStack Virtual 只在长列表确有需要时引入。
 - UI：Tailwind CSS + shadcn/ui + Lucide React；代码编辑用 Monaco Editor。
 - 题面：react-markdown + remark-gfm + rehype-sanitize，默认不执行原始 HTML。
-- HTTP：原生 `fetch` 的项目级薄封装，不引入 Axios；前端只调用 server 的 REST，
-  不直接调 judge / sandbox。
+- HTTP：原生 `fetch` 的项目级薄封装，不引入 Axios；前端只调用 Gateway `/api`，不直接调内部服务、
+  judge 或 sandbox。公共 client 校验 ApiSuccess / ApiProblem 和 request ID，将失败区分为
+  `http | network | timeout | aborted | contract`，但不负责缓存、导航、toast 或自动重试。
+- OpenAPI 只生成 `src/generated/api` 的 TypeScript 类型，禁止手改；实际网络响应仍由 Zod 在边界校验。
+  响应 decoder 接受新增的未知可选字段，业务分支只能依赖已声明的必需字段、HTTP status 和稳定 code。
 - 状态边界：URL 状态归 Router，服务端状态归 Query，表单归 Form，表格归 Table，
   局部交互用 `useState` / `useReducer`。初期不引入 Zustand、Redux Toolkit 或 TanStack Store。
 - 测试：Vitest + React Testing Library + MSW；关键用户链路用 Playwright。

@@ -142,10 +142,16 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - 使用原生 `fetch` 的项目级薄封装，不引入 Axios。薄封装只处理 base URL、JSON、Cookie、
   CSRF、`AbortSignal`、Request ID、RFC 9457 Problem Details 与统一应用错误；缓存、重试、
   去重和失效归 TanStack Query。
-- Gateway 的 OpenAPI 文档生成 TypeScript 请求/响应类型。具体生成器在初始化时选择稳定版并
-  固化为 npm script；生成物不得手改，CI 重新生成后检查漂移。
+- 请求 body 不套通用 envelope。普通 JSON 成功响应统一解析为 `{ data, meta }`，失败只接受
+  `application/problem+json`；`X-Request-Id` 与 body 的 `meta.requestId` 不一致属于契约错误。
+- `ApiError` 区分 `http | network | timeout | aborted | contract`；HTTP error 保留 status、稳定 code、
+  request ID、Problem 和按 ns 表示的 `Retry-After`。公共 client 不自动导航、toast 或重试。
+- Gateway OpenAPI 由 `@hey-api/openapi-ts` 仅生成 `src/generated/api` 的 TypeScript 类型，配置入口为
+  `openapi-ts.config.mjs`。`npm run generate:api` 更新生成物，`generate:api:check` 重建并逐文件检查
+  漂移；生成物不得手改，且生成器固定精确版本。
 - OpenAPI 类型描述编译期契约；URL search params、表单、IndexedDB、关键服务端边界等不可信
-  运行时数据仍由 Zod 校验。避免给每个可信内部对象重复套一层 schema。
+  运行时数据仍由 Zod 校验。公开响应 decoder 校验必需字段但容忍新增的未知可选字段；请求 schema
+  默认拒绝未知字段。避免给每个可信内部对象重复套一层 schema。
 - HTTP 状态描述请求是否成功；`AC`、`WA`、`TLE`、`MLE`、`OLE`、`CE`、`RE`、
   `PE`、`RAN`、`SE` 等 verdict 是业务数据，不能用 HTTP 错误代替。
 
@@ -153,7 +159,8 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 
 - Query key 由各 feature 的 factory 集中定义并保持结构稳定；组件中不散落裸数组。
 - Mutation 成功后精确失效相关 key，不全局清缓存。乐观更新只用于失败时能完整回滚的交互。
-- 默认重试只用于幂等读请求和明确可安全重试的写请求；4xx 业务错误不自动重试。
+- 默认 Query 只对网络、超时和 5xx 的幂等读请求重试一次；aborted、contract 与 4xx 不自动重试。
+  Mutation 默认不重试，写请求必须结合 method、Idempotency-Key 和 endpoint 语义单独决定。
 - route loader / `beforeLoad` 可以预取或确保关键 Query，但不在 Router 和 Query 各缓存一份数据。
 
 ### 4.3 登录态与权限
@@ -329,6 +336,8 @@ export default {
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "generate:api": "openapi-ts",
+    "generate:api:check": "node scripts/check-generated-api.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -339,7 +348,7 @@ export default {
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:run"
+    "check": "npm run generate:api:check && npm run format:check && npm run lint && npm run typecheck && npm run test:run"
   }
 }
 ```
@@ -347,8 +356,7 @@ export default {
 - 开发中主动运行 `format` / `lint:fix`；提交前运行 `npm run check`。
 - pre-commit 只检查暂存前端文件的 Prettier 和 ESLint 结果，不自动修复或重新 `git add`。
 - pre-push 在 `apps/web` 有改动时运行 `npm run check` 和 `npm run build`。
-- OpenAPI 类型生成器确定后统一提供 `api:generate` / `api:check`，CI 重新生成并拒绝契约漂移；
-  生成命令的实现不在选定生成器之前写伪占位。
+- OpenAPI 契约变化后运行 `generate:api` 并提交生成物；`generate:api:check` 与 `check` 会拒绝漂移。
 - CI 使用 `npm ci`，运行 `check`、生产构建、Storybook 静态构建和 Playwright；任何 warning
   不作为长期可忽略状态。
 - 门禁分层：Prettier 管格式，ESLint 管代码风险，TypeScript 管类型，Vitest 管组件行为，
@@ -372,8 +380,9 @@ apps/web/
 │   │   └── admin/
 │   ├── components/
 │   │   └── ui/              # shadcn/ui 组件；story 与 test 就近放置
+│   ├── generated/api/       # OpenAPI 生成类型；禁止手改
 │   ├── lib/
-│   │   ├── api/             # fetch 薄封装、OpenAPI 类型、Query options
+│   │   ├── api/             # fetch 薄封装、ApiSuccess/ApiProblem 运行时校验
 │   │   ├── storage/         # IndexedDB 草稿 repository
 │   │   └── validation/      # 跨 feature 共用的 Zod schema
 │   ├── test/                # Vitest / MSW 公共测试配置
@@ -427,8 +436,6 @@ shadcn/ui / Radix、语义 token、Storybook、ESLint、Prettier、Vitest、Test
 
 以下能力边界已经确定，但现在没有足够信息选择实现库，因此不进入初始 `package.json`：
 
-- **OpenAPI → TypeScript 生成器**：生成契约类型和 CI 漂移检查已经确定；等 Gateway OpenAPI
-  形态稳定后，在 `openapi-typescript` 等候选中选稳定方案。
 - **前端错误监控与产品分析**：尚未决定 Sentry、PostHog 或其它服务；先保留统一日志/错误入口，
   不在业务组件散落厂商 SDK。
 - **图表库**：排行榜和统计需求尚未形成，不提前选择 Recharts、ECharts 等库。

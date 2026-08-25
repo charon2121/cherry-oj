@@ -67,7 +67,14 @@ JDK 不是 Maven 依赖，不能通过 `pom.xml` 自动安装。若本地 JDK �
 
 这是浏览器入口 Gateway 的响应式网关能力，负责后续的请求匹配、转发和过滤器链。它基于 WebFlux 的非阻塞模型，适合入口层处理大量短连接与转发。
 
-当前只装好了网关运行基础，没有配置业务路由。因此 8080 健康检查成功，不代表 `/api` 已经能转发到其他服务。
+网关运行基础已经提供一个 browser-facing 的 `GET /api/status` 连通性资源。它按
+`contracts/web-api.openapi.json` 返回 `{ data, meta }`，并由请求过滤器生成与 `meta.requestId` 相同的
+`X-Request-Id`。统一异常处理将格式错误、校验错误、明确业务错误和未知故障映射为脱敏的 RFC 9457
+`application/problem+json`。该资源只证明 Gateway 能处理 REST/JSON，不代表其它服务或基础设施健康，
+也不表示业务路由已经接通。8080 的 Actuator 健康检查继续服务运维，页面不直接耦合其响应结构。
+
+后续业务路由仍须由所属工作项明确 URI、拥有服务、失败语义和权限；不能因为 `/api/status` 可用就
+让 Gateway 直接拥有用户、题目或提交数据。
 
 Gateway 不应同时引入 WebMVC Starter。WebFlux 与 WebMVC 是两套不同的服务器模型，入口层保持 WebFlux，业务服务保持 WebMVC。
 

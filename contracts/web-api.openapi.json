@@ -1,0 +1,234 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Cherry OJ Web API",
+    "version": "0.1.0",
+    "description": "浏览器与 Gateway 之间的公开 REST 契约。请求使用 endpoint DTO，普通 JSON 成功响应使用 ApiSuccess，失败响应使用 RFC 9457 Problem Details。"
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "paths": {
+    "/api/status": {
+      "get": {
+        "operationId": "getSystemStatus",
+        "summary": "读取 Gateway 就绪状态",
+        "responses": {
+          "200": {
+            "description": "Gateway 已就绪",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SystemStatusSuccess" },
+                "example": {
+                  "data": {
+                    "service": "gateway-service",
+                    "status": "ready"
+                  },
+                  "meta": {
+                    "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0"
+                  }
+                }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    }
+  },
+  "components": {
+    "headers": {
+      "XRequestId": {
+        "description": "Gateway 生成的公开请求标识；必须与响应 body 的 meta.requestId 相同。",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/RequestId" }
+      }
+    },
+    "responses": {
+      "ApiProblemResponse": {
+        "description": "符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
+        },
+        "content": {
+          "application/problem+json": {
+            "schema": { "$ref": "#/components/schemas/ApiProblem" },
+            "example": {
+              "type": "urn:cherry-oj:problem:validation-failed",
+              "title": "请求参数校验失败",
+              "status": 422,
+              "detail": "请检查标记字段。",
+              "instance": "urn:cherry-oj:request:req_01K37XZ3MFXBK92WMG67G4XFN0",
+              "code": "VALIDATION_FAILED",
+              "meta": {
+                "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0"
+              },
+              "violations": [
+                {
+                  "path": "title",
+                  "code": "SIZE",
+                  "message": "标题长度必须在 1 到 120 之间。"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "RequestId": {
+        "type": "string",
+        "pattern": "^req_[A-Za-z0-9_-]{16,64}$",
+        "description": "Gateway 生成的 opaque public request ID，不等同于 session、trace 或幂等键。"
+      },
+      "ApiMeta": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["requestId"],
+        "properties": {
+          "requestId": { "$ref": "#/components/schemas/RequestId" },
+          "pagination": { "$ref": "#/components/schemas/Pagination" }
+        },
+        "examples": [
+          { "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0" }
+        ]
+      },
+      "Pagination": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/CursorPagination" },
+          { "$ref": "#/components/schemas/PagePagination" }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "cursor": "#/components/schemas/CursorPagination",
+            "page": "#/components/schemas/PagePagination"
+          }
+        }
+      },
+      "CursorPagination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "nextCursor", "hasMore"],
+        "properties": {
+          "kind": { "const": "cursor", "type": "string" },
+          "nextCursor": {
+            "type": ["string", "null"],
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "不透明游标；客户端不得解析。"
+          },
+          "hasMore": { "type": "boolean" }
+        },
+        "examples": [
+          { "kind": "cursor", "nextCursor": null, "hasMore": false }
+        ]
+      },
+      "PagePagination": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "page", "size", "totalElements", "totalPages"],
+        "properties": {
+          "kind": { "const": "page", "type": "string" },
+          "page": { "type": "integer", "minimum": 1 },
+          "size": { "type": "integer", "minimum": 1 },
+          "totalElements": { "type": "integer", "minimum": 0 },
+          "totalPages": { "type": "integer", "minimum": 0 }
+        },
+        "examples": [
+          {
+            "kind": "page",
+            "page": 1,
+            "size": 20,
+            "totalElements": 0,
+            "totalPages": 0
+          }
+        ]
+      },
+      "FieldViolation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "code", "message"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+          "message": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        },
+        "examples": [
+          {
+            "path": "title",
+            "code": "SIZE",
+            "message": "标题长度必须在 1 到 120 之间。"
+          }
+        ]
+      },
+      "ApiProblem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "title", "status", "code", "meta"],
+        "properties": {
+          "type": { "type": "string", "format": "uri-reference" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "status": { "type": "integer", "minimum": 400, "maximum": 599 },
+          "detail": { "type": "string", "minLength": 1, "maxLength": 2048 },
+          "instance": { "type": "string", "format": "uri-reference" },
+          "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{0,63}$" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" },
+          "violations": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/FieldViolation" }
+          }
+        },
+        "examples": [
+          {
+            "type": "urn:cherry-oj:problem:validation-failed",
+            "title": "请求参数校验失败",
+            "status": 422,
+            "detail": "请检查标记字段。",
+            "instance": "urn:cherry-oj:request:req_01K37XZ3MFXBK92WMG67G4XFN0",
+            "code": "VALIDATION_FAILED",
+            "meta": {
+              "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0"
+            },
+            "violations": [
+              {
+                "path": "title",
+                "code": "SIZE",
+                "message": "标题长度必须在 1 到 120 之间。"
+              }
+            ]
+          }
+        ]
+      },
+      "SystemStatusData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["service", "status"],
+        "properties": {
+          "service": { "const": "gateway-service", "type": "string" },
+          "status": { "const": "ready", "type": "string" }
+        },
+        "examples": [
+          { "service": "gateway-service", "status": "ready" }
+        ]
+      },
+      "SystemStatusSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/SystemStatusData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        },
+        "examples": [
+          {
+            "data": { "service": "gateway-service", "status": "ready" },
+            "meta": { "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0" }
+          }
+        ]
+      }
+    }
+  }
+}

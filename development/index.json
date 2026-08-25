@@ -1,18 +1,18 @@
 {
   "next_ids": {
-    "capability": 1,
+    "capability": 3,
     "change": 6,
-    "decision": 6,
-    "design": 6,
-    "experience": 2,
+    "decision": 7,
+    "design": 8,
+    "experience": 4,
     "feature": 2,
     "improvement": 1,
     "issue": 2,
-    "memory": 6,
-    "plan": 6,
+    "memory": 8,
+    "plan": 8,
     "product": 1,
-    "task": 8,
-    "verify": 8,
-    "work": 8
+    "task": 10,
+    "verify": 10,
+    "work": 10
   }
 }

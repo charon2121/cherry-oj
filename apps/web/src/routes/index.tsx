@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { Button } from '@/components/ui/button';
+import { SystemStatusPanel } from '@/features/system-status/components/system-status-panel';
 
 export const Route = createFileRoute('/')({
   component: HomePage,
@@ -14,9 +14,7 @@ export function HomePage() {
       <p className="text-muted-foreground mt-4 max-w-2xl">
         Router 管 URL，Query 管服务端状态，浏览器只通过 Gateway 的 /api 访问后端。
       </p>
-      <Button className="mt-8" type="button" disabled>
-        业务功能将在下一阶段接入
-      </Button>
+      <SystemStatusPanel />
     </section>
   );
 }

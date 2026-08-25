@@ -16,6 +16,7 @@ export default tseslint.config(
       'storybook-static',
       'test-results',
       'src/routeTree.gen.ts',
+      'src/generated',
     ],
   },
   eslint.configs.recommended,

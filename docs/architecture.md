@@ -21,7 +21,8 @@
 3. **每个服务只写自己的数据库。** 跨服务不连表、不共享 Mapper、不直接读取对方 schema。
 4. **长流程使用至少一次消息。** Outbox、Inbox、条件更新和 fencing token 保证重复投递与迟到结果
    不破坏状态，不声称 MySQL + Kafka 能“恰好一次”。
-5. **跨服务与跨语言契约先行。** 共享 DTO 以 `contracts/*.json` 为唯一真源。
+5. **跨边界契约先行。** 浏览器公开 REST 以 `contracts/web-api.openapi.json` 为唯一真源；内部服务、
+   Kafka 和 Java/Go DTO 使用各自的 `contracts/*.json`，不能把公开 BFF envelope 扩散到内部协议。
 6. **sandbox 只执行命令。** 编译、测试点编排、checker 和 verdict 都在 judge；sandbox 不知道题目、
    Submission、ACM 或 CORE。
 7. **源码模式在进入 judge 前消失。** ACM 源码直接冻结；CORE 用户源码在 submission-service 中与
@@ -83,7 +84,7 @@ submission-service：Pending → Judging → Done + verdict
 - 浏览器唯一后端入口和 BFF 路由。
 - Redis Session、Cookie、CSRF、CORS、基础限流。
 - 将 user-service 签发的短期内部 JWT 转发给资源服务。
-- 统一 `traceId`、外部错误格式和内部服务拓扑隐藏。
+- 生成公开 request ID、关联内部 trace、统一外部错误格式并隐藏内部服务拓扑。
 
 不负责：密码校验、签发用户身份、业务表写入、聚合跨服务事务。
 
@@ -191,6 +192,15 @@ judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限�
 - `/api/admin/judging/**` → judging-service（Gateway 做前置检查，服务自身仍验权）
 
 前端不能直接访问 Kafka、内部微服务、judge 或 sandbox。
+
+浏览器请求 body 直接使用 endpoint DTO，不增加通用 wrapper。普通 JSON 成功响应统一为
+`{ data, meta: { requestId, pagination? } }`；失败使用 RFC 9457 `application/problem+json`，在标准
+字段之外携带稳定 `code`、`meta.requestId` 和可选 `violations`。Gateway 返回的 `X-Request-Id`
+必须与 body 相同，并对内部异常和下游 5xx 脱敏。HTTP status 保留协议语义，不能把错误统一伪装为
+200；`204`、二进制下载和 SSE 是不带 JSON envelope 的明确例外。
+
+公开响应允许增加未知可选字段；删除、改名、改类型、收紧 enum 或改变 status/code 语义属于破坏性
+变更。初期保持 `/api`，只有无法兼容迁移时才启用 `/api/v2`。
 
 ### 4.2 可判题题目快照
 

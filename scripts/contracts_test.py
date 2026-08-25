@@ -51,6 +51,7 @@ class ContractsTest(unittest.TestCase):
             "judge-events.schema.json",
             "run.schema.json",
             "verdict.json",
+            "web-api.openapi.json",
         }
         self.assertEqual({path.name for path in CONTRACTS.glob("*.json")}, expected)
 
@@ -138,6 +139,49 @@ class ContractsTest(unittest.TestCase):
             set(requested["properties"]),
             {"submissionId", "judgeInputContractVersion"},
         )
+
+    def test_web_api_uses_envelope_and_problem_details(self) -> None:
+        document = load("web-api.openapi.json")
+        self.assertEqual(document["openapi"], "3.1.2")
+
+        schemas = document["components"]["schemas"]
+        self.assertEqual(set(schemas["SystemStatusSuccess"]["required"]), {"data", "meta"})
+        self.assertEqual(set(schemas["ApiMeta"]["required"]), {"requestId"})
+        self.assertTrue(
+            {"type", "title", "status", "code", "meta"}.issubset(
+                schemas["ApiProblem"]["required"]
+            )
+        )
+
+        status_responses = document["paths"]["/api/status"]["get"]["responses"]
+        success = status_responses["200"]
+        self.assertIn("X-Request-Id", success["headers"])
+        self.assertEqual(
+            success["content"]["application/json"]["schema"]["$ref"],
+            "#/components/schemas/SystemStatusSuccess",
+        )
+
+        problem_response = document["components"]["responses"]["ApiProblemResponse"]
+        self.assertIn("X-Request-Id", problem_response["headers"])
+        self.assertEqual(
+            problem_response["content"]["application/problem+json"]["schema"]["$ref"],
+            "#/components/schemas/ApiProblem",
+        )
+
+    def test_web_api_request_ids_match_in_examples(self) -> None:
+        document = load("web-api.openapi.json")
+        success = document["paths"]["/api/status"]["get"]["responses"]["200"]
+        success_example = success["content"]["application/json"]["example"]
+        problem_response = document["components"]["responses"]["ApiProblemResponse"]
+        problem_example = problem_response["content"]["application/problem+json"]["example"]
+
+        self.assertEqual(
+            success_example["meta"]["requestId"],
+            document["components"]["schemas"]["SystemStatusSuccess"]["examples"][0][
+                "meta"
+            ]["requestId"],
+        )
+        self.assertIn(problem_example["meta"]["requestId"], problem_example["instance"])
 
 
 if __name__ == "__main__":

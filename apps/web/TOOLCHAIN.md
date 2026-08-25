@@ -41,6 +41,11 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 负责服务端数据的请求状态、缓存、重新获取、Mutation 和后续的判题结果轮询。它避免每个页面重复手写 loading、错误处理和缓存逻辑。它不负责本地弹窗开关，也不替代 Router 管理 URL。
 
+### `zod`
+
+在浏览器收到不可信 JSON 时校验 ApiSuccess、ApiProblem、request ID 和 endpoint 关键字段。OpenAPI
+生成类型只在编译期生效，不能替代这层运行时检查。响应 schema 容忍新增的未知可选字段，以支持兼容演进。
+
 ### `@base-ui/react`
 
 提供无样式、可访问的交互基础能力，适合构建对话框、菜单等复杂组件。它解决键盘操作、焦点和 ARIA 行为，视觉样式仍由项目自己决定。
@@ -106,6 +111,12 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 ### `@types/react`、`@types/react-dom` 与 `@types/node`
 
 前两个为 React 和浏览器挂载 API 提供 TypeScript 类型；`@types/node` 为 Vite、Playwright 等 Node 配置文件提供类型。它们只服务开发和构建，不进入浏览器运行逻辑。
+
+### `@hey-api/openapi-ts`
+
+读取 `contracts/web-api.openapi.json`，只生成 `src/generated/api` 的 TypeScript 类型，不生成或接管
+项目的 fetch client。版本被精确固定以避免 0.x 生成行为漂移；`openapi-ts.config.mjs` 是配置入口，
+`generate:api:check` 在临时目录重建并与已提交生成物逐文件比较。
 
 ## 代码正确性与格式
 
@@ -207,13 +218,14 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 - `npm run dev` → Vite，同时加载 React、Router 和 Tailwind 插件。
 - `npm run build` → TypeScript 项目构建，再由 Vite 生成 `dist/`。
+- `npm run generate:api` / `generate:api:check` → 更新 OpenAPI 类型 / 校验生成物无漂移。
 - `npm run format:check` / `format` → Prettier 和 Tailwind 格式插件。
 - `npm run lint` / `lint:fix` → ESLint 及其 TypeScript、Hook、可访问性、导入插件。
 - `npm run typecheck` → TypeScript。
 - `npm run test:run` → Vitest、jsdom、Testing Library，测试需要接口时由 MSW 接管。
 - `npm run test:e2e` → Playwright。
 - `npm run storybook` / `storybook:build` → Storybook 框架和 addons。
-- `npm run check` → 格式检查、ESLint、TypeScript、组件测试的串行总入口。
+- `npm run check` → OpenAPI 漂移、格式、ESLint、TypeScript、组件测试的串行总入口。
 
 ## 产品经理应该怎样审核工具链变更
 

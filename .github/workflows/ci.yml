@@ -44,7 +44,7 @@ jobs:
       - name: 安装锁定依赖
         run: npm ci
 
-      - name: 格式、Lint、类型与组件测试
+      - name: OpenAPI 漂移、格式、Lint、类型与组件测试
         run: npm run check
 
       - name: 生产构建
