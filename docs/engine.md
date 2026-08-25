@@ -3,7 +3,7 @@
 > 面向：**刚会 Go 基本语法、准备手写判题引擎** 的读者。
 > 系统级拓扑见 [architecture.md](./architecture.md)。
 > **全链路数据结构**见 [data-model.md](./data-model.md)（字段真源在 `contracts/`）。
-> **动手步骤（分阶段教程）**见 [`../tutorial/`](../tutorial/README.md)。
+> **动手步骤（分阶段教程）**位于本地 `tutorial/`；该目录不进入 Git，新克隆不保证存在。
 >
 > 本文是**设计文档**：讲清楚「是什么 / 为什么 / 边界在哪」。不写安装命令与逐步验收清单。
 > 学习约束：对照 `dev-dependency/go-judge`、`go-sandbox` **学思路**，自己写实现；**命名按场景自拟，不照搬**。
@@ -719,6 +719,6 @@ server                    judge                      sandbox
 | [architecture.md](./architecture.md) | 整个 cherry-oj 系统怎么拼 |
 | [data-model.md](./data-model.md) | PRD 对应的产品领域模型、版本关系与 Submission 快照 |
 | **本文 engine.md** | engine 内部为什么这样设计、每层干什么；含一次判题的文件模型 |
-| [`../tutorial/`](../tutorial/README.md) | 怎么搭建、按 M0→M2 分阶段实现与验收 |
+| 本地 `tutorial/` | 怎么搭建、按 M0→M2 分阶段实现与验收；该目录不进入 Git |
 
 先读设计建立地图；动手时只打开 `tutorial/` 对应阶段。

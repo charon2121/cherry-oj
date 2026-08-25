@@ -25,7 +25,7 @@ json_files=$(printf '%s\n' "$staged" | grep '^contracts/.*\.json$' || true)
 development_files=$(printf '%s\n' "$staged" \
     | grep -E '^(development/|scripts/work$|scripts/work_test\.py$)' || true)
 documentation_files=$(printf '%s\n' "$staged" \
-    | grep -E '^(docs/|development/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test\.py$)' || true)
+    | grep -E '^(docs/|development/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test(_test)?\.py$)' || true)
 web_format_files=$(printf '%s\n' "$staged" \
     | sed -n "s|^$WEB/||p" \
     | grep -E '\.(cjs|css|js|json|jsx|md|mjs|ts|tsx)$' || true)
@@ -112,10 +112,17 @@ if [ -n "$development_files" ] && ! work_out=$(scripts/work check 2>&1); then
     fail=1
 fi
 
-if [ -n "$documentation_files" ] && ! docs_out=$(python3 scripts/docs_test.py 2>&1); then
-    echo "✗ 文档入口或本地链接校验失败："
-    printf '%s\n' "$docs_out" | sed 's/^/    /'
-    fail=1
+if [ -n "$documentation_files" ]; then
+    if ! docs_unit_out=$(PYTHONDONTWRITEBYTECODE=1 python3 scripts/docs_test_test.py 2>&1); then
+        echo "✗ 文档链接校验器测试失败："
+        printf '%s\n' "$docs_unit_out" | sed 's/^/    /'
+        fail=1
+    fi
+    if ! docs_out=$(PYTHONDONTWRITEBYTECODE=1 python3 scripts/docs_test.py 2>&1); then
+        echo "✗ 文档入口或本地链接校验失败："
+        printf '%s\n' "$docs_out" | sed 's/^/    /'
+        fail=1
+    fi
 fi
 
 [ "$fail" -eq 0 ] || {

@@ -7,12 +7,12 @@
     "experience": 2,
     "feature": 2,
     "improvement": 1,
-    "issue": 1,
+    "issue": 2,
     "memory": 5,
     "plan": 5,
     "product": 1,
-    "task": 5,
-    "verify": 5,
-    "work": 5
+    "task": 6,
+    "verify": 6,
+    "work": 6
   }
 }

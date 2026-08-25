@@ -21,6 +21,8 @@ jobs:
         run: python3 scripts/work_test.py
       - name: 校验元数据、流程、状态、引用与证据
         run: scripts/work check
+      - name: 文档链接校验器测试
+        run: python3 scripts/docs_test_test.py
       - name: 校验全局与开发文档入口和本地链接
         run: python3 scripts/docs_test.py
 

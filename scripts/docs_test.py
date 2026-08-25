@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote
@@ -35,8 +36,24 @@ def local_target(path: Path, raw_target: str) -> Path | None:
     return (path.parent / target).resolve()
 
 
+def tracked_paths() -> set[Path]:
+    output = subprocess.check_output(("git", "ls-files", "-z"), cwd=ROOT)
+    return {
+        (ROOT / raw_path.decode("utf-8")).resolve()
+        for raw_path in output.split(b"\0")
+        if raw_path
+    }
+
+
+def repository_target_is_tracked(target: Path, repository_paths: set[Path]) -> bool:
+    if target in repository_paths:
+        return True
+    return any(target in path.parents for path in repository_paths)
+
+
 def main() -> int:
     errors: list[str] = []
+    repository_paths = tracked_paths()
     for path in ACTIVE_ENTRYPOINTS:
         if not path.is_file():
             errors.append(f"缺少文档入口：{path.relative_to(ROOT)}")
@@ -51,6 +68,13 @@ def main() -> int:
                 if target is not None and not target.exists():
                     errors.append(
                         f"{path.relative_to(ROOT)}:{line_number}: 本地链接不存在：{match.group(1)}"
+                    )
+                elif target is not None and not repository_target_is_tracked(
+                    target, repository_paths
+                ):
+                    errors.append(
+                        f"{path.relative_to(ROOT)}:{line_number}: "
+                        f"本地链接目标未进入 Git：{match.group(1)}"
                     )
 
     ignore_lines = {
