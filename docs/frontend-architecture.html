@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Cherry OJ TanStack-first 前端架构：用户主链路、分层、状态归属、路由和目录设计。"
+    />
+    <title>Cherry OJ 前端架构</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f6f7f9;
+        --surface: #ffffff;
+        --surface-soft: #f0f3f7;
+        --text: #172033;
+        --text-soft: #566179;
+        --text-faint: #778198;
+        --line: #dce1e9;
+        --line-strong: #c4ccd8;
+        --accent: #1d6ee7;
+        --accent-soft: #eaf2ff;
+        --accent-text: #1552ad;
+        --code: #edf0f5;
+        --success: #197447;
+        --radius: 12px;
+        --content: 1180px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #101319;
+          --surface: #171b23;
+          --surface-soft: #1d222c;
+          --text: #edf1f7;
+          --text-soft: #b7c0d0;
+          --text-faint: #8b95a8;
+          --line: #2c3441;
+          --line-strong: #414b5c;
+          --accent: #77aaff;
+          --accent-soft: #172c4e;
+          --accent-text: #a9c8ff;
+          --code: #252b36;
+          --success: #69ce98;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family:
+          Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        line-height: 1.6;
+      }
+
+      main {
+        width: min(calc(100% - 40px), var(--content));
+        margin: 0 auto;
+        padding: 56px 0 72px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+        font-size: clamp(2rem, 5vw, 3.75rem);
+        line-height: 1.08;
+        letter-spacing: -0.045em;
+      }
+
+      h2 {
+        margin-bottom: 16px;
+        font-size: 1.25rem;
+        line-height: 1.3;
+        letter-spacing: -0.015em;
+      }
+
+      h3 {
+        margin-bottom: 4px;
+        font-size: 1rem;
+      }
+
+      code {
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: var(--code);
+        color: var(--text);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.88em;
+        overflow-wrap: anywhere;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(230px, 0.42fr);
+        gap: 48px;
+        align-items: end;
+        margin-bottom: 52px;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .eyebrow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 18px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 3px 10px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--text-soft);
+        background: var(--surface);
+        font-size: 0.78rem;
+        font-weight: 650;
+      }
+
+      .pill.primary {
+        border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+        color: var(--accent-text);
+        background: var(--accent-soft);
+      }
+
+      .hero-copy {
+        max-width: 760px;
+        margin-bottom: 0;
+        color: var(--text-soft);
+        font-size: 1.05rem;
+      }
+
+      .hero-rule {
+        padding-left: 18px;
+        border-left: 3px solid var(--accent);
+        color: var(--text-soft);
+        font-size: 0.92rem;
+      }
+
+      .hero-rule strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text);
+        font-size: 1rem;
+      }
+
+      .primary-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.75fr);
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 52px;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 28px;
+        padding-top: 4px;
+      }
+
+      .flow-step {
+        position: relative;
+        min-height: 150px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .flow-step:not(:last-child)::after {
+        position: absolute;
+        top: 50%;
+        left: calc(100% + 9px);
+        width: 10px;
+        color: var(--text-faint);
+        content: "→";
+        font-size: 1.1rem;
+        transform: translateY(-50%);
+      }
+
+      .flow-step.focus {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .step-number {
+        display: block;
+        margin-bottom: 18px;
+        color: var(--text-faint);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+      }
+
+      .flow-step strong {
+        display: block;
+        margin-bottom: 6px;
+        line-height: 1.3;
+      }
+
+      .flow-step p {
+        margin-bottom: 0;
+        color: var(--text-soft);
+        font-size: 0.84rem;
+        line-height: 1.55;
+      }
+
+      .principles {
+        overflow: hidden;
+      }
+
+      .panel-title {
+        margin: 0;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+        font-size: 0.92rem;
+        letter-spacing: 0.01em;
+      }
+
+      .principles ul {
+        margin: 0;
+        padding: 0 18px;
+        list-style: none;
+      }
+
+      .principles li {
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+        color: var(--text-soft);
+        font-size: 0.88rem;
+      }
+
+      .principles li:last-child {
+        border-bottom: 0;
+      }
+
+      .principles li::before {
+        margin-right: 9px;
+        color: var(--success);
+        content: "✓";
+        font-weight: 800;
+      }
+
+      section {
+        margin-bottom: 52px;
+      }
+
+      .section-intro {
+        max-width: 720px;
+        margin: -8px 0 20px;
+        color: var(--text-soft);
+        font-size: 0.9rem;
+      }
+
+      .layers {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .layer {
+        min-height: 188px;
+        padding: 14px 12px;
+        border-top: 3px solid var(--line-strong);
+        background: var(--surface);
+      }
+
+      .layer.feature {
+        border-color: var(--accent);
+      }
+
+      .layer strong,
+      .layer span {
+        display: block;
+      }
+
+      .layer span {
+        margin: 2px 0 14px;
+        color: var(--text-faint);
+        font-size: 0.77rem;
+      }
+
+      .layer p {
+        margin-bottom: 0;
+        color: var(--text-soft);
+        font-size: 0.84rem;
+      }
+
+      .two-column {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px;
+      }
+
+      .owner-list {
+        border-top: 1px solid var(--line);
+      }
+
+      .owner-row {
+        display: grid;
+        grid-template-columns: 125px minmax(0, 1fr);
+        gap: 14px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .owner-row > strong {
+        font-size: 0.88rem;
+      }
+
+      .owner-row p {
+        margin: 5px 0 0;
+        color: var(--text-soft);
+        font-size: 0.82rem;
+      }
+
+      .route-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .route {
+        padding: 15px 16px;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--surface);
+      }
+
+      .route-head {
+        display: flex;
+        gap: 12px;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .route p {
+        margin-bottom: 0;
+        color: var(--text-soft);
+        font-size: 0.82rem;
+      }
+
+      .delivery {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+        margin-bottom: 52px;
+        padding: 20px;
+        border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+        border-radius: var(--radius);
+        background: var(--accent-soft);
+      }
+
+      .delivery-label {
+        color: var(--accent-text);
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .delivery p {
+        margin-bottom: 0;
+        color: var(--text);
+      }
+
+      .directories {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .directory {
+        padding-top: 14px;
+        border-top: 1px solid var(--line-strong);
+      }
+
+      .directory p {
+        margin: 10px 0 0;
+        color: var(--text-soft);
+        font-size: 0.84rem;
+      }
+
+      footer {
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+        color: var(--text-faint);
+        font-size: 0.76rem;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .primary-grid,
+        .two-column {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          gap: 24px;
+        }
+
+        .flow,
+        .layers {
+          grid-template-columns: 1fr;
+        }
+
+        .flow {
+          gap: 24px;
+        }
+
+        .flow-step {
+          min-height: auto;
+        }
+
+        .flow-step:not(:last-child)::after {
+          top: calc(100% + 3px);
+          left: 50%;
+          transform: translateX(-50%) rotate(90deg);
+        }
+
+        .layer {
+          min-height: auto;
+        }
+      }
+
+      @media (max-width: 640px) {
+        main {
+          width: min(calc(100% - 28px), var(--content));
+          padding-top: 32px;
+        }
+
+        .directories {
+          grid-template-columns: 1fr;
+        }
+
+        .owner-row {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+
+        .route-head,
+        footer {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+
+      @media print {
+        :root {
+          color-scheme: light;
+          --page: #ffffff;
+          --surface: #ffffff;
+        }
+
+        main {
+          width: 100%;
+          padding: 0;
+        }
+
+        .hero,
+        section,
+        .delivery {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <div>
+          <div class="eyebrow" aria-label="架构标签">
+            <span class="pill primary">TanStack-first</span>
+            <span class="pill">SPA</span>
+            <span class="pill">Gateway BFF</span>
+          </div>
+          <h1>Cherry OJ<br />前端架构</h1>
+          <p class="hero-copy">
+            面向题目浏览、代码编辑和异步判题流程的 React 应用。前端按用户工作流组织，只访问
+            Gateway，不感知后端微服务拓扑。
+          </p>
+        </div>
+        <aside class="hero-rule">
+          <strong>核心原则</strong>
+          状态只有一个所有者；页面刷新后，用户仍能从 URL 和 Submission ID 恢复任务现场。
+        </aside>
+      </header>
+
+      <div class="primary-grid">
+        <section aria-labelledby="main-flow-title">
+          <h2 id="main-flow-title">用户主链路</h2>
+          <div class="flow">
+            <article class="flow-step">
+              <span class="step-number">01</span>
+              <strong>题库</strong>
+              <p>筛选与分页放在 URL，可分享，也能正确响应前进和后退。</p>
+            </article>
+            <article class="flow-step focus">
+              <span class="step-number">02 · CORE</span>
+              <strong>题目工作台</strong>
+              <p>题面、Monaco、语言选择、样例运行与提交汇聚于一个工作区。</p>
+            </article>
+            <article class="flow-step">
+              <span class="step-number">03</span>
+              <strong>创建 Submission</strong>
+              <p>携带 Idempotency-Key，经 Gateway 写入后端，安全处理重复操作。</p>
+            </article>
+            <article class="flow-step">
+              <span class="step-number">04</span>
+              <strong>判题进度</strong>
+              <p>Query 首期轮询；进入终态立即停止，后续再按需要升级 SSE。</p>
+            </article>
+            <article class="flow-step">
+              <span class="step-number">05</span>
+              <strong>结果详情</strong>
+              <p>展示 verdict、耗时、内存、测试点以及可解释的错误状态。</p>
+            </article>
+          </div>
+        </section>
+
+        <aside class="panel principles" aria-labelledby="principles-title">
+          <h2 id="principles-title" class="panel-title">设计底线</h2>
+          <ul>
+            <li>前端只调用 <code>/api</code>，Gateway 隐藏全部服务地址。</li>
+            <li>路由守卫改善体验，但不能替代服务端鉴权。</li>
+            <li>服务端状态不复制进全局 store，避免双真源。</li>
+            <li>长流程必须能从 Submission ID 恢复。</li>
+            <li>所有 verdict 都显式处理，不能只有 AC / WA。</li>
+          </ul>
+        </aside>
+      </div>
+
+      <section aria-labelledby="layers-title">
+        <h2 id="layers-title">前端分层</h2>
+        <p class="section-intro">
+          页面是用户流程的组合，而不是后端微服务的镜像。依赖方向从装配层流向业务与基础设施边界。
+        </p>
+        <div class="layers">
+          <article class="layer">
+            <strong>Routes</strong>
+            <span>TanStack Router</span>
+            <p>URL、页面边界、鉴权守卫、search params 与路由级加载状态。</p>
+          </article>
+          <article class="layer feature">
+            <strong>Features</strong>
+            <span>业务模块</span>
+            <p>auth、problems、submissions、profile、admin；组件与用例就近组织。</p>
+          </article>
+          <article class="layer">
+            <strong>Server state</strong>
+            <span>TanStack Query</span>
+            <p>请求、缓存、Mutation、失效、轮询；组件不在 Effect 中直接 fetch。</p>
+          </article>
+          <article class="layer">
+            <strong>UI system</strong>
+            <span>shadcn/ui + Tailwind</span>
+            <p>设计 token、基础组件、语义样式与无障碍；Monaco 作为独立重型组件。</p>
+          </article>
+          <article class="layer">
+            <strong>API boundary</strong>
+            <span>Typed fetch + Zod</span>
+            <p>只访问 Gateway；统一错误、CSRF、取消、运行时校验和契约类型。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="two-column" aria-label="状态和路由设计">
+        <div>
+          <h2>状态只有一个所有者</h2>
+          <div class="owner-list">
+            <div class="owner-row">
+              <strong>URL 可恢复状态</strong>
+              <div><code>Router search params</code><p>分页、关键字、难度、标签、排序</p></div>
+            </div>
+            <div class="owner-row">
+              <strong>服务端数据</strong>
+              <div><code>Query</code><p>题目、用户、提交、判题结果</p></div>
+            </div>
+            <div class="owner-row">
+              <strong>表单交互</strong>
+              <div><code>TanStack Form</code><p>值、校验、dirty、submitting</p></div>
+            </div>
+            <div class="owner-row">
+              <strong>表格视图</strong>
+              <div><code>TanStack Table</code><p>列、选择；分页与筛选同步 Router</p></div>
+            </div>
+            <div class="owner-row">
+              <strong>局部交互</strong>
+              <div><code>React state</code><p>弹窗、展开、焦点和临时 UI</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h2>路由区域</h2>
+          <div class="route-list">
+            <article class="route">
+              <div class="route-head"><strong>公开区</strong><code>/ · /problems · /problems/$id</code></div>
+              <p>题库和题面允许匿名浏览；公开提交详情按产品策略脱敏源码。</p>
+            </article>
+            <article class="route">
+              <div class="route-head"><strong>用户区</strong><code>/workspace/$problemId · /submissions · /profile</code></div>
+              <p>路由守卫只控制导航体验，真正权限由 Gateway 与服务端执行。</p>
+            </article>
+            <article class="route">
+              <div class="route-head"><strong>管理区</strong><code>/admin/problems · /admin/users · /admin/submissions</code></div>
+              <p>按角色懒加载；管理组件不进入普通用户首屏 bundle。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <aside class="delivery" aria-label="第一版交付建议">
+        <span class="delivery-label">MVP</span>
+        <p>
+          先完成登录态恢复、题库、题目工作台、幂等提交、提交详情与判题轮询。管理后台、SSE、虚拟列表和复杂统计全部后置。
+        </p>
+      </aside>
+
+      <section aria-labelledby="directories-title">
+        <h2 id="directories-title">目录落点</h2>
+        <div class="directories">
+          <article class="directory">
+            <h3>装配</h3>
+            <code>app/ · routes/</code>
+            <p>Provider、Router、QueryClient、错误边界与页面壳。</p>
+          </article>
+          <article class="directory">
+            <h3>业务</h3>
+            <code>features/auth · problems · submissions</code>
+            <p>每个 feature 自带 components、queries、schemas 和 tests。</p>
+          </article>
+          <article class="directory">
+            <h3>基础设施</h3>
+            <code>components/ui · lib/api · test/</code>
+            <p>通用 UI、fetch 边界、Zod、MSW 和测试配置。</p>
+          </article>
+        </div>
+      </section>
+
+      <footer>
+        <span>Cherry OJ · Frontend Architecture</span>
+        <span>React 19 · TanStack-first · Gateway BFF</span>
+      </footer>
+    </main>
+  </body>
+</html>

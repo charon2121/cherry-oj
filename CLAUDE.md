@@ -52,14 +52,14 @@ cherry-oj/
 │   │   ├── submission-service/
 │   │   └── judging-service/
 │   └── web/            React / TypeScript —— 前端基础骨架已建立
-├── product/            ★ 进入 Git 的产品需求中心，REQ / PD / 版本验收的唯一真源
-├── tasks/              ★ 进入 Git 的研发任务中心，执行状态与依赖的唯一真源
-├── docs/               本地设计文档（architecture / engine / data-model）
+├── docs/               ★ 已确认、跨工作项长期有效的全局产品与技术文档
+├── development/        ★ 具体工作的定义、设计、计划、任务、验证与项目记忆
 └── tutorial/           分阶段动手教程
 ```
 
-> ⚠️ `docs/`、`tutorial/`、`notes/`、`test/`、`draft/`、`dev-dependency/` 都在 `.gitignore` 里，
-> **不进版本库**。新克隆的仓库看不到它们；本地有就读，没有别去找。
+`docs/` 与 `development/` 都进入 Git。前者只接收已经确认的全局事实，后者以 WORK 为入口保存功能
+开发过程。`tutorial/`、`notes/`、`test/`、`draft/`、`dev-dependency/` 仍在 `.gitignore` 中，
+是新克隆不保证存在的本地材料。
 
 ## 当前进度
 
@@ -250,7 +250,8 @@ cherry-oj/
 - 展示 verdict 时注意：`OLE`、`RAN`、`SE` 都是合法状态，别只处理 AC/WA。
 
 直接依赖、开发工具和验收入口见 [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md)；更细的
-分阶段引入顺序见本地 `docs/frontend.md`（`docs/` 不入库，所以本节是新克隆也必须保留的核心约定）。
+分阶段引入顺序见已纳入版本管理的 [`docs/frontend.md`](./docs/frontend.md)。`docs/` 保存跨工作项长期
+有效的全局基线，本节只保留所有开发者开始工作前都必须看到的核心约定。
 
 ## 四、提交流程
 
@@ -266,7 +267,7 @@ sh scripts/setup-hooks.sh
 
 | hook | 检查 | 耗时 |
 |---|---|---|
-| `pre-commit` | 暂存的 Go 文件 gofmt 格式 + `go vet` + `contracts/*.json` 语法 | ~0.4s |
+| `pre-commit` | Go 格式/vet、contracts JSON、全局/开发文档系统 | ~0.5s |
 | `commit-msg` | 标题符合 Conventional Commits | 瞬时 |
 | `pre-push` | `go test -race -count=1 ./...`（无 Go 改动时自动跳过） | ~6s |
 
@@ -318,7 +319,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 | job | 检查 | 为什么单独一条 |
 |---|---|---|
-| `tasks` | 产品文档与任务字段、状态、双向追踪、依赖图及工具测试 | 产品审核与多 agent 执行边界不能漂移 |
+| `development` | 工作项工具测试；元数据、流程、状态、引用、依赖与验证证据 | 开发输入和智能体执行边界不能漂移 |
 | `contracts` | JSON 可解析 + `$ref` / v2 字段 / 事件安全边界 | 共享 DTO 坏了会同时影响多个服务与 Go；且一直是手改的 |
 | `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
 | `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
@@ -326,18 +327,18 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 `go` job 末尾会打印 g++ / python3 / java 版本：`language` 的集成测试缺工具链时会
 `t.Skip`，不打印的话某天镜像变了、测试静默跳过也没人发现。
 
-### 4.4 CI 检查不到的，只能靠人
+### 4.4 文档与开发状态
 
-**`docs/`、`tutorial/`、`notes/` 在 `.gitignore` 里，不进版本库。**
-改了不会出现在 `git status`，CI 也不会碰。这是目前流程里最容易漏的一环：
+`docs/` 是已经确认的全局事实，`development/` 是具体工作的过程。开发中产生的未知、体验、方案、计划、
+任务和验证先留在对应 WORK；只有已经确认且会约束多个未来工作项的结论才整理进 `docs/`。
 
-- 设计变了 → 同步 `docs/`（architecture / engine / data-model）
-- 操作步骤变了 → 同步 `tutorial/`
-- 出现可执行工作或技术债 → 在 `tasks/items/` 建任务；不要再写进本地 `docs/backlog.md`
-
-**产品与研发分层**：改变用户能力、流程、权限、可见信息或业务规则时，先在 `product/requirements/`
-创建或更新 REQ，经产品审核达到 `ready` 后再拆 TASK。TASK 的 `review` 是技术审核；REQ 的
-`product_acceptance` 才是产品验收。两边使用 ID 双向关联，并由 `scripts/product check` 校验。
+- 开始一项工作 → 先读 `development/README.md`，查找或创建 WORK；
+- WORK Type 决定主流程，风险、影响面和 concern 只追加阶段与门禁；TASK 继承所属 WORK，不自行选择
+  产品、基建、修复或重构流程；
+- 用户行为变化 → 先完成 FEATURE/PRODUCT，解决 blocking 待确认项；
+- 技术路线变化 → 更新 DESIGN/DECISION 和影响面，不在 TASK 中偷偷改变；
+- 出现可执行工作或技术债 → 建立关联 TASK，代码锚点使用 `TODO(TASK-001): ...`；
+- 声明完成 → 记录实际 VERIFY；implemented 不等于 verified，更不等于 released/confirmed。
 
 **契约先行**：改 `contracts/*.json` → 再改各语言类型 → 再改实现。反过来做必然漂移。
 
@@ -347,14 +348,17 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 - **改动前先问清楚。** 本项目的很多设计（命名、契约字段、职责边界）是反复讨论定下来的，
   不要顺手「优化」。拿不准就先问，别先改。
-- **开发前先认领任务。** 先读 `tasks/README.md`，运行 `scripts/task list --ready`；有对应任务时
-  必须先用 `scripts/task claim` 认领并同步认领提交，再开始改代码。没有任务时先创建并补全验收标准。
-- **产品行为先看 REQ。** 涉及用户能力、流程、权限或可见信息时，先读 `product/README.md` 和关联
-  REQ；没有达到 `ready` 的 REQ 时，不要自行把未决产品假设固化进业务实现。
-- **开发后更新状态。** 阻塞、送审和完成分别使用 `scripts/task block/review/done`；进入 review
-  前必须勾选验收标准并写明验证结果。依赖未完成的任务不能认领。
-- **技术完成不等于产品接受。** TASK 完成后只能汇总产品验收证据；REQ 进入 `accepted` 必须由产品
-  验收人确认，Agent 不能根据测试全绿自动代签。
-- **设计变更写 `docs/`，操作步骤写 `tutorial/`**，两边都要跟着代码更新。
-- 已知技术债写进 `tasks/items/`，代码锚点使用 `TODO(TASK-0001): ...`；研发执行以 `tasks/` 为唯一真源。
+- **开发前读取上下文。** 先读 `development/README.md`，运行 `scripts/work list --type work`；有对应
+  TASK 时用 `scripts/work context TASK-001` 获取上游依据和代码边界。没有工作项时先创建 WORK。
+- **只执行 ready TASK。** TASK 的依赖、`read_paths`、`write_paths`、`forbidden_paths` 与完成标准必须
+  明确。需要越界时先升级计划或设计，不直接扩大实现。
+- **产品行为先看全局基线与 FEATURE。** 涉及用户能力、流程、权限或可见信息时，先读
+  `docs/product.md` 和关联 FEATURE；存在 blocking 未知或定义未确认时，不把假设固化进代码。
+- **开发后记录证据。** 用 `scripts/work set-status` 记录有理由的状态变化，在 VERIFY 写实际命令、环境、
+  结果、遗留问题和剩余风险，再用 `scripts/work refresh WORK-001` 按事实刷新流程阶段和工作项状态。
+- **技术完成不等于产品确认。** TASK done 只表示实现完成；Agent 不能根据测试全绿自动代签人工产品
+  判断、关键风险、发布或线上确认。
+- **设计变更先写当前 WORK。** 经确认且长期跨工作有效时再同步 `docs/`；操作步骤变化同步 `tutorial/`。
+- 已知技术债在所属 `development/works/WORK-xxx-*/` 中建立 `60-task-TASK-xxx.md`，代码锚点使用
+  `TODO(TASK-001): ...`。
 - 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。

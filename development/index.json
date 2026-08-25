@@ -1,0 +1,18 @@
+{
+  "next_ids": {
+    "capability": 1,
+    "change": 4,
+    "decision": 5,
+    "design": 5,
+    "experience": 2,
+    "feature": 2,
+    "improvement": 1,
+    "issue": 1,
+    "memory": 5,
+    "plan": 5,
+    "product": 1,
+    "task": 5,
+    "verify": 5,
+    "work": 5
+  }
+}

@@ -1,0 +1,2128 @@
+#!/usr/bin/env python3
+"""cherry-oj 的统一工作项与开发文档管理工具。"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import tempfile
+import unicodedata
+from collections import Counter, defaultdict, deque
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from typing import Any, Iterable
+
+
+DOCUMENT_TYPES = (
+    "work",
+    "product",
+    "feature",
+    "capability",
+    "issue",
+    "change",
+    "improvement",
+    "experience",
+    "design",
+    "decision",
+    "plan",
+    "task",
+    "verify",
+    "memory",
+)
+TYPE_CONFIG = {
+    "work": ("WORK", "00"),
+    "product": ("PRODUCT", "10"),
+    "feature": ("FEATURE", "10"),
+    "capability": ("CAPABILITY", "10"),
+    "issue": ("ISSUE", "10"),
+    "change": ("CHANGE", "10"),
+    "improvement": ("IMPROVEMENT", "10"),
+    "experience": ("EXPERIENCE", "20"),
+    "design": ("DESIGN", "30"),
+    "decision": ("DECISION", "40"),
+    "plan": ("PLAN", "50"),
+    "task": ("TASK", "60"),
+    "verify": ("VERIFY", "70"),
+    "memory": ("MEMORY", "80"),
+}
+PREFIX_TO_TYPE = {prefix: kind for kind, (prefix, _) in TYPE_CONFIG.items()}
+WORK_TYPES = {"product", "infra", "fix", "maintenance", "improvement"}
+RISKS = ("low", "medium", "high", "critical")
+RISK_RANK = {value: index for index, value in enumerate(RISKS)}
+IMPACTS = {"local", "multi-module", "system"}
+CONCERNS = {
+    "security",
+    "privacy",
+    "data",
+    "performance",
+    "reliability",
+    "observability",
+    "compatibility",
+    "accessibility",
+    "cost",
+    "release",
+}
+WORK_STATUSES = {
+    "todo",
+    "ready",
+    "doing",
+    "implemented",
+    "verified",
+    "released",
+    "confirmed",
+    "cancelled",
+}
+TASK_STATUSES = {"todo", "ready", "doing", "done", "verified", "blocked", "cancelled"}
+DOCUMENT_STATUSES = {"draft", "review", "approved", "deprecated", "superseded", "archived"}
+STAGE_REQUIREMENTS = {"required", "optional"}
+STAGE_PROGRESS = {"pending", "ready", "doing", "done", "skipped", "blocked"}
+REFERENCE_FIELDS = ("depends_on", "related", "implements", "verifies")
+COMMON_FIELDS = {
+    "id",
+    "type",
+    "title",
+    "status",
+    "work",
+    "owners",
+    "depends_on",
+    "related",
+    "created_at",
+    "updated_at",
+    "risk",
+    "impact",
+    "concerns",
+    "implements",
+    "verifies",
+    "supersedes",
+    "deprecated",
+    "tags",
+    "workflow",
+    "required_documents",
+    "required_checks",
+    "human_confirmations",
+    "blocking_items",
+    "reversible",
+    "data_change",
+    "public_api_change",
+    "security_sensitive",
+    "user_visible",
+    "read_paths",
+    "write_paths",
+    "forbidden_paths",
+    "result",
+    "work_type",
+}
+COMMON_REQUIRED = {
+    "id",
+    "type",
+    "title",
+    "status",
+    "work",
+    "owners",
+    "depends_on",
+    "related",
+    "created_at",
+    "updated_at",
+}
+REQUIRED_SECTIONS = {
+    "work": ("为什么做", "成功标准", "当前流程", "待确认项", "风险点", "影响面", "关联文档", "变更记录"),
+    "product": ("问题", "目标用户", "目标", "成功标准", "不做什么", "限制", "待确认项"),
+    "feature": ("为什么做", "使用者", "入口", "正常流程", "业务规则", "边界与失败", "要求", "验收标准", "不做什么", "待确认项"),
+    "capability": ("为什么需要", "使用者", "能力", "接入方式", "输入与输出", "限制与失败", "质量要求", "升级与迁移", "不做什么"),
+    "issue": ("问题现象", "复现方式", "实际结果", "预期结果", "影响与条件", "原因", "修复方向", "回归检查"),
+    "change": ("当前状态", "当前问题", "目标状态", "不变条件", "影响范围", "风险", "回归检查"),
+    "improvement": ("当前问题", "当前数据", "目标指标", "影响范围", "主要风险", "验证方式", "持续观察"),
+    "experience": ("体验类型", "入口与主流程", "异常状态", "交互与文案", "可访问性", "调试与恢复"),
+    "design": ("背景", "目标与限制", "整体方案", "模块与数据", "接口与状态", "安全与失败", "监控与部署", "迁移与兼容", "备选方案", "风险与重审条件"),
+    "decision": ("要决定什么", "背景", "候选方案", "决定", "理由", "影响与风险", "重新考虑条件"),
+    "plan": ("目标", "改动区域", "阶段与顺序", "并行与依赖", "迁移与上线", "风险", "验证", "回退"),
+    "task": ("任务目标", "依据", "可查看范围", "可修改范围", "禁止修改", "依赖", "产出", "完成标准", "验证", "风险", "执行记录"),
+    "verify": ("验证对象", "对应要求", "检查与结果", "未通过项", "范围检查", "遗留问题", "剩余风险", "结论"),
+    "memory": ("背景", "决定与原因", "尝试与教训", "已知问题", "重新考虑条件"),
+}
+PLACEHOLDER_MARKERS = ("TODO", "待补充", "待填写", "示例内容")
+FINAL_DOCUMENT_STATUSES = {"approved", "deprecated", "superseded", "archived"}
+SATISFIED_DEPENDENCY_STATUSES = {
+    "approved",
+    "deprecated",
+    "superseded",
+    "archived",
+    "done",
+    "verified",
+    "implemented",
+    "released",
+    "confirmed",
+}
+WORK_TRANSITIONS = {
+    "todo": {"ready", "cancelled"},
+    "ready": {"todo", "doing", "cancelled"},
+    "doing": {"implemented", "todo", "cancelled"},
+    "implemented": {"doing", "verified", "cancelled"},
+    "verified": {"doing", "released"},
+    "released": {"verified", "confirmed"},
+    "confirmed": set(),
+    "cancelled": set(),
+}
+TASK_TRANSITIONS = {
+    "todo": {"ready", "cancelled"},
+    "ready": {"todo", "doing", "cancelled"},
+    "doing": {"done", "blocked", "cancelled"},
+    "blocked": {"doing", "cancelled"},
+    "done": {"doing", "verified"},
+    "verified": {"doing"},
+    "cancelled": set(),
+}
+DOCUMENT_TRANSITIONS = {
+    "draft": {"review", "approved", "deprecated", "archived"},
+    "review": {"draft", "approved", "deprecated"},
+    "approved": {"review", "deprecated", "superseded", "archived"},
+    "deprecated": {"archived"},
+    "superseded": {"archived"},
+    "archived": set(),
+}
+STAGE_TRANSITIONS = {
+    "pending": {"ready", "blocked", "skipped"},
+    "ready": {"doing", "done", "blocked", "skipped"},
+    "doing": {"done", "blocked"},
+    "done": {"doing"},
+    "skipped": {"ready"},
+    "blocked": {"ready", "doing"},
+}
+RISKY_CONCERNS = {"security", "privacy", "data", "reliability", "release"}
+DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+ID_PATTERN = re.compile(r"^([A-Z]+)-([0-9]{3,})$")
+REF_PATTERN = re.compile(r"^([A-Z]+-[0-9]{3,})(?:#([A-Z]+-[0-9]{3,}))?$")
+WORK_DIRECTORY_PATTERN = re.compile(
+    r"^(WORK-[0-9]{3,})-([a-z0-9]+(?:-[a-z0-9]+)*)$"
+)
+ALLOWED_DEVELOPMENT_ENTRIES = {
+    "README.md",
+    "SPECIFICATION.md",
+    "index.json",
+    "schema",
+    "templates",
+    "works",
+}
+
+# 流程模板只描述控制面；document_type 描述该阶段通常需要的文档产物。
+# 同一文档可以支撑多个阶段（例如 TASK 同时支撑任务拆分和开发），阶段也可以没有文档。
+WORKFLOW_PROFILES: dict[str, tuple[tuple[str, str, str | None, bool, bool], ...]] = {
+    "product": (
+        ("clarify", "需求澄清", None, True, False),
+        ("definition", "功能定义", "feature", True, False),
+        ("experience", "体验设计", "experience", True, False),
+        ("design", "技术方案", "design", True, True),
+        ("plan", "开发计划", "plan", True, True),
+        ("tasks", "开发任务", "task", True, False),
+        ("development", "开发", "task", True, False),
+        ("review", "复核", None, True, False),
+        ("verification", "验证", "verify", True, False),
+        ("release", "上线", None, True, False),
+        ("observe", "线上观察", None, True, False),
+        ("memory", "项目记忆", "memory", True, False),
+    ),
+    "infra": (
+        ("clarify", "需求澄清", None, True, False),
+        ("definition", "能力定义", "capability", True, False),
+        ("experience", "开发体验 / 运维要求", "experience", True, False),
+        ("design", "技术方案", "design", True, True),
+        ("plan", "开发计划", "plan", True, True),
+        ("tasks", "开发任务", "task", True, False),
+        ("development", "开发", "task", True, False),
+        ("review", "复核", None, True, False),
+        ("verification", "验证", "verify", True, False),
+        ("release", "上线", None, True, False),
+        ("observe", "线上观察", None, True, False),
+        ("memory", "项目记忆", "memory", True, False),
+    ),
+    "fix": (
+        ("definition", "问题说明、复现与预期", "issue", True, False),
+        ("design", "原因与修复方案", "design", False, False),
+        ("tasks", "修复任务", "task", True, False),
+        ("development", "开发", "task", True, False),
+        ("review", "复核", None, True, False),
+        ("verification", "回归验证", "verify", True, False),
+        ("release", "上线", None, True, False),
+        ("observe", "观察", None, True, False),
+        ("memory", "项目记忆", "memory", False, False),
+    ),
+    "maintenance": (
+        ("definition", "改动说明与边界", "change", True, False),
+        ("design", "技术方案", "design", True, True),
+        ("plan", "开发计划", "plan", True, True),
+        ("tasks", "开发任务", "task", True, False),
+        ("development", "开发", "task", True, False),
+        ("review", "复核", None, True, False),
+        ("verification", "回归验证", "verify", True, False),
+        ("release", "上线", None, False, False),
+        ("observe", "观察", None, False, False),
+        ("memory", "项目记忆", "memory", False, False),
+    ),
+    "improvement": (
+        ("clarify", "需求澄清", None, True, False),
+        ("definition", "改进说明与目标指标", "improvement", True, False),
+        ("design", "技术方案", "design", True, False),
+        ("plan", "开发计划", "plan", True, False),
+        ("tasks", "实施任务", "task", True, False),
+        ("development", "实施", "task", True, False),
+        ("review", "复核", None, True, False),
+        ("verification", "验证", "verify", True, False),
+        ("release", "上线", None, True, False),
+        ("observe", "持续观察", None, True, False),
+        ("memory", "项目记忆", "memory", True, False),
+    ),
+}
+
+
+class WorkError(Exception):
+    """可以直接展示给用户的工作项错误。"""
+
+
+@dataclass
+class Document:
+    path: Path
+    metadata: dict[str, Any]
+    body: str
+
+    @property
+    def id(self) -> str:
+        value = self.metadata.get("id")
+        return value if isinstance(value, str) else self.path.stem
+
+    @property
+    def kind(self) -> str:
+        value = self.metadata.get("type")
+        return value if isinstance(value, str) else ""
+
+
+def today() -> str:
+    return date.today().isoformat()
+
+
+def parse_document(path: Path) -> Document:
+    content = path.read_text(encoding="utf-8")
+    if not content.startswith("---\n"):
+        raise WorkError(f"{path}: 缺少起始 front matter 分隔符")
+    end = content.find("\n---\n", 4)
+    if end < 0:
+        raise WorkError(f"{path}: 缺少结束 front matter 分隔符")
+    metadata: dict[str, Any] = {}
+    for line_number, raw_line in enumerate(content[4:end].splitlines(), start=2):
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
+        if raw_line[:1].isspace() or ":" not in raw_line:
+            raise WorkError(
+                f"{path}:{line_number}: front matter 只允许每行一个 `字段: JSON值`"
+            )
+        key, raw_value = raw_line.split(":", 1)
+        key = key.strip()
+        if key in metadata:
+            raise WorkError(f"{path}:{line_number}: 字段 {key} 重复")
+        try:
+            metadata[key] = json.loads(raw_value.strip())
+        except json.JSONDecodeError as error:
+            raise WorkError(
+                f"{path}:{line_number}: {key} 必须使用 JSON 兼容值：{error.msg}"
+            ) from error
+    return Document(path=path, metadata=metadata, body=content[end + 5 :])
+
+
+def render_document(document: Document) -> str:
+    preferred = (
+        "id",
+        "type",
+        "title",
+        "status",
+        "work",
+        "owners",
+        "risk",
+        "impact",
+        "concerns",
+        "depends_on",
+        "related",
+        "implements",
+        "verifies",
+        "supersedes",
+        "deprecated",
+        "tags",
+        "workflow",
+        "required_documents",
+        "required_checks",
+        "human_confirmations",
+        "blocking_items",
+        "reversible",
+        "data_change",
+        "public_api_change",
+        "security_sensitive",
+        "user_visible",
+        "read_paths",
+        "write_paths",
+        "forbidden_paths",
+        "result",
+        "created_at",
+        "updated_at",
+    )
+    lines = ["---"]
+    for field in preferred:
+        if field in document.metadata:
+            lines.append(f"{field}: {json.dumps(document.metadata[field], ensure_ascii=False)}")
+    for field in sorted(set(document.metadata) - set(preferred)):
+        lines.append(f"{field}: {json.dumps(document.metadata[field], ensure_ascii=False)}")
+    lines.extend(("---", "", document.body.rstrip(), ""))
+    return "\n".join(lines)
+
+
+def write_document(document: Document) -> None:
+    document.path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=document.path.parent,
+        prefix=f".{document.path.name}.",
+        delete=False,
+    ) as temporary:
+        temporary.write(render_document(document))
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(document.path)
+
+
+def load_index(root: Path) -> dict[str, Any]:
+    path = root / "development" / "index.json"
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise WorkError(f"缺少编号注册表：{path}") from error
+    except json.JSONDecodeError as error:
+        raise WorkError(f"{path}: JSON 解析失败：{error}") from error
+    if not isinstance(value, dict) or not isinstance(value.get("next_ids"), dict):
+        raise WorkError(f"{path}: 必须包含 next_ids 对象")
+    return value
+
+
+def write_index(root: Path, index: dict[str, Any]) -> None:
+    path = root / "development" / "index.json"
+    content = json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, prefix=".index.json.", delete=False
+    ) as temporary:
+        temporary.write(content)
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(path)
+
+
+def discover_paths(root: Path) -> list[Path]:
+    return sorted((root / "development" / "works").glob("WORK-*/*.md"))
+
+
+def validate_repository_layout(root: Path) -> list[str]:
+    errors: list[str] = []
+    development = root / "development"
+    for entry in development.iterdir():
+        if entry.name.startswith("."):
+            continue
+        if entry.name not in ALLOWED_DEVELOPMENT_ENTRIES:
+            errors.append(
+                f"development/{entry.name}: development 顶层只允许全局入口、模板、Schema 和 works/"
+            )
+    works = development / "works"
+    if not works.exists():
+        return errors
+    for entry in works.iterdir():
+        relative = entry.relative_to(root)
+        if not entry.is_dir():
+            errors.append(f"{relative}: works/ 下只能放 WORK-001-slug 工作项目录")
+            continue
+        if WORK_DIRECTORY_PATTERN.fullmatch(entry.name) is None:
+            errors.append(f"{relative}: 工作项目录名必须匹配 WORK-001-slug")
+            continue
+        for child in entry.iterdir():
+            if child.name.startswith("."):
+                continue
+            if child.is_dir() or child.suffix != ".md":
+                errors.append(
+                    f"{child.relative_to(root)}: 工作项目录必须保持扁平，且只包含受管理的 Markdown 文档"
+                )
+    return errors
+
+
+def load_documents(root: Path) -> dict[str, Document]:
+    documents: dict[str, Document] = {}
+    for path in discover_paths(root):
+        document = parse_document(path)
+        if document.id in documents:
+            raise WorkError(
+                f"文档 ID 重复：{document.id} 同时出现在 {documents[document.id].path} 和 {path}"
+            )
+        documents[document.id] = document
+    return documents
+
+
+def section(body: str, title: str) -> str | None:
+    match = re.search(rf"(?ms)^## {re.escape(title)}\n+(.*?)(?=^## |\Z)", body)
+    return match.group(1).strip() if match else None
+
+
+def replace_section(body: str, title: str, value: str) -> str:
+    pattern = re.compile(rf"(?ms)(^## {re.escape(title)}\n+).*?(?=^## |\Z)")
+    if not pattern.search(body):
+        return body.rstrip() + f"\n\n## {title}\n\n{value.strip()}\n"
+    return pattern.sub(rf"\g<1>{value.strip()}\n\n", body, count=1).rstrip() + "\n"
+
+
+def append_log(document: Document, message: str) -> None:
+    title = "执行记录" if document.kind == "task" else "变更记录"
+    current = section(document.body, title)
+    entry = f"- {today()}：{message}"
+    if current and current not in {"无。", "暂无。"}:
+        entry = f"{current}\n{entry}"
+    document.body = replace_section(document.body, title, entry)
+
+
+def checkbox_state(body: str, title: str) -> tuple[int, int]:
+    content = section(body, title) or ""
+    markers = re.findall(r"(?m)^\s*- \[([ xX])\] ", content)
+    return len(markers), sum(marker.lower() == "x" for marker in markers)
+
+
+def slugify(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+    return slug[:56] or "work-item"
+
+
+def validate_slug(value: str) -> str:
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value):
+        raise argparse.ArgumentTypeError("slug 只能包含小写 ASCII 字母、数字和单个连字符")
+    return value
+
+
+def allocate_id(index: dict[str, Any], kind: str) -> str:
+    next_ids = index["next_ids"]
+    number = next_ids.get(kind)
+    if not isinstance(number, int) or number < 1:
+        raise WorkError(f"index.json 中 {kind} 的下一个编号无效")
+    next_ids[kind] = number + 1
+    prefix, _ = TYPE_CONFIG[kind]
+    return f"{prefix}-{number:03d}"
+
+
+def effective_risk(
+    requested: str,
+    concerns: Iterable[str],
+    reversible: bool,
+    data_change: bool,
+    public_api_change: bool,
+    security_sensitive: bool,
+) -> str:
+    minimum = "low"
+    if set(concerns) & RISKY_CONCERNS or data_change or public_api_change or security_sensitive:
+        minimum = "medium"
+    if not reversible:
+        minimum = "high"
+    return max((requested, minimum), key=RISK_RANK.__getitem__)
+
+
+def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
+    kind = metadata["type"]
+    risk = metadata["risk"]
+    impact = metadata["impact"]
+    concerns = set(metadata["concerns"])
+    fast = (
+        risk == "low"
+        and impact == "local"
+        and metadata["reversible"]
+        and not metadata["data_change"]
+        and not metadata["public_api_change"]
+        and not metadata["security_sensitive"]
+        and not concerns.intersection(RISKY_CONCERNS)
+    )
+    stages = [
+        {
+            "stage": stage,
+            "label": label,
+            "document_type": document_type,
+            "requirement": "required" if required else "optional",
+            "fast_skippable": fast_skippable,
+            "source": f"profile:{kind}",
+            "reason": f"{kind} 基础流程",
+        }
+        for stage, label, document_type, required, fast_skippable in WORKFLOW_PROFILES[kind]
+    ]
+
+    def stage_named(name: str) -> dict[str, Any] | None:
+        return next((stage for stage in stages if stage["stage"] == name), None)
+
+    def require_stage(name: str, reason: str, source: str) -> None:
+        stage = stage_named(name)
+        if stage is None:
+            raise WorkError(f"{kind} 流程缺少可升级的 {name} 阶段")
+        stage["requirement"] = "required"
+        stage["source"] = source
+        stage["reason"] = reason
+
+    def insert_stage(
+        after: str,
+        name: str,
+        label: str,
+        document_type: str | None,
+        reason: str,
+        source: str,
+    ) -> None:
+        if stage_named(name) is not None:
+            require_stage(name, reason, source)
+            return
+        index = next(index for index, stage in enumerate(stages) if stage["stage"] == after)
+        stages.insert(
+            index + 1,
+            {
+                "stage": name,
+                "label": label,
+                "document_type": document_type,
+                "requirement": "required",
+                "fast_skippable": False,
+                "source": source,
+                "reason": reason,
+            },
+        )
+
+    if kind == "fix" and (risk in {"high", "critical"} or impact != "local"):
+        require_stage("design", "复杂修复需要独立确认原因与修复方案", "overlay:fix-complexity")
+
+    if fast:
+        for stage in stages:
+            if stage["fast_skippable"]:
+                stage["requirement"] = "optional"
+                stage["source"] = "overlay:fast"
+                stage["reason"] = "低风险、局部、可回退工作采用快速流程"
+
+    if risk in {"high", "critical"} or impact == "system":
+        require_stage("design", "高风险或系统级影响必须有独立技术方案", "overlay:risk-impact")
+        if stage_named("plan") is None:
+            insert_stage(
+                "design",
+                "plan",
+                "开发计划",
+                "plan",
+                "高风险或系统级影响必须有显式实施计划",
+                "overlay:risk-impact",
+            )
+        else:
+            require_stage("plan", "高风险或系统级影响必须有显式实施计划", "overlay:risk-impact")
+        insert_stage(
+            "design",
+            "decision",
+            "技术决策",
+            "decision",
+            "高风险或系统级影响需要可长期追踪的技术决定",
+            "overlay:risk-impact",
+        )
+        require_stage("memory", "高风险或系统级工作必须沉淀长期记忆", "overlay:risk-impact")
+
+    release_required = (
+        kind != "maintenance"
+        or metadata["data_change"]
+        or metadata["public_api_change"]
+        or metadata["security_sensitive"]
+        or metadata["user_visible"]
+        or "release" in concerns
+    )
+    if release_required:
+        require_stage("release", "工作包含交付或上线影响", "overlay:delivery")
+        require_stage("observe", "上线后必须观察实际结果", "overlay:delivery")
+    elif concerns.intersection({"performance", "reliability", "observability", "cost"}):
+        require_stage("observe", "专项关注要求在实施后持续观察", "overlay:concern")
+
+    document_order = {
+        value: index
+        for index, value in enumerate(
+            (
+                "product",
+                "feature",
+                "capability",
+                "issue",
+                "change",
+                "improvement",
+                "experience",
+                "design",
+                "decision",
+                "plan",
+                "task",
+                "verify",
+                "memory",
+            )
+        )
+    }
+    required_documents = list(
+        dict.fromkeys(
+            stage["document_type"]
+            for stage in stages
+            if stage["requirement"] == "required" and stage["document_type"] is not None
+        )
+    )
+    required_documents.sort(key=document_order.__getitem__)
+
+    required_checks = ["definition", "scope", "automated-tests"]
+    if risk != "low" or impact != "local":
+        required_checks.append("impact-analysis")
+    if risk in {"high", "critical"}:
+        required_checks.extend(("independent-review", "rollback"))
+    if impact == "system":
+        required_checks.append("cross-module-regression")
+    required_checks.extend(sorted(concerns))
+
+    human_confirmations: list[str] = []
+    if risk == "critical":
+        human_confirmations.append("关键风险与不可逆影响已经由负责人确认")
+    if metadata["security_sensitive"]:
+        human_confirmations.append("安全边界与权限影响已经由负责人确认")
+
+    checks_by_stage: dict[str, list[str]] = defaultdict(list)
+    checks_by_stage["definition"].extend(("definition", "scope"))
+    checks_by_stage["verification"].append("automated-tests")
+    for check in required_checks:
+        if check in {"definition", "scope", "automated-tests"}:
+            continue
+        if check in {"impact-analysis", "independent-review"}:
+            checks_by_stage["review"].append(check)
+        elif check == "rollback":
+            release = stage_named("release")
+            target = "release" if release and release["requirement"] == "required" else "plan"
+            checks_by_stage[target].append(check)
+        elif check == "release":
+            checks_by_stage["release"].append(check)
+        elif check in {"performance", "reliability", "observability", "cost"}:
+            checks_by_stage["observe"].append(check)
+        else:
+            checks_by_stage["verification"].append(check)
+
+    workflow = []
+    for stage in stages:
+        skipped = stage["requirement"] == "optional" and stage["document_type"] is not None
+        workflow.append(
+            {
+                "stage": stage["stage"],
+                "label": stage["label"],
+                "requirement": stage["requirement"],
+                "status": "skipped" if skipped else "pending",
+                "status_source": "derived",
+                "artifacts": [],
+                "checks": list(dict.fromkeys(checks_by_stage[stage["stage"]])),
+                "source": stage["source"],
+                "reason": stage["reason"],
+            }
+        )
+    return {
+        "workflow": workflow,
+        "required_documents": required_documents,
+        "required_checks": list(dict.fromkeys(required_checks)),
+        "human_confirmations": human_confirmations,
+        "fast": fast,
+    }
+
+
+def template_body(root: Path, kind: str, document_id: str, title: str) -> str:
+    path = root / "development" / "templates" / f"{kind}.md"
+    try:
+        template = path.read_text(encoding="utf-8")
+    except FileNotFoundError as error:
+        raise WorkError(f"缺少模板：{path}") from error
+    return template.replace("{{id}}", document_id).replace("{{title}}", title).replace(
+        "{{date}}", today()
+    )
+
+
+def work_directory_path(root: Path, work_id: str, slug: str) -> Path:
+    return root / "development" / "works" / f"{work_id}-{slug}"
+
+
+def document_filename(kind: str, document_id: str) -> str:
+    _, level = TYPE_CONFIG[kind]
+    if kind == "work":
+        return f"{level}-work.md"
+    return f"{level}-{kind}-{document_id}.md"
+
+
+def document_path(work_directory: Path, kind: str, document_id: str) -> Path:
+    return work_directory / document_filename(kind, document_id)
+
+
+def stages_for_document(document: Document, work: Document) -> tuple[str, ...]:
+    if document.kind == "work":
+        return ("clarify",)
+    definition = {
+        "product": "definition",
+        "feature": "definition",
+        "capability": "definition",
+        "issue": "definition",
+        "change": "definition",
+        "improvement": "definition",
+        "experience": "experience",
+        "design": "design",
+        "decision": "decision",
+        "plan": "plan",
+        "task": "tasks",
+        "verify": "verification",
+        "memory": "memory",
+    }.get(document.kind)
+    if document.kind == "task":
+        return ("tasks", "development")
+    return (definition,) if definition else ()
+
+
+def bind_workflow_artifacts(work: Document, documents: Iterable[Document]) -> None:
+    stages = {stage["stage"]: stage for stage in work.metadata["workflow"]}
+    for stage in stages.values():
+        stage["artifacts"] = []
+    for document in documents:
+        if document.id != work.id and document.metadata.get("work") != work.id:
+            continue
+        for stage_name in stages_for_document(document, work):
+            if stage_name in stages and document.id not in stages[stage_name]["artifacts"]:
+                stages[stage_name]["artifacts"].append(document.id)
+    for stage in stages.values():
+        stage["artifacts"].sort()
+
+
+def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None:
+    """根据文档、任务、验证和 WORK 状态刷新阶段进度。"""
+
+    workflow = work.metadata["workflow"]
+    stage_by_name = {stage["stage"]: stage for stage in workflow}
+
+    def artifacts(stage: dict[str, Any], kind: str | None = None) -> list[Document]:
+        values = [documents[value] for value in stage["artifacts"] if value in documents]
+        return [document for document in values if kind is None or document.kind == kind]
+
+    raw_statuses: dict[str, str] = {}
+    for stage in workflow:
+        name = stage["stage"]
+        stage_documents = artifacts(stage)
+        if name == "clarify":
+            stage["status_source"] = "derived"
+            raw_statuses[name] = "blocked" if work.metadata.get("blocking_items") else "done"
+            continue
+        if name == "tasks":
+            stage["status_source"] = "derived"
+            tasks = [document for document in stage_documents if document.kind == "task" and document.metadata["status"] != "cancelled"]
+            if not tasks:
+                raw_statuses[name] = "skipped" if stage["requirement"] == "optional" else "pending"
+            elif any(task.metadata["status"] == "blocked" for task in tasks):
+                raw_statuses[name] = "blocked"
+            elif all(task.metadata["status"] in {"ready", "doing", "done", "verified"} for task in tasks):
+                raw_statuses[name] = "done"
+            else:
+                raw_statuses[name] = "ready"
+            continue
+        if name == "development":
+            stage["status_source"] = "derived"
+            tasks = [document for document in stage_documents if document.kind == "task" and document.metadata["status"] != "cancelled"]
+            if not tasks:
+                raw_statuses[name] = "pending"
+            elif any(task.metadata["status"] == "blocked" for task in tasks):
+                raw_statuses[name] = "blocked"
+            elif all(task.metadata["status"] in {"done", "verified"} for task in tasks):
+                raw_statuses[name] = "done"
+            elif any(task.metadata["status"] == "doing" for task in tasks):
+                raw_statuses[name] = "doing"
+            elif all(task.metadata["status"] in {"ready", "doing", "done", "verified"} for task in tasks):
+                raw_statuses[name] = "ready"
+            else:
+                raw_statuses[name] = "pending"
+            continue
+        if name == "review":
+            verification = stage_by_name.get("verification")
+            verification_documents = artifacts(verification) if verification else []
+            if verification_documents and all(
+                document.metadata.get("status") == "approved" and document.metadata.get("result") == "pass"
+                for document in verification_documents
+            ):
+                stage["status_source"] = "derived"
+                raw_statuses[name] = "done"
+            elif stage["status_source"] == "manual":
+                raw_statuses[name] = stage["status"]
+            elif raw_statuses.get("development") == "done":
+                raw_statuses[name] = "ready"
+            else:
+                raw_statuses[name] = "pending"
+            continue
+        if name == "verification":
+            stage["status_source"] = "derived"
+            verifies = [document for document in stage_documents if document.kind == "verify"]
+            if not verifies:
+                raw_statuses[name] = "skipped" if stage["requirement"] == "optional" else "pending"
+            elif any(
+                document.metadata.get("status") == "approved"
+                and document.metadata.get("result") in {"fail", "partial"}
+                for document in verifies
+            ):
+                raw_statuses[name] = "blocked"
+            elif all(
+                document.metadata.get("status") == "approved" and document.metadata.get("result") == "pass"
+                for document in verifies
+            ):
+                raw_statuses[name] = "done"
+            elif any(document.metadata.get("status") == "review" for document in verifies):
+                raw_statuses[name] = "doing"
+            else:
+                raw_statuses[name] = "ready"
+            continue
+        if name == "release":
+            if work.metadata["status"] in {"released", "confirmed"}:
+                stage["status_source"] = "derived"
+                raw_statuses[name] = "done"
+            elif stage["status_source"] == "manual":
+                raw_statuses[name] = stage["status"]
+            elif work.metadata["status"] == "verified":
+                raw_statuses[name] = "ready"
+            else:
+                raw_statuses[name] = "pending"
+            continue
+        if name == "observe":
+            if work.metadata["status"] == "confirmed":
+                stage["status_source"] = "derived"
+                raw_statuses[name] = "done"
+            elif stage["status_source"] == "manual":
+                raw_statuses[name] = stage["status"]
+            elif work.metadata["status"] == "released":
+                raw_statuses[name] = "doing"
+            else:
+                raw_statuses[name] = "pending"
+            continue
+
+        if not stage_documents:
+            stage["status_source"] = "derived"
+            raw_statuses[name] = "skipped" if stage["requirement"] == "optional" else "pending"
+            continue
+        statuses = [document.metadata["status"] for document in stage_documents]
+        stage["status_source"] = "derived"
+        if any(status == "blocked" for status in statuses):
+            raw_statuses[name] = "blocked"
+        elif all(status in SATISFIED_DEPENDENCY_STATUSES for status in statuses):
+            raw_statuses[name] = "done"
+        elif any(status in {"review", "doing"} for status in statuses):
+            raw_statuses[name] = "doing"
+        else:
+            raw_statuses[name] = "ready"
+
+    if work.metadata.get("blocking_items"):
+        first_required = next(
+            (stage for stage in workflow if stage["requirement"] == "required"),
+            None,
+        )
+        if first_required:
+            raw_statuses[first_required["stage"]] = "blocked"
+            first_required["status_source"] = "derived"
+
+    prior_required_done = True
+    for stage in workflow:
+        status = raw_statuses[stage["stage"]]
+        invalid_manual_progress = (
+            stage["status_source"] == "manual" and status in {"ready", "doing", "done"}
+        )
+        if not prior_required_done and (status == "ready" or invalid_manual_progress):
+            status = "pending"
+            stage["status_source"] = "derived"
+        stage["status"] = status
+        if stage["requirement"] == "required" and status != "done":
+            prior_required_done = False
+
+
+def new_metadata(
+    document_id: str,
+    kind: str,
+    title: str,
+    work_id: str | None,
+    owners: list[str],
+    **extra: Any,
+) -> dict[str, Any]:
+    status = "todo" if kind in {"work", "task"} else "draft"
+    metadata: dict[str, Any] = {
+        "id": document_id,
+        "type": kind,
+        "title": title,
+        "status": status,
+        "work": work_id,
+        "owners": owners,
+        "depends_on": [],
+        "related": [],
+        "implements": [],
+        "verifies": [],
+        "tags": [],
+        "created_at": today(),
+        "updated_at": today(),
+    }
+    metadata.update(extra)
+    return metadata
+
+
+def generate_work_documents(
+    root: Path,
+    index: dict[str, Any],
+    work: Document,
+    required_types: list[str],
+) -> list[Document]:
+    created: list[Document] = []
+    by_type: dict[str, Document] = {}
+    definition_types = {"feature", "capability", "issue", "change", "improvement"}
+    for kind in required_types:
+        document_id = allocate_id(index, kind)
+        title = work.metadata["title"]
+        metadata = new_metadata(document_id, kind, title, work.id, work.metadata["owners"])
+        upstream: list[str] = []
+        definition = next((item for item in created if item.kind in definition_types), None)
+        if kind == "experience" and definition:
+            upstream = [definition.id]
+        elif kind == "design":
+            upstream = [item.id for item in created if item.kind in definition_types | {"experience"}]
+        elif kind == "decision" and by_type.get("design"):
+            upstream = [by_type["design"].id]
+        elif kind == "plan":
+            upstream = [
+                item.id
+                for item in created
+                if item.kind in definition_types | {"experience", "design", "decision"}
+            ]
+        elif kind == "task":
+            upstream = [
+                item.id
+                for item in created
+                if item.kind in definition_types | {"design", "decision", "plan"}
+            ]
+            metadata.update(
+                {
+                    "read_paths": ["按技术方案补充"],
+                    "write_paths": ["按开发计划补充"],
+                    "forbidden_paths": ["超出当前工作项的区域"],
+                    "implements": [definition.id] if definition else [],
+                }
+            )
+        elif kind == "verify":
+            task = by_type.get("task")
+            upstream = [task.id] if task else []
+            metadata.update(
+                {
+                    "result": "pending",
+                    "verifies": [item.id for item in created if item.kind in definition_types | {"task"}],
+                }
+            )
+        elif kind == "memory" and by_type.get("verify"):
+            upstream = [by_type["verify"].id]
+        metadata["depends_on"] = upstream
+        document = Document(
+            path=document_path(work.path.parent, kind, document_id),
+            metadata=metadata,
+            body=template_body(root, kind, document_id, title),
+        )
+        created.append(document)
+        by_type[kind] = document
+    return created
+
+
+def reference_target(value: str) -> str | None:
+    match = REF_PATTERN.fullmatch(value)
+    return match.group(1) if match else None
+
+
+def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    metadata = document.metadata
+    prefix = str(document.path.relative_to(root))
+    missing = COMMON_REQUIRED - set(metadata)
+    unknown = set(metadata) - COMMON_FIELDS
+    if missing:
+        errors.append(f"{prefix}: 缺少字段：{', '.join(sorted(missing))}")
+    if unknown:
+        errors.append(f"{prefix}: 未知字段：{', '.join(sorted(unknown))}")
+    if missing:
+        return errors, warnings
+    kind = metadata["type"]
+    if kind not in DOCUMENT_TYPES:
+        errors.append(f"{prefix}: type 无效：{kind}")
+        return errors, warnings
+    match = ID_PATTERN.fullmatch(str(metadata["id"]))
+    expected_prefix, _ = TYPE_CONFIG[kind]
+    if not match or match.group(1) != expected_prefix:
+        errors.append(f"{prefix}: id 必须匹配 {expected_prefix}-001 格式")
+    work_directory = document.path.parent
+    work_directory_match = WORK_DIRECTORY_PATTERN.fullmatch(work_directory.name)
+    if work_directory.parent != root / "development" / "works" or work_directory_match is None:
+        errors.append(f"{prefix}: 受管理文档必须位于 development/works/WORK-001-slug/ 下")
+    elif kind == "work" and work_directory_match.group(1) != metadata["id"]:
+        errors.append(f"{prefix}: 工作项目录 ID 必须与 {metadata['id']} 一致")
+    expected_filename = document_filename(kind, str(metadata["id"]))
+    if document.path.name != expected_filename:
+        errors.append(f"{prefix}: {kind} 文档文件名必须是 {expected_filename}")
+    valid_statuses = WORK_STATUSES if kind == "work" else TASK_STATUSES if kind == "task" else DOCUMENT_STATUSES
+    if metadata["status"] not in valid_statuses:
+        errors.append(f"{prefix}: {kind} 状态无效：{metadata['status']}")
+    if kind == "work":
+        if metadata["work"] is not None:
+            errors.append(f"{prefix}: 工作项的 work 必须为 null")
+        for field, allowed in (("risk", set(RISKS)), ("impact", IMPACTS)):
+            if metadata.get(field) not in allowed:
+                errors.append(f"{prefix}: {field} 无效：{metadata.get(field)}")
+        if metadata.get("work_type") not in WORK_TYPES:
+            errors.append(f"{prefix}: work_type 无效：{metadata.get('work_type')}")
+        for field in (
+            "concerns",
+            "workflow",
+            "required_documents",
+            "required_checks",
+            "human_confirmations",
+            "blocking_items",
+        ):
+            if not isinstance(metadata.get(field), list):
+                errors.append(f"{prefix}: {field} 必须是列表")
+        invalid_concerns = set(metadata.get("concerns", [])) - CONCERNS
+        if invalid_concerns:
+            errors.append(f"{prefix}: concerns 无效：{', '.join(sorted(invalid_concerns))}")
+        seen_stages: set[str] = set()
+        for stage in metadata.get("workflow", []):
+            required_fields = {
+                "stage",
+                "label",
+                "requirement",
+                "status",
+                "status_source",
+                "artifacts",
+                "checks",
+                "source",
+                "reason",
+            }
+            if not isinstance(stage, dict) or set(stage) != required_fields:
+                errors.append(f"{prefix}: workflow 阶段字段必须是 {', '.join(sorted(required_fields))}")
+                break
+            if not isinstance(stage["stage"], str) or not stage["stage"] or stage["stage"] in seen_stages:
+                errors.append(f"{prefix}: workflow stage 必须是非空且唯一的字符串")
+                break
+            seen_stages.add(stage["stage"])
+            if not isinstance(stage["label"], str) or not stage["label"]:
+                errors.append(f"{prefix}: workflow.label 必须是非空字符串")
+            if stage["requirement"] not in STAGE_REQUIREMENTS:
+                errors.append(f"{prefix}: workflow.requirement 无效：{stage['requirement']}")
+            if stage["status"] not in STAGE_PROGRESS:
+                errors.append(f"{prefix}: workflow.status 无效：{stage['status']}")
+            if stage["status_source"] not in {"derived", "manual"}:
+                errors.append(f"{prefix}: workflow.status_source 无效：{stage['status_source']}")
+            for field in ("artifacts", "checks"):
+                if not isinstance(stage[field], list) or not all(
+                    isinstance(item, str) and item for item in stage[field]
+                ):
+                    errors.append(f"{prefix}: workflow.{field} 必须是字符串列表")
+                elif len(stage[field]) != len(set(stage[field])):
+                    errors.append(f"{prefix}: workflow.{field} 不允许重复")
+            for field in ("source", "reason"):
+                if not isinstance(stage[field], str) or not stage[field]:
+                    errors.append(f"{prefix}: workflow.{field} 必须是非空字符串")
+    else:
+        if not isinstance(metadata["work"], str) or not metadata["work"].startswith("WORK-"):
+            errors.append(f"{prefix}: 非工作项文档必须关联 WORK ID")
+    if not isinstance(metadata["owners"], list) or not all(
+        isinstance(owner, str) and owner for owner in metadata["owners"]
+    ):
+        errors.append(f"{prefix}: owners 必须是非空字符串列表")
+    for field in ("depends_on", "related", "implements", "verifies", "tags"):
+        if field in metadata and (
+            not isinstance(metadata[field], list)
+            or not all(isinstance(item, str) and item for item in metadata[field])
+        ):
+            errors.append(f"{prefix}: {field} 必须是字符串列表")
+    for field in ("created_at", "updated_at"):
+        if not isinstance(metadata[field], str) or not DATE_PATTERN.fullmatch(metadata[field]):
+            errors.append(f"{prefix}: {field} 必须是 YYYY-MM-DD")
+    if isinstance(metadata.get("created_at"), str) and isinstance(metadata.get("updated_at"), str):
+        if metadata["updated_at"] < metadata["created_at"]:
+            errors.append(f"{prefix}: updated_at 不能早于 created_at")
+    for title in REQUIRED_SECTIONS[kind]:
+        if section(document.body, title) is None:
+            errors.append(f"{prefix}: 缺少正文段落 `## {title}`")
+    if metadata["status"] in FINAL_DOCUMENT_STATUSES | {"ready", "doing", "done", "verified", "implemented", "released", "confirmed"}:
+        markers = [marker for marker in PLACEHOLDER_MARKERS if marker in document.body]
+        if markers:
+            errors.append(f"{prefix}: 稳定状态文档仍含占位内容：{', '.join(markers)}")
+    if kind == "task" and metadata["status"] in {"ready", "doing", "done", "verified"}:
+        for field in ("read_paths", "write_paths", "forbidden_paths"):
+            values = metadata.get(field)
+            if not isinstance(values, list) or not values:
+                errors.append(f"{prefix}: {metadata['status']} 任务必须声明 {field}")
+        if metadata["status"] in {"done", "verified"}:
+            total, completed = checkbox_state(document.body, "完成标准")
+            if total == 0 or completed != total:
+                errors.append(
+                    f"{prefix}: {metadata['status']} 任务的完成标准必须全部勾选（{completed}/{total}）"
+                )
+    if kind == "verify" and metadata.get("result") not in {"pending", "pass", "fail", "partial"}:
+        errors.append(f"{prefix}: verify.result 必须是 pending/pass/fail/partial")
+    return errors, warnings
+
+
+def validate_documents(
+    documents: dict[str, Document], root: Path, index: dict[str, Any]
+) -> tuple[list[str], list[str]]:
+    errors = validate_repository_layout(root)
+    warnings: list[str] = []
+    for document in documents.values():
+        document_errors, document_warnings = validate_shape(document, root)
+        errors.extend(document_errors)
+        warnings.extend(document_warnings)
+
+    works = {doc_id: document for doc_id, document in documents.items() if document.kind == "work"}
+    for document in documents.values():
+        prefix = str(document.path.relative_to(root))
+        if document.kind != "work" and document.metadata.get("work") not in works:
+            errors.append(f"{prefix}: work 引用了不存在的 {document.metadata.get('work')}")
+        elif document.kind != "work" and document.path.parent != works[document.metadata["work"]].path.parent:
+            errors.append(
+                f"{prefix}: 文档必须与所属 {document.metadata['work']} 位于同一工作项目录"
+            )
+        for field in REFERENCE_FIELDS:
+            values = document.metadata.get(field, [])
+            if not isinstance(values, list):
+                continue
+            for value in values:
+                target = reference_target(value) if isinstance(value, str) else None
+                if target is None:
+                    errors.append(f"{prefix}: {field} 引用格式无效：{value}")
+                elif target not in documents:
+                    errors.append(f"{prefix}: {field} 引用了不存在的 {target}")
+                elif "#" in value and value.split("#", 1)[1] not in documents[target].body:
+                    errors.append(f"{prefix}: {field} 引用的局部编号不存在：{value}")
+        supersedes = document.metadata.get("supersedes")
+        if supersedes is not None and supersedes not in documents:
+            errors.append(f"{prefix}: supersedes 引用了不存在的 {supersedes}")
+        if document.kind not in {"work", "task"} and document.metadata.get("status") == "approved":
+            unsatisfied = []
+            for value in document.metadata.get("depends_on", []):
+                target = reference_target(value)
+                if target in documents and documents[target].metadata.get("status") not in SATISFIED_DEPENDENCY_STATUSES:
+                    unsatisfied.append(target)
+            if unsatisfied:
+                errors.append(f"{prefix}: approved 文档依赖尚未完成：{', '.join(unsatisfied)}")
+
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(document_id: str) -> None:
+        if document_id in visited:
+            return
+        if document_id in visiting:
+            cycle = visiting[visiting.index(document_id) :] + [document_id]
+            errors.append(f"文档依赖形成环：{' -> '.join(cycle)}")
+            return
+        visiting.append(document_id)
+        for value in documents[document_id].metadata.get("depends_on", []):
+            target = reference_target(value) if isinstance(value, str) else None
+            if target in documents:
+                visit(target)
+        visiting.pop()
+        visited.add(document_id)
+
+    for document_id in documents:
+        visit(document_id)
+
+    by_work: dict[str, list[Document]] = defaultdict(list)
+    for document in documents.values():
+        if isinstance(document.metadata.get("work"), str):
+            by_work[document.metadata["work"]].append(document)
+    for work_id, work in works.items():
+        prefix = str(work.path.relative_to(root))
+        expected_flow = select_workflow({**work.metadata, "type": work.metadata["work_type"]})
+        for field in ("required_documents", "required_checks", "human_confirmations"):
+            if work.metadata.get(field) != expected_flow[field]:
+                errors.append(f"{prefix}: {field} 必须由 WORK Type 与风险增量规则生成")
+        actual_workflow = work.metadata.get("workflow", [])
+        expected_workflow = expected_flow["workflow"]
+        configuration_fields = ("stage", "label", "requirement", "checks", "source", "reason")
+        actual_configuration = [
+            {field: stage.get(field) for field in configuration_fields}
+            for stage in actual_workflow
+            if isinstance(stage, dict)
+        ]
+        expected_configuration = [
+            {field: stage[field] for field in configuration_fields} for stage in expected_workflow
+        ]
+        if actual_configuration != expected_configuration:
+            errors.append(f"{prefix}: workflow 阶段顺序或配置与 WORK Type / 风险规则不一致")
+
+        bound_artifacts: set[str] = set()
+        for stage in actual_workflow:
+            if not isinstance(stage, dict) or not isinstance(stage.get("artifacts"), list):
+                continue
+            for artifact_id in stage["artifacts"]:
+                if artifact_id not in documents:
+                    errors.append(f"{prefix}: workflow 引用了不存在的 artifact：{artifact_id}")
+                    continue
+                artifact = documents[artifact_id]
+                if artifact.id != work.id and artifact.metadata.get("work") != work.id:
+                    errors.append(f"{prefix}: workflow artifact {artifact_id} 不属于 {work.id}")
+                bound_artifacts.add(artifact_id)
+        for document in by_work[work_id]:
+            if document.kind in set(work.metadata.get("required_documents", [])) and document.id not in bound_artifacts:
+                errors.append(f"{prefix}: 必需文档 {document.id} 没有关联到 workflow stage")
+
+        synchronized_metadata = json.loads(json.dumps(work.metadata, ensure_ascii=False))
+        synchronized = Document(path=work.path, metadata=synchronized_metadata, body=work.body)
+        synchronize_workflow(synchronized, documents)
+        synchronized_statuses = {
+            stage["stage"]: stage["status"] for stage in synchronized.metadata["workflow"]
+        }
+        actual_statuses = {
+            stage.get("stage"): stage.get("status")
+            for stage in actual_workflow
+            if isinstance(stage, dict)
+        }
+        if actual_statuses != synchronized_statuses:
+            errors.append(f"{prefix}: workflow 阶段状态未与文档、任务和 WORK 事实同步")
+
+        expected = set(work.metadata.get("required_documents", []))
+        actual = {document.kind for document in by_work[work_id]}
+        missing = expected - actual
+        if missing:
+            message = f"{prefix}: 缺少流程要求文档：{', '.join(sorted(missing))}"
+            if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
+                errors.append(message)
+            else:
+                warnings.append(message)
+        if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
+            if work.metadata.get("blocking_items"):
+                errors.append(f"{prefix}: 当前状态不允许存在 blocking_items")
+            if work.metadata.get("human_confirmations"):
+                errors.append(f"{prefix}: 当前状态不允许存在未完成的 human_confirmations")
+        tasks = [document for document in by_work[work_id] if document.kind == "task"]
+        verifies = [document for document in by_work[work_id] if document.kind == "verify"]
+        if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
+            prep_types = expected - {"task", "verify", "memory"}
+            unfinished_prep = [
+                document.id
+                for document in by_work[work_id]
+                if document.kind in prep_types and document.metadata.get("status") != "approved"
+            ]
+            if unfinished_prep:
+                errors.append(f"{prefix}: ready 之后仍有未确认的上游文档：{', '.join(unfinished_prep)}")
+            if not tasks:
+                errors.append(f"{prefix}: ready 之后必须存在 TASK")
+        if work.metadata.get("status") in {"implemented", "verified", "released", "confirmed"}:
+            unfinished = [task.id for task in tasks if task.metadata.get("status") not in {"done", "verified", "cancelled"}]
+            if unfinished:
+                errors.append(f"{prefix}: implemented 之后仍有未完成任务：{', '.join(unfinished)}")
+        if work.metadata.get("status") in {"verified", "released", "confirmed"}:
+            passing = [doc for doc in verifies if doc.metadata.get("status") == "approved" and doc.metadata.get("result") == "pass"]
+            if not passing:
+                errors.append(f"{prefix}: verified 之后必须存在 result=pass 的 approved 验证结果")
+        stage_boundary = {
+            "ready": "tasks",
+            "doing": "tasks",
+            "implemented": "development",
+            "verified": "verification",
+            "released": "release",
+        }.get(str(work.metadata.get("status")))
+        stages_to_check: list[dict[str, Any]] = []
+        if work.metadata.get("status") == "confirmed":
+            stages_to_check = actual_workflow
+        elif stage_boundary:
+            for stage in actual_workflow:
+                stages_to_check.append(stage)
+                if stage.get("stage") == stage_boundary:
+                    break
+        unfinished_stages = [
+            stage.get("label", stage.get("stage"))
+            for stage in stages_to_check
+            if stage.get("requirement") == "required" and stage.get("status") != "done"
+        ]
+        if unfinished_stages:
+            errors.append(
+                f"{prefix}: {work.metadata.get('status')} 状态之前仍有未完成流程阶段："
+                + ", ".join(str(value) for value in unfinished_stages)
+            )
+
+    for document in documents.values():
+        if document.kind != "task" or document.metadata.get("status") not in {"ready", "doing", "done", "verified"}:
+            continue
+        unsatisfied = []
+        for value in document.metadata.get("depends_on", []):
+            target = reference_target(value)
+            if target in documents and documents[target].metadata.get("status") not in SATISFIED_DEPENDENCY_STATUSES:
+                unsatisfied.append(target)
+        if unsatisfied:
+            errors.append(f"{document.path.relative_to(root)}: 活跃任务依赖尚未完成：{', '.join(unsatisfied)}")
+        if document.metadata.get("status") == "verified":
+            evidence = [
+                candidate
+                for candidate in documents.values()
+                if candidate.kind == "verify"
+                and candidate.metadata.get("work") == document.metadata.get("work")
+                and candidate.metadata.get("status") == "approved"
+                and candidate.metadata.get("result") == "pass"
+                and document.id in candidate.metadata.get("verifies", [])
+            ]
+            if not evidence:
+                errors.append(
+                    f"{document.path.relative_to(root)}: verified TASK 必须有明确引用它的 approved/pass VERIFY"
+                )
+
+    next_ids = index.get("next_ids", {})
+    for kind in DOCUMENT_TYPES:
+        value = next_ids.get(kind)
+        if not isinstance(value, int) or value < 1:
+            errors.append(f"development/index.json: 缺少有效的 {kind} 计数器")
+            continue
+        prefix, _ = TYPE_CONFIG[kind]
+        used = [int(match.group(2)) for doc_id in documents if (match := ID_PATTERN.fullmatch(doc_id)) and match.group(1) == prefix]
+        if used and value <= max(used):
+            errors.append(f"development/index.json: {kind} 的 next id 必须大于 {max(used)}")
+    return errors, warnings
+
+
+def checked_documents(root: Path) -> tuple[dict[str, Document], dict[str, Any]]:
+    index = load_index(root)
+    documents = load_documents(root)
+    errors, _ = validate_documents(documents, root, index)
+    if errors:
+        raise WorkError("开发文档系统校验失败：\n- " + "\n- ".join(errors))
+    return documents, index
+
+
+def require_document(documents: dict[str, Document], document_id: str) -> Document:
+    try:
+        return documents[document_id]
+    except KeyError as error:
+        raise WorkError(f"找不到文档 {document_id}") from error
+
+
+def command_check(args: argparse.Namespace) -> None:
+    schema_path = args.root / "development" / "schema" / "document.schema.json"
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise WorkError(f"缺少 schema：{schema_path}") from error
+    except json.JSONDecodeError as error:
+        raise WorkError(f"{schema_path}: JSON 解析失败：{error}") from error
+    if set(schema.get("required", [])) != COMMON_REQUIRED:
+        raise WorkError(f"{schema_path}: required 必须与工具的通用必填字段一致")
+    if set(schema.get("properties", {})) != COMMON_FIELDS:
+        raise WorkError(f"{schema_path}: properties 必须与工具支持的元数据字段一致")
+    for kind in DOCUMENT_TYPES:
+        template_path = args.root / "development" / "templates" / f"{kind}.md"
+        if not template_path.is_file():
+            raise WorkError(f"缺少模板：{template_path}")
+        template = template_path.read_text(encoding="utf-8")
+        for title in REQUIRED_SECTIONS[kind]:
+            if f"## {title}\n" not in template:
+                raise WorkError(f"{template_path}: 缺少 `## {title}`")
+    index = load_index(args.root)
+    documents = load_documents(args.root)
+    if not any(document.kind == "work" for document in documents.values()):
+        raise WorkError("development/ 至少需要保留一个工作项")
+    errors, warnings = validate_documents(documents, args.root, index)
+    for warning in warnings:
+        print(f"warning: {warning}", file=sys.stderr)
+    for error in errors:
+        print(f"error: {error}", file=sys.stderr)
+    if errors:
+        raise WorkError(f"发现 {len(errors)} 个开发文档错误")
+    print(f"✓ {len(documents)} 份开发文档通过校验（{len(warnings)} 个进行中提示）")
+
+
+def command_new(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    risk = effective_risk(
+        args.risk,
+        args.concern,
+        not args.not_reversible,
+        args.data_change,
+        args.public_api_change,
+        args.security_sensitive,
+    )
+    work_id = allocate_id(index, "work")
+    slug = args.slug or slugify(args.title)
+    metadata = new_metadata(work_id, "work", args.title, None, args.owner)
+    metadata.update(
+        {
+            "work_type": args.work_type,
+            "risk": risk,
+            "impact": args.impact,
+            "concerns": list(dict.fromkeys(args.concern)),
+            "blocking_items": list(dict.fromkeys(args.blocking)),
+            "reversible": not args.not_reversible,
+            "data_change": args.data_change,
+            "public_api_change": args.public_api_change,
+            "security_sensitive": args.security_sensitive,
+            "user_visible": args.user_visible or args.work_type == "product",
+        }
+    )
+    workflow_metadata = select_workflow({**metadata, "type": args.work_type})
+    metadata.update({key: value for key, value in workflow_metadata.items() if key != "fast"})
+    work_directory = work_directory_path(args.root, work_id, slug)
+    work = Document(
+        path=document_path(work_directory, "work", work_id),
+        metadata=metadata,
+        body=template_body(args.root, "work", work_id, args.title),
+    )
+    generated = generate_work_documents(
+        args.root, index, work, workflow_metadata["required_documents"]
+    )
+    work.metadata["related"] = [document.id for document in generated]
+    prospective = dict(documents)
+    prospective[work.id] = work
+    prospective.update({document.id: document for document in generated})
+    bind_workflow_artifacts(work, [work, *generated])
+    synchronize_workflow(work, prospective)
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("无法创建工作项：\n- " + "\n- ".join(errors))
+    write_document(work)
+    for document in generated:
+        write_document(document)
+    write_index(args.root, index)
+    if risk != args.risk:
+        print(f"注意：风险已按影响规则从 {args.risk} 自动升级为 {risk}")
+    mode = "快速流程" if workflow_metadata["fast"] else "标准/完整流程"
+    print(f"✓ 已创建 {work_id}（{mode}）")
+    print("已生成：" + ", ".join(document.id for document in generated))
+    print(f"下一步：补全 {generated[0].id}，再用 `scripts/work flow {work_id}` 查看推进条件。")
+
+
+def command_new_doc(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+    document_id = allocate_id(index, args.type)
+    metadata = new_metadata(document_id, args.type, args.title, work.id, args.owner or work.metadata["owners"])
+    metadata["depends_on"] = args.depends_on
+    metadata["related"] = args.related
+    metadata["implements"] = args.implements
+    metadata["verifies"] = args.verifies
+    if args.type == "task":
+        metadata.update(
+            {
+                "read_paths": args.read_path,
+                "write_paths": args.write_path,
+                "forbidden_paths": args.forbidden_path,
+            }
+        )
+    if args.type == "verify":
+        metadata["result"] = "pending"
+    document = Document(
+        path=document_path(work.path.parent, args.type, document_id),
+        metadata=metadata,
+        body=template_body(args.root, args.type, document_id, args.title),
+    )
+    prospective = dict(documents)
+    prospective[document.id] = document
+    work.metadata["related"] = list(dict.fromkeys(work.metadata.get("related", []) + [document.id]))
+    prospective[work.id] = work
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, prospective)])
+    synchronize_workflow(work, prospective)
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("无法创建文档：\n- " + "\n- ".join(errors))
+    write_document(document)
+    work.metadata["updated_at"] = today()
+    write_document(work)
+    write_index(args.root, index)
+    print(f"✓ 已创建 {document.path.relative_to(args.root)}")
+
+
+def work_type_of(document: Document, documents: dict[str, Document]) -> str:
+    if document.kind == "work":
+        return str(document.metadata.get("work_type", "-"))
+    work = documents.get(str(document.metadata.get("work")))
+    return str(work.metadata.get("work_type", "-")) if work else "-"
+
+
+def command_list(args: argparse.Namespace) -> None:
+    documents, _ = checked_documents(args.root)
+    rows = []
+    for document in documents.values():
+        if args.type and document.kind != args.type:
+            continue
+        if args.status and document.metadata.get("status") != args.status:
+            continue
+        if args.work and document.id != args.work and document.metadata.get("work") != args.work:
+            continue
+        if args.needs_human and not document.metadata.get("human_confirmations"):
+            continue
+        rows.append(
+            (
+                document.id,
+                document.kind,
+                str(document.metadata.get("status")),
+                work_type_of(document, documents),
+                ",".join(document.metadata.get("owners", [])),
+                document.metadata.get("title"),
+            )
+        )
+    print("ID\t文档类型\t状态\t工作类型\t负责人\t标题")
+    for row in sorted(rows):
+        print("\t".join(row))
+
+
+def command_show(args: argparse.Namespace) -> None:
+    documents, _ = checked_documents(args.root)
+    document = require_document(documents, args.document_id)
+    print(document.path.relative_to(args.root))
+    print()
+    print(render_document(document), end="")
+
+
+def command_overview(args: argparse.Namespace) -> None:
+    documents, _ = checked_documents(args.root)
+    works = sorted(
+        (document for document in documents.values() if document.kind == "work"),
+        key=lambda document: document.id,
+    )
+    statuses = Counter(str(work.metadata["status"]) for work in works)
+    blockers = [work for work in works if work.metadata.get("blocking_items")]
+    high_risk = [work for work in works if work.metadata.get("risk") in {"high", "critical"}]
+    needs_human = [work for work in works if work.metadata.get("human_confirmations")]
+    tasks = [document for document in documents.values() if document.kind == "task"]
+    task_statuses = Counter(str(task.metadata["status"]) for task in tasks)
+    print(f"当前工作：{len(works)} 个")
+    for status in ("todo", "ready", "doing", "implemented", "verified", "released", "confirmed", "cancelled"):
+        if statuses[status]:
+            print(f"- {status}: {statuses[status]}")
+    print(f"卡住: {len(blockers)}  高风险: {len(high_risk)}  需要人工确认: {len(needs_human)}")
+    if tasks:
+        summary = ", ".join(f"{status}={count}" for status, count in sorted(task_statuses.items()))
+        print(f"任务：{len(tasks)} 个（{summary}）")
+    if blockers:
+        print("\n卡点：")
+        for work in blockers:
+            print(f"- {work.id}: {'; '.join(work.metadata['blocking_items'])}")
+    if needs_human:
+        print("\n需要人工确认：")
+        for work in needs_human:
+            print(f"- {work.id}: {'; '.join(work.metadata['human_confirmations'])}")
+
+
+def work_documents(work_id: str, documents: dict[str, Document]) -> list[Document]:
+    return sorted(
+        [document for document in documents.values() if document.metadata.get("work") == work_id],
+        key=lambda document: document.id,
+    )
+
+
+def rebuild_workflow(work: Document, documents: dict[str, Document]) -> None:
+    generated = select_workflow({**work.metadata, "type": work.metadata["work_type"]})
+    for field in ("workflow", "required_documents", "required_checks", "human_confirmations"):
+        work.metadata[field] = generated[field]
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, documents)])
+    synchronize_workflow(work, documents)
+    work.metadata["updated_at"] = today()
+
+
+def command_rebuild_flow(args: argparse.Namespace) -> None:
+    """从类型模板和增量规则重建流程；也作为旧 workflow 元数据的迁移入口。"""
+
+    documents = load_documents(args.root)
+    index = load_index(args.root)
+    works = [document for document in documents.values() if document.kind == "work"]
+    if args.work_id:
+        works = [work for work in works if work.id == args.work_id]
+        if not works:
+            raise WorkError(f"不存在工作项 {args.work_id}")
+    for work in works:
+        rebuild_workflow(work, documents)
+    errors, _ = validate_documents(documents, args.root, index)
+    if errors:
+        raise WorkError("流程重建不满足系统约束：\n- " + "\n- ".join(errors))
+    for work in works:
+        append_log(work, "根据 WORK Type、风险、影响面和关注项重建流程。")
+        write_document(work)
+    print(f"✓ 已重建 {len(works)} 个工作项的类型化流程")
+
+
+def command_flow(args: argparse.Namespace) -> None:
+    documents, _ = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+    synchronize_workflow(work, documents)
+    print(f"{work.id}  {work.metadata['title']}")
+    print(
+        f"类型: {work.metadata['work_type']}  状态: {work.metadata['status']}  "
+        f"风险: {work.metadata['risk']}  影响: {work.metadata['impact']}"
+    )
+    for stage in work.metadata["workflow"]:
+        artifact_text = ""
+        if stage["artifacts"]:
+            values = []
+            for artifact_id in stage["artifacts"]:
+                artifact = documents.get(artifact_id)
+                artifact_status = artifact.metadata["status"] if artifact else "missing"
+                values.append(f"{artifact_id}:{artifact_status}")
+            artifact_text = " [" + ", ".join(values) + "]"
+        checks = f" checks={','.join(stage['checks'])}" if stage["checks"] else ""
+        print(
+            f"- {stage['label']} ({stage['stage']}): "
+            f"{stage['requirement']}/{stage['status']}{artifact_text}{checks}"
+        )
+    if work.metadata.get("blocking_items"):
+        print("卡点: " + "; ".join(work.metadata["blocking_items"]))
+    if work.metadata.get("human_confirmations"):
+        print("需要人工确认: " + "; ".join(work.metadata["human_confirmations"]))
+    active_stage = next(
+        (
+            stage
+            for stage in work.metadata["workflow"]
+            if stage["requirement"] == "required" and stage["status"] not in {"done", "skipped"}
+        ),
+        None,
+    )
+    if work.metadata.get("blocking_items"):
+        next_step = "解决 blocking 待确认项并更新上游定义"
+    elif work.metadata.get("human_confirmations"):
+        next_step = "完成人工确认并记录决定"
+    elif active_stage:
+        next_step = f"推进“{active_stage['label']}”阶段（{active_stage['status']}）"
+    elif work.metadata["status"] == "verified":
+        next_step = "所有必做阶段已完成；无业务上线则保持 verified，有交付时再进入 released"
+    elif work.metadata["status"] == "released":
+        next_step = "所有必做阶段已完成，由负责人确认是否进入 confirmed"
+    elif work.metadata["status"] in {"confirmed", "cancelled"}:
+        next_step = "无"
+    else:
+        next_step = f"运行 scripts/work refresh {work.id} 按事实刷新工作状态"
+    print(f"下一步: {next_step}")
+
+
+def derive_work_status(work: Document, children: list[Document]) -> str:
+    current = work.metadata["status"]
+    if current in {"released", "confirmed", "cancelled"}:
+        return current
+    if work.metadata.get("blocking_items") or work.metadata.get("human_confirmations"):
+        return "todo"
+    tasks = [document for document in children if document.kind == "task" and document.metadata.get("status") != "cancelled"]
+    verifies = [document for document in children if document.kind == "verify"]
+    if any(doc.metadata.get("status") == "approved" and doc.metadata.get("result") == "pass" for doc in verifies):
+        return "verified"
+    if tasks and all(task.metadata.get("status") in {"done", "verified"} for task in tasks):
+        return "implemented"
+    if any(task.metadata.get("status") in {"doing", "done", "verified", "blocked"} for task in tasks):
+        return "doing"
+    prep = [
+        document
+        for document in children
+        if document.kind in set(work.metadata.get("required_documents", [])) - {"task", "verify", "memory"}
+    ]
+    if prep and all(document.metadata.get("status") == "approved" for document in prep) and tasks and all(
+        task.metadata.get("status") == "ready" for task in tasks
+    ):
+        return "ready"
+    return "todo"
+
+
+def command_refresh(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+    old_workflow = json.dumps(work.metadata["workflow"], ensure_ascii=False, sort_keys=True)
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, documents)])
+    synchronize_workflow(work, documents)
+    derived = derive_work_status(work, work_documents(work.id, documents))
+    old = work.metadata["status"]
+    work.metadata["status"] = derived
+    synchronize_workflow(work, documents)
+    workflow_changed = old_workflow != json.dumps(
+        work.metadata["workflow"], ensure_ascii=False, sort_keys=True
+    )
+    if old == derived and not workflow_changed:
+        print(f"✓ {work.id} 状态无需更新：{old}")
+        return
+    work.metadata["updated_at"] = today()
+    if old != derived:
+        append_log(work, f"根据文档、任务与验证事实刷新状态：{old} → {derived}。")
+    elif workflow_changed:
+        append_log(work, "根据文档、任务与 WORK 事实刷新流程阶段状态。")
+    prospective = dict(documents)
+    prospective[work.id] = work
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("状态刷新不满足系统约束：\n- " + "\n- ".join(errors))
+    write_document(work)
+    if old == derived:
+        print(f"✓ {work.id}: 已同步流程阶段，工作状态保持 {old}")
+    else:
+        print(f"✓ {work.id}: {old} → {derived}")
+
+
+def status_dependencies_satisfied(document: Document, documents: dict[str, Document]) -> bool:
+    for value in document.metadata.get("depends_on", []):
+        target = reference_target(value)
+        if target in documents and documents[target].metadata.get("status") not in SATISFIED_DEPENDENCY_STATUSES:
+            return False
+    return True
+
+
+def command_set_status(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    document = require_document(documents, args.document_id)
+    allowed = WORK_STATUSES if document.kind == "work" else TASK_STATUSES if document.kind == "task" else DOCUMENT_STATUSES
+    if args.status not in allowed:
+        raise WorkError(f"{document.kind} 不支持状态 {args.status}")
+    old = document.metadata["status"]
+    transitions = WORK_TRANSITIONS if document.kind == "work" else TASK_TRANSITIONS if document.kind == "task" else DOCUMENT_TRANSITIONS
+    if args.status not in transitions[old]:
+        targets = ", ".join(sorted(transitions[old])) or "无"
+        raise WorkError(f"{document.id} 不能从 {old} 进入 {args.status}；允许的下一状态：{targets}")
+    if args.status in {"approved", "ready", "doing", "done", "verified"} and not status_dependencies_satisfied(document, documents):
+        raise WorkError(f"{document.id} 仍有未完成依赖，不能进入 {args.status}")
+    if document.kind == "verify" and args.result:
+        document.metadata["result"] = args.result
+    if document.kind == "verify" and args.status == "approved" and document.metadata.get("result") == "pending":
+        raise WorkError("验证结果进入 approved 前必须通过 --result 记录结论")
+    document.metadata["status"] = args.status
+    document.metadata["updated_at"] = today()
+    append_log(document, f"状态变更：{old} → {args.status}。原因：{args.reason}")
+    prospective = dict(documents)
+    prospective[document.id] = document
+    related_work = document if document.kind == "work" else prospective[document.metadata["work"]]
+    bind_workflow_artifacts(
+        related_work,
+        [related_work, *work_documents(related_work.id, prospective)],
+    )
+    synchronize_workflow(related_work, prospective)
+    prospective[related_work.id] = related_work
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("状态变更不满足系统约束：\n- " + "\n- ".join(errors))
+    write_document(document)
+    if related_work.id != document.id:
+        related_work.metadata["updated_at"] = today()
+        write_document(related_work)
+    print(f"✓ {document.id}: {old} → {args.status}")
+
+
+def command_set_stage(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+    stage = next(
+        (candidate for candidate in work.metadata["workflow"] if candidate["stage"] == args.stage),
+        None,
+    )
+    if stage is None:
+        raise WorkError(f"{work.id} 的实际流程中不存在阶段 {args.stage}")
+    if stage["artifacts"] or stage["stage"] == "clarify":
+        raise WorkError("有 artifacts 的阶段由文档/TASK/VERIFY 状态推进；clarify 由 blocking_items 推进")
+    if args.status not in STAGE_PROGRESS:
+        raise WorkError(f"不支持阶段状态 {args.status}")
+    old = stage["status"]
+    if args.status not in STAGE_TRANSITIONS[old]:
+        targets = ", ".join(sorted(STAGE_TRANSITIONS[old])) or "无"
+        raise WorkError(f"阶段 {args.stage} 不能从 {old} 进入 {args.status}；允许：{targets}")
+    if args.status == "skipped" and stage["requirement"] == "required":
+        raise WorkError(f"必做阶段 {args.stage} 不能跳过")
+    if args.status in {"ready", "doing", "done"}:
+        for candidate in work.metadata["workflow"]:
+            if candidate is stage:
+                break
+            if candidate["requirement"] == "required" and candidate["status"] != "done":
+                raise WorkError(f"前置必做阶段“{candidate['label']}”尚未完成")
+    stage["status"] = args.status
+    stage["status_source"] = "manual"
+    work.metadata["updated_at"] = today()
+    append_log(work, f"流程阶段 {stage['label']}：{old} → {args.status}。原因：{args.reason}")
+    prospective = dict(documents)
+    prospective[work.id] = work
+    synchronize_workflow(work, prospective)
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("阶段状态变化不满足系统约束：\n- " + "\n- ".join(errors))
+    write_document(work)
+    print(f"✓ {work.id}/{args.stage}: {old} → {args.status}")
+
+
+def command_link(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    document = require_document(documents, args.document_id)
+    target = require_document(documents, args.target_id)
+    if args.relation not in REFERENCE_FIELDS:
+        raise WorkError(f"不支持关系 {args.relation}")
+    values = list(document.metadata.get(args.relation, []))
+    if target.id not in values:
+        values.append(target.id)
+    document.metadata[args.relation] = values
+    document.metadata["updated_at"] = today()
+    prospective = dict(documents)
+    prospective[document.id] = document
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("关联会破坏系统约束：\n- " + "\n- ".join(errors))
+    write_document(document)
+    print(f"✓ {document.id} --{args.relation}--> {target.id}")
+
+
+def command_trace(args: argparse.Namespace) -> None:
+    documents, _ = checked_documents(args.root)
+    start = require_document(documents, args.document_id)
+    edges: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for document in documents.values():
+        for field in REFERENCE_FIELDS:
+            for value in document.metadata.get(field, []):
+                target = reference_target(value)
+                if target in documents:
+                    edges[document.id].append((field, target))
+                    edges[target].append((f"reverse:{field}", document.id))
+        if document.kind != "work" and document.metadata.get("work") in documents:
+            work_id = document.metadata["work"]
+            edges[document.id].append(("belongs_to", work_id))
+            edges[work_id].append(("contains", document.id))
+    seen = {start.id}
+    queue = deque([(start.id, 0)])
+    while queue:
+        current, depth = queue.popleft()
+        document = documents[current]
+        print(f"{'  ' * depth}{document.id} [{document.kind}/{document.metadata['status']}] {document.metadata['title']}")
+        if depth >= args.depth:
+            continue
+        for relation, target in sorted(edges[current]):
+            if target in seen:
+                continue
+            seen.add(target)
+            print(f"{'  ' * (depth + 1)}↳ {relation}")
+            queue.append((target, depth + 2))
+
+
+def command_context(args: argparse.Namespace) -> None:
+    documents, _ = checked_documents(args.root)
+    task = require_document(documents, args.task_id)
+    if task.kind != "task":
+        raise WorkError("context 入口必须是 TASK")
+    work = require_document(documents, task.metadata["work"])
+    selected: dict[str, Document] = {work.id: work, task.id: task}
+    for value in task.metadata.get("depends_on", []) + task.metadata.get("implements", []) + task.metadata.get("related", []):
+        target = reference_target(value)
+        if target in documents:
+            selected[target] = documents[target]
+    for document in work_documents(work.id, documents):
+        if document.kind in {"decision", "memory"} and document.metadata.get("status") in FINAL_DOCUMENT_STATUSES:
+            selected[document.id] = document
+    print("# 智能体任务上下文包")
+    print()
+    print("## 项目规则入口")
+    print()
+    for path in ("AGENTS.md", "CLAUDE.md", "docs/README.md"):
+        if (args.root / path).is_file():
+            print(f"- {path}")
+    print()
+    print("## 任务代码边界")
+    print()
+    print("- 可查看：" + ", ".join(task.metadata.get("read_paths", [])))
+    print("- 可修改：" + ", ".join(task.metadata.get("write_paths", [])))
+    print("- 禁止修改：" + ", ".join(task.metadata.get("forbidden_paths", [])))
+    for document in sorted(selected.values(), key=lambda item: (item.kind != "work", item.id)):
+        print()
+        print(f"---\n\n# 来源：{document.path.relative_to(args.root)}\n")
+        print(render_document(document), end="")
+
+
+def command_archive(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    document = require_document(documents, args.document_id)
+    if document.kind in {"work", "task"}:
+        raise WorkError("WORK/TASK 使用 cancelled 或完成状态保留；不能直接归档")
+    if "archived" not in DOCUMENT_TRANSITIONS[document.metadata["status"]]:
+        raise WorkError(f"{document.id} 当前状态不能归档：{document.metadata['status']}")
+    document.metadata["status"] = "archived"
+    document.metadata["updated_at"] = today()
+    append_log(document, f"归档：{args.reason}")
+    prospective = dict(documents)
+    prospective[document.id] = document
+    work = prospective[document.metadata["work"]]
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, prospective)])
+    synchronize_workflow(work, prospective)
+    prospective[work.id] = work
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("归档会破坏系统约束：\n- " + "\n- ".join(errors))
+    write_document(document)
+    work.metadata["updated_at"] = today()
+    write_document(work)
+    print(f"✓ {document.id} 已在所属工作项目录中标记为 archived")
+
+
+def command_deprecate(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    document = require_document(documents, args.document_id)
+    if document.kind in {"work", "task"}:
+        raise WorkError("WORK/TASK 不能使用 deprecated")
+    if "deprecated" not in DOCUMENT_TRANSITIONS[document.metadata["status"]]:
+        raise WorkError(f"{document.id} 当前状态不能废弃：{document.metadata['status']}")
+    old = document.metadata["status"]
+    document.metadata["status"] = "deprecated"
+    document.metadata["deprecated"] = args.reason
+    document.metadata["updated_at"] = today()
+    append_log(document, f"废弃：{args.reason}")
+    prospective = {**documents, document.id: document}
+    work = prospective[document.metadata["work"]]
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, prospective)])
+    synchronize_workflow(work, prospective)
+    prospective[work.id] = work
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("废弃会破坏系统约束：\n- " + "\n- ".join(errors))
+    write_document(document)
+    work.metadata["updated_at"] = today()
+    write_document(work)
+    print(f"✓ {document.id}: {old} → deprecated")
+
+
+def command_supersede(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    old = require_document(documents, args.document_id)
+    new = require_document(documents, args.by)
+    if old.kind in {"work", "task"} or new.kind != old.kind:
+        raise WorkError("替代关系要求两个同类型的非 WORK/TASK 文档")
+    if old.metadata["status"] != "approved" or new.metadata["status"] != "approved":
+        raise WorkError("只有两份都已 approved 的同类型文档才能建立替代关系")
+    old.metadata["status"] = "superseded"
+    old.metadata["deprecated"] = args.reason
+    old.metadata["updated_at"] = today()
+    new.metadata["supersedes"] = old.id
+    new.metadata["updated_at"] = today()
+    append_log(old, f"由 {new.id} 替代：{args.reason}")
+    prospective = {**documents, old.id: old, new.id: new}
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("替代会破坏系统约束：\n- " + "\n- ".join(errors))
+    write_document(old)
+    write_document(new)
+    print(f"✓ {old.id} 已由 {new.id} 替代")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="管理 cherry-oj 的统一工作项与开发文档")
+    parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help=argparse.SUPPRESS)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    subparsers.add_parser("check", help="校验元数据、状态、流程、引用和依赖").set_defaults(handler=command_check)
+
+    new_parser = subparsers.add_parser("new", help="创建工作项并生成所需文档")
+    new_parser.add_argument("--title", required=True)
+    new_parser.add_argument("--type", dest="work_type", choices=sorted(WORK_TYPES), required=True)
+    new_parser.add_argument("--risk", choices=RISKS, required=True)
+    new_parser.add_argument("--impact", choices=sorted(IMPACTS), required=True)
+    new_parser.add_argument("--concern", action="append", choices=sorted(CONCERNS), default=[])
+    new_parser.add_argument("--owner", action="append", required=True)
+    new_parser.add_argument("--blocking", action="append", default=[])
+    new_parser.add_argument("--not-reversible", action="store_true")
+    new_parser.add_argument("--data-change", action="store_true")
+    new_parser.add_argument("--public-api-change", action="store_true")
+    new_parser.add_argument("--security-sensitive", action="store_true")
+    new_parser.add_argument("--user-visible", action="store_true")
+    new_parser.add_argument("--slug", type=validate_slug)
+    new_parser.set_defaults(handler=command_new)
+
+    doc_parser = subparsers.add_parser("new-doc", help="向现有工作项添加文档")
+    doc_parser.add_argument("--work", dest="work_id", required=True)
+    doc_parser.add_argument("--type", choices=[kind for kind in DOCUMENT_TYPES if kind != "work"], required=True)
+    doc_parser.add_argument("--title", required=True)
+    doc_parser.add_argument("--owner", action="append")
+    doc_parser.add_argument("--depends-on", action="append", default=[])
+    doc_parser.add_argument("--related", action="append", default=[])
+    doc_parser.add_argument("--implements", action="append", default=[])
+    doc_parser.add_argument("--verifies", action="append", default=[])
+    doc_parser.add_argument("--read-path", action="append", default=[])
+    doc_parser.add_argument("--write-path", action="append", default=[])
+    doc_parser.add_argument("--forbidden-path", action="append", default=[])
+    doc_parser.set_defaults(handler=command_new_doc)
+
+    list_parser = subparsers.add_parser("list", help="查询工作项和文档")
+    list_parser.add_argument("--type", choices=DOCUMENT_TYPES)
+    list_parser.add_argument("--status")
+    list_parser.add_argument("--work")
+    list_parser.add_argument("--needs-human", action="store_true")
+    list_parser.set_defaults(handler=command_list)
+
+    show_parser = subparsers.add_parser("show", help="显示一份文档")
+    show_parser.add_argument("document_id")
+    show_parser.set_defaults(handler=command_show)
+
+    subparsers.add_parser("overview", help="显示项目级工作、风险和卡点总览").set_defaults(
+        handler=command_overview
+    )
+
+    flow_parser = subparsers.add_parser("flow", help="显示工作项流程与下一步")
+    flow_parser.add_argument("work_id")
+    flow_parser.set_defaults(handler=command_flow)
+
+    rebuild_parser = subparsers.add_parser(
+        "rebuild-flow", help="按 WORK Type、风险与影响面重新生成流程"
+    )
+    rebuild_parser.add_argument("work_id", nargs="?")
+    rebuild_parser.set_defaults(handler=command_rebuild_flow)
+
+    refresh_parser = subparsers.add_parser("refresh", help="按事实刷新工作项状态")
+    refresh_parser.add_argument("work_id")
+    refresh_parser.set_defaults(handler=command_refresh)
+
+    status_parser = subparsers.add_parser("set-status", help="记录有理由的状态变化")
+    status_parser.add_argument("document_id")
+    status_parser.add_argument("status")
+    status_parser.add_argument("--reason", required=True)
+    status_parser.add_argument("--result", choices=("pending", "pass", "fail", "partial"))
+    status_parser.set_defaults(handler=command_set_status)
+
+    stage_parser = subparsers.add_parser(
+        "set-stage", help="推进没有独立 artifact 的流程阶段"
+    )
+    stage_parser.add_argument("work_id")
+    stage_parser.add_argument("stage")
+    stage_parser.add_argument("status", choices=sorted(STAGE_PROGRESS))
+    stage_parser.add_argument("--reason", required=True)
+    stage_parser.set_defaults(handler=command_set_stage)
+
+    link_parser = subparsers.add_parser("link", help="建立文档关系")
+    link_parser.add_argument("document_id")
+    link_parser.add_argument("--relation", choices=REFERENCE_FIELDS, required=True)
+    link_parser.add_argument("--to", dest="target_id", required=True)
+    link_parser.set_defaults(handler=command_link)
+
+    trace_parser = subparsers.add_parser("trace", help="追踪上下游关系")
+    trace_parser.add_argument("document_id")
+    trace_parser.add_argument("--depth", type=int, default=3)
+    trace_parser.set_defaults(handler=command_trace)
+
+    context_parser = subparsers.add_parser("context", help="组装智能体任务上下文包")
+    context_parser.add_argument("task_id")
+    context_parser.set_defaults(handler=command_context)
+
+    archive_parser = subparsers.add_parser("archive", help="归档不再活跃的文档")
+    archive_parser.add_argument("document_id")
+    archive_parser.add_argument("--reason", required=True)
+    archive_parser.set_defaults(handler=command_archive)
+
+    deprecate_parser = subparsers.add_parser("deprecate", help="废弃一份文档")
+    deprecate_parser.add_argument("document_id")
+    deprecate_parser.add_argument("--reason", required=True)
+    deprecate_parser.set_defaults(handler=command_deprecate)
+
+    supersede_parser = subparsers.add_parser("supersede", help="用新文档替代旧文档")
+    supersede_parser.add_argument("document_id")
+    supersede_parser.add_argument("--by", required=True)
+    supersede_parser.add_argument("--reason", required=True)
+    supersede_parser.set_defaults(handler=command_supersede)
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    try:
+        args.handler(args)
+    except (WorkError, OSError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

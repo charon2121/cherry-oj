@@ -7,38 +7,29 @@
 
 二者来自同一个 Go module，但部署为**两个独立容器**，通过私有 HTTP 网络通信。
 
-## 产品需求中心
+## 项目文档
 
-产品需求、产品决策与版本验收统一放在 [`product/`](./product/README.md)。产品负责人审核以用户能力
-为单位的 REQ，研发任务通过稳定 ID 与 REQ 双向关联：
+项目只维护两套文档：
 
-```bash
-scripts/product list
-scripts/product check
-```
+- [`docs/`](./docs/README.md)：已经确认、跨工作项长期有效的全局产品与技术文档；
+- [`development/`](./development/README.md)：具体功能或工程工作产生的定义、体验、设计、计划、任务、
+  验证与项目记忆。
 
-总体产品方向和路线图以 [`PRD.md`](./PRD.md) 为准；产品需求描述“交付什么用户结果”，研发任务描述
-“具体怎样实现和验证”。
-
-## 开发任务中心
-
-进入 Git 的开发任务统一放在 [`tasks/`](./tasks/README.md)。开始开发前先查看可认领任务：
+所有开发工作先建立统一 WORK，不再分别维护产品需求中心和研发任务中心：
 
 ```bash
-scripts/task list --ready
-scripts/task show TASK-0001
+scripts/work list --type work
+scripts/work overview
+scripts/work flow WORK-002
+scripts/work show FEATURE-001
+scripts/work check
 ```
 
-Agent 或开发者必须先认领并同步认领提交，再修改代码：
-
-```bash
-scripts/task claim TASK-0001 \
-  --agent codex/example \
-  --branch codex/task-0001
-```
-
-任务的状态、硬依赖、租约、技术验收标准和完成证据都记录在对应 Markdown 文件中。提交前可运行
-`scripts/task check` 校验整个依赖图和状态不变量。TASK 的技术完成不自动代表 REQ 已通过产品验收。
+新工作使用 `scripts/work new`：先按 WORK Type 选择产品、基建、修复、重构或改进流程，再按风险、
+影响面和额外关注插入阶段与检查，并通过 artifacts 把阶段关联到零份或多份所需文档。
+TASK 进入开发前必须声明可查看、可修改和禁止修改的路径；`scripts/work context TASK-001` 可以组装
+受这些边界约束的智能体上下文。代码完成只会进入 `implemented`，有实际通过的 VERIFY 后才能进入
+`verified`。
 
 ## 应用开发入口
 
@@ -49,8 +40,8 @@ scripts/task claim TASK-0001 \
 - [Java 服务开发说明](./apps/server/README.md)：五个服务的端口、构建、启动与健康检查。
 - [Java 服务工具链说明](./apps/server/TOOLCHAIN.md)：Maven、Spring Boot Parent、BOM、Plugin 和 Starter 的区别。
 
-这些文档解释“怎样工作、工具为何存在”；产品能力与验收口径仍以 [`product/`](./product/README.md)
-中的 REQ 为准。
+这些应用文档解释“怎样工作、工具为何存在”；全局产品边界见 [`docs/product.md`](./docs/product.md)，
+具体功能验收口径见对应 WORK 下的 FEATURE 与 VERIFY。
 
 ## Docker Compose 启动
 

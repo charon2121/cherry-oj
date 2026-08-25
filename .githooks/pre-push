@@ -18,7 +18,7 @@ go_changed=1
 web_changed=1
 
 # 只在对应工程真有改动要推的时候跑，Go 和 Web 独立判断，不能互相提前退出。
-# 注：docs/ tutorial/ 在 .gitignore 里，本来就不会出现在这里。
+# 全局文档与开发文档不触发语言工程测试；其结构校验由 pre-commit 和 CI 负责。
 range=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
 if [ -n "$range" ]; then
     [ -n "$(git diff --name-only "$range"...HEAD -- "$ENGINE" || true)" ] || go_changed=0

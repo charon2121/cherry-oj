@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Cherry OJ · 提交与判题链路设计</title>
+  <style>
+    :root {
+      --bg: #080d18;
+      --panel: #101827;
+      --panel-2: #151f31;
+      --line: #26344a;
+      --line-soft: rgba(148, 163, 184, .15);
+      --text: #edf4ff;
+      --muted: #94a3b8;
+      --blue: #61a8ff;
+      --cyan: #55d6c2;
+      --amber: #f5bd60;
+      --red: #ff7b86;
+      --purple: #af93ff;
+      --green: #75d69c;
+      --radius: 18px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% -10%, rgba(55, 110, 255, .18), transparent 30rem),
+        radial-gradient(circle at 90% 12%, rgba(39, 211, 181, .10), transparent 28rem),
+        var(--bg);
+      font: 15px/1.65 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    button { font: inherit; }
+    code {
+      color: #c9e2ff;
+      font: .88em/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .shell { width: min(1440px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 64px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 36px; }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 720; letter-spacing: .01em; }
+    .brand-mark {
+      display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(97,168,255,.38);
+      border-radius: 11px; background: linear-gradient(145deg, rgba(97,168,255,.18), rgba(85,214,194,.08));
+      color: var(--blue); box-shadow: inset 0 1px rgba(255,255,255,.08);
+    }
+    .version { color: var(--muted); font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; }
+
+    .hero { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, .55fr); gap: 28px; align-items: end; margin-bottom: 28px; }
+    .eyebrow { color: var(--cyan); text-transform: uppercase; letter-spacing: .16em; font-size: 12px; font-weight: 750; }
+    h1 { margin: 10px 0 14px; font-size: clamp(34px, 5vw, 64px); line-height: 1.03; letter-spacing: -.045em; }
+    .lede { max-width: 800px; color: #b8c5d8; font-size: clamp(16px, 2vw, 19px); line-height: 1.75; margin: 0; }
+    .hero-note { border-left: 2px solid var(--cyan); padding: 4px 0 4px 18px; color: var(--muted); }
+    .hero-note strong { display: block; color: var(--text); font-size: 24px; margin-bottom: 3px; }
+
+    .tabs {
+      position: sticky; top: 12px; z-index: 10; display: flex; gap: 6px; width: fit-content; max-width: 100%;
+      margin: 0 0 22px; padding: 5px; border: 1px solid var(--line); border-radius: 14px;
+      background: rgba(10, 16, 28, .84); backdrop-filter: blur(16px); box-shadow: var(--shadow); overflow-x: auto;
+    }
+    .tab {
+      border: 0; border-radius: 9px; padding: 9px 16px; white-space: nowrap; cursor: pointer;
+      background: transparent; color: var(--muted); transition: color .2s, background .2s, transform .2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .tab[aria-selected="true"] { color: #fff; background: #20314c; box-shadow: inset 0 1px rgba(255,255,255,.08); }
+
+    .view[hidden] { display: none; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
+    .stack { display: grid; gap: 16px; }
+    .side { position: sticky; top: 82px; display: grid; gap: 16px; }
+    .panel { border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(21,31,49,.94), rgba(14,22,36,.94)); box-shadow: var(--shadow); overflow: hidden; }
+    .panel-pad { padding: 22px; }
+    .panel-title { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-size: 16px; letter-spacing: -.01em; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 16px currentColor; color: var(--blue); }
+    .dot.cyan { background: var(--cyan); color: var(--cyan); }
+    .dot.amber { background: var(--amber); color: var(--amber); }
+    .dot.purple { background: var(--purple); color: var(--purple); }
+
+    .flow { counter-reset: step; }
+    .step { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 18px; padding: 22px; }
+    .step + .step { border-top: 1px solid var(--line-soft); }
+    .step:not(:last-child)::after { content: ""; position: absolute; left: 47px; bottom: -8px; width: 1px; height: 16px; background: var(--line); z-index: 1; }
+    .num {
+      display: grid; place-items: center; align-self: start; width: 42px; height: 42px; border: 1px solid rgba(97,168,255,.38);
+      border-radius: 13px; background: rgba(97,168,255,.10); color: var(--blue); font-weight: 800;
+    }
+    .step-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 14px; margin-bottom: 7px; }
+    .step h3 { margin: 0; font-size: 17px; letter-spacing: -.015em; }
+    .route { color: var(--muted); font-size: 12px; }
+    .step p { margin: 0; color: #b4c0d3; }
+    .step ul { margin: 10px 0 0; padding-left: 18px; color: var(--muted); }
+    .step li + li { margin-top: 3px; }
+    .tag { display: inline-block; margin: 8px 6px 0 0; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; color: #bac9dd; background: rgba(8,13,24,.4); font-size: 12px; }
+    .tag.tx { border-color: rgba(85,214,194,.35); color: var(--cyan); background: rgba(85,214,194,.06); }
+
+    .rule-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+    .rule-list li { display: grid; grid-template-columns: 24px 1fr; gap: 9px; padding: 10px 0; color: #b9c5d7; }
+    .rule-list li + li { border-top: 1px solid var(--line-soft); }
+    .check { color: var(--cyan); font-weight: 800; }
+    .state-track { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .state { border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; color: #c8d3e2; background: rgba(8,13,24,.38); font-size: 12px; }
+    .arrow { color: #52627a; }
+    .caption { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+    .section-head { margin: 2px 0 18px; }
+    .section-head h2 { margin: 0 0 6px; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.03em; }
+    .section-head p { margin: 0; color: var(--muted); }
+    .failure-grid { display: grid; gap: 10px; }
+    .failure {
+      display: grid; grid-template-columns: 1.1fr 1.35fr 1.55fr; gap: 18px; align-items: start;
+      padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: rgba(16,24,39,.82);
+    }
+    .failure strong { font-size: 14px; }
+    .failure span { color: var(--muted); font-size: 13px; }
+    .recovery { color: #bddcca !important; }
+    .badge { display: inline-flex; width: fit-content; align-items: center; gap: 6px; margin-top: 7px; padding: 2px 8px; border-radius: 999px; font-size: 11px !important; }
+    .badge.retry { color: var(--amber) !important; background: rgba(245,189,96,.09); border: 1px solid rgba(245,189,96,.24); }
+    .badge.dedupe { color: var(--cyan) !important; background: rgba(85,214,194,.08); border: 1px solid rgba(85,214,194,.23); }
+    .badge.dead { color: var(--red) !important; background: rgba(255,123,134,.08); border: 1px solid rgba(255,123,134,.24); }
+
+    .callout { margin-top: 18px; padding: 18px 20px; border: 1px solid rgba(245,189,96,.28); border-radius: 14px; background: rgba(245,189,96,.055); color: #d8c7a6; }
+    .callout strong { color: var(--amber); }
+
+    .topic-grid, .tx-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .topic { padding: 22px; }
+    .topic-name { display: inline-block; color: var(--cyan); font: 700 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; margin-bottom: 12px; }
+    .meta { display: grid; grid-template-columns: 88px 1fr; gap: 7px 12px; color: #bac5d5; font-size: 13px; }
+    .meta dt { color: var(--muted); }
+    .meta dd { margin: 0; }
+    .event-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+    .event { border: 1px solid rgba(175,147,255,.26); border-radius: 7px; padding: 4px 8px; background: rgba(175,147,255,.07); color: #cbbcff; font-size: 12px; }
+    .schema { margin-top: 16px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 13px; background: #0a101c; overflow-x: auto; }
+    pre { margin: 0; color: #c7d6ea; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .key { color: var(--blue); } .str { color: var(--green); }
+    .tx-card { padding: 20px; }
+    .tx-card b { color: var(--cyan); margin-right: 7px; }
+    .tx-card h3 { margin: 0 0 8px; font-size: 16px; }
+    .tx-card p { margin: 0; color: var(--muted); font-size: 13px; }
+    .api { display: grid; grid-template-columns: auto 1fr; gap: 11px 18px; margin-top: 14px; }
+    .method { align-self: start; color: var(--green); font: 700 12px/1.5 ui-monospace, monospace; border: 1px solid rgba(117,214,156,.3); border-radius: 6px; padding: 3px 7px; }
+    .api p { margin: 0; color: var(--muted); }
+
+    .footer { display: flex; justify-content: space-between; gap: 24px; margin-top: 34px; padding-top: 20px; border-top: 1px solid var(--line); color: #64748b; font-size: 12px; }
+
+    @media (max-width: 980px) {
+      .hero, .layout { grid-template-columns: 1fr; }
+      .side { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 700px) {
+      .shell { width: min(100% - 20px, 1440px); padding-top: 22px; }
+      .topbar { margin-bottom: 28px; }
+      .hero { gap: 18px; }
+      .hero-note strong { font-size: 20px; }
+      .side, .topic-grid, .tx-grid { grid-template-columns: 1fr; }
+      .failure { grid-template-columns: 1fr; gap: 7px; }
+      .step { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 18px 15px; }
+      .num { width: 34px; height: 34px; border-radius: 10px; }
+      .step:not(:last-child)::after { left: 31px; }
+      .route { width: 100%; }
+      .panel-pad { padding: 18px; }
+      .footer { flex-direction: column; gap: 5px; }
+    }
+    @media print {
+      :root { --bg: #fff; --panel: #fff; --panel-2: #fff; --line: #cbd5e1; --line-soft: #e2e8f0; --text: #0f172a; --muted: #475569; }
+      body { background: #fff; color: #0f172a; }
+      .tabs { display: none; }
+      .view[hidden] { display: block; }
+      .view { margin-top: 28px; break-before: page; }
+      .view:first-of-type { break-before: auto; }
+      .panel, .failure { color: #0f172a; background: #fff; box-shadow: none; break-inside: avoid; }
+      .side { position: static; }
+      .layout { grid-template-columns: 1fr; }
+      .step p, .step ul, .rule-list li, .topic .meta, .tx-card p, .caption, .section-head p, .failure span, .api p { color: #475569 !important; }
+      code, pre { color: #1e3a5f; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">C</span><span>Cherry OJ / Architecture</span></div>
+      <span class="version">Decision draft · 2026</span>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Submission → Judging</div>
+        <h1>提交与判题链路</h1>
+        <p class="lede">一条以本地事务、Outbox / Inbox、租约与 fencing token 组成的可靠异步链路。目标不是追求“恰好一次”，而是在重复投递、进程崩溃和网络超时下仍然得到正确结果。</p>
+      </div>
+      <div class="hero-note"><strong>202 Accepted</strong>提交即返回，判题在后台异步推进；客户端只观察稳定的产品状态。</div>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="架构视图">
+      <button class="tab" id="tab-flow" role="tab" aria-selected="true" aria-controls="view-flow" data-view="view-flow">主链路</button>
+      <button class="tab" id="tab-failure" role="tab" aria-selected="false" aria-controls="view-failure" data-view="view-failure" tabindex="-1">故障恢复</button>
+      <button class="tab" id="tab-contract" role="tab" aria-selected="false" aria-controls="view-contract" data-view="view-contract" tabindex="-1">事件与事务</button>
+    </nav>
+
+    <section class="view" id="view-flow" role="tabpanel" aria-labelledby="tab-flow">
+      <div class="layout">
+        <div class="panel flow">
+          <article class="step">
+            <div class="num">01</div>
+            <div><div class="step-head"><h3>接收提交并校验身份</h3><span class="route">Browser → Gateway → Submission</span></div>
+              <p>Gateway 完成登录态校验，Submission 校验 <code>Idempotency-Key</code>、题目、语言与源码大小。</p>
+              <ul><li>同一用户 + 同一 key 重放：返回原提交。</li><li>同一 key 但请求体不同：返回 <code>409 Conflict</code>。</li></ul>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">02</div>
+            <div><div class="step-head"><h3>冻结本次判题配置</h3><span class="route">Submission → Problem</span></div>
+              <p>同步读取当前可判题版本，并冻结 <code>problemRevisionId</code>、CPU / 内存限制、checker、测试数据版本和允许语言。</p>
+              <span class="tag">配置不可漂移</span><span class="tag">读取失败不创建提交</span>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">03</div>
+            <div><div class="step-head"><h3>一次提交，一次本地事务</h3><span class="route">Submission + submission_db</span></div>
+              <p>写入 <code>Submission(Pending)</code>、冻结后的 <code>SubmissionJudgeInput</code>、幂等记录和 <code>JudgeRequested</code> Outbox。</p>
+              <span class="tag tx">事务 A</span><span class="tag">源码留在 MySQL</span><span class="tag">返回 202 + Location</span>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">04</div>
+            <div><div class="step-head"><h3>Outbox 投递判题请求</h3><span class="route">Relay → Kafka</span></div>
+              <p>Relay 通过 <code>FOR UPDATE SKIP LOCKED</code> 领取待发事件，发布到 <code>judge.requests.v1</code>，消息 key 为 <code>submissionId</code>。</p>
+              <span class="tag">允许重复投递</span><span class="tag">不丢事件</span>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">05</div>
+            <div><div class="step-head"><h3>幂等创建判题任务</h3><span class="route">Kafka → Judging + judging_db</span></div>
+              <p>消费者在短事务中插入唯一 <code>Inbox(eventId)</code> 和 <code>JudgeTask(Ready)</code>，提交后再确认 offset；重复消息由 Inbox 消化。</p>
+              <span class="tag tx">事务 B</span><span class="tag">消费线程不执行判题</span>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">06</div>
+            <div><div class="step-head"><h3>Worker 以租约领取任务</h3><span class="route">Judging Worker → Submission → Go Judge</span></div>
+              <p>领取 <code>Ready / RetryWaiting</code>，写入 <code>leaseToken</code>、<code>leaseUntil</code>、<code>attemptNo</code> 后立即提交；再读取冻结输入并在事务外调用 Go Judge。</p>
+              <span class="tag">lease + fencing</span><span class="tag">JudgeStarted</span>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">07</div>
+            <div><div class="step-head"><h3>落库结果并生成生命周期事件</h3><span class="route">Go Judge → Judging + judging_db</span></div>
+              <p>仅当前 <code>leaseToken</code> 可完成任务。有效结果进入 <code>Succeeded</code>；网络错误 / 5xx 进入退避重试；协议错误或耗尽重试进入 <code>Dead</code>。</p>
+              <span class="tag tx">事务 C</span><span class="tag">JudgeCompleted / JudgeFailed</span>
+            </div>
+          </article>
+          <article class="step">
+            <div class="num">08</div>
+            <div><div class="step-head"><h3>投影为用户可见状态</h3><span class="route">Kafka → Submission + submission_db</span></div>
+              <p>同一事务写 Inbox 并条件更新 Submission / case results。重复、过期、非当前任务结果直接忽略，<code>Done</code> 永不回退。</p>
+              <span class="tag tx">事务 D</span><span class="tag">前端轮询 verdict</span>
+            </div>
+          </article>
+        </div>
+
+        <aside class="side">
+          <section class="panel panel-pad">
+            <h2 class="panel-title"><span class="dot cyan"></span>不可破坏的约束</h2>
+            <ol class="rule-list">
+              <li><span class="check">01</span><span>MySQL + Kafka 采用至少一次投递，正确性来自幂等。</span></li>
+              <li><span class="check">02</span><span>数据库事务内不执行长时间 HTTP 调用。</span></li>
+              <li><span class="check">03</span><span>源码不进入 Kafka，只传标识符。</span></li>
+              <li><span class="check">04</span><span>迟到 Worker 必须被 <code>leaseToken</code> 隔离。</span></li>
+              <li><span class="check">05</span><span>题目配置按提交冻结，后续修改不影响在途任务。</span></li>
+              <li><span class="check">06</span><span>用户提交状态与基础设施任务状态分离。</span></li>
+            </ol>
+          </section>
+          <section class="panel panel-pad">
+            <h2 class="panel-title"><span class="dot"></span>状态机</h2>
+            <div class="caption">Submission · 产品状态</div>
+            <div class="state-track"><span class="state">Pending</span><span class="arrow">→</span><span class="state">Judging</span><span class="arrow">→</span><span class="state">Done + verdict</span></div>
+            <div class="caption">JudgeTask · 调度状态</div>
+            <div class="state-track"><span class="state">Ready</span><span class="arrow">→</span><span class="state">Running</span><span class="arrow">→</span><span class="state">Succeeded</span></div>
+            <div class="state-track"><span class="state">Running</span><span class="arrow">→</span><span class="state">RetryWaiting</span><span class="arrow">↺</span><span class="state">Dead</span></div>
+            <p class="caption">重试耗尽后，对用户映射为 <code>Done + SE</code>，不暴露第四种产品状态。</p>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="view-failure" role="tabpanel" aria-labelledby="tab-failure" hidden>
+      <header class="section-head"><h2>故障不是例外路径</h2><p>每一个可能中断的位置，都有明确的恢复动作和幂等边界。</p></header>
+      <div class="failure-grid">
+        <article class="failure"><strong>Problem 服务不可用</strong><span>无法取得可判题版本，Submission 尚未落库。<br><span class="badge retry">入口失败</span></span><span class="recovery">返回 503；客户端可用相同 Idempotency-Key 安全重试。</span></article>
+        <article class="failure"><strong>Relay 已发 Kafka，未标记 Outbox</strong><span>重启后再次发送同一事件。<br><span class="badge dedupe">重复投递</span></span><span class="recovery">Judging Inbox 以 eventId 唯一约束去重。</span></article>
+        <article class="failure"><strong>Judging 已提交，未确认 offset</strong><span>Kafka 再次投递 JudgeRequested。<br><span class="badge dedupe">重复消费</span></span><span class="recovery">Inbox 命中后直接确认，不创建第二个任务。</span></article>
+        <article class="failure"><strong>Worker 判题期间崩溃</strong><span>任务停留在 Running，租约最终过期。<br><span class="badge retry">租约恢复</span></span><span class="recovery">Sweeper 将任务转为 RetryWaiting，由新 Worker 领取。</span></article>
+        <article class="failure"><strong>旧 Worker 迟到回写</strong><span>新 Worker 已经取得下一份租约。<br><span class="badge dedupe">并发竞争</span></span><span class="recovery">更新条件必须匹配当前 leaseToken；旧结果丢弃。</span></article>
+        <article class="failure"><strong>Judge 网络超时 / 5xx</strong><span>调用是否已执行可能未知。<br><span class="badge retry">可重试</span></span><span class="recovery">1s / 10s / 60s 退避，默认最多 3 次；只允许当前租约发布结果。</span></article>
+        <article class="failure"><strong>Judge 返回 4xx / 协议错误</strong><span>通常是请求或服务契约问题。<br><span class="badge dead">不可盲重试</span></span><span class="recovery">任务进入 Dead，告警并将提交映射为 Done + SE。</span></article>
+        <article class="failure"><strong>Completed 重复或迟到</strong><span>生命周期事件被重复投递或顺序过期。<br><span class="badge dedupe">投影保护</span></span><span class="recovery">Submission Inbox 去重；条件更新保证 Done 不回退。</span></article>
+        <article class="failure"><strong>生命周期消息无法解析</strong><span>毒消息持续阻塞消费分区。<br><span class="badge dead">Poison message</span></span><span class="recovery">投递到 judge.lifecycle.dlt，保留原始载荷并触发告警。</span></article>
+      </div>
+      <div class="callout"><strong>核心判断：</strong>重复执行本身可以接受，重复落结果不可以。调度层用租约决定“谁现在有权工作”，结果层用 fencing token 决定“谁有权生效”。</div>
+    </section>
+
+    <section class="view" id="view-contract" role="tabpanel" aria-labelledby="tab-contract" hidden>
+      <header class="section-head"><h2>事件与事务边界</h2><p>Kafka 只运送事实和标识符；业务数据归所属服务持有。</p></header>
+      <div class="topic-grid">
+        <article class="panel topic">
+          <span class="topic-name">judge.requests.v1</span>
+          <dl class="meta"><dt>生产者</dt><dd>submission-service</dd><dt>消费者</dt><dd>judging-service</dd><dt>消息 key</dt><dd><code>submissionId</code></dd><dt>载荷</dt><dd>标识符与路由信息，不含源码</dd></dl>
+          <div class="event-list"><span class="event">JudgeRequested</span></div>
+        </article>
+        <article class="panel topic">
+          <span class="topic-name">judge.lifecycle.v1</span>
+          <dl class="meta"><dt>生产者</dt><dd>judging-service</dd><dt>消费者</dt><dd>submission-service</dd><dt>消息 key</dt><dd><code>submissionId</code></dd><dt>顺序</dt><dd>同一 topic + key，保持单提交有序</dd></dl>
+          <div class="event-list"><span class="event">JudgeStarted</span><span class="event">JudgeCompleted</span><span class="event">JudgeFailed</span></div>
+        </article>
+      </div>
+
+      <div class="schema" aria-label="事件信封示例"><pre>{
+  <span class="key">"eventId"</span>:     <span class="str">"UUIDv7"</span>,
+  <span class="key">"eventType"</span>:   <span class="str">"JudgeCompleted"</span>,
+  <span class="key">"eventVersion"</span>: 1,
+  <span class="key">"occurredAt"</span>:  <span class="str">"UTC timestamp"</span>,
+  <span class="key">"traceId"</span>:     <span class="str">"distributed trace id"</span>,
+  <span class="key">"aggregateId"</span>: <span class="str">"submissionId"</span>,
+  <span class="key">"payload"</span>:     { ... }
+}</pre></div>
+
+      <h2 style="margin: 30px 0 14px; font-size: 22px;">四个原子事务</h2>
+      <div class="tx-grid">
+        <article class="panel tx-card"><h3><b>A</b> 接收提交</h3><p>Submission + JudgeInput + 幂等记录 + JudgeRequested Outbox。</p></article>
+        <article class="panel tx-card"><h3><b>B</b> 创建任务</h3><p>Judging Inbox + JudgeTask(Ready)，提交后确认 Kafka offset。</p></article>
+        <article class="panel tx-card"><h3><b>C</b> 完成尝试</h3><p>条件更新 JudgeTask + JudgeAttempt + 生命周期 Outbox。</p></article>
+        <article class="panel tx-card"><h3><b>D</b> 投影结果</h3><p>Submission Inbox + 条件更新 Submission 与 case results。</p></article>
+      </div>
+
+      <section class="panel panel-pad" style="margin-top: 18px;">
+        <h2 class="panel-title"><span class="dot purple"></span>对客户端的稳定契约</h2>
+        <div class="api"><span class="method">POST</span><p><code>/api/submissions</code> → <code>202 Accepted</code>，响应中返回 submissionId，并设置 <code>Location</code>。</p><span class="method">GET</span><p><code>/api/submissions/{id}</code> → 只暴露 <code>Pending / Judging / Done + verdict</code>，不泄露内部重试状态。</p></div>
+      </section>
+    </section>
+
+    <footer class="footer"><span>Cherry OJ · Microservice learning architecture</span><span>MySQL 8.4 · MyBatis · Kafka · UUIDv7 · Go Judge</span></footer>
+  </main>
+
+  <script>
+    (() => {
+      const tabs = [...document.querySelectorAll('[role="tab"]')];
+      const panels = [...document.querySelectorAll('[role="tabpanel"]')];
+
+      function activate(tab, moveFocus = false) {
+        tabs.forEach(item => {
+          const selected = item === tab;
+          item.setAttribute('aria-selected', String(selected));
+          item.tabIndex = selected ? 0 : -1;
+        });
+        panels.forEach(panel => { panel.hidden = panel.id !== tab.dataset.view; });
+        if (moveFocus) tab.focus();
+        history.replaceState(null, '', `#${tab.dataset.view.replace('view-', '')}`);
+      }
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => activate(tab));
+        tab.addEventListener('keydown', event => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          let target = index;
+          if (event.key === 'ArrowLeft') target = (index - 1 + tabs.length) % tabs.length;
+          if (event.key === 'ArrowRight') target = (index + 1) % tabs.length;
+          if (event.key === 'Home') target = 0;
+          if (event.key === 'End') target = tabs.length - 1;
+          activate(tabs[target], true);
+        });
+      });
+
+      const initial = tabs.find(tab => `#${tab.dataset.view.replace('view-', '')}` === location.hash);
+      if (initial) activate(initial);
+    })();
+  </script>
+</body>
+</html>
