@@ -2,7 +2,7 @@
 id: "WORK-005"
 type: "work"
 title: "修复开发文档 CI 的 clean checkout 链接校验"
-status: "implemented"
+status: "confirmed"
 work: null
 owners: ["codex/root"]
 risk: "low"
@@ -13,7 +13,7 @@ related: ["ISSUE-001", "TASK-005", "VERIFY-005"]
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["ISSUE-001"], "checks": ["definition", "scope"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "design", "label": "原因与修复方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "tasks", "label": "修复任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-005"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-005"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "done", "status_source": "manual", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": ["VERIFY-005"], "checks": ["automated-tests"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}]
+workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["ISSUE-001"], "checks": ["definition", "scope"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "design", "label": "原因与修复方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "tasks", "label": "修复任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-005"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-005"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["VERIFY-005"], "checks": ["automated-tests"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}]
 required_documents: ["issue", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests"]
 human_confirmations: []
@@ -34,6 +34,12 @@ work_type: "fix"
 
 
 
+
+
+
+
+
+
 # WORK-005：修复开发文档 CI 的 clean checkout 链接校验
 
 ## 为什么做
@@ -46,7 +52,7 @@ CI 应同样通过”的反馈约定。
 
 - [x] 全局文档不再链接到新克隆不保证存在的本地教程文件。
 - [x] 链接目标即使存在于本地，只要未进入 Git，文档校验也会拒绝。
-- [ ] 工作项、文档链接校验及其单元测试在本地和 GitHub Actions 中通过。
+- [x] 工作项、文档链接校验及其单元测试在本地和 GitHub Actions 中通过。
 
 ## 当前流程
 
@@ -76,5 +82,11 @@ CI 应同样通过”的反馈约定。
 - 2026-08-25：创建工作项并生成初始流程。
 - 2026-08-25：确认 Git 跟踪状态是本地与 clean checkout 一致性的判断边界。
 - 2026-08-25：本地工作区与暂存区 clean-checkout 模拟均通过，等待远端 CI 证据。
+- 2026-08-25：提交 `6688360` 的 GitHub Actions 运行 `32802018365` 全部通过。
 - 2026-08-25：流程阶段 复核：ready → done。原因：已复核实现 diff、任务边界、错误消息及 clean-checkout 行为
 - 2026-08-25：根据文档、任务与验证事实刷新状态：todo → implemented。
+- 2026-08-25：根据文档、任务与验证事实刷新状态：implemented → verified。
+- 2026-08-25：流程阶段 上线：ready → done。原因：修复提交 6688360 已推送到 origin/main
+- 2026-08-25：状态变更：verified → released。原因：修复提交 6688360 已推送到 origin/main，GitHub Actions 运行 32802018365 已通过
+- 2026-08-25：流程阶段 观察：doing → done。原因：GitHub Actions 运行 32802018365 全部通过，开发文档系统 job 四项检查均为绿色
+- 2026-08-25：状态变更：released → confirmed。原因：远端 clean checkout 验证通过且整套 CI 全绿，观察未发现回归
