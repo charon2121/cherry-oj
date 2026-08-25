@@ -1,7 +1,7 @@
 {
   "next_ids": {
     "capability": 1,
-    "change": 4,
+    "change": 5,
     "decision": 5,
     "design": 5,
     "experience": 2,
@@ -11,8 +11,8 @@
     "memory": 5,
     "plan": 5,
     "product": 1,
-    "task": 6,
-    "verify": 6,
-    "work": 6
+    "task": 7,
+    "verify": 7,
+    "work": 7
   }
 }
