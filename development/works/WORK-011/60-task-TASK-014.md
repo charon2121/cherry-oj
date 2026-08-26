@@ -10,9 +10,9 @@ related: []
 implements: ["CHANGE-006#REQ-001", "CHANGE-006#REQ-002", "CHANGE-006#REQ-003", "CHANGE-006#REQ-004"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", ".claude/rules/go.md", "apps/judge-engine", "development/works/WORK-010-cross-language-observability-foundation", "development/works/WORK-011-go-domain-logging"]
-write_paths: ["apps/judge-engine", "development/works/WORK-011-go-domain-logging"]
-forbidden_paths: ["apps/server", "apps/web", "contracts", "compose.yaml", "observability", "docs", "development/works/WORK-010-cross-language-observability-foundation"]
+read_paths: ["CLAUDE.md", ".claude/rules/go.md", "apps/judge-engine", "development/works/WORK-010", "development/works/WORK-011"]
+write_paths: ["apps/judge-engine", "development/works/WORK-011"]
+forbidden_paths: ["apps/server", "apps/web", "contracts", "compose.yaml", "observability", "docs", "development/works/WORK-010"]
 created_at: "2026-08-26"
 updated_at: "2026-08-26"
 ---

@@ -11,7 +11,7 @@ implements: ["ISSUE-001"]
 verifies: []
 tags: []
 read_paths: ["docs/engine.md", "scripts/docs_test.py", ".gitignore", ".github/workflows/ci.yml", ".githooks/pre-commit"]
-write_paths: ["docs/engine.md", "scripts/docs_test.py", "scripts/docs_test_test.py", ".github/workflows/ci.yml", ".githooks/pre-commit", "development/works/WORK-005-docs-ci-clean-checkout"]
+write_paths: ["docs/engine.md", "scripts/docs_test.py", "scripts/docs_test_test.py", ".github/workflows/ci.yml", ".githooks/pre-commit", "development/works/WORK-005"]
 forbidden_paths: ["apps", "contracts", "tutorial"]
 created_at: "2026-08-25"
 updated_at: "2026-08-25"

@@ -47,7 +47,7 @@ work_type: "maintenance"
 
 ## 成功标准
 
-- [x] 每个 WORK 都有且只有一个 `development/works/WORK-xxx-slug/` 目录。
+- [x] 每个 WORK 都有且只有一个 `development/works/WORK-xxx/` 目录。
 - [x] 所有附属文档与所属 WORK 位于同一目录，并按固定信息层级命名。
 - [x] 创建、补充文档、查询、校验、上下文和归档命令支持新结构。
 - [x] 现有工作项完成无损迁移，永久 ID、元数据关系和正文内容继续保留。

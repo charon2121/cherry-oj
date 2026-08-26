@@ -10,9 +10,9 @@ related: ["TASK-011", "TASK-012"]
 implements: ["CAPABILITY-003#REQ-007", "CAPABILITY-003#REQ-008", "CAPABILITY-003#REQ-009"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "compose.yaml", "contracts", "apps/server", "apps/judge-engine", "docs/architecture.md", "docs/backend.md", "development/works/WORK-010-cross-language-observability-foundation"]
-write_paths: ["compose.yaml", "observability", "scripts", "apps/server/README.md", "apps/server/TOOLCHAIN.md", "apps/judge-engine/config.example.yaml", "development/works/WORK-010-cross-language-observability-foundation"]
-forbidden_paths: ["apps/server/gateway-service/src/main/java", "apps/server/user-service/src/main/java", "apps/server/problem-service/src/main/java", "apps/server/submission-service/src/main/java", "apps/server/judging-service/src/main/java", "apps/judge-engine/cmd", "apps/judge-engine/internal", "apps/web", "contracts", "docs/product.md", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["CLAUDE.md", "compose.yaml", "contracts", "apps/server", "apps/judge-engine", "docs/architecture.md", "docs/backend.md", "development/works/WORK-010"]
+write_paths: ["compose.yaml", "observability", "scripts", "apps/server/README.md", "apps/server/TOOLCHAIN.md", "apps/judge-engine/config.example.yaml", "development/works/WORK-010"]
+forbidden_paths: ["apps/server/gateway-service/src/main/java", "apps/server/user-service/src/main/java", "apps/server/problem-service/src/main/java", "apps/server/submission-service/src/main/java", "apps/server/judging-service/src/main/java", "apps/judge-engine/cmd", "apps/judge-engine/internal", "apps/web", "contracts", "docs/product.md", "development/works/WORK-002"]
 created_at: "2026-08-25"
 updated_at: "2026-08-26"
 ---

@@ -8,7 +8,6 @@ import json
 import re
 import sys
 import tempfile
-import unicodedata
 from collections import Counter, defaultdict, deque
 from dataclasses import dataclass
 from datetime import date
@@ -195,12 +194,11 @@ RISKY_CONCERNS = {"security", "privacy", "data", "reliability", "release"}
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ID_PATTERN = re.compile(r"^([A-Z]+)-([0-9]{3,})$")
 REF_PATTERN = re.compile(r"^([A-Z]+-[0-9]{3,})(?:#([A-Z]+-[0-9]{3,}))?$")
-WORK_DIRECTORY_PATTERN = re.compile(
-    r"^(WORK-[0-9]{3,})-([a-z0-9]+(?:-[a-z0-9]+)*)$"
-)
+WORK_DIRECTORY_PATTERN = re.compile(r"^(WORK-[0-9]{3,})$")
 ALLOWED_DEVELOPMENT_ENTRIES = {
     "README.md",
     "SPECIFICATION.md",
+    "WORKS.md",
     "index.json",
     "schema",
     "templates",
@@ -413,6 +411,88 @@ def write_index(root: Path, index: dict[str, Any]) -> None:
     temporary_path.replace(path)
 
 
+WORK_TYPE_LABELS = {
+    "product": "产品功能",
+    "infra": "基础能力",
+    "fix": "问题修复",
+    "maintenance": "整理维护",
+    "improvement": "工程改进",
+}
+WORK_STATUS_LABELS = {
+    "todo": "待确认",
+    "ready": "可以执行",
+    "doing": "执行中",
+    "implemented": "实现完成",
+    "verified": "验证通过",
+    "released": "已上线",
+    "confirmed": "线上确认",
+    "cancelled": "已取消",
+}
+RISK_LABELS = {"low": "低", "medium": "中", "high": "高", "critical": "关键"}
+IMPACT_LABELS = {"local": "局部", "multi-module": "多个模块", "system": "整个系统"}
+
+
+def markdown_cell(value: object) -> str:
+    return str(value).replace("|", "\\|").replace("\n", " ")
+
+
+def work_index_sort_key(document: Document) -> tuple[int, str]:
+    match = ID_PATTERN.fullmatch(document.id)
+    return (int(match.group(2)), document.id) if match else (sys.maxsize, document.id)
+
+
+def render_works_index(documents: dict[str, Document]) -> str:
+    works = sorted(
+        (document for document in documents.values() if document.kind == "work"),
+        key=work_index_sort_key,
+    )
+    lines = [
+        "# 工作项总览",
+        "",
+        "这里集中列出项目中的全部工作项，方便不阅读技术细节也能快速了解项目正在做什么、做到哪里。",
+        "详细背景、成功标准和风险请打开每行的 `00-work.md`。本页由 `scripts/work` 维护，不手工修改。",
+        "",
+        "| 编号 | 工作内容 | 类型 | 状态 | 风险 | 影响面 | 负责人 | 详细说明 |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for work in works:
+        metadata = work.metadata
+        owners = "、".join(metadata.get("owners", []))
+        link = f"[00-work.md](./works/{work.id}/00-work.md)"
+        cells = (
+            work.id,
+            metadata.get("title", ""),
+            WORK_TYPE_LABELS.get(str(metadata.get("work_type")), metadata.get("work_type", "")),
+            WORK_STATUS_LABELS.get(str(metadata.get("status")), metadata.get("status", "")),
+            RISK_LABELS.get(str(metadata.get("risk")), metadata.get("risk", "")),
+            IMPACT_LABELS.get(str(metadata.get("impact")), metadata.get("impact", "")),
+            owners,
+            link,
+        )
+        lines.append("| " + " | ".join(markdown_cell(cell) for cell in cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
+def sync_works_index(root: Path, documents: dict[str, Document]) -> None:
+    path = root / "development" / "WORKS.md"
+    content = render_works_index(documents)
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, prefix=".WORKS.md.", delete=False
+    ) as temporary:
+        temporary.write(content)
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(path)
+
+
+def validate_works_index(root: Path, documents: dict[str, Document]) -> list[str]:
+    path = root / "development" / "WORKS.md"
+    if not path.is_file():
+        return ["development/WORKS.md: 缺少项目工作项总览，请运行 scripts/work sync-works"]
+    if path.read_text(encoding="utf-8") != render_works_index(documents):
+        return ["development/WORKS.md: 内容与工作项不一致，请运行 scripts/work sync-works"]
+    return []
+
+
 def discover_paths(root: Path) -> list[Path]:
     return sorted((root / "development" / "works").glob("WORK-*/*.md"))
 
@@ -433,10 +513,10 @@ def validate_repository_layout(root: Path) -> list[str]:
     for entry in works.iterdir():
         relative = entry.relative_to(root)
         if not entry.is_dir():
-            errors.append(f"{relative}: works/ 下只能放 WORK-001-slug 工作项目录")
+            errors.append(f"{relative}: works/ 下只能放 WORK-001 形式的工作项目录")
             continue
         if WORK_DIRECTORY_PATTERN.fullmatch(entry.name) is None:
-            errors.append(f"{relative}: 工作项目录名必须匹配 WORK-001-slug")
+            errors.append(f"{relative}: 工作项目录名必须匹配 WORK-001")
             continue
         for child in entry.iterdir():
             if child.name.startswith("."):
@@ -485,18 +565,6 @@ def checkbox_state(body: str, title: str) -> tuple[int, int]:
     content = section(body, title) or ""
     markers = re.findall(r"(?m)^\s*- \[([ xX])\] ", content)
     return len(markers), sum(marker.lower() == "x" for marker in markers)
-
-
-def slugify(value: str) -> str:
-    normalized = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
-    return slug[:56] or "work-item"
-
-
-def validate_slug(value: str) -> str:
-    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value):
-        raise argparse.ArgumentTypeError("slug 只能包含小写 ASCII 字母、数字和单个连字符")
-    return value
 
 
 def allocate_id(index: dict[str, Any], kind: str) -> str:
@@ -734,8 +802,8 @@ def template_body(root: Path, kind: str, document_id: str, title: str) -> str:
     )
 
 
-def work_directory_path(root: Path, work_id: str, slug: str) -> Path:
-    return root / "development" / "works" / f"{work_id}-{slug}"
+def work_directory_path(root: Path, work_id: str) -> Path:
+    return root / "development" / "works" / work_id
 
 
 def document_filename(kind: str, document_id: str) -> str:
@@ -1050,7 +1118,7 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
     work_directory = document.path.parent
     work_directory_match = WORK_DIRECTORY_PATTERN.fullmatch(work_directory.name)
     if work_directory.parent != root / "development" / "works" or work_directory_match is None:
-        errors.append(f"{prefix}: 受管理文档必须位于 development/works/WORK-001-slug/ 下")
+        errors.append(f"{prefix}: 受管理文档必须位于 development/works/WORK-001/ 下")
     elif kind == "work" and work_directory_match.group(1) != metadata["id"]:
         errors.append(f"{prefix}: 工作项目录 ID 必须与 {metadata['id']} 一致")
     expected_filename = document_filename(kind, str(metadata["id"]))
@@ -1418,6 +1486,7 @@ def command_check(args: argparse.Namespace) -> None:
     if not any(document.kind == "work" for document in documents.values()):
         raise WorkError("development/ 至少需要保留一个工作项")
     errors, warnings = validate_documents(documents, args.root, index)
+    errors.extend(validate_works_index(args.root, documents))
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
     for error in errors:
@@ -1438,7 +1507,6 @@ def command_new(args: argparse.Namespace) -> None:
         args.security_sensitive,
     )
     work_id = allocate_id(index, "work")
-    slug = args.slug or slugify(args.title)
     metadata = new_metadata(work_id, "work", args.title, None, args.owner)
     metadata.update(
         {
@@ -1456,7 +1524,7 @@ def command_new(args: argparse.Namespace) -> None:
     )
     workflow_metadata = select_workflow({**metadata, "type": args.work_type})
     metadata.update({key: value for key, value in workflow_metadata.items() if key != "fast"})
-    work_directory = work_directory_path(args.root, work_id, slug)
+    work_directory = work_directory_path(args.root, work_id)
     work = Document(
         path=document_path(work_directory, "work", work_id),
         metadata=metadata,
@@ -1483,7 +1551,10 @@ def command_new(args: argparse.Namespace) -> None:
     mode = "快速流程" if workflow_metadata["fast"] else "标准/完整流程"
     print(f"✓ 已创建 {work_id}（{mode}）")
     print("已生成：" + ", ".join(document.id for document in generated))
-    print(f"下一步：补全 {generated[0].id}，再用 `scripts/work flow {work_id}` 查看推进条件。")
+    print(
+        f"下一步：补全 {generated[0].id} 和所需上游文档，提交人工审核；"
+        f"获得明确执行授权前不要开始实施。可用 `scripts/work flow {work_id}` 查看推进条件。"
+    )
 
 
 def command_new_doc(args: argparse.Namespace) -> None:
@@ -1998,12 +2069,22 @@ def command_supersede(args: argparse.Namespace) -> None:
     print(f"✓ {old.id} 已由 {new.id} 替代")
 
 
+def command_sync_works(args: argparse.Namespace) -> None:
+    documents = load_documents(args.root)
+    sync_works_index(args.root, documents)
+    count = sum(document.kind == "work" for document in documents.values())
+    print(f"✓ 已更新 development/WORKS.md（{count} 个工作项）")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="管理 cherry-oj 的统一工作项与开发文档")
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1], help=argparse.SUPPRESS)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("check", help="校验元数据、状态、流程、引用和依赖").set_defaults(handler=command_check)
+    subparsers.add_parser("sync-works", help="按 00-work.md 刷新 WORKS.md 总览").set_defaults(
+        handler=command_sync_works
+    )
 
     new_parser = subparsers.add_parser("new", help="创建工作项并生成所需文档")
     new_parser.add_argument("--title", required=True)
@@ -2018,7 +2099,6 @@ def build_parser() -> argparse.ArgumentParser:
     new_parser.add_argument("--public-api-change", action="store_true")
     new_parser.add_argument("--security-sensitive", action="store_true")
     new_parser.add_argument("--user-visible", action="store_true")
-    new_parser.add_argument("--slug", type=validate_slug)
     new_parser.set_defaults(handler=command_new)
 
     doc_parser = subparsers.add_parser("new-doc", help="向现有工作项添加文档")
@@ -2118,6 +2198,19 @@ def main() -> int:
     args = parser.parse_args()
     try:
         args.handler(args)
+        if args.command in {
+            "new",
+            "new-doc",
+            "rebuild-flow",
+            "refresh",
+            "set-status",
+            "set-stage",
+            "link",
+            "archive",
+            "deprecate",
+            "supersede",
+        }:
+            sync_works_index(args.root, load_documents(args.root))
     except (WorkError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

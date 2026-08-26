@@ -104,7 +104,7 @@ MVP 使用单工作空间、USER/ADMIN、C++、文本 `.in/.out` 数据、默认
    完整源码模板合并后判题。
 
 首个切片的定义、待确认项和交付状态以
-[WORK-002：交付 C++ ACM 答题闭环](../development/works/WORK-002-cpp-acm-loop/00-work.md) 为准。
+[WORK-002：交付 C++ ACM 答题闭环](../development/works/WORK-002/00-work.md) 为准。
 PRD 不复制其进度，也不替它回答账号开通方式、WA 明细公开粒度和内部发布环境口径。
 
 ### 3.3 MVP 必备能力

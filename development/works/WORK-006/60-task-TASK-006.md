@@ -10,8 +10,8 @@ related: []
 implements: ["CHANGE-004"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "development/README.md", "development/SPECIFICATION.md", "development/schema/**", "development/templates/**", "scripts/work", "scripts/work_test.py", "scripts/docs_test.py", "development/works/WORK-006-specification-mindmap-structure/**"]
-write_paths: ["development/SPECIFICATION.md", "development/index.json", "development/works/WORK-006-specification-mindmap-structure/**"]
+read_paths: ["CLAUDE.md", "development/README.md", "development/SPECIFICATION.md", "development/schema/**", "development/templates/**", "scripts/work", "scripts/work_test.py", "scripts/docs_test.py", "development/works/WORK-006/**"]
+write_paths: ["development/SPECIFICATION.md", "development/index.json", "development/works/WORK-006/**"]
 forbidden_paths: ["apps/**", "contracts/**", "docs/**", "tutorial/**", "development/schema/**", "development/templates/**", "scripts/**", ".github/**"]
 created_at: "2026-08-25"
 updated_at: "2026-08-25"

@@ -10,9 +10,9 @@ related: []
 implements: ["CAPABILITY-003#REQ-001", "CAPABILITY-003#REQ-002", "CAPABILITY-003#REQ-003", "CAPABILITY-003#REQ-004", "CAPABILITY-003#REQ-006"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", ".claude/rules/go.md", "contracts", "docs/architecture.md", "docs/backend.md", "apps/server/TOOLCHAIN.md", "apps/judge-engine/config.example.yaml", "development/works/WORK-010-cross-language-observability-foundation"]
-write_paths: ["contracts", "scripts/contracts_test.py", "docs/architecture.md", "docs/backend.md", "development/works/WORK-010-cross-language-observability-foundation"]
-forbidden_paths: ["apps/server", "apps/judge-engine", "apps/web", "docs/product.md", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["CLAUDE.md", ".claude/rules/go.md", "contracts", "docs/architecture.md", "docs/backend.md", "apps/server/TOOLCHAIN.md", "apps/judge-engine/config.example.yaml", "development/works/WORK-010"]
+write_paths: ["contracts", "scripts/contracts_test.py", "docs/architecture.md", "docs/backend.md", "development/works/WORK-010"]
+forbidden_paths: ["apps/server", "apps/judge-engine", "apps/web", "docs/product.md", "development/works/WORK-002"]
 created_at: "2026-08-25"
 updated_at: "2026-08-26"
 ---

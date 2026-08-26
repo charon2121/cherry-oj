@@ -10,9 +10,9 @@ related: []
 implements: ["CHANGE-005"]
 verifies: []
 tags: []
-read_paths: ["docs/product.md", "docs/prd-background.md", "docs/architecture.md", "docs/data-model.md", "docs/backend.md", "docs/frontend.md", "contracts", "development/works/WORK-002-cpp-acm-loop"]
-write_paths: ["docs/product.md", "development/works/WORK-007-product-baseline-alignment"]
-forbidden_paths: ["apps", "contracts", "docs/architecture.md", "docs/data-model.md", "docs/backend.md", "docs/frontend.md", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["docs/product.md", "docs/prd-background.md", "docs/architecture.md", "docs/data-model.md", "docs/backend.md", "docs/frontend.md", "contracts", "development/works/WORK-002"]
+write_paths: ["docs/product.md", "development/works/WORK-007"]
+forbidden_paths: ["apps", "contracts", "docs/architecture.md", "docs/data-model.md", "docs/backend.md", "docs/frontend.md", "development/works/WORK-002"]
 created_at: "2026-08-25"
 updated_at: "2026-08-25"
 ---

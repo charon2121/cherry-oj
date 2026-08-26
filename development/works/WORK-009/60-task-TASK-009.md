@@ -10,9 +10,9 @@ related: []
 implements: ["CAPABILITY-002"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "contracts", "docs/architecture.md", "docs/backend.md", "docs/frontend.md", "apps/server/gateway-service", "apps/web", "scripts/contracts_test.py", "development/works/WORK-008-web-gateway-rest-foundation", "development/works/WORK-009-unified-web-rest-protocol"]
-write_paths: ["contracts", "scripts/contracts_test.py", "apps/server/gateway-service", "apps/web", ".github/workflows", "CLAUDE.md", "docs/architecture.md", "docs/backend.md", "docs/frontend.md", "development/works/WORK-008-web-gateway-rest-foundation", "development/works/WORK-009-unified-web-rest-protocol"]
-forbidden_paths: ["apps/server/user-service", "apps/server/problem-service", "apps/server/submission-service", "apps/server/judging-service", "apps/judge-engine", "docs/data-model.md", "docs/database-design.md", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["CLAUDE.md", "contracts", "docs/architecture.md", "docs/backend.md", "docs/frontend.md", "apps/server/gateway-service", "apps/web", "scripts/contracts_test.py", "development/works/WORK-008", "development/works/WORK-009"]
+write_paths: ["contracts", "scripts/contracts_test.py", "apps/server/gateway-service", "apps/web", ".github/workflows", "CLAUDE.md", "docs/architecture.md", "docs/backend.md", "docs/frontend.md", "development/works/WORK-008", "development/works/WORK-009"]
+forbidden_paths: ["apps/server/user-service", "apps/server/problem-service", "apps/server/submission-service", "apps/server/judging-service", "apps/judge-engine", "docs/data-model.md", "docs/database-design.md", "development/works/WORK-002"]
 created_at: "2026-08-25"
 updated_at: "2026-08-25"
 ---

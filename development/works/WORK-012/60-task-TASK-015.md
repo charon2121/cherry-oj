@@ -10,9 +10,9 @@ related: []
 implements: ["CHANGE-007#REQ-001", "CHANGE-007#REQ-002", "CHANGE-007#REQ-003", "CHANGE-007#REQ-004", "CHANGE-007#REQ-005", "CHANGE-007#REQ-006"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", ".claude/rules/go.md", "apps/server", "apps/judge-engine", "contracts", "compose.yaml", "observability", "scripts", "docs", "development/works/WORK-010-cross-language-observability-foundation", "development/works/WORK-011-go-domain-logging", "development/works/WORK-012-rollback-observability"]
-write_paths: ["apps/server", "apps/judge-engine", "contracts", "compose.yaml", "observability", "scripts/observability_smoke.py", "scripts/contracts_test.py", "docs/architecture.md", "docs/backend.md", "development/works/WORK-010-cross-language-observability-foundation", "development/works/WORK-011-go-domain-logging", "development/works/WORK-012-rollback-observability"]
-forbidden_paths: ["apps/web", "docs/product.md", "docs/data-model.md", "docs/database-design.md", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["CLAUDE.md", ".claude/rules/go.md", "apps/server", "apps/judge-engine", "contracts", "compose.yaml", "observability", "scripts", "docs", "development/works/WORK-010", "development/works/WORK-011", "development/works/WORK-012"]
+write_paths: ["apps/server", "apps/judge-engine", "contracts", "compose.yaml", "observability", "scripts/observability_smoke.py", "scripts/contracts_test.py", "docs/architecture.md", "docs/backend.md", "development/works/WORK-010", "development/works/WORK-011", "development/works/WORK-012"]
+forbidden_paths: ["apps/web", "docs/product.md", "docs/data-model.md", "docs/database-design.md", "development/works/WORK-002"]
 created_at: "2026-08-26"
 updated_at: "2026-08-26"
 ---

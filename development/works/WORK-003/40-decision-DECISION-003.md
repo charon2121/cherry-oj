@@ -34,7 +34,7 @@ updated_at: "2026-08-24"
 
 ## 决定
 
-采用方案 3。`development/works/WORK-xxx-slug/` 是开发过程文档的唯一物理归属；`00-work.md` 是入口，
+采用方案 3。`development/works/WORK-xxx/` 是开发过程文档的唯一物理归属；`00-work.md` 是入口，
 其他文件按 10 至 80 的固定层级命名。归档、废弃或替代不移动文件。
 
 ## 理由

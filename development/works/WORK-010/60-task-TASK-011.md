@@ -10,9 +10,9 @@ related: []
 implements: ["CAPABILITY-003#REQ-001", "CAPABILITY-003#REQ-002", "CAPABILITY-003#REQ-003", "CAPABILITY-003#REQ-005", "CAPABILITY-003#REQ-006", "CAPABILITY-003#REQ-007"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "contracts", "docs/architecture.md", "docs/backend.md", "apps/server", "development/works/WORK-010-cross-language-observability-foundation"]
-write_paths: ["apps/server", "development/works/WORK-010-cross-language-observability-foundation"]
-forbidden_paths: ["apps/judge-engine", "apps/web", "contracts", "compose.yaml", "docs/data-model.md", "docs/database-design.md", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["CLAUDE.md", "contracts", "docs/architecture.md", "docs/backend.md", "apps/server", "development/works/WORK-010"]
+write_paths: ["apps/server", "development/works/WORK-010"]
+forbidden_paths: ["apps/judge-engine", "apps/web", "contracts", "compose.yaml", "docs/data-model.md", "docs/database-design.md", "development/works/WORK-002"]
 created_at: "2026-08-25"
 updated_at: "2026-08-26"
 ---

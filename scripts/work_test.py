@@ -85,17 +85,15 @@ class WorkToolTest(unittest.TestCase):
             "local",
             "--owner",
             "agent/test",
-            "--slug",
-            "local-tests",
         )
 
-    def one_work_directory(self, pattern: str = "WORK-001-*") -> Path:
-        paths = list((self.root / "development" / "works").glob(pattern))
+    def one_work_directory(self, work_id: str = "WORK-001") -> Path:
+        paths = list((self.root / "development" / "works").glob(work_id))
         self.assertEqual(1, len(paths), paths)
         return paths[0]
 
-    def one_work_file(self, filename: str, work_pattern: str = "WORK-001-*") -> Path:
-        path = self.one_work_directory(work_pattern) / filename
+    def one_work_file(self, filename: str, work_id: str = "WORK-001") -> Path:
+        path = self.one_work_directory(work_id) / filename
         self.assertTrue(path.is_file(), path)
         return path
 
@@ -130,6 +128,10 @@ class WorkToolTest(unittest.TestCase):
         self.assertEqual([], stages["review"]["artifacts"])
         self.assertFalse((self.root / "development" / "designs").exists())
         self.assertFalse((self.root / "development" / "tasks").exists())
+        self.assertEqual("WORK-001", work_directory.name)
+        works_index = (self.root / "development" / "WORKS.md").read_text(encoding="utf-8")
+        self.assertIn("| WORK-001 | 整理局部测试 | 整理维护 | 待确认 |", works_index)
+        self.assertIn("[00-work.md](./works/WORK-001/00-work.md)", works_index)
         checked = self.run_work("check")
         self.assertIn("4 份开发文档通过校验", checked.stdout)
 
@@ -147,8 +149,6 @@ class WorkToolTest(unittest.TestCase):
             "--data-change",
             "--owner",
             "agent/test",
-            "--slug",
-            "cache-format",
         )
         self.assertIn("从 low 自动升级为 medium", result.stdout)
         work = self.one_work_file("00-work.md").read_text(encoding="utf-8")
@@ -172,8 +172,6 @@ class WorkToolTest(unittest.TestCase):
             "multi-module",
             "--owner",
             "agent/test",
-            "--slug",
-            "problem-search",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
         self.assertEqual(
@@ -214,8 +212,6 @@ class WorkToolTest(unittest.TestCase):
             "multi-module",
             "--owner",
             "agent/test",
-            "--slug",
-            "log-collection",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
         stages = {stage["stage"]: stage for stage in metadata["workflow"]}
@@ -237,8 +233,6 @@ class WorkToolTest(unittest.TestCase):
             "local",
             "--owner",
             "agent/test",
-            "--slug",
-            "empty-submit",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
         self.assertEqual(["issue", "task", "verify"], metadata["required_documents"])
@@ -265,8 +259,6 @@ class WorkToolTest(unittest.TestCase):
             "performance",
             "--owner",
             "agent/test",
-            "--slug",
-            "judge-latency",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
         self.assertEqual(
@@ -294,8 +286,6 @@ class WorkToolTest(unittest.TestCase):
             "reliability",
             "--owner",
             "agent/test",
-            "--slug",
-            "task-model",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
         stages = {stage["stage"]: stage for stage in metadata["workflow"]}
@@ -411,11 +401,9 @@ class WorkToolTest(unittest.TestCase):
             "local",
             "--owner",
             "agent/test",
-            "--slug",
-            "more-tests",
         )
         task_path = self.one_work_file("60-task-TASK-001.md")
-        moved_path = self.one_work_directory("WORK-002-*") / task_path.name
+        moved_path = self.one_work_directory("WORK-002") / task_path.name
         task_path.rename(moved_path)
         result = self.run_work("check", success=False)
         self.assertIn("必须与所属 WORK-001 位于同一工作项目录", result.stderr)
@@ -426,6 +414,14 @@ class WorkToolTest(unittest.TestCase):
         result = self.run_work("check", success=False)
         self.assertIn("development/tasks", result.stderr)
         self.assertIn("development 顶层只允许", result.stderr)
+
+    def test_check_rejects_slug_in_work_directory(self) -> None:
+        self.create_fast_work()
+        self.one_work_directory().rename(
+            self.root / "development" / "works" / "WORK-001-local-tests"
+        )
+        result = self.run_work("check", success=False)
+        self.assertIn("工作项目录名必须匹配 WORK-001", result.stderr)
 
     def test_stable_status_rejects_placeholders_and_open_dependencies(self) -> None:
         self.create_fast_work()
@@ -483,13 +479,11 @@ class WorkToolTest(unittest.TestCase):
             "local",
             "--owner",
             "agent/test",
-            "--slug",
-            "more-tests",
         )
         index = json.loads((self.root / "development" / "index.json").read_text(encoding="utf-8"))
         self.assertEqual(3, index["next_ids"]["work"])
         self.assertEqual(3, index["next_ids"]["task"])
-        self.assertTrue(self.one_work_file("00-work.md", "WORK-002-*").is_file())
+        self.assertTrue(self.one_work_file("00-work.md", "WORK-002").is_file())
 
     def test_ready_work_cannot_have_blockers(self) -> None:
         self.run_work(
@@ -506,8 +500,6 @@ class WorkToolTest(unittest.TestCase):
             "agent/test",
             "--blocking",
             "确认权限范围",
-            "--slug",
-            "blocked-feature",
         )
         work_path = self.one_work_file("00-work.md")
         workflow = self.metadata(work_path)["workflow"]
@@ -516,6 +508,17 @@ class WorkToolTest(unittest.TestCase):
         work_path.write_text(content.replace('status: "todo"', 'status: "ready"', 1), encoding="utf-8")
         result = self.run_work("check", success=False)
         self.assertIn("不允许存在 blocking_items", result.stderr)
+
+    def test_check_rejects_stale_works_index(self) -> None:
+        self.create_fast_work()
+        index_path = self.root / "development" / "WORKS.md"
+        index_path.write_text("# 过期内容\n", encoding="utf-8")
+        result = self.run_work("check", success=False)
+        self.assertIn("WORKS.md: 内容与工作项不一致", result.stderr)
+
+        self.run_work("sync-works")
+        checked = self.run_work("check")
+        self.assertIn("4 份开发文档通过校验", checked.stdout)
 
     def test_archive_keeps_document_in_work_directory(self) -> None:
         self.create_fast_work()

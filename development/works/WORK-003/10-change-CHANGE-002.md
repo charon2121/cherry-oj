@@ -29,7 +29,7 @@ updated_at: "2026-08-24"
 
 ## 目标状态
 
-- REQ-001：每个工作项使用唯一的 `development/works/WORK-xxx-slug/` 独立目录。
+- REQ-001：每个工作项使用唯一的 `development/works/WORK-xxx/` 独立目录。
 - REQ-002：WORK 入口和所有 `work: WORK-xxx` 的附属文档必须位于该目录内。
 - REQ-003：文件名以前缀严格表达信息层级：00 工作、10 定义、20 体验、30 设计、40 决策、50
   计划、60 任务、70 验证、80 记忆。

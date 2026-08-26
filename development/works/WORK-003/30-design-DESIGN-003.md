@@ -29,7 +29,7 @@ CHANGE-002 定义了由按类型分目录改为按工作项聚合的要求。现
 
 ## 整体方案
 
-`development/works/` 下只放 `WORK-xxx-slug/` 目录。每个目录以 `00-work.md` 为入口，附属文档按
+`development/works/` 下只放 `WORK-xxx/` 目录。每个目录以 `00-work.md` 为入口，附属文档按
 `<两位层级>-<小写类型>-<永久 ID>.md` 命名。CLI 从这些目录的直属 Markdown 文件发现文档，生成时
 先确定 WORK 目录，再将整套所需文件写入其中；不再创建类型目录。
 
@@ -48,7 +48,7 @@ PRODUCT、FEATURE、CAPABILITY、ISSUE、CHANGE、IMPROVEMENT 都属于 10 定�
 ## 接口与状态
 
 命令名称、文档 ID 和状态机不变。`new` 创建工作项目录；`new-doc --work WORK-xxx` 根据已有 WORK
-定位目录，不再接受文件 slug；`archive` 原地更新状态。`check` 新增目录名、文件名层级和同 WORK
+定位目录，不再依赖标题短名；`archive` 原地更新状态。`check` 新增目录名、文件名层级和同 WORK
 共置约束。`show/list/trace/context/overview/refresh` 通过统一发现逻辑适配新位置。
 
 ## 安全与失败

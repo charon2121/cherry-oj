@@ -10,9 +10,9 @@ related: []
 implements: ["CAPABILITY-001"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "docs/product.md", "docs/frontend.md", "apps/server", "apps/web", "development/works/WORK-008-web-gateway-rest-foundation"]
-write_paths: ["apps/server/gateway-service", "apps/server/TOOLCHAIN.md", "apps/web/src/lib/api", "apps/web/src/features/system-status", "apps/web/src/routes/index.tsx", "apps/web/e2e/smoke.spec.ts", "development/works/WORK-008-web-gateway-rest-foundation"]
-forbidden_paths: ["contracts", "apps/server/user-service", "apps/server/problem-service", "apps/server/submission-service", "apps/server/judging-service", "apps/judge-engine", "development/works/WORK-002-cpp-acm-loop"]
+read_paths: ["CLAUDE.md", "docs/product.md", "docs/frontend.md", "apps/server", "apps/web", "development/works/WORK-008"]
+write_paths: ["apps/server/gateway-service", "apps/server/TOOLCHAIN.md", "apps/web/src/lib/api", "apps/web/src/features/system-status", "apps/web/src/routes/index.tsx", "apps/web/e2e/smoke.spec.ts", "development/works/WORK-008"]
+forbidden_paths: ["contracts", "apps/server/user-service", "apps/server/problem-service", "apps/server/submission-service", "apps/server/judging-service", "apps/judge-engine", "development/works/WORK-002"]
 created_at: "2026-08-25"
 updated_at: "2026-08-25"
 ---

@@ -51,7 +51,7 @@ updated_at: "2026-08-25"
 ## 范围检查
 
 `git status --short` 只包含 `development/SPECIFICATION.md`、创建 WORK-006 后单调推进的
-`development/index.json`，以及 `development/works/WORK-006-specification-mindmap-structure/`。
+`development/index.json`，以及 `development/works/WORK-006/`。
 没有修改 Schema、模板、脚本、既有工作项、业务代码、契约、全局文档或 CI。
 
 新正文改变章节编号、顺序和表达方式，不改变现行工具语义，未发现实现偏差。

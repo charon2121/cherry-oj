@@ -52,7 +52,7 @@ updated_at: "2026-08-24"
 ## 产出
 
 - 支持单工作项目录的 `scripts/work`。
-- 聚合后的 `development/works/WORK-xxx-slug/` 文档树。
+- 聚合后的 `development/works/WORK-xxx/` 文档树。
 - 更新后的 README、SPECIFICATION、项目规则和关联全局文档。
 - 覆盖生成、层级、共置、归档和既有行为的 CLI 回归测试。
 

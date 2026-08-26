@@ -341,9 +341,11 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 `docs/` 是已经确认的全局事实，`development/` 是具体工作的过程。开发中产生的未知、体验、方案、计划、
 任务和验证先留在对应 WORK；只有已经确认且会约束多个未来工作项的结论才整理进 `docs/`。
 
-- 开始一项工作 → 先读 `development/README.md`，查找或创建 WORK；
+- 开始一项工作 → 先读 `development/README.md` 和 `development/WORKS.md`，查找或创建 WORK；
 - WORK Type 决定主流程，风险、影响面和 concern 只追加阶段与门禁；TASK 继承所属 WORK，不自行选择
   产品、基建、修复或重构流程；
+- 工作项目录只使用永久编号，例如 `development/works/WORK-001/`；标题统一从 `WORKS.md` 和
+  `00-work.md` 阅读，不在目录名后添加 slug；
 - 用户行为变化 → 先完成 FEATURE/PRODUCT，解决 blocking 待确认项；
 - 技术路线变化 → 更新 DESIGN/DECISION 和影响面，不在 TASK 中偷偷改变；
 - 出现可执行工作或技术债 → 建立关联 TASK，代码锚点使用 `TODO(TASK-001): ...`；
@@ -357,8 +359,18 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 - **改动前先问清楚。** 本项目的很多设计（命名、契约字段、职责边界）是反复讨论定下来的，
   不要顺手「优化」。拿不准就先问，别先改。
-- **开发前读取上下文。** 先读 `development/README.md`，运行 `scripts/work list --type work`；有对应
-  TASK 时用 `scripts/work context TASK-001` 获取上游依据和代码边界。没有工作项时先创建 WORK。
+- **文档与实施必须分成两个回合。** 用户第一次说明意图时，只整理或修改 WORK、定义、体验、设计、
+  计划和 TASK 文档，完成必要的只读检查与文档校验，然后停止并请用户审核。初始的“完成这个功能”
+  不能同时视为文档通过和实施授权；只有用户在看到文档后，于后续消息中明确表示通过并允许执行，
+  才能开始改业务代码、迁移数据、部署或执行其他实施任务。用户只要求改文档时，交付文档后停止。
+- **不能代签文档审批。** AI 新写或修改的上游文档只能保持 `draft` / `review`；`approved` 必须来自
+  用户明确确认。格式检查、测试通过或 AI 自己认为内容完整，都不能替代人的审核与执行授权。
+- **WORK 入口使用通俗语言。** `00-work.md` 面向产品经理和非技术读者。能用日常语言说清楚时不用
+  专业词；必须使用时先解释它对使用者意味着什么。字段、类、框架、协议、表名、代码路径和命令等
+  实现细节放到 DESIGN、PLAN 或 TASK，不用它们代替“为什么做、会有什么变化、怎样算成功”。
+- **开发前读取上下文。** 先读 `development/README.md` 和 `development/WORKS.md`，运行
+  `scripts/work list --type work`；有对应 TASK 时用 `scripts/work context TASK-001` 获取上游依据和
+  代码边界。没有工作项时先创建 WORK。
 - **只执行 ready TASK。** TASK 的依赖、`read_paths`、`write_paths`、`forbidden_paths` 与完成标准必须
   明确。需要越界时先升级计划或设计，不直接扩大实现。
 - **产品行为先看全局基线与 FEATURE。** 涉及用户能力、流程、权限或可见信息时，先读
@@ -368,6 +380,6 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 - **技术完成不等于产品确认。** TASK done 只表示实现完成；Agent 不能根据测试全绿自动代签人工产品
   判断、关键风险、发布或线上确认。
 - **设计变更先写当前 WORK。** 经确认且长期跨工作有效时再同步 `docs/`；操作步骤变化同步 `tutorial/`。
-- 已知技术债在所属 `development/works/WORK-xxx-*/` 中建立 `60-task-TASK-xxx.md`，代码锚点使用
+- 已知技术债在所属 `development/works/WORK-xxx/` 中建立 `60-task-TASK-xxx.md`，代码锚点使用
   `TODO(TASK-001): ...`。
 - 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。

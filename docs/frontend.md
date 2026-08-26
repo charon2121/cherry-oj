@@ -312,7 +312,7 @@ export default {
 
 - 注释解释“为什么这样设计、边界在哪里”，不复述代码字面行为。
 - 公共 hook、复杂 query options 和反直觉的浏览器兼容处理写短注释；显而易见的组件不写模板式注释。
-- 待办使用 `TODO(TASK-001): 原因/退出条件`，并关联所属 `development/works/WORK-xxx-*/` 中的
+- 待办使用 `TODO(TASK-001): 原因/退出条件`，并关联所属 `development/works/WORK-xxx/` 中的
   `60-task-TASK-xxx.md`；
   不留没有工作项上下文的 `TODO`。
 - 捕获异常时先按 `unknown` 处理，统一转换成应用错误类型；用户提示与诊断信息分开。
