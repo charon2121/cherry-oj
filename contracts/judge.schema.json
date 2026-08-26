@@ -4,6 +4,14 @@
   "title": "Judge v2",
   "description": "judging-service ↔ Go judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。正式判题按不可变 testDataVersionId 定位测试数据；problemId/problemVersionId 只用于日志与对账。source 对 ACM/CORE 都是 submission-service 已准备好的完整源码。Go judge 不知道用户、代码模式、模板、标定、Kafka 或 Submission 生命周期。",
   "x-contract-version": 2,
+  "x-transport-context": {
+    "carrier": "http-headers",
+    "propagation": "w3c-trace-context",
+    "headers": ["traceparent", "tracestate"],
+    "baggage": false,
+    "requestIdHeader": "X-Request-Id",
+    "description": "Trace 上下文只通过 HTTP header 传播，不进入 JudgeRequest/JudgeResult。X-Request-Id 仅关联同一次同步 HTTP 调用，不承担 Trace、身份、幂等或业务主键语义。"
+  },
   "definitions": {
     "JudgeMode": {
       "type": "string",

@@ -305,6 +305,13 @@ JudgeTask 状态；基础设施重试耗尽时，对用户映射为 `Done + SE`�
 - 时间字段统一使用 UTC；资源限制字段延续现有契约：时间为 ns，内存为 bytes，并在字段名中写出单位。
 - 日志必须包含 `traceId`，判题链路同时包含 `submissionId`、`taskId` 和 `attemptNo`；不得记录源码、Cookie、
   内部 JWT、密码、密码摘要或完整敏感请求体。
+- Gateway 继续生成并覆盖 public `X-Request-Id`；同步内部 HTTP 可以传播该值，但不得写入 Kafka/数据库，
+  也不得承担 Trace、身份、幂等或业务主键语义。内部 Trace 仅使用 W3C `traceparent`/`tracestate`，
+  baseline 禁用 baggage；未来实现必须由 Gateway 作为公开信任边界新建内部 root。
+- `judge-events.traceId` 只保存当前 32-hex Trace ID 供查询；HTTP/Kafka header 才是父子传播真源。
+  JudgeRequest、RunSpec 与业务响应不增加观测字段。
+- 上述内容只冻结追溯语义；当前 Java/Go 未接入统一 Trace SDK、结构化日志、Metrics、collector 或查询
+  后端，不能把契约字段视为运行时能力已经交付。
 
 ## 11. 当前明确不采用
 

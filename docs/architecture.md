@@ -444,6 +444,13 @@ cherry-oj/
 - 每个资源服务自行验证 JWT，不信任裸 `X-User-Id`。
 - 源码、密码、Cookie、JWT、隐藏数据和标准答案不得进入日志或 Kafka。
 - 日志统一包含 traceId；判题链路包含 submissionId、taskId、attemptNo 和 environmentId。
+- public request ID 由 Gateway 生成，只关联一次同步 HTTP 支持请求；内部 Trace 使用 W3C
+  `traceparent`/`tracestate`。未来实现必须由 Gateway 丢弃外部 trace/baggage 上下文并新建内部 root；baseline
+  不传播 baggage。request ID、Trace ID、幂等键和业务 ID 不得互换。
+- HTTP/Kafka 的 Trace 父子传播只认 transport header。`judge-events.traceId` 是当前 32 位小写十六进制
+  Trace ID 的可查询副本，不能单凭它重建 parent；JudgeRequest、RunSpec 等业务 body 不增加 Trace 字段。
+- 上述 Request/Trace 规则当前是追溯契约，不代表仓库已经接入 Trace SDK、exporter、Metrics、日志平台或
+  collector；运行时实现必须在独立工作项中重新设计并确认侵入边界。
 - 用户代码和 Agent 生成代码都只在 sandbox 执行。
 - 当前 host container 只适合开发和内部 MVP；公网不可信执行前必须完成 namespace/cgroup 硬化。
 - Gateway、内部 HTTP、Kafka consumer 和 judge 调用都必须有界超时与大小限制。

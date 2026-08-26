@@ -4,6 +4,13 @@
   "title": "Judge Events v1",
   "description": "judge.requests.v1 与 judge.lifecycle.v1 的 Kafka 信封。Kafka key 必须是 submissionId。生产者必须把序列化后的整条消息限制在 1 MiB 以内；字段级上限由本 schema 约束，broker/producer 负责总字节上限。所有 payload 都使用 additionalProperties=false，因此 source、completeSource、judgeTemplate、测试数据、密码和 JWT 均不允许进入事件。",
   "x-contract-version": 1,
+  "x-transport-context": {
+    "carrier": "kafka-headers",
+    "propagation": "w3c-trace-context",
+    "headers": ["traceparent", "tracestate"],
+    "baggage": false,
+    "description": "Kafka header 是继续父子 Trace 上下文的唯一真源。envelope.traceId 只是当前 Trace ID 的可查询副本；header 缺失时消费者新建 Trace，不能仅凭 traceId 合成 parent。"
+  },
   "oneOf": [
     { "$ref": "#/definitions/JudgeRequestedEvent" },
     { "$ref": "#/definitions/JudgeStartedEvent" },
@@ -28,7 +35,11 @@
         "eventType": { "type": "string" },
         "eventVersion": { "type": "integer", "minimum": 1 },
         "occurredAt": { "type": "string", "format": "date-time" },
-        "traceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "traceId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$",
+          "description": "当前 W3C Trace ID 的 32 位小写十六进制副本，仅用于持久查询。"
+        },
         "aggregateId": {
           "type": "string",
           "minLength": 1,
@@ -153,7 +164,7 @@
       "eventType": "JudgeRequested",
       "eventVersion": 1,
       "occurredAt": "2026-08-20T02:00:00Z",
-      "traceId": "trace-0198cafe",
+      "traceId": "0198cafe000070008000000000000010",
       "aggregateId": "0198cafe-0000-7000-8000-000000000001",
       "payload": {
         "submissionId": "0198cafe-0000-7000-8000-000000000001",

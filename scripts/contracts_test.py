@@ -118,7 +118,8 @@ class ContractsTest(unittest.TestCase):
         self.assertNotIn("cases", result["properties"])
 
     def test_event_payloads_are_closed_and_source_free(self) -> None:
-        definitions = load("judge-events.schema.json")["definitions"]
+        document = load("judge-events.schema.json")
+        definitions = document["definitions"]
         payload_names = ("JudgeRequested", "JudgeStarted", "JudgeCompleted", "JudgeFailed")
         forbidden = {
             "source",
@@ -139,6 +140,40 @@ class ContractsTest(unittest.TestCase):
             set(requested["properties"]),
             {"submissionId", "judgeInputContractVersion"},
         )
+
+        context = document["x-transport-context"]
+        self.assertEqual(context["carrier"], "kafka-headers")
+        self.assertEqual(context["propagation"], "w3c-trace-context")
+        self.assertEqual(context["headers"], ["traceparent", "tracestate"])
+        self.assertIs(context["baggage"], False)
+
+        trace_id = definitions["EventEnvelope"]["properties"]["traceId"]
+        self.assertEqual(trace_id["pattern"], "^[0-9a-f]{32}$")
+        for example in document["examples"]:
+            value = example["traceId"]
+            self.assertEqual(len(value), 32)
+            self.assertTrue(all(char in "0123456789abcdef" for char in value))
+
+    def test_http_contracts_keep_tracking_context_out_of_bodies(self) -> None:
+        for name, request_definition in (
+            ("judge.schema.json", "JudgeRequest"),
+            ("run.schema.json", "RunSpec"),
+        ):
+            document = load(name)
+            context = document["x-transport-context"]
+            self.assertEqual(context["carrier"], "http-headers", name)
+            self.assertEqual(context["propagation"], "w3c-trace-context", name)
+            self.assertEqual(context["headers"], ["traceparent", "tracestate"], name)
+            self.assertIs(context["baggage"], False, name)
+            self.assertEqual(context["requestIdHeader"], "X-Request-Id", name)
+
+            properties = document["definitions"][request_definition]["properties"]
+            self.assertTrue(
+                {"requestId", "traceId", "spanId", "traceparent", "tracestate"}.isdisjoint(
+                    properties
+                ),
+                name,
+            )
 
     def test_web_api_uses_envelope_and_problem_details(self) -> None:
         document = load("web-api.openapi.json")

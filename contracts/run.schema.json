@@ -3,6 +3,14 @@
   "$id": "https://cherry-oj.dev/schema/run.schema.json",
   "title": "Run",
   "description": "judge ↔ sandbox：跑一条命令。字段按 CI 构建步骤设计（inputs/outputs/artifacts），不沿用 go-judge 的 fd 数组。时间 ns，内存 bytes。status 是执行事实，不是 OJ 的 AC/WA。",
+  "x-transport-context": {
+    "carrier": "http-headers",
+    "propagation": "w3c-trace-context",
+    "headers": ["traceparent", "tracestate"],
+    "baggage": false,
+    "requestIdHeader": "X-Request-Id",
+    "description": "Trace 与同步 request ID 只通过 HTTP header 传播，不进入 RunSpec/RunResult。"
+  },
   "definitions": {
     "FileSource": {
       "type": "object",
@@ -59,10 +67,6 @@
       "required": ["command"],
       "description": "一次只跑一条命令（MVP）。编译与运行都走这里——对 sandbox 而言编译只是「跑 g++」。多命令管道以后再说。",
       "properties": {
-        "requestId": {
-          "type": "string",
-          "description": "可选，日志关联"
-        },
         "command": {
           "type": "array",
           "minItems": 1,
