@@ -4,3 +4,4 @@ notes/
 draft/
 .DS_Store
 .env
+logs/

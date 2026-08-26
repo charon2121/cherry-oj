@@ -310,8 +310,9 @@ JudgeTask 状态；基础设施重试耗尽时，对用户映射为 `Done + SE`�
   baseline 禁用 baggage；未来实现必须由 Gateway 作为公开信任边界新建内部 root。
 - `judge-events.traceId` 只保存当前 32-hex Trace ID 供查询；HTTP/Kafka header 才是父子传播真源。
   JudgeRequest、RunSpec 与业务响应不增加观测字段。
-- 上述内容只冻结追溯语义；当前 Java/Go 未接入统一 Trace SDK、结构化日志、Metrics、collector 或查询
-  后端，不能把契约字段视为运行时能力已经交付。
+- Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日文件规则见
+  [`logging.md`](./logging.md)。Kafka 链尚未实现，Metrics、collector、远端 Trace/日志存储与查询后端
+  也未交付，不能把 HTTP 日志关联扩大解释为完整观测平台。
 
 ## 11. 当前明确不采用
 

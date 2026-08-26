@@ -58,6 +58,7 @@ docker compose up -d --wait
 - sandbox 不映射宿主机端口，只允许 judge 通过内部网络访问。
 - 测试数据只读挂载到 judge；默认使用仓库中的 A+B 测试 fixture。
 - sandbox 的 blob store 和执行工作区使用 tmpfs，容器停止后自动清空。
+- judge/sandbox 的 JSON 文件日志写入 `engine-logs` volume，并按 UTC 日期拆分；stdout 日志仍然保留。
 - 两个容器都使用非 root 用户、只读根文件系统、移除 Linux capabilities。
 
 发送一个 A+B 判题请求：
@@ -107,6 +108,7 @@ Compose 支持通过环境变量或项目根目录的 `.env` 文件覆盖：
 | `SANDBOX_MEMORY_LIMIT` | `2g` | sandbox 容器总内存上限 |
 | `SANDBOX_STORE_SIZE` | `256m` | blob store tmpfs 大小 |
 | `SANDBOX_WORKSPACE_SIZE` | `1g` | 编译和运行工作区 tmpfs 大小 |
+| `ENGINE_LOG_LEVEL` | `INFO` | judge/sandbox 的 JSON 日志级别 |
 
 生产环境中应移除 judge 的宿主机端口映射，让业务 server 与 judge 通过后端私网通信。
 测试数据仍只挂载给 judge，sandbox 不应接触题库答案。

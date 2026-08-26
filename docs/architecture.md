@@ -449,8 +449,9 @@ cherry-oj/
   不传播 baggage。request ID、Trace ID、幂等键和业务 ID 不得互换。
 - HTTP/Kafka 的 Trace 父子传播只认 transport header。`judge-events.traceId` 是当前 32 位小写十六进制
   Trace ID 的可查询副本，不能单凭它重建 parent；JudgeRequest、RunSpec 等业务 body 不增加 Trace 字段。
-- 上述 Request/Trace 规则当前是追溯契约，不代表仓库已经接入 Trace SDK、exporter、Metrics、日志平台或
-  collector；运行时实现必须在独立工作项中重新设计并确认侵入边界。
+- Java/Go 已实现统一 JSON 日志和 HTTP W3C Trace 传播，具体字段与文件滚动见
+  [`logging.md`](./logging.md)。Kafka 传播仍是待业务链实现的契约；仓库没有 Trace exporter、Metrics、
+  日志平台或 collector，不能把日志关联误认为已有完整观测后端。
 - 用户代码和 Agent 生成代码都只在 sandbox 执行。
 - 当前 host container 只适合开发和内部 MVP；公网不可信执行前必须完成 namespace/cgroup 硬化。
 - Gateway、内部 HTTP、Kafka consumer 和 judge 调用都必须有界超时与大小限制。

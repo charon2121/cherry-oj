@@ -22,6 +22,20 @@ func TestDefaultIsValid(t *testing.T) {
 	}
 }
 
+func TestLoggingConfigFromYAMLAndEnv(t *testing.T) {
+	p := writeYAML(t, "logging:\n  path: /var/log/yaml\n  level: DEBUG\n")
+	t.Setenv("CHERRY_OJ_LOGGING_PATH", "/var/log/env")
+	t.Setenv("CHERRY_OJ_LOGGING_LEVEL", "WARN")
+
+	cfg, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Logging.Path != "/var/log/env" || cfg.Logging.Level != "WARN" {
+		t.Errorf("logging=%+v", cfg.Logging)
+	}
+}
+
 // 配置文件缺失不是错误：容器化部署常常只靠环境变量
 func TestLoadWithoutFile(t *testing.T) {
 	cfg, err := Load("")
@@ -149,6 +163,8 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		{"environmentFingerprint 为空", func(c *Config) { c.Judge.EnvironmentFingerprint = "" }},
 		{"compile 全零", func(c *Config) { c.Judge.Compile = CompileConfig{} }},
 		{"parallelism 为负", func(c *Config) { c.Sandbox.Parallelism = -1 }},
+		{"日志目录为空", func(c *Config) { c.Logging.Path = "" }},
+		{"日志级别非法", func(c *Config) { c.Logging.Level = "TRACE" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

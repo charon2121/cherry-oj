@@ -29,6 +29,7 @@ DECISION，避免历史原因丢失。
 - [`database-design.md`](./database-design.md)：数据库级设计；
 - [`engine.md`](./engine.md)：judge 与 sandbox 引擎设计；
 - [`backend.md`](./backend.md)：Java 服务工程与实现边界；
+- [`logging.md`](./logging.md)：Java/Go 统一日志字段、Trace 传播与文件滚动规范；
 - [`frontend.md`](./frontend.md)：Web 架构、状态、组件和工程规则；
 - [`prd-background.md`](./prd-background.md)：产品缘起与长期背景。
 

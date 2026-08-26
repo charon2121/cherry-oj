@@ -15,12 +15,16 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
+      CHERRY_OJ_LOGGING_PATH: /var/log/cherry-oj
+      CHERRY_OJ_LOGGING_LEVEL: ${ENGINE_LOG_LEVEL:-INFO}
       CHERRY_OJ_SANDBOX_HTTP_ADDR: 0.0.0.0:5050
       CHERRY_OJ_SANDBOX_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
       CHERRY_OJ_SANDBOX_STORE_ROOT: /var/lib/cherry-oj/store
       CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}
     expose:
       - "5050"
+    volumes:
+      - engine-logs:/var/log/cherry-oj
     tmpfs:
       # store 只放跨 /run 使用的临时 ref；容器停止后自动清空，且不需要执行权限。
       - /var/lib/cherry-oj/store:rw,nosuid,nodev,noexec,size=${SANDBOX_STORE_SIZE:-256m},mode=0700,uid=10001,gid=10001
@@ -61,6 +65,8 @@ services:
       sandbox:
         condition: service_healthy
     environment:
+      CHERRY_OJ_LOGGING_PATH: /var/log/cherry-oj
+      CHERRY_OJ_LOGGING_LEVEL: ${ENGINE_LOG_LEVEL:-INFO}
       CHERRY_OJ_JUDGE_HTTP_ADDR: 0.0.0.0:5051
       CHERRY_OJ_JUDGE_SANDBOX_URL: http://sandbox:5050
       CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT: ${JUDGE_SANDBOX_TIMEOUT:-60s}
@@ -72,6 +78,7 @@ services:
       # MVP 先只开放给本机 server / curl；生产部署应移除端口映射并接入后端私网。
       - "${JUDGE_BIND_ADDRESS:-127.0.0.1}:${JUDGE_PORT:-5051}:5051"
     volumes:
+      - engine-logs:/var/log/cherry-oj
       # 默认挂测试 fixture 方便 smoke test；部署题库时用 TESTDATA_PATH 覆盖宿主机路径。
       - type: bind
         source: ${TESTDATA_PATH:-./apps/judge-engine/internal/judge/testcase/testdata}
@@ -104,3 +111,6 @@ networks:
     internal: true
   backend:
     # judge 的北向入口；后续 apps/server 接入此网络，sandbox 不加入。
+
+volumes:
+  engine-logs:

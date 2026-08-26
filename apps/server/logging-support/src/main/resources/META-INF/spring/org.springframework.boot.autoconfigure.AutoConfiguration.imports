@@ -1,0 +1,2 @@
+com.cherryoj.logging.ServletHttpLoggingAutoConfiguration
+com.cherryoj.logging.ReactiveHttpLoggingAutoConfiguration

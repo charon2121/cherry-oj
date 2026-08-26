@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/tracecontext"
 )
 
 const (
@@ -36,7 +37,10 @@ func New(baseURL string, timeout time.Duration) *Client {
 	}
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
-		http:    &http.Client{Timeout: timeout},
+		http: &http.Client{
+			Timeout:   timeout,
+			Transport: tracecontext.Transport(nil),
+		},
 	}
 }
 

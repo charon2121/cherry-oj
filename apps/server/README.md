@@ -79,13 +79,23 @@ curl -sS http://127.0.0.1:8080/actuator/health
 
 ## 配置在哪里
 
-每个服务的 `src/main/resources/application.yaml` 目前只定义三类基础信息：
+每个服务的 `src/main/resources/application.yaml` 定义基础服务信息与日志策略：
 
 - `spring.application.name`：服务名。
 - `server.port`：本地监听端口。
 - `management.endpoints`：开放 `health` 和 `info`，并启用健康探针。
+- `logging`：console/file 使用相同 JSON 字段，文件目录由 `CHERRY_LOG_PATH` 覆盖并按 UTC 日期滚动。
+- `management.tracing`：HTTP 使用 W3C Trace Context；本地只关联日志，不启用 OTLP 导出。
 
-根目录 `pom.xml` 统一定义 Java 版本、Spring Boot 父工程、Spring Cloud 版本和五个子模块。子模块 `pom.xml` 只声明本服务需要的 Starter。不要在五个模块中分别复制版本号。
+根目录 `pom.xml` 统一定义 Java 版本、Spring Boot 父工程、Spring Cloud 版本、五个服务和共享的
+`logging-support` 模块。服务通过该模块获得 MVC/WebFlux HTTP 完成日志与 Trace 关联，不复制过滤器。
+完整字段、传播边界和 Go 对齐规则见 [`../../docs/logging.md`](../../docs/logging.md)。
+
+例如把所有 Java 日志写到 `/srv/log/cherry-oj`：
+
+```bash
+CHERRY_LOG_PATH=/srv/log/cherry-oj ./mvnw -pl gateway-service spring-boot:run
+```
 
 ## 产品审核时看什么
 

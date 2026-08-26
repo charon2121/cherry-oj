@@ -36,7 +36,7 @@ JDK 不是 Maven 依赖，不能通过 `pom.xml` 自动安装。若本地 JDK �
 
 根 POM 的 `packaging` 是 `pom`，它本身不生成业务服务，主要承担四件事：
 
-- 聚合五个模块，让一条命令能构建全部服务。
+- 聚合五个服务与 `logging-support` 基础库，让一条命令能构建全部服务。
 - 继承 Spring Boot Parent 的通用版本和 Maven 默认配置。
 - 用 Spring Cloud BOM 统一 Cloud 组件版本。
 - 统一 Java 版本和 Spring Boot 打包插件。
@@ -87,6 +87,12 @@ Gateway 不应同时引入 WebMVC Starter。WebFlux 与 WebMVC 是两套不同�
 WebMVC 只解决请求进入 Java 服务后的同步 Web 处理，不自动提供数据库、鉴权、消息队列或跨服务通信。这些能力尚未进入当前 POM。
 
 ## 五个服务共有的依赖
+
+### `logging-support`
+
+仓库内共享基础库，统一提供 Spring 原生 JSON 日志、MVC/WebFlux HTTP 完成事件和 W3C Trace 关联。
+它只处理日志与传播，不包含业务 DTO、Metrics、远端 exporter 或采集后端；五个服务仍独立打包部署。
+日志文件目录通过 `CHERRY_LOG_PATH` 配置，并按 UTC 日期滚动。
 
 ### `spring-boot-starter-actuator`
 

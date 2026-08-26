@@ -43,8 +43,16 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type Config struct {
+	Logging LoggingConfig `yaml:"logging"`
 	Sandbox SandboxConfig `yaml:"sandbox"`
 	Judge   JudgeConfig   `yaml:"judge"`
+}
+
+// LoggingConfig 定义 judge 与 sandbox 共用的日志落盘规则。
+// 服务名由各进程固定提供，避免部署配置把 judge 的日志伪装成另一个服务。
+type LoggingConfig struct {
+	Path  string `yaml:"path"`
+	Level string `yaml:"level"`
 }
 
 type SandboxConfig struct {
@@ -134,6 +142,10 @@ type CompileConfig struct {
 // 这是「零值陷阱」的解药：不填不等于填 0。
 func Default() Config {
 	return Config{
+		Logging: LoggingConfig{
+			Path:  "./logs",
+			Level: "INFO",
+		},
 		Sandbox: SandboxConfig{
 			HTTPAddr:    "127.0.0.1:5050",
 			Parallelism: 0, // 0 = NumCPU，由 pool.New 兜底
@@ -207,6 +219,15 @@ func Load(path string) (Config, error) {
 // 这条教训在这个项目里反复出现：limits 的 cpuNs=0 会让每道题秒 TLE，
 // 而返回的结果看起来完全正常。配置也一样——宁可起不来，也别悄悄跑错。
 func (c Config) Validate() error {
+	if c.Logging.Path == "" {
+		return fmt.Errorf("logging.path 不能为空")
+	}
+	switch c.Logging.Level {
+	case "DEBUG", "INFO", "WARN", "ERROR":
+	default:
+		return fmt.Errorf("logging.level 必须是 DEBUG、INFO、WARN 或 ERROR，得到 %q", c.Logging.Level)
+	}
+
 	if c.Sandbox.HTTPAddr == "" {
 		return fmt.Errorf("sandbox.httpAddr 不能为空")
 	}

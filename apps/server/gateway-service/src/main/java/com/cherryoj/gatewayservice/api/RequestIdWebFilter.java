@@ -15,8 +15,14 @@ public final class RequestIdWebFilter implements WebFilter {
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-		ApiRequestContext.setRequestId(exchange, ApiRequestContext.newRequestId());
-		return chain.filter(exchange);
+		String requestId = ApiRequestContext.newRequestId();
+		ApiRequestContext.setRequestId(exchange, requestId);
+		ServerWebExchange downstreamExchange = exchange.mutate()
+				.request(exchange.getRequest().mutate()
+						.headers(headers -> headers.set(ApiRequestContext.REQUEST_ID_HEADER, requestId))
+						.build())
+				.build();
+		return chain.filter(downstreamExchange);
 	}
 
 }

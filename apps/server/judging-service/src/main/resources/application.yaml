@@ -6,6 +6,22 @@ server:
   port: 8084
 
 management:
+  tracing:
+    sampling:
+      probability: 1.0
+    propagation:
+      produce: [w3c]
+      consume: [w3c]
+    export:
+      otlp:
+        enabled: false
+  otlp:
+    metrics:
+      export:
+        enabled: false
+  logging:
+    export:
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -14,3 +30,27 @@ management:
     health:
       probes:
         enabled: true
+
+logging:
+  file:
+    name: "${CHERRY_LOG_PATH:./logs}/${spring.application.name}.log"
+  structured:
+    format:
+      console: logstash
+      file: logstash
+    json:
+      add:
+        service: "${spring.application.name}"
+      exclude: ["@version", "level_value"]
+      rename:
+        logger_name: logger
+        thread_name: thread
+        traceId: trace_id
+        spanId: span_id
+      stacktrace:
+        max-length: 8192
+  logback:
+    rollingpolicy:
+      file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd,UTC}.%i.gz"
+      max-file-size: 10MB
+      max-history: 30

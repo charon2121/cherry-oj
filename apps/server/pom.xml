@@ -19,6 +19,7 @@
     <description>Cherry OJ Java services</description>
 
     <modules>
+        <module>logging-support</module>
         <module>gateway-service</module>
         <module>user-service</module>
         <module>problem-service</module>
