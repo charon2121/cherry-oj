@@ -54,6 +54,112 @@ export type ApiProblem = {
     violations?: Array<FieldViolation>;
 };
 
+/**
+ * 规范化后全局唯一的登录名。
+ */
+export type Username = string;
+
+export type Password = string;
+
+export type UserRole = 'USER' | 'ADMIN';
+
+export type UserStatus = 'ACTIVE' | 'DISABLED';
+
+export type UserAccountData = {
+    id: string;
+    username: Username;
+    role: UserRole;
+    status: UserStatus;
+    passwordChangeRequired: boolean;
+    createdAt: string;
+    updatedAt: string;
+    rowVersion: number;
+};
+
+export type CsrfTokenData = {
+    token: string;
+    headerName: 'X-CSRF-Token';
+};
+
+export type CsrfTokenSuccess = {
+    data: CsrfTokenData;
+    meta: ApiMeta;
+};
+
+export type AnonymousSessionData = {
+    authenticated: false;
+};
+
+export type AuthenticatedSessionData = {
+    authenticated: true;
+    user: UserAccountData;
+};
+
+export type AuthSessionData = AnonymousSessionData | AuthenticatedSessionData;
+
+export type AuthSessionSuccess = {
+    data: AuthSessionData;
+    meta: ApiMeta;
+};
+
+export type AuthenticatedSessionSuccess = {
+    data: AuthenticatedSessionData;
+    meta: ApiMeta;
+};
+
+export type LoginRequest = {
+    username: Username;
+};
+
+export type ChangePasswordRequest = {
+    [key: string]: never;
+};
+
+export type CreateUserRequest = {
+    username: Username;
+};
+
+export type CreateUserData = {
+    user: UserAccountData;
+};
+
+export type CreateUserSuccess = {
+    data: CreateUserData;
+    meta: ApiMeta;
+};
+
+export type UpdateUserStatusRequest = {
+    status: UserStatus;
+    rowVersion: number;
+};
+
+export type ResetUserPasswordRequest = {
+    rowVersion: number;
+};
+
+export type ResetUserPasswordData = {
+    [key: string]: never;
+};
+
+export type ResetUserPasswordSuccess = {
+    data: ResetUserPasswordData;
+    meta: ApiMeta;
+};
+
+export type UserAccountSuccess = {
+    data: UserAccountData;
+    meta: ApiMeta;
+};
+
+export type UserListData = {
+    items: Array<UserAccountData>;
+};
+
+export type UserListSuccess = {
+    data: UserListData;
+    meta: ApiMeta;
+};
+
 export type SystemStatusData = {
     service: 'gateway-service';
     status: 'ready';
@@ -63,6 +169,39 @@ export type SystemStatusSuccess = {
     data: SystemStatusData;
     meta: ApiMeta;
 };
+
+export type LoginRequestWritable = {
+    username: Username;
+    password: string;
+};
+
+export type ChangePasswordRequestWritable = {
+    currentPassword: string;
+    newPassword: Password;
+};
+
+export type CreateUserDataWritable = {
+    user: UserAccountData;
+    temporaryPassword: Password;
+};
+
+export type CreateUserSuccessWritable = {
+    data: CreateUserDataWritable;
+    meta: ApiMeta;
+};
+
+export type ResetUserPasswordDataWritable = {
+    temporaryPassword: Password;
+};
+
+export type ResetUserPasswordSuccessWritable = {
+    data: ResetUserPasswordDataWritable;
+    meta: ApiMeta;
+};
+
+export type CsrfToken = string;
+
+export type UserId = string;
 
 export type GetSystemStatusData = {
     body?: never;
@@ -88,3 +227,253 @@ export type GetSystemStatusResponses = {
 };
 
 export type GetSystemStatusResponse = GetSystemStatusResponses[keyof GetSystemStatusResponses];
+
+export type GetCsrfTokenData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/csrf';
+};
+
+export type GetCsrfTokenErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetCsrfTokenError = GetCsrfTokenErrors[keyof GetCsrfTokenErrors];
+
+export type GetCsrfTokenResponses = {
+    /**
+     * CSRF token 已就绪；响应不得缓存
+     */
+    200: CsrfTokenSuccess;
+};
+
+export type GetCsrfTokenResponse = GetCsrfTokenResponses[keyof GetCsrfTokenResponses];
+
+export type GetAuthSessionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/session';
+};
+
+export type GetAuthSessionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetAuthSessionError = GetAuthSessionErrors[keyof GetAuthSessionErrors];
+
+export type GetAuthSessionResponses = {
+    /**
+     * 当前认证状态
+     */
+    200: AuthSessionSuccess;
+};
+
+export type GetAuthSessionResponse = GetAuthSessionResponses[keyof GetAuthSessionResponses];
+
+export type LoginData = {
+    body: LoginRequestWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/auth/login';
+};
+
+export type LoginErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type LoginError = LoginErrors[keyof LoginErrors];
+
+export type LoginResponses = {
+    /**
+     * 登录成功并已旋转 Session ID
+     */
+    200: AuthenticatedSessionSuccess;
+};
+
+export type LoginResponse = LoginResponses[keyof LoginResponses];
+
+export type LogoutData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/auth/logout';
+};
+
+export type LogoutErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type LogoutError = LogoutErrors[keyof LogoutErrors];
+
+export type LogoutResponses = {
+    /**
+     * 操作成功且无响应 body。
+     */
+    204: void;
+};
+
+export type LogoutResponse = LogoutResponses[keyof LogoutResponses];
+
+export type ChangePasswordData = {
+    body: ChangePasswordRequestWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/auth/password/change';
+};
+
+export type ChangePasswordErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ChangePasswordError = ChangePasswordErrors[keyof ChangePasswordErrors];
+
+export type ChangePasswordResponses = {
+    /**
+     * 操作成功且无响应 body。
+     */
+    204: void;
+};
+
+export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
+
+export type ListUsersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        page?: number;
+        size?: number;
+    };
+    url: '/api/admin/users';
+};
+
+export type ListUsersErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListUsersError = ListUsersErrors[keyof ListUsersErrors];
+
+export type ListUsersResponses = {
+    /**
+     * 用户账号分页
+     */
+    200: UserListSuccess;
+};
+
+export type ListUsersResponse = ListUsersResponses[keyof ListUsersResponses];
+
+export type CreateUserData2 = {
+    body: CreateUserRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/users';
+};
+
+export type CreateUserErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CreateUserError = CreateUserErrors[keyof CreateUserErrors];
+
+export type CreateUserResponses = {
+    /**
+     * 普通用户已创建；临时密码只在本次响应出现
+     */
+    201: CreateUserSuccess;
+};
+
+export type CreateUserResponse = CreateUserResponses[keyof CreateUserResponses];
+
+export type UpdateUserStatusData = {
+    body: UpdateUserStatusRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/admin/users/{userId}/status';
+};
+
+export type UpdateUserStatusErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type UpdateUserStatusError = UpdateUserStatusErrors[keyof UpdateUserStatusErrors];
+
+export type UpdateUserStatusResponses = {
+    /**
+     * 账号状态已更新
+     */
+    200: UserAccountSuccess;
+};
+
+export type UpdateUserStatusResponse = UpdateUserStatusResponses[keyof UpdateUserStatusResponses];
+
+export type ResetUserPasswordData2 = {
+    body: ResetUserPasswordRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/admin/users/{userId}/password-reset';
+};
+
+export type ResetUserPasswordErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ResetUserPasswordError = ResetUserPasswordErrors[keyof ResetUserPasswordErrors];
+
+export type ResetUserPasswordResponses = {
+    /**
+     * 密码已重置；临时密码只在本次响应出现
+     */
+    200: ResetUserPasswordSuccess;
+};
+
+export type ResetUserPasswordResponse = ResetUserPasswordResponses[keyof ResetUserPasswordResponses];

@@ -35,9 +35,292 @@
           "default": { "$ref": "#/components/responses/ApiProblemResponse" }
         }
       }
+    },
+    "/api/auth/csrf": {
+      "get": {
+        "operationId": "getCsrfToken",
+        "summary": "建立匿名 Session 并取得 CSRF token",
+        "responses": {
+          "200": {
+            "description": "CSRF token 已就绪；响应不得缓存",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CsrfTokenSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/auth/session": {
+      "get": {
+        "operationId": "getAuthSession",
+        "summary": "读取当前浏览器 Session",
+        "security": [{}, { "cookieAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "当前认证状态",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthSessionSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "使用用户名和密码登录",
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功并已旋转 Session ID",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthenticatedSessionSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "结束当前浏览器登录",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "responses": {
+          "204": { "$ref": "#/components/responses/NoContentResponse" },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/auth/password/change": {
+      "post": {
+        "operationId": "changePassword",
+        "summary": "修改当前用户密码并撤销全部登录",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangePasswordRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "$ref": "#/components/responses/NoContentResponse" },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "operationId": "listUsers",
+        "summary": "分页读取用户账号",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "用户账号分页",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserListSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      },
+      "post": {
+        "operationId": "createUser",
+        "summary": "创建普通用户并生成一次性临时密码",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUserRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "普通用户已创建；临时密码只在本次响应出现",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Location": {
+                "required": true,
+                "schema": { "type": "string", "format": "uri-reference" }
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateUserSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/users/{userId}/status": {
+      "patch": {
+        "operationId": "updateUserStatus",
+        "summary": "停用或恢复普通用户账号",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserStatusRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "账号状态已更新",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserAccountSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/users/{userId}/password-reset": {
+      "post": {
+        "operationId": "resetUserPassword",
+        "summary": "重置普通用户密码并撤销全部登录",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/UserId" },
+          { "$ref": "#/components/parameters/CsrfToken" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResetUserPasswordRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "密码已重置；临时密码只在本次响应出现",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": {
+                "required": true,
+                "schema": { "const": "no-store", "type": "string" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ResetUserPasswordSuccess" }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
     }
   },
   "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "CHERRY_SESSION",
+        "description": "浏览器随机 Session Cookie；不是内部 JWT。"
+      }
+    },
+    "parameters": {
+      "CsrfToken": {
+        "name": "X-CSRF-Token",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "minLength": 16, "maxLength": 512 }
+      },
+      "UserId": {
+        "name": "userId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      }
+    },
     "headers": {
       "XRequestId": {
         "description": "Gateway 生成的公开请求标识；必须与响应 body 的 meta.requestId 相同。",
@@ -46,6 +329,16 @@
       }
     },
     "responses": {
+      "NoContentResponse": {
+        "description": "操作成功且无响应 body。",
+        "headers": {
+          "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+          "Cache-Control": {
+            "required": true,
+            "schema": { "const": "no-store", "type": "string" }
+          }
+        }
+      },
       "ApiProblemResponse": {
         "description": "符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。",
         "headers": {
@@ -201,6 +494,222 @@
             ]
           }
         ]
+      },
+      "Username": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$",
+        "description": "规范化后全局唯一的登录名。"
+      },
+      "Password": {
+        "type": "string",
+        "minLength": 12,
+        "maxLength": 128,
+        "writeOnly": true
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": ["USER", "ADMIN"]
+      },
+      "UserStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "DISABLED"]
+      },
+      "UserAccountData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "username", "role", "status", "passwordChangeRequired", "createdAt", "updatedAt", "rowVersion"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "username": { "$ref": "#/components/schemas/Username" },
+          "role": { "$ref": "#/components/schemas/UserRole" },
+          "status": { "$ref": "#/components/schemas/UserStatus" },
+          "passwordChangeRequired": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        },
+        "examples": [
+          {
+            "id": "019c8e42-7f70-7000-8000-000000000001",
+            "username": "learner01",
+            "role": "USER",
+            "status": "ACTIVE",
+            "passwordChangeRequired": true,
+            "createdAt": "2026-08-26T01:00:00Z",
+            "updatedAt": "2026-08-26T01:00:00Z",
+            "rowVersion": 0
+          }
+        ]
+      },
+      "CsrfTokenData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["token", "headerName"],
+        "properties": {
+          "token": { "type": "string", "minLength": 16, "maxLength": 512 },
+          "headerName": { "const": "X-CSRF-Token", "type": "string" }
+        }
+      },
+      "CsrfTokenSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/CsrfTokenData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        }
+      },
+      "AnonymousSessionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["authenticated"],
+        "properties": {
+          "authenticated": { "const": false, "type": "boolean" }
+        }
+      },
+      "AuthenticatedSessionData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["authenticated", "user"],
+        "properties": {
+          "authenticated": { "const": true, "type": "boolean" },
+          "user": { "$ref": "#/components/schemas/UserAccountData" }
+        }
+      },
+      "AuthSessionData": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/AnonymousSessionData" },
+          { "$ref": "#/components/schemas/AuthenticatedSessionData" }
+        ]
+      },
+      "AuthSessionSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/AuthSessionData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        }
+      },
+      "AuthenticatedSessionSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/AuthenticatedSessionData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["username", "password"],
+        "properties": {
+          "username": { "$ref": "#/components/schemas/Username" },
+          "password": { "type": "string", "minLength": 1, "maxLength": 128, "writeOnly": true }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["currentPassword", "newPassword"],
+        "properties": {
+          "currentPassword": { "type": "string", "minLength": 1, "maxLength": 128, "writeOnly": true },
+          "newPassword": { "$ref": "#/components/schemas/Password" }
+        }
+      },
+      "CreateUserRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["username"],
+        "properties": {
+          "username": { "$ref": "#/components/schemas/Username" }
+        }
+      },
+      "CreateUserData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["user", "temporaryPassword"],
+        "properties": {
+          "user": { "$ref": "#/components/schemas/UserAccountData" },
+          "temporaryPassword": { "$ref": "#/components/schemas/Password" }
+        }
+      },
+      "CreateUserSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/CreateUserData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        }
+      },
+      "UpdateUserStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "rowVersion"],
+        "properties": {
+          "status": { "$ref": "#/components/schemas/UserStatus" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ResetUserPasswordRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rowVersion"],
+        "properties": {
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "ResetUserPasswordData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["temporaryPassword"],
+        "properties": {
+          "temporaryPassword": { "$ref": "#/components/schemas/Password" }
+        }
+      },
+      "ResetUserPasswordSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/ResetUserPasswordData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        }
+      },
+      "UserAccountSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/UserAccountData" },
+          "meta": { "$ref": "#/components/schemas/ApiMeta" }
+        }
+      },
+      "UserListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": { "$ref": "#/components/schemas/UserAccountData" }
+          }
+        }
+      },
+      "UserListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/UserListData" },
+          "meta": {
+            "allOf": [{ "$ref": "#/components/schemas/ApiMeta" }],
+            "required": ["requestId", "pagination"]
+          }
+        }
       },
       "SystemStatusData": {
         "type": "object",

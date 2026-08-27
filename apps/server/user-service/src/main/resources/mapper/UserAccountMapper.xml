@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cherryoj.userservice.persistence.UserAccountMapper">
+    <resultMap id="userAccount" type="com.cherryoj.userservice.domain.UserAccount">
+        <constructor>
+            <arg column="id" javaType="java.lang.String"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="username_normalized" javaType="java.lang.String"/>
+            <arg column="password_hash" javaType="java.lang.String"/>
+            <arg column="role" javaType="com.cherryoj.userservice.domain.UserRole"/>
+            <arg column="status" javaType="com.cherryoj.userservice.domain.UserStatus"/>
+            <arg column="password_change_required" javaType="_boolean"/>
+            <arg column="failed_login_count" javaType="_int"/>
+            <arg column="last_failed_login_at" javaType="java.time.LocalDateTime"/>
+            <arg column="locked_until" javaType="java.time.LocalDateTime"/>
+            <arg column="session_version" javaType="_long"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+            <arg column="row_version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="columns">
+        BIN_TO_UUID(id) AS id,
+        username,
+        username_normalized,
+        password_hash,
+        role,
+        status,
+        password_change_required,
+        failed_login_count,
+        last_failed_login_at,
+        locked_until,
+        session_version,
+        created_at,
+        updated_at,
+        row_version
+    </sql>
+
+    <select id="findByNormalizedUsernameForUpdate" resultMap="userAccount">
+        SELECT <include refid="columns"/>
+        FROM user_account
+        WHERE username_normalized = #{usernameNormalized}
+        FOR UPDATE
+    </select>
+
+    <select id="findById" resultMap="userAccount">
+        SELECT <include refid="columns"/>
+        FROM user_account
+        WHERE id = UUID_TO_BIN(#{id})
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="userAccount">
+        SELECT <include refid="columns"/>
+        FROM user_account
+        WHERE id = UUID_TO_BIN(#{id})
+        FOR UPDATE
+    </select>
+
+    <select id="countAdmins" resultType="long">
+        SELECT COUNT(*)
+        FROM user_account
+        WHERE role = 'ADMIN'
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(*)
+        FROM user_account
+    </select>
+
+    <select id="listUsers" resultMap="userAccount">
+        SELECT <include refid="columns"/>
+        FROM user_account
+        ORDER BY created_at DESC, id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <insert id="insert">
+        INSERT INTO user_account (
+            id,
+            username,
+            username_normalized,
+            password_hash,
+            role,
+            status,
+            password_change_required,
+            failed_login_count,
+            session_version,
+            created_at,
+            updated_at,
+            row_version
+        ) VALUES (
+            UUID_TO_BIN(#{id}),
+            #{username},
+            #{usernameNormalized},
+            #{passwordHash},
+            #{role},
+            #{status},
+            #{passwordChangeRequired},
+            #{failedLoginCount},
+            #{sessionVersion},
+            #{createdAt},
+            #{updatedAt},
+            #{rowVersion}
+        )
+    </insert>
+
+    <update id="recordLoginFailure">
+        UPDATE user_account
+        SET locked_until = CASE
+                WHEN failed_login_count + 1 >= 5 THEN #{lockedUntil}
+                ELSE locked_until
+            END,
+            failed_login_count = LEAST(failed_login_count + 1, 1000),
+            last_failed_login_at = #{now},
+            updated_at = #{now},
+            row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id})
+    </update>
+
+    <update id="recordLoginSuccess">
+        UPDATE user_account
+        SET failed_login_count = 0,
+            last_failed_login_at = NULL,
+            locked_until = NULL,
+            updated_at = #{now},
+            row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id})
+    </update>
+
+    <update id="updatePassword">
+        UPDATE user_account
+        SET password_hash = #{passwordHash},
+            password_change_required = #{passwordChangeRequired},
+            session_version = session_version + 1,
+            failed_login_count = 0,
+            last_failed_login_at = NULL,
+            locked_until = NULL,
+            updated_at = #{now},
+            row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id})
+          AND row_version = #{expectedRowVersion}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE user_account
+        SET status = #{status},
+            session_version = session_version + 1,
+            updated_at = #{now},
+            row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id})
+          AND role = 'USER'
+          AND row_version = #{expectedRowVersion}
+    </update>
+</mapper>

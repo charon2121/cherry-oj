@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cherryoj.userservice.persistence.AuditEventMapper">
+    <insert id="insert">
+        INSERT INTO user_audit_event (
+            id,
+            actor_user_id,
+            target_user_id,
+            action,
+            subject_digest,
+            trace_id,
+            detail_json,
+            created_at
+        ) VALUES (
+            UUID_TO_BIN(#{id}),
+            <choose>
+                <when test="actorUserId != null">UUID_TO_BIN(#{actorUserId})</when>
+                <otherwise>NULL</otherwise>
+            </choose>,
+            <choose>
+                <when test="targetUserId != null">UUID_TO_BIN(#{targetUserId})</when>
+                <otherwise>NULL</otherwise>
+            </choose>,
+            #{action},
+            #{subjectDigest},
+            #{traceId},
+            CAST(#{detailJson} AS JSON),
+            #{createdAt}
+        )
+    </insert>
+</mapper>

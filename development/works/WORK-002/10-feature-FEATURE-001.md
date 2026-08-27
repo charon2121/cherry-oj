@@ -106,8 +106,9 @@ updated_at: "2026-08-24"
 
 ## 待确认项
 
-- UNKNOWN-001（blocking）：MVP 登录采用开放注册还是管理员预置账号。
+- UNKNOWN-001（resolved）：MVP 不开放注册，由管理员预置普通用户账号；首个 ADMIN 通过一次性离线命令
+  初始化，具体身份与会话边界由 DECISION-009 约束。
 - UNKNOWN-002（blocking）：普通用户在 WA 时允许看到多少测试点信息。
 - UNKNOWN-003（blocking）：内部 MVP 的发布环境口径。
 
-这三项会改变用户行为、安全边界或验收方式，进入 review/approved 前必须由产品负责人解决。
+其余两项会改变信息公开或验收方式，进入 review/approved 前必须由产品负责人解决。

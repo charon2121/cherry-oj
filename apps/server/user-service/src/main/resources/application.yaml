@@ -1,6 +1,29 @@
 spring:
   application:
     name: user-service
+  datasource:
+    url: "${CHERRY_USER_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_user}"
+    username: "${CHERRY_USER_DB_USERNAME:cherry_oj_user}"
+    password: "${CHERRY_USER_DB_PASSWORD:}"
+  flyway:
+    enabled: true
+
+mybatis:
+  mapper-locations: classpath:/mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+cherry:
+  auth:
+    issuer: "${CHERRY_AUTH_ISSUER:cherry-oj-user-service}"
+    audience: "${CHERRY_AUTH_AUDIENCE:cherry-oj-internal}"
+    key-id: "${CHERRY_AUTH_KEY_ID:}"
+    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:}"
+    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:}"
+    access-token-ttl: 120s
+    clock-skew: 30s
+    session-idle-timeout: 30m
+    session-absolute-timeout: 12h
 
 server:
   port: 8081

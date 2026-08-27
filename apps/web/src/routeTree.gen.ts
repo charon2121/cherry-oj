@@ -10,33 +10,80 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ForbiddenRouteImport } from './routes/forbidden'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AccountPasswordRouteImport } from './routes/account.password'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ForbiddenRoute = ForbiddenRouteImport.update({
+  id: '/forbidden',
+  path: '/forbidden',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountPasswordRoute = AccountPasswordRouteImport.update({
+  id: '/account/password',
+  path: '/account/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
+  '/account/password': typeof AccountPasswordRoute
+  '/admin/users': typeof AdminUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
+  '/account/password': typeof AccountPasswordRoute
+  '/admin/users': typeof AdminUsersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/forbidden': typeof ForbiddenRoute
+  '/login': typeof LoginRoute
+  '/account/password': typeof AccountPasswordRoute
+  '/admin/users': typeof AdminUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/forbidden' | '/login' | '/account/password' | '/admin/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/forbidden' | '/login' | '/account/password' | '/admin/users'
+  id:
+    | '__root__'
+    | '/'
+    | '/forbidden'
+    | '/login'
+    | '/account/password'
+    | '/admin/users'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ForbiddenRoute: typeof ForbiddenRoute
+  LoginRoute: typeof LoginRoute
+  AccountPasswordRoute: typeof AccountPasswordRoute
+  AdminUsersRoute: typeof AdminUsersRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +95,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forbidden': {
+      id: '/forbidden'
+      path: '/forbidden'
+      fullPath: '/forbidden'
+      preLoaderRoute: typeof ForbiddenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/password': {
+      id: '/account/password'
+      path: '/account/password'
+      fullPath: '/account/password'
+      preLoaderRoute: typeof AccountPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ForbiddenRoute: ForbiddenRoute,
+  LoginRoute: LoginRoute,
+  AccountPasswordRoute: AccountPasswordRoute,
+  AdminUsersRoute: AdminUsersRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

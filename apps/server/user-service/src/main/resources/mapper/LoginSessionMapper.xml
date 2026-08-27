@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cherryoj.userservice.persistence.LoginSessionMapper">
+    <resultMap id="loginGrant" type="com.cherryoj.userservice.domain.LoginGrant">
+        <constructor>
+            <arg column="session_id" javaType="java.lang.String"/>
+            <arg column="user_id" javaType="java.lang.String"/>
+            <arg column="username" javaType="java.lang.String"/>
+            <arg column="role" javaType="com.cherryoj.userservice.domain.UserRole"/>
+            <arg column="status" javaType="com.cherryoj.userservice.domain.UserStatus"/>
+            <arg column="password_change_required" javaType="_boolean"/>
+            <arg column="session_version" javaType="_long"/>
+            <arg column="user_created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="user_updated_at" javaType="java.time.LocalDateTime"/>
+            <arg column="user_row_version" javaType="_long"/>
+            <arg column="idle_expires_at" javaType="java.time.LocalDateTime"/>
+            <arg column="absolute_expires_at" javaType="java.time.LocalDateTime"/>
+            <arg column="row_version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="insert">
+        INSERT INTO user_login_session (
+            id,
+            user_id,
+            grant_hash,
+            session_version,
+            created_at,
+            last_used_at,
+            idle_expires_at,
+            absolute_expires_at,
+            row_version
+        ) VALUES (
+            UUID_TO_BIN(#{id}),
+            UUID_TO_BIN(#{userId}),
+            #{grantHash},
+            #{sessionVersion},
+            #{now},
+            #{now},
+            #{idleExpiresAt},
+            #{absoluteExpiresAt},
+            0
+        )
+    </insert>
+
+    <select id="findActiveByGrantHashForUpdate" resultMap="loginGrant">
+        SELECT BIN_TO_UUID(login_session.id) AS session_id,
+               BIN_TO_UUID(account.id) AS user_id,
+               account.username,
+               account.role,
+               account.status,
+               account.password_change_required,
+               account.session_version,
+               account.created_at AS user_created_at,
+               account.updated_at AS user_updated_at,
+               account.row_version AS user_row_version,
+               login_session.idle_expires_at,
+               login_session.absolute_expires_at,
+               login_session.row_version
+        FROM user_login_session AS login_session
+        JOIN user_account AS account ON account.id = login_session.user_id
+        WHERE login_session.grant_hash = #{grantHash}
+          AND login_session.revoked_at IS NULL
+          AND login_session.idle_expires_at > #{now}
+          AND login_session.absolute_expires_at > #{now}
+          AND login_session.session_version = account.session_version
+          AND account.status = 'ACTIVE'
+        FOR UPDATE
+    </select>
+
+    <update id="touch">
+        UPDATE user_login_session
+        SET last_used_at = #{now},
+            idle_expires_at = LEAST(#{idleExpiresAt}, absolute_expires_at),
+            row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id})
+          AND revoked_at IS NULL
+          AND row_version = #{expectedRowVersion}
+    </update>
+
+    <update id="revokeCurrent">
+        UPDATE user_login_session
+        SET revoked_at = #{now},
+            revoke_reason = #{reason},
+            row_version = row_version + 1
+        WHERE grant_hash = #{grantHash}
+          AND revoked_at IS NULL
+    </update>
+
+    <update id="revokeAll">
+        UPDATE user_login_session
+        SET revoked_at = #{now},
+            revoke_reason = #{reason},
+            row_version = row_version + 1
+        WHERE user_id = UUID_TO_BIN(#{userId})
+          AND revoked_at IS NULL
+    </update>
+</mapper>

@@ -1,9 +1,39 @@
 spring:
   application:
     name: gateway-service
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.ReactiveUserDetailsServiceAutoConfiguration
+  data:
+    redis:
+      host: "${CHERRY_REDIS_HOST:127.0.0.1}"
+      port: "${CHERRY_REDIS_PORT:6379}"
+      password: "${CHERRY_REDIS_PASSWORD:}"
+      timeout: 2s
+  session:
+    timeout: 30m
+    redis:
+      namespace: cherry:gateway:sessions
 
 server:
   port: 8080
+  reactive:
+    session:
+      cookie:
+        name: CHERRY_SESSION
+        http-only: true
+        secure: "${CHERRY_SESSION_SECURE:false}"
+        same-site: lax
+        path: /api
+
+cherry:
+  gateway:
+    user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:8081}"
+    user-service-timeout: 5s
+    session-absolute-timeout: 12h
+    token-refresh-skew: 15s
+    trusted-origins:
+      - "${CHERRY_WEB_ORIGIN:http://localhost:5173}"
+    login-rate-limit-per-minute: 10
 
 management:
   tracing:

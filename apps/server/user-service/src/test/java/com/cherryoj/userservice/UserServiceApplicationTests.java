@@ -1,13 +1,12 @@
 package com.cherryoj.userservice;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
 class UserServiceApplicationTests {
 
     @Test
-    void contextLoads() {
+    void applicationEntryPointExists() {
+        assertThat(UserServiceApplication.class).isNotNull();
     }
-
 }

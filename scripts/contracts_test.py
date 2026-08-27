@@ -218,6 +218,63 @@ class ContractsTest(unittest.TestCase):
         )
         self.assertIn(problem_example["meta"]["requestId"], problem_example["instance"])
 
+    def test_web_auth_contract_keeps_credentials_server_side(self) -> None:
+        document = load("web-api.openapi.json")
+        paths = document["paths"]
+        expected = {
+            "/api/auth/csrf",
+            "/api/auth/session",
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/password/change",
+            "/api/admin/users",
+            "/api/admin/users/{userId}/status",
+            "/api/admin/users/{userId}/password-reset",
+        }
+        self.assertTrue(expected.issubset(paths))
+
+        security = document["components"]["securitySchemes"]["cookieAuth"]
+        self.assertEqual(security["in"], "cookie")
+        self.assertEqual(security["name"], "CHERRY_SESSION")
+
+        schemas = document["components"]["schemas"]
+        public_user = set(schemas["UserAccountData"]["properties"])
+        self.assertTrue(
+            {
+                "password",
+                "passwordHash",
+                "jwt",
+                "accessToken",
+                "refreshToken",
+                "loginGrant",
+                "sessionVersion",
+            }.isdisjoint(public_user)
+        )
+        self.assertTrue(schemas["Password"].get("writeOnly"))
+        self.assertTrue(
+            schemas["CreateUserData"]["properties"]["temporaryPassword"]["$ref"].endswith(
+                "/Password"
+            )
+        )
+
+        for path in (
+            "/api/auth/logout",
+            "/api/auth/password/change",
+            "/api/admin/users",
+            "/api/admin/users/{userId}/status",
+            "/api/admin/users/{userId}/password-reset",
+        ):
+            operations = paths[path]
+            for method, operation in operations.items():
+                if method not in {"post", "patch", "put", "delete"}:
+                    continue
+                refs = {item.get("$ref") for item in operation.get("parameters", [])}
+                self.assertIn("#/components/parameters/CsrfToken", refs, f"{method} {path}")
+
+        for path in ("/api/auth/csrf", "/api/auth/session"):
+            response = paths[path]["get"]["responses"]["200"]
+            self.assertEqual(response["headers"]["Cache-Control"]["schema"]["const"], "no-store")
+
 
 if __name__ == "__main__":
     unittest.main()

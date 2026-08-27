@@ -1,6 +1,15 @@
 spring:
   application:
     name: judging-service
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+cherry:
+  identity:
+    issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
+    audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"
+    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/internal/.well-known/jwks.json}"
+    clock-skew: 30s
 
 server:
   port: 8084

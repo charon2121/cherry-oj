@@ -17,7 +17,7 @@ workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "require
 required_documents: ["feature", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "accessibility", "data", "security"]
 human_confirmations: []
-blocking_items: ["确认 MVP 登录采用开放注册还是管理员预置账号", "确认 WA 时允许普通用户查看的测试点信息", "确认内部 MVP 的发布环境口径"]
+blocking_items: ["确认 WA 时允许普通用户查看的测试点信息", "确认内部 MVP 的发布环境口径"]
 reversible: true
 data_change: false
 public_api_change: false
@@ -54,7 +54,8 @@ Java 服务完成一次真实答题。PRD 第一阶段要求先跑通 C++ ACM �
 
 ## 待确认项
 
-- UNKNOWN-001（blocking）：MVP 登录采用开放注册还是管理员预置账号。
+- UNKNOWN-001（resolved）：MVP 不开放注册，由管理员预置普通用户账号；首个 ADMIN 由一次性离线命令
+  初始化。身份与会话细节以已确认的 DECISION-009 为准。
 - UNKNOWN-002（blocking）：普通用户在 WA 时允许看到多少测试点信息。
 - UNKNOWN-003（blocking）：内部 MVP 的“发布”是进入主干演示环境，还是必须有独立部署环境。
 
@@ -78,6 +79,7 @@ FEATURE-001 保存产品定义；后续体验、技术方案、决定、计划�
 - 2026-08-24：创建工作项并生成初始流程。
 - 2026-08-24：从旧 REQ-0001 完整迁入用户流程、规则、验收场景和未决问题；尚未人工确认。
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
+- 2026-08-26：负责人确认管理员预置账号方案，解决 UNKNOWN-001；其余两个待确认项保持 blocking。
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
