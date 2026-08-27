@@ -10,7 +10,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record GatewayAuthProperties(
 		URI userServiceBaseUrl,
 		Duration userServiceTimeout,
-		Duration sessionAbsoluteTimeout,
+		long sessionIdleTimeoutSeconds,
+		long sessionAbsoluteTimeoutSeconds,
+		String sessionRefreshIdleOnActivity,
 		Duration tokenRefreshSkew,
 		List<String> trustedOrigins,
 		int loginRateLimitPerMinute) {
@@ -23,10 +25,22 @@ public record GatewayAuthProperties(
 				|| userServiceTimeout.compareTo(Duration.ofSeconds(30)) > 0) {
 			throw new IllegalArgumentException("cherry.gateway.user-service-timeout must be within (0, 30s]");
 		}
-		if (sessionAbsoluteTimeout == null
-				|| sessionAbsoluteTimeout.compareTo(Duration.ofMinutes(30)) < 0
-				|| sessionAbsoluteTimeout.compareTo(Duration.ofHours(24)) > 0) {
-			throw new IllegalArgumentException("cherry.gateway.session-absolute-timeout must be within [30m, 24h]");
+		if (sessionIdleTimeoutSeconds < 300 || sessionIdleTimeoutSeconds > 7_200) {
+			throw new IllegalArgumentException(
+					"cherry.gateway.session-idle-timeout-seconds must be within [300, 7200]");
+		}
+		if (sessionAbsoluteTimeoutSeconds < 3_600 || sessionAbsoluteTimeoutSeconds > 604_800) {
+			throw new IllegalArgumentException(
+					"cherry.gateway.session-absolute-timeout-seconds must be within [3600, 604800]");
+		}
+		if (sessionIdleTimeoutSeconds > sessionAbsoluteTimeoutSeconds) {
+			throw new IllegalArgumentException(
+					"cherry.gateway.session-idle-timeout-seconds must not exceed session-absolute-timeout-seconds");
+		}
+		if (!"true".equals(sessionRefreshIdleOnActivity)
+				&& !"false".equals(sessionRefreshIdleOnActivity)) {
+			throw new IllegalArgumentException(
+					"cherry.gateway.session-refresh-idle-on-activity must be true or false");
 		}
 		if (tokenRefreshSkew == null || tokenRefreshSkew.isNegative()
 				|| tokenRefreshSkew.compareTo(Duration.ofSeconds(60)) > 0) {
@@ -39,5 +53,17 @@ public record GatewayAuthProperties(
 		if (loginRateLimitPerMinute < 1 || loginRateLimitPerMinute > 1_000) {
 			throw new IllegalArgumentException("cherry.gateway.login-rate-limit-per-minute must be within [1, 1000]");
 		}
+	}
+
+	Duration sessionIdleTimeout() {
+		return Duration.ofSeconds(sessionIdleTimeoutSeconds);
+	}
+
+	Duration sessionAbsoluteTimeout() {
+		return Duration.ofSeconds(sessionAbsoluteTimeoutSeconds);
+	}
+
+	boolean refreshIdleOnActivity() {
+		return Boolean.parseBoolean(sessionRefreshIdleOnActivity);
 	}
 }

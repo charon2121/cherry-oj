@@ -1,6 +1,7 @@
 package com.cherryoj.gatewayservice.auth;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,7 +23,7 @@ final class GatewayAuthenticationService {
 
 	private final UserServiceClient userService;
 	private final GatewayAuthProperties properties;
-	private final ConcurrentHashMap<String, Mono<AuthSessionState>> refreshes = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Mono<AuthSessionState>> synchronizations = new ConcurrentHashMap<>();
 	private final Clock clock;
 
 	@Autowired
@@ -42,16 +43,22 @@ final class GatewayAuthenticationService {
 		return userService.authenticate(username, password, requestId)
 				.onErrorMap(error -> mapUpstream(error, true))
 				.flatMap(result -> {
+					validateConfiguration(
+							result.sessionIdleTimeoutSeconds(),
+							result.sessionAbsoluteTimeoutSeconds(),
+							result.sessionRefreshIdleOnActivity());
+					Instant idle = result.sessionIdleExpiresAt().toInstant(ZoneOffset.UTC);
 					Instant absolute = result.sessionAbsoluteExpiresAt().toInstant(ZoneOffset.UTC);
-					Instant localCap = clock.instant().plus(properties.sessionAbsoluteTimeout());
+					validateInitialDeadlines(idle, absolute);
 					AuthSessionState state = new AuthSessionState(
 							result.user().publicView(),
 							result.loginGrant(),
 							result.accessToken(),
 							result.accessTokenExpiresAt(),
-							absolute.isBefore(localCap) ? absolute : localCap);
+							idle,
+							absolute);
 					return session.changeSessionId()
-							.then(Mono.fromRunnable(() -> session.getAttributes().put(SESSION_STATE, state)))
+							.then(Mono.fromRunnable(() -> store(session, state)))
 							.thenReturn(state);
 				});
 	}
@@ -61,14 +68,19 @@ final class GatewayAuthenticationService {
 		if (state == null) {
 			return Mono.error(unauthenticated());
 		}
-		if (!clock.instant().isBefore(state.absoluteExpiresAt())) {
+		Instant now = clock.instant();
+		if (!now.isBefore(state.idleExpiresAt()) || !now.isBefore(state.absoluteExpiresAt())) {
 			return invalidateThenUnauthenticated(session);
 		}
-		if (!refreshToken
-				|| state.accessTokenExpiresAt().isAfter(clock.instant().plus(properties.tokenRefreshSkew()))) {
-			return Mono.just(state);
+		applySessionDeadline(session, state);
+		if (refreshToken
+				&& !state.accessTokenExpiresAt().isAfter(now.plus(properties.tokenRefreshSkew()))) {
+			return singleFlightExchange(session, state, requestId);
 		}
-		return singleFlightRefresh(session, state, requestId);
+		if (properties.refreshIdleOnActivity()) {
+			return singleFlightTouch(session, state, requestId);
+		}
+		return Mono.just(state);
 	}
 
 	Mono<Void> logout(WebSession session, String requestId) {
@@ -86,34 +98,123 @@ final class GatewayAuthenticationService {
 		return session.invalidate();
 	}
 
-	private Mono<AuthSessionState> singleFlightRefresh(
+	private Mono<AuthSessionState> singleFlightExchange(
 			WebSession session, AuthSessionState previous, String requestId) {
 		String sessionId = session.getId();
-		return refreshes.computeIfAbsent(sessionId, ignored -> userService
+		return synchronizations.computeIfAbsent(sessionId, ignored -> userService
 				.exchange(previous.loginGrant(), requestId)
 				.flatMap(result -> {
-					AuthSessionState current = session.getAttribute(SESSION_STATE);
-					if (current == null || !current.loginGrant().equals(previous.loginGrant())) {
-						return Mono.error(unauthenticated());
-					}
+					ensureCurrent(session, previous);
+					validateConfiguration(
+							result.sessionIdleTimeoutSeconds(),
+							result.sessionAbsoluteTimeoutSeconds(),
+							result.sessionRefreshIdleOnActivity());
+					Instant idle = result.sessionIdleExpiresAt().toInstant(ZoneOffset.UTC);
 					Instant absolute = result.sessionAbsoluteExpiresAt().toInstant(ZoneOffset.UTC);
+					validateUpdatedDeadlines(previous, idle, absolute);
 					AuthSessionState refreshed = new AuthSessionState(
 							result.user().publicView(), previous.loginGrant(), result.accessToken(),
 							result.accessTokenExpiresAt(),
-							absolute.isBefore(previous.absoluteExpiresAt())
-									? absolute : previous.absoluteExpiresAt());
-					session.getAttributes().put(SESSION_STATE, refreshed);
+							idle,
+							absolute);
+					store(session, refreshed);
 					return Mono.just(refreshed);
 				})
-				.onErrorResume(UserServiceClientException.class, error -> {
-					if (error.status().value() == 401) {
-						return invalidateThenUnauthenticated(session);
-					}
-					return Mono.error(mapUpstream(error, false));
-				})
+				.onErrorResume(UserServiceClientException.class, error -> upstreamSessionError(session, error))
 				.onErrorMap(TimeoutException.class, error -> gatewayTimeout())
-				.doFinally(signal -> refreshes.remove(sessionId))
+				.doFinally(signal -> synchronizations.remove(sessionId))
 				.cache());
+	}
+
+	private Mono<AuthSessionState> singleFlightTouch(
+			WebSession session, AuthSessionState previous, String requestId) {
+		String sessionId = session.getId();
+		return synchronizations.computeIfAbsent(sessionId, ignored -> userService
+				.touch(previous.loginGrant(), requestId)
+				.flatMap(result -> {
+					ensureCurrent(session, previous);
+					validateConfiguration(
+							result.sessionIdleTimeoutSeconds(),
+							result.sessionAbsoluteTimeoutSeconds(),
+							result.sessionRefreshIdleOnActivity());
+					Instant idle = result.sessionIdleExpiresAt().toInstant(ZoneOffset.UTC);
+					Instant absolute = result.sessionAbsoluteExpiresAt().toInstant(ZoneOffset.UTC);
+					validateUpdatedDeadlines(previous, idle, absolute);
+					AuthSessionState touched = new AuthSessionState(
+							previous.user(), previous.loginGrant(), previous.accessToken(),
+							previous.accessTokenExpiresAt(), idle, absolute);
+					store(session, touched);
+					return Mono.just(touched);
+				})
+				.onErrorResume(UserServiceClientException.class, error -> upstreamSessionError(session, error))
+				.onErrorMap(TimeoutException.class, error -> gatewayTimeout())
+				.doFinally(signal -> synchronizations.remove(sessionId))
+				.cache());
+	}
+
+	private Mono<AuthSessionState> upstreamSessionError(
+			WebSession session, UserServiceClientException error) {
+		if (error.status().value() == 401) {
+			return invalidateThenUnauthenticated(session);
+		}
+		return Mono.error(mapUpstream(error, false));
+	}
+
+	private void ensureCurrent(WebSession session, AuthSessionState previous) {
+		AuthSessionState current = session.getAttribute(SESSION_STATE);
+		if (current == null || !current.loginGrant().equals(previous.loginGrant())) {
+			throw unauthenticated();
+		}
+	}
+
+	private void validateConfiguration(long idleSeconds, long absoluteSeconds, boolean refreshIdle) {
+		if (idleSeconds != properties.sessionIdleTimeoutSeconds()
+				|| absoluteSeconds != properties.sessionAbsoluteTimeoutSeconds()
+				|| refreshIdle != properties.refreshIdleOnActivity()) {
+			throw configurationMismatch();
+		}
+	}
+
+	private void validateUpdatedDeadlines(
+			AuthSessionState previous, Instant idle, Instant absolute) {
+		if (!absolute.equals(previous.absoluteExpiresAt())
+				|| idle.isAfter(absolute)
+				|| (!properties.refreshIdleOnActivity() && !idle.equals(previous.idleExpiresAt()))
+				|| (properties.refreshIdleOnActivity()
+						&& !near(idle, earlier(
+								clock.instant().plus(properties.sessionIdleTimeout()), absolute)))) {
+			throw configurationMismatch();
+		}
+	}
+
+	private void validateInitialDeadlines(Instant idle, Instant absolute) {
+		Instant now = clock.instant();
+		if (idle.isAfter(absolute)
+				|| !near(idle, earlier(now.plus(properties.sessionIdleTimeout()), absolute))
+				|| !near(absolute, now.plus(properties.sessionAbsoluteTimeout()))) {
+			throw configurationMismatch();
+		}
+	}
+
+	private boolean near(Instant actual, Instant expected) {
+		Duration difference = Duration.between(actual, expected).abs();
+		return difference.compareTo(properties.userServiceTimeout().plusSeconds(1)) <= 0;
+	}
+
+	private static Instant earlier(Instant first, Instant second) {
+		return first.isBefore(second) ? first : second;
+	}
+
+	private void store(WebSession session, AuthSessionState state) {
+		session.getAttributes().put(SESSION_STATE, state);
+		applySessionDeadline(session, state);
+	}
+
+	private void applySessionDeadline(WebSession session, AuthSessionState state) {
+		Instant deadline = state.idleExpiresAt().isBefore(state.absoluteExpiresAt())
+				? state.idleExpiresAt() : state.absoluteExpiresAt();
+		Duration remaining = Duration.between(clock.instant(), deadline);
+		session.setMaxIdleTime(remaining.isNegative() ? Duration.ZERO : remaining);
 	}
 
 	private <T> Mono<T> invalidateThenUnauthenticated(WebSession session) {
@@ -186,5 +287,13 @@ final class GatewayAuthenticationService {
 				"GATEWAY_TIMEOUT",
 				"上游响应超时",
 				"服务暂时不可用，请稍后重试。");
+	}
+
+	private static ApiProblemException configurationMismatch() {
+		return new ApiProblemException(
+				HttpStatus.SERVICE_UNAVAILABLE,
+				"SERVICE_UNAVAILABLE",
+				"服务配置不一致",
+				"身份服务配置不一致，请联系管理员。");
 	}
 }

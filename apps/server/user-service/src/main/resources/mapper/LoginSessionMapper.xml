@@ -71,7 +71,10 @@
     <update id="touch">
         UPDATE user_login_session
         SET last_used_at = #{now},
-            idle_expires_at = LEAST(#{idleExpiresAt}, absolute_expires_at),
+            idle_expires_at = CASE
+                WHEN #{refreshIdle} THEN LEAST(#{idleExpiresAt}, absolute_expires_at)
+                ELSE idle_expires_at
+            END,
             row_version = row_version + 1
         WHERE id = UUID_TO_BIN(#{id})
           AND revoked_at IS NULL

@@ -73,8 +73,9 @@ class TokenConfigTests {
                 Map.of(),
                 Duration.ofSeconds(120),
                 Duration.ofSeconds(30),
-                Duration.ofMinutes(30),
-                Duration.ofHours(12));
+                1_800,
+                43_200,
+                "true");
     }
 
     private static UserAccount account(Instant now) {

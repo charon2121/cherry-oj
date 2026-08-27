@@ -9,11 +9,6 @@ spring:
       port: "${CHERRY_REDIS_PORT:6379}"
       password: "${CHERRY_REDIS_PASSWORD:}"
       timeout: 2s
-  session:
-    timeout: 30m
-    redis:
-      namespace: cherry:gateway:sessions
-
 server:
   port: 8080
   reactive:
@@ -29,7 +24,9 @@ cherry:
   gateway:
     user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:8081}"
     user-service-timeout: 5s
-    session-absolute-timeout: 12h
+    session-idle-timeout-seconds: "${CHERRY_AUTH_SESSION_IDLE_TIMEOUT_SECONDS:1800}"
+    session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:43200}"
+    session-refresh-idle-on-activity: "${CHERRY_AUTH_SESSION_REFRESH_IDLE_ON_ACTIVITY:true}"
     token-refresh-skew: 15s
     trusted-origins:
       - "${CHERRY_WEB_ORIGIN:http://localhost:5173}"

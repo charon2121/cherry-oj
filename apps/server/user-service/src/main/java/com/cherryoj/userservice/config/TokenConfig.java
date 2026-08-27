@@ -132,11 +132,6 @@ public class TokenConfig {
         requireText(properties.publicKeyLocation(), "public-key-location");
         requireDuration(properties.accessTokenTtl(), Duration.ofSeconds(30), Duration.ofMinutes(5), "access-token-ttl");
         requireDuration(properties.clockSkew(), Duration.ZERO, Duration.ofSeconds(60), "clock-skew");
-        requireDuration(properties.sessionIdleTimeout(), Duration.ofMinutes(5), Duration.ofHours(2), "session-idle-timeout");
-        requireDuration(properties.sessionAbsoluteTimeout(), Duration.ofHours(1), Duration.ofDays(7), "session-absolute-timeout");
-        if (properties.sessionAbsoluteTimeout().compareTo(properties.sessionIdleTimeout()) < 0) {
-            throw new IllegalStateException("session-absolute-timeout must not be shorter than session-idle-timeout");
-        }
     }
 
     private static void requireText(String value, String name) {

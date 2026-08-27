@@ -5,3 +5,5 @@ draft/
 .DS_Store
 .env
 logs/
+.vscode/
+password

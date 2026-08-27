@@ -31,6 +31,7 @@ public class SecurityConfig {
                                 "/.well-known/jwks.json",
                                 "/internal/auth/authenticate",
                                 "/internal/auth/token",
+                                "/internal/auth/touch",
                                 "/internal/auth/revoke")
                         .permitAll()
                         .anyRequest().authenticated())

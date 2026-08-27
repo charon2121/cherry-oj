@@ -49,8 +49,9 @@ class TokenServiceTests {
                 Map.of(),
                 Duration.ofSeconds(120),
                 Duration.ofSeconds(30),
-                Duration.ofMinutes(30),
-                Duration.ofHours(12));
+                1_800,
+                43_200,
+                "true");
         var service = new TokenService(encoder, properties, Clock.fixed(instant, ZoneOffset.UTC));
         LocalDateTime now = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
         var account = new UserAccount(

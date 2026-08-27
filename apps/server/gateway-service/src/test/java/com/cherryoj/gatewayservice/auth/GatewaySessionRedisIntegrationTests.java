@@ -3,6 +3,9 @@ package com.cherryoj.gatewayservice.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -13,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.session.Session;
+import org.springframework.session.data.redis.ReactiveRedisSessionRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -36,6 +41,7 @@ class GatewaySessionRedisIntegrationTests {
 
 	private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 	private static final AtomicInteger AUTHENTICATE_CALLS = new AtomicInteger();
+	private static volatile LocalDateTime sessionAbsoluteExpiresAt;
 	private static final DisposableServer USER_SERVICE = startUserService();
 
 	@Container
@@ -46,10 +52,13 @@ class GatewaySessionRedisIntegrationTests {
 	private int port;
 
 	private final ReactiveStringRedisTemplate redis;
+	private final ReactiveRedisSessionRepository sessions;
 
 	@Autowired
-	GatewaySessionRedisIntegrationTests(ReactiveStringRedisTemplate redis) {
+	GatewaySessionRedisIntegrationTests(
+			ReactiveStringRedisTemplate redis, ReactiveRedisSessionRepository sessions) {
 		this.redis = redis;
+		this.sessions = sessions;
 	}
 
 	private static DisposableServer startUserService() {
@@ -60,6 +69,10 @@ class GatewaySessionRedisIntegrationTests {
 							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 							.sendString(Mono.just(authenticationJson())).then());
 				})
+				.post("/internal/auth/touch", (request, response) -> request.receive().aggregate()
+						.then(response.status(HttpStatus.OK.value())
+								.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+								.sendString(Mono.just(touchJson())).then()))
 				.post("/internal/auth/revoke", (request, response) -> request.receive().aggregate()
 						.then(response.status(HttpStatus.NO_CONTENT.value()).send())))
 				.bindNow();
@@ -148,6 +161,14 @@ class GatewaySessionRedisIntegrationTests {
 		assertThat(AUTHENTICATE_CALLS.get()).isEqualTo(callsBefore);
 	}
 
+	@Test
+	void redisSessionRepositoryUsesConfiguredIdleSeconds() {
+		Session session = sessions.createSession().cast(Session.class).block();
+		assertThat(session).isNotNull();
+		assertThat(session.getMaxInactiveInterval())
+				.isEqualTo(java.time.Duration.ofSeconds(1_800));
+	}
+
 	private static String token(EntityExchangeResult<byte[]> response) {
 		String body = new String(response.getResponseBody(), StandardCharsets.UTF_8);
 		Matcher matcher = TOKEN_PATTERN.matcher(body);
@@ -165,6 +186,9 @@ class GatewaySessionRedisIntegrationTests {
 	}
 
 	private static String authenticationJson() {
+		Instant started = Instant.now();
+		LocalDateTime idleExpiresAt = LocalDateTime.ofInstant(started.plusSeconds(1_800), ZoneOffset.UTC);
+		sessionAbsoluteExpiresAt = LocalDateTime.ofInstant(started.plusSeconds(43_200), ZoneOffset.UTC);
 		return """
 				{
 				  "user": {
@@ -179,10 +203,28 @@ class GatewaySessionRedisIntegrationTests {
 				  },
 				  "loginGrant": "login-grant-canary",
 				  "accessToken": "internal-jwt-canary",
-				  "accessTokenExpiresAt": "2030-08-26T01:02:00Z",
-				  "sessionIdleExpiresAt": "2030-08-26T01:30:00",
-				  "sessionAbsoluteExpiresAt": "2030-08-26T13:00:00"
+				  "accessTokenExpiresAt": "%s",
+				  "sessionIdleExpiresAt": "%s",
+				  "sessionAbsoluteExpiresAt": "%s",
+				  "sessionIdleTimeoutSeconds": 1800,
+				  "sessionAbsoluteTimeoutSeconds": 43200,
+				  "sessionRefreshIdleOnActivity": true
 				}
-				""";
+				""".formatted(
+					started.plusSeconds(120), idleExpiresAt, sessionAbsoluteExpiresAt);
+	}
+
+	private static String touchJson() {
+		LocalDateTime idleExpiresAt = LocalDateTime.ofInstant(
+				Instant.now().plusSeconds(1_800), ZoneOffset.UTC);
+		return """
+				{
+				  "sessionIdleExpiresAt": "%s",
+				  "sessionAbsoluteExpiresAt": "%s",
+				  "sessionIdleTimeoutSeconds": 1800,
+				  "sessionAbsoluteTimeoutSeconds": 43200,
+				  "sessionRefreshIdleOnActivity": true
+				}
+				""".formatted(idleExpiresAt, sessionAbsoluteExpiresAt);
 	}
 }

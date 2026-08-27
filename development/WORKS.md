@@ -18,3 +18,4 @@
 | WORK-011 | 收敛 Go 领域日志调用 | 整理维护 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-011/00-work.md) |
 | WORK-012 | 撤回可观测性实现并保留追溯契约 | 整理维护 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-012/00-work.md) |
 | WORK-013 | 建立用户身份与访问控制服务 | 基础能力 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-013/00-work.md) |
+| WORK-014 | 统一登录空闲过期配置并修复提前掉线 | 问题修复 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-014/00-work.md) |

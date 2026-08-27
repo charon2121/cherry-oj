@@ -22,8 +22,9 @@ cherry:
     public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:}"
     access-token-ttl: 120s
     clock-skew: 30s
-    session-idle-timeout: 30m
-    session-absolute-timeout: 12h
+    session-idle-timeout-seconds: "${CHERRY_AUTH_SESSION_IDLE_TIMEOUT_SECONDS:1800}"
+    session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:43200}"
+    session-refresh-idle-on-activity: "${CHERRY_AUTH_SESSION_REFRESH_IDLE_ON_ACTIVITY:true}"
 
 server:
   port: 8081

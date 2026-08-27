@@ -9,13 +9,21 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.csrf.WebSessionServerCsrfTokenRepository;
+import org.springframework.session.config.ReactiveSessionRepositoryCustomizer;
+import org.springframework.session.data.redis.ReactiveRedisSessionRepository;
 import org.springframework.session.data.redis.config.annotation.web.server.EnableRedisWebSession;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 @Configuration(proxyBeanMethods = false)
-@EnableRedisWebSession(maxInactiveIntervalInSeconds = 1_800, redisNamespace = "cherry:gateway:sessions")
+@EnableRedisWebSession(redisNamespace = "cherry:gateway:sessions")
 class SecurityConfig {
+
+	@Bean
+	ReactiveSessionRepositoryCustomizer<ReactiveRedisSessionRepository> sessionRepositoryCustomizer(
+			GatewayAuthProperties properties) {
+		return repository -> repository.setDefaultMaxInactiveInterval(properties.sessionIdleTimeout());
+	}
 
 	@Bean
 	WebSessionServerCsrfTokenRepository csrfTokenRepository() {

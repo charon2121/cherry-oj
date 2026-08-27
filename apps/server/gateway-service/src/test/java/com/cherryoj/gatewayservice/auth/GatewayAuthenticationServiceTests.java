@@ -3,6 +3,7 @@ package com.cherryoj.gatewayservice.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,25 +95,130 @@ class GatewayAuthenticationServiceTests {
 		assertThat(session.getAttributes()).isEmpty();
 	}
 
-	private static GatewayAuthenticationService service(UserServiceClient client) {
-		return new GatewayAuthenticationService(client, properties(), Clock.fixed(NOW, ZoneOffset.UTC));
+	@Test
+	void authenticatedActivityRefreshesIdleWhenEnabled() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		AuthSessionState initial = new AuthSessionState(
+				user(), "grant-value", "old-access-token", NOW.plusSeconds(120),
+				NOW.plusSeconds(600), NOW.plusSeconds(3_600));
+		session.getAttributes().put(GatewayAuthenticationService.SESSION_STATE, initial);
+		when(client.touch("grant-value", "req_test")).thenReturn(Mono.just(touchResult(true)));
+
+		AuthSessionState touched = service(client).current(session, "req_test", true).block();
+
+		assertThat(touched.idleExpiresAt()).isEqualTo(NOW.plusSeconds(1_800));
+		assertThat(session.getMaxIdleTime()).isEqualTo(Duration.ofSeconds(1_800));
+		verify(client).touch("grant-value", "req_test");
 	}
 
-	private static GatewayAuthProperties properties() {
+	@Test
+	void authenticatedActivityKeepsFixedIdleDeadlineWhenRefreshIsDisabled() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		AuthSessionState initial = new AuthSessionState(
+				user(), "grant-value", "old-access-token", NOW.plusSeconds(120),
+				NOW.plusSeconds(600), NOW.plusSeconds(3_600));
+		session.getAttributes().put(GatewayAuthenticationService.SESSION_STATE, initial);
+
+		AuthSessionState current = service(client, properties(false)).current(session, "req_test", true).block();
+
+		assertThat(current).isSameAs(initial);
+		assertThat(session.getMaxIdleTime()).isEqualTo(Duration.ofSeconds(600));
+		verify(client, never()).touch("grant-value", "req_test");
+		verify(client, never()).exchange("grant-value", "req_test");
+	}
+
+	@Test
+	void reachingIdleDeadlineInvalidatesSessionWithoutCallingUpstream() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		session.getAttributes().put(
+				GatewayAuthenticationService.SESSION_STATE,
+				new AuthSessionState(
+						user(), "grant-value", "old-access-token", NOW.plusSeconds(120),
+						NOW, NOW.plusSeconds(3_600)));
+
+		assertThatThrownBy(() -> service(client).current(session, "req_test", true).block())
+				.isInstanceOfSatisfying(ApiProblemException.class,
+						error -> assertThat(error.code()).isEqualTo("UNAUTHENTICATED"));
+		assertThat(session.getAttributes()).isEmpty();
+		verify(client, never()).touch("grant-value", "req_test");
+		verify(client, never()).exchange("grant-value", "req_test");
+	}
+
+	@Test
+	void authenticatedActivityCapsIdleAtAbsoluteDeadline() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		AuthSessionState initial = new AuthSessionState(
+				user(), "grant-value", "old-access-token", NOW.plusSeconds(120),
+				NOW.plusSeconds(300), NOW.plusSeconds(600));
+		session.getAttributes().put(GatewayAuthenticationService.SESSION_STATE, initial);
+		UserServiceClient.SessionTouchResult capped = new UserServiceClient.SessionTouchResult(
+				LocalDateTime.ofInstant(NOW.plusSeconds(600), ZoneOffset.UTC),
+				LocalDateTime.ofInstant(NOW.plusSeconds(600), ZoneOffset.UTC),
+				1_800, 3_600, true);
+		when(client.touch("grant-value", "req_test")).thenReturn(Mono.just(capped));
+
+		AuthSessionState touched = service(client).current(session, "req_test", true).block();
+
+		assertThat(touched.idleExpiresAt()).isEqualTo(NOW.plusSeconds(600));
+		assertThat(session.getMaxIdleTime()).isEqualTo(Duration.ofSeconds(600));
+	}
+
+	@Test
+	void mismatchedUserServiceSessionConfigurationFailsClosed() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		session.getAttributes().put(
+				GatewayAuthenticationService.SESSION_STATE, state(NOW.plusSeconds(120)));
+		UserServiceClient.SessionTouchResult mismatched = new UserServiceClient.SessionTouchResult(
+				LocalDateTime.ofInstant(NOW.plusSeconds(1_800), ZoneOffset.UTC),
+				LocalDateTime.ofInstant(NOW.plusSeconds(3_600), ZoneOffset.UTC),
+				900, 3_600, true);
+		when(client.touch("grant-value", "req_test")).thenReturn(Mono.just(mismatched));
+
+		assertThatThrownBy(() -> service(client).current(session, "req_test", true).block())
+				.isInstanceOfSatisfying(ApiProblemException.class,
+						error -> assertThat(error.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+	}
+
+	private static GatewayAuthenticationService service(UserServiceClient client) {
+		return service(client, properties(true));
+	}
+
+	private static GatewayAuthenticationService service(
+			UserServiceClient client, GatewayAuthProperties properties) {
+		return new GatewayAuthenticationService(client, properties, Clock.fixed(NOW, ZoneOffset.UTC));
+	}
+
+	private static GatewayAuthProperties properties(boolean refreshIdle) {
 		return new GatewayAuthProperties(
-				URI.create("http://localhost:8081"), Duration.ofSeconds(5), Duration.ofHours(12),
+				URI.create("http://localhost:8081"), Duration.ofSeconds(5), 1_800, 3_600,
+				Boolean.toString(refreshIdle),
 				Duration.ofSeconds(15), List.of("http://localhost:5173"), 10);
 	}
 
 	private static AuthSessionState state(Instant tokenExpiry) {
-		return new AuthSessionState(user(), "grant-value", "old-access-token", tokenExpiry, NOW.plusSeconds(3_600));
+		return new AuthSessionState(
+				user(), "grant-value", "old-access-token", tokenExpiry,
+				NOW.plusSeconds(1_800), NOW.plusSeconds(3_600));
 	}
 
 	private static UserServiceClient.TokenExchangeResult exchangeResult() {
 		return new UserServiceClient.TokenExchangeResult(
 				internalUser(), "fresh-access-token", NOW.plusSeconds(120),
 				LocalDateTime.ofInstant(NOW.plusSeconds(1_800), ZoneOffset.UTC),
-				LocalDateTime.ofInstant(NOW.plusSeconds(3_600), ZoneOffset.UTC));
+				LocalDateTime.ofInstant(NOW.plusSeconds(3_600), ZoneOffset.UTC),
+				1_800, 3_600, true);
+	}
+
+	private static UserServiceClient.SessionTouchResult touchResult(boolean refreshIdle) {
+		return new UserServiceClient.SessionTouchResult(
+				LocalDateTime.ofInstant(NOW.plusSeconds(1_800), ZoneOffset.UTC),
+				LocalDateTime.ofInstant(NOW.plusSeconds(3_600), ZoneOffset.UTC),
+				1_800, 3_600, refreshIdle);
 	}
 
 	private static UserAccountData user() {

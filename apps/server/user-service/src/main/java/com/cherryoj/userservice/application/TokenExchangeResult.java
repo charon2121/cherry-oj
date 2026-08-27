@@ -8,5 +8,8 @@ public record TokenExchangeResult(
         String accessToken,
         Instant accessTokenExpiresAt,
         LocalDateTime sessionIdleExpiresAt,
-        LocalDateTime sessionAbsoluteExpiresAt) {
+        LocalDateTime sessionAbsoluteExpiresAt,
+        long sessionIdleTimeoutSeconds,
+        long sessionAbsoluteTimeoutSeconds,
+        boolean sessionRefreshIdleOnActivity) {
 }

@@ -36,6 +36,13 @@ final class UserServiceClient {
 				.bodyValue(new LoginGrantRequest(loginGrant)), TokenExchangeResult.class);
 	}
 
+	Mono<SessionTouchResult> touch(String loginGrant, String requestId) {
+		return response(client.post()
+				.uri("/internal/auth/touch")
+				.header("X-Request-Id", requestId)
+				.bodyValue(new LoginGrantRequest(loginGrant)), SessionTouchResult.class);
+	}
+
 	Mono<Void> revoke(String loginGrant, String requestId) {
 		return noContent(client.post()
 				.uri("/internal/auth/revoke")
@@ -156,7 +163,10 @@ final class UserServiceClient {
 			String accessToken,
 			Instant accessTokenExpiresAt,
 			LocalDateTime sessionIdleExpiresAt,
-			LocalDateTime sessionAbsoluteExpiresAt) {
+			LocalDateTime sessionAbsoluteExpiresAt,
+			long sessionIdleTimeoutSeconds,
+			long sessionAbsoluteTimeoutSeconds,
+			boolean sessionRefreshIdleOnActivity) {
 	}
 
 	record TokenExchangeResult(
@@ -164,7 +174,18 @@ final class UserServiceClient {
 			String accessToken,
 			Instant accessTokenExpiresAt,
 			LocalDateTime sessionIdleExpiresAt,
-			LocalDateTime sessionAbsoluteExpiresAt) {
+			LocalDateTime sessionAbsoluteExpiresAt,
+			long sessionIdleTimeoutSeconds,
+			long sessionAbsoluteTimeoutSeconds,
+			boolean sessionRefreshIdleOnActivity) {
+	}
+
+	record SessionTouchResult(
+			LocalDateTime sessionIdleExpiresAt,
+			LocalDateTime sessionAbsoluteExpiresAt,
+			long sessionIdleTimeoutSeconds,
+			long sessionAbsoluteTimeoutSeconds,
+			boolean sessionRefreshIdleOnActivity) {
 	}
 
 	record CreatedUser(InternalUser user, String temporaryPassword) {

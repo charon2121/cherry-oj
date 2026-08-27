@@ -2,6 +2,7 @@ package com.cherryoj.userservice.api;
 
 import com.cherryoj.userservice.application.AuthenticationResult;
 import com.cherryoj.userservice.application.AuthenticationService;
+import com.cherryoj.userservice.application.SessionTouchResult;
 import com.cherryoj.userservice.application.TokenExchangeResult;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -34,6 +35,11 @@ public class AuthController {
     @PostMapping("/auth/token")
     TokenExchangeResult exchange(@Valid @RequestBody LoginGrantRequest request) {
         return authentication.exchange(request.loginGrant());
+    }
+
+    @PostMapping("/auth/touch")
+    SessionTouchResult touch(@Valid @RequestBody LoginGrantRequest request) {
+        return authentication.touch(request.loginGrant());
     }
 
     @PostMapping("/auth/revoke")

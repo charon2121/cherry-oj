@@ -25,6 +25,7 @@ public interface LoginSessionMapper {
             @Param("id") String id,
             @Param("now") LocalDateTime now,
             @Param("idleExpiresAt") LocalDateTime idleExpiresAt,
+            @Param("refreshIdle") boolean refreshIdle,
             @Param("expectedRowVersion") long expectedRowVersion);
 
     int revokeCurrent(
