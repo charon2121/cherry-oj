@@ -264,7 +264,7 @@ Kafka 只传递推进流程所需的标识符和有大小上限的小型结果�
 
 ## 8. 提交判题可靠性模型
 
-完整交互设计见 [submission-judging-chain.html](./submission-judging-chain.html)。核心边界如下：
+完整流程与系统边界见 [`architecture.md` §6「正式提交流程」](./architecture.md#6-正式提交流程)。核心边界如下：
 
 1. submission-service 向 problem-service 读取当前不可变 ProblemJudgeSnapshot；失败不创建提交。
 2. submission-service 向 judging-service 解析匹配的 ExecutionProfile；数据未部署或缺少有效标定时不

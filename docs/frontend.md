@@ -101,9 +101,8 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - **Storybook + `@storybook/addon-a11y`**：共享组件在 `cherry-black` 和 `pure-white` 中覆盖 focus、
   pressed、disabled、loading、error、320px 与长中文等状态，并作为组件测试、可访问性检查和后续视觉
   回归的入口。
-- 视觉参考见 [`design-system/components.html`](./design-system/components.html)；历史
-  [`ui-system.html`](./ui-system.html) 只作兼容入口，前端架构总览仍见
-  [`frontend-architecture.html`](./frontend-architecture.html)。HTML 和 Storybook 都不反向定义 token。
+- 视觉参考见 [`design-system/components.html`](./design-system/components.html)；前端架构与工程规则以
+  本文为准。HTML 和 Storybook 都不反向定义 token。
 
 > **运行时待迁移：** 当前 `apps/web/src/styles/globals.css` 仍使用旧的浅色 `:root` / `.dark` 合同，
 > 尚未实现上述默认主题、theme resolver、偏好持久化或首屏防闪。迁移必须另建 TASK；设计文档发布不

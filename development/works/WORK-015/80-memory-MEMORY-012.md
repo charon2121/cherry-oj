@@ -74,8 +74,9 @@ Lucide Trash2、明确危险动词和确认 dialog 是颜色之外的必要编�
 默认黑色、pure-white、resolver、持久化或首屏防闪；这是后续迁移任务，不影响本文档包成为未来设计
 基线。旧蓝紫文档真源已收敛，但当前产品界面不能宣称已经上线新主题。
 
-`development/roles/` 这一既有未跟踪目录仍会阻断真实根目录的 work 校验；本 WORK 在不含该目录的
-隔离 root 通过。既有 `docs/diagrams/judge-environment-model.drawio` 删除也必须继续排除在本工作外。
+发布提交曾误收录 `development/roles/`，导致真实根目录的 work 校验失败；WORK-016 已删除这两份没有
+消费者和 Schema 的角色说明，且未放宽开发文档目录规则。`docs/diagrams/judge-environment-model.drawio`
+的删除仍是 TASK-021 之外的独立变更，不构成设计系统决定。
 
 ## 重新考虑条件
 

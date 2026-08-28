@@ -16,8 +16,8 @@
 4. [`tokens.css`](./design-system/tokens.css)、[`design-tokens.json`](./design-system/design-tokens.json) 与
    HTML 参考均为生成或展示产物，不得手工建立另一套值。
 
-包的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)。历史链接
-[`ui-system.html`](./ui-system.html) 仅作兼容入口，不再承担视觉合同。
+包的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)。旧 UI 静态页已由
+本文和 [`components.html`](./design-system/components.html) 取代，不再保留兼容入口。
 
 ## 2. 设计方向
 

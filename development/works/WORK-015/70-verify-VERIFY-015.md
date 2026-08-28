@@ -79,11 +79,13 @@ git diff --check
 ### 格式、链接、来源与许可
 
 - `JSON.parse` 实际解析 5 个设计系统 JSON 与 `development/index.json`，通过。
-- Python `html.parser` 实际检查 `components.html`、四个 preview 和兼容入口：6 个文件均只有一个
-  `main`，无重复 id、缺失 fragment 或 ARIA reference。
-- `scripts/docs_test.py` 通过 current-files 只读 Git shim 运行，输出
-  `✓ 152 份 Markdown 文档入口和本地链接有效`；shim 只为让尚未进入真实 Git index 的本任务文件和
-  既有 `development/roles/` 可参与链接检查，没有改动真实 index。
+- Python `html.parser` 复查当前 `components.html` 和四个 preview：5 个文件均只有一个 `main`，无重复
+  id、缺失 fragment 或 ARIA reference；已删除的旧兼容页不计入当前交付。
+- TASK-021 实施期的 `scripts/docs_test.py` 曾通过 current-files 只读 Git shim 运行，输出
+  `✓ 152 份 Markdown 文档入口和本地链接有效`；后续发布提交误收录 `development/roles/`，并在删除旧
+  HTML 后遗漏 5 个引用，已由 WORK-016 作为独立 CI 修复处理。
+- WORK-016 将实际修复内容加入 Git index 后直接运行 `scripts/docs_test.py`，输出
+  `✓ 156 份 Markdown 文档入口和本地链接有效`，不再依赖 shim。
 - OpenDesign `tokens.css`、`DESIGN.md`、源 LICENSE 的 SHA-256 分别为
   `9f99cf1b…d022e`、`4c7264d8…f8fb7`、`9d95806a…b2b0da`；包内 Apache 副本与源 LICENSE 相同。
   Lucide 1.33.0 LICENSE 与包内副本均为 `b495047b…329c57`。
@@ -121,11 +123,11 @@ danger soft card 子文本四类 allowedOn 漏洞；修复后 reviewer 复查无
 
 `git status` 与路径扫描确认本任务只改 `CLAUDE.md`、批准的 `docs/` 入口、`docs/design-system*` 和
 WORK-015/索引元数据；`apps/web`、服务端、判题引擎、contracts 和 WORK-001～014 均无本任务改动。
-工作区原有 `docs/diagrams/judge-environment-model.drawio` 删除和未跟踪 `development/roles/` 保持原样，
-不计入本任务。
+工作区原有 `docs/diagrams/judge-environment-model.drawio` 删除和当时未跟踪的 `development/roles/` 保持
+原样，不计入 TASK-021；后者被发布提交误收录后的清理由 WORK-016 单独追踪。
 
-真实根目录运行 `scripts/work check` 仍只因既有 `development/roles/` 违反 development 顶层 allowlist
-而失败；将 WORK-015 同步到不含该目录的 `/private/tmp/cherry-design-work.4igpGR` 后，work check 通过。
+WORK-016 删除无消费者的角色文件并修正旧 HTML 引用后，真实根目录运行 `scripts/work check` 已通过：
+`✓ 123 份开发文档通过校验（0 个进行中提示）`。
 
 ## 遗留问题
 
@@ -137,7 +139,7 @@ WORK-015/索引元数据；`apps/web`、服务端、判题引擎、contracts 和
 实现已经通过自动、负向、浏览器和独立 reviewer 检查，但 VERIFY 仍提交人工复核，不能由执行者把
 自己的结果直接签成 `approved/pass`。剩余工程风险是后续 Web 迁移时绕开本合同，或在新组件 CSS
 级联中覆盖已验证的 foreground/surface 配对；必须复用本包 check、双主题 Storybook/浏览器矩阵和
-组件 manifest。既有 `development/roles/` 仍会阻断真实根目录 work check。
+组件 manifest。
 
 ## 结论
 
@@ -147,3 +149,4 @@ TASK-021 的实现检查通过，提交人工验证。当前 VERIFY 保持 `resu
 ## 变更记录
 
 - 2026-08-27：状态变更：draft → review。原因：自动、负向、浏览器和独立复核证据已记录，提交用户人工验证
+- 2026-08-28：WORK-016 清理发布提交误收录文件与失效链接，真实根目录 work check 恢复通过。
