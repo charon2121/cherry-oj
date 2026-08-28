@@ -82,6 +82,75 @@ test('opens an anonymous application shell without protected-content flash', asy
   await expect(page.getByRole('link', { name: '登录' })).toBeVisible();
   await expect(page.getByRole('link', { name: '用户管理' })).toHaveCount(0);
   await expect(page.getByText('REST API 已连通')).toBeVisible();
+  const footer = page.getByRole('contentinfo');
+  await expect(footer).toContainText('Focused Workspace');
+  const userShellSurfaces = await page.evaluate(() => {
+    const main = document.querySelector('main');
+    const contentInfo = document.querySelector('footer');
+    if (main === null || contentInfo === null) throw new Error('User shell landmarks are missing.');
+    const mainStyle = getComputedStyle(main);
+    const footerStyle = getComputedStyle(contentInfo);
+    return {
+      footerBackground: footerStyle.backgroundColor,
+      footerBorderTopWidth: footerStyle.borderTopWidth,
+      footerBoxShadow: footerStyle.boxShadow,
+      footerBottom: contentInfo.getBoundingClientRect().bottom,
+      mainBackground: mainStyle.backgroundColor,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(userShellSurfaces.footerBackground).toBe(userShellSurfaces.mainBackground);
+  expect(userShellSurfaces.footerBorderTopWidth).toBe('0px');
+  expect(userShellSurfaces.footerBoxShadow).toBe('none');
+  expect(
+    Math.abs(userShellSurfaces.footerBottom - userShellSurfaces.viewportHeight),
+  ).toBeLessThanOrEqual(1);
+});
+
+test('renders the same empty admin dashboard at both requested routes', async ({ page }) => {
+  const admin = account({ username: 'root-admin', role: 'ADMIN' });
+  const requestedApiPaths: string[] = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith('/api/')) requestedApiPaths.push(url.pathname);
+  });
+  await mockSession(page, () => ({ authenticated: true, user: admin }));
+
+  for (const path of ['/admin', '/admin/dashborad']) {
+    await page.goto(path);
+    await expect(page).toHaveURL(path);
+    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    await expect(page.getByRole('navigation', { name: '管理侧栏导航' })).toBeVisible();
+    await expect(page.getByRole('contentinfo')).toHaveCount(0);
+
+    const adminShellGeometry = await page.evaluate(() => {
+      const main = document.querySelector('#admin-main');
+      if (main === null) throw new Error('Admin shell main is missing.');
+      const contentRegion = main.parentElement;
+      if (contentRegion === null) throw new Error('Admin shell content region is missing.');
+      const shell = contentRegion.parentElement;
+      if (shell === null) throw new Error('Admin shell root is missing.');
+      return {
+        contentBottom: contentRegion.getBoundingClientRect().bottom,
+        shellBottom: shell.getBoundingClientRect().bottom,
+        templateRows: getComputedStyle(shell).gridTemplateRows.split(' ').length,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(adminShellGeometry.templateRows).toBe(2);
+    expect(
+      Math.abs(adminShellGeometry.contentBottom - adminShellGeometry.viewportHeight),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(adminShellGeometry.shellBottom - adminShellGeometry.viewportHeight),
+    ).toBeLessThanOrEqual(1);
+  }
+
+  expect(requestedApiPaths).toEqual(['/api/auth/session', '/api/auth/session']);
 });
 
 test('recovers from rate limiting, prevents duplicate login, and keeps secrets out of browser storage', async ({
@@ -229,8 +298,23 @@ test('lets an admin manage users and reveals a temporary password only once', as
 
   await page.goto('/admin/users?page=1');
   await expect(page.getByRole('heading', { name: '用户账号' })).toBeVisible();
+  await expect(page.getByRole('contentinfo')).toHaveCount(0);
   await expect(page.getByText('○ 已停用')).toBeVisible();
   await expect(page.getByRole('heading', { name: '用户账号' })).toBeInViewport();
+  const navigationTrigger = page.getByRole('button', { name: '打开管理导航' });
+  await navigationTrigger.click();
+  const mobileNavigation = page.getByRole('navigation', { name: '移动管理导航' });
+  await expect(mobileNavigation).toBeVisible();
+  await expect(mobileNavigation.getByRole('button', { name: '账号管理' })).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await expect(mobileNavigation.getByRole('link', { name: '用户账号' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await page.getByRole('button', { name: '关闭管理导航' }).click();
+  await expect(navigationTrigger).toBeFocused();
 
   const disabledRow = page.getByRole('row').filter({ hasText: 'disabled-user' });
   page.once('dialog', (dialog) => dialog.accept());

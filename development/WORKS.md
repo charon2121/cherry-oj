@@ -24,3 +24,5 @@
 | WORK-017 | 建立 Web 设计系统代码基建 | 基础能力 | 已取消 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-017/00-work.md) |
 | WORK-018 | 解除 Web 对设计系统文档目录的依赖 | 整理维护 | 实现完成 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-018/00-work.md) |
 | WORK-019 | 设计 Cherry OJ 任务入口主页 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-019/00-work.md) |
+| WORK-020 | 搭建用户端与管理端应用布局 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-020/00-work.md) |
+| WORK-022 | 微调双端应用布局页脚 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-022/00-work.md) |

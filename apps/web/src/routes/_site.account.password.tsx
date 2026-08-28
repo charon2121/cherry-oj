@@ -14,7 +14,7 @@ import { authErrorMessage } from '@/features/auth/lib/auth-error-message';
 import { requireUser } from '@/features/auth/lib/route-guards';
 import { ApiError } from '@/lib/api/api-client';
 
-export const Route = createFileRoute('/account/password')({
+export const Route = createFileRoute('/_site/account/password')({
   beforeLoad: ({ context }) => requireUser(context.queryClient, '/account/password'),
   component: ChangePasswordPage,
 });

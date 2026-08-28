@@ -14,7 +14,7 @@ import { PasswordField } from '@/features/auth/components/password-field';
 import { authErrorMessage } from '@/features/auth/lib/auth-error-message';
 import { safeReturnPath } from '@/features/auth/lib/safe-return-path';
 
-export const Route = createFileRoute('/login')({
+export const Route = createFileRoute('/_site/login')({
   validateSearch: (search: Record<string, unknown>) => ({
     returnTo: safeReturnPath(search.returnTo),
   }),
@@ -48,8 +48,8 @@ function LoginPage() {
   });
 
   return (
-    <Container>
-      <Section className="grid min-h-[calc(100svh-3rem)] place-items-center py-12">
+    <Container className="h-full">
+      <Section className="grid min-h-full place-items-center py-12">
         <Card variant="raised" className="w-full max-w-sm p-6">
           <Stack gap={2}>
             <Text size="sm" tone="muted">

@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { Check, Copy, KeyRound, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/ui/card';
 import { Field, Input } from '@/components/ui/field';
 import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
-import { linkVariants } from '@/components/ui/link';
 import { CodeText, Heading, Text } from '@/components/ui/typography';
 import {
   adminUserKeys,
@@ -21,7 +20,6 @@ import {
 import { authKeys } from '@/features/auth/api/session-query';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
 import { authErrorMessage } from '@/features/auth/lib/auth-error-message';
-import { requireAdmin } from '@/features/auth/lib/route-guards';
 import type { UserAccountData } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 
@@ -34,7 +32,6 @@ export const Route = createFileRoute('/admin/users')({
         ? search.page
         : 1,
   }),
-  beforeLoad: ({ context, location }) => requireAdmin(context.queryClient, location.href),
   component: AdminUsersPage,
 });
 
@@ -307,9 +304,6 @@ function AdminUsersPage() {
             </Cluster>
           </nav>
         ) : null}
-        <Link to="/" className={linkVariants({ size: 'standalone', className: 'mt-8 text-sm' })}>
-          返回首页
-        </Link>
       </Section>
     </Container>
   );

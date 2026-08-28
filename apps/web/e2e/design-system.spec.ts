@@ -224,6 +224,8 @@ test('forced colors keeps keyboard navigation and theme metadata usable', async 
 
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
 
   const loginLink = page.getByRole('link', { name: '登录' });
   await expect(loginLink).toBeFocused();
@@ -308,8 +310,28 @@ for (const theme of themeRegistry) {
     await page.goto('/');
 
     await expectTheme(page, theme.id);
-    await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
+    const navigationTrigger = page.getByRole('button', { name: '打开主导航' });
+    await expect(navigationTrigger).toBeVisible();
+    await navigationTrigger.click();
+    await expect(page.getByRole('navigation', { name: '移动主导航' })).toBeVisible();
+    await page.getByRole('button', { name: '关闭主导航' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toBeInViewport();
+    const shellSurfaces = await page.evaluate(() => {
+      const main = document.querySelector('main');
+      const footer = document.querySelector('footer');
+      if (main === null || footer === null) throw new Error('User shell landmarks are missing.');
+      const mainStyle = getComputedStyle(main);
+      const footerStyle = getComputedStyle(footer);
+      return {
+        footerBackground: footerStyle.backgroundColor,
+        footerBorderTopWidth: footerStyle.borderTopWidth,
+        footerBoxShadow: footerStyle.boxShadow,
+        mainBackground: mainStyle.backgroundColor,
+      };
+    });
+    expect(shellSurfaces.footerBackground).toBe(shellSurfaces.mainBackground);
+    expect(shellSurfaces.footerBorderTopWidth).toBe('0px');
+    expect(shellSurfaces.footerBoxShadow).toBe('none');
     const horizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );

@@ -9,129 +9,231 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as ForbiddenRouteImport } from './routes/forbidden'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as AccountPasswordRouteImport } from './routes/account.password'
+import { Route as SiteRouteImport } from './routes/_site'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as SiteIndexRouteImport } from './routes/_site.index'
+import { Route as SiteForbiddenRouteImport } from './routes/_site.forbidden'
+import { Route as SiteLoginRouteImport } from './routes/_site.login'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminDashboradRouteImport } from './routes/admin.dashborad'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as SiteAccountPasswordRouteImport } from './routes/_site.account.password'
 
-const IndexRoute = IndexRouteImport.update({
+const SiteRoute = SiteRouteImport.update({
+  id: '/_site',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SiteIndexRoute = SiteIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => SiteRoute,
 } as any)
-const ForbiddenRoute = ForbiddenRouteImport.update({
+const SiteForbiddenRoute = SiteForbiddenRouteImport.update({
   id: '/forbidden',
   path: '/forbidden',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => SiteRoute,
 } as any)
-const LoginRoute = LoginRouteImport.update({
+const SiteLoginRoute = SiteLoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => SiteRoute,
 } as any)
-const AccountPasswordRoute = AccountPasswordRouteImport.update({
-  id: '/account/password',
-  path: '/account/password',
-  getParentRoute: () => rootRouteImport,
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDashboradRoute = AdminDashboradRouteImport.update({
+  id: '/dashborad',
+  path: '/dashborad',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/admin/users',
-  path: '/admin/users',
-  getParentRoute: () => rootRouteImport,
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const SiteAccountPasswordRoute = SiteAccountPasswordRouteImport.update({
+  id: '/account/password',
+  path: '/account/password',
+  getParentRoute: () => SiteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/forbidden': typeof ForbiddenRoute
-  '/login': typeof LoginRoute
-  '/account/password': typeof AccountPasswordRoute
+  '/': typeof SiteIndexRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/forbidden': typeof SiteForbiddenRoute
+  '/login': typeof SiteLoginRoute
+  '/admin/dashborad': typeof AdminDashboradRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/': typeof AdminIndexRoute
+  '/account/password': typeof SiteAccountPasswordRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/forbidden': typeof ForbiddenRoute
-  '/login': typeof LoginRoute
-  '/account/password': typeof AccountPasswordRoute
+  '/forbidden': typeof SiteForbiddenRoute
+  '/login': typeof SiteLoginRoute
+  '/admin/dashborad': typeof AdminDashboradRoute
   '/admin/users': typeof AdminUsersRoute
+  '/': typeof SiteIndexRoute
+  '/admin': typeof AdminIndexRoute
+  '/account/password': typeof SiteAccountPasswordRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/forbidden': typeof ForbiddenRoute
-  '/login': typeof LoginRoute
-  '/account/password': typeof AccountPasswordRoute
+  '/_site': typeof SiteRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
+  '/_site/forbidden': typeof SiteForbiddenRoute
+  '/_site/login': typeof SiteLoginRoute
+  '/admin/dashborad': typeof AdminDashboradRoute
   '/admin/users': typeof AdminUsersRoute
+  '/_site/': typeof SiteIndexRoute
+  '/admin/': typeof AdminIndexRoute
+  '/_site/account/password': typeof SiteAccountPasswordRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/forbidden' | '/login' | '/account/password' | '/admin/users'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/forbidden' | '/login' | '/account/password' | '/admin/users'
-  id:
-    | '__root__'
     | '/'
+    | '/admin'
     | '/forbidden'
     | '/login'
-    | '/account/password'
+    | '/admin/dashborad'
     | '/admin/users'
+    | '/admin/'
+    | '/account/password'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/forbidden'
+    | '/login'
+    | '/admin/dashborad'
+    | '/admin/users'
+    | '/'
+    | '/admin'
+    | '/account/password'
+  id:
+    | '__root__'
+    | '/_site'
+    | '/admin'
+    | '/_site/forbidden'
+    | '/_site/login'
+    | '/admin/dashborad'
+    | '/admin/users'
+    | '/_site/'
+    | '/admin/'
+    | '/_site/account/password'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  ForbiddenRoute: typeof ForbiddenRoute
-  LoginRoute: typeof LoginRoute
-  AccountPasswordRoute: typeof AccountPasswordRoute
-  AdminUsersRoute: typeof AdminUsersRoute
+  SiteRoute: typeof SiteRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_site': {
+      id: '/_site'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof SiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_site/': {
+      id: '/_site/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof SiteIndexRouteImport
+      parentRoute: typeof SiteRoute
     }
-    '/forbidden': {
-      id: '/forbidden'
+    '/_site/forbidden': {
+      id: '/_site/forbidden'
       path: '/forbidden'
       fullPath: '/forbidden'
-      preLoaderRoute: typeof ForbiddenRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof SiteForbiddenRouteImport
+      parentRoute: typeof SiteRoute
     }
-    '/login': {
-      id: '/login'
+    '/_site/login': {
+      id: '/_site/login'
       path: '/login'
       fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof SiteLoginRouteImport
+      parentRoute: typeof SiteRoute
     }
-    '/account/password': {
-      id: '/account/password'
-      path: '/account/password'
-      fullPath: '/account/password'
-      preLoaderRoute: typeof AccountPasswordRouteImport
-      parentRoute: typeof rootRouteImport
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/dashborad': {
+      id: '/admin/dashborad'
+      path: '/dashborad'
+      fullPath: '/admin/dashborad'
+      preLoaderRoute: typeof AdminDashboradRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/admin/users': {
       id: '/admin/users'
-      path: '/admin/users'
+      path: '/users'
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/_site/account/password': {
+      id: '/_site/account/password'
+      path: '/account/password'
+      fullPath: '/account/password'
+      preLoaderRoute: typeof SiteAccountPasswordRouteImport
+      parentRoute: typeof SiteRoute
     }
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  ForbiddenRoute: ForbiddenRoute,
-  LoginRoute: LoginRoute,
-  AccountPasswordRoute: AccountPasswordRoute,
+interface SiteRouteChildren {
+  SiteForbiddenRoute: typeof SiteForbiddenRoute
+  SiteLoginRoute: typeof SiteLoginRoute
+  SiteIndexRoute: typeof SiteIndexRoute
+  SiteAccountPasswordRoute: typeof SiteAccountPasswordRoute
+}
+
+const SiteRouteChildren: SiteRouteChildren = {
+  SiteForbiddenRoute: SiteForbiddenRoute,
+  SiteLoginRoute: SiteLoginRoute,
+  SiteIndexRoute: SiteIndexRoute,
+  SiteAccountPasswordRoute: SiteAccountPasswordRoute,
+}
+
+const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
+
+interface AdminRouteChildren {
+  AdminDashboradRoute: typeof AdminDashboradRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDashboradRoute: AdminDashboradRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  SiteRoute: SiteRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

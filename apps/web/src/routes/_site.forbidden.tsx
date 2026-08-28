@@ -4,7 +4,7 @@ import { Container } from '@/components/ui/layout';
 import { linkVariants } from '@/components/ui/link';
 import { Heading, Text } from '@/components/ui/typography';
 
-export const Route = createFileRoute('/forbidden')({ component: ForbiddenPage });
+export const Route = createFileRoute('/_site/forbidden')({ component: ForbiddenPage });
 
 function ForbiddenPage() {
   return (

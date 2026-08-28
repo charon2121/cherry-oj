@@ -7,7 +7,7 @@ import { Heading, Text } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { SystemStatusPanel } from '@/features/system-status/components/system-status-panel';
 
-export const Route = createFileRoute('/')({
+export const Route = createFileRoute('/_site/')({
   component: HomePage,
 });
 
