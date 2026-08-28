@@ -1,0 +1,83 @@
+/*
+ * Modified for Cherry OJ on 2026-08-27.
+ * Cherry-designed light extension of the OpenDesign linear-app structure.
+ * Changes: complete pure-white semantic mapping with accessible Cherry brand
+ * and OJ status colors; this is not an upstream Linear theme.
+ * See ../NOTICE.md and ../LICENSE.open-design.
+ */
+
+:root[data-theme="pure-white"] {
+  color-scheme: light;
+
+  /* Neutral surfaces */
+  --ds-canvas: #ffffff;
+  --ds-panel: #f7f8f8;
+  --ds-surface: #ffffff;
+  --ds-surface-subtle: #f5f6f7;
+  --ds-surface-raised: #ffffff;
+  --ds-surface-hover: #f3f4f5;
+
+  /* Foreground */
+  --ds-fg: #191a1b;
+  --ds-fg-2: #34343a;
+  --ds-fg-muted: #62666d;
+  --ds-fg-meta: #676b73;
+  --ds-fg-disabled: #676b73;
+
+  /* Decorative and necessary boundaries */
+  --ds-border-soft: #e6e6e6;
+  --ds-border: #d0d6e0;
+  --ds-border-strong: #80848d;
+
+  /* Cherry brand and interaction */
+  --ds-brand-surface: #de1c4e;
+  --ds-brand-surface-hover: #d7194b;
+  --ds-brand-surface-active: #c01242;
+  --ds-on-brand: #ffffff;
+  --ds-brand-foreground: #c01242;
+  --ds-brand-foreground-hover: #a70f38;
+  --ds-brand-soft: #fce7ed;
+  --ds-on-brand-soft: #c01242;
+  --ds-link: var(--ds-brand-foreground);
+  --ds-link-hover: var(--ds-brand-foreground-hover);
+  --ds-focus: var(--ds-brand-foreground);
+  --ds-selection-surface: var(--ds-brand-soft);
+  --ds-selection-foreground: var(--ds-fg);
+
+  /* OJ status: text/necessary border, soft surface, solid, on-solid */
+  --ds-success-foreground: #087c2f;
+  --ds-success-surface: #ecfdf3;
+  --ds-success-border: var(--ds-success-foreground);
+  --ds-success-solid: #087c2f;
+  --ds-success-on-solid: #ffffff;
+
+  --ds-warning-foreground: #8a5a00;
+  --ds-warning-surface: #fff8db;
+  --ds-warning-border: var(--ds-warning-foreground);
+  --ds-warning-solid: #eab308;
+  --ds-warning-on-solid: #08090a;
+
+  --ds-danger-foreground: #b42318;
+  --ds-danger-surface: #fef3f2;
+  --ds-danger-border: var(--ds-danger-foreground);
+  --ds-danger-solid: #b42318;
+  --ds-danger-on-solid: #ffffff;
+
+  --ds-info-foreground: #175cd3;
+  --ds-info-surface: #eff8ff;
+  --ds-info-border: var(--ds-info-foreground);
+  --ds-info-solid: #175cd3;
+  --ds-info-on-solid: #ffffff;
+
+  --ds-special-foreground: #6941c6;
+  --ds-special-surface: #f4f3ff;
+  --ds-special-border: var(--ds-special-foreground);
+  --ds-special-solid: #6941c6;
+  --ds-special-on-solid: #ffffff;
+
+  /* System and elevation */
+  --ds-overlay: rgba(8, 9, 10, 0.56);
+  --ds-elevation-flat: none;
+  --ds-elevation-ring: 0 0 0 1px var(--ds-border);
+  --ds-elevation-raised: 0 1px 2px rgba(8, 9, 10, 0.08), 0 8px 24px rgba(8, 9, 10, 0.08), 0 0 0 1px rgba(8, 9, 10, 0.08);
+}

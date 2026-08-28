@@ -7,17 +7,21 @@
 
 ## 1. 权威关系
 
-设计系统只有一条规范链，不能由截图、Storybook、HTML 示例或业务代码反向定义：
+设计意图与 Web 可执行资产分层持有，依赖方向不能倒置：
 
-1. 本文规定设计原则、消费规则、组件合同和例外流程；
-2. [`theme-contract.json`](./design-system/theme-contract.json) 规定每个主题必须实现的语义角色、允许组合与
-   对比类别；
-3. [`tokens.foundation.css`](./design-system/tokens.foundation.css) 和 manifest 登记的主题 CSS 是数值真源；
-4. [`tokens.css`](./design-system/tokens.css)、[`design-tokens.json`](./design-system/design-tokens.json) 与
-   HTML 参考均为生成或展示产物，不得手工建立另一套值。
+1. 本文规定设计原则、消费规则、组件合同和例外流程，`docs/design-system/` 保存供人阅读、评审与维护
+   设计说明的参考资产；
+2. [`theme-contract.json`](./design-system/theme-contract.json)、Foundation、主题 CSS、生成快照和 HTML
+   帮助人检查说明自身是否完整，但不是 Web 安装、开发、检查或构建的输入；
+3. `apps/web/design-system/` 是 Web 的可执行真源，持有运行所需的 Foundation、主题、manifest、合同、
+   Tailwind adapter、生成器、校验器、来源与许可证；
+4. 普通 Web CI 不比较、复制或链接代码树与文档树。只有真正修改设计系统时，才在同一 WORK/TASK 中
+   同步两侧，并分别通过代码检查与文档参考检查；
+5. 截图、Storybook、HTML 示例和业务页面都是评审或消费结果，不能反向定义设计合同。
 
-包的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)。旧 UI 静态页已由
-本文和 [`components.html`](./design-system/components.html) 取代，不再保留兼容入口。
+因此删除 `docs/design-system/` 不得影响 Web 的 `npm ci`、开发服务器、检查、生产构建、Storybook 或
+E2E。文档包自身的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)；旧
+UI 静态页已由本文和 [`components.html`](./design-system/components.html) 取代，不再保留兼容入口。
 
 ## 2. 设计方向
 
@@ -59,10 +63,11 @@ Cherry OJ 沿用 Linear fixture 的 Focused Workspace 结构：低噪声层级�
 
 新增主题是“实现同一合同”，不是在组件中增加模式：
 
-1. 新增一份完整 theme CSS，显式声明合同中的全部 required key；不得只覆盖相对默认主题的差值。
-2. 在 [`themes.manifest.json`](./design-system/themes.manifest.json) 登记稳定 id、label、color scheme、文件、
-   provenance 和版本。
-3. 运行包内 build/check，重新生成聚合 CSS 与机器快照，并通过全部允许 surface 的对比检查。
+1. 建立一个设计系统 WORK/TASK，并把代码侧与本文档包同时列入写入和验证范围。
+2. 在 `apps/web/design-system/` 新增完整 theme CSS，并在代码侧 manifest 登记稳定 id、label、color
+   scheme、文件、provenance 和版本；不得只覆盖相对默认主题的差值。
+3. 同步本文、[`themes.manifest.json`](./design-system/themes.manifest.json) 和相应参考资产，分别运行 Web
+   本地 build/check 与文档包 build/check；不使用日常 drift、prebuild copy 或 symlink 自动同步。
 4. 用同一组件矩阵验证桌面、320px、键盘、长中文和 reduced-motion。
 
 新增完整主题不应修改 Tailwind adapter、组件或页面。删除/改义合同字段、改变默认主题或改变组件默认行为
@@ -71,11 +76,13 @@ Cherry OJ 沿用 Linear fixture 的 Focused Workspace 结构：低噪声层级�
 ## 4. Token 消费规则
 
 Foundation token 与主题 token 分层：字体、字号、间距、圆角、布局和 motion 全主题共享；颜色、focus、
-selection、overlay、status 与 elevation 由每个主题完整实现。Canonical token 统一使用 `--ds-*`。
+selection、overlay、status 与 elevation 由每个主题完整实现。Token 统一使用 `--ds-*`；本文档包说明这些
+语义，Web 实际解析和校验 `apps/web/design-system/` 中的实现。
 
 组件和页面必须：
 
-- 只消费语义 token 或 [`tailwind-v4.css`](./design-system/tailwind-v4.css) 提供的稳定 alias；
+- 只消费代码侧设计系统提供的语义 token 或稳定 Tailwind alias；本文档中的
+  [`tailwind-v4.css`](./design-system/tailwind-v4.css) 仅供设计评审和同步维护参考；
 - 不写 raw hex/OKLCH，不读取 primitive palette，不出现主题 selector，也不按 theme id 分支；
 - 不用承担必要对比的动态 `color-mix()`；disabled/placeholder 使用专门 token，不再叠 opacity；
 - 只把 `border`/`border-soft` 当装饰分隔，控件或状态识别使用 `border-strong` 或对应 status border；
@@ -141,19 +148,22 @@ default、hover、pressed、focus-visible、disabled 和 loading；disabled 不�
 1. 先说明用户语义、允许 surface、对比类别和为什么现有 token 不能表达；
 2. 在 `development/` 建立或关联 WORK，评估两个主题、全部组件消费者和未来主题兼容性；
 3. 需要新增/改义合同、改变默认主题或组件默认行为时，先更新 DESIGN/DECISION 并获人工批准；
-4. 同步主题、adapter、manifest、生成物、组件参考和校验，不能只修调用处。
+4. 在同一 WORK/TASK 中同步 `apps/web/design-system/` 与本文档包的主题、adapter、manifest、生成物、
+   组件参考和各自校验，不能只修调用处，也不能给普通 CI 增加跨树复制或漂移门禁。
 
 紧急兼容代码也不得引入 raw color 或 theme-id 分支；确需临时例外时使用带 TASK 退出条件的 TODO，并在
 同一工作项记录移除计划。
 
 ## 9. 当前实现边界
 
-本设计系统已经作为文档包建立，但 `apps/web` 尚未迁移。现有 `globals.css` 的浅色 `:root`、`.dark`
-选择器、运行时 resolver、偏好持久化、首屏防闪、字体和既有组件不代表本规范已经上线。
+Web 已接入默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color scheme、首屏防闪、
+主题运行时、共享组件以及双主题 Storybook/Playwright。可执行资产与内部合同位于
+`apps/web/design-system/`；Web 的 install/check/dev/build/Storybook/E2E 不读取本目录，移除本文档包
+不会改变前端行为或质量门禁。`contracts/web-api.openapi.json` 的 OpenAPI 生成检查仍是 Web 明确保留的
+monorepo 契约依赖，不属于设计文档依赖。
 
-后续迁移必须另建 TASK，并至少完成：默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest
-派生 color scheme、首屏无闪烁、组件无 raw color/theme-id 分支、双主题 Storybook/Playwright 与可访问性
-验证。迁移完成前，不得在产品说明中宣称用户已可切换新主题。
+当前生产导航仍没有用户可见主题切换器。运行时支持主题不等于产品已经交付选择入口；新增入口必须另建
+产品 TASK，并完成文案、偏好与用户链路验收。
 
 ## 10. 评审清单
 
@@ -163,4 +173,5 @@ default、hover、pressed、focus-visible、disabled 和 loading；disabled 不�
 - 状态和 verdict 是否有文字、code、图标或形状等非颜色信息？
 - 是否覆盖键盘、320px、长中文、loading/error/disabled 和 reduced-motion？
 - 若引入新语义，是否已走例外流程并同步合同、主题、adapter、参考与校验？
-- 本次工作若涉及运行时，是否明确区分“设计系统已发布”和“Web 已完成迁移”？
+- 真实设计系统变更是否由同一 WORK/TASK 同步代码侧与设计说明，并分别验证两侧？
+- 普通 Web 命令是否仍完全不读取、复制或链接设计文档目录？

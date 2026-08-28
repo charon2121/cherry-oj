@@ -50,13 +50,17 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 提供无样式、可访问的交互基础能力，适合构建对话框、菜单等复杂组件。它解决键盘操作、焦点和 ARIA 行为，视觉样式仍由项目自己决定。
 
+Base UI 是当前唯一的交互 primitive 基线。设计系统不要求 Radix，项目也不同时维护 Base UI 与 Radix
+两套焦点、键盘和浮层实现；共享组件在 Base UI 之上应用 Cherry OJ 的语义 token 和有限 variant。
+
 ### `lucide-react`
 
 提供 React 图标组件。它用于表达搜索、关闭、状态提示等辅助语义；重要结论不能只靠图标或颜色传达。
 
-### `@fontsource-variable/geist`
+### `@fontsource-variable/inter`
 
-把 Geist 可变字体作为 npm 资源随静态站构建，避免运行时依赖外部字体 CDN。入口在 `src/styles/globals.css`。
+把设计系统规定的 Inter Variable 作为 npm 资源随静态站构建，避免运行时依赖外部字体 CDN。中文和
+等宽字体仍使用本地设计系统 Foundation 规定的回退链，仓库不复制未获授权的字体文件。
 
 ## 样式与组件拼装
 
@@ -71,6 +75,16 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 ### `shadcn`
 
 用于把 shadcn 组件源码和约定加入项目。它更像开发期脚手架，而不是运行时组件库；生成进仓库的组件由项目自己维护。
+
+### Web 本地设计系统代码包
+
+`design-system/` 是 Web 的可执行设计系统真源，持有 Foundation、主题源码、主题合同、manifest、
+`tokens.css`、Tailwind/shadcn adapter、本地 build/check、来源说明和许可证。`src/styles/globals.css`
+只导入这个 Web 根目录内的 `tokens.css` 与 `tailwind-v4.css`。
+
+安装、开发服务器、检查、生产构建、Storybook 与 E2E 都不读取仓库的设计说明目录；移除设计说明不会
+影响 Web。普通 CI 也不在代码包和设计说明之间做 drift、copy、prebuild 或 symlink。需要改变 token、
+theme contract、默认主题或 adapter 时，必须在同一 WORK/TASK 中同时更新代码与设计说明，并分别验证。
 
 ### `tw-animate-css`
 
@@ -102,6 +116,38 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 扫描 `src/routes/`，生成类型安全的路由树，并在构建时启用自动代码拆分。它生成的 `routeTree.gen.ts` 应提交，但不应手改。
 
+### 设计系统 manifest 生成器
+
+`scripts/generate-design-system.mjs` 读取 `design-system/themes.manifest.json`，校验默认/回退主题、
+theme id、color scheme 和主题文件，再生成：
+
+- `src/generated/design-system/themes.ts`：TypeScript 主题 metadata、`ThemeId`、默认/回退值和
+  `cherry-oj.theme` storage key；
+- `public/generated/theme-init.js`：在 React 之前执行的无依赖首屏初始化脚本。
+
+生成物只携带 manifest metadata，不复制 token 数值，禁止手改。`npm run generate:design-system` 更新
+文件，`npm run generate:design-system:check` 在临时目录重建并拒绝漂移。本地包本身由
+`node design-system/tools/build.mjs --check`、`node design-system/tools/check.mjs` 和
+`node design-system/tools/check.mjs --self-test` 校验。
+
+HTML 先声明 `cherry-black` / dark 的安全默认值。`theme-init.js` 从 `cherry-oj.theme` 读取显式偏好，
+缺失、空值、未知值或 storage 异常均回退黑色；`data-color-scheme` 只由 manifest metadata 派生。
+`src/lib/theme` 在 React 中复用同一生成 registry，负责 resolver、DOM、持久化与跨标签页同步。当前
+生产页面不提供主题切换器。
+
+### 设计系统源码门禁
+
+`scripts/check-design-system.mjs` 扫描 `src/`、`.storybook/`、`e2e/`、`public/`、`scripts/` 和 Web
+根配置，拒绝 raw hex/OKLCH、`.dark`/`dark:`、literal theme id、`--ds-raw-*`、`color-mix()`，以及
+disabled/placeholder 的 opacity 或 Tailwind alpha modifier。它不替代本地包的合同/对比检查或真实浏览器
+验收，而是阻止消费侧重新建立颜色、主题和禁用态合同。对比与主题完整性检查同样只读取本地代码包。
+
+allowlist 只接受精确文件与单条规则：检查器本身因包含负向样例而按精确路径排除；HTML 的安全默认值和
+两份 manifest 生成物只放行 theme id 规则。SVG 与测试没有目录级或扩展名级豁免，确有合法 fixture 时
+必须单独审核路径。`npm run check:design-system:self-test` 在系统临时目录分别注入 raw hex、OKLCH、
+旧暗色分支、theme id、raw token、`color-mix()` 和两类 state opacity，确认每项会失败且删除后恢复，
+并复制最小生成环境验证 stale generated 会失败、重建后恢复；整个过程不会改动真实源码或真实生成物。
+
 ## TypeScript 与类型声明
 
 ### `typescript`
@@ -117,6 +163,9 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 读取 `contracts/web-api.openapi.json`，只生成 `src/generated/api` 的 TypeScript 类型，不生成或接管
 项目的 fetch client。版本被精确固定以避免 0.x 生成行为漂移；`openapi-ts.config.mjs` 是配置入口，
 `generate:api:check` 在临时目录重建并与已提交生成物逐文件比较。
+
+该生成链继续读取仓库 `contracts/web-api.openapi.json`。这是 Web 明确保留的 monorepo API 契约依赖，
+与设计说明解耦无关；“设计系统自包含”不承诺单独复制 Web 目录即可完成 OpenAPI 检查。
 
 ## 代码正确性与格式
 
@@ -219,13 +268,20 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 - `npm run dev` → Vite，同时加载 React、Router 和 Tailwind 插件。
 - `npm run build` → TypeScript 项目构建，再由 Vite 生成 `dist/`。
 - `npm run generate:api` / `generate:api:check` → 更新 OpenAPI 类型 / 校验生成物无漂移。
+- `npm run generate:design-system` / `generate:design-system:check` → 从主题 manifest 更新 Web 主题
+  metadata 与首屏脚本 / 校验生成物无漂移。
+- `npm run check:design-system:source` / `check:design-system:self-test` → 扫描真实 Web 消费代码 /
+  在临时目录验证每条负向规则确实生效并可恢复。
+- `npm run check:design-system` → 串行执行本地设计系统 build/check、Web 主题生成检查、源码扫描与扫描器
+  自测试。
 - `npm run format:check` / `format` → Prettier 和 Tailwind 格式插件。
 - `npm run lint` / `lint:fix` → ESLint 及其 TypeScript、Hook、可访问性、导入插件。
 - `npm run typecheck` → TypeScript。
 - `npm run test:run` → Vitest、jsdom、Testing Library，测试需要接口时由 MSW 接管。
 - `npm run test:e2e` → Playwright。
 - `npm run storybook` / `storybook:build` → Storybook 框架和 addons。
-- `npm run check` → OpenAPI 漂移、格式、ESLint、TypeScript、组件测试的串行总入口。
+- `npm run check` → Web 本地设计系统、生成/源码门禁、OpenAPI 漂移、格式、ESLint、TypeScript、
+  组件测试的串行总入口。
 
 ## 产品经理应该怎样审核工具链变更
 
@@ -246,4 +302,5 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 3. 记录配置入口、使用位置和预期产物。
 4. 更新或新增相应测试与审核入口。
 5. 运行 `npm run check`、`npm run build`；涉及 Storybook 或用户链路时再运行对应命令。
-6. 同步更新本说明，避免半年后只剩一个没人敢删的包名。
+6. 同步更新本说明，避免半年后只剩一个没人敢删的包名；若变更设计系统本身，同一 WORK/TASK 还要更新
+   仓库级设计说明，但不能把两侧重新接成普通命令的硬依赖。

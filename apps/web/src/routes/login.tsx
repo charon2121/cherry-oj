@@ -3,6 +3,10 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Field, Input } from '@/components/ui/field';
+import { Container, Section, Stack } from '@/components/ui/layout';
+import { Heading, Text } from '@/components/ui/typography';
 import { login } from '@/features/auth/api/auth-api';
 import { authKeys, sessionQueryOptions } from '@/features/auth/api/session-query';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
@@ -44,48 +48,61 @@ function LoginPage() {
   });
 
   return (
-    <section className="mx-auto grid min-h-[calc(100svh-3rem)] max-w-6xl place-items-center px-4 py-12">
-      <div className="border-border bg-surface-raised w-full max-w-sm rounded-lg border p-6">
-        <p className="text-muted-foreground text-sm">安全登录</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">登录 Cherry OJ</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          账号由管理员开通，密码不会保存在浏览器中。
-        </p>
-        <ErrorNotice message={mutation.isError ? authErrorMessage(mutation.error) : undefined} />
-        <form
-          className="mt-6 space-y-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!mutation.isPending) mutation.mutate({ username, password });
-          }}
-        >
-          <label className="block text-sm font-medium" htmlFor="username">
-            用户名
-          </label>
-          <input
-            id="username"
-            name="username"
-            autoComplete="username"
-            required
-            minLength={3}
-            maxLength={64}
-            pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            className="border-input bg-background focus-visible:ring-ring mt-1 h-10 w-full rounded-md border px-3 outline-none focus-visible:ring-2"
-          />
-          <PasswordField
-            id="password"
-            label="密码"
-            autoComplete="current-password"
-            value={password}
-            onChange={setPassword}
-          />
-          <Button type="submit" size="lg" className="w-full" disabled={mutation.isPending}>
-            {mutation.isPending ? '正在登录…' : '登录'}
-          </Button>
-        </form>
-      </div>
-    </section>
+    <Container>
+      <Section className="grid min-h-[calc(100svh-3rem)] place-items-center py-12">
+        <Card variant="raised" className="w-full max-w-sm p-6">
+          <Stack gap={2}>
+            <Text size="sm" tone="muted">
+              安全登录
+            </Text>
+            <Heading level={1} size="2xl">
+              登录 Cherry OJ
+            </Heading>
+            <Text size="sm" tone="muted">
+              账号由管理员开通，密码不会保存在浏览器中。
+            </Text>
+          </Stack>
+          <ErrorNotice message={mutation.isError ? authErrorMessage(mutation.error) : undefined} />
+          <form
+            className="mt-6"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!mutation.isPending) mutation.mutate({ username, password });
+            }}
+          >
+            <Stack gap={4}>
+              <Field label="用户名" required>
+                <Input
+                  id="username"
+                  name="username"
+                  autoComplete="username"
+                  minLength={3}
+                  maxLength={64}
+                  pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+              </Field>
+              <PasswordField
+                id="password"
+                label="密码"
+                autoComplete="current-password"
+                value={password}
+                onChange={setPassword}
+              />
+              <Button
+                type="submit"
+                size="md"
+                className="w-full"
+                loading={mutation.isPending}
+                loadingLabel="正在登录…"
+              >
+                登录
+              </Button>
+            </Stack>
+          </form>
+        </Card>
+      </Section>
+    </Container>
   );
 }

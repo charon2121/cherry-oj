@@ -1,6 +1,9 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
+import { FieldDescription, Input, Label } from '@/components/ui/field';
+import { IconButton } from '@/components/ui/icon-button';
+
 type PasswordFieldProps = {
   id: string;
   label: string;
@@ -30,12 +33,10 @@ export function PasswordField({
     .join(' ');
 
   return (
-    <div>
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <div className="relative mt-1">
-        <input
+    <div className="grid min-w-0 gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
           id={id}
           name={id}
           type={visible ? 'text' : 'password'}
@@ -50,22 +51,24 @@ export function PasswordField({
           onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
           onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
           onBlur={() => setCapsLock(false)}
-          className="border-input bg-background focus-visible:ring-ring h-10 w-full rounded-md border px-3 pr-24 outline-none focus-visible:ring-2"
+          className="pr-12"
         />
-        <button
-          type="button"
+        <IconButton
           aria-pressed={visible}
+          className="absolute top-1 right-1"
+          label={visible ? '隐藏密码' : '显示密码'}
+          size="sm"
+          type="button"
+          variant="ghost"
           onClick={() => setVisible((current) => !current)}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute inset-y-0 right-1 my-auto flex h-8 items-center gap-1 rounded px-2 text-xs outline-none focus-visible:ring-2"
         >
           {visible ? <EyeOff aria-hidden="true" size={15} /> : <Eye aria-hidden="true" size={15} />}
-          {visible ? '隐藏密码' : '显示密码'}
-        </button>
+        </IconButton>
       </div>
       {capsLock ? (
-        <p id={capsLockId} role="status" className="text-warning mt-1 text-xs">
+        <FieldDescription id={capsLockId} role="status" className="text-warning">
           大写锁定已开启
-        </p>
+        </FieldDescription>
       ) : null}
     </div>
   );

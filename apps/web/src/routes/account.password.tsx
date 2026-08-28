@@ -3,6 +3,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { FieldError } from '@/components/ui/field';
+import { Container, Section, Stack } from '@/components/ui/layout';
+import { Heading, Text } from '@/components/ui/typography';
 import { changePassword } from '@/features/auth/api/auth-api';
 import { authKeys } from '@/features/auth/api/session-query';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
@@ -40,54 +43,68 @@ function ChangePasswordPage() {
   }, [mutation.error, navigate, queryClient]);
 
   return (
-    <section className="mx-auto max-w-xl px-4 py-12">
-      <p className="text-muted-foreground text-sm">账号安全</p>
-      <h1 className="mt-1 text-2xl font-semibold">修改密码</h1>
-      <p className="text-muted-foreground mt-2 text-sm">
-        修改成功后所有设备都会退出，请使用新密码重新登录。
-      </p>
-      <ErrorNotice message={mutation.isError ? authErrorMessage(mutation.error) : undefined} />
-      <form
-        className="border-border mt-6 space-y-4 border-t pt-6"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!mismatch && !mutation.isPending) mutation.mutate({ currentPassword, newPassword });
-        }}
-      >
-        <PasswordField
-          id="current-password"
-          label="当前密码"
-          value={currentPassword}
-          onChange={setCurrentPassword}
-          autoComplete="current-password"
-        />
-        <PasswordField
-          id="new-password"
-          label="新密码（至少 12 位）"
-          value={newPassword}
-          onChange={setNewPassword}
-          autoComplete="new-password"
-          minLength={12}
-        />
-        <PasswordField
-          id="confirm-password"
-          label="确认新密码"
-          value={confirmation}
-          onChange={setConfirmation}
-          autoComplete="new-password"
-          minLength={12}
-          invalid={mismatch}
-          errorDescriptionId="password-mismatch"
-        />
-        {mismatch ? (
-          <p id="password-mismatch" className="text-danger text-sm">
-            两次输入的新密码不一致。
-          </p>
-        ) : null}
-        <Button type="submit" size="lg" disabled={mutation.isPending || mismatch}>
-          {mutation.isPending ? '正在修改…' : '修改密码并退出'}
-        </Button>
-      </form>
-    </section>
+    <Container className="max-w-xl">
+      <Section>
+        <Stack gap={2}>
+          <Text size="sm" tone="muted">
+            账号安全
+          </Text>
+          <Heading level={1} size="2xl">
+            修改密码
+          </Heading>
+          <Text size="sm" tone="muted">
+            修改成功后所有设备都会退出，请使用新密码重新登录。
+          </Text>
+        </Stack>
+        <ErrorNotice message={mutation.isError ? authErrorMessage(mutation.error) : undefined} />
+        <form
+          className="border-border mt-6 border-t pt-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!mismatch && !mutation.isPending) mutation.mutate({ currentPassword, newPassword });
+          }}
+        >
+          <Stack gap={4}>
+            <PasswordField
+              id="current-password"
+              label="当前密码"
+              value={currentPassword}
+              onChange={setCurrentPassword}
+              autoComplete="current-password"
+            />
+            <PasswordField
+              id="new-password"
+              label="新密码（至少 12 位）"
+              value={newPassword}
+              onChange={setNewPassword}
+              autoComplete="new-password"
+              minLength={12}
+            />
+            <PasswordField
+              id="confirm-password"
+              label="确认新密码"
+              value={confirmation}
+              onChange={setConfirmation}
+              autoComplete="new-password"
+              minLength={12}
+              invalid={mismatch}
+              errorDescriptionId="password-mismatch"
+            />
+            {mismatch ? (
+              <FieldError id="password-mismatch">两次输入的新密码不一致。</FieldError>
+            ) : null}
+            <Button
+              type="submit"
+              size="md"
+              disabled={mismatch}
+              loading={mutation.isPending}
+              loadingLabel="正在修改…"
+            >
+              修改密码并退出
+            </Button>
+          </Stack>
+        </form>
+      </Section>
+    </Container>
   );
 }

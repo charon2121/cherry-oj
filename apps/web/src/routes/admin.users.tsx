@@ -3,7 +3,14 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { Check, Copy, KeyRound, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Panel } from '@/components/ui/card';
+import { Field, Input } from '@/components/ui/field';
+import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
+import { linkVariants } from '@/components/ui/link';
+import { CodeText, Heading, Text } from '@/components/ui/typography';
 import {
   adminUserKeys,
   createUser,
@@ -86,211 +93,232 @@ function AdminUsersPage() {
   }, [navigate, page, queryClient, unauthenticated]);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-muted-foreground text-sm">管理中心</p>
-          <h1 className="mt-1 text-2xl font-semibold">用户账号</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            创建、停用、恢复账号或签发一次性临时密码。
-          </p>
-        </div>
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!create.isPending) create.mutate({ username: newUsername });
-          }}
-        >
-          <label className="sr-only" htmlFor="new-username">
-            新用户用户名
-          </label>
-          <input
-            id="new-username"
-            required
-            minLength={3}
-            maxLength={64}
-            pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
-            value={newUsername}
-            onChange={(event) => setNewUsername(event.target.value)}
-            placeholder="新用户用户名"
-            className="border-input bg-background focus-visible:ring-ring h-9 rounded-md border px-3 text-sm outline-none focus-visible:ring-2"
-          />
-          <Button type="submit" size="lg" disabled={create.isPending}>
-            <UserPlus aria-hidden="true" />
-            {create.isPending ? '创建中…' : '创建用户'}
-          </Button>
-        </form>
-      </div>
-
-      <ErrorNotice message={mutationError ? authErrorMessage(mutationError) : undefined} />
-      {temporaryPassword !== undefined ? (
-        <div
-          role="dialog"
-          aria-labelledby="temporary-password-title"
-          className="border-warning bg-warning-soft mt-6 rounded-lg border p-4"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 id="temporary-password-title" className="font-semibold">
-                一次性临时密码
-              </h2>
-              <p className="mt-1 text-sm">请立即安全交给用户。关闭后无法再次查看。</p>
-              <code className="bg-background mt-3 rounded px-2 py-1 text-sm select-all">
-                {temporaryPassword}
-              </code>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  void navigator.clipboard
-                    .writeText(temporaryPassword)
-                    .then(() => setCopied(true))
-                    .catch(() => setCopied(false));
-                }}
-              >
-                {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                {copied ? '已复制' : '复制'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setTemporaryPassword(undefined);
-                  setCopied(false);
-                }}
-              >
-                我已保存，关闭
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="border-border mt-6 overflow-x-auto rounded-lg border">
-        {users.isPending ? (
-          <p role="status" className="p-6 text-sm">
-            正在加载用户…
-          </p>
-        ) : null}
-        {users.isError ? (
-          <div className="p-6">
-            <ErrorNotice message={authErrorMessage(users.error)} />
-            <Button variant="outline" className="mt-3" onClick={() => void users.refetch()}>
-              重试
+    <Container>
+      <Section className="py-10">
+        <Cluster gap={4} justify="between" className="items-end">
+          <Stack gap={2}>
+            <Text size="sm" tone="muted">
+              管理中心
+            </Text>
+            <Heading level={1} size="2xl">
+              用户账号
+            </Heading>
+            <Text size="sm" tone="muted">
+              创建、停用、恢复账号或签发一次性临时密码。
+            </Text>
+          </Stack>
+          <form
+            className="grid w-full items-end gap-2 sm:w-auto sm:grid-cols-[minmax(12rem,1fr)_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!create.isPending) create.mutate({ username: newUsername });
+            }}
+          >
+            <Field label="新用户用户名" required>
+              <Input
+                id="new-username"
+                minLength={3}
+                maxLength={64}
+                pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
+                value={newUsername}
+                onChange={(event) => setNewUsername(event.target.value)}
+                placeholder="新用户用户名"
+              />
+            </Field>
+            <Button type="submit" size="md" loading={create.isPending} loadingLabel="创建中…">
+              <UserPlus aria-hidden="true" />
+              创建用户
             </Button>
-          </div>
+          </form>
+        </Cluster>
+
+        <ErrorNotice message={mutationError ? authErrorMessage(mutationError) : undefined} />
+        {temporaryPassword !== undefined ? (
+          <Panel
+            role="dialog"
+            aria-labelledby="temporary-password-title"
+            className="bg-warning-soft text-warning mt-6 border-[var(--ds-warning-border)]"
+          >
+            <Cluster gap={3} justify="between" className="items-center">
+              <Stack gap={2}>
+                <Heading id="temporary-password-title" level={2} size="lg" className="text-warning">
+                  一次性临时密码
+                </Heading>
+                <Text size="sm" tone="primary" className="text-warning">
+                  请立即安全交给用户。关闭后无法再次查看。
+                </Text>
+                <CodeText className="bg-surface text-foreground inline-block max-w-full rounded-sm px-2 py-1 wrap-anywhere select-all">
+                  {temporaryPassword}
+                </CodeText>
+              </Stack>
+              <Cluster gap={2}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(temporaryPassword)
+                      .then(() => setCopied(true))
+                      .catch(() => setCopied(false));
+                  }}
+                >
+                  {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                  {copied ? '已复制' : '复制'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setTemporaryPassword(undefined);
+                    setCopied(false);
+                  }}
+                >
+                  我已保存，关闭
+                </Button>
+              </Cluster>
+            </Cluster>
+          </Panel>
         ) : null}
-        {users.data ? (
-          <table className="w-full min-w-3xl text-left text-sm">
-            <thead className="bg-surface-subtle text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">用户名</th>
-                <th className="px-4 py-3 font-medium">角色</th>
-                <th className="px-4 py-3 font-medium">状态</th>
-                <th className="px-4 py-3 font-medium">首次改密</th>
-                <th className="px-4 py-3 text-right font-medium">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-border divide-y">
-              {users.data.items.length === 0 ? (
+
+        <Panel className="mt-6 overflow-x-auto p-0">
+          {users.isPending ? (
+            <div className="p-6">
+              <AsyncState
+                variant="loading"
+                size="inline"
+                title="正在加载用户…"
+                progressLabel="正在加载用户…"
+              >
+                {null}
+              </AsyncState>
+            </div>
+          ) : null}
+          {users.isError ? (
+            <div className="p-6">
+              <ErrorNotice message={authErrorMessage(users.error)} />
+              <Button variant="secondary" className="mt-3" onClick={() => void users.refetch()}>
+                重试
+              </Button>
+            </div>
+          ) : null}
+          {users.data ? (
+            <table className="w-full min-w-3xl text-left text-sm">
+              <thead className="bg-surface-subtle text-muted-foreground">
                 <tr>
-                  <td colSpan={5} className="text-muted-foreground px-4 py-8 text-center">
-                    暂无用户账号。
-                  </td>
+                  <th className="px-4 py-3 font-medium">用户名</th>
+                  <th className="px-4 py-3 font-medium">角色</th>
+                  <th className="px-4 py-3 font-medium">状态</th>
+                  <th className="px-4 py-3 font-medium">首次改密</th>
+                  <th className="px-4 py-3 text-right font-medium">操作</th>
                 </tr>
-              ) : null}
-              {users.data.items.map((user) => (
-                <tr key={user.id}>
-                  <td className="px-4 py-3 font-medium">{user.username}</td>
-                  <td className="px-4 py-3">{user.role}</td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={user.status} />
-                  </td>
-                  <td className="px-4 py-3">{user.passwordChangeRequired ? '需要' : '否'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={status.isPending}
-                        onClick={() => {
-                          const action = user.status === 'ACTIVE' ? '停用' : '恢复';
-                          const consequence =
-                            user.status === 'ACTIVE' ? '这将结束其全部登录。' : '旧登录不会恢复。';
-                          if (
-                            window.confirm(`确认${action}用户 ${user.username}？${consequence}`)
-                          ) {
-                            status.mutate({
-                              user,
-                              nextStatus: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
-                            });
-                          }
-                        }}
+              </thead>
+              <tbody className="divide-border divide-y">
+                {users.data.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8">
+                      <AsyncState
+                        variant="empty"
+                        size="inline"
+                        title="暂无用户账号。"
+                        className="items-center text-center"
                       >
-                        {user.status === 'ACTIVE' ? '停用' : '恢复'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={reset.isPending}
-                        onClick={() => {
-                          if (
-                            window.confirm(`确认重置用户 ${user.username} 的密码并结束其全部登录？`)
-                          )
-                            reset.mutate(user);
-                        }}
-                      >
-                        <KeyRound aria-hidden="true" />
-                        重置密码
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        {null}
+                      </AsyncState>
+                    </td>
+                  </tr>
+                ) : null}
+                {users.data.items.map((user) => (
+                  <tr key={user.id}>
+                    <td className="px-4 py-3 font-medium">{user.username}</td>
+                    <td className="px-4 py-3">{user.role}</td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={user.status} />
+                    </td>
+                    <td className="px-4 py-3">{user.passwordChangeRequired ? '需要' : '否'}</td>
+                    <td className="px-4 py-3">
+                      <Cluster gap={2} justify="end">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={status.isPending}
+                          onClick={() => {
+                            const action = user.status === 'ACTIVE' ? '停用' : '恢复';
+                            const consequence =
+                              user.status === 'ACTIVE'
+                                ? '这将结束其全部登录。'
+                                : '旧登录不会恢复。';
+                            if (
+                              window.confirm(`确认${action}用户 ${user.username}？${consequence}`)
+                            ) {
+                              status.mutate({
+                                user,
+                                nextStatus: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+                              });
+                            }
+                          }}
+                        >
+                          {user.status === 'ACTIVE' ? '停用' : '恢复'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={reset.isPending}
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `确认重置用户 ${user.username} 的密码并结束其全部登录？`,
+                              )
+                            )
+                              reset.mutate(user);
+                          }}
+                        >
+                          <KeyRound aria-hidden="true" />
+                          重置密码
+                        </Button>
+                      </Cluster>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </Panel>
+        {users.data ? (
+          <nav aria-label="用户分页" className="mt-4">
+            <Cluster gap={3} justify="between">
+              <Text as="span" size="sm" tone="secondary">
+                第 {users.data.pagination.page} / {Math.max(1, users.data.pagination.totalPages)}{' '}
+                页， 共 {users.data.pagination.totalElements} 个账号
+              </Text>
+              <Cluster gap={2}>
+                <Button
+                  variant="secondary"
+                  disabled={page <= 1}
+                  onClick={() => void navigate({ search: { page: page - 1 } })}
+                >
+                  上一页
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={page >= users.data.pagination.totalPages}
+                  onClick={() => void navigate({ search: { page: page + 1 } })}
+                >
+                  下一页
+                </Button>
+              </Cluster>
+            </Cluster>
+          </nav>
         ) : null}
-      </div>
-      {users.data ? (
-        <nav aria-label="用户分页" className="mt-4 flex items-center justify-between text-sm">
-          <span>
-            第 {users.data.pagination.page} / {Math.max(1, users.data.pagination.totalPages)} 页，
-            共 {users.data.pagination.totalElements} 个账号
-          </span>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={page <= 1}
-              onClick={() => void navigate({ search: { page: page - 1 } })}
-            >
-              上一页
-            </Button>
-            <Button
-              variant="outline"
-              disabled={page >= users.data.pagination.totalPages}
-              onClick={() => void navigate({ search: { page: page + 1 } })}
-            >
-              下一页
-            </Button>
-          </div>
-        </nav>
-      ) : null}
-      <Link to="/" className="mt-8 inline-block text-sm underline underline-offset-4">
-        返回首页
-      </Link>
-    </section>
+        <Link to="/" className={linkVariants({ size: 'standalone', className: 'mt-8 text-sm' })}>
+          返回首页
+        </Link>
+      </Section>
+    </Container>
   );
 }
 
 function StatusBadge({ status }: { status: 'ACTIVE' | 'DISABLED' }) {
   return status === 'ACTIVE' ? (
-    <span className="bg-success-soft text-success rounded-full px-2 py-1 text-xs font-medium">
-      ● 正常
-    </span>
+    <Badge variant="success">● 正常</Badge>
   ) : (
-    <span className="bg-danger-soft text-danger rounded-full px-2 py-1 text-xs font-medium">
-      ○ 已停用
-    </span>
+    <Badge variant="danger">○ 已停用</Badge>
   );
 }

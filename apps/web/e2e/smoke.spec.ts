@@ -120,15 +120,15 @@ test('recovers from rate limiting, prevents duplicate login, and keeps secrets o
 
   await page.goto('/login?returnTo=https%3A%2F%2Fevil.example%2Fsteal');
   await page.getByLabel('用户名').fill('alice');
-  await page.getByLabel('密码').fill('Secret-Password-42!');
+  await page.getByLabel('密码', { exact: true }).fill('Secret-Password-42!');
   await page.getByRole('button', { name: '登录' }).click();
   const alert = page.getByRole('alert');
-  await expect(alert).toHaveText('尝试次数过多，请稍后再试。');
+  await expect(alert).toContainText('尝试次数过多，请稍后再试。');
   await expect(alert).toBeFocused();
 
   await page.getByRole('button', { name: '登录' }).click();
   await expect(page.getByRole('button', { name: '正在登录…' })).toBeDisabled();
-  await page.getByLabel('密码').press('Enter');
+  await page.getByLabel('密码', { exact: true }).press('Enter');
   releaseLogin();
 
   await expect(page).toHaveURL('/');
@@ -168,7 +168,7 @@ test('routes a first-login account to password change and logs out every session
 
   await page.goto('/login');
   await page.getByLabel('用户名').fill('alice');
-  await page.getByLabel('密码').fill(temporaryPassword);
+  await page.getByLabel('密码', { exact: true }).fill(temporaryPassword);
   await page.getByRole('button', { name: '登录' }).click();
   await expect(page).toHaveURL('/account/password');
 

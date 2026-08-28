@@ -3,6 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Link, Outlet } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
+import { Cluster, Container } from '@/components/ui/layout';
+import { linkVariants } from '@/components/ui/link';
+import { Heading, Text } from '@/components/ui/typography';
 import { logout } from '@/features/auth/api/auth-api';
 import { authKeys, sessionQueryOptions } from '@/features/auth/api/session-query';
 import { authErrorMessage } from '@/features/auth/lib/auth-error-message';
@@ -21,12 +24,21 @@ function RootLayout() {
   return (
     <div className="bg-background text-foreground min-h-svh">
       <header className="border-border bg-sidebar border-b">
-        <nav aria-label="主导航" className="mx-auto flex h-12 max-w-6xl items-center px-4">
-          <Link to="/" className="font-semibold tracking-tight">
-            <span className="text-brand">Cherry</span> OJ
-          </Link>
-          <SessionNavigation />
-        </nav>
+        <Container>
+          <nav aria-label="主导航" className="flex min-h-12 flex-wrap items-center gap-2 py-1">
+            <Link
+              to="/"
+              className={linkVariants({
+                size: 'standalone',
+                variant: 'muted',
+                className: 'font-display shrink-0 tracking-tight',
+              })}
+            >
+              <span className="text-brand">Cherry</span> OJ
+            </Link>
+            <SessionNavigation />
+          </nav>
+        </Container>
       </header>
       <main>
         <Outlet />
@@ -54,16 +66,16 @@ function SessionNavigation() {
 
   if (session.isPending) {
     return (
-      <span role="status" className="text-muted-foreground ml-auto text-xs">
+      <Text as="span" role="status" size="xs" tone="muted" className="ml-auto">
         正在检查登录状态…
-      </span>
+      </Text>
     );
   }
   if (session.isError) {
     return (
       <Button
         className="ml-auto"
-        variant="outline"
+        variant="secondary"
         size="sm"
         onClick={() => void session.refetch()}
       >
@@ -76,21 +88,27 @@ function SessionNavigation() {
       <Link
         to="/login"
         search={{ returnTo: '/' }}
-        className="ml-auto text-sm font-medium underline-offset-4 hover:underline"
+        className={linkVariants({ size: 'standalone', className: 'ml-auto text-sm' })}
       >
         登录
       </Link>
     );
   }
   return (
-    <div className="ml-auto flex items-center gap-3 text-sm">
+    <Cluster className="ml-auto flex-1 py-1 text-sm" gap={3} justify="end">
       {mutation.isError ? (
         <span role="alert" className="text-danger hidden text-xs md:inline">
           {authErrorMessage(mutation.error)}
         </span>
       ) : null}
       {session.data.user.passwordChangeRequired ? (
-        <Link to="/account/password" className="text-warning font-medium">
+        <Link
+          to="/account/password"
+          className={linkVariants({
+            size: 'standalone',
+            className: 'text-warning hover:text-warning visited:text-warning text-sm',
+          })}
+        >
           请先修改密码
         </Link>
       ) : null}
@@ -98,12 +116,14 @@ function SessionNavigation() {
         <Link
           to="/admin/users"
           search={{ page: 1 }}
-          className="font-medium underline-offset-4 hover:underline"
+          className={linkVariants({ size: 'standalone', className: 'text-sm' })}
         >
           用户管理
         </Link>
       ) : null}
-      <span className="text-muted-foreground hidden sm:inline">{session.data.user.username}</span>
+      <Text as="span" size="sm" tone="muted" className="hidden sm:inline">
+        {session.data.user.username}
+      </Text>
       <Button
         variant="ghost"
         size="sm"
@@ -112,18 +132,22 @@ function SessionNavigation() {
       >
         {mutation.isPending ? '退出中…' : '退出'}
       </Button>
-    </div>
+    </Cluster>
   );
 }
 
 function NotFoundPage() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
-      <p className="text-muted-foreground text-sm">404</p>
-      <h1 className="mt-2 text-2xl font-semibold">页面不存在</h1>
-      <Link to="/" className="text-primary mt-6 inline-block underline-offset-4 hover:underline">
+    <Container as="section" className="py-16">
+      <Text size="sm" tone="muted">
+        404
+      </Text>
+      <Heading level={1} size="2xl" className="mt-2">
+        页面不存在
+      </Heading>
+      <Link to="/" className={linkVariants({ size: 'standalone', className: 'mt-6' })}>
         返回首页
       </Link>
-    </section>
+    </Container>
   );
 }

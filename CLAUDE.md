@@ -225,7 +225,11 @@ cherry-oj/
 ## 三、TypeScript（`apps/web`）
 
 开发或评审任何 Web UI、组件、样式或主题前，必须先读 [`docs/design-system.md`](./docs/design-system.md)
-及其 [`docs/design-system/README.md`](./docs/design-system/README.md)；不要在本文件复制 token 值。
+及其 [`docs/design-system/README.md`](./docs/design-system/README.md)，理解设计意图、组件合同与评审规则；
+不要在本文件复制 token 值。Web 的可执行设计系统真源位于 `apps/web/design-system/`，安装、开发、检查、
+构建、Storybook 与 E2E 均只消费代码侧资产，不读取设计说明目录。删除 `docs/design-system/` 不得影响
+Web；普通 CI 也不做两棵目录间的漂移比较、复制或符号链接。只有真正修改设计系统时，才在同一
+WORK/TASK 中同时更新代码与设计说明，并分别验证两侧。
 
 前端采用 **TanStack-first、按需引入**，不是无条件安装 TanStack 全家桶：
 
@@ -383,6 +387,8 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 - **技术完成不等于产品确认。** TASK done 只表示实现完成；Agent 不能根据测试全绿自动代签人工产品
   判断、关键风险、发布或线上确认。
 - **设计变更先写当前 WORK。** 经确认且长期跨工作有效时再同步 `docs/`；操作步骤变化同步 `tutorial/`。
+  Web 设计系统的真实变更必须让同一 WORK/TASK 同时覆盖 `apps/web/design-system/` 与
+  `docs/design-system/`，但普通 Web 命令不得用跨树 drift、copy 或 symlink 代替这项显式维护责任。
 - 已知技术债在所属 `development/works/WORK-xxx/` 中建立 `60-task-TASK-xxx.md`，代码锚点使用
   `TODO(TASK-001): ...`。
 - 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。

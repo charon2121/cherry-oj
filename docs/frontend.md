@@ -7,7 +7,8 @@
 > **文档状态**：已确定，作为 `apps/web` 技术栈与工程边界的唯一真源；视觉和组件合同以
 > [`design-system.md`](./design-system.md) 为唯一入口。未在本文列出的库不因为出现在聊天、示例或
 > 脚手架推荐中就自动进入项目。初始化依赖时使用当时最新稳定版，锁定 `package-lock.json`；不在
-> 设计文档里维护容易过期的 patch 版本号。
+> 设计文档里维护容易过期的 patch 版本号。文档负责说明设计与工程边界；Web 的可执行设计系统真源在
+> `apps/web/design-system/`，不以 `docs/` 作为任何日常命令的输入。
 
 ## 1. 目标与边界
 
@@ -28,9 +29,10 @@
 - **数据契约**：Gateway OpenAPI 生成 TypeScript 类型，Zod 校验不可信运行时输入。
 - **网络边界**：原生 `fetch` 薄封装、RFC 9457 Problem Details、`AbortSignal`、Request ID、
   Cookie/CSRF；不使用 Axios。
-- **本地持久化**：IndexedDB 保存按用户、题目、语言隔离的代码草稿；主题等轻量偏好迁移后才可使用
-  `localStorage`，长期鉴权令牌不进入任何 Web Storage。
-- **UI 与样式**：Tailwind CSS、shadcn/ui、Radix Primitives、Lucide React、
+- **本地持久化**：IndexedDB 保存按用户、题目、语言隔离的代码草稿；主题偏好只在
+  `localStorage` 的 `cherry-oj.theme` 中保存经过 manifest 校验的 theme id，长期鉴权令牌不进入
+  任何 Web Storage。
+- **UI 与样式**：Tailwind CSS、shadcn/ui、Base UI、Lucide React、
   class-variance-authority、`clsx`、`tailwind-merge`。
 - **编辑与内容**：Monaco Editor、react-markdown、remark-gfm、rehype-sanitize。
 - **组件工作台**：Storybook 与 `@storybook/addon-a11y`；UI 视觉方向为
@@ -69,8 +71,9 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - **Tailwind CSS**：布局、设计 token 和组件样式。
 - **shadcn/ui**：可复制、可维护的无头组件实现，作为项目组件库的起点；生成后的代码
   归项目维护，不把它当成不可修改的黑盒依赖。
-- **Radix Primitives**：承载 Dialog、Popover、Select、Tabs、Tooltip 等复杂组件的焦点管理、
-  键盘交互和 ARIA 行为；已有 primitive 时不从 `div` 手写一套交互。
+- **Base UI**：作为当前唯一的无样式交互 primitive，承载 Dialog、Popover、Select、Tabs、Tooltip
+  等复杂组件的焦点管理、键盘交互和 ARIA 行为；已有 primitive 时不从 `div` 手写一套交互，也不同时
+  引入 Radix 形成双栈。
 - **Lucide React**：统一图标集。
 - **class-variance-authority**：定义 Button、Badge 等基础组件的有限 variant 和 size。
 - **`clsx` + `tailwind-merge`**：只通过项目级 `cn()` 合并条件 class 和处理 Tailwind 冲突。
@@ -89,9 +92,23 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
   工作区。侧栏必须比正文区域更安静，导航不能与用户当前任务争夺注意力。
 - 列表行、工具栏和表单采用紧凑尺寸；层级优先使用明暗、细边框和对齐表达，普通内容不依赖阴影，
   也不把每个区块都包装成 Card。
-- Foundation 与主题 CSS 是数值真源，theme contract 规定语义和允许组合。业务组件只使用 `--ds-*`
-  semantic token 或 Tailwind adapter alias；禁止 raw 颜色、primitive palette、主题 selector 和
-  theme-id 分支。
+- `apps/web/design-system/` 持有 Web 可执行的 Foundation、主题 CSS、theme contract、manifest、
+  Tailwind adapter、生成与校验工具、来源和许可证。业务组件只使用其中的 `--ds-*` semantic token 或
+  Tailwind alias；禁止 raw 颜色、primitive palette、主题 selector 和 theme-id 分支。
+- [`design-system.md`](./design-system.md) 与 [`design-system/`](./design-system/) 是供人阅读和评审的
+  设计说明，不参与 `npm ci`、dev、check、build、Storybook 或 E2E。删除该文档目录不影响 Web；普通
+  CI 不做跨树 drift、copy、prebuild 或 symlink。
+- 只有真正修改主题、token、adapter 或合同的 WORK/TASK 才同时更新代码侧与设计说明，并分别验证两侧；
+  不用日常构建强制两份内容逐字一致。
+- 代码侧 `themes.manifest.json` 通过 `apps/web/scripts/generate-design-system.mjs` 生成只含主题 metadata 的
+  `src/generated/design-system/themes.ts` 和首屏脚本 `public/generated/theme-init.js`。生成物禁止手改；
+  使用 `npm run generate:design-system` 更新，使用 `npm run generate:design-system:check` 检查漂移。
+- HTML 先声明默认 `cherry-black` / dark color scheme，`theme-init.js` 在 React 启动前读取
+  `cherry-oj.theme`。缺失、空值、未知值或存储读取失败均回退 `cherry-black`；`pure-white` 只有显式
+  有效偏好才启用，且不自动跟随操作系统。
+- `src/lib/theme` 是 resolver、DOM 属性、持久化、跨标签页同步和 React 消费 API 的唯一入口。
+  `data-theme` 是选择真源，`data-color-scheme` 只由 manifest metadata 派生；生产页面当前不提供主题
+  切换器，setter 仅供 Storybook、测试和后续获批的产品功能使用。
 - `primary` 是 Cherry 品牌实心 surface；shadcn `accent` 是中性 hover；`destructive` 和 danger 独立。
   品牌与危险不得共用同一个语义 token。
 - UI 分为 design tokens、基础组件、OJ 业务组件与页面模板四层。页面从题库列表、题目工作台、
@@ -104,9 +121,8 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - 视觉参考见 [`design-system/components.html`](./design-system/components.html)；前端架构与工程规则以
   本文为准。HTML 和 Storybook 都不反向定义 token。
 
-> **运行时待迁移：** 当前 `apps/web/src/styles/globals.css` 仍使用旧的浅色 `:root` / `.dark` 合同，
-> 尚未实现上述默认主题、theme resolver、偏好持久化或首屏防闪。迁移必须另建 TASK；设计文档发布不
-> 等于主题已经上线。
+> **产品边界：** 设计系统运行时与主题设置 API 是前端基建，不等于用户已经获得主题切换功能。生产
+> 导航当前不提供切换入口；若要让用户主动选择主题，需在独立产品工作中定义入口、文案和验收。
 
 ### 2.5 测试与工程质量
 
@@ -132,8 +148,9 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
   同步到 Router。
 - 代码草稿归 **IndexedDB**，由 `lib/storage` 的项目级 repository 读写；组件中的编辑器值是
   当前会话副本，不把整段源码塞进 Query cache 或全局 store。
-- 侧栏折叠等小型非敏感偏好可以归 `localStorage`。主题偏好只能在后续 Web 迁移任务中按 theme
-  manifest 设计 resolver、未知值回退和首屏防闪后持久化；鉴权令牌和用户源码不使用 `localStorage`。
+- 侧栏折叠等小型非敏感偏好可以归 `localStorage`。主题只保存键为 `cherry-oj.theme` 的 theme id，
+  由生成 registry 校验并在首屏脚本与 `src/lib/theme` 中统一解析；无效值和存储异常安全回退默认黑色。
+  鉴权令牌和用户源码不使用 `localStorage`。
 - 只影响一个组件树的临时交互状态，使用 React `useState` / `useReducer`。
 - 能从其它状态计算出的值不单独存储，在使用处派生。
 
@@ -157,7 +174,9 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
   request ID、Problem 和按 ns 表示的 `Retry-After`。公共 client 不自动导航、toast 或重试。
 - Gateway OpenAPI 由 `@hey-api/openapi-ts` 仅生成 `src/generated/api` 的 TypeScript 类型，配置入口为
   `openapi-ts.config.mjs`。`npm run generate:api` 更新生成物，`generate:api:check` 重建并逐文件检查
-  漂移；生成物不得手改，且生成器固定精确版本。
+  漂移；生成物不得手改，且生成器固定精确版本。该命令继续读取
+  `contracts/web-api.openapi.json`：这是保留的 monorepo API 契约依赖，不属于设计文档依赖，也不承诺
+  单独复制 `apps/web` 即可完成全部检查。
 - OpenAPI 类型描述编译期契约；URL search params、表单、IndexedDB、关键服务端边界等不可信
   运行时数据仍由 Zod 校验。公开响应 decoder 校验必需字段但容忍新增的未知可选字段；请求 schema
   默认拒绝未知字段。避免给每个可信内部对象重复套一层 schema。
@@ -352,6 +371,11 @@ export default {
     "build": "tsc -b && vite build",
     "generate:api": "openapi-ts",
     "generate:api:check": "node scripts/check-generated-api.mjs",
+    "generate:design-system": "node scripts/generate-design-system.mjs",
+    "generate:design-system:check": "node scripts/generate-design-system.mjs --check",
+    "check:design-system:source": "node scripts/check-design-system.mjs",
+    "check:design-system:self-test": "node scripts/check-design-system.mjs --self-test",
+    "check:design-system": "node design-system/tools/build.mjs --check && node design-system/tools/check.mjs && node design-system/tools/check.mjs --self-test && npm run generate:design-system:check && npm run check:design-system:source && npm run check:design-system:self-test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -362,7 +386,7 @@ export default {
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "check": "npm run generate:api:check && npm run format:check && npm run lint && npm run typecheck && npm run test:run"
+    "check": "npm run check:design-system && npm run generate:api:check && npm run format:check && npm run lint && npm run typecheck && npm run test:run"
   }
 }
 ```
@@ -371,6 +395,8 @@ export default {
 - pre-commit 只检查暂存前端文件的 Prettier 和 ESLint 结果，不自动修复或重新 `git add`。
 - pre-push 在 `apps/web` 有改动时运行 `npm run check` 和 `npm run build`。
 - OpenAPI 契约变化后运行 `generate:api` 并提交生成物；`generate:api:check` 与 `check` 会拒绝漂移。
+- 设计系统代码变化后运行本地 `design-system/tools/build.mjs`、`design-system/tools/check.mjs` 与生成物
+  检查；普通 `check` 不读取、复制或比较设计说明目录。
 - CI 使用 `npm ci`，运行 `check`、生产构建、Storybook 静态构建和 Playwright；任何 warning
   不作为长期可忽略状态。
 - 门禁分层：Prettier 管格式，ESLint 管代码风险，TypeScript 管类型，Vitest 管组件行为，
@@ -383,6 +409,9 @@ export default {
 ```text
 apps/web/
 ├── .storybook/             # Storybook 全局配置与主题装配
+├── design-system/          # Web 可执行设计系统真源、生成/校验工具与许可证
+├── public/generated/       # manifest 生成的首屏主题脚本；禁止手改
+├── scripts/                # 主题运行时与 OpenAPI 生成/漂移检查
 ├── src/
 │   ├── app/                 # Router、QueryClient、全局 Provider、入口
 │   ├── routes/              # TanStack Router 文件路由
@@ -394,10 +423,13 @@ apps/web/
 │   │   └── admin/
 │   ├── components/
 │   │   └── ui/              # shadcn/ui 组件；story 与 test 就近放置
-│   ├── generated/api/       # OpenAPI 生成类型；禁止手改
+│   ├── generated/
+│   │   ├── api/             # OpenAPI 生成类型；禁止手改
+│   │   └── design-system/   # manifest 生成的主题 metadata；禁止手改
 │   ├── lib/
 │   │   ├── api/             # fetch 薄封装、ApiSuccess/ApiProblem 运行时校验
 │   │   ├── storage/         # IndexedDB 草稿 repository
+│   │   ├── theme/           # resolver、DOM、持久化与 React 主题 API
 │   │   └── validation/      # 跨 feature 共用的 Zod schema
 │   ├── test/                # Vitest / MSW 公共测试配置
 │   └── styles/
@@ -415,7 +447,7 @@ apps/web/
 ### 阶段 1：应用骨架
 
 React、TypeScript、Vite、TanStack Router、TanStack Query、Tailwind CSS、基础
-shadcn/ui / Radix、语义 token、Storybook、ESLint、Prettier、Vitest、Testing Library、MSW。
+shadcn/ui / Base UI、语义 token、Storybook、ESLint、Prettier、Vitest、Testing Library、MSW。
 
 交付登录、题库、题目详情、代码编辑和提交结果闭环。
 
@@ -436,7 +468,7 @@ shadcn/ui / Radix、语义 token、Storybook、ESLint、Prettier、Vitest、Test
 - **TanStack DB**：MVP 的 REST 数据规模和实时需求由 Query 足以覆盖。
 - **TanStack Store / Zustand / Redux Toolkit**：当前没有独立的全局客户端状态问题。
 - **Axios**：原生 `fetch` 已满足需求。
-- **MUI / Ant Design / HeroUI 等第二套组件库**：shadcn/ui + Radix + 项目 token 已承担组件
+- **Radix、MUI、Ant Design、HeroUI 等第二套 primitive/组件库**：shadcn/ui + Base UI + 项目 token 已承担组件
   与视觉边界，再引入完整 UI 套件会形成两套设计语言。
 - **Dexie / `idb`**：MVP 的草稿存取先用项目级原生 IndexedDB 封装；复杂度出现后再评估。
 - **SSE / WebSocket 判题推送**：MVP 先用 Query 轮询，性能或实时性数据证明需要后再升级。

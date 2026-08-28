@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "name": "cherry-oj-web-design-system",
+  "version": "1.0.0",
+  "provenance": {
+    "source": "OpenDesign curated bundled fixture: design-systems/linear-app",
+    "officialLinearSource": false,
+    "sourceTokensSha256": "9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e",
+    "sourceDesignSha256": "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
+    "sourceLicenseSha256": "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da",
+    "license": "Apache-2.0",
+    "licenseFile": "LICENSE.open-design"
+  },
+  "modified": {
+    "for": "Cherry OJ Web",
+    "date": "2026-08-28",
+    "summary": "Owns the executable design-system sources and checks inside apps/web without a documentation dependency."
+  },
+  "entrypoints": {
+    "documentation": "README.md",
+    "tokens": "tokens.css",
+    "tailwind": "tailwind-v4.css",
+    "themeContract": "theme-contract.json",
+    "themeManifest": "themes.manifest.json"
+  },
+  "managedFiles": [
+    {
+      "registry": "themes.manifest.json",
+      "selector": "themes[].file",
+      "role": "complete registered theme sources"
+    }
+  ],
+  "files": [
+    { "path": "manifest.json", "role": "Web design-system package file registry" },
+    { "path": "README.md", "role": "Web design-system maintenance boundary" },
+    { "path": "LICENSE.open-design", "role": "upstream Apache-2.0 license" },
+    { "path": "NOTICE.md", "role": "source attribution and modification notice" },
+    { "path": "tokens.foundation.css", "role": "shared metric source" },
+    { "path": "theme-contract.json", "role": "semantic theme contract" },
+    { "path": "themes.manifest.json", "role": "theme registry and default" },
+    { "path": "tokens.css", "role": "generated stable CSS entrypoint", "generated": true },
+    { "path": "tailwind-v4.css", "role": "theme-neutral Tailwind v4 and shadcn adapter" },
+    { "path": "tools/build.mjs", "role": "deterministic CSS entrypoint builder" },
+    { "path": "tools/check.mjs", "role": "runtime contract, provenance, license, and package verifier" }
+  ]
+}

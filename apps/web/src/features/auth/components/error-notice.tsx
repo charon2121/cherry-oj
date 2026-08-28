@@ -1,21 +1,29 @@
 import { useEffect, useRef } from 'react';
 
+import { InlineNotice } from '@/components/ui/inline-notice';
+
 type ErrorNoticeProps = { message: string | undefined };
 
 export function ErrorNotice({ message }: ErrorNoticeProps) {
-  const ref = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLSpanElement>(null);
+
   useEffect(() => {
-    if (message !== undefined) ref.current?.focus();
+    if (message !== undefined) {
+      contentRef.current?.closest<HTMLElement>('[role="alert"]')?.focus();
+    }
   }, [message]);
+
   if (message === undefined) return null;
+
   return (
-    <div
-      ref={ref}
-      role="alert"
+    <InlineNotice
+      className="mt-4"
+      live="assertive"
       tabIndex={-1}
-      className="bg-danger-soft text-danger mt-4 rounded-md px-3 py-2 text-sm outline-none"
+      title={<span ref={contentRef}>{message}</span>}
+      variant="danger"
     >
-      {message}
-    </div>
+      {null}
+    </InlineNotice>
   );
 }

@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { CircleCheck, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
+import { AsyncState } from '@/components/ui/async-state';
 import { Button } from '@/components/ui/button';
+import { InlineNotice } from '@/components/ui/inline-notice';
 
 import { systemStatusQueryOptions } from '../api/system-status';
 
@@ -10,43 +12,48 @@ export function SystemStatusPanel() {
 
   if (statusQuery.isPending) {
     return (
-      <div className="border-border bg-surface mt-8 rounded-lg border px-4 py-3" role="status">
-        <p className="text-muted-foreground text-sm">正在连接 Gateway…</p>
-      </div>
+      <AsyncState
+        className="mt-8 p-4"
+        progressLabel="正在连接 Gateway…"
+        size="panel"
+        title="正在连接 Gateway…"
+        variant="loading"
+      >
+        {null}
+      </AsyncState>
     );
   }
 
   if (statusQuery.isError) {
     return (
-      <div
-        className="border-danger/30 bg-danger-soft mt-8 rounded-lg border px-4 py-3"
-        role="alert"
+      <AsyncState
+        action={
+          <Button
+            size="sm"
+            type="button"
+            variant="secondary"
+            onClick={() => void statusQuery.refetch()}
+          >
+            <RotateCcw aria-hidden="true" />
+            重新连接
+          </Button>
+        }
+        className="mt-8 p-4"
+        live="assertive"
+        size="panel"
+        title="REST API 暂时不可用"
+        variant="error"
       >
-        <p className="text-danger text-sm font-medium">REST API 暂时不可用</p>
-        <p className="text-muted-foreground mt-1 text-sm">{statusQuery.error.message}</p>
-        <Button
-          className="mt-3"
-          size="sm"
-          type="button"
-          variant="outline"
-          onClick={() => void statusQuery.refetch()}
-        >
-          <RotateCcw aria-hidden="true" />
-          重新连接
-        </Button>
-      </div>
+        {statusQuery.error.message}
+      </AsyncState>
     );
   }
 
   return (
-    <div className="border-success/30 bg-success-soft mt-8 rounded-lg border px-4 py-3">
-      <div className="flex items-center gap-2">
-        <CircleCheck aria-hidden="true" className="text-success size-4" />
-        <p className="text-sm font-medium">REST API 已连通</p>
-      </div>
-      <p className="text-muted-foreground mt-1 text-sm">
+    <InlineNotice className="mt-8" title="REST API 已连通" variant="success">
+      <p>
         当前响应服务：<span className="font-mono">{statusQuery.data.service}</span>
       </p>
-    </div>
+    </InlineNotice>
   );
 }

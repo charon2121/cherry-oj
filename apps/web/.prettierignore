@@ -1,7 +1,9 @@
 dist
 coverage
+design-system
 node_modules
 playwright-report
+public/legal
 storybook-static
 test-results
 src/routeTree.gen.ts

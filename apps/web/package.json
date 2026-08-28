@@ -9,6 +9,11 @@
     "build": "tsc -b && vite build",
     "generate:api": "openapi-ts",
     "generate:api:check": "node scripts/check-generated-api.mjs",
+    "generate:design-system": "node scripts/generate-design-system.mjs",
+    "generate:design-system:check": "node scripts/generate-design-system.mjs --check",
+    "check:design-system:source": "node scripts/check-design-system.mjs",
+    "check:design-system:self-test": "node scripts/check-design-system.mjs --self-test",
+    "check:design-system": "node design-system/tools/build.mjs --check && node design-system/tools/check.mjs && node design-system/tools/check.mjs --self-test && npm run generate:design-system:check && npm run check:design-system:source && npm run check:design-system:self-test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -19,11 +24,11 @@
     "test:e2e": "playwright test",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build",
-    "check": "npm run generate:api:check && npm run format:check && npm run lint && npm run typecheck && npm run test:run"
+    "check": "npm run check:design-system && npm run generate:api:check && npm run format:check && npm run lint && npm run typecheck && npm run test:run"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
-    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.31",
