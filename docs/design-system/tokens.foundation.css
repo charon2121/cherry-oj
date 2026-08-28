@@ -1,0 +1,73 @@
+/*
+ * Modified for Cherry OJ on 2026-08-27.
+ * Derived from the OpenDesign linear-app fixture tokens.css and DESIGN.md.
+ * Changes: namespaced tokens, separated theme-dependent values, added CJK
+ * fallbacks, explicit weights, responsive layout metrics, and reduced motion.
+ * See NOTICE.md and LICENSE.open-design in this directory.
+ */
+
+:root {
+  /* Typography */
+  --ds-font-display: "Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --ds-font-body: "Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
+  --ds-font-mono: "Berkeley Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --ds-font-features: "cv01", "ss03";
+  --ds-weight-regular: 400;
+  --ds-weight-body: 510;
+  --ds-weight-heading: 590;
+
+  --ds-text-xs: 12px;
+  --ds-text-sm: 14px;
+  --ds-text-base: 16px;
+  --ds-text-lg: 18px;
+  --ds-text-xl: 24px;
+  --ds-text-2xl: 32px;
+  --ds-text-3xl: 48px;
+  --ds-text-display-lg: 64px;
+  --ds-text-4xl: 72px;
+
+  --ds-leading-body: 1.5;
+  --ds-leading-tight: 1;
+  --ds-leading-heading: 1.13;
+  --ds-tracking-display: -0.022em;
+
+  /* Spacing */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+  --ds-space-12: 48px;
+
+  --ds-section-y-desktop: 80px;
+  --ds-section-y-tablet: 48px;
+  --ds-section-y-phone: 32px;
+
+  /* Shape and focus geometry */
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 8px;
+  --ds-radius-lg: 12px;
+  --ds-radius-pill: 9999px;
+  --ds-focus-width: 2px;
+  --ds-focus-offset: 2px;
+
+  /* Motion */
+  --ds-motion-fast: 150ms;
+  --ds-motion-base: 200ms;
+  --ds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layout */
+  --ds-container-max: 1200px;
+  --ds-container-gutter-desktop: 24px;
+  --ds-container-gutter-tablet: 16px;
+  --ds-container-gutter-phone: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --ds-motion-fast: 0ms;
+    --ds-motion-base: 0ms;
+  }
+}

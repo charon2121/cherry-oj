@@ -1,0 +1,162 @@
+<!doctype html>
+<!--
+  Modified for Cherry OJ on 2026-08-27.
+  Scope: replaces the OpenDesign single-theme preview with a manifest-driven,
+  side-by-side theme reference that never enumerates theme ids in the page.
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cherry OJ · 主题预览</title>
+    <link rel="stylesheet" href="../tokens.css" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      html { background: var(--ds-canvas); color: var(--ds-fg); font-family: var(--ds-font-body); font-feature-settings: "cv01", "ss03"; }
+      body { min-width: 320px; margin: 0; background: var(--ds-canvas); color: var(--ds-fg-2); line-height: var(--ds-leading-body); }
+      a { color: var(--ds-link); text-underline-offset: 0.18em; }
+      a:hover { color: var(--ds-link-hover); }
+      :focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+      ::selection { background: var(--ds-selection-surface); color: var(--ds-selection-foreground); }
+      h1, h2, h3, p { margin: 0; }
+      h1, h2, h3 { color: var(--ds-fg); font-family: var(--ds-font-display); line-height: var(--ds-leading-heading); }
+      h1 { font-size: var(--ds-text-2xl); font-weight: var(--ds-weight-body); letter-spacing: var(--ds-tracking-display); }
+      h2 { font-size: var(--ds-text-lg); font-weight: var(--ds-weight-heading); }
+      h3 { font-size: var(--ds-text-base); font-weight: var(--ds-weight-heading); }
+      button, input { font: inherit; }
+
+      .page { width: min(100%, var(--ds-container-max)); margin-inline: auto; padding: var(--ds-section-y-tablet) var(--ds-container-gutter-desktop); }
+      .page-header { display: flex; align-items: end; justify-content: space-between; gap: var(--ds-space-6); margin-block-end: var(--ds-space-8); }
+      .page-header p { max-width: 64ch; margin-block-start: var(--ds-space-3); color: var(--ds-fg-muted); }
+      .back-link { flex: none; }
+      .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); gap: var(--ds-space-6); }
+      .theme-frame { min-width: 0; overflow: hidden; border: 1px solid var(--ds-border-strong); border-radius: var(--ds-radius-lg); background: var(--ds-surface); box-shadow: var(--ds-elevation-raised); }
+      .theme-frame h2 { padding: var(--ds-space-3) var(--ds-space-4); border-block-end: 1px solid var(--ds-border); }
+      .theme-frame iframe { display: block; width: 100%; height: 500px; border: 0; background: var(--ds-canvas); }
+      .error { padding: var(--ds-space-5); border: 1px solid var(--ds-danger-border); border-radius: var(--ds-radius-md); background: var(--ds-danger-surface); color: var(--ds-danger-foreground); }
+
+      .scene { display: grid; gap: var(--ds-space-4); min-height: 100vh; padding: var(--ds-space-5); background: var(--ds-canvas); }
+      .scene-panel { padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: var(--ds-panel); }
+      .scene-card { padding: var(--ds-space-4); border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: var(--ds-surface-raised); box-shadow: var(--ds-elevation-raised); }
+      .scene-card p { margin-block-start: var(--ds-space-2); color: var(--ds-fg-muted); font-size: var(--ds-text-sm); }
+      .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+      .button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: var(--ds-space-2) var(--ds-space-4); border: 1px solid transparent; border-radius: var(--ds-radius-sm); background: var(--ds-brand-surface); color: var(--ds-on-brand); font-weight: var(--ds-weight-body); cursor: pointer; }
+      .button:hover { background: var(--ds-brand-surface-hover); }
+      .button:active { background: var(--ds-brand-surface-active); }
+      .button--secondary { border-color: var(--ds-border-strong); background: var(--ds-surface-subtle); color: var(--ds-fg); }
+      .button--secondary:hover { background: var(--ds-surface-hover); }
+      .control { width: 100%; min-height: 40px; padding: var(--ds-space-3); border: 1px solid var(--ds-border-strong); border-radius: var(--ds-radius-sm); outline: 0; background: var(--ds-surface-subtle); color: var(--ds-fg); }
+      .control::placeholder { color: var(--ds-fg-meta); }
+      .control:focus-visible { border-color: var(--ds-focus); outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+      .badge { display: inline-flex; min-height: 26px; align-items: center; padding-inline: var(--ds-space-2); border: 1px solid; border-radius: var(--ds-radius-pill); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-body); }
+      .success { border-color: var(--ds-success-border); background: var(--ds-success-surface); color: var(--ds-success-foreground); }
+      .warning { border-color: var(--ds-warning-border); background: var(--ds-warning-surface); color: var(--ds-warning-foreground); }
+      .danger { border-color: var(--ds-danger-border); background: var(--ds-danger-surface); color: var(--ds-danger-foreground); }
+      .info { border-color: var(--ds-info-border); background: var(--ds-info-surface); color: var(--ds-info-foreground); }
+      .special { border-color: var(--ds-special-border); background: var(--ds-special-surface); color: var(--ds-special-foreground); }
+      body:not(.is-embed) .scene { display: none; }
+      body.is-embed .page { display: none; }
+
+      @media (max-width: 639px) {
+        .page { padding: var(--ds-section-y-phone) var(--ds-container-gutter-phone); }
+        .page-header { align-items: start; flex-direction: column; }
+        .theme-frame iframe { height: 540px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+      }
+      @media (forced-colors: active) {
+        :focus-visible { outline-color: Highlight; }
+        .button, .control, .badge { border: 1px solid CanvasText; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <div>
+          <h1>已登记主题</h1>
+          <p>页面从 manifest 创建预览，不在 HTML 中枚举主题 id。每个 iframe 使用同一套结构与 semantic token。</p>
+        </div>
+        <a class="back-link" href="../components.html">查看组件参考</a>
+      </header>
+      <section class="gallery" id="theme-gallery" aria-label="主题对照" aria-busy="true"></section>
+    </main>
+
+    <section class="scene" aria-label="主题样例场景">
+      <section class="scene-panel">
+        <h2>Cherry OJ</h2>
+        <p>画布、面板与抬升面保持稳定层级。</p>
+      </section>
+      <article class="scene-card">
+        <h3>P1042 · 字符统计</h3>
+        <p>卡片正文使用次级文字，metadata 不再叠加透明度。</p>
+      </article>
+      <label>
+        <span>搜索题目</span>
+        <input class="control" placeholder="题号、标题或标签" />
+      </label>
+      <div class="row">
+        <button class="button" type="button">提交代码</button>
+        <button class="button button--secondary" type="button">运行样例</button>
+      </div>
+      <div class="row" aria-label="状态颜色">
+        <span class="badge success">AC · 答案正确</span>
+        <span class="badge warning">TLE · 超时</span>
+        <span class="badge danger">WA · 答案错误</span>
+        <span class="badge info">RAN · 已运行</span>
+        <span class="badge special">SE · 系统错误</span>
+      </div>
+    </section>
+
+    <script>
+      const params = new URL(window.location.href).searchParams;
+      const isEmbed = params.get("embed") === "1";
+      if (isEmbed) document.body.classList.add("is-embed");
+
+      async function readManifest() {
+        const response = await fetch("../themes.manifest.json");
+        if (!response.ok) throw new Error("theme manifest unavailable");
+        return response.json();
+      }
+
+      async function setup() {
+        const gallery = document.querySelector("#theme-gallery");
+        try {
+          const manifest = await readManifest();
+          const themes = Array.isArray(manifest.themes) ? manifest.themes : [];
+          const requested = params.get("theme");
+          if (themes.some((theme) => theme.id === requested)) {
+            document.documentElement.dataset.theme = requested;
+          }
+
+          if (!isEmbed) {
+            for (const theme of themes) {
+              const article = document.createElement("article");
+              article.className = "theme-frame";
+              const heading = document.createElement("h2");
+              heading.textContent = `${theme.label} · ${theme.colorScheme}`;
+              const frame = document.createElement("iframe");
+              frame.title = `${theme.label} 主题组件场景`;
+              const url = new URL(window.location.href);
+              url.search = "";
+              url.searchParams.set("embed", "1");
+              url.searchParams.set("theme", theme.id);
+              frame.src = url.href;
+              article.append(heading, frame);
+              gallery.append(article);
+            }
+            gallery.setAttribute("aria-busy", "false");
+          }
+        } catch {
+          if (!isEmbed) {
+            gallery.setAttribute("aria-busy", "false");
+            gallery.innerHTML = '<p class="error">未能读取主题清单。请通过本地静态服务器打开本页；默认主题仍可独立显示。</p>';
+          }
+        }
+      }
+
+      setup();
+    </script>
+  </body>
+</html>

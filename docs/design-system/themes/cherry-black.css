@@ -1,0 +1,97 @@
+/*
+ * Modified for Cherry OJ on 2026-08-27.
+ * Derived from the OpenDesign linear-app fixture dark tokens.
+ * Changes: namespaced semantic contract, Cherry brand mapping, opaque OJ
+ * status surfaces, accessible metadata/control colors, and explicit fallback.
+ * Source tokens.css SHA-256:
+ * 9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e
+ * See ../NOTICE.md and ../LICENSE.open-design.
+ */
+
+:root,
+:root[data-theme="cherry-black"] {
+  color-scheme: dark;
+
+  /* Preserved, non-component OpenDesign primitives. */
+  --ds-raw-linear-canvas: #08090a;
+  --ds-raw-linear-surface: #191a1b;
+  --ds-raw-linear-fg: #f7f8f8;
+  --ds-raw-linear-fg-2: #d0d6e0;
+  --ds-raw-linear-muted: #8a8f98;
+  --ds-raw-linear-meta: #62666d;
+  --ds-raw-linear-success: #27a644;
+  --ds-raw-linear-warning: #eab308;
+  --ds-raw-linear-danger: #dc2626;
+
+  /* Neutral surfaces */
+  --ds-canvas: #08090a;
+  --ds-panel: #0f1011;
+  --ds-surface: #191a1b;
+  --ds-surface-subtle: #141516;
+  --ds-surface-raised: #191a1b;
+  --ds-surface-hover: #28282c;
+
+  /* Foreground */
+  --ds-fg: #f7f8f8;
+  --ds-fg-2: #d0d6e0;
+  --ds-fg-muted: #8a8f98;
+  --ds-fg-meta: #8a8f98;
+  --ds-fg-disabled: #8a8f98;
+
+  /* Decorative and necessary boundaries */
+  --ds-border-soft: rgba(255, 255, 255, 0.05);
+  --ds-border: rgba(255, 255, 255, 0.08);
+  --ds-border-strong: #80848d;
+
+  /* Cherry brand and interaction */
+  --ds-brand-surface: #de1c4e;
+  --ds-brand-surface-hover: #dd2c53;
+  --ds-brand-surface-active: #c01242;
+  --ds-on-brand: #ffffff;
+  --ds-brand-foreground: #f9667a;
+  --ds-brand-foreground-hover: #ff8494;
+  --ds-brand-soft: #32141d;
+  --ds-on-brand-soft: #f9667a;
+  --ds-link: var(--ds-brand-foreground);
+  --ds-link-hover: var(--ds-brand-foreground-hover);
+  --ds-focus: var(--ds-brand-foreground);
+  --ds-selection-surface: var(--ds-brand-soft);
+  --ds-selection-foreground: var(--ds-fg);
+
+  /* OJ status: text/necessary border, soft surface, solid, on-solid */
+  --ds-success-foreground: #27a644;
+  --ds-success-surface: #14271a;
+  --ds-success-border: var(--ds-success-foreground);
+  --ds-success-solid: #187a34;
+  --ds-success-on-solid: #ffffff;
+
+  --ds-warning-foreground: #eab308;
+  --ds-warning-surface: #2c2410;
+  --ds-warning-border: var(--ds-warning-foreground);
+  --ds-warning-solid: #eab308;
+  --ds-warning-on-solid: #08090a;
+
+  --ds-danger-foreground: #f97066;
+  --ds-danger-surface: #321619;
+  --ds-danger-border: var(--ds-danger-foreground);
+  --ds-danger-solid: #dc2626;
+  --ds-danger-on-solid: #ffffff;
+
+  --ds-info-foreground: #60a5fa;
+  --ds-info-surface: #142236;
+  --ds-info-border: var(--ds-info-foreground);
+  --ds-info-solid: #245ea8;
+  --ds-info-on-solid: #ffffff;
+
+  --ds-special-foreground: #c084fc;
+  --ds-special-surface: #281a35;
+  --ds-special-border: var(--ds-special-foreground);
+  --ds-special-solid: #6941c6;
+  --ds-special-on-solid: #ffffff;
+
+  /* System and elevation */
+  --ds-overlay: rgba(0, 0, 0, 0.85);
+  --ds-elevation-flat: none;
+  --ds-elevation-ring: 0 0 0 1px var(--ds-border);
+  --ds-elevation-raised: rgba(0, 0, 0, 0.4) 0 2px 4px, 0 0 0 1px rgba(255, 255, 255, 0.05);
+}

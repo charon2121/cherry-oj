@@ -31,9 +31,13 @@ DECISION，避免历史原因丢失。
 - [`backend.md`](./backend.md)：Java 服务工程与实现边界；
 - [`logging.md`](./logging.md)：Java/Go 统一日志字段、Trace 传播与文件滚动规范；
 - [`frontend.md`](./frontend.md)：Web 架构、状态、组件和工程规则；
+- [`design-system.md`](./design-system.md)：Web 视觉、主题合同、组件规则、可访问性与例外流程；
 - [`prd-background.md`](./prd-background.md)：产品缘起与长期背景。
 
-HTML 视觉合同和 `diagrams/` 中的图是上述文档的辅助材料，不单独承担需求或状态真源职责。
+[`design-system/`](./design-system/) 保存设计系统的可执行文档包。其中 Foundation 与主题 CSS 是数值
+真源，theme contract 是语义和对比合同；机器快照、组件 HTML 和 preview 是派生或评审材料。
+旧 [`ui-system.html`](./ui-system.html) 只保留为兼容入口，`diagrams/` 中的图仍是辅助材料，二者都不
+单独承担需求、token 或状态真源职责。
 
 修改全局文档属于系统级影响：先在 `development/` 建立或关联工作项，说明改变了什么长期事实、哪些
 工作受影响，以及如何验证代码和其他文档已经同步。拼写、失效链接等不改变语义的低风险修正可以走

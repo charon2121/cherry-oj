@@ -1,0 +1,1381 @@
+<!doctype html>
+<!--
+  Modified for Cherry OJ on 2026-08-27.
+  Scope: replaces the OpenDesign Linear fixture's product copy, purple accent,
+  single dark presentation and generic marketing examples with theme-neutral,
+  accessible Online Judge component references.
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Cherry OJ 设计系统的双主题、响应式、键盘可用组件参考。"
+    />
+    <title>Cherry OJ · 组件参考</title>
+    <link rel="stylesheet" href="./tokens.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--ds-canvas);
+        color: var(--ds-fg);
+        font-family: var(--ds-font-body);
+        font-feature-settings: "cv01", "ss03";
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background: var(--ds-canvas);
+        color: var(--ds-fg-2);
+        font-size: var(--ds-text-base);
+        line-height: var(--ds-leading-body);
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button,
+      summary,
+      select,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a {
+        color: var(--ds-link);
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.18em;
+      }
+
+      a:hover {
+        color: var(--ds-link-hover);
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--ds-focus);
+        outline-offset: 2px;
+      }
+
+      ::selection {
+        background: var(--ds-selection-surface);
+        color: var(--ds-selection-foreground);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-block: 0;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: var(--ds-fg);
+        font-family: var(--ds-font-display);
+        line-height: var(--ds-leading-heading);
+      }
+
+      h1 {
+        font-size: clamp(var(--ds-text-2xl), 6vw, var(--ds-text-3xl));
+        font-weight: var(--ds-weight-body);
+        letter-spacing: var(--ds-tracking-display);
+      }
+
+      h2 {
+        font-size: var(--ds-text-2xl);
+        font-weight: var(--ds-weight-body);
+        letter-spacing: var(--ds-tracking-display);
+      }
+
+      h3 {
+        font-size: var(--ds-text-lg);
+        font-weight: var(--ds-weight-heading);
+      }
+
+      code,
+      pre,
+      kbd {
+        font-family: var(--ds-font-mono);
+      }
+
+      .skip-link {
+        position: fixed;
+        inset-block-start: var(--ds-space-2);
+        inset-inline-start: var(--ds-space-2);
+        z-index: 10;
+        translate: 0 -200%;
+        padding: var(--ds-space-2) var(--ds-space-3);
+        border-radius: var(--ds-radius-sm);
+        background: var(--ds-brand-surface);
+        color: var(--ds-on-brand);
+      }
+
+      .skip-link:focus {
+        translate: 0;
+      }
+
+      .skip-link:hover {
+        background: var(--ds-brand-surface-hover);
+        color: var(--ds-on-brand);
+      }
+
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      .icon {
+        width: 1em;
+        height: 1em;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 232px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        inset-block-start: 0;
+        align-self: start;
+        min-height: 100vh;
+        padding: var(--ds-space-6) var(--ds-space-4);
+        border-inline-end: 1px solid var(--ds-border);
+        background: var(--ds-panel);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: var(--ds-space-2);
+        color: var(--ds-fg);
+        font-family: var(--ds-font-display);
+        font-weight: var(--ds-weight-heading);
+        text-decoration: none;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        place-items: center;
+        border-radius: var(--ds-radius-md);
+        background: var(--ds-brand-surface);
+        color: var(--ds-on-brand);
+        font-size: var(--ds-text-xs);
+        letter-spacing: var(--ds-tracking-display);
+      }
+
+      .nav-list {
+        display: grid;
+        gap: var(--ds-space-1);
+        margin: var(--ds-space-8) 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .nav-link {
+        display: block;
+        padding: var(--ds-space-2) var(--ds-space-3);
+        border-radius: var(--ds-radius-sm);
+        color: var(--ds-fg-muted);
+        font-size: var(--ds-text-sm);
+        font-weight: var(--ds-weight-body);
+        text-decoration: none;
+      }
+
+      .nav-link:hover {
+        background: var(--ds-surface-hover);
+        color: var(--ds-fg);
+      }
+
+      .nav-link[aria-current="page"] {
+        background: var(--ds-brand-soft);
+        color: var(--ds-on-brand-soft);
+      }
+
+      .main {
+        min-width: 0;
+      }
+
+      .topbar {
+        display: flex;
+        min-height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--ds-space-4);
+        padding: var(--ds-space-3) var(--ds-container-gutter-desktop);
+        border-block-end: 1px solid var(--ds-border);
+        background: var(--ds-canvas);
+      }
+
+      .topbar-meta {
+        color: var(--ds-fg-meta);
+        font-size: var(--ds-text-sm);
+      }
+
+      .theme-field {
+        display: flex;
+        align-items: center;
+        gap: var(--ds-space-2);
+        color: var(--ds-fg-muted);
+        font-size: var(--ds-text-sm);
+      }
+
+      .theme-field select,
+      .control {
+        min-height: 40px;
+        border: 1px solid var(--ds-border-strong);
+        border-radius: var(--ds-radius-sm);
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg);
+      }
+
+      .theme-field select {
+        padding-inline: var(--ds-space-3);
+      }
+
+      .content {
+        width: min(100%, var(--ds-container-max));
+        margin-inline: auto;
+        padding: var(--ds-section-y-tablet) var(--ds-container-gutter-desktop);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
+        gap: var(--ds-space-8);
+        align-items: end;
+        padding-block-end: var(--ds-section-y-tablet);
+        border-block-end: 1px solid var(--ds-border);
+      }
+
+      .eyebrow {
+        margin-block-end: var(--ds-space-3);
+        color: var(--ds-brand-foreground);
+        font-size: var(--ds-text-xs);
+        font-weight: var(--ds-weight-body);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .lede {
+        max-width: 62ch;
+        margin-block-start: var(--ds-space-4);
+        color: var(--ds-fg-muted);
+        font-size: var(--ds-text-lg);
+      }
+
+      .meta-card,
+      .card,
+      .sample {
+        border: 1px solid var(--ds-border);
+        border-radius: var(--ds-radius-md);
+        background: var(--ds-surface);
+      }
+
+      .meta-card {
+        padding: var(--ds-space-4);
+      }
+
+      .meta-card dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: var(--ds-space-2) var(--ds-space-4);
+        margin: 0;
+        font-size: var(--ds-text-sm);
+      }
+
+      .meta-card dt {
+        color: var(--ds-fg-meta);
+      }
+
+      .meta-card dd {
+        margin: 0;
+        color: var(--ds-fg-2);
+      }
+
+      .section {
+        padding-block: var(--ds-section-y-tablet);
+        border-block-end: 1px solid var(--ds-border);
+      }
+
+      .section-heading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.65fr);
+        gap: var(--ds-space-6);
+        align-items: start;
+        margin-block-end: var(--ds-space-6);
+      }
+
+      .section-heading p {
+        color: var(--ds-fg-muted);
+        font-size: var(--ds-text-sm);
+      }
+
+      .sample-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--ds-space-4);
+      }
+
+      .sample {
+        min-width: 0;
+        padding: var(--ds-space-5);
+      }
+
+      .sample-title {
+        margin-block-end: var(--ds-space-4);
+        color: var(--ds-fg-meta);
+        font-size: var(--ds-text-xs);
+        font-weight: var(--ds-weight-body);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .cluster {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--ds-space-2);
+        align-items: center;
+      }
+
+      .stack {
+        display: grid;
+        gap: var(--ds-space-3);
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        justify-content: center;
+        gap: var(--ds-space-2);
+        padding: var(--ds-space-2) var(--ds-space-4);
+        border: 1px solid transparent;
+        border-radius: var(--ds-radius-sm);
+        font-family: var(--ds-font-display);
+        font-size: var(--ds-text-sm);
+        font-weight: var(--ds-weight-body);
+        line-height: 1;
+        cursor: pointer;
+        transition:
+          background-color var(--ds-motion-fast) var(--ds-ease-standard),
+          color var(--ds-motion-fast) var(--ds-ease-standard),
+          border-color var(--ds-motion-fast) var(--ds-ease-standard);
+      }
+
+      .button--primary {
+        background: var(--ds-brand-surface);
+        color: var(--ds-on-brand);
+      }
+
+      .button--primary:hover {
+        background: var(--ds-brand-surface-hover);
+        color: var(--ds-on-brand);
+      }
+
+      .button--primary:active,
+      .button--primary.is-pressed {
+        background: var(--ds-brand-surface-active);
+        color: var(--ds-on-brand);
+      }
+
+      .button--secondary {
+        border-color: var(--ds-border-strong);
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg);
+      }
+
+      .button--secondary:hover,
+      .button--secondary:active {
+        background: var(--ds-surface-hover);
+      }
+
+      .button--secondary.is-pressed {
+        border-color: var(--ds-focus);
+        background: var(--ds-surface-hover);
+        box-shadow: var(--ds-elevation-ring);
+      }
+
+      .button--ghost {
+        background: transparent;
+        color: var(--ds-fg-2);
+      }
+
+      .button--ghost:hover,
+      .button--ghost:active {
+        background: var(--ds-surface-hover);
+        color: var(--ds-fg);
+      }
+
+      .button--ghost.is-pressed {
+        background: var(--ds-surface-hover);
+        color: var(--ds-fg);
+        box-shadow: var(--ds-elevation-ring);
+      }
+
+      .button--danger {
+        background: var(--ds-danger-solid);
+        color: var(--ds-danger-on-solid);
+      }
+
+      .button--danger:hover {
+        border-color: var(--ds-danger-on-solid);
+      }
+
+      .button--danger:active,
+      .button--danger.is-pressed {
+        border-color: var(--ds-danger-on-solid);
+        box-shadow: inset 0 0 0 1px var(--ds-danger-on-solid);
+      }
+
+      .button:disabled,
+      .button[aria-disabled="true"] {
+        border-color: var(--ds-border);
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg-disabled);
+        cursor: not-allowed;
+      }
+
+      .button[aria-busy="true"] {
+        cursor: wait;
+      }
+
+      .field {
+        display: grid;
+        gap: var(--ds-space-2);
+      }
+
+      .field label {
+        color: var(--ds-fg-2);
+        font-size: var(--ds-text-sm);
+        font-weight: var(--ds-weight-body);
+      }
+
+      .field-row {
+        position: relative;
+      }
+
+      .field-row .icon {
+        position: absolute;
+        inset-block-start: 50%;
+        inset-inline-start: var(--ds-space-3);
+        color: var(--ds-fg-muted);
+        translate: 0 -50%;
+        pointer-events: none;
+      }
+
+      .control {
+        width: 100%;
+        padding: var(--ds-space-3);
+        outline: none;
+      }
+
+      .control--with-icon {
+        padding-inline-start: var(--ds-space-12);
+      }
+
+      .control::placeholder {
+        color: var(--ds-fg-meta);
+      }
+
+      .control:hover {
+        background: var(--ds-surface-hover);
+      }
+
+      .control:focus-visible {
+        border-color: var(--ds-focus);
+        outline: 2px solid var(--ds-focus);
+        outline-offset: 2px;
+      }
+
+      .control[aria-invalid="true"] {
+        border-color: var(--ds-danger-border);
+      }
+
+      .control:disabled {
+        border-color: var(--ds-border-strong);
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg-disabled);
+        cursor: not-allowed;
+      }
+
+      .help,
+      .error-text {
+        font-size: var(--ds-text-sm);
+      }
+
+      .help {
+        color: var(--ds-fg-meta);
+      }
+
+      .error-text {
+        color: var(--ds-danger-foreground);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--ds-space-1);
+        min-height: 26px;
+        padding-inline: var(--ds-space-2);
+        border: 1px solid var(--ds-border);
+        border-radius: var(--ds-radius-pill);
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg-2);
+        font-size: var(--ds-text-xs);
+        font-weight: var(--ds-weight-body);
+        white-space: nowrap;
+      }
+
+      .badge--brand {
+        border-color: var(--ds-brand-foreground);
+        background: var(--ds-brand-soft);
+        color: var(--ds-on-brand-soft);
+      }
+
+      .status--success {
+        border-color: var(--ds-success-border);
+        background: var(--ds-success-surface);
+        color: var(--ds-success-foreground);
+      }
+
+      .status--warning {
+        border-color: var(--ds-warning-border);
+        background: var(--ds-warning-surface);
+        color: var(--ds-warning-foreground);
+      }
+
+      .status--danger {
+        border-color: var(--ds-danger-border);
+        background: var(--ds-danger-surface);
+        color: var(--ds-danger-foreground);
+      }
+
+      .status--info {
+        border-color: var(--ds-info-border);
+        background: var(--ds-info-surface);
+        color: var(--ds-info-foreground);
+      }
+
+      .status--special {
+        border-color: var(--ds-special-border);
+        background: var(--ds-special-surface);
+        color: var(--ds-special-foreground);
+      }
+
+      .card {
+        padding: var(--ds-space-5);
+        transition:
+          background-color var(--ds-motion-base) var(--ds-ease-standard),
+          border-color var(--ds-motion-base) var(--ds-ease-standard);
+      }
+
+      .card--interactive:hover {
+        border-color: var(--ds-border-strong);
+        background: var(--ds-surface-hover);
+      }
+
+      .card--interactive:has(:focus-visible) {
+        border-color: var(--ds-focus);
+        box-shadow: 0 0 0 1px var(--ds-focus);
+      }
+
+      .card--selected {
+        border-color: var(--ds-brand-foreground);
+        background: var(--ds-brand-soft);
+      }
+
+      .card p {
+        margin-block-start: var(--ds-space-2);
+        color: var(--ds-fg-muted);
+        font-size: var(--ds-text-sm);
+      }
+
+      .card.status--danger h3,
+      .card.status--danger p {
+        color: var(--ds-danger-foreground);
+      }
+
+      .card--selected h3,
+      .card--selected p,
+      .card--selected a {
+        color: var(--ds-on-brand-soft);
+      }
+
+      .notice {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: var(--ds-space-3);
+        padding: var(--ds-space-4);
+        border: 1px solid;
+        border-radius: var(--ds-radius-md);
+      }
+
+      .notice .icon {
+        width: 20px;
+        height: 20px;
+        margin-block-start: 2px;
+      }
+
+      .notice strong {
+        display: block;
+        color: currentColor;
+      }
+
+      .notice p {
+        margin-block-start: var(--ds-space-1);
+        color: currentColor;
+        font-size: var(--ds-text-sm);
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--ds-border);
+        border-radius: var(--ds-radius-md);
+      }
+
+      table {
+        width: 100%;
+        min-width: 680px;
+        border-collapse: collapse;
+        background: var(--ds-surface);
+        font-size: var(--ds-text-sm);
+      }
+
+      caption {
+        padding: var(--ds-space-3) var(--ds-space-4);
+        color: var(--ds-fg-meta);
+        text-align: start;
+      }
+
+      th,
+      td {
+        padding: var(--ds-space-3) var(--ds-space-4);
+        border-block-start: 1px solid var(--ds-border);
+        text-align: start;
+      }
+
+      th {
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg-muted);
+        font-weight: var(--ds-weight-body);
+      }
+
+      tbody tr:hover {
+        background: var(--ds-surface-hover);
+      }
+
+      .cell-meta {
+        color: var(--ds-fg-meta);
+      }
+
+      .empty-state {
+        display: grid;
+        min-height: 180px;
+        place-items: center;
+        padding: var(--ds-space-6);
+        border: 1px dashed var(--ds-border-strong);
+        border-radius: var(--ds-radius-md);
+        background: var(--ds-surface-subtle);
+        text-align: center;
+      }
+
+      .empty-state p {
+        max-width: 46ch;
+        margin: var(--ds-space-2) auto var(--ds-space-4);
+        color: var(--ds-fg-muted);
+        font-size: var(--ds-text-sm);
+      }
+
+      details.popover {
+        position: relative;
+      }
+
+      details.popover summary {
+        width: fit-content;
+        cursor: pointer;
+        list-style: none;
+      }
+
+      details.popover summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .popover-panel {
+        width: min(320px, calc(100vw - var(--ds-space-8)));
+        margin-block-start: var(--ds-space-2);
+        padding: var(--ds-space-4);
+        border: 1px solid var(--ds-border-strong);
+        border-radius: var(--ds-radius-md);
+        background: var(--ds-surface-raised);
+        box-shadow: var(--ds-elevation-raised);
+      }
+
+      dialog {
+        width: min(480px, calc(100vw - var(--ds-space-6)));
+        padding: 0;
+        border: 1px solid var(--ds-border-strong);
+        border-radius: var(--ds-radius-lg);
+        background: var(--ds-surface-raised);
+        color: var(--ds-fg-2);
+        box-shadow: var(--ds-elevation-raised);
+      }
+
+      dialog::backdrop {
+        background: var(--ds-overlay);
+      }
+
+      .dialog-body {
+        padding: var(--ds-space-6);
+      }
+
+      .dialog-body p {
+        margin-block-start: var(--ds-space-3);
+        color: var(--ds-fg-muted);
+      }
+
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: var(--ds-space-2);
+        margin-block-start: var(--ds-space-6);
+      }
+
+      .editor-shell {
+        display: grid;
+        grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.2fr);
+        min-height: 420px;
+        overflow: hidden;
+        border: 1px solid var(--ds-border);
+        border-radius: var(--ds-radius-lg);
+        background: var(--ds-surface);
+      }
+
+      .problem-pane,
+      .editor-pane {
+        min-width: 0;
+        padding: var(--ds-space-5);
+      }
+
+      .problem-pane {
+        border-inline-end: 1px solid var(--ds-border);
+      }
+
+      .problem-pane p {
+        margin-block-start: var(--ds-space-3);
+        color: var(--ds-fg-muted);
+      }
+
+      .editor-toolbar {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--ds-space-3);
+        align-items: center;
+        margin-block-end: var(--ds-space-3);
+      }
+
+      .editor-code {
+        min-height: 250px;
+        margin: 0;
+        padding: var(--ds-space-4);
+        overflow: auto;
+        border: 1px solid var(--ds-border-strong);
+        border-radius: var(--ds-radius-md);
+        background: var(--ds-surface-subtle);
+        color: var(--ds-fg-2);
+        font-size: var(--ds-text-sm);
+        line-height: var(--ds-leading-body);
+        white-space: pre;
+      }
+
+      .timeline {
+        display: grid;
+        gap: var(--ds-space-3);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .timeline li {
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: var(--ds-space-3);
+        padding-inline-start: var(--ds-space-3);
+        border-inline-start: 3px solid var(--ds-border-strong);
+      }
+
+      .timeline .is-complete {
+        border-inline-start-color: var(--ds-success-border);
+      }
+
+      .timeline .is-current {
+        border-inline-start-color: var(--ds-info-border);
+      }
+
+      .timeline-state {
+        color: var(--ds-fg-meta);
+        font-size: var(--ds-text-xs);
+        font-weight: var(--ds-weight-body);
+        text-transform: uppercase;
+      }
+
+      @media (max-width: 900px) {
+        .shell {
+          width: 100%;
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .sidebar {
+          position: static;
+          min-width: 0;
+          min-height: auto;
+          max-width: 100%;
+          padding: var(--ds-space-3) var(--ds-container-gutter-tablet);
+          border-inline-end: 0;
+          border-block-end: 1px solid var(--ds-border);
+        }
+
+        .nav-list {
+          display: flex;
+          max-width: 100%;
+          margin-block-start: var(--ds-space-3);
+          overflow-x: auto;
+        }
+
+        .nav-link {
+          white-space: nowrap;
+        }
+
+        .hero,
+        .section-heading,
+        .editor-shell {
+          grid-template-columns: 1fr;
+        }
+
+        .problem-pane {
+          border-inline-end: 0;
+          border-block-end: 1px solid var(--ds-border);
+        }
+      }
+
+      @media (max-width: 639px) {
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+          padding-inline: var(--ds-container-gutter-phone);
+        }
+
+        .theme-field {
+          width: 100%;
+          justify-content: space-between;
+        }
+
+        .theme-field select {
+          max-width: 62%;
+        }
+
+        .content {
+          padding: var(--ds-section-y-phone) var(--ds-container-gutter-phone);
+        }
+
+        .sample-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .sample {
+          padding: var(--ds-space-4);
+        }
+
+        .dialog-actions,
+        .editor-toolbar {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .dialog-actions .button,
+        .editor-toolbar .button,
+        .editor-toolbar select {
+          width: 100%;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+
+      @media (forced-colors: active) {
+        :focus-visible {
+          outline-color: Highlight;
+        }
+
+        .button,
+        .control,
+        .badge,
+        .notice {
+          border: 1px solid CanvasText;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    <!-- Lucide Trash2 1.33.0, ISC license. -->
+    <svg aria-hidden="true" hidden>
+      <symbol id="icon-trash-2" viewBox="0 0 24 24">
+        <path d="M10 11v6"></path>
+        <path d="M14 11v6"></path>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+        <path d="M3 6h18"></path>
+        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </symbol>
+    </svg>
+    <div class="shell">
+      <aside class="sidebar" aria-label="设计系统导航">
+        <a class="brand" href="#top">
+          <span class="brand-mark" aria-hidden="true">CO</span>
+          <span>Cherry OJ</span>
+        </a>
+        <nav aria-label="组件分区">
+          <ul class="nav-list">
+            <li><a class="nav-link" aria-current="page" href="#foundations">基础控件</a></li>
+            <li><a class="nav-link" href="#data">数据与状态</a></li>
+            <li><a class="nav-link" href="#overlays">浮层与反馈</a></li>
+            <li><a class="nav-link" href="#oj-workflow">判题工作区</a></li>
+          </ul>
+        </nav>
+      </aside>
+
+      <div class="main" id="top">
+        <header class="topbar">
+          <p class="topbar-meta">设计系统 v1 · 静态组件参考</p>
+          <label class="theme-field" for="theme-picker">
+            <span>预览主题</span>
+            <select id="theme-picker" disabled>
+              <option>正在读取主题清单…</option>
+            </select>
+          </label>
+        </header>
+
+        <main class="content" id="main-content">
+          <section class="hero" aria-labelledby="page-title">
+            <div>
+              <p class="eyebrow">Theme-neutral components</p>
+              <h1 id="page-title">一套组件，覆盖每个已登记主题</h1>
+              <p class="lede">
+                所有样例只消费 semantic token，不判断主题 id。请用键盘依次访问选择器、链接、表单、
+                disclosure 与 dialog，并在窄至 320px 的窗口检查阅读顺序。
+              </p>
+            </div>
+            <aside class="meta-card" aria-label="参考页信息">
+              <dl>
+                <dt>颜色</dt>
+                <dd>Semantic only</dd>
+                <dt>字体</dt>
+                <dd>Inter Variable + CJK fallback</dd>
+                <dt>状态</dt>
+                <dd>文字与结构双重表达</dd>
+                <dt>动效</dt>
+                <dd>支持 reduced motion</dd>
+              </dl>
+            </aside>
+          </section>
+
+          <section class="section" id="foundations" aria-labelledby="foundations-title">
+            <div class="section-heading">
+              <h2 id="foundations-title">基础控件</h2>
+              <p>按钮、输入、链接、badge 与 card 沿用紧凑密度；品牌、危险和中性 hover 各自使用独立语义。</p>
+            </div>
+
+            <div class="sample-grid">
+              <article class="sample">
+                <p class="sample-title">Button · states</p>
+                <div class="cluster">
+                  <button class="button button--primary" type="button">提交代码</button>
+                  <button class="button button--secondary" type="button">运行样例</button>
+                  <button class="button button--ghost" type="button">查看说明</button>
+                  <button class="button button--danger" type="button" data-open-dialog>
+                    <svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#icon-trash-2"></use></svg>
+                    删除提交
+                  </button>
+                  <button class="button button--secondary is-pressed" type="button" aria-pressed="true">已选择</button>
+                  <button class="button" type="button" disabled>不可用</button>
+                  <button class="button button--primary" type="button" aria-busy="true" disabled>正在提交…</button>
+                </div>
+              </article>
+
+              <article class="sample">
+                <p class="sample-title">Field · default / invalid</p>
+                <div class="stack">
+                  <div class="field">
+                    <label for="problem-search">搜索题目</label>
+                    <div class="field-row">
+                      <!-- Lucide Search 1.33.0, ISC license. -->
+                      <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="m21 21-4.34-4.34"></path>
+                        <circle cx="11" cy="11" r="8"></circle>
+                      </svg>
+                      <input class="control control--with-icon" id="problem-search" placeholder="题号、标题或标签" />
+                    </div>
+                    <span class="help">支持中文、题号与标签组合搜索。</span>
+                  </div>
+                  <div class="field">
+                    <label for="language">编程语言</label>
+                    <select class="control" id="language" aria-invalid="true" aria-describedby="language-error">
+                      <option value="">请选择语言</option>
+                      <option>Go 1.25</option>
+                      <option>Java 21</option>
+                    </select>
+                    <span class="error-text" id="language-error">错误：提交前必须选择一种语言。</span>
+                  </div>
+                  <div class="field">
+                    <label for="locked-environment">判题环境</label>
+                    <input class="control" id="locked-environment" value="比赛期间由系统锁定" disabled />
+                    <span class="help">不可用状态仍保留清晰文字与控件边界。</span>
+                  </div>
+                </div>
+              </article>
+
+              <article class="sample">
+                <p class="sample-title">Badge · verdict and status</p>
+                <div class="cluster">
+                  <span class="badge">全部题目</span>
+                  <span class="badge badge--brand">当前筛选</span>
+                  <span class="badge status--success"><strong>AC</strong> · 答案正确</span>
+                  <span class="badge status--warning"><strong>TLE</strong> · 超出时间限制</span>
+                  <span class="badge status--danger"><strong>WA</strong> · 答案错误</span>
+                  <span class="badge status--info"><strong>RAN</strong> · 已运行</span>
+                  <span class="badge status--special"><strong>SE</strong> · 系统错误</span>
+                </div>
+              </article>
+
+              <article class="sample">
+                <p class="sample-title">Card, link and long content</p>
+                <div class="stack">
+                  <div class="card card--interactive">
+                    <h3><a href="#data">P1042 · 字符统计</a></h3>
+                    <p>
+                      这是一段用于验证极长中文标题与连续说明文字换行的样例：在保持紧凑信息密度的同时，
+                      内容不能溢出卡片，也不能因为主题变化而丢失层级。
+                    </p>
+                    <div class="cluster" style="margin-block-start: var(--ds-space-3)">
+                      <span class="badge">字符串</span>
+                      <span class="badge">入门</span>
+                    </div>
+                  </div>
+                  <div class="card card--selected" aria-label="已选择的题目卡片">
+                    <h3>已选择 · P1042</h3>
+                    <p>selected 使用品牌 soft surface 与配套前景色，不由主题 id 决定。</p>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="section" id="data" aria-labelledby="data-title">
+            <div class="section-heading">
+              <h2 id="data-title">数据与状态</h2>
+              <p>表格行保留真实链接；verdict 始终显示稳定 code 与中文名称，颜色只作为冗余提示。</p>
+            </div>
+
+            <div class="table-wrap" tabindex="0" aria-label="提交记录，可横向滚动">
+              <table>
+                <caption>最近提交 · 时间单位 ns，内存单位 bytes</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">提交</th>
+                    <th scope="col">题目</th>
+                    <th scope="col">状态</th>
+                    <th scope="col">CPU</th>
+                    <th scope="col">内存</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><a href="#submission-1048">#1048</a></td>
+                    <td>P1042 · 字符统计</td>
+                    <td><span class="badge status--success"><strong>AC</strong> · 答案正确</span></td>
+                    <td class="cell-meta">12,400,000 ns</td>
+                    <td class="cell-meta">8,388,608 bytes</td>
+                  </tr>
+                  <tr id="submission-1047">
+                    <td><a href="#submission-1047">#1047</a></td>
+                    <td>P1008 · 最短路径</td>
+                    <td><span class="badge status--danger"><strong>OLE</strong> · 输出超限</span></td>
+                    <td class="cell-meta">34,200,000 ns</td>
+                    <td class="cell-meta">12,582,912 bytes</td>
+                  </tr>
+                  <tr id="submission-1046">
+                    <td><a href="#submission-1046">#1046</a></td>
+                    <td>P1015 · 区间查询</td>
+                    <td><span class="badge status--info"><strong>RAN</strong> · 已运行</span></td>
+                    <td class="cell-meta">—</td>
+                    <td class="cell-meta">—</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section" id="overlays" aria-labelledby="overlays-title">
+            <div class="section-heading">
+              <h2 id="overlays-title">浮层与反馈</h2>
+              <p>通知用可读状态词，popover 使用原生 disclosure，dialog 用原生焦点管理与 Escape 关闭。</p>
+            </div>
+
+            <div class="sample-grid">
+              <article class="sample stack">
+                <p class="sample-title">Inline notices</p>
+                <div class="notice status--success">
+                  <!-- Lucide CircleCheckBig 1.33.0, ISC license. -->
+                  <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M21.801 10A10 10 0 1 1 17 3.335"></path>
+                    <path d="m9 11 3 3L22 4"></path>
+                  </svg>
+                  <div><strong>成功</strong><p>样例运行完成，所有公开测试点均已通过。</p></div>
+                </div>
+                <div class="notice status--warning">
+                  <!-- Lucide TriangleAlert 1.33.0, ISC license. -->
+                  <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path>
+                    <path d="M12 9v4"></path>
+                    <path d="M12 17h.01"></path>
+                  </svg>
+                  <div><strong>警告</strong><p>比赛即将结束；提交后仍以服务器接收时间为准。</p></div>
+                </div>
+                <div class="notice status--danger" role="alert">
+                  <!-- Lucide TriangleAlert 1.33.0, ISC license. -->
+                  <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path>
+                    <path d="M12 9v4"></path>
+                    <path d="M12 17h.01"></path>
+                  </svg>
+                  <div><strong>错误</strong><p>代码未保存。请检查网络后重试，编辑内容仍保留在当前页面。</p></div>
+                </div>
+              </article>
+
+              <article class="sample stack">
+                <p class="sample-title">Popover and dialog</p>
+                <details class="popover">
+                  <summary class="button button--secondary">查看限制说明</summary>
+                  <div class="popover-panel">
+                    <h3>本题限制</h3>
+                    <p class="help">CPU 1,000,000,000 ns · 内存 268,435,456 bytes。限制值的单位始终写在字段名与展示中。</p>
+                  </div>
+                </details>
+                <div class="cluster">
+                  <button class="button button--danger" id="open-dialog" type="button" data-open-dialog>
+                    <svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#icon-trash-2"></use></svg>
+                    删除这次提交
+                  </button>
+                  <span class="help">危险动作包含明确动词，不只依赖红色。</span>
+                </div>
+              </article>
+
+              <article class="sample">
+                <p class="sample-title">Empty state</p>
+                <div class="empty-state">
+                  <div>
+                    <h3>暂无提交记录</h3>
+                    <p>完成第一道题后，判题阶段、最终 verdict 与资源事实会显示在这里。</p>
+                    <a class="button button--primary" href="#oj-workflow">开始练习</a>
+                  </div>
+                </div>
+              </article>
+
+              <article class="sample">
+                <p class="sample-title">Loading and error</p>
+                <div class="stack" aria-live="polite">
+                  <div class="card">
+                    <h3>正在读取提交详情</h3>
+                    <p>加载中；页面不会移动键盘焦点。</p>
+                  </div>
+                  <div class="card status--danger">
+                    <h3>读取失败</h3>
+                    <p>请求超时。错误详情可选择复制，重试使用真实按钮。</p>
+                    <button class="button button--secondary" type="button" style="margin-block-start: var(--ds-space-3)">重试</button>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="section" id="oj-workflow" aria-labelledby="workflow-title">
+            <div class="section-heading">
+              <h2 id="workflow-title">判题工作区</h2>
+              <p>桌面并排、窄屏按题目→编辑器→动作→结果的源码顺序堆叠，不用颜色替代阶段名称。</p>
+            </div>
+
+            <div class="editor-shell">
+              <article class="problem-pane">
+                <p class="eyebrow">P1042 · 字符统计</p>
+                <h3>统计一行文本中每个字符出现的次数</h3>
+                <p>读取一行可能包含空格的文本，按字符第一次出现的顺序输出计数。输入长度不超过 100,000。</p>
+                <details class="popover" style="margin-block-start: var(--ds-space-4)">
+                  <summary class="button button--ghost">查看输入输出</summary>
+                  <div class="popover-panel"><code>输入：cherry<br />输出：c 1 · h 1 · e 1 · r 2 · y 1</code></div>
+                </details>
+              </article>
+
+              <article class="editor-pane" aria-labelledby="editor-title">
+                <div class="editor-toolbar">
+                  <label class="field" for="editor-language">
+                    <span id="editor-title">代码编辑器</span>
+                    <select class="control" id="editor-language">
+                      <option>Go 1.25</option>
+                      <option>Java 21</option>
+                    </select>
+                  </label>
+                  <div class="cluster">
+                    <button class="button button--secondary" type="button">运行样例</button>
+                    <button class="button button--primary" type="button">正式提交</button>
+                  </div>
+                </div>
+                <pre class="editor-code" tabindex="0" aria-label="只读代码示例"><code>package main
+
+import "fmt"
+
+func main() {
+    var text string
+    fmt.Scanln(&amp;text)
+    fmt.Println(text)
+}</code></pre>
+              </article>
+            </div>
+
+            <div class="sample-grid" style="margin-block-start: var(--ds-space-4)">
+              <article class="sample" id="submission-1048">
+                <p class="sample-title">Submission lifecycle · #1048</p>
+                <ol class="timeline">
+                  <li class="is-complete"><span class="timeline-state">已完成</span><span>已接收提交并冻结 JudgeInput</span></li>
+                  <li class="is-complete"><span class="timeline-state">已完成</span><span>已分配判题环境</span></li>
+                  <li class="is-current"><span class="timeline-state">当前阶段</span><span>正在运行测试点 8 / 12</span></li>
+                  <li><span class="timeline-state">等待中</span><span>汇总 verdict 与资源事实</span></li>
+                </ol>
+              </article>
+              <article class="sample">
+                <p class="sample-title">Final verdict</p>
+                <div class="notice status--success">
+                  <!-- Lucide CircleCheckBig 1.33.0, ISC license. -->
+                  <svg class="icon" aria-hidden="true" viewBox="0 0 24 24">
+                    <path d="M21.801 10A10 10 0 1 1 17 3.335"></path>
+                    <path d="m9 11 3 3L22 4"></path>
+                  </svg>
+                  <div>
+                    <strong>AC · 答案正确</strong>
+                    <p>CPU 12,400,000 ns · 内存 8,388,608 bytes · 12 / 12 测试点通过</p>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="confirm-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+      <div class="dialog-body">
+        <h2 id="dialog-title">确认删除这次提交？</h2>
+        <p id="dialog-description">删除后不能恢复。源代码与判题结果将从当前列表移除。</p>
+        <div class="dialog-actions">
+          <button class="button button--secondary" id="cancel-dialog" type="button">取消</button>
+          <button class="button button--danger" id="confirm-delete" type="button">
+            <svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><use href="#icon-trash-2"></use></svg>
+            确认删除提交
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <p class="visually-hidden" id="page-status" aria-live="polite"></p>
+
+    <script>
+      const themePicker = document.querySelector("#theme-picker");
+      const pageStatus = document.querySelector("#page-status");
+
+      async function setupThemes() {
+        try {
+          const response = await fetch("./themes.manifest.json");
+          if (!response.ok) throw new Error("theme manifest unavailable");
+          const manifest = await response.json();
+          const themes = Array.isArray(manifest.themes) ? manifest.themes : [];
+          const requested = new URL(window.location.href).searchParams.get("theme");
+          const validRequested = themes.some((theme) => theme.id === requested);
+          const initial = validRequested ? requested : manifest.defaultTheme;
+
+          themePicker.replaceChildren();
+          for (const theme of themes) {
+            const option = document.createElement("option");
+            option.value = theme.id;
+            option.textContent = `${theme.label} · ${theme.colorScheme}`;
+            themePicker.append(option);
+          }
+
+          if (themes.some((theme) => theme.id === initial)) {
+            document.documentElement.dataset.theme = initial;
+          }
+          themePicker.value = initial;
+          themePicker.disabled = false;
+          themePicker.addEventListener("change", () => {
+            document.documentElement.dataset.theme = themePicker.value;
+            pageStatus.textContent = `已切换到${themePicker.selectedOptions[0].textContent}`;
+          });
+        } catch {
+          themePicker.replaceChildren(new Option("默认主题", ""));
+          pageStatus.textContent = "未能读取主题清单，当前使用默认主题。";
+        }
+      }
+
+      const dialog = document.querySelector("#confirm-dialog");
+      const openDialogs = document.querySelectorAll("[data-open-dialog]");
+      const cancelDialog = document.querySelector("#cancel-dialog");
+      const confirmDelete = document.querySelector("#confirm-delete");
+
+      for (const trigger of openDialogs) {
+        trigger.addEventListener("click", () => dialog.showModal());
+      }
+      cancelDialog.addEventListener("click", () => dialog.close());
+      confirmDelete.addEventListener("click", () => {
+        dialog.close();
+        pageStatus.textContent = "参考交互完成；没有删除真实数据。";
+      });
+
+      setupThemes();
+    </script>
+  </body>
+</html>

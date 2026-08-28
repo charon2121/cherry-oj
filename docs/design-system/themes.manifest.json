@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "source": "OpenDesign curated bundled fixture: design-systems/linear-app",
+    "officialLinearSource": false,
+    "sourceTokensSha256": "9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e",
+    "sourceDesignSha256": "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
+    "sourceLicenseSha256": "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da",
+    "license": "Apache-2.0",
+    "licenseFile": "LICENSE.open-design"
+  },
+  "modified": {
+    "for": "Cherry OJ",
+    "date": "2026-08-27",
+    "summary": "Registers the default Linear-derived black theme and the Cherry-designed pure-white theme."
+  },
+  "selectorAttribute": "data-theme",
+  "defaultTheme": "cherry-black",
+  "fallbackTheme": "cherry-black",
+  "followSystemByDefault": false,
+  "themes": [
+    {
+      "id": "cherry-black",
+      "label": "Cherry Black",
+      "colorScheme": "dark",
+      "file": "themes/cherry-black.css",
+      "version": 1,
+      "provenance": "Linear-derived black structure, modified for Cherry OJ"
+    },
+    {
+      "id": "pure-white",
+      "label": "Pure White",
+      "colorScheme": "light",
+      "file": "themes/pure-white.css",
+      "version": 1,
+      "provenance": "Cherry OJ light extension based on the shared Linear-derived structure"
+    }
+  ]
+}

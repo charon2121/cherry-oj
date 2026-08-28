@@ -224,6 +224,9 @@ cherry-oj/
 
 ## 三、TypeScript（`apps/web`）
 
+开发或评审任何 Web UI、组件、样式或主题前，必须先读 [`docs/design-system.md`](./docs/design-system.md)
+及其 [`docs/design-system/README.md`](./docs/design-system/README.md)；不要在本文件复制 token 值。
+
 前端采用 **TanStack-first、按需引入**，不是无条件安装 TanStack 全家桶：
 
 - 基础：React 19 + TypeScript strict + npm + Vite，独立构建为静态站。

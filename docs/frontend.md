@@ -4,9 +4,10 @@
 > 不直接访问 judge 或 sandbox。选型采用 **TanStack-first、按需引入**：优先使用
 > TanStack 中与业务边界匹配且已经稳定的工具，不为了“全家桶”引入重复抽象。
 >
-> **文档状态**：已确定，作为 `apps/web` 初始化与后续技术评审的唯一真源。未在本文列出的
-> 库不因为出现在聊天、示例或脚手架推荐中就自动进入项目。初始化依赖时使用当时最新稳定版，
-> 锁定 `package-lock.json`；不在设计文档里维护容易过期的 patch 版本号。
+> **文档状态**：已确定，作为 `apps/web` 技术栈与工程边界的唯一真源；视觉和组件合同以
+> [`design-system.md`](./design-system.md) 为唯一入口。未在本文列出的库不因为出现在聊天、示例或
+> 脚手架推荐中就自动进入项目。初始化依赖时使用当时最新稳定版，锁定 `package-lock.json`；不在
+> 设计文档里维护容易过期的 patch 版本号。
 
 ## 1. 目标与边界
 
@@ -27,7 +28,7 @@
 - **数据契约**：Gateway OpenAPI 生成 TypeScript 类型，Zod 校验不可信运行时输入。
 - **网络边界**：原生 `fetch` 薄封装、RFC 9457 Problem Details、`AbortSignal`、Request ID、
   Cookie/CSRF；不使用 Axios。
-- **本地持久化**：IndexedDB 保存按用户、题目、语言隔离的代码草稿；主题等轻量偏好才使用
+- **本地持久化**：IndexedDB 保存按用户、题目、语言隔离的代码草稿；主题等轻量偏好迁移后才可使用
   `localStorage`，长期鉴权令牌不进入任何 Web Storage。
 - **UI 与样式**：Tailwind CSS、shadcn/ui、Radix Primitives、Lucide React、
   class-variance-authority、`clsx`、`tailwind-merge`。
@@ -77,27 +78,36 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - **react-markdown + remark-gfm + rehype-sanitize**：安全渲染题面 Markdown 和 GFM。
   Markdown 中的原始 HTML 默认不执行。
 
-### 2.4 UI System
+### 2.4 设计系统
 
-- 视觉方向采用 **Linear-inspired Focused Workspace**：冷静灰阶、蓝紫主交互、紧凑但不拥挤的
-  信息密度。借鉴 Linear 的界面原则而不复制其品牌资产；Cherry 红只用于 Logo 和品牌点缀，
-  避免与错误及破坏性操作混淆。
+- Web 视觉唯一规范是 [`design-system.md`](./design-system.md) 与其
+  [`design-system/`](./design-system/) 文档包。采用 **Linear-inspired Focused Workspace**：冷静灰阶、
+  紧凑但不拥挤的信息密度和克制的层级；借鉴 Linear fixture 的结构，不复制其品牌资产。
+- `cherry-black` 是固定默认主题；`pure-white` 是完整浅色主题。缺失、空值和未知 theme id 回退默认
+  黑色，不自动跟随操作系统。未来主题必须完整实现 theme contract，组件不得增加 theme-id 分支。
 - 应用框架固定为退后的导航侧栏、统一的 location bar、按页面变化的 view bar 和获得主要对比度的
   工作区。侧栏必须比正文区域更安静，导航不能与用户当前任务争夺注意力。
 - 列表行、工具栏和表单采用紧凑尺寸；层级优先使用明暗、细边框和对齐表达，普通内容不依赖阴影，
   也不把每个区块都包装成 Card。
-- CSS 变量是颜色、字体、间距、圆角、边框和动效的唯一视觉真源；业务组件只使用
-  `background`、`foreground`、`primary`、`success`、`warning`、`danger` 等语义 token，
-  不直接依赖具体色阶。
-- UI 分为 design tokens、基础组件、OJ 业务组件与页面模板三层。页面从题库列表、题目工作台、
+- Foundation 与主题 CSS 是数值真源，theme contract 规定语义和允许组合。业务组件只使用 `--ds-*`
+  semantic token 或 Tailwind adapter alias；禁止 raw 颜色、primitive palette、主题 selector 和
+  theme-id 分支。
+- `primary` 是 Cherry 品牌实心 surface；shadcn `accent` 是中性 hover；`destructive` 和 danger 独立。
+  品牌与危险不得共用同一个语义 token。
+- UI 分为 design tokens、基础组件、OJ 业务组件与页面模板四层。页面从题库列表、题目工作台、
   提交详情和管理表格等稳定模板开始，不从空白画布重新设计。
 - Submission 生命周期和 verdict 分开表达；verdict 映射必须穷尽 `contracts/verdict.json`，
-  并同时使用文字和颜色，不能只靠红绿区分。
-- **Storybook + `@storybook/addon-a11y`**：共享组件展示 light、dark、focus、disabled、loading、
-  error 和长中文内容等状态，并作为组件测试、可访问性检查和后续视觉回归的入口。
-- 本地视觉合同见 [`docs/ui-system.html`](./ui-system.html)，前端架构总览见
-  [`docs/frontend-architecture.html`](./frontend-architecture.html)。二者用于设计评审，代码中的
-  语义 token 与可测试组件才是可执行实现。
+  并同时使用 code、名称和稳定图标或形状，不能只靠颜色区分。
+- **Storybook + `@storybook/addon-a11y`**：共享组件在 `cherry-black` 和 `pure-white` 中覆盖 focus、
+  pressed、disabled、loading、error、320px 与长中文等状态，并作为组件测试、可访问性检查和后续视觉
+  回归的入口。
+- 视觉参考见 [`design-system/components.html`](./design-system/components.html)；历史
+  [`ui-system.html`](./ui-system.html) 只作兼容入口，前端架构总览仍见
+  [`frontend-architecture.html`](./frontend-architecture.html)。HTML 和 Storybook 都不反向定义 token。
+
+> **运行时待迁移：** 当前 `apps/web/src/styles/globals.css` 仍使用旧的浅色 `:root` / `.dark` 合同，
+> 尚未实现上述默认主题、theme resolver、偏好持久化或首屏防闪。迁移必须另建 TASK；设计文档发布不
+> 等于主题已经上线。
 
 ### 2.5 测试与工程质量
 
@@ -123,8 +133,8 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
   同步到 Router。
 - 代码草稿归 **IndexedDB**，由 `lib/storage` 的项目级 repository 读写；组件中的编辑器值是
   当前会话副本，不把整段源码塞进 Query cache 或全局 store。
-- 主题、侧栏折叠等小型非敏感偏好可以归 `localStorage`；鉴权令牌和用户源码不使用
-  `localStorage`。
+- 侧栏折叠等小型非敏感偏好可以归 `localStorage`。主题偏好只能在后续 Web 迁移任务中按 theme
+  manifest 设计 resolver、未知值回退和首屏防闪后持久化；鉴权令牌和用户源码不使用 `localStorage`。
 - 只影响一个组件树的临时交互状态，使用 React `useState` / `useReducer`。
 - 能从其它状态计算出的值不单独存储，在使用处派生。
 
@@ -211,9 +221,9 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
   归一化，刷新、分享、前进和后退保持一致。
 - 每个路由明确实现 pending、empty、error、unauthorized、not-found 和 success 边界；页面错误
   不能只在控制台出现。
-- 页面从 UI System 的稳定模板组合：题库列表、题目工作台、提交详情、个人列表、管理表格与表单。
-  本地可视化参考见 [`docs/frontend-architecture.html`](./frontend-architecture.html) 和
-  [`docs/ui-system.html`](./ui-system.html)。
+- 页面从设计系统的稳定模板组合：题库列表、题目工作台、提交详情、个人列表、管理表格与表单。
+  本地可视化参考见
+  [`design-system/components.html`](./design-system/components.html)。
 
 ## 6. 代码风格与质量管理
 
@@ -301,12 +311,17 @@ export default {
 ### 6.6 Tailwind、组件与可访问性
 
 - 条件 class 统一通过项目 `cn()`；class 顺序交给 `prettier-plugin-tailwindcss`。
-- 颜色、间距、圆角等优先使用设计 token；已有 token 时不写任意值 class。
+- 颜色只使用 semantic token，间距与圆角只使用 Foundation token，或使用各自的 Tailwind alias；
+  禁止任意颜色值、raw hex/OKLCH、primitive palette、主题 selector 和 theme-id 分支。
+- `bg-primary` 必须与 `text-primary-foreground` 配对，`bg-destructive` 必须与
+  `text-destructive-foreground` 配对；普通品牌/危险文字分别使用 `text-brand` / `text-danger`，
+  shadcn `accent` 只承担中性 hover。
 - 组件变体多于简单布尔条件时使用 shadcn/ui 的 variant 模式，不在调用处复制长 class 串。
 - `style` 只用于必须由运行时计算的连续值；静态视觉规则放 Tailwind/CSS。
 - 优先语义化 HTML；可点击元素使用 `button` / `a`，不拿 `div` 模拟。
 - 所有交互必须可通过键盘完成，并具有可访问名称、正确 label、焦点态和错误提示关联。
-- 不通过颜色单独表达 verdict；颜色之外还要有文本或图标，并检查浅色/深色主题对比度。
+- 不通过颜色单独表达 verdict；颜色之外还要有 code、名称和图标或形状，并检查所有 manifest 主题的
+  允许 surface 对比度。
 
 ### 6.7 注释与错误处理
 
