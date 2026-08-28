@@ -2,7 +2,7 @@
 id: "TASK-022"
 type: "task"
 title: "修复设计系统发布后的文档 CI"
-status: "doing"
+status: "done"
 work: "WORK-016"
 owners: ["codex/root"]
 depends_on: ["ISSUE-003"]
@@ -56,12 +56,12 @@ ISSUE-003 经人工审核并明确允许执行后，任务才可从 todo 推进�
 
 ## 完成标准
 
-- [ ] ISSUE-003 的 AC-001～AC-005 全部有实际证据。
-- [ ] `development/roles/` 不存在，allowlist、Schema 与开发工具均未修改。
-- [ ] `docs/backend.md` 的判题链路引用指向 `architecture.md` 的正式提交流程。
-- [ ] README、设计系统和前端文档不再声称已删除页面是兼容入口或架构总览。
-- [ ] 不恢复旧 HTML、不新增空白 stub，也不改变设计系统数值或运行时代码。
-- [ ] 本地 pre-commit 同等检查通过后使用独立修复提交推送，远端 CI 全绿。
+- [x] ISSUE-003 的 AC-001～AC-005 全部有实际证据。
+- [x] `development/roles/` 不存在，allowlist、Schema 与开发工具均未修改。
+- [x] `docs/backend.md` 的判题链路引用指向 `architecture.md` 的正式提交流程。
+- [x] README、设计系统和前端文档不再声称已删除页面是兼容入口或架构总览。
+- [x] 不恢复旧 HTML、不新增空白 stub，也不改变设计系统数值或运行时代码。
+- [x] 本地 pre-commit 同等检查通过后使用独立修复提交推送，远端 CI 全绿。
 
 ## 验证
 
@@ -93,3 +93,6 @@ git diff --check
 - 2026-08-28：状态变更：ready → doing。原因：开始执行已批准的文档 CI 修复
 - 2026-08-28：删除误收录角色文件并迁移 5 个旧 HTML 引用；本地开发文档、链接、设计系统和差异
   检查全部通过，等待提交、推送与远端 CI。
+- 2026-08-28：提交 `ae2b19f` 推送到 `origin/main`，GitHub Actions run `33138930495` 的 6 个 job
+  全部通过。
+- 2026-08-28：状态变更：doing → done。原因：本地门禁与 GitHub Actions run 33138930495 全部通过

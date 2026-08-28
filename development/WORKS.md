@@ -20,4 +20,4 @@
 | WORK-013 | 建立用户身份与访问控制服务 | 基础能力 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-013/00-work.md) |
 | WORK-014 | 统一登录空闲过期配置并修复提前掉线 | 问题修复 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-014/00-work.md) |
 | WORK-015 | 建立 Cherry OJ Web 设计系统 | 基础能力 | 实现完成 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-015/00-work.md) |
-| WORK-016 | 修复设计系统发布后的文档 CI | 问题修复 | 执行中 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-016/00-work.md) |
+| WORK-016 | 修复设计系统发布后的文档 CI | 问题修复 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-016/00-work.md) |

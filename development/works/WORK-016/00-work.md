@@ -2,7 +2,7 @@
 id: "WORK-016"
 type: "work"
 title: "修复设计系统发布后的文档 CI"
-status: "doing"
+status: "implemented"
 work: null
 owners: ["codex/root"]
 risk: "low"
@@ -13,7 +13,7 @@ related: ["WORK-015", "ISSUE-003", "TASK-022", "VERIFY-016"]
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["ISSUE-003"], "checks": ["definition", "scope"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "design", "label": "原因与修复方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "tasks", "label": "修复任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-022"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["TASK-022"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["VERIFY-016"], "checks": ["automated-tests", "compatibility"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}]
+workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["ISSUE-003"], "checks": ["definition", "scope"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "design", "label": "原因与修复方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "tasks", "label": "修复任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-022"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-022"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["VERIFY-016"], "checks": ["automated-tests", "compatibility"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}]
 required_documents: ["issue", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "compatibility"]
 human_confirmations: []
@@ -41,7 +41,7 @@ work_type: "fix"
 
 ## 成功标准
 
-- [ ] 主分支的开发文档检查恢复通过，不再需要跳过提交校验。
+- [x] 主分支的开发文档检查恢复通过，不再需要跳过提交校验。
 - [x] 已删除的旧参考页保持删除，所有入口改为指向仍受维护的文档。
 - [x] 不为两份无消费者、无格式约束的角色说明扩大开发文档体系。
 - [x] Cherry 黑色、pure-white、主题合同与 Web 运行时代码均不发生变化。
@@ -76,3 +76,4 @@ work_type: "fix"
 - 2026-08-28：确认提交 `eb3c7a3` 的唯一失败 job 及被提前退出掩盖的失效链接，创建低风险修复工作项。
 - 2026-08-28：根据文档、任务与验证事实刷新状态：todo → ready。
 - 2026-08-28：根据文档、任务与验证事实刷新状态：ready → doing。
+- 2026-08-28：根据文档、任务与验证事实刷新状态：doing → implemented。
