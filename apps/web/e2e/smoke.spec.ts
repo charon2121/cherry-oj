@@ -114,6 +114,104 @@ test('opens an anonymous application shell without protected-content flash', asy
   ).toBeLessThanOrEqual(1);
 });
 
+test('renders the redesigned login as a responsive full-page workspace', async ({ page }) => {
+  await mockSession(page, () => ({ authenticated: false }));
+  await mockCsrf(page);
+  await page.route('**/api/auth/login', (route) =>
+    apiProblem(route, 401, 'INVALID_CREDENTIALS', '用户名或密码错误'),
+  );
+
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  await page.goto('/login');
+
+  const heading = page.getByRole('heading', { level: 1, name: '登录 Cherry OJ' });
+  const workspaceArt = page.getByTestId('login-workspace-art');
+  await expect(heading).toBeVisible();
+  await expect(workspaceArt).toBeVisible();
+  await expect(page.locator('[data-slot="card"]')).toHaveCount(0);
+  await expect(page.locator('main').getByRole('link')).toHaveCount(0);
+  const desktopGeometry = await page.evaluate(() => {
+    const title = document.querySelector('h1');
+    const art = document.querySelector('[data-testid="login-workspace-art"]');
+    const form = document.querySelector('form');
+    if (title === null || art === null || form === null) {
+      throw new Error('Login page regions are missing.');
+    }
+    return {
+      artLeft: art.getBoundingClientRect().left,
+      formRight: form.getBoundingClientRect().right,
+      pageHeight: document.documentElement.scrollHeight,
+      titleLeft: title.getBoundingClientRect().left,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(desktopGeometry.titleLeft).toBeLessThan(desktopGeometry.artLeft);
+  expect(desktopGeometry.formRight).toBeLessThan(desktopGeometry.artLeft);
+  expect(desktopGeometry.pageHeight).toBeLessThanOrEqual(desktopGeometry.viewportHeight);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        horizontal: document.documentElement.scrollWidth - window.innerWidth,
+        vertical: document.documentElement.scrollHeight - window.innerHeight,
+      })),
+    )
+    .toEqual({ horizontal: 0, vertical: 0 });
+
+  await page.getByLabel('用户名').fill('alice');
+  await page.getByLabel('密码', { exact: true }).fill(temporaryPassword);
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        horizontal: document.documentElement.scrollWidth - window.innerWidth,
+        vertical: document.documentElement.scrollHeight - window.innerHeight,
+      })),
+    )
+    .toEqual({ horizontal: 0, vertical: 0 });
+
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect(workspaceArt).toBeHidden();
+  await expect(heading).toBeInViewport();
+  await expect(page.getByRole('button', { name: '登录' })).toBeInViewport();
+  const horizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(horizontalOverflow).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 640, height: 720 });
+  await expect(heading).toBeInViewport();
+  await expect(page.getByRole('button', { name: '登录' })).toBeInViewport();
+  const zoomEquivalentOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(zoomEquivalentOverflow).toBeLessThanOrEqual(1);
+});
+
+test('keeps empty login submission in native validation without sending credentials', async ({
+  page,
+}) => {
+  let loginCalls = 0;
+  await mockSession(page, () => ({ authenticated: false }));
+  await page.route('**/api/auth/login', (route) => {
+    loginCalls += 1;
+    return route.abort();
+  });
+
+  await page.goto('/login');
+  await page.getByRole('button', { name: '登录' }).click();
+
+  await expect(page.getByLabel('用户名')).toBeFocused();
+  expect(
+    await page
+      .getByLabel('用户名')
+      .evaluate((input: HTMLInputElement) => input.validity.valueMissing),
+  ).toBe(true);
+  expect(loginCalls).toBe(0);
+});
+
 test('renders the same empty admin dashboard at both requested routes', async ({ page }) => {
   const admin = account({ username: 'root-admin', role: 'ADMIN' });
   const requestedApiPaths: string[] = [];

@@ -206,6 +206,10 @@ test('reduced motion collapses design-system durations without changing theme', 
     };
   });
   expect(durations).toEqual({ base: '0s', fast: '0s' });
+
+  await page.goto('/login');
+  await expectTheme(page, lightTheme.id);
+  await expect(page.getByRole('heading', { level: 1, name: '登录 Cherry OJ' })).toBeVisible();
 });
 
 test('forced colors keeps keyboard navigation and theme metadata usable', async ({ page }) => {
@@ -235,6 +239,20 @@ test('forced colors keeps keyboard navigation and theme metadata usable', async 
   });
   expect(focusIndicator.style).not.toBe('none');
   expect(focusIndicator.width).not.toBe('0px');
+
+  await page.goto('/login');
+  const username = page.getByLabel('用户名');
+  for (let index = 0; index < 8; index += 1) {
+    if (await username.evaluate((element) => element === document.activeElement)) break;
+    await page.keyboard.press('Tab');
+  }
+  await expect(username).toBeFocused();
+  const fieldFocusIndicator = await username.evaluate((element) => {
+    const styles = getComputedStyle(element);
+    return { style: styles.outlineStyle, width: styles.outlineWidth };
+  });
+  expect(fieldFocusIndicator.style).not.toBe('none');
+  expect(fieldFocusIndicator.width).not.toBe('0px');
 });
 
 test('the router keeps a semantic not-found recovery path', async ({ page }) => {
@@ -302,7 +320,7 @@ test('disabled button colors win when a control is also pressed', async ({ page 
 });
 
 for (const theme of themeRegistry) {
-  test(`${theme.label} keeps the 320px shell usable`, async ({ page }) => {
+  test(`${theme.label} keeps the 320px shell and login usable`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await installPreferenceAndFirstFrameProbe(page, { value: theme.id });
     await mockAnonymousShell(page);
@@ -332,6 +350,12 @@ for (const theme of themeRegistry) {
     expect(shellSurfaces.footerBackground).toBe(shellSurfaces.mainBackground);
     expect(shellSurfaces.footerBorderTopWidth).toBe('0px');
     expect(shellSurfaces.footerBoxShadow).toBe('none');
+
+    await page.goto('/login');
+    await expectTheme(page, theme.id);
+    await expect(page.getByRole('heading', { level: 1, name: '登录 Cherry OJ' })).toBeInViewport();
+    await expect(page.getByTestId('login-workspace-art')).toBeHidden();
+    await expect(page.getByRole('button', { name: '登录' })).toBeInViewport();
     const horizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );
