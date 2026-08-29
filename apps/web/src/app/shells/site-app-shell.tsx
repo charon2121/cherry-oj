@@ -1,11 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet } from '@tanstack/react-router';
+import { Outlet } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Container } from '@/components/ui/layout';
-import { linkVariants } from '@/components/ui/link';
 import {
   Sheet,
   SheetContent,
@@ -13,30 +11,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { sessionQueryOptions } from '@/features/auth/api/session-query';
 
-import { SessionActions } from './session-actions';
-
-function BrandLink() {
-  return (
-    <Link
-      to="/"
-      className={linkVariants({
-        size: 'standalone',
-        variant: 'muted',
-        className: 'font-display shrink-0 tracking-tight',
-      })}
-    >
-      <span className="text-brand">Cherry</span> OJ
-    </Link>
-  );
-}
+import { AccountMenu } from './account-menu';
+import { AppBrand } from './app-brand';
+import { SitePrimaryNavigation } from './site-primary-navigation';
 
 type SiteAppShellProps = Readonly<{ children?: ReactNode }>;
 
 function SiteAppShell({ children }: SiteAppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const session = useQuery(sessionQueryOptions());
 
   return (
     <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_1fr_auto]">
@@ -46,24 +29,11 @@ function SiteAppShell({ children }: SiteAppShellProps) {
       >
         跳到主要内容
       </a>
-      <header className="border-border bg-sidebar border-b">
+      <header className="bg-background sticky top-0 z-40">
         <Container>
-          <div className="flex min-h-14 flex-wrap items-center gap-2 py-1">
-            <BrandLink />
-            <nav aria-label="主导航" className="hidden items-center gap-1 sm:flex">
-              <Link
-                to="/"
-                activeOptions={{ exact: true }}
-                activeProps={{ 'aria-current': 'page' }}
-                className={linkVariants({
-                  size: 'standalone',
-                  variant: 'muted',
-                  className: 'text-sm',
-                })}
-              >
-                首页
-              </Link>
-            </nav>
+          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-3 py-2">
+            <AppBrand />
+            <SitePrimaryNavigation />
             <Button
               type="button"
               variant="ghost"
@@ -77,7 +47,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
               <Menu aria-hidden="true" />
               导航
             </Button>
-            <SessionActions showAdminEntry />
+            <AccountMenu showAdminEntry />
           </div>
         </Container>
       </header>
@@ -101,38 +71,15 @@ function SiteAppShell({ children }: SiteAppShellProps) {
             <SheetTitle id="site-navigation-title">主导航</SheetTitle>
             <SheetDescription>前往 Cherry OJ 当前可用页面。</SheetDescription>
           </SheetHeader>
-          <nav id="site-mobile-navigation" aria-label="移动主导航" className="grid gap-1 p-3">
-            <Link
-              to="/"
-              activeOptions={{ exact: true }}
-              activeProps={{ 'aria-current': 'page' }}
-              className={linkVariants({
-                size: 'standalone',
-                variant: 'muted',
-                className: 'hover:bg-sidebar-accent rounded-sm px-3 py-2 text-sm',
-              })}
-              onClick={() => setNavigationOpen(false)}
-            >
-              首页
-            </Link>
-            {session.data?.authenticated && session.data.user.role === 'ADMIN' ? (
-              <Link
-                to="/admin"
-                className={linkVariants({
-                  size: 'standalone',
-                  variant: 'muted',
-                  className: 'hover:bg-sidebar-accent rounded-sm px-3 py-2 text-sm',
-                })}
-                onClick={() => setNavigationOpen(false)}
-              >
-                管理中心
-              </Link>
-            ) : null}
-          </nav>
+          <SitePrimaryNavigation
+            id="site-mobile-navigation"
+            variant="mobile"
+            onNavigate={() => setNavigationOpen(false)}
+          />
         </SheetContent>
       </Sheet>
     </div>
   );
 }
 
-export { BrandLink, SiteAppShell, type SiteAppShellProps };
+export { SiteAppShell, type SiteAppShellProps };

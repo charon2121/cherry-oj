@@ -1,10 +1,9 @@
 import { Link, Outlet } from '@tanstack/react-router';
-import { Menu } from 'lucide-react';
+import { ArrowLeft, Menu } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Container } from '@/components/ui/layout';
-import { linkVariants } from '@/components/ui/link';
 import {
   Sheet,
   SheetContent,
@@ -14,8 +13,9 @@ import {
 } from '@/components/ui/sheet';
 import { Sidebar } from '@/components/ui/sidebar';
 
+import { AccountMenu } from './account-menu';
 import { AdminNavigation } from './admin-navigation';
-import { SessionActions } from './session-actions';
+import { AppBrand } from './app-brand';
 
 function AdminAppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -28,9 +28,9 @@ function AdminAppShell() {
       >
         跳到主要内容
       </a>
-      <header className="border-border bg-sidebar border-b">
+      <header className="bg-background sticky top-0 z-40">
         <Container className="max-w-none">
-          <div className="flex min-h-14 flex-wrap items-center gap-2 py-1">
+          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-3 py-2">
             <Button
               type="button"
               variant="ghost"
@@ -44,28 +44,19 @@ function AdminAppShell() {
               <Menu aria-hidden="true" />
               导航
             </Button>
-            <Link
-              to="/admin"
-              className={linkVariants({
-                size: 'standalone',
-                variant: 'muted',
-                className: 'font-display shrink-0 tracking-tight',
-              })}
-            >
-              <span className="text-brand">Cherry</span> OJ
-              <span className="text-muted-foreground ml-2 text-sm">管理中心</span>
-            </Link>
+            <AppBrand destination="admin" />
             <Link
               to="/"
-              className={linkVariants({
-                size: 'standalone',
-                variant: 'muted',
-                className: 'ml-auto text-sm',
+              className={buttonVariants({
+                size: 'sm',
+                variant: 'ghost',
+                className: 'ml-auto rounded-md px-3 no-underline',
               })}
             >
-              返回用户端
+              <ArrowLeft aria-hidden="true" className="size-4" />
+              <span className="hidden sm:inline">返回</span>用户端
             </Link>
-            <SessionActions className="ml-0 flex-none" />
+            <AccountMenu className="ml-0" />
           </div>
         </Container>
       </header>

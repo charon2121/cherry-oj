@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { ChevronRight, LayoutDashboard, Users } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -15,72 +15,151 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 
+import {
+  adminNavigationEntries,
+  type AdminNavigationGroup,
+  type AdminNavigationLeaf,
+  isAdminNavigationGroup,
+  isAdminNavigationGroupActive,
+  isAdminNavigationLeafActive,
+} from './admin-navigation-model';
+
 type AdminNavigationProps = Readonly<{
   onNavigate?: () => void;
 }>;
 
+type AdminNavigationLeafLinkProps = Readonly<{
+  item: AdminNavigationLeaf;
+  nested?: boolean;
+  onNavigate: (() => void) | undefined;
+  pathname: string;
+}>;
+
+function AdminNavigationLeafLink({
+  item,
+  nested = false,
+  onNavigate,
+  pathname,
+}: AdminNavigationLeafLinkProps) {
+  const active = isAdminNavigationLeafActive(item, pathname);
+  const Icon = item.icon;
+  const link =
+    item.to === '/admin' ? <Link to="/admin" /> : <Link to="/admin/users" search={{ page: 1 }} />;
+  const content = (
+    <>
+      {Icon ? <Icon aria-hidden="true" /> : null}
+      <span>{item.label}</span>
+    </>
+  );
+
+  if (nested) {
+    return (
+      <SidebarMenuSubItem>
+        <SidebarMenuSubButton
+          render={link}
+          isActive={active}
+          aria-current={active ? 'page' : undefined}
+          onClick={onNavigate}
+        >
+          {content}
+        </SidebarMenuSubButton>
+      </SidebarMenuSubItem>
+    );
+  }
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        render={link}
+        isActive={active}
+        aria-current={active ? 'page' : undefined}
+        onClick={onNavigate}
+      >
+        {content}
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
+
+type AdminNavigationGroupItemProps = Readonly<{
+  group: AdminNavigationGroup;
+  onNavigate: (() => void) | undefined;
+  pathname: string;
+}>;
+
+function AdminNavigationGroupItem({ group, onNavigate, pathname }: AdminNavigationGroupItemProps) {
+  const [userOpened, setUserOpened] = useState(false);
+  const active = isAdminNavigationGroupActive(group, pathname);
+  const expanded = active || userOpened;
+  const Icon = group.icon;
+
+  return (
+    <SidebarMenuItem>
+      <Collapsible
+        open={expanded}
+        onOpenChange={(open) => {
+          if (!active) setUserOpened(open);
+        }}
+      >
+        <CollapsibleTrigger
+          render={
+            <SidebarMenuButton
+              className="group/admin-navigation"
+              isActive={active}
+              aria-label={group.label}
+            />
+          }
+        >
+          <Icon aria-hidden="true" />
+          <span>{group.label}</span>
+          <ChevronRight
+            aria-hidden="true"
+            className="ml-auto transition-transform duration-[var(--ds-motion-fast)] group-data-[panel-open]/admin-navigation:rotate-90 motion-reduce:transition-none"
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SidebarMenuSub>
+            {group.children.map((item) => (
+              <AdminNavigationLeafLink
+                key={item.id}
+                item={item}
+                nested
+                onNavigate={onNavigate}
+                pathname={pathname}
+              />
+            ))}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </Collapsible>
+    </SidebarMenuItem>
+  );
+}
+
 function AdminNavigation({ onNavigate }: AdminNavigationProps) {
   const pathname = useLocation({ select: (location) => location.pathname });
-  const [accountOpen, setAccountOpen] = useState(false);
-  const dashboardActive = pathname === '/admin' || pathname === '/admin/dashborad';
-  const usersActive = pathname === '/admin/users';
-  const accountExpanded = usersActive || accountOpen;
 
   return (
     <SidebarContent>
       <SidebarGroup aria-labelledby="admin-navigation-group">
         <SidebarGroupLabel id="admin-navigation-group">管理</SidebarGroupLabel>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={<Link to="/admin" />}
-              isActive={dashboardActive}
-              aria-current={dashboardActive ? 'page' : undefined}
-              onClick={onNavigate}
-            >
-              <LayoutDashboard aria-hidden="true" />
-              <span>Dashboard</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <Collapsible
-              open={accountExpanded}
-              onOpenChange={(open) => {
-                if (!usersActive) setAccountOpen(open);
-              }}
-            >
-              <CollapsibleTrigger
-                render={
-                  <SidebarMenuButton
-                    className="group/account"
-                    isActive={usersActive}
-                    aria-label="账号管理"
-                  />
-                }
-              >
-                <Users aria-hidden="true" />
-                <span>账号管理</span>
-                <ChevronRight
-                  aria-hidden="true"
-                  className="ml-auto transition-transform duration-[var(--ds-motion-fast)] group-data-[panel-open]/account:rotate-90 motion-reduce:transition-none"
-                />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarMenuSub>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton
-                      render={<Link to="/admin/users" search={{ page: 1 }} />}
-                      isActive={usersActive}
-                      aria-current={usersActive ? 'page' : undefined}
-                      onClick={onNavigate}
-                    >
-                      <span>用户账号</span>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                </SidebarMenuSub>
-              </CollapsibleContent>
-            </Collapsible>
-          </SidebarMenuItem>
+          {adminNavigationEntries.map((entry) =>
+            isAdminNavigationGroup(entry) ? (
+              <AdminNavigationGroupItem
+                key={entry.id}
+                group={entry}
+                onNavigate={onNavigate}
+                pathname={pathname}
+              />
+            ) : (
+              <AdminNavigationLeafLink
+                key={entry.id}
+                item={entry}
+                onNavigate={onNavigate}
+                pathname={pathname}
+              />
+            ),
+          )}
         </SidebarMenu>
       </SidebarGroup>
     </SidebarContent>

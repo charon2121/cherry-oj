@@ -80,8 +80,15 @@ test('opens an anonymous application shell without protected-content flash', asy
   await expect(page.getByRole('heading', { name: '专注练习，清晰看到每一次进步' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: '登录' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '题库' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: '提交记录' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /账号菜单/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '用户管理' })).toHaveCount(0);
   await expect(page.getByText('REST API 已连通')).toBeVisible();
+  const headerLinkDecorations = await page
+    .locator('header a')
+    .evaluateAll((links) => links.map((link) => getComputedStyle(link).textDecorationLine));
+  expect(headerLinkDecorations).not.toContain('underline');
   const footer = page.getByRole('contentinfo');
   await expect(footer).toContainText('Focused Workspace');
   const userShellSurfaces = await page.evaluate(() => {
@@ -126,6 +133,10 @@ test('renders the same empty admin dashboard at both requested routes', async ({
     );
     await expect(page.getByRole('navigation', { name: '管理侧栏导航' })).toBeVisible();
     await expect(page.getByRole('contentinfo')).toHaveCount(0);
+    const headerLinkDecorations = await page
+      .locator('header a')
+      .evaluateAll((links) => links.map((link) => getComputedStyle(link).textDecorationLine));
+    expect(headerLinkDecorations).not.toContain('underline');
 
     const adminShellGeometry = await page.evaluate(() => {
       const main = document.querySelector('#admin-main');
@@ -151,6 +162,48 @@ test('renders the same empty admin dashboard at both requested routes', async ({
   }
 
   expect(requestedApiPaths).toEqual(['/api/auth/session', '/api/auth/session']);
+});
+
+test('keeps authenticated account actions in one recoverable menu', async ({ page }) => {
+  const admin = account({ username: 'root-admin', role: 'ADMIN' });
+  let session: Session = { authenticated: true, user: admin };
+  let logoutCalls = 0;
+  await mockSession(page, () => session);
+  await mockCsrf(page);
+  await page.route('**/api/status', (route) =>
+    apiSuccess(route, { service: 'gateway-service', status: 'ready' }),
+  );
+  await page.route('**/api/auth/logout', async (route) => {
+    logoutCalls += 1;
+    expect(route.request().headers()['x-csrf-token']).toBe(csrfToken);
+    if (logoutCalls === 1) {
+      await apiProblem(route, 503, 'SERVICE_UNAVAILABLE', '服务暂时不可用');
+      return;
+    }
+    session = { authenticated: false };
+    await route.fulfill({ status: 204, headers: { 'X-Request-Id': requestId } });
+  });
+
+  await page.goto('/');
+  const accountMenuTrigger = page.getByRole('button', { name: /账号菜单，root-admin/ });
+  await expect(accountMenuTrigger).toBeVisible();
+  await accountMenuTrigger.click();
+  const accountMenu = page.getByRole('menu', { name: /账号菜单，root-admin/ });
+  await expect(accountMenu.getByText('root-admin')).toBeVisible();
+  await expect(accountMenu.getByRole('menuitem', { name: '修改密码' })).toBeVisible();
+  await expect(accountMenu.getByRole('menuitem', { name: '管理中心' })).toBeVisible();
+
+  await accountMenu.getByRole('menuitem', { name: '退出登录' }).click();
+  await expect.poll(() => logoutCalls).toBe(1);
+  const failedTrigger = page.getByRole('button', { name: /上次退出失败/ });
+  await expect(failedTrigger).toContainText('退出失败');
+  await failedTrigger.click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  await page.getByRole('menuitem', { name: '重试退出' }).click();
+
+  await expect.poll(() => logoutCalls).toBe(2);
+  await expect(page).toHaveURL('/login');
+  await expect(page.getByRole('heading', { name: '登录 Cherry OJ' })).toBeVisible();
 });
 
 test('recovers from rate limiting, prevents duplicate login, and keeps secrets out of browser storage', async ({

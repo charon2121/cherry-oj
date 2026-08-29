@@ -26,3 +26,4 @@
 | WORK-019 | 设计 Cherry OJ 任务入口主页 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-019/00-work.md) |
 | WORK-020 | 搭建用户端与管理端应用布局 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-020/00-work.md) |
 | WORK-022 | 微调双端应用布局页脚 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-022/00-work.md) |
+| WORK-023 | 设计双端导航栏与导航功能组件 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-023/00-work.md) |
