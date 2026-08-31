@@ -8,6 +8,8 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.GeneralSecurityException;
+import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
@@ -15,11 +17,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.converter.RsaKeyConverters;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -40,9 +46,59 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 @ConditionalOnProperty(prefix = "cherry.auth", name = "mode", havingValue = "server", matchIfMissing = true)
 public class TokenConfig {
 
+    static final String GENERATED_LOCAL_KEY_LOCATION = "generated:local";
+    static final String LOCAL_KEY_ID = "local-ephemeral";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(TokenConfig.class);
+
     @Bean
-    SigningKeys signingKeys(AuthProperties properties, ResourceLoader resourceLoader) throws IOException {
+    SigningKeys signingKeys(
+            AuthProperties properties,
+            ResourceLoader resourceLoader,
+            Environment environment) throws IOException, GeneralSecurityException {
         validate(properties);
+        boolean production = isProduction(environment);
+        if (production && (LOCAL_KEY_ID.equals(properties.keyId())
+                || unresolvedPlaceholder(properties.keyId())
+                || unresolvedPlaceholder(properties.privateKeyLocation())
+                || unresolvedPlaceholder(properties.publicKeyLocation()))) {
+            throw new IllegalStateException(
+                    "Production requires explicit cherry.auth key-id, private-key-location and public-key-location");
+        }
+        boolean generatedPrivate = GENERATED_LOCAL_KEY_LOCATION.equals(properties.privateKeyLocation());
+        boolean generatedPublic = GENERATED_LOCAL_KEY_LOCATION.equals(properties.publicKeyLocation());
+        if (generatedPrivate != generatedPublic) {
+            throw new IllegalStateException(
+                    "cherry.auth.private-key-location and cherry.auth.public-key-location must both use "
+                            + GENERATED_LOCAL_KEY_LOCATION + " or both reference PEM resources");
+        }
+        if (generatedPrivate) {
+            if (production) {
+                throw new IllegalStateException(
+                        "Production requires explicit cherry.auth key-id, private-key-location and public-key-location");
+            }
+            if (!properties.previousPublicKeys().isEmpty()) {
+                throw new IllegalStateException(
+                        "cherry.auth.previous-public-keys cannot be used with a generated local signing key");
+            }
+            LOGGER.warn("Using an ephemeral local RSA signing key; issued tokens become invalid after restart");
+            return generatedSigningKeys(properties.keyId());
+        }
+        return resourceSigningKeys(properties, resourceLoader);
+    }
+
+    private static SigningKeys generatedSigningKeys(String keyId) throws GeneralSecurityException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        var pair = generator.generateKeyPair();
+        RSAPublicKey publicKey = (RSAPublicKey) pair.getPublic();
+        RSAPrivateKey privateKey = (RSAPrivateKey) pair.getPrivate();
+        RSAKey current = rsaKey(keyId, publicKey, privateKey);
+        return new SigningKeys(current, new JWKSet(current.toPublicJWK()), publicKey, privateKey);
+    }
+
+    private static SigningKeys resourceSigningKeys(AuthProperties properties, ResourceLoader resourceLoader)
+            throws IOException {
         RSAPrivateKey privateKey;
         RSAPublicKey publicKey;
         try (InputStream stream = resource(resourceLoader, properties.privateKeyLocation()).getInputStream()) {
@@ -51,11 +107,7 @@ public class TokenConfig {
         try (InputStream stream = resource(resourceLoader, properties.publicKeyLocation()).getInputStream()) {
             publicKey = RsaKeyConverters.x509().convert(stream);
         }
-        RSAKey current = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID(properties.keyId())
-                .algorithm(com.nimbusds.jose.JWSAlgorithm.RS256)
-                .build();
+        RSAKey current = rsaKey(properties.keyId(), publicKey, privateKey);
         List<JWK> publicKeys = new ArrayList<>();
         publicKeys.add(current.toPublicJWK());
         for (var entry : properties.previousPublicKeys().entrySet()) {
@@ -68,6 +120,22 @@ public class TokenConfig {
             }
         }
         return new SigningKeys(current, new JWKSet(publicKeys), publicKey, privateKey);
+    }
+
+    private static RSAKey rsaKey(String keyId, RSAPublicKey publicKey, RSAPrivateKey privateKey) {
+        return new RSAKey.Builder(publicKey)
+                .privateKey(privateKey)
+                .keyID(keyId)
+                .algorithm(com.nimbusds.jose.JWSAlgorithm.RS256)
+                .build();
+    }
+
+    private static boolean isProduction(Environment environment) {
+        return environment.acceptsProfiles(Profiles.of("prod", "production"));
+    }
+
+    private static boolean unresolvedPlaceholder(String value) {
+        return value != null && value.contains("${");
     }
 
     @Bean

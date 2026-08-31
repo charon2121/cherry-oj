@@ -1,0 +1,19 @@
+cherry:
+  judging:
+    provision:
+      enabled: true
+      allow-existing-identical: true
+      id: "019c8e42-7f70-7000-8000-000000000401"
+      name: "local-linux-cpp"
+      fingerprint: "dev-linux-amd64-go-judge-v2"
+      architecture: "amd64"
+      cpu-model: "development-fixture"
+      os-version: "linux-development"
+      kernel-version: "development"
+      judge-version: "v2"
+      sandbox-version: "v2"
+      config-digest: "dev-config-v2"
+      endpoint-ref: "http://127.0.0.1:5051"
+      language-id: "cpp"
+      toolchain-version: "g++-development"
+      language-config-digest: "cpp-development-v2"

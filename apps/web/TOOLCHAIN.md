@@ -41,6 +41,27 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 负责服务端数据的请求状态、缓存、重新获取、Mutation 和后续的判题结果轮询。它避免每个页面重复手写 loading、错误处理和缓存逻辑。它不负责本地弹窗开关，也不替代 Router 管理 URL。
 
+### `@tanstack/react-form`
+
+负责题目创建和版本工作台长表单的字段状态、提交与重置。题面、样例、标签和起始代码由表单持有；服务端
+版本仍由 Query 管理，参考程序源码则只保存在工作台组件内存中，离开或校准成功即清空。
+
+### `@tanstack/react-table`
+
+负责 ADMIN 题目管理表的列定义、行模型和语义表格渲染。它是 headless table，分页与筛选仍归 Router 和
+服务端 API，视觉样式继续使用本地设计系统。
+
+### `@monaco-editor/react` 与 `monaco-editor`
+
+为 C++ 起始代码和参考程序提供可访问的代码编辑区域。React 适配层管理编辑器生命周期，Monaco 本体随
+生产构建打包并通过 `loader.config` 本地加载，不依赖运行时 CDN。参考源码不得写入 Query、URL 或 storage。
+
+### `react-markdown`、`remark-gfm` 与 `rehype-sanitize`
+
+公开题面和管理端预览使用 `react-markdown` 渲染，`remark-gfm` 支持表格等 GFM 语法，
+`rehype-sanitize` 删除危险节点与 URL。链路不启用原始 HTML；endpoint schema 还会剥离未知响应字段，
+避免测试数据位置或参考源码 canary 进入页面状态。
+
 ### `zod`
 
 在浏览器收到不可信 JSON 时校验 ApiSuccess、ApiProblem、request ID 和 endpoint 关键字段。OpenAPI

@@ -84,7 +84,57 @@ Gateway 不应同时引入 WebMVC Starter。WebFlux 与 WebMVC 是两套不同�
 
 `user-service`、`problem-service`、`submission-service` 和 `judging-service` 使用它建立常规 HTTP API。它提供 Controller、JSON 转换、异常处理和内嵌 Web 服务器等基础能力。
 
-WebMVC 只解决请求进入 Java 服务后的同步 Web 处理，不自动提供数据库、鉴权、消息队列或跨服务通信。这些能力尚未进入当前 POM。
+WebMVC 只解决请求进入 Java 服务后的同步 Web 处理，不自动提供数据库、鉴权、消息队列或跨服务通信；
+各服务必须按职责显式引入这些能力。
+
+## problem-service 的数据工具
+
+problem-service 单独引入 MyBatis Spring Boot Starter 4.0.1、Flyway、MySQL Connector/J 和测试阶段的
+Testcontainers MySQL。Flyway 只执行 `src/main/resources/db/migration` 中已发布、只追加的 migration；
+MyBatis 的 XML mapper 负责题库键集分页和详情批量读取；Connector/J 只让该服务连接
+`cherry_oj_problem`，不会扩大到其它服务数据库。
+
+Apache Commons Compress 只在 problem-service 内处理私有测试数据 ZIP。它让服务在不解压到
+业务目录的前提下识别 symlink/非普通文件，并配合实际流量、解压总量、单文件和压缩比
+限额拒绝 ZIP 穿越与解压炸弹。原包保存到 `CHERRY_TEST_DATA_ROOT` 配置根内，READY 文件
+只读封存，不与 judging-service 共享目录。
+
+## judging-service 的部署与校准工具
+
+judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J、Commons Compress 与测试阶段的
+Testcontainers MySQL。它只连接 `cherry_oj_judging`，V1 migration 创建环境、启用语言、测试数据部署、
+语言校准和审计五类事实；不读取 problem-service 数据库。
+
+测试数据由受 ADMIN JWT 保护的内部接口以 manifest 和 ZIP 流传入。服务在
+`CHERRY_JUDGE_TESTDATA_ROOT` 下核对摘要、文件清单、测例对、安全限额与 UTF-8，然后通过同文件系统原子
+rename 生成 Go Judge 使用的 `<testDataVersionId>/` 目录。校准通过环境表的 `endpoint_ref` 调用现有
+Go Judge `/judge`，源码只存在于当次请求内，数据库和审计仅保存源码摘要及有界结果摘要。
+部署根、临时目录使用 0700，测例使用 0400；生产部署必须让 judging-service 与只读挂载该目录的 judge
+使用同一受控 Unix UID（Compose 为 10001），不能靠放宽为全局可读来解决权限问题。启动恢复只扫描
+受控根下一层、只清理超过 stale-age 且没有 READY 回执的 UUID 目录与临时目录。
+
+生产 profile 不创建默认环境。首次环境使用显式启动参数
+`--cherry.judging.provision.enabled=true` 并完整提供 `cherry.judging.provision.*` 字段；若已有 ACTIVE
+环境会拒绝执行，且该命令不承担环境切换。`dev` profile 只对 ID、指纹、路由与语言完全相同的本地 C++
+fixture 幂等返回，任何差异仍拒绝启动。
+
+测试使用临时 MySQL 8.4 验证真实 CHECK、外键、JSON、UUID 与索引计划。开发 profile 的 A+B 是应用启动
+后的幂等 seed，不在 migration 或生产 profile 中。生产环境通过 `CHERRY_JUDGING_DB_URL`、
+`CHERRY_JUDGING_DB_USERNAME` 和 `CHERRY_JUDGING_DB_PASSWORD` 提供最小权限连接。
+
+## 本地启动默认与生产配置边界
+
+五个服务的 `application.yaml` 对本地启动必需的 `CHERRY_*` 配置提供默认值，开发者准备好默认地址上的
+MySQL/Redis 后可以直接执行 `spring-boot:run`。空 Redis 密码表示本地无鉴权，judging 环境预置字段在
+功能关闭时允许为空，`${LOG_FILE}` 由 Spring 日志系统在运行时提供；这些都不是缺失的环境变量。
+
+user-service 默认使用进程内随机生成的临时 RSA 密钥。它只服务单进程本地联调，不落盘，重启即更换。
+显式提供 `CHERRY_AUTH_KEY_ID`、`CHERRY_AUTH_PRIVATE_KEY_LOCATION` 和
+`CHERRY_AUTH_PUBLIC_KEY_LOCATION` 后仍按原逻辑读取 PEM，并支持上一把公开密钥。
+
+`prod` 或 `production` profile 是部署安全边界：三个数据库密码和 user-service 的三项当前密钥配置
+没有默认值，必须由部署 Secret 注入；user-service 代码也拒绝 `generated:local` 和默认本地 `kid`。
+本地数据库默认口令是公开开发约定，不具备 Secret 属性，不得用于共享、测试或生产环境。
 
 ## 五个服务共有的依赖
 
@@ -110,7 +160,9 @@ WebMVC 只解决请求进入 Java 服务后的同步 Web 处理，不自动提�
 
 ## 当前明确还没有的工具
 
-当前 POM 没有 MySQL 驱动、MyBatis、Flyway、Spring Security、Kafka、服务注册或可观测性后端。这不是遗漏说明，而是当前实施阶段的真实边界。
+数据库与资源服务器能力只按服务职责引入：user-service、problem-service 和 judging-service 已拥有各自
+MySQL 持久化/Flyway 与 Spring Security，submission-service 仍没有数据库工具。整个 reactor 尚未引入
+Kafka、服务注册或可观测性后端。这不是遗漏说明，而是当前实施阶段的真实边界。
 
 当任务需要这些能力时，应单独说明：由哪个服务拥有、解决哪个业务问题、失败策略是什么、怎样测试，以及是否改变跨服务契约。不要因为架构路线图提过某项技术，就提前把依赖装进所有模块。
 

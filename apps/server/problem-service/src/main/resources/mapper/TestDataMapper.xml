@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cherryoj.problemservice.persistence.TestDataMapper">
+    <resultMap id="testDataRow" type="com.cherryoj.problemservice.persistence.TestDataRows$TestDataRow">
+        <constructor>
+            <arg column="id" javaType="java.lang.String"/>
+            <arg column="problem_id" javaType="java.lang.String"/>
+            <arg column="status" javaType="com.cherryoj.problemservice.api.TestDataDtos$Status"/>
+            <arg column="storage_ref" javaType="java.lang.String"/>
+            <arg column="content_sha256" javaType="java.lang.String"/>
+            <arg column="case_count" javaType="java.lang.Integer"/>
+            <arg column="total_bytes" javaType="java.lang.Long"/>
+            <arg column="manifest_json" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="ready_at" javaType="java.time.LocalDateTime"/>
+            <arg column="error_message" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+    <sql id="columns">
+        BIN_TO_UUID(id) AS id, BIN_TO_UUID(problem_id) AS problem_id, status, storage_ref,
+        LOWER(HEX(content_sha256)) AS content_sha256, case_count, total_bytes,
+        CAST(manifest_json AS CHAR) AS manifest_json, created_at, ready_at, error_message
+    </sql>
+    <select id="list" resultMap="testDataRow">
+        SELECT <include refid="columns"/> FROM test_data_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) ORDER BY created_at DESC, id DESC
+    </select>
+    <select id="find" resultMap="testDataRow">
+        SELECT <include refid="columns"/> FROM test_data_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) AND id = UUID_TO_BIN(#{id})
+    </select>
+    <select id="findReadyByHash" resultMap="testDataRow">
+        SELECT <include refid="columns"/> FROM test_data_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) AND status = 'READY'
+          AND content_sha256 = UNHEX(#{sha256})
+        ORDER BY created_at, id LIMIT 1
+    </select>
+    <insert id="insertUploading">
+        INSERT INTO test_data_version (id, problem_id, status, source_type, storage_ref,
+            content_sha256, case_count, total_bytes, manifest_json, created_by, created_at, ready_at, error_message)
+        VALUES (UUID_TO_BIN(#{id}), UUID_TO_BIN(#{problemId}), 'UPLOADING', 'MANUAL_UPLOAD', #{storageRef},
+            NULL, NULL, NULL, NULL, UUID_TO_BIN(#{createdBy}), #{createdAt}, NULL, NULL)
+    </insert>
+    <update id="markReady">
+        UPDATE test_data_version SET status = 'READY', content_sha256 = UNHEX(#{sha256}),
+            case_count = #{caseCount}, total_bytes = #{totalBytes}, manifest_json = #{manifestJson},
+            ready_at = #{readyAt}, error_message = NULL
+        WHERE id = UUID_TO_BIN(#{id}) AND status = 'UPLOADING'
+    </update>
+    <update id="markFailed">
+        UPDATE test_data_version SET status = 'FAILED', error_message = #{errorMessage}
+        WHERE id = UUID_TO_BIN(#{id}) AND status = 'UPLOADING'
+    </update>
+    <delete id="deleteUploading">
+        DELETE FROM test_data_version WHERE id = UUID_TO_BIN(#{id}) AND status = 'UPLOADING'
+    </delete>
+    <update id="bindDraft">
+        UPDATE problem_version SET test_data_version_id = UUID_TO_BIN(#{testDataVersionId}),
+            updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{versionId}) AND problem_id = UUID_TO_BIN(#{problemId})
+          AND status = 'DRAFT' AND row_version = #{expectedRowVersion}
+    </update>
+    <select id="listReadyStorageRefs" resultType="string">
+        SELECT storage_ref FROM test_data_version WHERE status = 'READY'
+    </select>
+    <update id="failStaleUploads">
+        UPDATE test_data_version SET status = 'FAILED', error_message = #{errorMessage}
+        WHERE status = 'UPLOADING' AND created_at &lt; #{cutoff}
+    </update>
+</mapper>

@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cherryoj.problemservice.persistence.AdminProblemMapper">
+    <resultMap id="problemRow" type="com.cherryoj.problemservice.persistence.AdminProblemRows$ProblemRow">
+        <constructor>
+            <arg column="id" javaType="java.lang.String"/>
+            <arg column="slug" javaType="java.lang.String"/>
+            <arg column="visibility" javaType="com.cherryoj.problemservice.api.AdminProblemDtos$Visibility"/>
+            <arg column="status" javaType="com.cherryoj.problemservice.api.AdminProblemDtos$ProblemStatus"/>
+            <arg column="current_published_version_id" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+            <arg column="row_version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+    <resultMap id="versionRow" type="com.cherryoj.problemservice.persistence.AdminProblemRows$VersionRow">
+        <constructor>
+            <arg column="id" javaType="java.lang.String"/>
+            <arg column="problem_id" javaType="java.lang.String"/>
+            <arg column="version_no" javaType="_int"/>
+            <arg column="status" javaType="com.cherryoj.problemservice.api.AdminProblemDtos$VersionStatus"/>
+            <arg column="code_mode" javaType="com.cherryoj.problemservice.api.AdminProblemDtos$CodeMode"/>
+            <arg column="title" javaType="java.lang.String"/>
+            <arg column="statement_markdown" javaType="java.lang.String"/>
+            <arg column="input_description_markdown" javaType="java.lang.String"/>
+            <arg column="output_description_markdown" javaType="java.lang.String"/>
+            <arg column="constraints_markdown" javaType="java.lang.String"/>
+            <arg column="hint_markdown" javaType="java.lang.String"/>
+            <arg column="difficulty" javaType="com.cherryoj.problemservice.api.AdminProblemDtos$Difficulty"/>
+            <arg column="tags_json" javaType="java.lang.String"/>
+            <arg column="test_data_version_id" javaType="java.lang.String"/>
+            <arg column="change_summary" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.LocalDateTime"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
+            <arg column="published_at" javaType="java.time.LocalDateTime"/>
+            <arg column="row_version" javaType="_long"/>
+        </constructor>
+    </resultMap>
+    <resultMap id="sampleRow" type="com.cherryoj.problemservice.persistence.AdminProblemRows$SampleRow">
+        <constructor>
+            <arg column="ordinal" javaType="_int"/>
+            <arg column="input_text" javaType="java.lang.String"/>
+            <arg column="expected_output_text" javaType="java.lang.String"/>
+            <arg column="explanation_markdown" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+    <resultMap id="languageRow" type="com.cherryoj.problemservice.persistence.AdminProblemRows$LanguageRow">
+        <constructor>
+            <arg column="language_id" javaType="java.lang.String"/>
+            <arg column="display_order" javaType="_int"/>
+            <arg column="starter_code" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="problemColumns">
+        BIN_TO_UUID(id) AS id, slug, visibility, status,
+        BIN_TO_UUID(current_published_version_id) AS current_published_version_id,
+        created_at, updated_at, row_version
+    </sql>
+    <sql id="versionColumns">
+        BIN_TO_UUID(id) AS id, BIN_TO_UUID(problem_id) AS problem_id, version_no, status, code_mode,
+        title, statement_markdown, input_description_markdown, output_description_markdown,
+        constraints_markdown, hint_markdown, difficulty, CAST(tags_json AS CHAR) AS tags_json,
+        BIN_TO_UUID(test_data_version_id) AS test_data_version_id, change_summary,
+        created_at, updated_at, published_at, row_version
+    </sql>
+    <sql id="problemFilters">
+        <where>
+            <if test="q != null">(slug LIKE CONCAT('%', #{q}, '%') ESCAPE '\\')</if>
+            <if test="status != null">AND status = #{status}</if>
+        </where>
+    </sql>
+
+    <select id="countProblems" resultType="long">
+        SELECT COUNT(*) FROM problem <include refid="problemFilters"/>
+    </select>
+    <select id="listProblems" resultMap="problemRow">
+        SELECT <include refid="problemColumns"/> FROM problem
+        <include refid="problemFilters"/>
+        ORDER BY updated_at DESC, id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+    <select id="findProblem" resultMap="problemRow">
+        SELECT <include refid="problemColumns"/> FROM problem WHERE id = UUID_TO_BIN(#{id})
+    </select>
+    <select id="findProblemForUpdate" resultMap="problemRow">
+        SELECT <include refid="problemColumns"/> FROM problem WHERE id = UUID_TO_BIN(#{id}) FOR UPDATE
+    </select>
+    <select id="findVersions" resultMap="versionRow">
+        SELECT <include refid="versionColumns"/> FROM problem_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) ORDER BY version_no DESC
+    </select>
+    <select id="findVersionsForProblems" resultMap="versionRow">
+        SELECT <include refid="versionColumns"/> FROM problem_version WHERE problem_id IN
+        <foreach collection="problemIds" item="id" open="(" separator="," close=")">UUID_TO_BIN(#{id})</foreach>
+        ORDER BY problem_id, version_no DESC
+    </select>
+    <select id="findVersion" resultMap="versionRow">
+        SELECT <include refid="versionColumns"/> FROM problem_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) AND id = UUID_TO_BIN(#{versionId})
+    </select>
+    <select id="findVersionForUpdate" resultMap="versionRow">
+        SELECT <include refid="versionColumns"/> FROM problem_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) AND id = UUID_TO_BIN(#{versionId}) FOR UPDATE
+    </select>
+    <select id="findSamples" resultMap="sampleRow">
+        SELECT ordinal, input_text, expected_output_text, explanation_markdown FROM problem_sample
+        WHERE problem_version_id = UUID_TO_BIN(#{versionId}) ORDER BY ordinal
+    </select>
+    <select id="findLanguages" resultMap="languageRow">
+        SELECT language_id, display_order, starter_code FROM problem_version_language
+        WHERE problem_version_id = UUID_TO_BIN(#{versionId}) ORDER BY display_order
+    </select>
+    <select id="maxVersionNo" resultType="int">
+        SELECT COALESCE(MAX(version_no), 0) FROM problem_version WHERE problem_id = UUID_TO_BIN(#{problemId})
+    </select>
+    <select id="countDrafts" resultType="int">
+        SELECT COUNT(*) FROM problem_version
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) AND status IN ('DRAFT', 'VALIDATING', 'READY_FOR_REVIEW')
+    </select>
+
+    <insert id="insertProblem">
+        INSERT INTO problem (id, slug, visibility, status, current_published_version_id,
+            created_by, created_at, updated_at, row_version)
+        VALUES (UUID_TO_BIN(#{problem.id}), #{problem.slug}, #{problem.visibility}, #{problem.status},
+            <choose><when test="problem.currentPublishedVersionId != null">UUID_TO_BIN(#{problem.currentPublishedVersionId})</when><otherwise>NULL</otherwise></choose>,
+            UUID_TO_BIN(#{createdBy}), #{problem.createdAt}, #{problem.updatedAt}, #{problem.rowVersion})
+    </insert>
+    <insert id="insertVersion">
+        INSERT INTO problem_version (id, problem_id, version_no, status, code_mode, title,
+            statement_markdown, input_description_markdown, output_description_markdown,
+            constraints_markdown, hint_markdown, difficulty, tags_json, checker_type,
+            test_data_version_id, change_summary, created_by, published_by,
+            created_at, updated_at, published_at, row_version)
+        VALUES (UUID_TO_BIN(#{version.id}), UUID_TO_BIN(#{version.problemId}), #{version.versionNo}, #{version.status}, #{version.codeMode}, #{version.title},
+            #{version.statementMarkdown}, #{version.inputDescriptionMarkdown}, #{version.outputDescriptionMarkdown},
+            #{version.constraintsMarkdown}, #{version.hintMarkdown}, #{version.difficulty}, #{version.tagsJson}, 'DEFAULT',
+            <choose><when test="version.testDataVersionId != null">UUID_TO_BIN(#{version.testDataVersionId})</when><otherwise>NULL</otherwise></choose>,
+            #{version.changeSummary}, UUID_TO_BIN(#{createdBy}), NULL,
+            #{version.createdAt}, #{version.updatedAt}, #{version.publishedAt}, #{version.rowVersion})
+    </insert>
+    <insert id="insertSample">
+        INSERT INTO problem_sample (id, problem_version_id, ordinal, input_text, expected_output_text, explanation_markdown)
+        VALUES (UUID_TO_BIN(#{id}), UUID_TO_BIN(#{versionId}), #{ordinal}, #{inputText}, #{expectedOutputText}, #{explanationMarkdown})
+    </insert>
+    <insert id="insertLanguage">
+        INSERT INTO problem_version_language (problem_version_id, language_id, display_order, starter_code, judge_template)
+        VALUES (UUID_TO_BIN(#{versionId}), #{languageId}, #{displayOrder}, #{starterCode}, NULL)
+    </insert>
+    <update id="updateProblem">
+        UPDATE problem SET slug = #{slug}, visibility = #{visibility}, updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id}) AND status = 'ACTIVE' AND row_version = #{expectedRowVersion}
+    </update>
+    <update id="archiveProblem">
+        UPDATE problem SET status = 'ARCHIVED', updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id}) AND status = 'ACTIVE' AND row_version = #{expectedRowVersion}
+    </update>
+    <update id="touchProblem">
+        UPDATE problem SET updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id}) AND status = 'ACTIVE' AND row_version = #{expectedRowVersion}
+    </update>
+    <update id="updateDraft">
+        UPDATE problem_version SET title = #{version.title}, statement_markdown = #{version.statementMarkdown},
+            input_description_markdown = #{version.inputDescriptionMarkdown},
+            output_description_markdown = #{version.outputDescriptionMarkdown},
+            constraints_markdown = #{version.constraintsMarkdown}, hint_markdown = #{version.hintMarkdown},
+            difficulty = #{version.difficulty}, tags_json = #{version.tagsJson}, change_summary = #{version.changeSummary},
+            updated_at = #{version.updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{version.id}) AND problem_id = UUID_TO_BIN(#{version.problemId})
+          AND status = 'DRAFT' AND row_version = #{expectedRowVersion}
+    </update>
+    <delete id="deleteSamples">DELETE FROM problem_sample WHERE problem_version_id = UUID_TO_BIN(#{versionId})</delete>
+    <delete id="deleteLanguages">DELETE FROM problem_version_language WHERE problem_version_id = UUID_TO_BIN(#{versionId})</delete>
+    <delete id="deleteDraft">
+        DELETE FROM problem_version WHERE id = UUID_TO_BIN(#{versionId}) AND problem_id = UUID_TO_BIN(#{problemId}) AND status = 'DRAFT'
+    </delete>
+    <update id="beginValidation">
+        UPDATE problem_version SET status = 'VALIDATING', updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{versionId}) AND problem_id = UUID_TO_BIN(#{problemId})
+          AND status = 'DRAFT' AND row_version = #{expectedRowVersion}
+    </update>
+    <update id="finishValidation">
+        UPDATE problem_version SET status = #{targetStatus}, updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{versionId}) AND problem_id = UUID_TO_BIN(#{problemId})
+          AND status = 'VALIDATING' AND row_version = #{expectedRowVersion}
+    </update>
+    <update id="recoverStaleValidations">
+        UPDATE problem_version SET status = 'DRAFT', updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE status = 'VALIDATING' AND updated_at &lt; #{cutoff}
+    </update>
+    <update id="publishVersion">
+        UPDATE problem_version SET status = 'PUBLISHED', published_by = UUID_TO_BIN(#{actorUserId}),
+            published_at = #{publishedAt}, updated_at = #{publishedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{versionId}) AND problem_id = UUID_TO_BIN(#{problemId})
+          AND status = 'READY_FOR_REVIEW' AND row_version = #{expectedRowVersion}
+    </update>
+    <update id="pointToPublishedVersion">
+        UPDATE problem SET current_published_version_id = UUID_TO_BIN(#{versionId}),
+            updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{problemId}) AND status = 'ACTIVE'
+    </update>
+    <insert id="insertAudit">
+        INSERT INTO problem_audit_event (id, problem_id, problem_version_id, actor_user_id,
+            action, trace_id, detail_json, created_at)
+        VALUES (UUID_TO_BIN(#{id}), UUID_TO_BIN(#{problemId}),
+            <choose><when test="problemVersionId != null">UUID_TO_BIN(#{problemVersionId})</when><otherwise>NULL</otherwise></choose>,
+            UUID_TO_BIN(#{actorUserId}), #{action}, #{traceId}, #{detailJson}, #{createdAt})
+    </insert>
+</mapper>

@@ -25,6 +25,9 @@
 | WORK-018 | 解除 Web 对设计系统文档目录的依赖 | 整理维护 | 实现完成 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-018/00-work.md) |
 | WORK-019 | 设计 Cherry OJ 任务入口主页 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-019/00-work.md) |
 | WORK-020 | 搭建用户端与管理端应用布局 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-020/00-work.md) |
+| WORK-021 | 修复 IDEA 错误按叶子工程构建 user-service | 问题修复 | 待确认 | 低 | 多个模块 | codex/root | [00-work.md](./works/WORK-021/00-work.md) |
 | WORK-022 | 微调双端应用布局页脚 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-022/00-work.md) |
 | WORK-023 | 设计双端导航栏与导航功能组件 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-023/00-work.md) |
 | WORK-024 | 重新设计登录页视觉与体验 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-024/00-work.md) |
+| WORK-025 | 交付题库、题目与测试数据管理 | 产品功能 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-025/00-work.md) |
+| WORK-026 | 为 Java 服务提供可直接启动的本地默认配置 | 基础能力 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-026/00-work.md) |

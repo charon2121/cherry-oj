@@ -44,7 +44,13 @@ function AdminNavigationLeafLink({
   const active = isAdminNavigationLeafActive(item, pathname);
   const Icon = item.icon;
   const link =
-    item.to === '/admin' ? <Link to="/admin" /> : <Link to="/admin/users" search={{ page: 1 }} />;
+    item.to === '/admin' ? (
+      <Link to="/admin" />
+    ) : item.to === '/admin/users' ? (
+      <Link to="/admin/users" search={{ page: 1 }} />
+    ) : (
+      <Link to="/admin/problems" search={{ page: 1, q: '', status: 'ALL' }} />
+    );
   const content = (
     <>
       {Icon ? <Icon aria-hidden="true" /> : null}

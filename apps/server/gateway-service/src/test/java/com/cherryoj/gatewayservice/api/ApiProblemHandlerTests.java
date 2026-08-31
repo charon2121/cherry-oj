@@ -2,10 +2,20 @@ package com.cherryoj.gatewayservice.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Valid;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -61,6 +71,46 @@ class ApiProblemHandlerTests {
 				.jsonPath("$.violations[0].path").isEqualTo("title")
 				.jsonPath("$.violations[0].code").isEqualTo("NOT_BLANK")
 				.jsonPath("$.violations[0].message").isEqualTo("字段不能为空。");
+	}
+
+	@Test
+	void mapsMethodParameterValidationToUnprocessableProblem() {
+		EntityExchangeResult<byte[]> result = webTestClient.get()
+				.uri("/test/query/status")
+				.exchange()
+				.expectStatus().isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+				.expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+				.expectBody()
+				.jsonPath("$.status").isEqualTo(422)
+				.jsonPath("$.code").isEqualTo("VALIDATION_FAILED")
+				.jsonPath("$.violations[0].path").isEqualTo("status")
+				.jsonPath("$.violations[0].code").isEqualTo("PATTERN")
+				.jsonPath("$.violations[0].message").isEqualTo("字段格式不正确。")
+				.returnResult();
+
+		String requestId = result.getResponseHeaders().getFirst(ApiRequestContext.REQUEST_ID_HEADER);
+		String body = new String(result.getResponseBody(), StandardCharsets.UTF_8);
+		assertThat(body)
+				.contains("\"instance\":\"urn:cherry-oj:request:" + requestId + "\"")
+				.contains("\"requestId\":\"" + requestId + "\"")
+				.doesNotContain(ConstraintViolationException.class.getName());
+	}
+
+	@ParameterizedTest
+	@CsvSource({
+		"q, q, SIZE",
+		"page, page, MIN",
+		"size, size, MAX"
+	})
+	void mapsEveryAdminListConstraintCode(String constraint, String path, String code) {
+		webTestClient.get()
+				.uri("/test/query/{constraint}", constraint)
+				.exchange()
+				.expectStatus().isEqualTo(HttpStatus.UNPROCESSABLE_CONTENT)
+				.expectBody()
+				.jsonPath("$.code").isEqualTo("VALIDATION_FAILED")
+				.jsonPath("$.violations[0].path").isEqualTo(path)
+				.jsonPath("$.violations[0].code").isEqualTo(code);
 	}
 
 	@Test
@@ -145,9 +195,46 @@ class ApiProblemHandlerTests {
 			throw new IllegalStateException("database-password must never reach the browser");
 		}
 
+		@GetMapping("/query/{constraint}")
+		void query(@PathVariable String constraint) {
+			throw switch (constraint) {
+				case "status" -> invalidQuery("ALL", "valid", 1, 20);
+				case "q" -> invalidQuery("ACTIVE", "x".repeat(101), 1, 20);
+				case "page" -> invalidQuery("ACTIVE", "valid", 0, 20);
+				case "size" -> invalidQuery("ACTIVE", "valid", 1, 101);
+				default -> new IllegalArgumentException("unknown constraint");
+			};
+		}
+
 		@GetMapping("/status/{status}")
 		void status(@PathVariable int status) {
 			throw new ResponseStatusException(HttpStatus.valueOf(status));
+		}
+	}
+
+	private static ConstraintViolationException invalidQuery(
+			String status, String q, int page, int size) {
+		try (ValidatorFactory factory = Validation.buildDefaultValidatorFactory()) {
+			QueryValidationTarget target = new QueryValidationTarget();
+			Method method = QueryValidationTarget.class.getDeclaredMethod(
+					"list", String.class, String.class, int.class, int.class);
+			Set<ConstraintViolation<QueryValidationTarget>> violations = factory.getValidator()
+					.forExecutables().validateParameters(
+							target, method, new Object[] {status, q, page, size});
+			return new ConstraintViolationException(violations);
+		}
+		catch (ReflectiveOperationException error) {
+			throw new IllegalStateException(error);
+		}
+	}
+
+	private static final class QueryValidationTarget {
+
+		void list(
+				@Pattern(regexp = "^(ACTIVE|ARCHIVED)$") String status,
+				@Size(min = 1, max = 100) String q,
+				@Min(1) int page,
+				@Min(1) @Max(100) int size) {
 		}
 	}
 

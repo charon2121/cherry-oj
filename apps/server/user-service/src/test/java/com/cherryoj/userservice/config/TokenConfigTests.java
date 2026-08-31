@@ -1,6 +1,7 @@
 package com.cherryoj.userservice.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
@@ -24,9 +25,73 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 class TokenConfigTests {
+
+    @Test
+    void generatesAProcessLocalSigningKeyWithoutWritingASecret() throws Exception {
+        TokenConfig config = new TokenConfig();
+        var properties = properties(
+                TokenConfig.LOCAL_KEY_ID,
+                TokenConfig.GENERATED_LOCAL_KEY_LOCATION,
+                TokenConfig.GENERATED_LOCAL_KEY_LOCATION);
+
+        SigningKeys first = config.signingKeys(
+                properties, new DefaultResourceLoader(), new MockEnvironment());
+        SigningKeys second = config.signingKeys(
+                properties, new DefaultResourceLoader(), new MockEnvironment());
+
+        assertThat(first.current().getKeyID()).isEqualTo(TokenConfig.LOCAL_KEY_ID);
+        assertThat(first.current().getAlgorithm()).isEqualTo(JWSAlgorithm.RS256);
+        assertThat(first.publicJwkSet().getKeys()).containsExactly(first.current().toPublicJWK());
+        assertThat(first.privateKey().getModulus()).isNotEqualTo(second.privateKey().getModulus());
+    }
+
+    @Test
+    void rejectsGeneratedSigningKeysInProduction() {
+        var properties = properties(
+                TokenConfig.LOCAL_KEY_ID,
+                TokenConfig.GENERATED_LOCAL_KEY_LOCATION,
+                TokenConfig.GENERATED_LOCAL_KEY_LOCATION);
+        var production = new MockEnvironment().withProperty("spring.profiles.active", "prod");
+        production.setActiveProfiles("prod");
+
+        assertThatThrownBy(() -> new TokenConfig().signingKeys(
+                        properties, new DefaultResourceLoader(), production))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Production requires explicit cherry.auth");
+    }
+
+    @Test
+    void reportsMissingProductionKeyEnvironmentVariablesBeforeLoadingResources() {
+        var properties = properties(
+                "${CHERRY_AUTH_KEY_ID}",
+                "${CHERRY_AUTH_PRIVATE_KEY_LOCATION}",
+                "${CHERRY_AUTH_PUBLIC_KEY_LOCATION}");
+        var production = new MockEnvironment();
+        production.setActiveProfiles("production");
+
+        assertThatThrownBy(() -> new TokenConfig().signingKeys(
+                        properties, new DefaultResourceLoader(), production))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Production requires explicit cherry.auth key-id, private-key-location and public-key-location");
+    }
+
+    @Test
+    void rejectsAOneSidedGeneratedKeyOverride() {
+        var properties = properties(
+                TokenConfig.LOCAL_KEY_ID,
+                TokenConfig.GENERATED_LOCAL_KEY_LOCATION,
+                "file:local-public.pem");
+
+        assertThatThrownBy(() -> new TokenConfig().signingKeys(
+                        properties, new DefaultResourceLoader(), new MockEnvironment()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must both use generated:local");
+    }
 
     @Test
     void acceptsAnUnexpiredTokenSignedByThePreviousPublishedKey() throws Exception {
@@ -63,13 +128,17 @@ class TokenConfigTests {
     }
 
     private static AuthProperties properties(String keyId) {
+        return properties(keyId, "unused", "unused");
+    }
+
+    private static AuthProperties properties(String keyId, String privateKeyLocation, String publicKeyLocation) {
         return new AuthProperties(
                 "server",
                 "cherry-oj-user-service",
                 "cherry-oj-internal",
                 keyId,
-                "unused",
-                "unused",
+                privateKeyLocation,
+                publicKeyLocation,
                 Map.of(),
                 Duration.ofSeconds(120),
                 Duration.ofSeconds(30),

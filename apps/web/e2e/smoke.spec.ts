@@ -80,7 +80,7 @@ test('opens an anonymous application shell without protected-content flash', asy
   await expect(page.getByRole('heading', { name: '专注练习，清晰看到每一次进步' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: '登录' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '题库' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: '题库' })).toBeVisible();
   await expect(page.getByRole('link', { name: '提交记录' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /账号菜单/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '用户管理' })).toHaveCount(0);

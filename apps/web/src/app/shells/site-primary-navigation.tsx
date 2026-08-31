@@ -26,7 +26,10 @@ function SitePrimaryNavigation({
         <Link
           key={item.id}
           to={item.to}
-          activeOptions={{ exact: true }}
+          activeOptions={{ exact: item.to === '/' }}
+          {...(item.to === '/problems'
+            ? { search: { sort: 'UPDATED_DESC' as const, size: 20 } }
+            : {})}
           activeProps={{
             'aria-current': 'page',
             className: 'bg-accent text-foreground font-[var(--ds-weight-heading)]',

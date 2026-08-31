@@ -2,7 +2,7 @@
   "openapi": "3.1.2",
   "info": {
     "title": "Cherry OJ Web API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "浏览器与 Gateway 之间的公开 REST 契约。请求使用 endpoint DTO，普通 JSON 成功响应使用 ApiSuccess，失败响应使用 RFC 9457 Problem Details。"
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
@@ -28,6 +28,70 @@
                   "meta": {
                     "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0"
                   }
+                }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/problems": {
+      "get": {
+        "operationId": "listProblems",
+        "summary": "浏览公开题库",
+        "security": [],
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string", "minLength": 1, "maxLength": 100 } },
+          { "name": "difficulty", "in": "query", "schema": { "$ref": "#/components/schemas/ProblemDifficulty" } },
+          { "name": "tag", "in": "query", "schema": { "type": "array", "maxItems": 10, "items": { "$ref": "#/components/schemas/ProblemTag" } }, "style": "form", "explode": true },
+          { "name": "codeMode", "in": "query", "schema": { "$ref": "#/components/schemas/ProblemCodeMode" } },
+          { "name": "language", "in": "query", "schema": { "$ref": "#/components/schemas/LanguageId" } },
+          { "name": "sort", "in": "query", "schema": { "$ref": "#/components/schemas/ProblemSort" } },
+          { "$ref": "#/components/parameters/Cursor" },
+          { "$ref": "#/components/parameters/CursorPageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "公开题目列表；只包含当前公开版本",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemListSuccess" },
+                "example": {
+                  "data": { "items": [{ "problemId": "019c8e42-7f70-7000-8000-000000000101", "slug": "a-plus-b", "currentVersionId": "019c8e42-7f70-7000-8000-000000000102", "versionNo": 1, "title": "A+B Problem", "difficulty": "EASY", "tags": ["入门"], "codeMode": "ACM", "allowedLanguages": [{ "id": "cpp", "displayName": "C++" }] }] },
+                  "meta": { "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0", "pagination": { "kind": "cursor", "nextCursor": null, "hasMore": false } }
+                }
+              }
+            }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/problems/{slug}": {
+      "get": {
+        "operationId": "getProblem",
+        "summary": "读取公开题目当前版本",
+        "security": [],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemSlug" }],
+        "responses": {
+          "200": {
+            "description": "公开题目详情；不包含隐藏数据、判题模板、作者或审计字段",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" } },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ProblemDetailSuccess" },
+                "example": {
+                  "data": {
+                    "problemId": "019c8e42-7f70-7000-8000-000000000101", "problemVersionId": "019c8e42-7f70-7000-8000-000000000102", "versionNo": 1,
+                    "slug": "a-plus-b", "title": "A+B Problem", "difficulty": "EASY", "tags": ["入门"], "codeMode": "ACM",
+                    "statementMarkdown": "计算两个整数之和。", "inputDescriptionMarkdown": "输入两个整数。", "outputDescriptionMarkdown": "输出它们的和。",
+                    "constraintsMarkdown": "整数在 32 位有符号范围内。", "hintMarkdown": null,
+                    "samples": [{ "ordinal": 1, "input": "1 2\n", "output": "3\n", "explanationMarkdown": null }],
+                    "allowedLanguages": [{ "id": "cpp", "displayName": "C++", "starterCode": "#include <iostream>\n" }]
+                  },
+                  "meta": { "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0" }
                 }
               }
             }
@@ -146,6 +210,302 @@
         },
         "responses": {
           "204": { "$ref": "#/components/responses/NoContentResponse" },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems": {
+      "get": {
+        "operationId": "listAdminProblems",
+        "summary": "分页读取题目与版本状态",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string", "minLength": 1, "maxLength": 100 } },
+          { "name": "status", "in": "query", "schema": { "$ref": "#/components/schemas/ProblemStatus" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "size", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "题目管理分页",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemListSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      },
+      "post": {
+        "operationId": "createProblem",
+        "summary": "创建 C++ ACM 题目及初始草稿",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateProblemRequest" } } } },
+        "responses": {
+          "201": {
+            "description": "题目及 v1 草稿已创建",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Location": { "required": true, "schema": { "type": "string", "format": "uri-reference" } }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}": {
+      "get": {
+        "operationId": "getAdminProblem",
+        "summary": "读取题目管理详情",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }],
+        "responses": {
+          "200": {
+            "description": "题目及版本摘要",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      },
+      "patch": {
+        "operationId": "updateProblem",
+        "summary": "更新题目标识或可见性",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateProblemRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "题目已更新；旧 rowVersion 返回 409 ROW_VERSION_CONFLICT",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/archive": {
+      "post": {
+        "operationId": "archiveProblem",
+        "summary": "归档题目并从公开题库移除",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RowVersionRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "题目已归档",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions": {
+      "post": {
+        "operationId": "createProblemRevision",
+        "summary": "从当前公开版本创建下一草稿",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateProblemRevisionRequest" } } } },
+        "responses": {
+          "201": {
+            "description": "修订草稿已创建",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Location": { "required": true, "schema": { "type": "string", "format": "uri-reference" } }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemVersionSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}": {
+      "get": {
+        "operationId": "getProblemVersion",
+        "summary": "读取管理端题目版本",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }],
+        "responses": {
+          "200": {
+            "description": "题目版本编辑模型",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemVersionSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      },
+      "patch": {
+        "operationId": "updateProblemVersion",
+        "summary": "保存未发布题目版本",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateProblemVersionRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "草稿已保存；旧 rowVersion 返回 409 ROW_VERSION_CONFLICT，非草稿返回 409 RESOURCE_STATE_CONFLICT",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemVersionSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProblemVersion",
+        "summary": "删除未发布且未被引用的草稿",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }, { "$ref": "#/components/parameters/RowVersion" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "responses": { "204": { "$ref": "#/components/responses/NoContentResponse" }, "default": { "$ref": "#/components/responses/ApiProblemResponse" } }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}/preview": {
+      "get": {
+        "operationId": "previewProblemVersion",
+        "summary": "用公开布局预览管理端草稿",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }],
+        "responses": {
+          "200": {
+            "description": "草稿预览；响应不得缓存",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProblemDetailSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/test-data": {
+      "get": {
+        "operationId": "listTestDataVersions",
+        "summary": "读取题目的测试数据版本",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }],
+        "responses": {
+          "200": {
+            "description": "测试数据元信息；不包含文件内容或存储引用",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestDataVersionListSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      },
+      "post": {
+        "operationId": "uploadTestDataVersion",
+        "summary": "上传不可变测试数据 ZIP",
+        "description": "ZIP 根目录只允许成对的 <case>.in/.out UTF-8 普通文件。网关和下游按配置限额流式处理；超限返回 413 PAYLOAD_TOO_LARGE。",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": {
+          "required": true,
+          "content": { "multipart/form-data": { "schema": { "$ref": "#/components/schemas/UploadTestDataRequest" }, "encoding": { "file": { "contentType": "application/zip" } } } }
+        },
+        "responses": {
+          "201": {
+            "description": "ZIP 已完整校验并封存为 READY",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Location": { "required": true, "schema": { "type": "string", "format": "uri-reference" } }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestDataVersionSuccess" } } }
+          },
+          "413": { "$ref": "#/components/responses/ApiProblemResponse" },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/test-data/{testDataVersionId}/download": {
+      "get": {
+        "operationId": "downloadTestDataVersion",
+        "summary": "下载原始不可变测试数据 ZIP",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/TestDataVersionId" }],
+        "responses": {
+          "200": {
+            "description": "原始 ZIP 二进制流；不使用 JSON 成功包装",
+            "headers": {
+              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" },
+              "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } },
+              "Content-Disposition": { "required": true, "schema": { "type": "string", "pattern": "^attachment; filename=\\\"[A-Za-z0-9._-]+\\\"$" } }
+            },
+            "content": { "application/zip": { "schema": { "type": "string", "format": "binary" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}/test-data": {
+      "put": {
+        "operationId": "bindProblemVersionTestData",
+        "summary": "把本题 READY 测试数据绑定到草稿",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BindTestDataRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "测试数据已绑定并递增版本 rowVersion",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemVersionSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}/deployment": {
+      "post": {
+        "operationId": "deployProblemTestData",
+        "summary": "部署绑定数据到当前 ACTIVE 判题环境",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DeployTestDataRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "部署已 READY；相同版本、环境和 hash 重复请求返回同一事实",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TestDataDeploymentSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}/calibration": {
+      "post": {
+        "operationId": "calibrateProblemVersion",
+        "summary": "以临时 C++ 参考程序验证绝对限制",
+        "description": "参考源码仅用于本次同步验证，不进入响应、业务表、日志或审计正文。只有隐藏数据全 AC 才产生 VALID calibration。",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CalibrateProblemRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "校准尝试完成；verdict 非 AC 时 status 为 FAILED 且不会覆盖已有 VALID 事实",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LanguageCalibrationSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}/publish-check": {
+      "get": {
+        "operationId": "checkProblemPublication",
+        "summary": "读取发布就绪检查",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }],
+        "responses": {
+          "200": {
+            "description": "本地与当前环境就绪检查结果",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishCheckSuccess" } } }
+          },
+          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/versions/{problemVersionId}/publish": {
+      "post": {
+        "operationId": "publishProblemVersion",
+        "summary": "原子发布就绪版本",
+        "security": [{ "cookieAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/ProblemVersionId" }, { "$ref": "#/components/parameters/CsrfToken" }],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PublishProblemRequest" } } } },
+        "responses": {
+          "200": {
+            "description": "版本已发布；重试读取并返回相同发布事实，并发冲突返回 409",
+            "headers": { "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }, "Cache-Control": { "required": true, "schema": { "const": "no-store", "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminProblemVersionSuccess" } } }
+          },
           "default": { "$ref": "#/components/responses/ApiProblemResponse" }
         }
       }
@@ -319,6 +679,48 @@
         "in": "path",
         "required": true,
         "schema": { "type": "string", "format": "uuid" }
+      },
+      "ProblemId": {
+        "name": "problemId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "ProblemVersionId": {
+        "name": "problemVersionId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "TestDataVersionId": {
+        "name": "testDataVersionId",
+        "in": "path",
+        "required": true,
+        "schema": { "type": "string", "format": "uuid" }
+      },
+      "ProblemSlug": {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "schema": { "$ref": "#/components/schemas/ProblemSlug" }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "description": "服务端签发的不透明游标；非法或失效游标返回 400 INVALID_CURSOR。"
+      },
+      "CursorPageSize": {
+        "name": "size",
+        "in": "query",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+      },
+      "RowVersion": {
+        "name": "rowVersion",
+        "in": "query",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 0 },
+        "description": "乐观锁版本；过期值返回 409 ROW_VERSION_CONFLICT。"
       }
     },
     "headers": {
@@ -710,6 +1112,489 @@
             "required": ["requestId", "pagination"]
           }
         }
+      },
+      "ProblemSlug": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "ProblemTag": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32
+      },
+      "LanguageId": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]{0,31}$"
+      },
+      "ProblemDifficulty": {
+        "type": "string",
+        "enum": ["UNRATED", "EASY", "MEDIUM", "HARD"]
+      },
+      "ProblemCodeMode": {
+        "type": "string",
+        "enum": ["ACM", "CORE"]
+      },
+      "ProblemSort": {
+        "type": "string",
+        "enum": ["UPDATED_DESC", "UPDATED_ASC", "TITLE_ASC"],
+        "default": "UPDATED_DESC"
+      },
+      "ProblemVisibility": {
+        "type": "string",
+        "enum": ["PRIVATE", "PUBLIC"]
+      },
+      "ProblemStatus": {
+        "type": "string",
+        "enum": ["ACTIVE", "ARCHIVED"]
+      },
+      "ProblemVersionStatus": {
+        "type": "string",
+        "enum": ["DRAFT", "VALIDATING", "READY_FOR_REVIEW", "PUBLISHED", "ARCHIVED"]
+      },
+      "TestDataStatus": {
+        "type": "string",
+        "enum": ["UPLOADING", "READY", "FAILED"]
+      },
+      "DeploymentStatus": {
+        "type": "string",
+        "enum": ["PENDING", "DEPLOYING", "READY", "FAILED"]
+      },
+      "CalibrationStatus": {
+        "type": "string",
+        "enum": ["DRAFT", "RUNNING", "VALID", "FAILED", "SUPERSEDED"]
+      },
+      "JudgeVerdict": {
+        "type": "string",
+        "enum": ["AC", "WA", "TLE", "MLE", "RE", "CE", "SE"]
+      },
+      "PublicLanguageSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "displayName"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/LanguageId" },
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 64 }
+        }
+      },
+      "PublicProblemLanguage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "displayName", "starterCode"],
+        "properties": {
+          "id": { "$ref": "#/components/schemas/LanguageId" },
+          "displayName": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "starterCode": { "type": "string", "maxLength": 1048576 }
+        }
+      },
+      "ProblemSample": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ordinal", "input", "output", "explanationMarkdown"],
+        "properties": {
+          "ordinal": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "input": { "type": "string", "maxLength": 1048576 },
+          "output": { "type": "string", "maxLength": 1048576 },
+          "explanationMarkdown": { "type": ["string", "null"], "maxLength": 1048576 }
+        }
+      },
+      "ProblemSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["problemId", "slug", "currentVersionId", "versionNo", "title", "difficulty", "tags", "codeMode", "allowedLanguages"],
+        "properties": {
+          "problemId": { "type": "string", "format": "uuid" },
+          "slug": { "$ref": "#/components/schemas/ProblemSlug" },
+          "currentVersionId": { "type": "string", "format": "uuid" },
+          "versionNo": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "difficulty": { "$ref": "#/components/schemas/ProblemDifficulty" },
+          "tags": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/components/schemas/ProblemTag" } },
+          "codeMode": { "$ref": "#/components/schemas/ProblemCodeMode" },
+          "allowedLanguages": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/components/schemas/PublicLanguageSummary" } }
+        }
+      },
+      "ProblemListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": { "items": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ProblemSummary" } } }
+      },
+      "ProblemListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/ProblemListData" },
+          "meta": { "allOf": [{ "$ref": "#/components/schemas/ApiMeta" }], "required": ["requestId", "pagination"] }
+        }
+      },
+      "ProblemDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["problemId", "problemVersionId", "versionNo", "slug", "codeMode", "title", "difficulty", "tags", "statementMarkdown", "inputDescriptionMarkdown", "outputDescriptionMarkdown", "constraintsMarkdown", "hintMarkdown", "samples", "allowedLanguages"],
+        "properties": {
+          "problemId": { "type": "string", "format": "uuid" },
+          "problemVersionId": { "type": "string", "format": "uuid" },
+          "versionNo": { "type": "integer", "minimum": 1 },
+          "slug": { "$ref": "#/components/schemas/ProblemSlug" },
+          "codeMode": { "$ref": "#/components/schemas/ProblemCodeMode" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "difficulty": { "$ref": "#/components/schemas/ProblemDifficulty" },
+          "tags": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/components/schemas/ProblemTag" } },
+          "statementMarkdown": { "type": "string", "maxLength": 16777215 },
+          "inputDescriptionMarkdown": { "type": "string", "maxLength": 16777215 },
+          "outputDescriptionMarkdown": { "type": "string", "maxLength": 16777215 },
+          "constraintsMarkdown": { "type": ["string", "null"], "maxLength": 16777215 },
+          "hintMarkdown": { "type": ["string", "null"], "maxLength": 16777215 },
+          "samples": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ProblemSample" } },
+          "allowedLanguages": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/components/schemas/PublicProblemLanguage" } }
+        }
+      },
+      "ProblemDetailSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/ProblemDetail" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "ProblemVersionSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "versionNo", "status", "title", "updatedAt", "publishedAt", "rowVersion"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "versionNo": { "type": "integer", "minimum": 1 },
+          "status": { "$ref": "#/components/schemas/ProblemVersionStatus" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "AdminProblem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "slug", "visibility", "status", "currentPublishedVersionId", "versions", "createdAt", "updatedAt", "rowVersion"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "slug": { "$ref": "#/components/schemas/ProblemSlug" },
+          "visibility": { "$ref": "#/components/schemas/ProblemVisibility" },
+          "status": { "$ref": "#/components/schemas/ProblemStatus" },
+          "currentPublishedVersionId": { "type": ["string", "null"], "format": "uuid" },
+          "versions": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/components/schemas/ProblemVersionSummary" } },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "AdminProblemSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/AdminProblem" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "AdminProblemListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": { "items": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/AdminProblem" } } }
+      },
+      "AdminProblemListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/AdminProblemListData" },
+          "meta": { "allOf": [{ "$ref": "#/components/schemas/ApiMeta" }], "required": ["requestId", "pagination"] }
+        }
+      },
+      "CreateProblemRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "title", "difficulty", "codeMode", "languageId"],
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/ProblemSlug" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "difficulty": { "$ref": "#/components/schemas/ProblemDifficulty" },
+          "codeMode": { "const": "ACM", "type": "string" },
+          "languageId": { "const": "cpp", "type": "string" }
+        }
+      },
+      "UpdateProblemRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["slug", "visibility", "rowVersion"],
+        "properties": {
+          "slug": { "$ref": "#/components/schemas/ProblemSlug" },
+          "visibility": { "$ref": "#/components/schemas/ProblemVisibility" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "RowVersionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rowVersion"],
+        "properties": { "rowVersion": { "type": "integer", "minimum": 0 } }
+      },
+      "CreateProblemRevisionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rowVersion", "reuseTestData"],
+        "properties": {
+          "rowVersion": { "type": "integer", "minimum": 0 },
+          "reuseTestData": { "type": "boolean", "description": "必须由管理员显式确认是否复制当前公开版本的数据绑定。" }
+        }
+      },
+      "AdminProblemLanguage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "displayName", "starterCode"],
+        "properties": {
+          "id": { "const": "cpp", "type": "string" },
+          "displayName": { "const": "C++", "type": "string" },
+          "starterCode": { "type": "string", "maxLength": 1048576 }
+        }
+      },
+      "AdminProblemVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "problemId", "versionNo", "status", "codeMode", "title", "statementMarkdown", "inputDescriptionMarkdown", "outputDescriptionMarkdown", "constraintsMarkdown", "hintMarkdown", "difficulty", "tags", "samples", "allowedLanguages", "testDataVersion", "changeSummary", "createdAt", "updatedAt", "publishedAt", "rowVersion"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "problemId": { "type": "string", "format": "uuid" },
+          "versionNo": { "type": "integer", "minimum": 1 },
+          "status": { "$ref": "#/components/schemas/ProblemVersionStatus" },
+          "codeMode": { "const": "ACM", "type": "string" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "statementMarkdown": { "type": "string", "maxLength": 16777215 },
+          "inputDescriptionMarkdown": { "type": "string", "maxLength": 16777215 },
+          "outputDescriptionMarkdown": { "type": "string", "maxLength": 16777215 },
+          "constraintsMarkdown": { "type": ["string", "null"], "maxLength": 16777215 },
+          "hintMarkdown": { "type": ["string", "null"], "maxLength": 16777215 },
+          "difficulty": { "$ref": "#/components/schemas/ProblemDifficulty" },
+          "tags": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/components/schemas/ProblemTag" } },
+          "samples": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ProblemSample" } },
+          "allowedLanguages": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/components/schemas/AdminProblemLanguage" } },
+          "testDataVersion": { "anyOf": [{ "$ref": "#/components/schemas/TestDataVersion" }, { "type": "null" }] },
+          "changeSummary": { "type": ["string", "null"], "maxLength": 8192 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "AdminProblemVersionSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/AdminProblemVersion" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "UpdateProblemVersionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "statementMarkdown", "inputDescriptionMarkdown", "outputDescriptionMarkdown", "constraintsMarkdown", "hintMarkdown", "difficulty", "tags", "samples", "starterCode", "changeSummary", "rowVersion"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+          "statementMarkdown": { "type": "string", "maxLength": 16777215 },
+          "inputDescriptionMarkdown": { "type": "string", "maxLength": 16777215 },
+          "outputDescriptionMarkdown": { "type": "string", "maxLength": 16777215 },
+          "constraintsMarkdown": { "type": ["string", "null"], "maxLength": 16777215 },
+          "hintMarkdown": { "type": ["string", "null"], "maxLength": 16777215 },
+          "difficulty": { "$ref": "#/components/schemas/ProblemDifficulty" },
+          "tags": { "type": "array", "maxItems": 20, "uniqueItems": true, "items": { "$ref": "#/components/schemas/ProblemTag" } },
+          "samples": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/ProblemSample" } },
+          "starterCode": { "type": "string", "maxLength": 1048576 },
+          "changeSummary": { "type": ["string", "null"], "maxLength": 8192 },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "TestDataManifestFile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "sizeBytes", "sha256"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.(?:in|out)$" },
+          "sizeBytes": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        }
+      },
+      "TestDataManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["caseCount", "totalBytes", "files"],
+        "properties": {
+          "caseCount": { "type": "integer", "minimum": 1 },
+          "totalBytes": { "type": "integer", "minimum": 0 },
+          "files": { "type": "array", "minItems": 2, "maxItems": 2000, "items": { "$ref": "#/components/schemas/TestDataManifestFile" } }
+        }
+      },
+      "TestDataVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "problemId", "status", "sourceType", "contentSha256", "caseCount", "totalBytes", "manifest", "createdAt", "readyAt", "errorMessage"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "problemId": { "type": "string", "format": "uuid" },
+          "status": { "$ref": "#/components/schemas/TestDataStatus" },
+          "sourceType": { "const": "MANUAL_UPLOAD", "type": "string" },
+          "contentSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "caseCount": { "type": ["integer", "null"], "minimum": 1 },
+          "totalBytes": { "type": ["integer", "null"], "minimum": 0 },
+          "manifest": { "anyOf": [{ "$ref": "#/components/schemas/TestDataManifest" }, { "type": "null" }] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "readyAt": { "type": ["string", "null"], "format": "date-time" },
+          "errorMessage": { "type": ["string", "null"], "maxLength": 8192 }
+        }
+      },
+      "TestDataVersionSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/TestDataVersion" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "TestDataVersionListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["items"],
+        "properties": { "items": { "type": "array", "maxItems": 1000, "items": { "$ref": "#/components/schemas/TestDataVersion" } } }
+      },
+      "TestDataVersionListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/TestDataVersionListData" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "UploadTestDataRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file"],
+        "properties": { "file": { "type": "string", "format": "binary", "contentMediaType": "application/zip", "description": "配置上限内的 ZIP；首版默认最大压缩大小 100 MiB。" } }
+      },
+      "BindTestDataRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["testDataVersionId", "rowVersion"],
+        "properties": {
+          "testDataVersionId": { "type": "string", "format": "uuid" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "DeployTestDataRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["testDataVersionId", "expectedSha256", "rowVersion"],
+        "properties": {
+          "testDataVersionId": { "type": "string", "format": "uuid" },
+          "expectedSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "TestDataDeployment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["testDataVersionId", "environmentId", "environmentName", "expectedSha256", "status", "deployedSha256", "deployedAt", "errorMessage", "updatedAt", "rowVersion"],
+        "properties": {
+          "testDataVersionId": { "type": "string", "format": "uuid" },
+          "environmentId": { "type": "string", "format": "uuid" },
+          "environmentName": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "expectedSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "status": { "$ref": "#/components/schemas/DeploymentStatus" },
+          "deployedSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+          "deployedAt": { "type": ["string", "null"], "format": "date-time" },
+          "errorMessage": { "type": ["string", "null"], "maxLength": 8192 },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "TestDataDeploymentSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/TestDataDeployment" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "CalibrateProblemRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["languageId", "cpuNs", "memoryBytes", "clockNs", "referenceSource", "rowVersion"],
+        "properties": {
+          "languageId": { "const": "cpp", "type": "string" },
+          "cpuNs": { "type": "integer", "minimum": 1 },
+          "memoryBytes": { "type": "integer", "minimum": 1 },
+          "clockNs": { "type": ["integer", "null"], "minimum": 1 },
+          "referenceSource": { "type": "string", "minLength": 1, "maxLength": 1048576, "writeOnly": true },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "BenchmarkSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceSha256", "verdict", "maxCpuNs", "maxMemoryBytes", "maxClockNs"],
+        "properties": {
+          "sourceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "verdict": { "$ref": "#/components/schemas/JudgeVerdict" },
+          "maxCpuNs": { "type": ["integer", "null"], "minimum": 0 },
+          "maxMemoryBytes": { "type": ["integer", "null"], "minimum": 0 },
+          "maxClockNs": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      },
+      "LanguageCalibration": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "problemVersionId", "languageId", "environmentId", "status", "cpuNs", "memoryBytes", "clockNs", "benchmarkSummary", "errorMessage", "createdAt", "updatedAt", "rowVersion"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "problemVersionId": { "type": "string", "format": "uuid" },
+          "languageId": { "$ref": "#/components/schemas/LanguageId" },
+          "environmentId": { "type": "string", "format": "uuid" },
+          "status": { "$ref": "#/components/schemas/CalibrationStatus" },
+          "cpuNs": { "type": ["integer", "null"], "minimum": 1 },
+          "memoryBytes": { "type": ["integer", "null"], "minimum": 1 },
+          "clockNs": { "type": ["integer", "null"], "minimum": 1 },
+          "benchmarkSummary": { "anyOf": [{ "$ref": "#/components/schemas/BenchmarkSummary" }, { "type": "null" }] },
+          "errorMessage": { "type": ["string", "null"], "maxLength": 8192 },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "rowVersion": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "LanguageCalibrationSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/LanguageCalibration" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "PublishCheckItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "passed", "message"],
+        "properties": {
+          "code": { "type": "string", "enum": ["CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "DEPLOYMENT", "CALIBRATION"] },
+          "passed": { "type": "boolean" },
+          "message": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      },
+      "PublishCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ready", "environmentId", "checks"],
+        "properties": {
+          "ready": { "type": "boolean" },
+          "environmentId": { "type": ["string", "null"], "format": "uuid" },
+          "checks": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/components/schemas/PublishCheckItem" } }
+        }
+      },
+      "PublishCheckSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data", "meta"],
+        "properties": { "data": { "$ref": "#/components/schemas/PublishCheck" }, "meta": { "$ref": "#/components/schemas/ApiMeta" } }
+      },
+      "PublishProblemRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rowVersion"],
+        "properties": { "rowVersion": { "type": "integer", "minimum": 0 } }
       },
       "SystemStatusData": {
         "type": "object",

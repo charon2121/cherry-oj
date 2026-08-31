@@ -4,7 +4,7 @@ spring:
   datasource:
     url: "${CHERRY_USER_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_user}"
     username: "${CHERRY_USER_DB_USERNAME:cherry_oj_user}"
-    password: "${CHERRY_USER_DB_PASSWORD:}"
+    password: "${CHERRY_USER_DB_PASSWORD:K_9sF7pR2xQ8bT4vZ6n}"
   flyway:
     enabled: true
 
@@ -17,9 +17,9 @@ cherry:
   auth:
     issuer: "${CHERRY_AUTH_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_AUTH_AUDIENCE:cherry-oj-internal}"
-    key-id: "${CHERRY_AUTH_KEY_ID:}"
-    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:}"
-    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:}"
+    key-id: "${CHERRY_AUTH_KEY_ID:local-ephemeral}"
+    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:generated:local}"
+    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:generated:local}"
     access-token-ttl: 120s
     clock-skew: 30s
     session-idle-timeout-seconds: "${CHERRY_AUTH_SESSION_IDLE_TIMEOUT_SECONDS:1800}"
@@ -78,3 +78,17 @@ logging:
       file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd,UTC}.%i.gz"
       max-file-size: 10MB
       max-history: 30
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "prod | production"
+  datasource:
+    password: "${CHERRY_USER_DB_PASSWORD}"
+
+cherry:
+  auth:
+    key-id: "${CHERRY_AUTH_KEY_ID}"
+    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION}"
+    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION}"

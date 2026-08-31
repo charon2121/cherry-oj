@@ -14,10 +14,16 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as SiteIndexRouteImport } from './routes/_site.index'
 import { Route as SiteForbiddenRouteImport } from './routes/_site.forbidden'
 import { Route as SiteLoginRouteImport } from './routes/_site.login'
+import { Route as SiteProblemsRouteImport } from './routes/_site.problems'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminDashboradRouteImport } from './routes/admin.dashborad'
+import { Route as AdminProblemsRouteImport } from './routes/admin.problems'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SiteAccountPasswordRouteImport } from './routes/_site.account.password'
+import { Route as SiteProblemsIndexRouteImport } from './routes/_site.problems.index'
+import { Route as SiteProblemsSlugRouteImport } from './routes/_site.problems.$slug'
+import { Route as AdminProblemsIndexRouteImport } from './routes/admin.problems.index'
+import { Route as AdminProblemsProblemIdVersionsVersionIdRouteImport } from './routes/admin.problems.$problemId.versions.$versionId'
 
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
@@ -43,6 +49,11 @@ const SiteLoginRoute = SiteLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteProblemsRoute = SiteProblemsRouteImport.update({
+  id: '/problems',
+  path: '/problems',
+  getParentRoute: () => SiteRoute,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -51,6 +62,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminDashboradRoute = AdminDashboradRouteImport.update({
   id: '/dashborad',
   path: '/dashborad',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProblemsRoute = AdminProblemsRouteImport.update({
+  id: '/problems',
+  path: '/problems',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -63,16 +79,43 @@ const SiteAccountPasswordRoute = SiteAccountPasswordRouteImport.update({
   path: '/account/password',
   getParentRoute: () => SiteRoute,
 } as any)
+const SiteProblemsIndexRoute = SiteProblemsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SiteProblemsRoute,
+} as any)
+const SiteProblemsSlugRoute = SiteProblemsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => SiteProblemsRoute,
+} as any)
+const AdminProblemsIndexRoute = AdminProblemsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminProblemsRoute,
+} as any)
+const AdminProblemsProblemIdVersionsVersionIdRoute =
+  AdminProblemsProblemIdVersionsVersionIdRouteImport.update({
+    id: '/$problemId/versions/$versionId',
+    path: '/$problemId/versions/$versionId',
+    getParentRoute: () => AdminProblemsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/forbidden': typeof SiteForbiddenRoute
   '/login': typeof SiteLoginRoute
+  '/problems': typeof SiteProblemsRouteWithChildren
   '/admin/dashborad': typeof AdminDashboradRoute
+  '/admin/problems': typeof AdminProblemsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/account/password': typeof SiteAccountPasswordRoute
+  '/problems/$slug': typeof SiteProblemsSlugRoute
+  '/problems/': typeof SiteProblemsIndexRoute
+  '/admin/problems/': typeof AdminProblemsIndexRoute
+  '/admin/problems/$problemId/versions/$versionId': typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
   '/forbidden': typeof SiteForbiddenRoute
@@ -82,6 +125,10 @@ export interface FileRoutesByTo {
   '/': typeof SiteIndexRoute
   '/admin': typeof AdminIndexRoute
   '/account/password': typeof SiteAccountPasswordRoute
+  '/problems/$slug': typeof SiteProblemsSlugRoute
+  '/problems': typeof SiteProblemsIndexRoute
+  '/admin/problems': typeof AdminProblemsIndexRoute
+  '/admin/problems/$problemId/versions/$versionId': typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,11 +136,17 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/_site/forbidden': typeof SiteForbiddenRoute
   '/_site/login': typeof SiteLoginRoute
+  '/_site/problems': typeof SiteProblemsRouteWithChildren
   '/admin/dashborad': typeof AdminDashboradRoute
+  '/admin/problems': typeof AdminProblemsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/_site/': typeof SiteIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/_site/account/password': typeof SiteAccountPasswordRoute
+  '/_site/problems/$slug': typeof SiteProblemsSlugRoute
+  '/_site/problems/': typeof SiteProblemsIndexRoute
+  '/admin/problems/': typeof AdminProblemsIndexRoute
+  '/admin/problems/$problemId/versions/$versionId': typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -102,10 +155,16 @@ export interface FileRouteTypes {
     | '/admin'
     | '/forbidden'
     | '/login'
+    | '/problems'
     | '/admin/dashborad'
+    | '/admin/problems'
     | '/admin/users'
     | '/admin/'
     | '/account/password'
+    | '/problems/$slug'
+    | '/problems/'
+    | '/admin/problems/'
+    | '/admin/problems/$problemId/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forbidden'
@@ -115,17 +174,27 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/account/password'
+    | '/problems/$slug'
+    | '/problems'
+    | '/admin/problems'
+    | '/admin/problems/$problemId/versions/$versionId'
   id:
     | '__root__'
     | '/_site'
     | '/admin'
     | '/_site/forbidden'
     | '/_site/login'
+    | '/_site/problems'
     | '/admin/dashborad'
+    | '/admin/problems'
     | '/admin/users'
     | '/_site/'
     | '/admin/'
     | '/_site/account/password'
+    | '/_site/problems/$slug'
+    | '/_site/problems/'
+    | '/admin/problems/'
+    | '/admin/problems/$problemId/versions/$versionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteLoginRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/problems': {
+      id: '/_site/problems'
+      path: '/problems'
+      fullPath: '/problems'
+      preLoaderRoute: typeof SiteProblemsRouteImport
+      parentRoute: typeof SiteRoute
+    }
     '/admin/': {
       id: '/admin/'
       path: '/'
@@ -182,6 +258,13 @@ declare module '@tanstack/react-router' {
       path: '/dashborad'
       fullPath: '/admin/dashborad'
       preLoaderRoute: typeof AdminDashboradRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/problems': {
+      id: '/admin/problems'
+      path: '/problems'
+      fullPath: '/admin/problems'
+      preLoaderRoute: typeof AdminProblemsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/users': {
@@ -198,12 +281,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteAccountPasswordRouteImport
       parentRoute: typeof SiteRoute
     }
+    '/_site/problems/': {
+      id: '/_site/problems/'
+      path: '/'
+      fullPath: '/problems/'
+      preLoaderRoute: typeof SiteProblemsIndexRouteImport
+      parentRoute: typeof SiteProblemsRoute
+    }
+    '/_site/problems/$slug': {
+      id: '/_site/problems/$slug'
+      path: '/$slug'
+      fullPath: '/problems/$slug'
+      preLoaderRoute: typeof SiteProblemsSlugRouteImport
+      parentRoute: typeof SiteProblemsRoute
+    }
+    '/admin/problems/': {
+      id: '/admin/problems/'
+      path: '/'
+      fullPath: '/admin/problems/'
+      preLoaderRoute: typeof AdminProblemsIndexRouteImport
+      parentRoute: typeof AdminProblemsRoute
+    }
+    '/admin/problems/$problemId/versions/$versionId': {
+      id: '/admin/problems/$problemId/versions/$versionId'
+      path: '/$problemId/versions/$versionId'
+      fullPath: '/admin/problems/$problemId/versions/$versionId'
+      preLoaderRoute: typeof AdminProblemsProblemIdVersionsVersionIdRouteImport
+      parentRoute: typeof AdminProblemsRoute
+    }
   }
 }
+
+interface SiteProblemsRouteChildren {
+  SiteProblemsSlugRoute: typeof SiteProblemsSlugRoute
+  SiteProblemsIndexRoute: typeof SiteProblemsIndexRoute
+}
+
+const SiteProblemsRouteChildren: SiteProblemsRouteChildren = {
+  SiteProblemsSlugRoute: SiteProblemsSlugRoute,
+  SiteProblemsIndexRoute: SiteProblemsIndexRoute,
+}
+
+const SiteProblemsRouteWithChildren = SiteProblemsRoute._addFileChildren(
+  SiteProblemsRouteChildren,
+)
 
 interface SiteRouteChildren {
   SiteForbiddenRoute: typeof SiteForbiddenRoute
   SiteLoginRoute: typeof SiteLoginRoute
+  SiteProblemsRoute: typeof SiteProblemsRouteWithChildren
   SiteIndexRoute: typeof SiteIndexRoute
   SiteAccountPasswordRoute: typeof SiteAccountPasswordRoute
 }
@@ -211,20 +337,38 @@ interface SiteRouteChildren {
 const SiteRouteChildren: SiteRouteChildren = {
   SiteForbiddenRoute: SiteForbiddenRoute,
   SiteLoginRoute: SiteLoginRoute,
+  SiteProblemsRoute: SiteProblemsRouteWithChildren,
   SiteIndexRoute: SiteIndexRoute,
   SiteAccountPasswordRoute: SiteAccountPasswordRoute,
 }
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
+interface AdminProblemsRouteChildren {
+  AdminProblemsIndexRoute: typeof AdminProblemsIndexRoute
+  AdminProblemsProblemIdVersionsVersionIdRoute: typeof AdminProblemsProblemIdVersionsVersionIdRoute
+}
+
+const AdminProblemsRouteChildren: AdminProblemsRouteChildren = {
+  AdminProblemsIndexRoute: AdminProblemsIndexRoute,
+  AdminProblemsProblemIdVersionsVersionIdRoute:
+    AdminProblemsProblemIdVersionsVersionIdRoute,
+}
+
+const AdminProblemsRouteWithChildren = AdminProblemsRoute._addFileChildren(
+  AdminProblemsRouteChildren,
+)
+
 interface AdminRouteChildren {
   AdminDashboradRoute: typeof AdminDashboradRoute
+  AdminProblemsRoute: typeof AdminProblemsRouteWithChildren
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminDashboradRoute: AdminDashboradRoute,
+  AdminProblemsRoute: AdminProblemsRouteWithChildren,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
 }

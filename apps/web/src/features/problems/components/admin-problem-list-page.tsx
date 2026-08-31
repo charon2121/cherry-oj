@@ -1,0 +1,319 @@
+import { useForm } from '@tanstack/react-form';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table';
+import { Plus, RotateCcw } from 'lucide-react';
+import { useMemo } from 'react';
+
+import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Panel } from '@/components/ui/card';
+import { Field, Input, Select } from '@/components/ui/field';
+import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
+import { Heading, Text } from '@/components/ui/typography';
+import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
+
+import { createProblem, listAdminProblems, problemKeys } from '../api/problems-api';
+
+export type AdminProblemSearch = { page: number; q: string; status: 'ALL' | 'ACTIVE' | 'ARCHIVED' };
+
+const features = tableFeatures({});
+const createDefaults: { slug: string; title: string; difficulty: ProblemDifficulty } = {
+  slug: '',
+  title: '',
+  difficulty: 'UNRATED',
+};
+function toDifficulty(value: string): ProblemDifficulty {
+  if (value === 'EASY' || value === 'MEDIUM' || value === 'HARD') return value;
+  return 'UNRATED';
+}
+const columnHelper = createColumnHelper<typeof features, AdminProblem>();
+const columns = columnHelper.columns([
+  columnHelper.accessor('slug', { header: '标识' }),
+  columnHelper.display({
+    id: 'title',
+    header: '当前版本',
+    cell: ({ row }) => {
+      const latest = row.original.versions[0];
+      return latest ? `${latest.title} · v${latest.versionNo}` : '—';
+    },
+  }),
+  columnHelper.accessor('visibility', { header: '可见性' }),
+  columnHelper.accessor('status', {
+    header: '状态',
+    cell: ({ getValue }) => (
+      <Badge variant={getValue() === 'ACTIVE' ? 'success' : 'neutral'}>{getValue()}</Badge>
+    ),
+  }),
+  columnHelper.display({
+    id: 'action',
+    header: '操作',
+    cell: ({ row }) => {
+      const version = row.original.versions[0];
+      return version ? (
+        <Link
+          className={buttonVariants({ size: 'sm', variant: 'secondary' })}
+          to="/admin/problems/$problemId/versions/$versionId"
+          params={{ problemId: row.original.id, versionId: version.id }}
+        >
+          打开工作台
+        </Link>
+      ) : (
+        '—'
+      );
+    },
+  }),
+]);
+
+export function AdminProblemListPage({
+  navigate,
+  search,
+}: {
+  navigate: (search: AdminProblemSearch) => void;
+  search: AdminProblemSearch;
+}) {
+  const queryClient = useQueryClient();
+  const routeNavigate = useNavigate();
+  const problems = useQuery({
+    queryKey: problemKeys.adminList(search.q, search.status, search.page),
+    queryFn: ({ signal }) => listAdminProblems(search.q, search.status, search.page, signal),
+    placeholderData: keepPreviousData,
+  });
+  const create = useMutation({
+    mutationFn: createProblem,
+    onSuccess: async (created) => {
+      await queryClient.invalidateQueries({ queryKey: problemKeys.admin });
+      const version = created.versions[0];
+      if (version) {
+        await routeNavigate({
+          to: '/admin/problems/$problemId/versions/$versionId',
+          params: { problemId: created.id, versionId: version.id },
+        });
+      }
+    },
+  });
+  const form = useForm({
+    defaultValues: createDefaults,
+    onSubmit: async ({ value }) => {
+      await create.mutateAsync({
+        ...value,
+        codeMode: 'ACM',
+        languageId: 'cpp',
+      });
+      form.reset();
+    },
+  });
+  const data = useMemo(() => problems.data?.items ?? [], [problems.data?.items]);
+  const table = useTable({ features, columns, data });
+
+  return (
+    <Container>
+      <Section className="py-10">
+        <Stack gap={2}>
+          <Text size="sm" tone="muted">
+            题目生产
+          </Text>
+          <Heading level={1} size="2xl">
+            题目管理
+          </Heading>
+          <Text size="sm" tone="muted">
+            创建题目后进入版本工作台，完成题面、测试数据、校准与发布。
+          </Text>
+        </Stack>
+
+        <Panel className="mt-6">
+          <Heading level={2} size="lg">
+            新建题目草稿
+          </Heading>
+          <form
+            className="mt-4 grid gap-3 md:grid-cols-[minmax(10rem,1fr)_minmax(14rem,2fr)_10rem_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+          >
+            <form.Field name="slug">
+              {(field) => (
+                <Field label="题目标识" required description="小写字母、数字与连字符">
+                  <Input
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    minLength={3}
+                    maxLength={80}
+                    pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  />
+                </Field>
+              )}
+            </form.Field>
+            <form.Field name="title">
+              {(field) => (
+                <Field label="标题" required>
+                  <Input
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    maxLength={160}
+                  />
+                </Field>
+              )}
+            </form.Field>
+            <form.Field name="difficulty">
+              {(field) => (
+                <Field label="难度">
+                  <Select
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(toDifficulty(event.target.value))}
+                  >
+                    <option value="UNRATED">未评级</option>
+                    <option value="EASY">简单</option>
+                    <option value="MEDIUM">中等</option>
+                    <option value="HARD">困难</option>
+                  </Select>
+                </Field>
+              )}
+            </form.Field>
+            <Button className="self-end" type="submit" loading={create.isPending}>
+              <Plus aria-hidden="true" />
+              新建
+            </Button>
+          </form>
+          {create.isError ? (
+            <Text className="text-danger mt-3" role="alert">
+              创建失败，请检查标识是否重复后重试。
+            </Text>
+          ) : null}
+        </Panel>
+
+        <form
+          className="mt-6 grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_10rem_auto]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const formData = new FormData(event.currentTarget);
+            const queryValue = formData.get('q');
+            navigate({
+              ...search,
+              page: 1,
+              q: typeof queryValue === 'string' ? queryValue.trim() : '',
+            });
+          }}
+        >
+          <Field label="搜索题目">
+            <Input name="q" defaultValue={search.q} />
+          </Field>
+          <Field label="状态">
+            <Select
+              value={search.status}
+              onChange={(event) =>
+                navigate({
+                  ...search,
+                  page: 1,
+                  status: event.target.value as AdminProblemSearch['status'],
+                })
+              }
+            >
+              <option value="ALL">全部</option>
+              <option value="ACTIVE">进行中</option>
+              <option value="ARCHIVED">已归档</option>
+            </Select>
+          </Field>
+          <Button className="self-end" variant="secondary" type="submit">
+            查询
+          </Button>
+        </form>
+
+        <Panel className="mt-4 overflow-x-auto p-0">
+          {problems.isPending ? (
+            <div className="p-6">
+              <AsyncState
+                variant="loading"
+                size="inline"
+                title="正在加载题目…"
+                progressLabel="正在加载题目…"
+              >
+                {null}
+              </AsyncState>
+            </div>
+          ) : null}
+          {problems.isError ? (
+            <div className="p-6">
+              <AsyncState
+                variant="error"
+                size="inline"
+                title="题目列表加载失败"
+                action={
+                  <Button variant="secondary" onClick={() => void problems.refetch()}>
+                    <RotateCcw aria-hidden="true" />
+                    重试
+                  </Button>
+                }
+              >
+                已有筛选条件会保留。
+              </AsyncState>
+            </div>
+          ) : null}
+          {problems.data ? (
+            <table className="w-full min-w-4xl text-left text-sm">
+              <thead className="bg-surface-subtle text-muted-foreground">
+                {table.getHeaderGroups().map((group) => (
+                  <tr key={group.id}>
+                    {group.headers.map((header) => (
+                      <th key={header.id} className="px-4 py-3 font-medium">
+                        {header.isPlaceholder ? null : <table.FlexRender header={header} />}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
+              </thead>
+              <tbody className="divide-border divide-y">
+                {table.getRowModel().rows.map((row) => (
+                  <tr key={row.id}>
+                    {row.getAllCells().map((cell) => (
+                      <td key={cell.id} className="px-4 py-3">
+                        <table.FlexRender cell={cell} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {data.length === 0 ? (
+                  <tr>
+                    <td className="px-4 py-8 text-center" colSpan={5}>
+                      没有符合条件的题目。
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          ) : null}
+        </Panel>
+        {problems.data ? (
+          <nav aria-label="题目管理分页" className="mt-4">
+            <Cluster justify="between" gap={3}>
+              <Text size="sm" tone="muted">
+                第 {problems.data.pagination.page} /{' '}
+                {Math.max(1, problems.data.pagination.totalPages)} 页
+              </Text>
+              <Cluster gap={2}>
+                <Button
+                  variant="secondary"
+                  disabled={search.page <= 1}
+                  onClick={() => navigate({ ...search, page: search.page - 1 })}
+                >
+                  上一页
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={search.page >= problems.data.pagination.totalPages}
+                  onClick={() => navigate({ ...search, page: search.page + 1 })}
+                >
+                  下一页
+                </Button>
+              </Cluster>
+            </Cluster>
+          </nav>
+        ) : null}
+      </Section>
+    </Container>
+  );
+}

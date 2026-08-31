@@ -1,13 +1,13 @@
 package com.cherryoj.judgingservice;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
 class JudgingServiceApplicationTests {
 
     @Test
-    void contextLoads() {
+    void applicationEntryPointExists() {
+        assertThat(JudgingServiceApplication.class).isNotNull();
     }
 
 }

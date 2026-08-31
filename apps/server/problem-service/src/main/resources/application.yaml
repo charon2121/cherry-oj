@@ -1,14 +1,46 @@
 spring:
   application:
     name: problem-service
+  datasource:
+    url: "${CHERRY_PROBLEM_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_problem}"
+    username: "${CHERRY_PROBLEM_DB_USERNAME:cherry_oj_problem}"
+    password: "${CHERRY_PROBLEM_DB_PASSWORD:K_9sF7pR2xQ8bT4vZ6n}"
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: "${CHERRY_TEST_DATA_MAX_ARCHIVE_SIZE:100MB}"
+      max-request-size: "${CHERRY_TEST_DATA_MAX_REQUEST_SIZE:101MB}"
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
+mybatis:
+  mapper-locations: classpath:/mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
 cherry:
+  problem:
+    test-data:
+      root: "${CHERRY_TEST_DATA_ROOT:./data/problem-testdata}"
+      max-archive-size: "${CHERRY_TEST_DATA_MAX_ARCHIVE_SIZE:100MB}"
+      max-expanded-size: "${CHERRY_TEST_DATA_MAX_EXPANDED_SIZE:1GB}"
+      max-entry-size: "${CHERRY_TEST_DATA_MAX_ENTRY_SIZE:64MB}"
+      max-files: "${CHERRY_TEST_DATA_MAX_FILES:2000}"
+      max-compression-ratio: "${CHERRY_TEST_DATA_MAX_COMPRESSION_RATIO:100}"
+      stale-age: "${CHERRY_TEST_DATA_STALE_AGE:24h}"
+      recovery-enabled: "${CHERRY_TEST_DATA_RECOVERY_ENABLED:true}"
+    judging:
+      base-url: "${CHERRY_JUDGING_BASE_URL:http://127.0.0.1:8084}"
+      connect-timeout: "${CHERRY_JUDGING_CONNECT_TIMEOUT:2s}"
+      request-timeout: "${CHERRY_JUDGING_REQUEST_TIMEOUT:120s}"
+    validation:
+      stale-age: "${CHERRY_PROBLEM_VALIDATION_STALE_AGE:15m}"
+      recovery-enabled: "${CHERRY_PROBLEM_VALIDATION_RECOVERY_ENABLED:true}"
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"
-    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/internal/.well-known/jwks.json}"
+    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/.well-known/jwks.json}"
     clock-skew: 30s
 
 server:
@@ -63,3 +95,11 @@ logging:
       file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd,UTC}.%i.gz"
       max-file-size: 10MB
       max-history: 30
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "prod | production"
+  datasource:
+    password: "${CHERRY_PROBLEM_DB_PASSWORD}"

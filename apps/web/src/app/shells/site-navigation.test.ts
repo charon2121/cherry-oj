@@ -4,6 +4,9 @@ import { siteNavigationItems } from './site-navigation';
 
 describe('site navigation model', () => {
   it('publishes only routes that already exist', () => {
-    expect(siteNavigationItems).toEqual([{ id: 'home', label: '首页', to: '/' }]);
+    expect(siteNavigationItems).toEqual([
+      { id: 'home', label: '首页', to: '/' },
+      { id: 'problems', label: '题库', to: '/problems' },
+    ]);
   });
 });

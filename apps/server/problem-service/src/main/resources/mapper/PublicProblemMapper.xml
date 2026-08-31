@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cherryoj.problemservice.persistence.PublicProblemMapper">
+    <sql id="publicProblemColumns">
+        BIN_TO_UUID(p.id) AS problem_id,
+        p.slug,
+        BIN_TO_UUID(v.id) AS version_id,
+        v.version_no,
+        v.code_mode,
+        v.title,
+        v.statement_markdown,
+        v.input_description_markdown,
+        v.output_description_markdown,
+        v.constraints_markdown,
+        v.hint_markdown,
+        v.difficulty,
+        CAST(v.tags_json AS CHAR) AS tags_json,
+        p.updated_at
+    </sql>
+
+    <select id="findPublicProblems" resultType="com.cherryoj.problemservice.persistence.PublicProblemRows$ProblemRow">
+        SELECT <include refid="publicProblemColumns"/>
+        FROM problem p FORCE INDEX (idx_problem_listing)
+        JOIN problem_version v ON v.id = p.current_published_version_id
+        WHERE p.visibility = 'PUBLIC'
+          AND p.status = 'ACTIVE'
+          AND v.status = 'PUBLISHED'
+        <if test="q != null">
+          AND (p.slug LIKE CONCAT('%', #{q}, '%') ESCAPE '\\'
+               OR v.title LIKE CONCAT('%', #{q}, '%') ESCAPE '\\')
+        </if>
+        <if test="difficulty != null">AND v.difficulty = #{difficulty}</if>
+        <if test="codeMode != null">AND v.code_mode = #{codeMode}</if>
+        <if test="language != null">
+          AND EXISTS (
+              SELECT 1 FROM problem_version_language pvl
+              WHERE pvl.problem_version_id = v.id AND pvl.language_id = #{language}
+          )
+        </if>
+        <if test="tags != null and !tags.isEmpty()">
+          <foreach collection="tags" item="tag">
+            AND JSON_CONTAINS(v.tags_json, JSON_QUOTE(#{tag}))
+          </foreach>
+        </if>
+        <if test="cursorId != null and sort == 'UPDATED_DESC'">
+          AND (p.updated_at &lt; #{cursorKey}
+               OR (p.updated_at = #{cursorKey} AND p.id &lt; UUID_TO_BIN(#{cursorId})))
+        </if>
+        <if test="cursorId != null and sort == 'UPDATED_ASC'">
+          AND (p.updated_at &gt; #{cursorKey}
+               OR (p.updated_at = #{cursorKey} AND p.id &gt; UUID_TO_BIN(#{cursorId})))
+        </if>
+        <if test="cursorId != null and sort == 'TITLE_ASC'">
+          AND (v.title &gt; #{cursorKey}
+               OR (v.title = #{cursorKey} AND p.id &gt; UUID_TO_BIN(#{cursorId})))
+        </if>
+        <choose>
+          <when test="sort == 'UPDATED_ASC'">ORDER BY p.updated_at ASC, p.id ASC</when>
+          <when test="sort == 'TITLE_ASC'">ORDER BY v.title ASC, p.id ASC</when>
+          <otherwise>ORDER BY p.updated_at DESC, p.id DESC</otherwise>
+        </choose>
+        LIMIT #{limit}
+    </select>
+
+    <select id="findPublicProblemBySlug" resultType="com.cherryoj.problemservice.persistence.PublicProblemRows$ProblemRow">
+        SELECT <include refid="publicProblemColumns"/>
+        FROM problem p
+        JOIN problem_version v ON v.id = p.current_published_version_id
+        WHERE p.slug = #{slug}
+          AND p.visibility = 'PUBLIC'
+          AND p.status = 'ACTIVE'
+          AND v.status = 'PUBLISHED'
+        LIMIT 1
+    </select>
+
+    <select id="findSamples" resultType="com.cherryoj.problemservice.persistence.PublicProblemRows$SampleRow">
+        SELECT BIN_TO_UUID(problem_version_id) AS version_id,
+               ordinal, input_text, expected_output_text, explanation_markdown
+        FROM problem_sample
+        WHERE problem_version_id = UUID_TO_BIN(#{versionId})
+        ORDER BY ordinal ASC
+    </select>
+
+    <select id="findLanguages" resultType="com.cherryoj.problemservice.persistence.PublicProblemRows$LanguageRow">
+        SELECT BIN_TO_UUID(problem_version_id) AS version_id,
+               language_id, display_order, starter_code
+        FROM problem_version_language
+        WHERE problem_version_id IN
+        <foreach collection="versionIds" item="versionId" open="(" separator="," close=")">
+            UUID_TO_BIN(#{versionId})
+        </foreach>
+        ORDER BY problem_version_id, display_order ASC
+    </select>
+</mapper>

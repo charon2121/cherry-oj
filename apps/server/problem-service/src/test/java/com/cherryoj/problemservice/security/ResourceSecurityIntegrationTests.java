@@ -1,9 +1,12 @@
 package com.cherryoj.problemservice.security;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.IOException;
@@ -14,6 +17,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import com.cherryoj.problemservice.application.AdminProblemService;
+import com.cherryoj.problemservice.application.PublicProblemService;
+import com.cherryoj.problemservice.application.ProblemPublicationService;
+import com.cherryoj.problemservice.application.TestDataService;
+import com.cherryoj.problemservice.storage.TestDataAssetStore.Asset;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -38,13 +46,19 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+		"spring.flyway.enabled=false",
+		"cherry.problem.test-data.recovery-enabled=false",
+		"cherry.problem.validation.recovery-enabled=false",
+		"cherry.problem.test-data.root=${java.io.tmpdir}/cherry-oj-security-testdata"
+})
 @Import(ResourceSecurityIntegrationTests.SecurityProbeController.class)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ResourceSecurityIntegrationTests {
@@ -57,6 +71,18 @@ class ResourceSecurityIntegrationTests {
 	private final MockMvc mockMvc;
 	private final ResourceSecurityConfig configuration;
 	private final IdentityProperties properties;
+
+	@MockitoBean
+	PublicProblemService publicProblems;
+
+	@MockitoBean
+	AdminProblemService adminProblems;
+
+	@MockitoBean
+	TestDataService testData;
+
+	@MockitoBean
+	ProblemPublicationService publication;
 
 	@Autowired
 	ResourceSecurityIntegrationTests(
@@ -102,6 +128,63 @@ class ResourceSecurityIntegrationTests {
 				.header("Authorization", "Bearer " + token(KEY, "ADMIN", Map.of())))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.roles[0]").value("ADMIN"));
+	}
+
+	@Test
+	@Order(2)
+	void onlyTheTwoPublicGetShapesAreAnonymous() throws Exception {
+		mockMvc.perform(get("/internal/public/problems"))
+				.andExpect(status().isOk());
+		mockMvc.perform(get("/internal/public/problems/a-plus-b"))
+				.andExpect(status().isOk());
+		mockMvc.perform(get("/internal/public/problems/a/b"))
+				.andExpect(status().isUnauthorized());
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+				.post("/internal/public/problems"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@Order(2)
+	void adminProblemPreviewRequiresAdminAndIsNeverCached() throws Exception {
+		String path = "/internal/admin/problems/problem-1/versions/version-1/preview";
+		mockMvc.perform(get(path)
+				.header("Authorization", "Bearer " + token(KEY, "USER", Map.of())))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+		mockMvc.perform(get(path)
+				.header("Authorization", "Bearer " + token(KEY, "ADMIN", Map.of())))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Cache-Control", "no-store"));
+	}
+
+	@Test
+	@Order(2)
+	void testDataMetadataAndDownloadRequireAdminAndAreNeverCached() throws Exception {
+		String problemId = "019c8e42-7f70-7000-8000-000000000010";
+		String dataId = "019c8e42-7f70-7000-8000-000000000011";
+		String listPath = "/internal/admin/problems/" + problemId + "/test-data";
+		mockMvc.perform(get(listPath)).andExpect(status().isUnauthorized());
+		mockMvc.perform(get(listPath)
+				.header("Authorization", "Bearer " + token(KEY, "USER", Map.of())))
+				.andExpect(status().isForbidden());
+		mockMvc.perform(get(listPath)
+				.header("Authorization", "Bearer " + token(KEY, "ADMIN", Map.of())))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Cache-Control", "no-store"));
+
+		byte[] archive = {1, 2, 3};
+		when(testData.openReady(problemId, dataId)).thenReturn(new TestDataService.ReadyAsset(
+				"019c8e42-7f70-7000-8000-000000000002", "00".repeat(32),
+				new Asset(new java.io.ByteArrayInputStream(archive), archive.length)));
+		mockMvc.perform(get(listPath + "/" + dataId + "/download")
+				.header("Authorization", "Bearer " + token(KEY, "ADMIN", Map.of())))
+				.andExpect(status().isOk())
+				.andExpect(header().string("Cache-Control", "no-store"))
+				.andExpect(header().string("Content-Disposition",
+						"attachment; filename=\"019c8e42-7f70-7000-8000-000000000002.zip\""))
+				.andExpect(content().bytes(archive));
 	}
 
 	@Test

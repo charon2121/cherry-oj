@@ -255,3 +255,38 @@ export async function requestVoid(
 
   return { requestId: requireRequestId(response) };
 }
+
+export async function requestMultipart<T>(
+  path: ApiPath,
+  formData: FormData,
+  dataSchema: z.ZodType<T>,
+  options: Pick<ApiRequestOptions, 'csrfToken' | 'signal'> = {},
+): Promise<ApiJsonResponse<T>> {
+  const headers = new Headers({ Accept: 'application/json, application/problem+json' });
+  if (options.csrfToken !== undefined) headers.set('X-CSRF-Token', options.csrfToken);
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+  } catch (error) {
+    const kind = failureKind(error, options.signal);
+    throw new ApiError(failureMessage(kind), { kind });
+  }
+  if (!response.ok) return throwProblem(response);
+  const requestId = requireRequestId(response);
+  const body = await readJson(response, 'application/json');
+  const result = apiSuccessSchema(dataSchema).safeParse(body);
+  if (!result.success || result.data.meta.requestId !== requestId) {
+    throw contractError('Gateway 上传响应不符合 ApiSuccess 契约。', response);
+  }
+  const location = response.headers.get('location') ?? undefined;
+  if (response.status === 201 && location === undefined) {
+    throw contractError('201 响应必须提供 Location。', response);
+  }
+  return { ...(result.data as ApiSuccess<T>), status: response.status, location };
+}

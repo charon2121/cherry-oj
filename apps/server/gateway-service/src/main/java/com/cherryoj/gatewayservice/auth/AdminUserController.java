@@ -107,13 +107,22 @@ public class AdminUserController {
 
 	private Mono<AuthSessionState> withAdmin(ServerWebExchange exchange, String requestId) {
 		return exchange.getSession().flatMap(session -> authentication.current(session, requestId, true))
-				.flatMap(state -> "ADMIN".equals(state.user().role())
-						? Mono.just(state)
-						: Mono.error(new ApiProblemException(
+				.flatMap(state -> {
+					if (state.user().passwordChangeRequired()) {
+						return Mono.error(new ApiProblemException(
 								HttpStatus.FORBIDDEN,
-								"FORBIDDEN",
-								"无权访问",
-								"当前身份无权执行此操作。")));
+								"PASSWORD_CHANGE_REQUIRED",
+								"需要修改密码",
+								"完成首次密码修改后才能访问管理功能。"));
+					}
+					return "ADMIN".equals(state.user().role())
+							? Mono.just(state)
+							: Mono.error(new ApiProblemException(
+									HttpStatus.FORBIDDEN,
+									"FORBIDDEN",
+									"无权访问",
+									"当前身份无权执行此操作。"));
+				});
 	}
 
 	record UserListData(List<UserAccountData> items) {

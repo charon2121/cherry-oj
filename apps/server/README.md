@@ -91,6 +91,26 @@ curl -sS http://127.0.0.1:8080/actuator/health
 `logging-support` 模块。服务通过该模块获得 MVC/WebFlux HTTP 完成日志与 Trace 关联，不复制过滤器。
 完整字段、传播边界和 Go 对齐规则见 [`../../docs/logging.md`](../../docs/logging.md)。
 
+### 本地默认与生产 Secret
+
+五个 Java 服务的 `application.yaml` 都提供了可直接启动的本地默认值。准备好配置所指向的 MySQL
+schema/账号和 Redis 后，启动命令本身不需要先 `export CHERRY_*`。默认值只解决配置输入，不会自动
+创建数据库、账号，也不会启动 MySQL、Redis 或 Go Judge。
+
+user-service 在没有显式 RSA 配置时，会在进程内随机生成一把仅限本地联调的临时签名密钥。密钥不会
+写入仓库或磁盘，但服务重启后旧 JWT 会失效，且这种模式不能用于多实例或生产部署。启动日志会给出
+临时密钥警告，不会打印密钥内容。
+
+部署使用 `prod` 或 `production` Spring profile。该 profile 下，user/problem/judging 数据库密码和
+user-service 的 `kid`、私钥位置、公钥位置都必须由环境或 Secret 显式提供；缺失时服务启动失败，不会
+回落到本地口令或临时密钥。现有变量名保持不变：
+
+- `CHERRY_USER_DB_PASSWORD`、`CHERRY_PROBLEM_DB_PASSWORD`、`CHERRY_JUDGING_DB_PASSWORD`；
+- `CHERRY_AUTH_KEY_ID`、`CHERRY_AUTH_PRIVATE_KEY_LOCATION`、`CHERRY_AUTH_PUBLIC_KEY_LOCATION`。
+
+Gateway 的 `CHERRY_REDIS_PASSWORD` 默认空字符串，表示本地 Redis 未启用鉴权，这是有意保留的有效
+配置；需要密码时照常覆盖。
+
 例如把所有 Java 日志写到 `/srv/log/cherry-oj`：
 
 ```bash

@@ -1,6 +1,12 @@
 spring:
   application:
     name: gateway-service
+  webflux:
+    multipart:
+      max-in-memory-size: 1MB
+      max-disk-usage-per-part: "${CHERRY_TEST_DATA_MAX_ARCHIVE_SIZE:100MB}"
+      max-headers-size: 16KB
+      max-parts: 1
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.ReactiveUserDetailsServiceAutoConfiguration
   data:
@@ -31,6 +37,11 @@ cherry:
     trusted-origins:
       - "${CHERRY_WEB_ORIGIN:http://localhost:5173}"
     login-rate-limit-per-minute: 10
+    problem-service:
+      base-url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:8082}"
+      metadata-timeout: 10s
+      streaming-timeout: 2m
+      max-json-bytes: 33554432
 
 management:
   tracing:

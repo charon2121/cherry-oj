@@ -230,6 +230,7 @@ test('forced colors keeps keyboard navigation and theme metadata usable', async 
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
 
   const loginLink = page.getByRole('link', { name: '登录' });
   await expect(loginLink).toBeFocused();

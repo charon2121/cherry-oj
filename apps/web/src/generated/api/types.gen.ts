@@ -160,6 +160,349 @@ export type UserListSuccess = {
     meta: ApiMeta;
 };
 
+export type ProblemSlug = string;
+
+export type ProblemTag = string;
+
+export type LanguageId = string;
+
+export type ProblemDifficulty = 'UNRATED' | 'EASY' | 'MEDIUM' | 'HARD';
+
+export type ProblemCodeMode = 'ACM' | 'CORE';
+
+export type ProblemSort = 'UPDATED_DESC' | 'UPDATED_ASC' | 'TITLE_ASC';
+
+export type ProblemVisibility = 'PRIVATE' | 'PUBLIC';
+
+export type ProblemStatus = 'ACTIVE' | 'ARCHIVED';
+
+export type ProblemVersionStatus = 'DRAFT' | 'VALIDATING' | 'READY_FOR_REVIEW' | 'PUBLISHED' | 'ARCHIVED';
+
+export type TestDataStatus = 'UPLOADING' | 'READY' | 'FAILED';
+
+export type DeploymentStatus = 'PENDING' | 'DEPLOYING' | 'READY' | 'FAILED';
+
+export type CalibrationStatus = 'DRAFT' | 'RUNNING' | 'VALID' | 'FAILED' | 'SUPERSEDED';
+
+export type JudgeVerdict = 'AC' | 'WA' | 'TLE' | 'MLE' | 'RE' | 'CE' | 'SE';
+
+export type PublicLanguageSummary = {
+    id: LanguageId;
+    displayName: string;
+};
+
+export type PublicProblemLanguage = {
+    id: LanguageId;
+    displayName: string;
+    starterCode: string;
+};
+
+export type ProblemSample = {
+    ordinal: number;
+    input: string;
+    output: string;
+    explanationMarkdown: string | null;
+};
+
+export type ProblemSummary = {
+    problemId: string;
+    slug: ProblemSlug;
+    currentVersionId: string;
+    versionNo: number;
+    title: string;
+    difficulty: ProblemDifficulty;
+    tags: Array<ProblemTag>;
+    codeMode: ProblemCodeMode;
+    allowedLanguages: Array<PublicLanguageSummary>;
+};
+
+export type ProblemListData = {
+    items: Array<ProblemSummary>;
+};
+
+export type ProblemListSuccess = {
+    data: ProblemListData;
+    meta: ApiMeta;
+};
+
+export type ProblemDetail = {
+    problemId: string;
+    problemVersionId: string;
+    versionNo: number;
+    slug: ProblemSlug;
+    codeMode: ProblemCodeMode;
+    title: string;
+    difficulty: ProblemDifficulty;
+    tags: Array<ProblemTag>;
+    statementMarkdown: string;
+    inputDescriptionMarkdown: string;
+    outputDescriptionMarkdown: string;
+    constraintsMarkdown: string | null;
+    hintMarkdown: string | null;
+    samples: Array<ProblemSample>;
+    allowedLanguages: Array<PublicProblemLanguage>;
+};
+
+export type ProblemDetailSuccess = {
+    data: ProblemDetail;
+    meta: ApiMeta;
+};
+
+export type ProblemVersionSummary = {
+    id: string;
+    versionNo: number;
+    status: ProblemVersionStatus;
+    title: string;
+    updatedAt: string;
+    publishedAt: string | null;
+    rowVersion: number;
+};
+
+export type AdminProblem = {
+    id: string;
+    slug: ProblemSlug;
+    visibility: ProblemVisibility;
+    status: ProblemStatus;
+    currentPublishedVersionId: string | null;
+    versions: Array<ProblemVersionSummary>;
+    createdAt: string;
+    updatedAt: string;
+    rowVersion: number;
+};
+
+export type AdminProblemSuccess = {
+    data: AdminProblem;
+    meta: ApiMeta;
+};
+
+export type AdminProblemListData = {
+    items: Array<AdminProblem>;
+};
+
+export type AdminProblemListSuccess = {
+    data: AdminProblemListData;
+    meta: ApiMeta;
+};
+
+export type CreateProblemRequest = {
+    slug: ProblemSlug;
+    title: string;
+    difficulty: ProblemDifficulty;
+    codeMode: 'ACM';
+    languageId: 'cpp';
+};
+
+export type UpdateProblemRequest = {
+    slug: ProblemSlug;
+    visibility: ProblemVisibility;
+    rowVersion: number;
+};
+
+export type RowVersionRequest = {
+    rowVersion: number;
+};
+
+export type CreateProblemRevisionRequest = {
+    rowVersion: number;
+    /**
+     * 必须由管理员显式确认是否复制当前公开版本的数据绑定。
+     */
+    reuseTestData: boolean;
+};
+
+export type AdminProblemLanguage = {
+    id: 'cpp';
+    displayName: 'C++';
+    starterCode: string;
+};
+
+export type AdminProblemVersion = {
+    id: string;
+    problemId: string;
+    versionNo: number;
+    status: ProblemVersionStatus;
+    codeMode: 'ACM';
+    title: string;
+    statementMarkdown: string;
+    inputDescriptionMarkdown: string;
+    outputDescriptionMarkdown: string;
+    constraintsMarkdown: string | null;
+    hintMarkdown: string | null;
+    difficulty: ProblemDifficulty;
+    tags: Array<ProblemTag>;
+    samples: Array<ProblemSample>;
+    allowedLanguages: [
+        AdminProblemLanguage
+    ];
+    testDataVersion: TestDataVersion | null;
+    changeSummary: string | null;
+    createdAt: string;
+    updatedAt: string;
+    publishedAt: string | null;
+    rowVersion: number;
+};
+
+export type AdminProblemVersionSuccess = {
+    data: AdminProblemVersion;
+    meta: ApiMeta;
+};
+
+export type UpdateProblemVersionRequest = {
+    title: string;
+    statementMarkdown: string;
+    inputDescriptionMarkdown: string;
+    outputDescriptionMarkdown: string;
+    constraintsMarkdown: string | null;
+    hintMarkdown: string | null;
+    difficulty: ProblemDifficulty;
+    tags: Array<ProblemTag>;
+    samples: Array<ProblemSample>;
+    starterCode: string;
+    changeSummary: string | null;
+    rowVersion: number;
+};
+
+export type TestDataManifestFile = {
+    name: string;
+    sizeBytes: number;
+    sha256: string;
+};
+
+export type TestDataManifest = {
+    caseCount: number;
+    totalBytes: number;
+    files: Array<TestDataManifestFile>;
+};
+
+export type TestDataVersion = {
+    id: string;
+    problemId: string;
+    status: TestDataStatus;
+    sourceType: 'MANUAL_UPLOAD';
+    contentSha256: string | null;
+    caseCount: number | null;
+    totalBytes: number | null;
+    manifest: TestDataManifest | null;
+    createdAt: string;
+    readyAt: string | null;
+    errorMessage: string | null;
+};
+
+export type TestDataVersionSuccess = {
+    data: TestDataVersion;
+    meta: ApiMeta;
+};
+
+export type TestDataVersionListData = {
+    items: Array<TestDataVersion>;
+};
+
+export type TestDataVersionListSuccess = {
+    data: TestDataVersionListData;
+    meta: ApiMeta;
+};
+
+export type UploadTestDataRequest = {
+    /**
+     * 配置上限内的 ZIP；首版默认最大压缩大小 100 MiB。
+     */
+    file: Blob | File;
+};
+
+export type BindTestDataRequest = {
+    testDataVersionId: string;
+    rowVersion: number;
+};
+
+export type DeployTestDataRequest = {
+    testDataVersionId: string;
+    expectedSha256: string;
+    rowVersion: number;
+};
+
+export type TestDataDeployment = {
+    testDataVersionId: string;
+    environmentId: string;
+    environmentName: string;
+    expectedSha256: string;
+    status: DeploymentStatus;
+    deployedSha256: string | null;
+    deployedAt: string | null;
+    errorMessage: string | null;
+    updatedAt: string;
+    rowVersion: number;
+};
+
+export type TestDataDeploymentSuccess = {
+    data: TestDataDeployment;
+    meta: ApiMeta;
+};
+
+export type CalibrateProblemRequest = {
+    languageId: 'cpp';
+    cpuNs: number;
+    memoryBytes: number;
+    clockNs: number | null;
+    rowVersion: number;
+};
+
+export type BenchmarkSummary = {
+    sourceSha256: string;
+    verdict: JudgeVerdict;
+    maxCpuNs: number | null;
+    maxMemoryBytes: number | null;
+    maxClockNs: number | null;
+};
+
+export type LanguageCalibration = {
+    id: string;
+    problemVersionId: string;
+    languageId: LanguageId;
+    environmentId: string;
+    status: CalibrationStatus;
+    cpuNs: number | null;
+    memoryBytes: number | null;
+    clockNs: number | null;
+    benchmarkSummary: BenchmarkSummary | null;
+    errorMessage: string | null;
+    createdAt: string;
+    updatedAt: string;
+    rowVersion: number;
+};
+
+export type LanguageCalibrationSuccess = {
+    data: LanguageCalibration;
+    meta: ApiMeta;
+};
+
+export type PublishCheckItem = {
+    code: 'CONTENT' | 'SAMPLES' | 'LANGUAGE' | 'TEST_DATA' | 'DEPLOYMENT' | 'CALIBRATION';
+    passed: boolean;
+    message: string;
+};
+
+export type PublishCheck = {
+    ready: boolean;
+    environmentId: string | null;
+    checks: [
+        PublishCheckItem,
+        PublishCheckItem,
+        PublishCheckItem,
+        PublishCheckItem,
+        PublishCheckItem,
+        PublishCheckItem
+    ];
+};
+
+export type PublishCheckSuccess = {
+    data: PublishCheck;
+    meta: ApiMeta;
+};
+
+export type PublishProblemRequest = {
+    rowVersion: number;
+};
+
 export type SystemStatusData = {
     service: 'gateway-service';
     status: 'ready';
@@ -199,9 +542,38 @@ export type ResetUserPasswordSuccessWritable = {
     meta: ApiMeta;
 };
 
+export type CalibrateProblemRequestWritable = {
+    languageId: 'cpp';
+    cpuNs: number;
+    memoryBytes: number;
+    clockNs: number | null;
+    referenceSource: string;
+    rowVersion: number;
+};
+
 export type CsrfToken = string;
 
 export type UserId = string;
+
+export type ProblemId = string;
+
+export type ProblemVersionId = string;
+
+export type TestDataVersionId = string;
+
+export type ProblemSlug2 = ProblemSlug;
+
+/**
+ * 服务端签发的不透明游标；非法或失效游标返回 400 INVALID_CURSOR。
+ */
+export type Cursor = string;
+
+export type CursorPageSize = number;
+
+/**
+ * 乐观锁版本；过期值返回 409 ROW_VERSION_CONFLICT。
+ */
+export type RowVersion = number;
 
 export type GetSystemStatusData = {
     body?: never;
@@ -227,6 +599,70 @@ export type GetSystemStatusResponses = {
 };
 
 export type GetSystemStatusResponse = GetSystemStatusResponses[keyof GetSystemStatusResponses];
+
+export type ListProblemsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        difficulty?: ProblemDifficulty;
+        tag?: Array<ProblemTag>;
+        codeMode?: ProblemCodeMode;
+        language?: LanguageId;
+        sort?: ProblemSort;
+        /**
+         * 服务端签发的不透明游标；非法或失效游标返回 400 INVALID_CURSOR。
+         */
+        cursor?: string;
+        size?: number;
+    };
+    url: '/api/problems';
+};
+
+export type ListProblemsErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListProblemsError = ListProblemsErrors[keyof ListProblemsErrors];
+
+export type ListProblemsResponses = {
+    /**
+     * 公开题目列表；只包含当前公开版本
+     */
+    200: ProblemListSuccess;
+};
+
+export type ListProblemsResponse = ListProblemsResponses[keyof ListProblemsResponses];
+
+export type GetProblemData = {
+    body?: never;
+    path: {
+        slug: ProblemSlug;
+    };
+    query?: never;
+    url: '/api/problems/{slug}';
+};
+
+export type GetProblemErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetProblemError = GetProblemErrors[keyof GetProblemErrors];
+
+export type GetProblemResponses = {
+    /**
+     * 公开题目详情；不包含隐藏数据、判题模板、作者或审计字段
+     */
+    200: ProblemDetailSuccess;
+};
+
+export type GetProblemResponse = GetProblemResponses[keyof GetProblemResponses];
 
 export type GetCsrfTokenData = {
     body?: never;
@@ -361,6 +797,545 @@ export type ChangePasswordResponses = {
 };
 
 export type ChangePasswordResponse = ChangePasswordResponses[keyof ChangePasswordResponses];
+
+export type ListAdminProblemsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        q?: string;
+        status?: ProblemStatus;
+        page?: number;
+        size?: number;
+    };
+    url: '/api/admin/problems';
+};
+
+export type ListAdminProblemsErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListAdminProblemsError = ListAdminProblemsErrors[keyof ListAdminProblemsErrors];
+
+export type ListAdminProblemsResponses = {
+    /**
+     * 题目管理分页
+     */
+    200: AdminProblemListSuccess;
+};
+
+export type ListAdminProblemsResponse = ListAdminProblemsResponses[keyof ListAdminProblemsResponses];
+
+export type CreateProblemData = {
+    body: CreateProblemRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/admin/problems';
+};
+
+export type CreateProblemErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CreateProblemError = CreateProblemErrors[keyof CreateProblemErrors];
+
+export type CreateProblemResponses = {
+    /**
+     * 题目及 v1 草稿已创建
+     */
+    201: AdminProblemSuccess;
+};
+
+export type CreateProblemResponse = CreateProblemResponses[keyof CreateProblemResponses];
+
+export type GetAdminProblemData = {
+    body?: never;
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}';
+};
+
+export type GetAdminProblemErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetAdminProblemError = GetAdminProblemErrors[keyof GetAdminProblemErrors];
+
+export type GetAdminProblemResponses = {
+    /**
+     * 题目及版本摘要
+     */
+    200: AdminProblemSuccess;
+};
+
+export type GetAdminProblemResponse = GetAdminProblemResponses[keyof GetAdminProblemResponses];
+
+export type UpdateProblemData = {
+    body: UpdateProblemRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}';
+};
+
+export type UpdateProblemErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type UpdateProblemError = UpdateProblemErrors[keyof UpdateProblemErrors];
+
+export type UpdateProblemResponses = {
+    /**
+     * 题目已更新；旧 rowVersion 返回 409 ROW_VERSION_CONFLICT
+     */
+    200: AdminProblemSuccess;
+};
+
+export type UpdateProblemResponse = UpdateProblemResponses[keyof UpdateProblemResponses];
+
+export type ArchiveProblemData = {
+    body: RowVersionRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/archive';
+};
+
+export type ArchiveProblemErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ArchiveProblemError = ArchiveProblemErrors[keyof ArchiveProblemErrors];
+
+export type ArchiveProblemResponses = {
+    /**
+     * 题目已归档
+     */
+    200: AdminProblemSuccess;
+};
+
+export type ArchiveProblemResponse = ArchiveProblemResponses[keyof ArchiveProblemResponses];
+
+export type CreateProblemRevisionData = {
+    body: CreateProblemRevisionRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions';
+};
+
+export type CreateProblemRevisionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CreateProblemRevisionError = CreateProblemRevisionErrors[keyof CreateProblemRevisionErrors];
+
+export type CreateProblemRevisionResponses = {
+    /**
+     * 修订草稿已创建
+     */
+    201: AdminProblemVersionSuccess;
+};
+
+export type CreateProblemRevisionResponse = CreateProblemRevisionResponses[keyof CreateProblemRevisionResponses];
+
+export type DeleteProblemVersionData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query: {
+        /**
+         * 乐观锁版本；过期值返回 409 ROW_VERSION_CONFLICT。
+         */
+        rowVersion: number;
+    };
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}';
+};
+
+export type DeleteProblemVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type DeleteProblemVersionError = DeleteProblemVersionErrors[keyof DeleteProblemVersionErrors];
+
+export type DeleteProblemVersionResponses = {
+    /**
+     * 操作成功且无响应 body。
+     */
+    204: void;
+};
+
+export type DeleteProblemVersionResponse = DeleteProblemVersionResponses[keyof DeleteProblemVersionResponses];
+
+export type GetProblemVersionData = {
+    body?: never;
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}';
+};
+
+export type GetProblemVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetProblemVersionError = GetProblemVersionErrors[keyof GetProblemVersionErrors];
+
+export type GetProblemVersionResponses = {
+    /**
+     * 题目版本编辑模型
+     */
+    200: AdminProblemVersionSuccess;
+};
+
+export type GetProblemVersionResponse = GetProblemVersionResponses[keyof GetProblemVersionResponses];
+
+export type UpdateProblemVersionData = {
+    body: UpdateProblemVersionRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}';
+};
+
+export type UpdateProblemVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type UpdateProblemVersionError = UpdateProblemVersionErrors[keyof UpdateProblemVersionErrors];
+
+export type UpdateProblemVersionResponses = {
+    /**
+     * 草稿已保存；旧 rowVersion 返回 409 ROW_VERSION_CONFLICT，非草稿返回 409 RESOURCE_STATE_CONFLICT
+     */
+    200: AdminProblemVersionSuccess;
+};
+
+export type UpdateProblemVersionResponse = UpdateProblemVersionResponses[keyof UpdateProblemVersionResponses];
+
+export type PreviewProblemVersionData = {
+    body?: never;
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}/preview';
+};
+
+export type PreviewProblemVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type PreviewProblemVersionError = PreviewProblemVersionErrors[keyof PreviewProblemVersionErrors];
+
+export type PreviewProblemVersionResponses = {
+    /**
+     * 草稿预览；响应不得缓存
+     */
+    200: ProblemDetailSuccess;
+};
+
+export type PreviewProblemVersionResponse = PreviewProblemVersionResponses[keyof PreviewProblemVersionResponses];
+
+export type ListTestDataVersionsData = {
+    body?: never;
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/test-data';
+};
+
+export type ListTestDataVersionsErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListTestDataVersionsError = ListTestDataVersionsErrors[keyof ListTestDataVersionsErrors];
+
+export type ListTestDataVersionsResponses = {
+    /**
+     * 测试数据元信息；不包含文件内容或存储引用
+     */
+    200: TestDataVersionListSuccess;
+};
+
+export type ListTestDataVersionsResponse = ListTestDataVersionsResponses[keyof ListTestDataVersionsResponses];
+
+export type UploadTestDataVersionData = {
+    body: UploadTestDataRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/test-data';
+};
+
+export type UploadTestDataVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    413: ApiProblem;
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type UploadTestDataVersionError = UploadTestDataVersionErrors[keyof UploadTestDataVersionErrors];
+
+export type UploadTestDataVersionResponses = {
+    /**
+     * ZIP 已完整校验并封存为 READY
+     */
+    201: TestDataVersionSuccess;
+};
+
+export type UploadTestDataVersionResponse = UploadTestDataVersionResponses[keyof UploadTestDataVersionResponses];
+
+export type DownloadTestDataVersionData = {
+    body?: never;
+    path: {
+        problemId: string;
+        testDataVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/test-data/{testDataVersionId}/download';
+};
+
+export type DownloadTestDataVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type DownloadTestDataVersionError = DownloadTestDataVersionErrors[keyof DownloadTestDataVersionErrors];
+
+export type DownloadTestDataVersionResponses = {
+    /**
+     * 原始 ZIP 二进制流；不使用 JSON 成功包装
+     */
+    200: Blob | File;
+};
+
+export type DownloadTestDataVersionResponse = DownloadTestDataVersionResponses[keyof DownloadTestDataVersionResponses];
+
+export type BindProblemVersionTestDataData = {
+    body: BindTestDataRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}/test-data';
+};
+
+export type BindProblemVersionTestDataErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type BindProblemVersionTestDataError = BindProblemVersionTestDataErrors[keyof BindProblemVersionTestDataErrors];
+
+export type BindProblemVersionTestDataResponses = {
+    /**
+     * 测试数据已绑定并递增版本 rowVersion
+     */
+    200: AdminProblemVersionSuccess;
+};
+
+export type BindProblemVersionTestDataResponse = BindProblemVersionTestDataResponses[keyof BindProblemVersionTestDataResponses];
+
+export type DeployProblemTestDataData = {
+    body: DeployTestDataRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}/deployment';
+};
+
+export type DeployProblemTestDataErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type DeployProblemTestDataError = DeployProblemTestDataErrors[keyof DeployProblemTestDataErrors];
+
+export type DeployProblemTestDataResponses = {
+    /**
+     * 部署已 READY；相同版本、环境和 hash 重复请求返回同一事实
+     */
+    200: TestDataDeploymentSuccess;
+};
+
+export type DeployProblemTestDataResponse = DeployProblemTestDataResponses[keyof DeployProblemTestDataResponses];
+
+export type CalibrateProblemVersionData = {
+    body: CalibrateProblemRequestWritable;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}/calibration';
+};
+
+export type CalibrateProblemVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CalibrateProblemVersionError = CalibrateProblemVersionErrors[keyof CalibrateProblemVersionErrors];
+
+export type CalibrateProblemVersionResponses = {
+    /**
+     * 校准尝试完成；verdict 非 AC 时 status 为 FAILED 且不会覆盖已有 VALID 事实
+     */
+    200: LanguageCalibrationSuccess;
+};
+
+export type CalibrateProblemVersionResponse = CalibrateProblemVersionResponses[keyof CalibrateProblemVersionResponses];
+
+export type CheckProblemPublicationData = {
+    body?: never;
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}/publish-check';
+};
+
+export type CheckProblemPublicationErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CheckProblemPublicationError = CheckProblemPublicationErrors[keyof CheckProblemPublicationErrors];
+
+export type CheckProblemPublicationResponses = {
+    /**
+     * 本地与当前环境就绪检查结果
+     */
+    200: PublishCheckSuccess;
+};
+
+export type CheckProblemPublicationResponse = CheckProblemPublicationResponses[keyof CheckProblemPublicationResponses];
+
+export type PublishProblemVersionData = {
+    body: PublishProblemRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        problemVersionId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/versions/{problemVersionId}/publish';
+};
+
+export type PublishProblemVersionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type PublishProblemVersionError = PublishProblemVersionErrors[keyof PublishProblemVersionErrors];
+
+export type PublishProblemVersionResponses = {
+    /**
+     * 版本已发布；重试读取并返回相同发布事实，并发冲突返回 409
+     */
+    200: AdminProblemVersionSuccess;
+};
+
+export type PublishProblemVersionResponse = PublishProblemVersionResponses[keyof PublishProblemVersionResponses];
 
 export type ListUsersData = {
     body?: never;

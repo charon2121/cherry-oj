@@ -1,11 +1,11 @@
-import { LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
+import { BookOpen, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
 
 type AdminNavigationLeaf = Readonly<{
   activePaths: readonly string[];
   icon?: LucideIcon;
   id: string;
   label: string;
-  to: '/admin' | '/admin/users';
+  to: '/admin' | '/admin/users' | '/admin/problems';
 }>;
 
 type AdminNavigationGroup = Readonly<{
@@ -18,6 +18,13 @@ type AdminNavigationGroup = Readonly<{
 type AdminNavigationEntry = AdminNavigationGroup | AdminNavigationLeaf;
 
 const adminNavigationEntries: readonly AdminNavigationEntry[] = [
+  {
+    activePaths: ['/admin/problems'],
+    icon: BookOpen,
+    id: 'problems',
+    label: '题目管理',
+    to: '/admin/problems',
+  },
   {
     activePaths: ['/admin', '/admin/dashborad'],
     icon: LayoutDashboard,
@@ -45,7 +52,10 @@ function isAdminNavigationGroup(entry: AdminNavigationEntry): entry is AdminNavi
 }
 
 function isAdminNavigationLeafActive(item: AdminNavigationLeaf, pathname: string) {
-  return item.activePaths.includes(pathname);
+  return item.activePaths.some(
+    (activePath) =>
+      pathname === activePath || (activePath !== '/admin' && pathname.startsWith(`${activePath}/`)),
+  );
 }
 
 function isAdminNavigationGroupActive(group: AdminNavigationGroup, pathname: string) {

@@ -8,7 +8,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 import org.springframework.security.web.server.csrf.WebSessionServerCsrfTokenRepository;
+import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache;
 import org.springframework.session.config.ReactiveSessionRepositoryCustomizer;
 import org.springframework.session.data.redis.ReactiveRedisSessionRepository;
 import org.springframework.session.data.redis.config.annotation.web.server.EnableRedisWebSession;
@@ -44,6 +46,8 @@ class SecurityConfig {
 				.httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
 				.formLogin(ServerHttpSecurity.FormLoginSpec::disable)
 				.logout(ServerHttpSecurity.LogoutSpec::disable)
+				.securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+				.requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()))
 				.authorizeExchange(exchanges -> exchanges.anyExchange().permitAll())
 				.build();
 	}
@@ -53,9 +57,12 @@ class SecurityConfig {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOrigins(properties.trustedOrigins());
 		configuration.setAllowedMethods(List.of(
-				HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PATCH.name(), HttpMethod.OPTIONS.name()));
+				HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PUT.name(), HttpMethod.PATCH.name(),
+				HttpMethod.DELETE.name(), HttpMethod.OPTIONS.name()));
 		configuration.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, "X-CSRF-Token", "X-Request-Id"));
-		configuration.setExposedHeaders(List.of("X-Request-Id", HttpHeaders.LOCATION));
+		configuration.setExposedHeaders(List.of(
+				"X-Request-Id", HttpHeaders.LOCATION, HttpHeaders.CONTENT_DISPOSITION,
+				HttpHeaders.CONTENT_LENGTH, HttpHeaders.CACHE_CONTROL));
 		configuration.setAllowCredentials(true);
 		configuration.setMaxAge(600L);
 		return exchange -> configuration;
