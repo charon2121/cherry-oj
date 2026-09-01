@@ -32,7 +32,9 @@ DECISION，避免历史原因丢失。
 - [`logging.md`](./logging.md)：Java/Go 统一日志字段、Trace 传播与文件滚动规范；
 - [`frontend.md`](./frontend.md)：Web 架构、状态、组件和工程规则；
 - [`design-system.md`](./design-system.md)：Web 视觉、主题合同、组件规则、可访问性与例外流程；
-- [`prd-background.md`](./prd-background.md)：产品缘起与长期背景。
+- [`prd-background.md`](./prd-background.md)：产品缘起与长期背景；
+- [`engineering/`](./engineering/README.md)：分语言的编码规范、提交流程与各模块当前成熟度。
+  根目录 `CLAUDE.md` 只留每次都必须遵守的部分，展开的规范在这里按需读。
 
 [`design-system/`](./design-system/) 保存设计系统的可执行文档包。其中 Foundation 与主题 CSS 是数值
 真源，theme contract 是语义和对比合同；机器快照、组件 HTML 和 preview 是派生或评审材料。
