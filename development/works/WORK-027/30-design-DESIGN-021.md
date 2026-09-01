@@ -2,7 +2,7 @@
 id: "DESIGN-021"
 type: "design"
 title: "组件基座迁移方案"
-status: "review"
+status: "checked"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["CHANGE-009"]
@@ -145,3 +145,4 @@ E2E。AC-005 额外要求验证「删除整个 `docs/design-system/` 后前端�
 ## 变更记录
 
 - 2026-09-01：状态变更：draft → review。原因：初稿写完，提交人工审核
+- 2026-09-01：结构与内容校验通过，由工具置为 checked。

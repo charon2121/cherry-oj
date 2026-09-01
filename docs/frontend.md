@@ -71,6 +71,21 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - **Tailwind CSS**：布局、设计 token 和组件样式。
 - **shadcn/ui**：可复制、可维护的无头组件实现，作为项目组件库的起点；生成后的代码
   归项目维护，不把它当成不可修改的黑盒依赖。
+
+  **基础组件不自己造。** 新增基础组件前必须先查 registry：
+
+  ```bash
+  curl -s -o /dev/null -w '%{http_code}' https://ui.shadcn.com/r/styles/base-nova/<name>.json
+  ```
+
+  返回 `200` 就以官方实现为骨架，只把颜色与尺寸 class 换成本仓库语义 token，并按需追加 OJ 语义
+  变体——官方的 DOM 结构、属性接口和可访问性行为不重写。返回 `404` 才允许手写，并在提交说明或
+  组件清单中记下这个依据。判断标准是 registry 的响应码，不是「看起来像不像」：用了 `cva` 加语义
+  token 只说明写法相似，不等于拥有官方实现的能力（例如官方 `badge` 走 Base UI 的 `useRender`，
+  可渲染成任意元素；手写的 `<span>` 版本做不到）。
+
+  已知官方没有对应实现的是 `link`、`typography`、`layout`——shadcn 的定位是交互组件，排版与布局
+  原语它一向不提供。
 - **Base UI**：作为当前唯一的无样式交互 primitive，承载 Dialog、Popover、Select、Tabs、Tooltip
   等复杂组件的焦点管理、键盘交互和 ARIA 行为；已有 primitive 时不从 `div` 手写一套交互，也不同时
   引入 Radix 形成双栈。
@@ -118,8 +133,8 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - **Storybook + `@storybook/addon-a11y`**：共享组件在 `cherry-black` 和 `pure-white` 中覆盖 focus、
   pressed、disabled、loading、error、320px 与长中文等状态，并作为组件测试、可访问性检查和后续视觉
   回归的入口。
-- 视觉参考见 [`design-system/components.html`](./design-system/components.html)；前端架构与工程规则以
-  本文为准。HTML 和 Storybook 都不反向定义 token。
+- 视觉参考见 Storybook（`cd apps/web && npm run storybook`），它渲染的是真实组件；前端架构与工程
+  规则以本文为准。Storybook 不反向定义 token。
 
 > **产品边界：** 设计系统运行时与主题设置 API 是前端基建，不等于用户已经获得主题切换功能。生产
 > 导航当前不提供切换入口；若要让用户主动选择主题，需在独立产品工作中定义入口、文案和验收。
@@ -240,8 +255,7 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - 每个路由明确实现 pending、empty、error、unauthorized、not-found 和 success 边界；页面错误
   不能只在控制台出现。
 - 页面从设计系统的稳定模板组合：题库列表、题目工作台、提交详情、个人列表、管理表格与表单。
-  本地可视化参考见
-  [`design-system/components.html`](./design-system/components.html)。
+  本地可视化参考见 Storybook（`cd apps/web && npm run storybook`）。
 
 ## 6. 代码风格与质量管理
 

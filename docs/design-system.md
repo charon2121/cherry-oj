@@ -20,8 +20,12 @@
 5. 截图、Storybook、HTML 示例和业务页面都是评审或消费结果，不能反向定义设计合同。
 
 因此删除 `docs/design-system/` 不得影响 Web 的 `npm ci`、开发服务器、检查、生产构建、Storybook 或
-E2E。文档包自身的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)；旧
-UI 静态页已由本文和 [`components.html`](./design-system/components.html) 取代，不再保留兼容入口。
+E2E。文档包自身的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)。
+
+**视觉参考只有一个入口：Storybook**（`cd apps/web && npm run storybook`）。它渲染
+`apps/web/src/components/ui/` 下的真实组件，覆盖两个主题并挂有 a11y addon。此前的手写 HTML 参考页
+已删除——静态 HTML 无法引用 React 组件，只能手抄 class，因此必然与真实组件漂移；两个评审入口里更差
+的那个不该占着「视觉参考」的名分。
 
 ## 2. 设计方向
 
@@ -128,7 +132,15 @@ Submission 生命周期与 verdict 是两套状态机，不能把 `Pending` / `J
 default、hover、pressed、focus-visible、disabled 和 loading；disabled 不响应，loading 保持尺寸并提供
 可读状态。页面还必须明确 pending、empty、error、unauthorized、not-found 和 success。
 
-视觉参考见 [`components.html`](./design-system/components.html) 与 [`preview/`](./design-system/preview/)；
+**基础组件不自己造。** 新增第 2 层基础组件前先查 shadcn registry：
+`https://ui.shadcn.com/r/styles/base-nova/<name>.json` 返回 200 即官方有实现，必须以官方实现为骨架，
+只把其中的颜色与尺寸 class 换成本仓库语义 token，并按需追加 OJ 语义变体；官方的 DOM 结构、属性接口
+与可访问性行为不重写。返回 404 才允许手写，并在组件清单中记下这个依据。
+
+已知官方没有对应实现的是 `link`、`typography` 和 `layout`——shadcn 的定位是交互组件，排版与布局原语
+它一向不提供。第 3、4 层的 OJ 业务组件和页面模板本就没有官方对应，按本文合同自行设计。
+
+视觉参考见 Storybook（`cd apps/web && npm run storybook`）与 [`preview/`](./design-system/preview/)；
 它们用于评审，不是 token 或组件行为的真源。
 
 ## 7. 可访问性与响应式

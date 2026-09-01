@@ -19,8 +19,8 @@ Cherry-branded, dual-theme, extensible design-system package and OJ examples.
 1. 阅读 [`../design-system.md`](../design-system.md)，确认语义、可访问性和组件约束。
 2. Web 实现只加载 `apps/web/design-system/tokens.css` 与代码侧 Tailwind adapter；组件只消费
    `--ds-*` semantic token，不从本目录 import 或复制文件。
-3. 用 [`components.html`](./components.html) 检查 OJ 组件与交互；主题、颜色、字体和间距分别在
-   [`preview/`](./preview/themes.html) 中检查。
+3. 组件与交互在 Storybook 中检查（`cd apps/web && npm run storybook`），它渲染的是真实组件；
+   主题、颜色、字体和间距在 [`preview/`](./preview/themes.html) 中检查。
 4. 只有真正修改设计系统时，才在同一 WORK/TASK 中同时更新 `apps/web/design-system/` 和本目录；
    两侧分别验证，不建立普通 CI 的 drift、copy 或 symlink。
 5. 更新本说明包后，从仓库根目录运行 `node docs/design-system/tools/build.mjs`，再运行
@@ -38,7 +38,7 @@ Cherry-branded, dual-theme, extensible design-system package and OJ examples.
 | `design-tokens.json` | 由 Foundation、合同和主题生成的机器参考快照 | 否，禁止手改 |
 | `tailwind-v4.css` | Tailwind/shadcn 语义映射参考 | 是，不保存主题值 |
 | `components.manifest.json` | 组件 anatomy、状态、键盘行为与 token 引用 | 是 |
-| `components.html`、`preview/*.html` | 双主题视觉和交互检查页 | 由工具维护或人工评审 |
+| `preview/*.html` | 双主题的主题、颜色、字体与间距检查页 | 由工具维护或人工评审 |
 | `manifest.json` | 文档包入口与各文件角色 | 是 |
 
 本目录内部仍以 Foundation、合同和 manifest 登记的主题 CSS 保持说明一致；不要从 HTML、截图、机器
@@ -52,10 +52,13 @@ Cherry-branded, dual-theme, extensible design-system package and OJ examples.
 - 本目录只说明主题合同与选择行为，不提供 Web 的 localStorage、首屏防闪或运行时。对应实现与测试均在
   `apps/web` 内完成。
 
-静态参考页会从 `themes.manifest.json` 动态建立主题选择器，因此 HTML 不枚举主题 id。请从仓库根目录
-启动任意静态服务器后浏览，例如 `python3 -m http.server`，再打开
-`/docs/design-system/components.html`。直接用 `file://` 打开时浏览器可能拒绝读取 manifest；页面仍按
-默认主题显示，但主题选择器会保持禁用。
+`preview/` 下的静态页会从 `themes.manifest.json` 动态建立主题选择器，因此 HTML 不枚举主题 id。
+请从仓库根目录启动任意静态服务器后浏览，例如 `python3 -m http.server`，再打开
+`/docs/design-system/preview/themes.html`。直接用 `file://` 打开时浏览器可能拒绝读取 manifest；
+页面仍按默认主题显示，但主题选择器会保持禁用。
+
+组件本身不在本目录检查——手写 HTML 无法引用 React 组件，只能手抄 class，必然与真实组件漂移。
+组件的视觉参考由 Storybook 承担。
 
 ## 新增主题
 

@@ -2,7 +2,9 @@
   "schemaVersion": 1,
   "provenance": {
     "sourceFixture": "OpenDesign curated bundled fixture: design-systems/linear-app",
-    "sourceFiles": ["components.html", "components.manifest.json"],
+    "sourceFiles": [
+      "components.manifest.json"
+    ],
     "license": "Apache-2.0",
     "officialLinearArtifact": false
   },
@@ -19,7 +21,11 @@
   "contractVersion": "1.0.0",
   "themeCoverage": "all-registered",
   "sourceOfTruth": "../design-system.md",
-  "reference": "components.html",
+  "reference": {
+    "kind": "storybook",
+    "command": "cd apps/web && npm run storybook",
+    "note": "视觉参考由 Storybook 承担，它渲染的是 apps/web/src/components/ui 下的真实组件；不再维护手写 HTML 参考页。"
+  },
   "globalRules": {
     "themeBranching": "forbidden",
     "rawColors": "forbidden",
@@ -32,10 +38,30 @@
     {
       "id": "button",
       "category": "action",
-      "anatomy": ["control", "label", "optional-icon", "optional-progress-label"],
-      "sizes": ["sm", "md"],
-      "variants": ["primary", "secondary", "ghost", "danger"],
-      "states": ["default", "hover", "pressed", "focus-visible", "disabled", "loading"],
+      "anatomy": [
+        "control",
+        "label",
+        "optional-icon",
+        "optional-progress-label"
+      ],
+      "sizes": [
+        "sm",
+        "md"
+      ],
+      "variants": [
+        "primary",
+        "secondary",
+        "ghost",
+        "danger"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled",
+        "loading"
+      ],
       "tokenReferences": [
         "--ds-brand-surface",
         "--ds-brand-surface-hover",
@@ -50,16 +76,41 @@
         "--ds-danger-on-solid",
         "--ds-focus"
       ],
-      "keyboard": ["Tab focuses enabled controls", "Enter and Space activate", "Disabled and loading controls do not activate"],
-      "constraints": ["Never use brand styling for a destructive action", "Loading preserves width and exposes readable status text"]
+      "keyboard": [
+        "Tab focuses enabled controls",
+        "Enter and Space activate",
+        "Disabled and loading controls do not activate"
+      ],
+      "constraints": [
+        "Never use brand styling for a destructive action",
+        "Loading preserves width and exposes readable status text"
+      ]
     },
     {
       "id": "field",
       "category": "form",
-      "anatomy": ["label", "control", "optional-description", "optional-error"],
-      "sizes": ["md"],
-      "variants": ["input", "search", "textarea", "select"],
-      "states": ["default", "hover", "focus-visible", "disabled", "invalid"],
+      "anatomy": [
+        "label",
+        "control",
+        "optional-description",
+        "optional-error"
+      ],
+      "sizes": [
+        "md"
+      ],
+      "variants": [
+        "input",
+        "search",
+        "textarea",
+        "select"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled",
+        "invalid"
+      ],
       "tokenReferences": [
         "--ds-surface-subtle",
         "--ds-fg",
@@ -70,16 +121,40 @@
         "--ds-danger-foreground",
         "--ds-danger-border"
       ],
-      "keyboard": ["Native control order is preserved", "Label activates its control", "Error text is referenced with aria-describedby"],
-      "constraints": ["Placeholder is not a label", "Do not lower placeholder or disabled text opacity"]
+      "keyboard": [
+        "Native control order is preserved",
+        "Label activates its control",
+        "Error text is referenced with aria-describedby"
+      ],
+      "constraints": [
+        "Placeholder is not a label",
+        "Do not lower placeholder or disabled text opacity"
+      ]
     },
     {
       "id": "card-panel",
       "category": "surface",
-      "anatomy": ["optional-header", "content", "optional-footer"],
-      "sizes": ["compact", "default"],
-      "variants": ["card", "panel", "raised", "interactive"],
-      "states": ["default", "hover", "focus-visible", "selected"],
+      "anatomy": [
+        "optional-header",
+        "content",
+        "optional-footer"
+      ],
+      "sizes": [
+        "compact",
+        "default"
+      ],
+      "variants": [
+        "card",
+        "panel",
+        "raised",
+        "interactive"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "selected"
+      ],
       "tokenReferences": [
         "--ds-panel",
         "--ds-surface",
@@ -90,16 +165,38 @@
         "--ds-elevation-raised",
         "--ds-focus"
       ],
-      "keyboard": ["Interactive cards contain a real link or button", "The whole card is not made clickable with a generic div"],
-      "constraints": ["Nested content surfaces stay opaque", "Decorative borders do not carry selection alone"]
+      "keyboard": [
+        "Interactive cards contain a real link or button",
+        "The whole card is not made clickable with a generic div"
+      ],
+      "constraints": [
+        "Nested content surfaces stay opaque",
+        "Decorative borders do not carry selection alone"
+      ]
     },
     {
       "id": "badge",
       "category": "feedback",
-      "anatomy": ["code-or-label", "optional-count"],
-      "sizes": ["sm"],
-      "variants": ["neutral", "brand", "success", "warning", "danger", "info", "special"],
-      "states": ["default", "selected"],
+      "anatomy": [
+        "code-or-label",
+        "optional-count"
+      ],
+      "sizes": [
+        "sm"
+      ],
+      "variants": [
+        "neutral",
+        "brand",
+        "success",
+        "warning",
+        "danger",
+        "info",
+        "special"
+      ],
+      "states": [
+        "default",
+        "selected"
+      ],
       "tokenReferences": [
         "--ds-surface-subtle",
         "--ds-fg-2",
@@ -116,38 +213,118 @@
         "--ds-special-surface",
         "--ds-special-foreground"
       ],
-      "keyboard": ["A badge is non-interactive; filters use buttons or links"],
-      "constraints": ["Verdict badges always show stable code and readable name", "Color never carries meaning alone"]
+      "keyboard": [
+        "A badge is non-interactive; filters use buttons or links"
+      ],
+      "constraints": [
+        "Verdict badges always show stable code and readable name",
+        "Color never carries meaning alone"
+      ]
     },
     {
       "id": "link",
       "category": "navigation",
-      "anatomy": ["label", "optional-external-indicator"],
-      "sizes": ["inline", "standalone"],
-      "variants": ["brand", "muted"],
-      "states": ["default", "hover", "focus-visible", "visited"],
-      "tokenReferences": ["--ds-link", "--ds-link-hover", "--ds-fg-muted", "--ds-focus"],
-      "keyboard": ["Tab focuses", "Enter follows"],
-      "constraints": ["Inline links keep a visible underline", "Buttons are not styled as navigation links"]
+      "anatomy": [
+        "label",
+        "optional-external-indicator"
+      ],
+      "sizes": [
+        "inline",
+        "standalone"
+      ],
+      "variants": [
+        "brand",
+        "muted"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "visited"
+      ],
+      "tokenReferences": [
+        "--ds-link",
+        "--ds-link-hover",
+        "--ds-fg-muted",
+        "--ds-focus"
+      ],
+      "keyboard": [
+        "Tab focuses",
+        "Enter follows"
+      ],
+      "constraints": [
+        "Inline links keep a visible underline",
+        "Buttons are not styled as navigation links"
+      ]
     },
     {
       "id": "icon-slot",
       "category": "primitive",
-      "anatomy": ["lucide-icon", "optional-label"],
-      "sizes": ["sm", "md"],
-      "variants": ["decorative", "informative", "icon-button"],
-      "states": ["default", "hover", "focus-visible", "disabled"],
-      "tokenReferences": ["--ds-fg", "--ds-fg-muted", "--ds-focus"],
-      "keyboard": ["Decorative icons are skipped", "Icon-only buttons use a native button and an accessible name"],
-      "constraints": ["Do not hand-draw replacement icons", "Necessary icons meet non-text contrast on every allowed surface"]
+      "anatomy": [
+        "lucide-icon",
+        "optional-label"
+      ],
+      "sizes": [
+        "sm",
+        "md"
+      ],
+      "variants": [
+        "decorative",
+        "informative",
+        "icon-button"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "focus-visible",
+        "disabled"
+      ],
+      "tokenReferences": [
+        "--ds-fg",
+        "--ds-fg-muted",
+        "--ds-focus"
+      ],
+      "keyboard": [
+        "Decorative icons are skipped",
+        "Icon-only buttons use a native button and an accessible name"
+      ],
+      "constraints": [
+        "Do not hand-draw replacement icons",
+        "Necessary icons meet non-text contrast on every allowed surface"
+      ]
     },
     {
       "id": "typography",
       "category": "foundation",
-      "anatomy": ["display", "heading", "body", "metadata", "code"],
-      "sizes": ["xs", "sm", "base", "lg", "xl", "2xl", "3xl", "display-lg", "4xl"],
-      "variants": ["primary", "secondary", "muted", "metadata", "mono"],
-      "states": ["default", "selection"],
+      "anatomy": [
+        "display",
+        "heading",
+        "body",
+        "metadata",
+        "code"
+      ],
+      "sizes": [
+        "xs",
+        "sm",
+        "base",
+        "lg",
+        "xl",
+        "2xl",
+        "3xl",
+        "display-lg",
+        "4xl"
+      ],
+      "variants": [
+        "primary",
+        "secondary",
+        "muted",
+        "metadata",
+        "mono"
+      ],
+      "states": [
+        "default",
+        "selection"
+      ],
       "tokenReferences": [
         "--ds-fg",
         "--ds-fg-2",
@@ -160,15 +337,35 @@
         "--ds-font-mono"
       ],
       "keyboard": [],
-      "constraints": ["Chinese uses the system CJK fallback", "Metadata is not made fainter with opacity"]
+      "constraints": [
+        "Chinese uses the system CJK fallback",
+        "Metadata is not made fainter with opacity"
+      ]
     },
     {
       "id": "app-shell-navigation",
       "category": "layout",
-      "anatomy": ["brand", "primary-navigation", "search", "account-actions", "content"],
-      "sizes": ["desktop", "phone"],
-      "variants": ["sidebar", "topbar"],
-      "states": ["default", "current", "focus-visible", "collapsed"],
+      "anatomy": [
+        "brand",
+        "primary-navigation",
+        "search",
+        "account-actions",
+        "content"
+      ],
+      "sizes": [
+        "desktop",
+        "phone"
+      ],
+      "variants": [
+        "sidebar",
+        "topbar"
+      ],
+      "states": [
+        "default",
+        "current",
+        "focus-visible",
+        "collapsed"
+      ],
       "tokenReferences": [
         "--ds-canvas",
         "--ds-panel",
@@ -178,16 +375,42 @@
         "--ds-border",
         "--ds-focus"
       ],
-      "keyboard": ["Navigation order follows DOM order", "Current page uses aria-current", "Skip link reaches main content"],
-      "constraints": ["Navigation remains usable at 320px", "Current state uses text structure as well as surface color"]
+      "keyboard": [
+        "Navigation order follows DOM order",
+        "Current page uses aria-current",
+        "Skip link reaches main content"
+      ],
+      "constraints": [
+        "Navigation remains usable at 320px",
+        "Current state uses text structure as well as surface color"
+      ]
     },
     {
       "id": "data-table-list",
       "category": "data-display",
-      "anatomy": ["caption", "header", "rows", "status", "pagination"],
-      "sizes": ["comfortable", "compact"],
-      "variants": ["problem-list", "submission-list"],
-      "states": ["default", "hover", "selected", "empty", "loading", "error"],
+      "anatomy": [
+        "caption",
+        "header",
+        "rows",
+        "status",
+        "pagination"
+      ],
+      "sizes": [
+        "comfortable",
+        "compact"
+      ],
+      "variants": [
+        "problem-list",
+        "submission-list"
+      ],
+      "states": [
+        "default",
+        "hover",
+        "selected",
+        "empty",
+        "loading",
+        "error"
+      ],
       "tokenReferences": [
         "--ds-surface",
         "--ds-surface-subtle",
@@ -197,16 +420,41 @@
         "--ds-border",
         "--ds-focus"
       ],
-      "keyboard": ["Rows contain normal links and controls", "Horizontal overflow does not trap focus", "Caption names the data set"],
-      "constraints": ["Do not make the row a generic clickable container", "Phone layout may become a labeled list without changing reading order"]
+      "keyboard": [
+        "Rows contain normal links and controls",
+        "Horizontal overflow does not trap focus",
+        "Caption names the data set"
+      ],
+      "constraints": [
+        "Do not make the row a generic clickable container",
+        "Phone layout may become a labeled list without changing reading order"
+      ]
     },
     {
       "id": "dialog-popover",
       "category": "overlay",
-      "anatomy": ["trigger", "title", "description", "content", "actions", "close"],
-      "sizes": ["sm", "md"],
-      "variants": ["dialog", "confirmation", "popover"],
-      "states": ["closed", "open", "focus-visible"],
+      "anatomy": [
+        "trigger",
+        "title",
+        "description",
+        "content",
+        "actions",
+        "close"
+      ],
+      "sizes": [
+        "sm",
+        "md"
+      ],
+      "variants": [
+        "dialog",
+        "confirmation",
+        "popover"
+      ],
+      "states": [
+        "closed",
+        "open",
+        "focus-visible"
+      ],
       "tokenReferences": [
         "--ds-overlay",
         "--ds-surface-raised",
@@ -216,16 +464,40 @@
         "--ds-elevation-raised",
         "--ds-focus"
       ],
-      "keyboard": ["Trigger opens", "Escape closes", "Dialog focus remains inside while open", "Close restores trigger focus"],
-      "constraints": ["Use explicit labels for destructive confirmation", "Popover uses details-summary or equivalent managed disclosure semantics"]
+      "keyboard": [
+        "Trigger opens",
+        "Escape closes",
+        "Dialog focus remains inside while open",
+        "Close restores trigger focus"
+      ],
+      "constraints": [
+        "Use explicit labels for destructive confirmation",
+        "Popover uses details-summary or equivalent managed disclosure semantics"
+      ]
     },
     {
       "id": "inline-notice",
       "category": "feedback",
-      "anatomy": ["status-label", "title", "message", "optional-action"],
-      "sizes": ["default"],
-      "variants": ["success", "warning", "danger", "info", "special"],
-      "states": ["default", "dismissed"],
+      "anatomy": [
+        "status-label",
+        "title",
+        "message",
+        "optional-action"
+      ],
+      "sizes": [
+        "default"
+      ],
+      "variants": [
+        "success",
+        "warning",
+        "danger",
+        "info",
+        "special"
+      ],
+      "states": [
+        "default",
+        "dismissed"
+      ],
       "tokenReferences": [
         "--ds-success-surface",
         "--ds-success-border",
@@ -243,16 +515,39 @@
         "--ds-special-border",
         "--ds-special-foreground"
       ],
-      "keyboard": ["Actions are normal links or buttons", "New urgent errors use an appropriate live region"],
-      "constraints": ["A visible status word accompanies color", "Do not use brand color as a danger substitute"]
+      "keyboard": [
+        "Actions are normal links or buttons",
+        "New urgent errors use an appropriate live region"
+      ],
+      "constraints": [
+        "A visible status word accompanies color",
+        "Do not use brand color as a danger substitute"
+      ]
     },
     {
       "id": "async-state",
       "category": "feedback",
-      "anatomy": ["title", "message", "optional-action", "optional-progress-label"],
-      "sizes": ["inline", "panel", "page"],
-      "variants": ["empty", "loading", "error", "unauthorized"],
-      "states": ["default", "retrying"],
+      "anatomy": [
+        "title",
+        "message",
+        "optional-action",
+        "optional-progress-label"
+      ],
+      "sizes": [
+        "inline",
+        "panel",
+        "page"
+      ],
+      "variants": [
+        "empty",
+        "loading",
+        "error",
+        "unauthorized"
+      ],
+      "states": [
+        "default",
+        "retrying"
+      ],
       "tokenReferences": [
         "--ds-surface",
         "--ds-fg",
@@ -261,16 +556,41 @@
         "--ds-danger-surface",
         "--ds-focus"
       ],
-      "keyboard": ["Retry and sign-in actions are native controls", "Loading status is announced without moving focus"],
-      "constraints": ["Skeletons are decorative and cannot replace an accessible progress label", "Error details remain selectable text"]
+      "keyboard": [
+        "Retry and sign-in actions are native controls",
+        "Loading status is announced without moving focus"
+      ],
+      "constraints": [
+        "Skeletons are decorative and cannot replace an accessible progress label",
+        "Error details remain selectable text"
+      ]
     },
     {
       "id": "editor-workspace",
       "category": "oj-workflow",
-      "anatomy": ["problem-context", "language-control", "editor", "run-action", "submit-action", "result-panel"],
-      "sizes": ["desktop-split", "phone-stacked"],
-      "variants": ["practice", "contest"],
-      "states": ["editing", "running", "submitting", "result", "error"],
+      "anatomy": [
+        "problem-context",
+        "language-control",
+        "editor",
+        "run-action",
+        "submit-action",
+        "result-panel"
+      ],
+      "sizes": [
+        "desktop-split",
+        "phone-stacked"
+      ],
+      "variants": [
+        "practice",
+        "contest"
+      ],
+      "states": [
+        "editing",
+        "running",
+        "submitting",
+        "result",
+        "error"
+      ],
       "tokenReferences": [
         "--ds-canvas",
         "--ds-panel",
@@ -283,16 +603,42 @@
         "--ds-on-brand",
         "--ds-focus"
       ],
-      "keyboard": ["Editor has a labeled region", "Language selector precedes editor", "Run and submit remain reachable after editor"],
-      "constraints": ["Do not infer verdict from editor decoration", "At phone width panels stack in source order"]
+      "keyboard": [
+        "Editor has a labeled region",
+        "Language selector precedes editor",
+        "Run and submit remain reachable after editor"
+      ],
+      "constraints": [
+        "Do not infer verdict from editor decoration",
+        "At phone width panels stack in source order"
+      ]
     },
     {
       "id": "submission-lifecycle",
       "category": "oj-workflow",
-      "anatomy": ["submission-id", "current-stage", "ordered-stages", "timestamps", "optional-details"],
-      "sizes": ["compact", "default"],
-      "variants": ["queued", "judging", "finished", "failed"],
-      "states": ["pending", "current", "complete", "error"],
+      "anatomy": [
+        "submission-id",
+        "current-stage",
+        "ordered-stages",
+        "timestamps",
+        "optional-details"
+      ],
+      "sizes": [
+        "compact",
+        "default"
+      ],
+      "variants": [
+        "queued",
+        "judging",
+        "finished",
+        "failed"
+      ],
+      "states": [
+        "pending",
+        "current",
+        "complete",
+        "error"
+      ],
       "tokenReferences": [
         "--ds-fg",
         "--ds-fg-muted",
@@ -301,16 +647,42 @@
         "--ds-danger-foreground",
         "--ds-border-strong"
       ],
-      "keyboard": ["Optional details use a disclosure control", "Updates use polite announcements unless action is required"],
-      "constraints": ["Stage name is always visible", "Order and labels carry progress without color"]
+      "keyboard": [
+        "Optional details use a disclosure control",
+        "Updates use polite announcements unless action is required"
+      ],
+      "constraints": [
+        "Stage name is always visible",
+        "Order and labels carry progress without color"
+      ]
     },
     {
       "id": "verdict",
       "category": "oj-workflow",
-      "anatomy": ["stable-code", "localized-name", "optional-resource-facts"],
-      "sizes": ["badge", "row", "result-panel"],
-      "variants": ["AC", "WA", "TLE", "MLE", "OLE", "CE", "RE", "RAN", "SE"],
-      "states": ["final"],
+      "anatomy": [
+        "stable-code",
+        "localized-name",
+        "optional-resource-facts"
+      ],
+      "sizes": [
+        "badge",
+        "row",
+        "result-panel"
+      ],
+      "variants": [
+        "AC",
+        "WA",
+        "TLE",
+        "MLE",
+        "OLE",
+        "CE",
+        "RE",
+        "RAN",
+        "SE"
+      ],
+      "states": [
+        "final"
+      ],
       "tokenReferences": [
         "--ds-success-foreground",
         "--ds-success-surface",
@@ -323,8 +695,14 @@
         "--ds-special-foreground",
         "--ds-special-surface"
       ],
-      "keyboard": ["If interactive, the verdict is contained in a normal link or button"],
-      "constraints": ["Never communicate verdict by color alone", "OLE, RAN, and SE are first-class states", "Resource units are explicit: ns and bytes"]
+      "keyboard": [
+        "If interactive, the verdict is contained in a normal link or button"
+      ],
+      "constraints": [
+        "Never communicate verdict by color alone",
+        "OLE, RAN, and SE are first-class states",
+        "Resource units are explicit: ns and bytes"
+      ]
     }
   ]
 }

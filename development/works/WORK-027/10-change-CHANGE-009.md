@@ -2,7 +2,7 @@
 id: "CHANGE-009"
 type: "change"
 title: "把手写基础组件改为基于 shadcn 官方实现"
-status: "review"
+status: "approved"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: []
@@ -128,3 +128,4 @@ updated_at: "2026-09-01"
 ## 变更记录
 
 - 2026-09-01：状态变更：draft → review。原因：初稿写完，提交人工审核
+- 2026-09-01：意图闸通过：review → approved。原因：负责人审阅后批准：6 个组件换成 shadcn 官方实现文件、7 个已基于 base-ui 的只记录与官方的出入不改代码、link/typography/layout 因官方 registry 无对应而维持手写；调用方用法尽量不动，TASK-044 与 TASK-045 串行执行

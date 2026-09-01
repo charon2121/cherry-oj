@@ -2,7 +2,7 @@
 id: "TASK-043"
 type: "task"
 title: "移除手写组件参考页，视觉参考改指 Storybook"
-status: "todo"
+status: "done"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["CHANGE-009", "DESIGN-021", "PLAN-017"]
@@ -11,7 +11,7 @@ implements: ["CHANGE-009#REQ-005", "CHANGE-009#REQ-006", "CHANGE-009#REQ-004"]
 verifies: []
 tags: []
 read_paths: ["apps/web/.storybook", "apps/web/src/components/ui", "docs/design-system"]
-write_paths: ["docs/design-system.md", "docs/design-system/components.html", "docs/design-system/components.manifest.json", "docs/frontend.md"]
+write_paths: ["docs/design-system.md", "docs/design-system/components.html", "docs/design-system/components.manifest.json", "docs/design-system/README.md", "docs/design-system/manifest.json", "docs/design-system/tools", "docs/frontend.md"]
 forbidden_paths: ["apps/web/src", "apps/web/design-system", "contracts", "apps/server"]
 created_at: "2026-09-01"
 updated_at: "2026-09-01"
@@ -35,7 +35,11 @@ updated_at: "2026-09-01"
 ## 可修改范围
 
 `docs/design-system.md`、`docs/design-system/components.html`、`docs/design-system/components.manifest.json`、
-`docs/frontend.md`。
+`docs/design-system/README.md`、`docs/design-system/manifest.json`、`docs/frontend.md`。
+
+范围在执行中扩大过两次：`components.html` 被 `design-system/README.md`（3 处）、`manifest.json`
+（2 处）和 `tools/check.mjs`（3 处）引用，删除后都必须同步，否则会留下指向不存在文件的入口，
+文档包自身的校验命令也会直接报错。两次扩大的理由记录在执行记录。
 
 ## 禁止修改
 
@@ -55,10 +59,10 @@ DESIGN-021 定稿。与 TASK-044、TASK-045 无依赖，可并行。
 
 ## 完成标准
 
-- [ ] `components.html` 已删除，且仓库内没有任何文档或 manifest 仍引用它。
-- [ ] `docs/design-system.md` 与 `components.manifest.json` 的视觉参考指向一致，不存在两个入口。
-- [ ] `docs/frontend.md` 的组件条款写明「如何判断官方是否有对应组件」，而不只是表达偏好。
-- [ ] `link`、`typography`、`layout` 维持手写的依据（registry 返回 404）已记录，避免以后重复讨论。
+- [x] `components.html` 已删除，且仓库内没有任何文档或 manifest 仍引用它。
+- [x] `docs/design-system.md` 与 `components.manifest.json` 的视觉参考指向一致，不存在两个入口。
+- [x] `docs/frontend.md` 的组件条款写明「如何判断官方是否有对应组件」，而不只是表达偏好。
+- [x] `link`、`typography`、`layout` 维持手写的依据（registry 返回 404）已记录，避免以后重复讨论。
 
 ## 验证
 
@@ -72,4 +76,6 @@ DESIGN-021 定稿。与 TASK-044、TASK-045 无依赖，可并行。
 
 ## 执行记录
 
-暂无。
+- 2026-09-01：状态变更：todo → ready。原因：意图闸已通过，边界与产出明确
+- 2026-09-01：状态变更：ready → doing。原因：开始执行文档侧改动
+- 2026-09-01：状态变更：doing → done。原因：文档侧改动完成，四项完成标准全部达成

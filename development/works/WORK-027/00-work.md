@@ -2,7 +2,7 @@
 id: "WORK-027"
 type: "work"
 title: "把手写基础组件改为基于 shadcn 官方实现"
-status: "todo"
+status: "doing"
 work: null
 owners: ["codex/root"]
 risk: "medium"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["change", "design", "plan", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "accessibility", "compatibility"]
-gates: {"intent": "pending", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "pending"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -46,11 +46,11 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|
-| 改动说明与边界 | ▶ 进行中 | 必需 | CHANGE-009 `review` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
-| 技术方案 | ▶ 进行中 | 必需 | DESIGN-021 `review` | 确定技术方案、边界与取舍 |
-| 开发计划 | ▶ 进行中 | 必需 | PLAN-017 `review` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | · 未开始 | 必需 | TASK-043 `todo`、TASK-044 `todo`、TASK-045 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | · 未开始 | 必需 | TASK-043 `todo`、TASK-044 `todo`、TASK-045 `todo` | 按任务实施，产出代码与测试 |
+| 改动说明与边界 | ✔ 完成 | 必需 | CHANGE-009 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 技术方案 | ✔ 完成 | 必需 | DESIGN-021 `checked` | 确定技术方案、边界与取舍 |
+| 开发计划 | ✔ 完成 | 必需 | PLAN-017 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-043 `done`、TASK-044 `ready`、TASK-045 `ready` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ○ 就绪 | 必需 | TASK-043 `done`、TASK-044 `ready`、TASK-045 `ready` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 回归验证 | · 未开始 | 必需 | VERIFY-028 `draft` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
@@ -62,3 +62,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 ## 变更记录
 
 - 2026-09-01：创建工作项并生成初始流程。
+- 2026-09-01：意图闸：passed。原因：负责人审阅后批准：6 个组件换成 shadcn 官方实现文件、7 个已基于 base-ui 的只记录与官方的出入不改代码、link/typography/layout 因官方 registry 无对应而维持手写；调用方用法尽量不动，TASK-044 与 TASK-045 串行执行
+- 2026-09-01：根据文档、任务与验证事实刷新状态：todo → doing。

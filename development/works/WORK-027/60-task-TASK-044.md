@@ -2,7 +2,7 @@
 id: "TASK-044"
 type: "task"
 title: "把展示类组件改为基于 shadcn 官方实现"
-status: "todo"
+status: "ready"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["DESIGN-021"]
@@ -75,4 +75,4 @@ DESIGN-021 定稿。与 TASK-043 无依赖；TASK-045 依赖本任务确认改�
 
 ## 执行记录
 
-暂无。
+- 2026-09-01：状态变更：todo → ready。原因：意图闸已过，边界与完成标准明确

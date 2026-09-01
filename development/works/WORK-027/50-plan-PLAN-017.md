@@ -2,7 +2,7 @@
 id: "PLAN-017"
 type: "plan"
 title: "组件实现文件替换计划"
-status: "review"
+status: "checked"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["CHANGE-009", "DESIGN-021"]
@@ -77,3 +77,4 @@ TASK-043 与另外两个无依赖，可并行。TASK-044 与 TASK-045 都改 `co
 ## 变更记录
 
 - 2026-09-01：状态变更：draft → review。原因：初稿写完，提交人工审核
+- 2026-09-01：结构与内容校验通过，由工具置为 checked。

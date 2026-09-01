@@ -600,7 +600,7 @@ async function verifyReferenceArtifacts() {
     fail("components.manifest provenance license must be Apache-2.0");
   }
   const sourceFiles = componentManifest.provenance?.sourceFiles;
-  if (JSON.stringify(sourceFiles) !== JSON.stringify(["components.html", "components.manifest.json"])) {
+  if (JSON.stringify(sourceFiles) !== JSON.stringify(["components.manifest.json"])) {
     fail("components.manifest provenance sourceFiles changed");
   }
   if (!componentManifest.modified || !componentManifest.globalRules) {
@@ -636,8 +636,9 @@ async function verifyReferenceArtifacts() {
     fail("component manifest must consume semantic tokens without theme-id or raw-token branches");
   }
 
+  // 组件参考页已删除：静态 HTML 无法引用 React 组件，只能手抄 class，必然与真实组件漂移。
+  // 组件的视觉参考由 Storybook 承担，这里只校验主题/颜色/字体/间距的静态检查页。
   const referenceFiles = [
-    "components.html",
     "preview/themes.html",
     "preview/colors.html",
     "preview/typography.html",
@@ -648,7 +649,7 @@ async function verifyReferenceArtifacts() {
     if (/data-theme|cherry-black|pure-white|--ds-raw-/.test(html)) {
       fail(`${relativePath} must not contain a theme-id or raw-token branch`);
     }
-    const expectedTokenHref = relativePath === "components.html" ? 'href="./tokens.css"' : 'href="../tokens.css"';
+    const expectedTokenHref = 'href="../tokens.css"';
     if (!html.includes(expectedTokenHref)) fail(`${relativePath} must load the stable tokens.css entrypoint`);
 
     const cssSources = [

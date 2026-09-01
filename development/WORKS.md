@@ -31,4 +31,4 @@
 | WORK-024 | 重新设计登录页视觉与体验 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-024/00-work.md) |
 | WORK-025 | 交付题库、题目与测试数据管理 | 产品功能 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-025/00-work.md) |
 | WORK-026 | 为 Java 服务提供可直接启动的本地默认配置 | 基础能力 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-026/00-work.md) |
-| WORK-027 | 把手写基础组件改为基于 shadcn 官方实现 | 整理维护 | 待确认 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-027/00-work.md) |
+| WORK-027 | 把手写基础组件改为基于 shadcn 官方实现 | 整理维护 | 执行中 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-027/00-work.md) |

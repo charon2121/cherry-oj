@@ -2,7 +2,7 @@
 id: "TASK-045"
 type: "task"
 title: "把表单与提示类组件改为基于 shadcn 官方实现"
-status: "todo"
+status: "ready"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["DESIGN-021"]
@@ -44,7 +44,11 @@ updated_at: "2026-09-01"
 
 ## 依赖
 
-TASK-044 完成（复用其确认过的改法），DESIGN-021 定稿。
+DESIGN-021 定稿。
+
+与 TASK-044 是**执行顺序**约束而非产出依赖：本任务不消费 TASK-044 的产物，只是两者都改
+`components/ui/` 与调用方，同时进行会让视觉回归无法归因。顺序写在
+[PLAN-017](./50-plan-PLAN-017.md)，不编码成 `depends_on`。
 
 ## 产出
 
@@ -75,4 +79,4 @@ TASK-044 完成（复用其确认过的改法），DESIGN-021 定稿。
 
 ## 执行记录
 
-暂无。
+- 2026-09-01：状态变更：todo → ready。原因：定义、边界与完成标准明确；执行顺序由 PLAN 约束
