@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["issue", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "compatibility"]
-human_confirmations: []
 gates: {"intent": "passed", "acceptance": "pending"}
 blocking_items: []
 reversible: true

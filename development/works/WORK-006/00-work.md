@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["change", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests"]
-human_confirmations: []
 gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true

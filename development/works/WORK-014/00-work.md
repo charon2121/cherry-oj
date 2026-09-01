@@ -2,7 +2,7 @@
 id: "WORK-014"
 type: "work"
 title: "统一登录空闲过期配置并修复提前掉线"
-status: "todo"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["issue", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "compatibility", "reliability", "security"]
-human_confirmations: ["安全边界与权限影响已经由负责人确认"]
 gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
@@ -74,3 +73,4 @@ work_type: "fix"
 - 2026-08-27：流程阶段 观察：pending → blocked。原因：尚未生产发布，无法取得真实用户登录期限与可靠性观察证据
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
 - 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。
+- 2026-09-01：根据文档、任务与验证事实刷新状态：todo → verified。

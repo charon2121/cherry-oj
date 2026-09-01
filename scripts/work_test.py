@@ -845,5 +845,26 @@ class WorkToolTest(unittest.TestCase):
         self.assertIn("不会失败，也就不构成门禁", report)
 
 
+    def test_gates_are_the_only_human_confirmation_mechanism(self) -> None:
+        """两套并行的人工确认里，只要有一套没有命令能满足，工作就永远推不动。
+
+        human_confirmations 曾经由规则生成、阻塞状态推导、又必须等于规则重新生成的值，
+        于是把 4 个已完成的高风险工作按在 todo 上，任何操作都出不去。
+        """
+        self.run_work(
+            "new", "--title", "安全敏感基建", "--type", "infra",
+            "--risk", "high", "--impact", "system", "--security-sensitive",
+            "--owner", "agent/test",
+        )
+        body = self.one_work_file("00-work.md").read_text(encoding="utf-8")
+        self.assertNotIn("human_confirmations", body)
+        self.assertIn("gates", body)
+
+    def test_audit_detects_states_no_command_can_leave(self) -> None:
+        self.create_fast_work()
+        report = self.run_work("audit").stdout
+        self.assertIn("⑥ 有没有推不动的状态", report)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

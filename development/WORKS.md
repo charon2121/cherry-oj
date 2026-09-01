@@ -17,8 +17,8 @@
 | WORK-010 | 建立跨语言可观测性基础设施 | 基础能力 | 验证通过 · 已被取代 WORK-012 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-010/00-work.md) |
 | WORK-011 | 收敛 Go 领域日志调用 | 整理维护 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-011/00-work.md) |
 | WORK-012 | 撤回可观测性实现并保留追溯契约 | 整理维护 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-012/00-work.md) |
-| WORK-013 | 建立用户身份与访问控制服务 | 基础能力 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-013/00-work.md) |
-| WORK-014 | 统一登录空闲过期配置并修复提前掉线 | 问题修复 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-014/00-work.md) |
+| WORK-013 | 建立用户身份与访问控制服务 | 基础能力 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-013/00-work.md) |
+| WORK-014 | 统一登录空闲过期配置并修复提前掉线 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-014/00-work.md) |
 | WORK-015 | 建立 Cherry OJ Web 设计系统 | 基础能力 | 实现完成 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-015/00-work.md) |
 | WORK-016 | 修复设计系统发布后的文档 CI | 问题修复 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-016/00-work.md) |
 | WORK-017 | 建立 Web 设计系统代码基建 | 基础能力 | 已取消 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-017/00-work.md) |
@@ -29,5 +29,5 @@
 | WORK-022 | 微调双端应用布局页脚 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-022/00-work.md) |
 | WORK-023 | 设计双端导航栏与导航功能组件 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-023/00-work.md) |
 | WORK-024 | 重新设计登录页视觉与体验 | 产品功能 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-024/00-work.md) |
-| WORK-025 | 交付题库、题目与测试数据管理 | 产品功能 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-025/00-work.md) |
-| WORK-026 | 为 Java 服务提供可直接启动的本地默认配置 | 基础能力 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-026/00-work.md) |
+| WORK-025 | 交付题库、题目与测试数据管理 | 产品功能 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-025/00-work.md) |
+| WORK-026 | 为 Java 服务提供可直接启动的本地默认配置 | 基础能力 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-026/00-work.md) |

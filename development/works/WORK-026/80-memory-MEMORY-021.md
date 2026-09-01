@@ -2,7 +2,7 @@
 id: "MEMORY-021"
 type: "memory"
 title: "为 Java 服务提供可直接启动的本地默认配置"
-status: "review"
+status: "checked"
 work: "WORK-026"
 owners: ["codex/root"]
 depends_on: ["VERIFY-026"]
@@ -11,9 +11,8 @@ implements: []
 verifies: []
 tags: []
 created_at: "2026-08-31"
-updated_at: "2026-08-31"
+updated_at: "2026-09-01"
 ---
-
 
 # MEMORY-021：为 Java 服务提供可直接启动的本地默认配置
 
@@ -47,3 +46,4 @@ Redis；每台开发机仍需一次性准备基础设施。配置扫描当前放
 ## 变更记录
 
 - 2026-08-31：状态变更：draft → review。原因：已沉淀本地/生产配置分类、随机密钥边界和数据库准备事项，提交复核
+- 2026-09-01：结构与内容校验通过，由工具置为 checked。

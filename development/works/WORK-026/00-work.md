@@ -2,7 +2,7 @@
 id: "WORK-026"
 type: "work"
 title: "为 Java 服务提供可直接启动的本地默认配置"
-status: "todo"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,8 +15,7 @@ verifies: []
 tags: []
 required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "compatibility", "reliability", "security"]
-human_confirmations: ["安全边界与权限影响已经由负责人确认"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -36,7 +35,7 @@ work_type: "infra"
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|
-| 需求澄清 | ✔ 完成 | 必需 | WORK-026 `todo` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 需求澄清 | ✔ 完成 | 必需 | WORK-026 `verified` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
 | 能力定义 | ✔ 完成 | 必需 | CAPABILITY-007 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 开发体验 / 运维要求 | ✔ 完成 | 必需 | EXPERIENCE-014 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-020 `approved` | 确定技术方案、边界与取舍 |
@@ -44,9 +43,9 @@ work_type: "infra"
 | 开发计划 | ✔ 完成 | 必需 | PLAN-016 `approved` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-041 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-041 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 验证 | ▶ 进行中 | 必需 | VERIFY-026 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-021 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ✔ 完成 | 必需 | VERIFY-026 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-021 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -67,3 +66,5 @@ work_type: "infra"
   已在原批准范围内修正、增加跨服务回归，并重新完成七模块聚合验证。
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
 - 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。
+- 2026-09-01：验收闸：passed。原因：接受，本地数据库账号属环境准备不属实现缺口；临时密钥的限制已知，MVP 阶段可接受
+- 2026-09-01：根据文档、任务与验证事实刷新状态：todo → verified。

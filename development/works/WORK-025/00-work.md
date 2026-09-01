@@ -2,7 +2,7 @@
 id: "WORK-025"
 type: "work"
 title: "交付题库、题目与测试数据管理"
-status: "todo"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["feature", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "accessibility", "data", "performance", "release", "reliability", "security"]
-human_confirmations: ["安全边界与权限影响已经由负责人确认"]
 gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
@@ -36,7 +35,7 @@ work_type: "product"
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|
-| 需求澄清 | ✔ 完成 | 必需 | WORK-025 `todo` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 需求澄清 | ✔ 完成 | 必需 | WORK-025 `verified` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
 | 功能定义 | ✔ 完成 | 必需 | FEATURE-007 `approved`、ISSUE-005 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 体验设计 | ✔ 完成 | 必需 | EXPERIENCE-013 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-019 `approved` | 确定技术方案、边界与取舍 |
@@ -67,3 +66,4 @@ work_type: "product"
   VERIFY-027 提交审核。
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
 - 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。
+- 2026-09-01：根据文档、任务与验证事实刷新状态：todo → verified。

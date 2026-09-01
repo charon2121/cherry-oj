@@ -127,7 +127,6 @@
     },
     "required_documents": { "type": "array", "items": { "type": "string" } },
     "required_checks": { "type": "array", "items": { "type": "string" } },
-    "human_confirmations": { "type": "array", "items": { "type": "string" } },
     "gates": {
       "type": "object",
       "additionalProperties": false,

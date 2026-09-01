@@ -46,7 +46,7 @@ workflow:
 
 required_documents: []
 required_checks: []
-human_confirmations: []
+gates: {intent: pending, acceptance: pending}
 blocking_items: []
 ```
 

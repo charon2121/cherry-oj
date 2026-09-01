@@ -112,7 +112,7 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "ready",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [],
     "checks": [
@@ -126,7 +126,7 @@
     "stage": "verification",
     "label": "验证",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-026"
@@ -145,7 +145,7 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "MEMORY-021"

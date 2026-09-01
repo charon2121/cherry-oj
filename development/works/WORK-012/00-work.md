@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["change", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "observability"]
-human_confirmations: []
 gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true

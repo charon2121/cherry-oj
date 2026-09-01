@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "observability"]
-human_confirmations: []
 gates: {"intent": "passed", "acceptance": "passed"}
 outcome: {"state": "superseded", "reason": "运行时实现已整体撤回，仅 traceId/requestId 追溯契约仍然有效；本工作不再代表当前仓库能力或有效实施基线", "by": "WORK-012"}
 blocking_items: []

@@ -125,7 +125,6 @@ COMMON_FIELDS = {
     "workflow",
     "required_documents",
     "required_checks",
-    "human_confirmations",
     "blocking_items",
     "reversible",
     "data_change",
@@ -407,7 +406,6 @@ def render_document(document: Document) -> str:
         "workflow",
         "required_documents",
         "required_checks",
-        "human_confirmations",
         "gates",
         "outcome",
         "blocking_items",
@@ -572,6 +570,15 @@ def validate_works_index(root: Path, documents: dict[str, Document]) -> list[str
 def is_settled(document: "Document") -> bool:
     """文档是否已定稿：人签字的 approved 或工具校验通过的 checked。"""
     return document.metadata.get("status") in SETTLED_DOCUMENT_STATUSES
+
+
+def pending_gates(work: "Document", documents: dict[str, "Document"]) -> list[str]:
+    """还等着人签的闸。两闸制之后，这是系统里唯一的人工确认点。"""
+    return [
+        gate
+        for gate in GATE_NAMES
+        if not gate_passed(work, gate) and gate_covered_documents(work.id, documents, gate)
+    ]
 
 
 def work_outcome(work: "Document") -> dict[str, Any] | None:
@@ -841,12 +848,6 @@ def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
         required_checks.append("cross-module-regression")
     required_checks.extend(sorted(concerns))
 
-    human_confirmations: list[str] = []
-    if risk == "critical":
-        human_confirmations.append("关键风险与不可逆影响已经由负责人确认")
-    if metadata["security_sensitive"]:
-        human_confirmations.append("安全边界与权限影响已经由负责人确认")
-
     checks_by_stage: dict[str, list[str]] = defaultdict(list)
     checks_by_stage["definition"].extend(("definition", "scope"))
     checks_by_stage["verification"].append("automated-tests")
@@ -881,7 +882,6 @@ def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
         "workflow": workflow,
         "required_documents": required_documents,
         "required_checks": list(dict.fromkeys(required_checks)),
-        "human_confirmations": human_confirmations,
         "fast": fast,
     }
 
@@ -1258,7 +1258,6 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
             "workflow",
             "required_documents",
             "required_checks",
-            "human_confirmations",
             "blocking_items",
         ):
             if not isinstance(metadata.get(field), list):
@@ -1449,7 +1448,7 @@ def validate_documents(
     for work_id, work in works.items():
         prefix = str(work.path.relative_to(root))
         expected_flow = select_workflow({**work.metadata, "type": work.metadata["work_type"]})
-        for field in ("required_documents", "required_checks", "human_confirmations"):
+        for field in ("required_documents", "required_checks"):
             if work.metadata.get(field) != expected_flow[field]:
                 errors.append(f"{prefix}: {field} 必须由 WORK Type 与风险增量规则生成")
         actual_workflow = work.metadata.get("workflow", [])
@@ -1508,8 +1507,23 @@ def validate_documents(
         if work.metadata.get("status") in {"ready", "doing", "implemented", "verified"}:
             if work.metadata.get("blocking_items"):
                 errors.append(f"{prefix}: 当前状态不允许存在 blocking_items")
-            if work.metadata.get("human_confirmations"):
-                errors.append(f"{prefix}: 当前状态不允许存在未完成的 human_confirmations")
+        # 死锁探测：事实都齐了却推不动，说明存在任何命令都出不去的状态。
+        # human_confirmations 就是这样把 4 个已完成的工作按在 todo 上的——它由规则生成、
+        # 阻塞状态推导、又必须等于规则重新生成的值，于是没有任何操作能满足它。
+        if (
+            work.metadata.get("status") not in {"verified", "cancelled"}
+            and not work.metadata.get("blocking_items")
+            and all(gate_passed(work, gate) for gate in GATE_NAMES)
+            and all(
+                stage["status"] in {"done", "skipped"}
+                for stage in work.metadata.get("workflow", [])
+                if stage["requirement"] == "required"
+            )
+        ):
+            warnings.append(
+                f"{prefix}: 全部必需阶段已完成且两道闸都已签署，状态却是 "
+                f"{work.metadata.get('status')}——存在推不动的状态，请检查推导规则"
+            )
         outcome = work_outcome(work)
         if outcome is not None:
             target = outcome.get("by")
@@ -1831,7 +1845,9 @@ def command_list(args: argparse.Namespace) -> None:
             continue
         if args.work and document.id != args.work and document.metadata.get("work") != args.work:
             continue
-        if args.needs_human and not document.metadata.get("human_confirmations"):
+        if args.needs_human and not (
+            document.kind == "work" and pending_gates(document, documents)
+        ):
             continue
         rows.append(
             (
@@ -1865,7 +1881,7 @@ def command_overview(args: argparse.Namespace) -> None:
     statuses = Counter(str(work.metadata["status"]) for work in works)
     blockers = [work for work in works if work.metadata.get("blocking_items")]
     high_risk = [work for work in works if work.metadata.get("risk") in {"high", "critical"}]
-    needs_human = [work for work in works if work.metadata.get("human_confirmations")]
+    needs_human = [work for work in works if pending_gates(work, documents)]
     tasks = [document for document in documents.values() if document.kind == "task"]
     task_statuses = Counter(str(task.metadata["status"]) for task in tasks)
     print(f"当前工作：{len(works)} 个")
@@ -1880,11 +1896,6 @@ def command_overview(args: argparse.Namespace) -> None:
         print("\n卡点：")
         for work in blockers:
             print(f"- {work.id}: {'; '.join(work.metadata['blocking_items'])}")
-    if needs_human:
-        print("\n需要人工确认：")
-        for work in needs_human:
-            print(f"- {work.id}: {'; '.join(work.metadata['human_confirmations'])}")
-
     stale = [work for work in works if work_outcome(work)]
     if stale:
         print(f"\n结论已不成立（{len(stale)}）：")
@@ -1917,7 +1928,7 @@ def work_documents(work_id: str, documents: dict[str, Document]) -> list[Documen
 
 def rebuild_workflow(work: Document, documents: dict[str, Document]) -> None:
     generated = select_workflow({**work.metadata, "type": work.metadata["work_type"]})
-    for field in ("workflow", "required_documents", "required_checks", "human_confirmations"):
+    for field in ("workflow", "required_documents", "required_checks"):
         work.metadata[field] = generated[field]
     bind_workflow_artifacts(work, [work, *work_documents(work.id, documents)])
     synchronize_workflow(work, documents)
@@ -1972,8 +1983,6 @@ def command_flow(args: argparse.Namespace) -> None:
         )
     if work.metadata.get("blocking_items"):
         print("卡点: " + "; ".join(work.metadata["blocking_items"]))
-    if work.metadata.get("human_confirmations"):
-        print("需要人工确认: " + "; ".join(work.metadata["human_confirmations"]))
     print(f"下一步: {next_step_for(work, documents)}")
 
 
@@ -1981,8 +1990,6 @@ def next_step_for(work: "Document", documents: dict[str, "Document"]) -> str:
     """把「现在该做什么」集中到一处，避免每个视图各算一遍、算出不同答案。"""
     if work.metadata.get("blocking_items"):
         return "解决 blocking 待确认项并更新上游定义"
-    if work.metadata.get("human_confirmations"):
-        return "完成人工确认并记录决定"
     for gate in GATE_NAMES:
         if gate_passed(work, gate) or not gate_covered_documents(work.id, documents, gate):
             continue
@@ -2008,7 +2015,7 @@ def derive_work_status(work: Document, children: list[Document]) -> str:
     current = work.metadata["status"]
     if current in {"cancelled"}:
         return current
-    if work.metadata.get("blocking_items") or work.metadata.get("human_confirmations"):
+    if work.metadata.get("blocking_items"):
         return "todo"
     tasks = [document for document in children if document.kind == "task" and document.metadata.get("status") != "cancelled"]
     verifies = [document for document in children if document.kind == "verify"]
@@ -2441,6 +2448,26 @@ def command_audit(args: argparse.Namespace) -> None:
         findings.append(
             f"{len(idle_plans)} 个工作有 PLAN 却只有一个任务，PLAN 能写的并行与依赖在这里是空的——"
             f"它的触发条件应该挂拆分形态，而不是风险"
+        )
+
+    stuck = [
+        work.id
+        for work in works
+        if work.metadata.get("status") not in {"verified", "cancelled"}
+        and not work.metadata.get("blocking_items")
+        and all(gate_passed(work, gate) for gate in GATE_NAMES)
+        and all(
+            stage["status"] in {"done", "skipped"}
+            for stage in work.metadata.get("workflow", [])
+            if stage["requirement"] == "required"
+        )
+    ]
+    print("\n⑥ 有没有推不动的状态")
+    print(f"  事实齐备但状态未收口的工作：{len(stuck)}  {'、'.join(stuck) or '无'}")
+    if stuck:
+        findings.append(
+            f"{len(stuck)} 个工作的必需阶段和两道闸都已完成，状态却推不动——"
+            f"存在任何命令都出不去的状态，这类死锁比缺功能更难发现"
         )
 
     print("\n观察")

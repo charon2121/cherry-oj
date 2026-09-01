@@ -2,7 +2,7 @@
 id: "VERIFY-026"
 type: "verify"
 title: "为 Java 服务提供可直接启动的本地默认配置"
-status: "review"
+status: "approved"
 work: "WORK-026"
 owners: ["codex/root"]
 depends_on: ["TASK-041"]
@@ -12,9 +12,8 @@ verifies: ["CAPABILITY-007", "TASK-041"]
 tags: []
 result: "pass"
 created_at: "2026-08-31"
-updated_at: "2026-08-31"
+updated_at: "2026-09-01"
 ---
-
 
 # VERIFY-026：为 Java 服务提供可直接启动的本地默认配置
 
@@ -75,3 +74,4 @@ README/TOOLCHAIN 和 WORK-026。未修改 contracts、Web、Go Judge、migration
 - 2026-08-31：状态变更：draft → review。原因：116 项聚合测试零失败，配置扫描、正负启动 smoke、diff 与安全检查通过，提交结果复核
 - 2026-08-31：运行时联调暴露资源服务 JWKS 默认地址多出 `/internal`；修正三个服务、增加端点一致性
   回归后重新执行 121 项聚合测试，0 失败、1 项按环境条件跳过。
+- 2026-09-01：验收闸通过：review → approved。原因：接受，本地数据库账号属环境准备不属实现缺口；临时密钥的限制已知，MVP 阶段可接受

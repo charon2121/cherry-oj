@@ -2,7 +2,7 @@
 id: "WORK-013"
 type: "work"
 title: "建立用户身份与访问控制服务"
-status: "todo"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "compatibility", "data", "privacy", "release", "reliability", "security"]
-human_confirmations: ["安全边界与权限影响已经由负责人确认"]
 gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
@@ -36,7 +35,7 @@ work_type: "infra"
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|
-| 需求澄清 | ✔ 完成 | 必需 | WORK-013 `todo` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 需求澄清 | ✔ 完成 | 必需 | WORK-013 `verified` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
 | 能力定义 | ✔ 完成 | 必需 | CAPABILITY-004 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 开发体验 / 运维要求 | ✔ 完成 | 必需 | EXPERIENCE-005 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-010 `approved` | 确定技术方案、边界与取舍 |
@@ -68,3 +67,4 @@ work_type: "infra"
 - 2026-08-26：流程阶段 线上观察：pending → blocked。原因：尚未生产发布，无法产生线上可靠性与撤销时延观察证据
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
 - 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。
+- 2026-09-01：根据文档、任务与验证事实刷新状态：todo → verified。

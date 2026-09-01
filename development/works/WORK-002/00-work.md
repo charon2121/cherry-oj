@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["feature", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "accessibility", "data", "security"]
-human_confirmations: []
 gates: {"intent": "pending", "acceptance": "pending"}
 blocking_items: ["确认 WA 时允许普通用户查看的测试点信息", "确认内部 MVP 的发布环境口径"]
 reversible: true

@@ -15,7 +15,6 @@ verifies: []
 tags: []
 required_documents: ["feature", "experience", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "accessibility"]
-human_confirmations: []
 gates: {"intent": "passed", "acceptance": "pending"}
 blocking_items: []
 reversible: true
