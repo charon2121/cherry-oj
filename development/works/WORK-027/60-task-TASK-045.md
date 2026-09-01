@@ -2,7 +2,7 @@
 id: "TASK-045"
 type: "task"
 title: "把表单与提示类组件改为基于 shadcn 官方实现"
-status: "ready"
+status: "doing"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["DESIGN-021"]
@@ -80,3 +80,4 @@ DESIGN-021 定稿。
 ## 执行记录
 
 - 2026-09-01：状态变更：todo → ready。原因：定义、边界与完成标准明确；执行顺序由 PLAN 约束
+- 2026-09-01：状态变更：ready → doing。原因：开始 field 与 inline-notice 换文件
