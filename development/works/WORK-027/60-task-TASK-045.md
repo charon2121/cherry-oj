@@ -21,7 +21,8 @@ updated_at: "2026-09-01"
 
 ## 任务目标
 
-把 `field` 与 `inline-notice` 的基座换成 shadcn base-nova 官方 `field` 与 `alert`，保持现有的 aria 关联
+把 `field` 与 `inline-notice` 的实现文件换成 shadcn base-nova 官方 `field` 与 `alert`
+（「换文件」的含义见 [DESIGN-021 术语](./30-design-DESIGN-021.md#术语)），保持现有的 aria 关联
 行为与 OJ 五态语义。这是本工作风险最高的一步：`field` 有 7 个消费者并承担可访问性关联。
 
 ## 依据
@@ -49,13 +50,13 @@ TASK-044 完成（复用其确认过的改法），DESIGN-021 定稿。
 
 - `field` 改为官方可组合子组件（`Field`/`FieldLabel`/`FieldDescription`/`FieldError` 等），
   现有 `useId` + `cloneElement` 的 aria 关联行为由官方组合方式等价实现；
-- `inline-notice` 以官方 `alert` 为基座，追加 OJ 五态变体；
+- `inline-notice` 直接使用官方 `alert` 的实现，追加 OJ 五态变体；
 - 登录、改密、用户管理、题库筛选、题目工作台等 7 个 `field` 消费者与 3 个 `inline-notice` 消费者完成适配；
 - 新增测试覆盖 `aria-describedby`、`aria-invalid`、`required` 三项关联。
 
 ## 完成标准
 
-- [ ] `field` 与 `inline-notice` 以官方实现为基座，未保留手写骨架。
+- [ ] `field` 与 `inline-notice` 直接使用官方实现作为骨架，没有保留任何手写骨架。
 - [ ] `aria-describedby`、`aria-invalid`、`required` 关联由测试覆盖，而不是靠目视确认。
 - [ ] 登录、改密、用户管理三条表单链路的键盘操作顺序与错误提示与改动前一致。
 - [ ] OJ 五态在 `inline-notice` 上保留，且不靠颜色单独表达状态。

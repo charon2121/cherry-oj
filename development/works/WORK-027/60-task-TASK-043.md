@@ -50,7 +50,7 @@ DESIGN-021 定稿。与 TASK-044、TASK-045 无依赖，可并行。
 - 删除 `docs/design-system/components.html`；
 - `components.manifest.json` 的 `reference` 与 `sourceFiles` 不再指向该文件，改为说明视觉参考由 Storybook 承担；
 - `docs/design-system.md` §1、§6 同步，说明 Storybook 是唯一视觉参考，且它渲染的是真实组件；
-- `docs/frontend.md` 把组件优先级写实：基础组件先查 shadcn registry，官方有就以官方实现为基座、
+- `docs/frontend.md` 把组件优先级写实：基础组件先查 shadcn registry，官方有就直接用官方实现、
   只替换 token；官方没有（如 `link`、`typography`）才手写，并注明依据。
 
 ## 完成标准
@@ -58,7 +58,7 @@ DESIGN-021 定稿。与 TASK-044、TASK-045 无依赖，可并行。
 - [ ] `components.html` 已删除，且仓库内没有任何文档或 manifest 仍引用它。
 - [ ] `docs/design-system.md` 与 `components.manifest.json` 的视觉参考指向一致，不存在两个入口。
 - [ ] `docs/frontend.md` 的组件条款写明「如何判断官方是否有对应组件」，而不只是表达偏好。
-- [ ] `link`、`typography`、`layout` 保留手写的理由（registry 无对应）已记录，避免以后重复讨论。
+- [ ] `link`、`typography`、`layout` 维持手写的依据（registry 返回 404）已记录，避免以后重复讨论。
 
 ## 验证
 

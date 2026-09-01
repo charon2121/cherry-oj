@@ -46,17 +46,20 @@ updated_at: "2026-09-01"
 
 对照 shadcn base-nova 官方 registry 逐个核实的结果：
 
-| 项目组件 | 官方对应 | 处置 |
+| 项目组件 | 官方对应 | 这次怎么处理 |
 |---|---|---|
-| `badge` | `badge` | 改基座；OJ 五态变体在官方 4 变体之上扩展 |
-| `card` | `card` | 改基座；补齐官方 anatomy |
-| `field` | `field` | 改基座；官方 10 个子组件且不绑定任何表单库 |
-| `inline-notice` | `alert` | 改基座；OJ 五态在官方 2 变体之上扩展 |
-| `async-state` | `spinner` + `empty` | 改基座；官方已拆成两个组件 |
-| `icon-button` | `button` | 并入官方 button 的 icon size |
-| `link`、`typography` | 官方无（registry 404） | 保留手写 |
-| `layout` | 官方无 | 保留手写 |
-| 其余 7 个 | 同名官方组件存在 | 核对与官方实现的差异并记录 |
+| `badge` | `badge` | **换成官方那份文件**，颜色改成本仓库 token，OJ 五态加在官方 4 个变体之上 |
+| `card` | `card` | 换成官方那份文件，补齐官方有而我们没有的子组件 |
+| `field` | `field` | 换成官方那份文件；官方提供 10 个可组合子组件，且不绑定任何表单库 |
+| `inline-notice` | `alert` | 换成官方 `alert`，OJ 五态加在官方 2 个变体之上 |
+| `async-state` | `spinner` + `empty` | 换成官方那两份文件；官方已把它拆成两个组件 |
+| `icon-button` | `button` | 并入官方 `button` 的图标尺寸，不再单独存在 |
+| `link`、`typography` | 官方没有（registry 返回 404） | **维持现状**，并写明「官方没有」这个依据 |
+| `layout` | 官方没有 | 维持现状 |
+| 其余 7 个 | 官方有同名组件 | **这次不改代码**，只把与官方的出入写下来 |
+
+「换成官方那份文件」的具体含义、为什么值得换，以及「只把出入写下来」要写什么，见
+[DESIGN-021 的术语一节](./30-design-DESIGN-021.md#术语)。
 
 ## 当前问题
 
@@ -67,13 +70,15 @@ updated_at: "2026-09-01"
 
 ## 目标状态
 
-- REQ-001：`badge`、`card`、`field`、`inline-notice`、`async-state`、`icon-button` 六个组件改为以 shadcn
-  base-nova 官方实现为基座，仅替换颜色与尺寸相关 class 为本仓库语义 token 或稳定 Tailwind alias。
+- REQ-001：`badge`、`card`、`field`、`inline-notice`、`async-state`、`icon-button` 六个组件的实现文件
+  替换为 shadcn base-nova 的官方版本，只把其中的颜色与尺寸 class 改成本仓库语义 token 或稳定 Tailwind
+  alias；官方的 DOM 结构、属性接口与可访问性行为原样保留。
 - REQ-002：官方变体集合保留，OJ 语义（`success`/`warning`/`danger`/`info`/`special`）以扩展方式叠加，
   不删除官方变体，也不改变官方变体的含义。
 - REQ-003：已基于 `@base-ui/react` 的 7 个组件逐个与官方实现比对，把差异（缺失的子组件、缺失的 slot、
   行为差异）记录在 VERIFY，本次不强制改造。
-- REQ-004：`link`、`typography`、`layout` 保留手写，并在组件清单里注明「官方无对应」，避免以后重复讨论。
+- REQ-004：`link`、`typography`、`layout` 维持现状，并在组件清单里注明「官方没有对应组件」这个依据，
+  避免以后重复讨论同一个问题。
 - REQ-005：删除 `docs/design-system/components.html`，同步 `components.manifest.json` 与
   `docs/design-system.md` §1、§6，视觉参考改指 Storybook。
 - REQ-006：把「基础组件优先用 shadcn，官方没有才手写；采用后只替换 token 不重写结构」写成明确条款，
@@ -98,18 +103,18 @@ updated_at: "2026-09-01"
 
 ## 风险
 
-改基座时最可能出的问题是**悄悄改变可见行为**：官方实现的默认间距、圆角、字重与手写版本不同，
+换文件时最可能出的问题是**悄悄改变可见行为**：官方实现的默认间距、圆角、字重与现有版本不同，
 逐个消费者页面可能出现视觉回归；`field` 的 aria 关联方式从 `cloneElement` 改为官方子组件组合，
 可能丢掉现有的 `aria-describedby` / `aria-invalid` 行为。
 
 其次是**范围蔓延**：官方组件带来新的子组件和变体，容易顺手在业务页面用上，使本次改动同时变成功能改动。
 
-两者的应对都是同一条：本次只换基座与 token，不改任何消费者的 API 调用形态；消费者文件的改动仅限于
+两者的应对都是同一条：本次只换文件与颜色，不改任何调用方的用法；调用方文件的改动仅限于
 因组件 API 变化而必须做的最小适配，且必须在 VERIFY 中逐个列出。
 
 ## 回归检查
 
-- AC-001：六个改基座的组件在两个主题下的 default、hover、pressed、focus-visible、disabled、loading
+- AC-001：六个换过文件的组件在两个主题下的 default、hover、pressed、focus-visible、disabled、loading
   状态截图与改动前一致或有书面说明；Storybook 的 a11y addon 无新增违规。
 - AC-002：`field` 的 `aria-describedby`、`aria-invalid`、`required` 关联行为由测试覆盖，且登录、改密、
   用户管理三条表单链路的键盘操作与错误提示不变。

@@ -21,7 +21,8 @@ updated_at: "2026-09-01"
 
 ## 任务目标
 
-把 `badge`、`card`、`icon-button`、`async-state` 四个展示类组件的基座换成 shadcn base-nova 官方实现，
+把 `badge`、`card`、`icon-button`、`async-state` 四个展示类组件的实现文件换成 shadcn base-nova 官方
+版本（「换文件」的含义见 [DESIGN-021 术语](./30-design-DESIGN-021.md#术语)），
 只替换颜色与尺寸相关 class 为本仓库语义 token，保留官方变体并叠加 OJ 语义变体。
 
 ## 依据
@@ -56,7 +57,7 @@ DESIGN-021 定稿。与 TASK-043 无依赖；TASK-045 依赖本任务确认改�
 
 ## 完成标准
 
-- [ ] 四个组件的实现以官方源码为基座，未保留手写骨架。
+- [ ] 四个组件直接使用官方源码作为骨架，没有保留任何手写骨架。
 - [ ] 未出现 raw hex/OKLCH、primitive palette、`dark:` 或按 theme id 分支。
 - [ ] 两个主题下 default、hover、pressed、focus-visible、disabled、loading 六种状态齐全且表现一致。
 - [ ] 消费者文件的改动仅限组件 API 变化导致的必需适配，且已逐条列出。
@@ -69,7 +70,7 @@ DESIGN-021 定稿。与 TASK-043 无依赖；TASK-045 依赖本任务确认改�
 
 ## 风险
 
-官方默认外观与现有实现必然有差异，容易在「只换基座」和「顺便改设计」之间滑动。约束是：任何视觉差异
+官方默认外观与现有实现必然有差异，容易在「只换文件」和「顺便改设计」之间滑动。约束是：任何视觉差异
 要么消除，要么在 VERIFY 写明为何接受，不允许无声接受。
 
 ## 执行记录

@@ -1,7 +1,7 @@
 ---
 id: "PLAN-017"
 type: "plan"
-title: "组件基座迁移计划"
+title: "组件实现文件替换计划"
 status: "review"
 work: "WORK-027"
 owners: ["codex/root"]
@@ -14,11 +14,12 @@ created_at: "2026-09-01"
 updated_at: "2026-09-01"
 ---
 
-# PLAN-017：组件基座迁移计划
+# PLAN-017：组件实现文件替换计划
 
 ## 目标
 
-在不改变任何页面可见行为的前提下，把六个手写基础组件的基座换成 shadcn base-nova 官方实现，并移除
+在不改变任何页面可见行为的前提下，把六个手写基础组件的实现文件换成 shadcn base-nova 官方版本
+（下文简称「换文件」，定义见 [DESIGN-021 术语](./30-design-DESIGN-021.md#术语)），并移除
 与真实组件长期漂移的手工参考页。落实 [CHANGE-009](./10-change-CHANGE-009.md) 的 REQ-001～REQ-006。
 
 ## 改动区域
@@ -36,8 +37,8 @@ updated_at: "2026-09-01"
 ## 阶段与顺序
 
 1. **TASK-043** 移除手工参考页并把视觉参考改指 Storybook，同时把组件优先级原则写进 `docs/frontend.md`。
-2. **TASK-044** 展示类四个组件改基座：badge、card、icon-button、async-state。
-3. **TASK-045** 表单与提示类两个组件改基座：field、inline-notice。
+2. **TASK-044** 展示类四个组件换文件：badge、card、icon-button、async-state。
+3. **TASK-045** 表单与提示类两个组件换文件：field、inline-notice。
 
 顺序理由：TASK-043 与代码无关，先做能立刻消除一个漂移源；TASK-044 的组件没有 aria 关联，用它验证
 「取官方实现 → 换 token → 追加 OJ 变体」这条流程是否顺畅；确认流程成立后再做风险最高的 TASK-045。

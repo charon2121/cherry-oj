@@ -32,15 +32,61 @@ updated_at: "2026-09-01"
 - OJ 语义是**叠加**而非替换：官方变体全部保留，`success`/`warning`/`danger`/`info`/`special` 追加；
 - 消费者的调用形态尽量不动；确需适配时，适配点必须可枚举、可在 VERIFY 中逐条列出。
 
+## 术语
+
+后文用到三个简写，先定义清楚。
+
+**换文件** —— 以 `badge` 为例，官方实现是：
+
+```tsx
+import { useRender } from '@base-ui/react/use-render';
+function Badge(props: useRender.ComponentProps<'span'> & VariantProps<...>) {
+  return useRender({ ... });
+}
+```
+
+仓库现有实现是：
+
+```tsx
+function Badge({ children, ... }: ComponentProps<'span'> & VariantProps<...>) {
+  return <span {...props}>...</span>;
+}
+```
+
+差别不在外观而在能力：官方走 Base UI 的 `useRender`，因此 `<Badge render={<a href="…" />}>` 可以把
+徽章渲染成链接、按钮或任意元素，属性合并与 ref 转发由 primitive 处理；现有实现写死 `<span>`，
+要让徽章可点击就得再包一层。
+
+所以「换文件」= 删掉手写实现，换成官方那份文件，然后只做两件事：把官方的 `bg-primary`、
+`text-muted-foreground` 等换成本仓库语义 token；把 OJ 五态变体追加进它的 `variants`。骨架、属性接口
+和可访问性行为全部来自官方，颜色与 OJ 语义是我们的。
+
+**记差异** —— 对已经建立在 `@base-ui/react` 上的 7 个组件，本次**一行代码都不改**，只把它们与官方的
+出入写进 VERIFY。例如实测 `dialog`：
+
+```
+官方有我们没有：DialogClose、DialogOverlay、DialogTrigger
+我们有官方没有：DialogBackdrop、DialogViewport
+两边都有：6 个
+```
+
+这些出入可能是有意的，也可能是当初写漏的，现在没人知道。写下来是把「不知道」变成「知道」，
+让以后的人能判断该不该补，而不必每次重新比对一遍。这 7 个不动的理由是它们已经有正确骨架，
+改造收益远小于风险。
+
+**维持现状** —— `link`、`typography`、`layout` 保持手写不动。shadcn 的定位是交互组件，排版与布局
+原语它一向不提供，registry 对 `link`、`typography`、`layout`、`stack`、`container` 全部返回 404。
+这三个手写不是没查过官方，是官方确实没有。
+
 ## 整体方案
 
 三步，每步独立可回退：
 
 1. **移除手工参考页**（不依赖后两步）。删除 `components.html`，`components.manifest.json` 的
    `reference` 与 `sourceFiles` 改为指向 Storybook，`docs/design-system.md` §1、§6 同步。
-2. **展示类组件改基座**：`badge`、`card`、`icon-button`、`async-state`。这四个没有复杂交互与 aria 关联，
+2. **展示类组件换文件**：`badge`、`card`、`icon-button`、`async-state`。这四个没有复杂交互与 aria 关联，
    回归面集中在视觉。
-3. **表单与提示类改基座**：`field`、`inline-notice`。`field` 有 7 个消费者且承担 aria 关联，风险最高，
+3. **表单与提示类换文件**：`field`、`inline-notice`。`field` 有 7 个消费者且承担 aria 关联，风险最高，
    单独一步做完再验。
 
 每个组件的改法固定：`npx shadcn@latest add <name>` 取官方实现到临时位置 → 逐行比对现有实现 → 以官方为

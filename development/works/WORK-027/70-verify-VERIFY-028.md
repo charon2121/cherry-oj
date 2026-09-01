@@ -1,7 +1,7 @@
 ---
 id: "VERIFY-028"
 type: "verify"
-title: "组件基座迁移验证"
+title: "组件实现文件替换验证"
 status: "draft"
 work: "WORK-027"
 owners: ["codex/root"]
@@ -15,7 +15,7 @@ created_at: "2026-09-01"
 updated_at: "2026-09-01"
 ---
 
-# VERIFY-028：组件基座迁移验证
+# VERIFY-028：组件实现文件替换验证
 
 ## 验证对象
 
