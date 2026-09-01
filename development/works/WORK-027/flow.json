@@ -1,0 +1,115 @@
+[
+  {
+    "stage": "definition",
+    "label": "改动说明与边界",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "CHANGE-009"
+    ],
+    "checks": [
+      "definition",
+      "scope"
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-021"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-017"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "tasks",
+    "label": "开发任务",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-043",
+      "TASK-044",
+      "TASK-045"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-043",
+      "TASK-044",
+      "TASK-045"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      "impact-analysis"
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-028"
+    ],
+    "checks": [
+      "automated-tests",
+      "accessibility",
+      "compatibility"
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  }
+]

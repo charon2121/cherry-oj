@@ -2706,12 +2706,19 @@ def command_set_stage(args: argparse.Namespace) -> None:
 def command_link(args: argparse.Namespace) -> None:
     documents, index = checked_documents(args.root)
     document = require_document(documents, args.document_id)
-    target = require_document(documents, args.target_id)
+    # 引用可以锚定到条目（FEATURE-002#REQ-001）。new-doc --implements 一直支持这种写法，
+    # link 却按整份文档 id 查找——同一种引用两套解析，追踪链会因此填不满。
+    reference = args.target_id
+    target = require_document(documents, reference_target(reference) or reference)
+    if "#" in reference:
+        anchor = reference.split("#", 1)[1]
+        if anchor not in target.body:
+            raise WorkError(f"{target.id} 中不存在局部编号 {anchor}")
     if args.relation not in REFERENCE_FIELDS:
         raise WorkError(f"不支持关系 {args.relation}")
     values = list(document.metadata.get(args.relation, []))
-    if target.id not in values:
-        values.append(target.id)
+    if reference not in values:
+        values.append(reference)
     document.metadata[args.relation] = values
     document.metadata["updated_at"] = today()
     prospective = dict(documents)
@@ -2720,7 +2727,7 @@ def command_link(args: argparse.Namespace) -> None:
     if errors:
         raise WorkError("关联会破坏系统约束：\n- " + "\n- ".join(errors))
     write_document(document)
-    print(f"✓ {document.id} --{args.relation}--> {target.id}")
+    print(f"✓ {document.id} --{args.relation}--> {reference}")
 
 
 def command_trace(args: argparse.Namespace) -> None:

@@ -31,7 +31,7 @@ Cherry OJ 沿用 Linear fixture 的 Focused Workspace 结构：低噪声层级�
 
 所有界面遵守以下原则：
 
-- 导航退后，当前任务获得主要对比度；普通分组优先用间距、对齐和分隔线，不把每个区块都做成 Card。
+- 导航退后，当前任务获得主要对比度；普通分组优先用间距、对齐和分隔线，不使用 Card 布局。
 - Foundation 沿用 Inter Variable、中文系统字体回退、400/510/590 字重、4px 间距节奏、6/8/12px
   圆角与 150/200ms 动效。Berkeley Mono 只在用户环境已合法安装时优先，不随包分发。
 - 品牌、危险和 OJ 状态是不同语义。Cherry 品牌色可以表示主操作和品牌链接，不能代替 destructive。

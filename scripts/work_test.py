@@ -866,5 +866,21 @@ class WorkToolTest(unittest.TestCase):
         self.assertIn("⑥ 有没有推不动的状态", report)
 
 
+    def test_link_accepts_anchored_references(self) -> None:
+        """new-doc --implements 一直支持 DOC#REQ-001，link 却只认整份文档——
+        同一种引用两套解析，追踪链会因此填不满。"""
+        self.create_fast_work()
+        self.run_work("link", "TASK-001", "--relation", "implements", "--to", "CHANGE-001#REQ-001")
+        task = self.metadata(self.one_work_file("60-task-TASK-001.md"))
+        self.assertIn("CHANGE-001#REQ-001", task["implements"])
+        self.assertIn("锚定认领 1/", self.run_work("board", "WORK-001").stdout)
+
+        result = self.run_work(
+            "link", "TASK-001", "--relation", "implements", "--to", "CHANGE-001#REQ-404",
+            success=False,
+        )
+        self.assertIn("不存在局部编号", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
