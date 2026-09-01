@@ -24,7 +24,7 @@ public_api_change: false
 security_sensitive: false
 user_visible: true
 created_at: "2026-08-28"
-updated_at: "2026-08-28"
+updated_at: "2026-09-01"
 work_type: "infra"
 ---
 
@@ -50,17 +50,15 @@ flowchart TD
     plan["✔ 开发计划"]
     tasks["✔ 开发任务"]
     development["✔ 开发"]
-    review["✔ 复核"]
+    review["○ 复核"]
     verification["✖ 验证"]
-    release["· 上线"]
-    observe["· 线上观察"]
     memory["· 项目记忆"]
-    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> memory
     classDef done stroke-width:2px
     classDef doing stroke-width:3px
     classDef skipped stroke-dasharray:4 3
     classDef blocked stroke-width:3px,stroke-dasharray:2 2
-    class clarify,definition,experience,design,decision,plan,tasks,development,review done
+    class clarify,definition,experience,design,decision,plan,tasks,development done
     class verification blocked
 ```
 
@@ -74,10 +72,8 @@ flowchart TD
 | 开发计划 | ✔ 完成 | 必需 | PLAN-013 `approved` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-023 `done`、TASK-024 `done`、TASK-025 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-023 `done`、TASK-024 `done`、TASK-025 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 验证 | ✖ 受阻 | 必需 | VERIFY-017 `approved` | 用可复现的证据确认要求逐条满足 |
-| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
-| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
 | 项目记忆 | · 未开始 | 必需 | MEMORY-013 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -106,3 +102,4 @@ flowchart TD
 - 2026-08-28：根据文档、任务与验证事实刷新状态：todo → implemented。
 - 2026-08-28：状态变更：implemented → cancelled。原因：核心构建边界未通过人工验收；保留可复用实现，由后续维护工作完成自包含重构
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
+- 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。

@@ -113,7 +113,7 @@ scripts/work new-doc \
 - 必需文档是否至少关联一个阶段；
 - 阶段进度是否与文档、TASK、VERIFY 和 WORK 状态一致；
 - 卡点是否解决，要求是否有任务，重要验收是否有验证；
-- 已验证任务是否有 VERIFY，已上线工作是否已通过验证；
+- 已验证任务是否有 VERIFY；
 - 文档状态与 WORK 状态是否冲突；
 - `development/` 顶层是否重新出现按文档类型划分的目录；
 - 工作项目录是否保持扁平并只包含受管理 Markdown。
@@ -158,11 +158,11 @@ scripts/work refresh WORK-003
 ```bash
 scripts/work set-status DESIGN-002 approved --reason "架构复核通过"
 scripts/work set-status VERIFY-002 approved --result pass --reason "验收场景和回归检查通过"
-scripts/work set-stage WORK-003 release skipped --reason "纯仓库维护无需业务上线"
+scripts/work set-stage WORK-003 review done --reason "复核确认边界未被越过"
 scripts/work refresh WORK-003
 ```
 
-有 artifacts 的阶段只能由文档、TASK 或 VERIFY 的事实推进；`clarify` 由 `blocking_items` 推进。复核、上线和观察等没有独立 artifact 的阶段可以显式推进，但 required 阶段不能标为 skipped，每次变化都必须记录理由并检查前置 required 阶段。
+有 artifacts 的阶段只能由文档、TASK 或 VERIFY 的事实推进；`clarify` 由 `blocking_items` 推进。复核等没有独立 artifact 的阶段可以显式推进，但 required 阶段不能标为 skipped，每次变化都必须记录理由并检查前置 required 阶段。
 
 人工确认通过闸签署，一次覆盖该闸的全部文档；决定类与 VERIFY 文档不再逐份 `set-status ... approved`：
 
@@ -207,8 +207,7 @@ scripts/work supersede DESIGN-001 --by DESIGN-003 --reason "新方案覆盖旧�
 可以开发    3
 开发中      4
 代码完成    1
-验证通过    1
-已上线      1
+验证通过    2
 
 卡住        2
 高风险      1
@@ -270,9 +269,8 @@ scripts/work supersede DESIGN-001 --by DESIGN-003 --reason "新方案覆盖旧�
 14. 对应哪些任务？
 15. 每个要求在哪里实现？
 16. 怎样证明它已经完成，验证覆盖了哪些验收项？
-17. 上线后怎样确认没有问题？
-18. 未来的人或智能体为什么能够理解当初的决定？
-19. 文档是否已经由人审核，当前是否明确获得了进入实施阶段的授权？
+17. 未来的人或智能体为什么能够理解当初的决定？
+18. 文档是否已经由人审核，当前是否明确获得了进入实施阶段的授权？
 
 如果这些问题可以稳定回答，而且系统没有因为流程本身制造大量无意义文档，这套协作开发文档体系才算真正建立起来。
 

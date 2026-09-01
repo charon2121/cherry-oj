@@ -9,10 +9,12 @@ WORK、TASK 和其他文档有不同责任，因此使用不同状态机。
 工作项状态是：
 
 ```text
-todo → ready → doing → implemented → verified → released → confirmed
+todo → ready → doing → implemented → verified
 ```
 
-`cancelled` 表示工作终止。各状态分别代表待开始、可以开发、开发中、代码完成、验证通过、已上线和线上确认。`implemented` 只表示实现已经完成，不代表验证、发布或线上结果。
+`cancelled` 表示工作终止。各状态分别代表待开始、可以开发、开发中、代码完成和验证通过；`verified` 是终态。`implemented` 只表示实现已经完成，不代表验证结果。
+
+项目当前处于 MVP 开发阶段，没有生产环境，因此流程里没有上线与线上观察阶段，也没有 `released` 与 `confirmed` 状态——理由见 [§4.9](./04-workflows.md#49-强制完整流程)。真正具备生产环境后再重新引入。
 
 TASK 状态是：
 
@@ -82,14 +84,9 @@ ready 边界前的 required 阶段已经由人确认完成，TASK 已获得执�
 所有必要 VERIFY approved 且 result=pass
 → verified
 
-记录上线成功
-→ released
-
-线上验证通过
-→ confirmed
 ```
 
-阶段状态与 WORK 状态必须一起刷新。WORK 进入 ready、implemented、verified、released 或 confirmed时，对应边界之前的 required 阶段必须为 done。人工可以在有理由和证据时覆盖状态，但工具不能代替人工完成产品判断、高风险确认或线上责任。
+阶段状态与 WORK 状态必须一起刷新。WORK 进入 ready、implemented 或 verified 时，对应边界之前的 required 阶段必须为 done。人工可以在有理由和证据时覆盖状态，但工具不能代替人工完成产品判断或高风险确认。
 
 ## 6.3 定义关卡
 
@@ -131,21 +128,9 @@ PLAN 需要让范围可拆、依赖和顺序明确，并记录风险、验证与
 验证通过
 ```
 
-需要上线的工作还要继续：
+这一区分保证“已经实现”和“已经证明”不会被压成同一个模糊的完成状态：代码写完只是 `implemented`，必须有 approved 且 `result=pass` 的 VERIFY 才是 `verified`。
 
-```text
-定义明确
-↓
-代码完成
-↓
-验证通过
-↓
-已上线
-↓
-线上确认
-```
-
-这一区分保证“已经实现”“已经证明”和“已经在真实环境稳定运行”不会被压成同一个模糊的完成状态。
+MVP 阶段没有生产环境，`verified` 就是完成。等到真正有生产环境时，再在这条闭环之后接上线与线上确认——但不能反过来，为了流程看起来完整而保留两个永远走不完的阶段。
 
 ---
 

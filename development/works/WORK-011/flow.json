@@ -84,34 +84,11 @@
       "VERIFY-011"
     ],
     "checks": [
-      "automated-tests"
-    ],
-    "source": "profile:maintenance",
-    "reason": "maintenance 基础流程"
-  },
-  {
-    "stage": "release",
-    "label": "上线",
-    "requirement": "optional",
-    "status": "skipped",
-    "status_source": "manual",
-    "artifacts": [],
-    "checks": [],
-    "source": "profile:maintenance",
-    "reason": "maintenance 基础流程"
-  },
-  {
-    "stage": "observe",
-    "label": "观察",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [
+      "automated-tests",
       "observability"
     ],
-    "source": "overlay:concern",
-    "reason": "专项关注要求在实施后持续观察"
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
   },
   {
     "stage": "memory",

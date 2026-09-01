@@ -76,7 +76,9 @@
     "artifacts": [
       "PLAN-016"
     ],
-    "checks": [],
+    "checks": [
+      "rollback"
+    ],
     "source": "overlay:risk-impact",
     "reason": "高风险或系统级影响必须有显式实施计划"
   },
@@ -133,36 +135,11 @@
       "automated-tests",
       "cross-module-regression",
       "compatibility",
+      "reliability",
       "security"
     ],
     "source": "profile:infra",
     "reason": "infra 基础流程"
-  },
-  {
-    "stage": "release",
-    "label": "上线",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [
-      "rollback"
-    ],
-    "source": "overlay:delivery",
-    "reason": "工作包含交付或上线影响"
-  },
-  {
-    "stage": "observe",
-    "label": "线上观察",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [
-      "reliability"
-    ],
-    "source": "overlay:delivery",
-    "reason": "上线后必须观察实际结果"
   },
   {
     "stage": "memory",

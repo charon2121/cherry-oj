@@ -47,7 +47,7 @@ WORK-008 status endpoint 作为首个迁移与跨模块验证样本。
 基础层；E2E 依赖 Gateway 和 Web 都完成。生成器选择必须先用最小 OpenAPI 3.1.x schema 验证 optional、
 nullable、discriminated union 与 Problem extensions，不凭名称选型。
 
-## 迁移与上线
+## 迁移与交付
 
 WORK-008 尚未发布，无兼容消费者，获批后可以原地替换试验 shape。未来已有消费者的 endpoint 必须
 使用 additive change、双写/迁移窗口或新 `/api/v2`。本工作只完成代码与本地验证，上线需独立确认，

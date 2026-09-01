@@ -34,7 +34,7 @@ Java/Go 应用与依赖、根 Compose、observability/scripts、contracts/docs�
 
 批量回退存在共享工作树依赖，顺序执行，不并行改文件。
 
-## 迁移与上线
+## 迁移与交付
 
 尚未提交/发布，无线上迁移或发布动作。本地容器清理只针对 Alloy/otel-lgtm，volume 保留。
 

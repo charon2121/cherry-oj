@@ -161,10 +161,10 @@ class WorkToolTest(unittest.TestCase):
         work = self.one_work_file("00-work.md").read_text(encoding="utf-8")
         self.assertIn('risk: "medium"', work)
         self.assertIn('required_documents: ["change", "design", "plan", "task", "verify"]', work)
-        workflow = self.workflow()
-        stages = {stage["stage"]: stage for stage in workflow}
-        self.assertEqual("required", stages["release"]["requirement"])
-        self.assertEqual("required", stages["observe"]["requirement"])
+        stages = {stage["stage"]: stage for stage in self.workflow()}
+        # MVP 没有生产环境，任何升级规则都不得再引入上线与线上观察。
+        self.assertNotIn("release", stages)
+        self.assertNotIn("observe", stages)
 
     def test_product_profile_uses_feature_and_user_experience_flow(self) -> None:
         self.run_work(
@@ -197,8 +197,6 @@ class WorkToolTest(unittest.TestCase):
                 "开发",
                 "复核",
                 "验证",
-                "上线",
-                "线上观察",
                 "项目记忆",
             ],
             labels,
@@ -274,8 +272,8 @@ class WorkToolTest(unittest.TestCase):
         )
         stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertEqual("改进说明与目标指标", stages["definition"]["label"])
-        self.assertEqual("持续观察", stages["observe"]["label"])
-        self.assertIn("performance", stages["observe"]["checks"])
+        self.assertNotIn("observe", stages)
+        self.assertIn("performance", stages["verification"]["checks"])
         self.assertEqual("required", stages["memory"]["requirement"])
 
     def test_high_system_overlay_inserts_decision_memory_and_checks(self) -> None:
@@ -298,11 +296,11 @@ class WorkToolTest(unittest.TestCase):
         stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertEqual("overlay:risk-impact", stages["decision"]["source"])
         self.assertEqual("required", stages["memory"]["requirement"])
-        self.assertEqual("required", stages["observe"]["requirement"])
+        self.assertNotIn("observe", stages)
         self.assertIn("independent-review", stages["review"]["checks"])
         self.assertIn("rollback", stages["plan"]["checks"])
         self.assertIn("cross-module-regression", stages["verification"]["checks"])
-        self.assertIn("reliability", stages["observe"]["checks"])
+        self.assertIn("reliability", stages["verification"]["checks"])
 
     def test_check_rejects_workflow_that_does_not_match_profile(self) -> None:
         self.create_fast_work()
@@ -315,19 +313,6 @@ class WorkToolTest(unittest.TestCase):
 
     def test_set_stage_handles_only_documentless_operational_stages(self) -> None:
         self.create_fast_work()
-        self.run_work(
-            "set-stage",
-            "WORK-001",
-            "release",
-            "skipped",
-            "--reason",
-            "纯仓库维护无需业务上线",
-        )
-        workflow = self.workflow()
-        stages = {stage["stage"]: stage for stage in workflow}
-        self.assertEqual("skipped", stages["release"]["status"])
-        self.assertEqual("manual", stages["release"]["status_source"])
-
         result = self.run_work(
             "set-stage",
             "WORK-001",
@@ -699,6 +684,40 @@ class WorkToolTest(unittest.TestCase):
         self.run_work("refresh", "WORK-001")
         self.run_work("check")
         self.assertEqual(original, path.read_text(encoding="utf-8"))
+
+
+    def test_no_profile_introduces_release_or_observe(self) -> None:
+        """MVP 没有生产环境：上线与线上观察在任何组合下都不该出现。
+
+        它们此前是必需阶段，而必需阶段不能标 skipped，于是只能手工标 blocked——
+        18 个必需实例只完成过 1 次，「完成定义」对绝大多数工作永远无法闭合。
+        """
+        combinations = (
+            ("product", "high", "system", ("--data-change", "--public-api-change")),
+            ("infra", "medium", "multi-module", ("--security-sensitive",)),
+            ("fix", "low", "local", ()),
+            ("maintenance", "low", "local", ()),
+            ("improvement", "high", "system", ("--user-visible",)),
+        )
+        for index, (kind, risk, impact, flags) in enumerate(combinations, start=1):
+            with self.subTest(work_type=kind):
+                self.run_work(
+                    "new", "--title", f"验证 {kind}", "--type", kind,
+                    "--risk", risk, "--impact", impact,
+                    "--concern", "release", "--concern", "performance",
+                    "--owner", "agent/test", *flags,
+                )
+                work_id = f"WORK-{index:03d}"
+                stages = {s["stage"] for s in self.workflow(work_id)}
+                self.assertNotIn("release", stages)
+                self.assertNotIn("observe", stages)
+
+    def test_verified_is_the_terminal_work_status(self) -> None:
+        self.create_fast_work()
+        result = self.run_work(
+            "set-status", "WORK-001", "released", "--reason", "试图上线", success=False
+        )
+        self.assertIn("不支持状态 released", result.stderr)
 
 
 if __name__ == "__main__":

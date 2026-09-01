@@ -24,7 +24,7 @@ public_api_change: false
 security_sensitive: false
 user_visible: false
 created_at: "2026-08-28"
-updated_at: "2026-08-28"
+updated_at: "2026-09-01"
 work_type: "fix"
 ---
 
@@ -42,10 +42,8 @@ flowchart TD
     development["✔ 开发"]
     review["○ 复核"]
     verification["▶ 回归验证"]
-    release["· 上线"]
-    observe["· 观察"]
     memory["⊘ 项目记忆"]
-    definition --> design --> tasks --> development --> review --> verification --> release --> observe --> memory
+    definition --> design --> tasks --> development --> review --> verification --> memory
     classDef done stroke-width:2px
     classDef doing stroke-width:3px
     classDef skipped stroke-dasharray:4 3
@@ -63,8 +61,6 @@ flowchart TD
 | 开发 | ✔ 完成 | 必需 | TASK-022 `done` | 按任务实施，产出代码与测试 |
 | 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 回归验证 | ▶ 进行中 | 必需 | VERIFY-016 `review` | 用可复现的证据确认要求逐条满足 |
-| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
-| 观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -79,3 +75,4 @@ flowchart TD
 - 2026-08-28：根据文档、任务与验证事实刷新状态：ready → doing。
 - 2026-08-28：根据文档、任务与验证事实刷新状态：doing → implemented。
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
+- 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。

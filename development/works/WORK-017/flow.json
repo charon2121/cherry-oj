@@ -114,8 +114,8 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "done",
-    "status_source": "manual",
+    "status": "ready",
+    "status_source": "derived",
     "artifacts": [],
     "checks": [
       "impact-analysis"
@@ -140,28 +140,6 @@
     ],
     "source": "profile:infra",
     "reason": "infra 基础流程"
-  },
-  {
-    "stage": "release",
-    "label": "上线",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [],
-    "source": "overlay:delivery",
-    "reason": "工作包含交付或上线影响"
-  },
-  {
-    "stage": "observe",
-    "label": "线上观察",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [],
-    "source": "overlay:delivery",
-    "reason": "上线后必须观察实际结果"
   },
   {
     "stage": "memory",

@@ -6,7 +6,7 @@
 项目文档只有两层：
 
 - [`docs/`](../docs/README.md) 保存已经确认、跨工作项长期有效的全局事实；
-- `development/` 保存具体工作从提出到验证、上线和沉淀记忆的过程文档。
+- `development/` 保存具体工作从提出到验证和沉淀记忆的过程文档。
 
 完整规范与术语依据保存在 [`SPECIFICATION.md`](./SPECIFICATION.md)（总览与索引）及其
 [`specification/`](./specification/) 分章。本 README 只保留仓库当前实现
@@ -40,8 +40,7 @@ WORK
 - `maintenance`：外部行为原则上不变的重构和维护；
 - `improvement`：性能、稳定性、安全、成本或质量等系统性改进。
 
-流程是控制面，文档是产物面，两者不是一一对应：一个阶段可以没有 Markdown 文档，例如开发、复核、
-上线和观察；一个阶段可以关联多份 TASK 或 VERIFY；同一份 TASK 也同时支撑“任务拆分”和“开发”
+流程是控制面，文档是产物面，两者不是一一对应：一个阶段可以没有 Markdown 文档，例如开发与复核；一个阶段可以关联多份 TASK 或 VERIFY；同一份 TASK 也同时支撑“任务拆分”和“开发”
 阶段。`00-work.md` 的 `workflow` 使用 `artifacts` 保存这种零到多、多到多关系。
 
 五种 WORK 使用独立流程模板：产品使用 FEATURE 与用户 EXPERIENCE；基建使用 CAPABILITY 与开发/
@@ -51,8 +50,11 @@ WORK
 风险为 `low / medium / high / critical`，影响面为 `local / multi-module / system`。数据库、持久化
 格式、公共接口、安全、隐私和不可快速回退的改动会由工具自动提高最低风险；高风险与系统级工作
 自动插入技术决策、显式计划、长期记忆、独立复核和回退检查；系统级工作增加跨模块回归。数据、
-公共接口、安全、用户可见或 release 关注会要求上线与观察，性能、可靠性、可观测和成本关注会要求
-观察。关键风险仍会留下人工确认项。
+关键风险仍会留下人工确认项。
+
+流程里**没有上线与线上观察阶段**：项目处于 MVP 开发阶段，没有生产环境，这两个阶段无论怎样推进都
+无法完成，只会让「完成定义」对绝大多数工作永远无法闭合。交付与回退方式在开发计划阶段确定，
+性能、可靠性、可观测与成本关注在验证阶段用实际证据覆盖。
 
 ## 目录
 
@@ -197,7 +199,7 @@ scripts/work new-doc \
 工作项状态：
 
 ```text
-todo → ready → doing → implemented → verified → released → confirmed
+todo → ready → doing → implemented → verified      # verified 是终态
 ```
 
 任务状态：
@@ -210,7 +212,8 @@ todo → ready → doing → done → verified
 其他文档状态：
 
 ```text
-draft → review → approved
+draft → review → checked    # 记录类：工具校验通过
+              ↘  approved   # 决定类与 VERIFY：人在闸上签署
                  ├─ deprecated
                  ├─ superseded
                  └─ archived
@@ -221,17 +224,16 @@ draft → review → approved
 ```bash
 scripts/work set-status DESIGN-002 approved --reason "架构复核通过"
 scripts/work set-status VERIFY-002 approved --result pass --reason "验收场景和回归检查通过"
-scripts/work set-stage WORK-003 release skipped --reason "纯仓库维护无需业务上线"
+scripts/work set-stage WORK-003 review done --reason "复核确认边界未被越过"
 scripts/work refresh WORK-003
 ```
 
-有 artifacts 的阶段由对应文档、TASK 或 VERIFY 状态推进；`clarify` 由 `blocking_items` 推进。只有复核、
-上线、观察等没有独立 artifact 的操作阶段使用 `set-stage` 手工推进，必做阶段不能跳过。
+有 artifacts 的阶段由对应文档、TASK 或 VERIFY 状态推进；`clarify` 由 `blocking_items` 推进。只有复核等没有独立
+artifact 的操作阶段使用 `set-stage` 手工推进，必做阶段不能跳过。
 
 `refresh` 只根据已经存在的文档、任务和验证事实推导状态，不代替人工产品判断或关键风险确认。
 `implemented` 只代表实现完成；只有存在 `result=pass` 的已确认 `VERIFY`，工作项才会变成 `verified`。
-WORK 进入 `ready / implemented / verified / released / confirmed` 时，对应边界之前的全部必做阶段必须
-已经完成。
+WORK 进入 `ready / implemented / verified` 时，对应边界之前的全部必做阶段必须已经完成。
 
 ## 校验、查询和上下文
 

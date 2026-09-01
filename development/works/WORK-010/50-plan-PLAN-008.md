@@ -49,7 +49,7 @@ TASK-010 是共同前置。其完成后 Java/Go 可并行，不能互改对方�
 依赖前三个任务，只负责部署/验收，不在 smoke 阶段修应用代码；发现缺陷回到所属任务。未来 Kafka
 producer/consumer 不存在，传播规则在契约中先冻结，实际接线由交付 Kafka 的业务/基建 WORK 实施。
 
-## 迁移与上线
+## 迁移与交付
 
 应用能力以 opt-in OTLP exporter 和可选 Compose profile 引入。先在本地 100% 采样完成 smoke，再在
 单个非关键环境按低比例启用，确认日志量、series 数、export queue/drop 和业务延迟后逐服务扩大。

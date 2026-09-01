@@ -356,7 +356,8 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 - 用户行为变化 → 先完成 FEATURE/PRODUCT，解决 blocking 待确认项；
 - 技术路线变化 → 更新 DESIGN/DECISION 和影响面，不在 TASK 中偷偷改变；
 - 出现可执行工作或技术债 → 建立关联 TASK，代码锚点使用 `TODO(TASK-001): ...`；
-- 声明完成 → 记录实际 VERIFY；implemented 不等于 verified，更不等于 released/confirmed。
+- 声明完成 → 记录实际 VERIFY；implemented 不等于 verified。MVP 阶段没有生产环境，流程里没有上线与
+  线上观察阶段，`verified` 就是终态。
 
 **契约先行**：改 `contracts/*.json` → 再改各语言类型 → 再改实现。反过来做必然漂移。
 
@@ -394,7 +395,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 - **开发后记录证据。** 用 `scripts/work set-status` 记录有理由的状态变化，在 VERIFY 写实际命令、环境、
   结果、遗留问题和剩余风险，再用 `scripts/work refresh WORK-001` 按事实刷新流程阶段和工作项状态。
 - **技术完成不等于产品确认。** TASK done 只表示实现完成；Agent 不能根据测试全绿自动代签人工产品
-  判断、关键风险、发布或线上确认。
+  判断或关键风险确认。
 - **设计变更先写当前 WORK。** 经确认且长期跨工作有效时再同步 `docs/`；操作步骤变化同步 `tutorial/`。
   Web 设计系统的真实变更必须让同一 WORK/TASK 同时覆盖 `apps/web/design-system/` 与
   `docs/design-system/`，但普通 Web 命令不得用跨树 drift、copy 或 symlink 代替这项显式维护责任。

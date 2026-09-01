@@ -9,7 +9,7 @@
 | WORK-002 | 交付 C++ ACM 答题闭环 | 产品功能 | 待确认 | 中 | 整个系统 | product/owner | [00-work.md](./works/WORK-002/00-work.md) |
 | WORK-003 | 按工作项聚合开发文档 | 整理维护 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-003/00-work.md) |
 | WORK-004 | 按类型与风险编排开发流程 | 整理维护 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-004/00-work.md) |
-| WORK-005 | 修复开发文档 CI 的 clean checkout 链接校验 | 问题修复 | 线上确认 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-005/00-work.md) |
+| WORK-005 | 修复开发文档 CI 的 clean checkout 链接校验 | 问题修复 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-005/00-work.md) |
 | WORK-006 | 按思维导图结构重写开发文档系统规范 | 整理维护 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-006/00-work.md) |
 | WORK-007 | 校正全局 PRD 与当前 MVP 基线的漂移 | 整理维护 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-007/00-work.md) |
 | WORK-008 | 建立 Web 到 Gateway 的 REST 基础连通模块 | 基础能力 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-008/00-work.md) |

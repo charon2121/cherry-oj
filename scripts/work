@@ -70,8 +70,6 @@ WORK_STATUSES = {
     "doing",
     "implemented",
     "verified",
-    "released",
-    "confirmed",
     "cancelled",
 }
 TASK_STATUSES = {"todo", "ready", "doing", "done", "verified", "blocked", "cancelled"}
@@ -158,7 +156,7 @@ REQUIRED_SECTIONS = {
     "experience": ("体验类型", "入口与主流程", "异常状态", "交互与文案", "可访问性", "调试与恢复"),
     "design": ("背景", "目标与限制", "整体方案", "模块与数据", "接口与状态", "安全与失败", "监控与部署", "迁移与兼容", "备选方案", "风险与重审条件"),
     "decision": ("要决定什么", "背景", "候选方案", "决定", "理由", "影响与风险", "重新考虑条件"),
-    "plan": ("目标", "改动区域", "阶段与顺序", "并行与依赖", "迁移与上线", "风险", "验证", "回退"),
+    "plan": ("目标", "改动区域", "阶段与顺序", "并行与依赖", "迁移与交付", "风险", "验证", "回退"),
     "task": ("任务目标", "依据", "可查看范围", "可修改范围", "禁止修改", "依赖", "产出", "完成标准", "验证", "风险", "执行记录"),
     "verify": ("验证对象", "对应要求", "检查与结果", "未通过项", "范围检查", "遗留问题", "剩余风险", "结论"),
     "memory": ("背景", "决定与原因", "尝试与教训", "已知问题", "重新考虑条件"),
@@ -174,8 +172,6 @@ STAGE_DESCRIPTIONS = {
     "development": "按任务实施，产出代码与测试",
     "review": "独立复核实现是否符合定义与方案，边界有没有被越过",
     "verification": "用可复现的证据确认要求逐条满足",
-    "release": "把成果交付出去",
-    "observe": "交付后观察实际结果，确认没有引入新问题",
     "memory": "留下未来仍有参考价值的判断、教训与重审条件",
 }
 # 状态不能只靠颜色表达：符号在纯文本 diff、终端和深浅两种主题下都成立。
@@ -209,17 +205,13 @@ SATISFIED_DEPENDENCY_STATUSES = {
     "done",
     "verified",
     "implemented",
-    "released",
-    "confirmed",
 }
 WORK_TRANSITIONS = {
     "todo": {"ready", "cancelled"},
     "ready": {"todo", "doing", "cancelled"},
     "doing": {"implemented", "todo", "cancelled"},
     "implemented": {"doing", "verified", "cancelled"},
-    "verified": {"doing", "released"},
-    "released": {"verified", "confirmed"},
-    "confirmed": set(),
+    "verified": {"doing"},
     "cancelled": set(),
 }
 TASK_TRANSITIONS = {
@@ -277,8 +269,6 @@ WORKFLOW_PROFILES: dict[str, tuple[tuple[str, str, str | None, bool, bool], ...]
         ("development", "开发", "task", True, False),
         ("review", "复核", None, True, False),
         ("verification", "验证", "verify", True, False),
-        ("release", "上线", None, True, False),
-        ("observe", "线上观察", None, True, False),
         ("memory", "项目记忆", "memory", True, False),
     ),
     "infra": (
@@ -291,8 +281,6 @@ WORKFLOW_PROFILES: dict[str, tuple[tuple[str, str, str | None, bool, bool], ...]
         ("development", "开发", "task", True, False),
         ("review", "复核", None, True, False),
         ("verification", "验证", "verify", True, False),
-        ("release", "上线", None, True, False),
-        ("observe", "线上观察", None, True, False),
         ("memory", "项目记忆", "memory", True, False),
     ),
     "fix": (
@@ -302,8 +290,6 @@ WORKFLOW_PROFILES: dict[str, tuple[tuple[str, str, str | None, bool, bool], ...]
         ("development", "开发", "task", True, False),
         ("review", "复核", None, True, False),
         ("verification", "回归验证", "verify", True, False),
-        ("release", "上线", None, True, False),
-        ("observe", "观察", None, True, False),
         ("memory", "项目记忆", "memory", False, False),
     ),
     "maintenance": (
@@ -314,8 +300,6 @@ WORKFLOW_PROFILES: dict[str, tuple[tuple[str, str, str | None, bool, bool], ...]
         ("development", "开发", "task", True, False),
         ("review", "复核", None, True, False),
         ("verification", "回归验证", "verify", True, False),
-        ("release", "上线", None, False, False),
-        ("observe", "观察", None, False, False),
         ("memory", "项目记忆", "memory", False, False),
     ),
     "improvement": (
@@ -327,8 +311,6 @@ WORKFLOW_PROFILES: dict[str, tuple[tuple[str, str, str | None, bool, bool], ...]
         ("development", "实施", "task", True, False),
         ("review", "复核", None, True, False),
         ("verification", "验证", "verify", True, False),
-        ("release", "上线", None, True, False),
-        ("observe", "持续观察", None, True, False),
         ("memory", "项目记忆", "memory", True, False),
     ),
 }
@@ -509,8 +491,6 @@ WORK_STATUS_LABELS = {
     "doing": "执行中",
     "implemented": "实现完成",
     "verified": "验证通过",
-    "released": "已上线",
-    "confirmed": "线上确认",
     "cancelled": "已取消",
 }
 RISK_LABELS = {"low": "低", "medium": "中", "high": "高", "critical": "关键"}
@@ -798,20 +778,6 @@ def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
         )
         require_stage("memory", "高风险或系统级工作必须沉淀长期记忆", "overlay:risk-impact")
 
-    release_required = (
-        kind != "maintenance"
-        or metadata["data_change"]
-        or metadata["public_api_change"]
-        or metadata["security_sensitive"]
-        or metadata["user_visible"]
-        or "release" in concerns
-    )
-    if release_required:
-        require_stage("release", "工作包含交付或上线影响", "overlay:delivery")
-        require_stage("observe", "上线后必须观察实际结果", "overlay:delivery")
-    elif concerns.intersection({"performance", "reliability", "observability", "cost"}):
-        require_stage("observe", "专项关注要求在实施后持续观察", "overlay:concern")
-
     document_order = {
         value: index
         for index, value in enumerate(
@@ -864,14 +830,9 @@ def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
             continue
         if check in {"impact-analysis", "independent-review"}:
             checks_by_stage["review"].append(check)
-        elif check == "rollback":
-            release = stage_named("release")
-            target = "release" if release and release["requirement"] == "required" else "plan"
-            checks_by_stage[target].append(check)
-        elif check == "release":
-            checks_by_stage["release"].append(check)
-        elif check in {"performance", "reliability", "observability", "cost"}:
-            checks_by_stage["observe"].append(check)
+        elif check in {"rollback", "release"}:
+            # 没有独立上线阶段后，回退与交付方式在计划阶段确定。
+            checks_by_stage["plan"].append(check)
         else:
             checks_by_stage["verification"].append(check)
 
@@ -1104,28 +1065,6 @@ def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None
                 raw_statuses[name] = "doing"
             else:
                 raw_statuses[name] = "ready"
-            continue
-        if name == "release":
-            if work.metadata["status"] in {"released", "confirmed"}:
-                stage["status_source"] = "derived"
-                raw_statuses[name] = "done"
-            elif stage["status_source"] == "manual":
-                raw_statuses[name] = stage["status"]
-            elif work.metadata["status"] == "verified":
-                raw_statuses[name] = "ready"
-            else:
-                raw_statuses[name] = "pending"
-            continue
-        if name == "observe":
-            if work.metadata["status"] == "confirmed":
-                stage["status_source"] = "derived"
-                raw_statuses[name] = "done"
-            elif stage["status_source"] == "manual":
-                raw_statuses[name] = stage["status"]
-            elif work.metadata["status"] == "released":
-                raw_statuses[name] = "doing"
-            else:
-                raw_statuses[name] = "pending"
             continue
 
         if not stage_documents:
@@ -1394,7 +1333,7 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
                 f"{prefix}: 定义层文档的第一节必须是 `## {expected}`（面向非技术读者的入口），"
                 f"当前是 `## {headings[0]}`"
             )
-    if metadata["status"] in FINAL_DOCUMENT_STATUSES | {"ready", "doing", "done", "verified", "implemented", "released", "confirmed"}:
+    if metadata["status"] in FINAL_DOCUMENT_STATUSES | {"ready", "doing", "done", "verified", "implemented"}:
         markers = [marker for marker in PLACEHOLDER_MARKERS if marker in document.body]
         if markers:
             errors.append(f"{prefix}: 稳定状态文档仍含占位内容：{', '.join(markers)}")
@@ -1537,11 +1476,11 @@ def validate_documents(
         missing = expected - actual
         if missing:
             message = f"{prefix}: 缺少流程要求文档：{', '.join(sorted(missing))}"
-            if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
+            if work.metadata.get("status") in {"ready", "doing", "implemented", "verified"}:
                 errors.append(message)
             else:
                 warnings.append(message)
-        if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
+        if work.metadata.get("status") in {"ready", "doing", "implemented", "verified"}:
             if work.metadata.get("blocking_items"):
                 errors.append(f"{prefix}: 当前状态不允许存在 blocking_items")
             if work.metadata.get("human_confirmations"):
@@ -1571,7 +1510,7 @@ def validate_documents(
                 )
         tasks = [document for document in by_work[work_id] if document.kind == "task"]
         verifies = [document for document in by_work[work_id] if document.kind == "verify"]
-        if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
+        if work.metadata.get("status") in {"ready", "doing", "implemented", "verified"}:
             prep_types = expected - {"task", "verify", "memory"}
             unfinished_prep = [
                 document.id
@@ -1582,11 +1521,11 @@ def validate_documents(
                 errors.append(f"{prefix}: ready 之后仍有未确认的上游文档：{', '.join(unfinished_prep)}")
             if not tasks:
                 errors.append(f"{prefix}: ready 之后必须存在 TASK")
-        if work.metadata.get("status") in {"implemented", "verified", "released", "confirmed"}:
+        if work.metadata.get("status") in {"implemented", "verified"}:
             unfinished = [task.id for task in tasks if task.metadata.get("status") not in {"done", "verified", "cancelled"}]
             if unfinished:
                 errors.append(f"{prefix}: implemented 之后仍有未完成任务：{', '.join(unfinished)}")
-        if work.metadata.get("status") in {"verified", "released", "confirmed"}:
+        if work.metadata.get("status") in {"verified"}:
             passing = [doc for doc in verifies if doc.metadata.get("status") == "approved" and doc.metadata.get("result") == "pass"]
             if not passing:
                 errors.append(f"{prefix}: verified 之后必须存在 result=pass 的 approved 验证结果")
@@ -1595,12 +1534,9 @@ def validate_documents(
             "doing": "tasks",
             "implemented": "development",
             "verified": "verification",
-            "released": "release",
         }.get(str(work.metadata.get("status")))
         stages_to_check: list[dict[str, Any]] = []
-        if work.metadata.get("status") == "confirmed":
-            stages_to_check = actual_workflow
-        elif stage_boundary:
+        if stage_boundary:
             for stage in actual_workflow:
                 stages_to_check.append(stage)
                 if stage.get("stage") == stage_boundary:
@@ -1883,7 +1819,7 @@ def command_overview(args: argparse.Namespace) -> None:
     tasks = [document for document in documents.values() if document.kind == "task"]
     task_statuses = Counter(str(task.metadata["status"]) for task in tasks)
     print(f"当前工作：{len(works)} 个")
-    for status in ("todo", "ready", "doing", "implemented", "verified", "released", "confirmed", "cancelled"):
+    for status in ("todo", "ready", "doing", "implemented", "verified", "cancelled"):
         if statuses[status]:
             print(f"- {status}: {statuses[status]}")
     print(f"卡住: {len(blockers)}  高风险: {len(high_risk)}  需要人工确认: {len(needs_human)}")
@@ -1996,11 +1932,7 @@ def command_flow(args: argparse.Namespace) -> None:
         next_step = "完成人工确认并记录决定"
     elif active_stage:
         next_step = f"推进“{active_stage['label']}”阶段（{active_stage['status']}）"
-    elif work.metadata["status"] == "verified":
-        next_step = "所有必做阶段已完成；无业务上线则保持 verified，有交付时再进入 released"
-    elif work.metadata["status"] == "released":
-        next_step = "所有必做阶段已完成，由负责人确认是否进入 confirmed"
-    elif work.metadata["status"] in {"confirmed", "cancelled"}:
+    elif work.metadata["status"] in {"verified", "cancelled"}:
         next_step = "无"
     else:
         next_step = f"运行 scripts/work refresh {work.id} 按事实刷新工作状态"
@@ -2009,7 +1941,7 @@ def command_flow(args: argparse.Namespace) -> None:
 
 def derive_work_status(work: Document, children: list[Document]) -> str:
     current = work.metadata["status"]
-    if current in {"released", "confirmed", "cancelled"}:
+    if current in {"cancelled"}:
         return current
     if work.metadata.get("blocking_items") or work.metadata.get("human_confirmations"):
         return "todo"
@@ -2201,8 +2133,8 @@ def command_gate(args: argparse.Namespace) -> None:
         if gates[gate] != "passed":
             raise WorkError(f"{work.id} 的{label}当前不是 passed，无需撤回")
         # 工作状态是从闸覆盖的文档推导出来的；先退状态再撤闸，否则推导链自相矛盾。
-        locked = {"intent": {"doing", "implemented", "verified", "released", "confirmed"},
-                  "acceptance": {"verified", "released", "confirmed"}}[gate]
+        locked = {"intent": {"doing", "implemented", "verified"},
+                  "acceptance": {"verified"}}[gate]
         if work.metadata["status"] in locked:
             raise WorkError(
                 f"{work.id} 当前是 {work.metadata['status']}，该状态正建立在{label}之上，不能直接撤回。\n"

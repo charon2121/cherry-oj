@@ -112,28 +112,6 @@
     "reason": "maintenance 基础流程"
   },
   {
-    "stage": "release",
-    "label": "上线",
-    "requirement": "optional",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [],
-    "source": "profile:maintenance",
-    "reason": "maintenance 基础流程"
-  },
-  {
-    "stage": "observe",
-    "label": "观察",
-    "requirement": "optional",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [],
-    "source": "profile:maintenance",
-    "reason": "maintenance 基础流程"
-  },
-  {
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",

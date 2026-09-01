@@ -77,7 +77,10 @@
     "artifacts": [
       "PLAN-015"
     ],
-    "checks": [],
+    "checks": [
+      "rollback",
+      "release"
+    ],
     "source": "overlay:risk-impact",
     "reason": "高风险或系统级影响必须有显式实施计划"
   },
@@ -152,38 +155,12 @@
       "cross-module-regression",
       "accessibility",
       "data",
+      "performance",
+      "reliability",
       "security"
     ],
     "source": "profile:product",
     "reason": "product 基础流程"
-  },
-  {
-    "stage": "release",
-    "label": "上线",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [
-      "rollback",
-      "release"
-    ],
-    "source": "overlay:delivery",
-    "reason": "工作包含交付或上线影响"
-  },
-  {
-    "stage": "observe",
-    "label": "线上观察",
-    "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
-    "artifacts": [],
-    "checks": [
-      "performance",
-      "reliability"
-    ],
-    "source": "overlay:delivery",
-    "reason": "上线后必须观察实际结果"
   },
   {
     "stage": "memory",

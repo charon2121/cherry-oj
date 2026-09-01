@@ -24,7 +24,7 @@ public_api_change: false
 security_sensitive: false
 user_visible: false
 created_at: "2026-08-25"
-updated_at: "2026-08-25"
+updated_at: "2026-09-01"
 work_type: "maintenance"
 ---
 
@@ -43,16 +43,14 @@ flowchart TD
     development["✔ 开发"]
     review["✔ 复核"]
     verification["✔ 回归验证"]
-    release["⊘ 上线"]
-    observe["⊘ 观察"]
     memory["⊘ 项目记忆"]
-    definition --> design --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    definition --> design --> plan --> tasks --> development --> review --> verification --> memory
     classDef done stroke-width:2px
     classDef doing stroke-width:3px
     classDef skipped stroke-dasharray:4 3
     classDef blocked stroke-width:3px,stroke-dasharray:2 2
     class definition,tasks,development,review,verification done
-    class design,plan,release,observe,memory skipped
+    class design,plan,memory skipped
 ```
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
@@ -64,8 +62,6 @@ flowchart TD
 | 开发 | ✔ 完成 | 必需 | TASK-006 `verified` | 按任务实施，产出代码与测试 |
 | 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 回归验证 | ✔ 完成 | 必需 | VERIFY-006 `approved` | 用可复现的证据确认要求逐条满足 |
-| 上线 | ⊘ 跳过（手动） | 可选 | — | 把成果交付出去 |
-| 观察 | ⊘ 跳过（手动） | 可选 | — | 交付后观察实际结果，确认没有引入新问题 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -84,3 +80,4 @@ flowchart TD
 - 2026-08-25：流程阶段 上线：ready → skipped。原因：纯规范重排，无运行时发布或部署动作
 - 2026-08-25：流程阶段 观察：pending → skipped。原因：无线上行为变化，验证由文档与工具回归检查完成
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
+- 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。

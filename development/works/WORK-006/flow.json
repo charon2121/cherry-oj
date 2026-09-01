@@ -90,28 +90,6 @@
     "reason": "maintenance 基础流程"
   },
   {
-    "stage": "release",
-    "label": "上线",
-    "requirement": "optional",
-    "status": "skipped",
-    "status_source": "manual",
-    "artifacts": [],
-    "checks": [],
-    "source": "profile:maintenance",
-    "reason": "maintenance 基础流程"
-  },
-  {
-    "stage": "observe",
-    "label": "观察",
-    "requirement": "optional",
-    "status": "skipped",
-    "status_source": "manual",
-    "artifacts": [],
-    "checks": [],
-    "source": "profile:maintenance",
-    "reason": "maintenance 基础流程"
-  },
-  {
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "optional",

@@ -53,7 +53,7 @@ updated_at: "2026-08-30"
 等待两个服务稳定，Web 等 Gateway。需要 CORE、多语言、对象存储、服务身份、环境管理、submission 或
 设计系统变更时暂停并升级上游。
 
-## 迁移与上线
+## 迁移与交付
 
 先用 Testcontainers MySQL 8.4 验证 problem/judging V1 和重复 migrate，再准备私有源资产根、judge
 testdataRoot、权限、容量、备份与同文件系统临时目录。发布顺序：migration/目录 → judging-service →

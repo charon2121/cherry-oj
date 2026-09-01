@@ -57,7 +57,7 @@ TASK-024 依赖 TASK-023 的 token、生成 registry 与主题 API；TASK-025 �
 消费者。TASK-024 内不同组件可在合同冻结后并行实现，但统一由 Storybook decorator 和基础测试工具
 收口。文档设计系统 check、生成器单测和现有 Web 只读基线可以提前运行。
 
-## 迁移与上线
+## 迁移与交付
 
 三个 TASK 均应保持可编译：先接线、再组件、再消费者。生产构建把 docs CSS 与首屏脚本打包/复制到
 `dist`，运行时不依赖 docs 服务。上线时默认视觉切到 Cherry 黑色；已有有效 pure-white 偏好可由

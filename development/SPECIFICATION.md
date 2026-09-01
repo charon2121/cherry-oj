@@ -40,7 +40,8 @@
   也不能从格式校验通过、测试全绿或最初的完成请求中推断授权。详见
   [第 8 章](./specification/08-responsibilities.md)。
 - **永久编号不回收。** 文档删除、废弃、替代或归档后编号仍然保留，用于维持历史链接。
-- **实现完成不等于验证通过，验证通过不等于上线确认。**
+- **实现完成不等于验证通过。** 代码写完只是 `implemented`，必须有 approved 且 `result=pass` 的 VERIFY
+  才是 `verified`；MVP 阶段没有生产环境，`verified` 就是终态。
 
 ## 术语速查
 
