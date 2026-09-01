@@ -2,18 +2,18 @@
 id: "DESIGN-017"
 type: "design"
 title: "修复 IDEA 错误按叶子工程构建 user-service"
-status: "review"
+status: "deprecated"
 work: "WORK-021"
 owners: ["codex/root"]
 depends_on: ["ISSUE-004"]
 related: []
 implements: []
 verifies: []
+deprecated: "所依据的 ISSUE-004 判断不成立，方案随之作废"
 tags: []
 created_at: "2026-08-28"
-updated_at: "2026-08-28"
+updated_at: "2026-09-01"
 ---
-
 
 # DESIGN-017：修复 IDEA 错误按叶子工程构建 user-service
 
@@ -97,3 +97,4 @@ IDEA 导入 apps/server/pom.xml
 ## 变更记录
 
 - 2026-08-28：状态变更：draft → review。原因：已提出保留 Maven 聚合结构、使用共享 IDEA 启动项与根 reactor 命令的最小修复方案，提交技术审核
+- 2026-09-01：废弃：所依据的 ISSUE-004 判断不成立，方案随之作废

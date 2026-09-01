@@ -2,17 +2,18 @@
 id: "VERIFY-021"
 type: "verify"
 title: "修复 IDEA 错误按叶子工程构建 user-service"
-status: "draft"
+status: "deprecated"
 work: "WORK-021"
 owners: ["codex/root"]
 depends_on: ["TASK-029"]
 related: []
 implements: []
 verifies: ["ISSUE-004", "TASK-029"]
+deprecated: "工作取消，未执行验证"
 tags: []
 result: "pending"
 created_at: "2026-08-28"
-updated_at: "2026-08-28"
+updated_at: "2026-09-01"
 ---
 
 # VERIFY-021：修复 IDEA 错误按叶子工程构建 user-service
@@ -52,3 +53,7 @@ reactor 顺序、局部/全量构建结果和必要的运行基础设施条件�
 ## 结论
 
 尚未验证。
+
+## 变更记录
+
+- 2026-09-01：废弃：工作取消，未执行验证

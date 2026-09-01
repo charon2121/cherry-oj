@@ -2,7 +2,7 @@
 id: "TASK-029"
 type: "task"
 title: "修复 IDEA 错误按叶子工程构建 user-service"
-status: "todo"
+status: "cancelled"
 work: "WORK-021"
 owners: ["codex/root"]
 depends_on: ["ISSUE-004", "DESIGN-017"]
@@ -14,7 +14,7 @@ read_paths: ["CLAUDE.md", "apps/server/pom.xml", "apps/server/.gitignore", "apps
 write_paths: ["apps/server/.run/UserServiceApplication.run.xml", "apps/server/README.md", "apps/server/TOOLCHAIN.md", "development/works/WORK-021"]
 forbidden_paths: ["apps/server/pom.xml", "apps/server/logging-support", "apps/server/user-service", "apps/server/gateway-service", "apps/server/problem-service", "apps/server/submission-service", "apps/server/judging-service", "apps/web", "apps/judge-engine", "contracts", "docs"]
 created_at: "2026-08-28"
-updated_at: "2026-08-28"
+updated_at: "2026-09-01"
 ---
 
 # TASK-029：修复 IDEA 错误按叶子工程构建 user-service
@@ -86,3 +86,4 @@ Maven `package`，也不再报告缺失 `logging-support`。运行基础设施�
 
 - 2026-08-28：创建任务。
 - 2026-08-28：根据用户提供的 Maven 日志与仓库模块结构补全读写边界、产出和验收，等待人工批准。
+- 2026-09-01：状态变更：todo → cancelled。原因：工作取消，任务不再执行

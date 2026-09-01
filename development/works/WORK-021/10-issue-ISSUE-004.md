@@ -2,18 +2,18 @@
 id: "ISSUE-004"
 type: "issue"
 title: "修复 IDEA 错误按叶子工程构建 user-service"
-status: "review"
+status: "deprecated"
 work: "WORK-021"
 owners: ["codex/root"]
 depends_on: []
 related: []
 implements: []
 verifies: []
+deprecated: "问题已被其它改动顺带修复；本文记录的根因（IDEA 按叶子工程构建）不成立，实际是配置问题，具体已不可考——不要照此文诊断同类构建失败"
 tags: []
 created_at: "2026-08-28"
-updated_at: "2026-08-28"
+updated_at: "2026-09-01"
 ---
-
 
 # ISSUE-004：修复 IDEA 错误按叶子工程构建 user-service
 
@@ -95,3 +95,4 @@ IDEA 应从 `apps/server/pom.xml` 导入完整后端工程，并通过仓库共�
 ## 变更记录
 
 - 2026-08-28：状态变更：draft → review。原因：已根据用户提供的 Maven 日志确认叶子 POM 未加载 sibling reactor 的根因，提交问题定义审核
+- 2026-09-01：废弃：问题已被其它改动顺带修复；本文记录的根因（IDEA 按叶子工程构建）不成立，实际是配置问题，具体已不可考——不要照此文诊断同类构建失败

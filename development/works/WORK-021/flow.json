@@ -3,7 +3,7 @@
     "stage": "definition",
     "label": "问题说明、复现与预期",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "ISSUE-004"
@@ -19,7 +19,7 @@
     "stage": "design",
     "label": "原因与修复方案",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "DESIGN-017"
