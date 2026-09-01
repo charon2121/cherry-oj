@@ -17,6 +17,7 @@ required_documents: ["capability", "experience", "design", "decision", "plan", "
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "observability"]
 human_confirmations: []
 gates: {"intent": "passed", "acceptance": "passed"}
+outcome: {"state": "superseded", "reason": "运行时实现已整体撤回，仅 traceId/requestId 追溯契约仍然有效；本工作不再代表当前仓库能力或有效实施基线", "by": "WORK-012"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -29,9 +30,6 @@ work_type: "infra"
 ---
 
 # WORK-010：建立跨语言可观测性基础设施
-
-> 历史记录：本工作交付的运行时实现已由 WORK-012 整体撤回；除 traceId/requestId 追溯契约外，本文
-> 不再代表当前仓库能力或有效实施基线。
 
 ## 流程
 
@@ -69,3 +67,4 @@ work_type: "infra"
 - 2026-08-26：根据文档、任务与验证事实刷新状态：doing → verified。
 - 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
 - 2026-09-01：移除流程阶段：release、observe。MVP 阶段没有生产环境，这两个阶段永远无法完成。
+- 2026-09-01：已被取代：WORK-012。原因：运行时实现已整体撤回，仅 traceId/requestId 追溯契约仍然有效；本工作不再代表当前仓库能力或有效实施基线

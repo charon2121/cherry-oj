@@ -94,6 +94,12 @@ ACCEPTANCE_GATE_KINDS = {"verify"}
 GATE_NAMES = ("intent", "acceptance")
 GATE_LABELS = {"intent": "意图闸", "acceptance": "验收闸"}
 GATE_STATUSES = {"pending", "passed"}
+# status 表达「进展到哪」，outcome 表达「结论还算不算数」。
+# 把两者合并会篡改历史：一个被推翻的工作确实走完过全流程、确实通过过验证。
+OUTCOME_STATES = {"superseded", "invalidated"}
+OUTCOME_LABELS = {"superseded": "已被取代", "invalidated": "结论已被证伪"}
+# 没有产出就谈不上结论被推翻——那种情况用 cancelled。
+OUTCOME_ALLOWED_WORK_STATUSES = {"implemented", "verified", "cancelled"}
 STAGE_REQUIREMENTS = {"required", "optional"}
 STAGE_PROGRESS = {"pending", "ready", "doing", "done", "skipped", "blocked"}
 REFERENCE_FIELDS = ("depends_on", "related", "implements", "verifies")
@@ -132,6 +138,7 @@ COMMON_FIELDS = {
     "result",
     "work_type",
     "gates",
+    "outcome",
 }
 COMMON_REQUIRED = {
     "id",
@@ -402,6 +409,7 @@ def render_document(document: Document) -> str:
         "required_checks",
         "human_confirmations",
         "gates",
+        "outcome",
         "blocking_items",
         "reversible",
         "data_change",
@@ -528,7 +536,10 @@ def render_works_index(documents: dict[str, Document]) -> str:
             work.id,
             metadata.get("title", ""),
             WORK_TYPE_LABELS.get(str(metadata.get("work_type")), metadata.get("work_type", "")),
-            WORK_STATUS_LABELS.get(str(metadata.get("status")), metadata.get("status", "")),
+            (
+                WORK_STATUS_LABELS.get(str(metadata.get("status")), metadata.get("status", ""))
+                + (f" · {outcome_summary(work)}" if work_outcome(work) else "")
+            ),
             RISK_LABELS.get(str(metadata.get("risk")), metadata.get("risk", "")),
             IMPACT_LABELS.get(str(metadata.get("impact")), metadata.get("impact", "")),
             owners,
@@ -561,6 +572,20 @@ def validate_works_index(root: Path, documents: dict[str, Document]) -> list[str
 def is_settled(document: "Document") -> bool:
     """文档是否已定稿：人签字的 approved 或工具校验通过的 checked。"""
     return document.metadata.get("status") in SETTLED_DOCUMENT_STATUSES
+
+
+def work_outcome(work: "Document") -> dict[str, Any] | None:
+    """结论是否仍然成立。缺省即成立。"""
+    outcome = work.metadata.get("outcome")
+    return outcome if isinstance(outcome, dict) else None
+
+
+def outcome_summary(work: "Document") -> str:
+    outcome = work_outcome(work)
+    if outcome is None:
+        return ""
+    label = OUTCOME_LABELS.get(outcome.get("state"), outcome.get("state", ""))
+    return f"{label} {outcome['by']}" if outcome.get("by") else label
 
 
 def gate_kinds(gate: str) -> set[str]:
@@ -1241,6 +1266,23 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
         invalid_concerns = set(metadata.get("concerns", [])) - CONCERNS
         if invalid_concerns:
             errors.append(f"{prefix}: concerns 无效：{', '.join(sorted(invalid_concerns))}")
+        outcome = metadata.get("outcome")
+        if outcome is not None:
+            if not isinstance(outcome, dict) or set(outcome) - {"state", "by", "reason"}:
+                errors.append(f"{prefix}: outcome 只允许 state / by / reason 三个字段")
+            elif outcome.get("state") not in OUTCOME_STATES:
+                errors.append(f"{prefix}: outcome.state 无效：{outcome.get('state')}")
+            elif not str(outcome.get("reason") or "").strip():
+                errors.append(f"{prefix}: outcome 必须写明理由——它是唯一解释「为什么不算数了」的地方")
+            elif metadata.get("status") not in OUTCOME_ALLOWED_WORK_STATUSES:
+                errors.append(
+                    f"{prefix}: {metadata.get('status')} 的工作没有产出，谈不上结论被推翻；"
+                    f"这种情况用 cancelled"
+                )
+            elif outcome["state"] == "superseded" and not outcome.get("by"):
+                errors.append(f"{prefix}: superseded 必须用 by 指出接替它的工作")
+            elif outcome.get("by") == metadata.get("id"):
+                errors.append(f"{prefix}: outcome.by 不能指向自己")
         gates = metadata.get("gates")
         if not isinstance(gates, dict) or set(gates) != set(GATE_NAMES):
             errors.append(f"{prefix}: gates 必须同时包含 {', '.join(GATE_NAMES)}")
@@ -1468,6 +1510,31 @@ def validate_documents(
                 errors.append(f"{prefix}: 当前状态不允许存在 blocking_items")
             if work.metadata.get("human_confirmations"):
                 errors.append(f"{prefix}: 当前状态不允许存在未完成的 human_confirmations")
+        outcome = work_outcome(work)
+        if outcome is not None:
+            target = outcome.get("by")
+            if target is not None:
+                if target not in documents or documents[target].kind != "work":
+                    errors.append(f"{prefix}: outcome.by 引用了不存在的工作项：{target}")
+                else:
+                    # 成环意味着两个工作互相声明被对方取代，读者无从判断哪个有效。
+                    seen, cursor = {work_id}, target
+                    while cursor in works:
+                        following = (work_outcome(works[cursor]) or {}).get("by")
+                        if following is None:
+                            break
+                        if following in seen:
+                            errors.append(f"{prefix}: outcome.by 形成环：{work_id} → … → {following}")
+                            break
+                        seen.add(cursor)
+                        cursor = following
+            if outcome.get("state") == "invalidated" and not any(
+                d.kind == "memory" for d in by_work[work_id]
+            ):
+                errors.append(
+                    f"{prefix}: 结论被证伪的工作必须留下 MEMORY——"
+                    f"「当时为什么判断错」是这类工作唯一的产出，不留就等于白错一次"
+                )
         for gate in GATE_NAMES:
             covered = gate_covered_documents(work_id, documents, gate)
             passed = gate_passed(work, gate)
@@ -1818,6 +1885,12 @@ def command_overview(args: argparse.Namespace) -> None:
         for work in needs_human:
             print(f"- {work.id}: {'; '.join(work.metadata['human_confirmations'])}")
 
+    stale = [work for work in works if work_outcome(work)]
+    if stale:
+        print(f"\n结论已不成立（{len(stale)}）：")
+        for work in stale:
+            print(f"- {work.id} [{work.metadata['status']}] {work.metadata['title']} —— {outcome_summary(work)}")
+
     # 人工注意力是最稀缺的资源；待签的闸是它唯一该出现的地方，因此单独列出并说明能不能签。
     waiting: list[str] = []
     for work in works:
@@ -2156,6 +2229,12 @@ def command_board(args: argparse.Namespace) -> None:
         f" · {'/'.join(meta['owners'])} · {meta['status']} · 更新于 {meta['updated_at']}"
     )
 
+    outcome = work_outcome(work)
+    if outcome:
+        print(f"\n⚠ {OUTCOME_LABELS[outcome['state']]}" + (f"：{outcome['by']}" if outcome.get("by") else ""))
+        print(f"  {outcome['reason']}")
+        print("  下面的流程与要求是当时的事实，不代表当前仓库能力。")
+
     print("\n闸")
     for gate in GATE_NAMES:
         if gate_passed(work, gate):
@@ -2233,6 +2312,174 @@ def command_board(args: argparse.Namespace) -> None:
         print("  无")
 
     print(f"\n下一步: {next_step_for(work, documents)}")
+
+
+def command_audit(args: argparse.Namespace) -> None:
+    """对流程自身做体检。
+
+    §1.3 写着「复杂度应当来自工作本身，而不是来自管理工具」，但此前没有任何机制检验这句话。
+    一个自称「文档即开发系统」的东西，应该能对自己做同样的验证——否则它只能增生，不能收缩。
+    """
+    documents = load_documents(args.root)
+    works = [d for d in documents.values() if d.kind == "work"]
+    if not works:
+        raise WorkError("没有工作项可供体检")
+    findings: list[str] = []
+
+    print(f"体检对象：{len(works)} 个工作项、{len(documents)} 份文档\n")
+
+    print("① 分级维度的信息量")
+    for field in ("work_type", "risk", "impact"):
+        counter = Counter(str(w.metadata.get(field)) for w in works)
+        top, count = counter.most_common(1)[0]
+        share = count * 100 // len(works)
+        print(f"  {field:<10} {len(counter)} 种取值，最高占比 {top} {share}%"
+              f"  （{'、'.join(f'{k} {v}' for k, v in counter.most_common())}）")
+        if share >= 70:
+            findings.append(
+                f"{field} 有 {share}% 的工作取同一个值，它已经不产生信息，只产生开销——"
+                f"要么改变语义，要么退出门禁只作检索"
+            )
+
+    print("\n② 门禁是否可证伪")
+    declared_checks: Counter = Counter()
+    for work in works:
+        for check in work.metadata.get("required_checks", []):
+            declared_checks[check] += 1
+    print(f"  声明的检查项 {sum(declared_checks.values())} 次："
+          f"{'、'.join(f'{k}×{v}' for k, v in declared_checks.most_common())}")
+    print("  其中记录过执行结论的：0（系统里没有任何地方保存单个检查项的结果）")
+    if declared_checks:
+        findings.append(
+            f"{sum(declared_checks.values())} 次检查项声明没有一次记录过结论——"
+            f"它们只存在于元数据里，不会失败，也就不构成门禁"
+        )
+
+    stages: dict[str, Counter] = defaultdict(Counter)
+    required_count: Counter = Counter()
+    for work in works:
+        for stage in work.metadata.get("workflow", []):
+            stages[stage["stage"]][stage["status"]] += 1
+            if stage["requirement"] == "required":
+                required_count[stage["stage"]] += 1
+    # 现状只是一个时间点；曾经卡住又放行的阶段必须回看历史才看得见。
+    label_to_stage = {
+        stage["label"]: stage["stage"]
+        for work in works
+        for stage in work.metadata.get("workflow", [])
+    }
+    history: dict[str, Counter] = defaultdict(Counter)
+    for work in works:
+        for match in re.finditer(r"流程阶段 (.+?)：\S+ → (\w+)", work.body):
+            stage = label_to_stage.get(match.group(1).strip())
+            if stage:
+                history[stage][match.group(2)] += 1
+
+    branching, linear = [], []
+    print("\n  阶段分支行为（是否出现过 done 以外的终态）")
+    for name, counter in sorted(stages.items(), key=lambda item: -sum(item[1].values())):
+        past = history[name]
+        detail = "、".join(f"{k} {v}" for k, v in counter.most_common())
+        note = f"  历史 {'、'.join(f'{k}×{v}' for k, v in past.most_common())}" if past else ""
+        branched = bool(counter["skipped"] or counter["blocked"] or past["skipped"] or past["blocked"])
+        (branching if branched else linear).append(name)
+        print(f"    {'分支' if branched else '直行'} {name:<13} 必需 {required_count[name]:<3} {detail}{note}")
+    if linear:
+        findings.append(
+            f"{len(linear)} 个阶段（{'、'.join(linear)}）在全部工作里只有 done / 未开始两种状态——"
+            f"它们是必经步骤而不是门禁，把它们并列成「阶段」会让流程显得比实际更严格"
+        )
+
+    print("\n③ 文档被下游消费的程度")
+    referenced: Counter = Counter()
+    for document in documents.values():
+        for field in REFERENCE_FIELDS:
+            for value in document.metadata.get(field, []):
+                target = reference_target(value)
+                if target in documents and target != document.id:
+                    referenced[target] += 1
+    by_kind: dict[str, list[Document]] = defaultdict(list)
+    for document in documents.values():
+        by_kind[document.kind].append(document)
+    for kind, items in sorted(by_kind.items(), key=lambda item: -len(item[1])):
+        orphans = [d for d in items if not referenced[d.id]]
+        print(f"  {kind:<12} {len(items):<3} 份，从未被引用 {len(orphans)}")
+        if items and len(orphans) == len(items) and kind not in {"work"}:
+            findings.append(f"{kind} 共 {len(items)} 份，没有任何一份被下游引用——它可能是写给流程看的")
+
+    print("\n④ 追踪链完整度")
+    total = anchored_claim = anchored_check = 0
+    for work in works:
+        children = work_documents(work.id, documents)
+        tasks = [d for d in children if d.kind == "task"]
+        verifies = [d for d in children if d.kind == "verify"]
+        for definition in (d for d in children if d.kind in DEFINITION_KINDS):
+            for requirement in local_requirements(definition):
+                total += 1
+                anchored_claim += reference_coverage(tasks, "implements", definition.id, requirement)[0] == "anchored"
+                anchored_check += reference_coverage(verifies, "verifies", definition.id, requirement)[0] == "anchored"
+    if total:
+        print(f"  要求 {total} 条 · 锚定认领 {anchored_claim} · 锚定验证 {anchored_check}")
+        if anchored_check * 10 < total:
+            findings.append(
+                f"{total} 条要求里只有 {anchored_check} 条被 VERIFY 锚定验证——"
+                f"「每条要求都验过了吗」这个问题系统答不了"
+            )
+
+    print("\n⑤ 拆分形态与 PLAN 的必要性")
+    idle_plans = []
+    for work in works:
+        children = work_documents(work.id, documents)
+        tasks = [d for d in children if d.kind == "task"]
+        plans = [d for d in children if d.kind == "plan"]
+        if plans and len(tasks) <= 1:
+            idle_plans.append(work.id)
+    task_total = sum(1 for d in documents.values() if d.kind == "task")
+    print(f"  TASK {task_total} 个 / 工作 {len(works)} 个 = {task_total / len(works):.1f}")
+    print(f"  有 PLAN 但只有 ≤1 个 TASK 的工作：{len(idle_plans)}  {'、'.join(idle_plans) or '无'}")
+    if idle_plans:
+        findings.append(
+            f"{len(idle_plans)} 个工作有 PLAN 却只有一个任务，PLAN 能写的并行与依赖在这里是空的——"
+            f"它的触发条件应该挂拆分形态，而不是风险"
+        )
+
+    print("\n观察")
+    if not findings:
+        print("  没有发现流程本身制造的多余复杂度。")
+    for index, finding in enumerate(findings, start=1):
+        print(f"  {index}. {finding}")
+
+
+def command_outcome(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+
+    if args.clear:
+        if work_outcome(work) is None:
+            raise WorkError(f"{work.id} 的结论本来就成立，无需清除")
+        work.metadata.pop("outcome", None)
+        append_log(work, f"撤销「结论不再成立」的标记。原因：{args.reason}")
+        summary = f"✓ {work.id} 的结论重新视为成立"
+    else:
+        if args.state is None:
+            raise WorkError("需要指定 superseded 或 invalidated，或使用 --clear")
+        outcome: dict[str, Any] = {"state": args.state, "reason": args.reason}
+        if args.by:
+            outcome["by"] = args.by
+        work.metadata["outcome"] = outcome
+        append_log(work, f"{OUTCOME_LABELS[args.state]}{('：' + args.by) if args.by else ''}。原因：{args.reason}")
+        summary = f"✓ {work.id} 标记为{OUTCOME_LABELS[args.state]}" + (f"（{args.by}）" if args.by else "")
+
+    work.metadata["updated_at"] = today()
+    prospective = {**documents, work.id: work}
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("结论标记不满足系统约束：\n- " + "\n- ".join(errors))
+    write_document(work)
+    print(summary)
+    print("提示：工作状态保持不变——它确实走完过流程，改状态等于篡改历史。")
 
 
 def command_gate(args: argparse.Namespace) -> None:
@@ -2460,6 +2707,10 @@ def command_trace(args: argparse.Namespace) -> None:
                 if target in documents:
                     edges[document.id].append((field, target))
                     edges[target].append((f"reverse:{field}", document.id))
+        outcome_target = (work_outcome(document) or {}).get("by") if document.kind == "work" else None
+        if outcome_target in documents:
+            edges[document.id].append(("outcome:被取代于", outcome_target))
+            edges[outcome_target].append(("reverse:outcome:取代了", document.id))
         if document.kind != "work" and document.metadata.get("work") in documents:
             work_id = document.metadata["work"]
             edges[document.id].append(("belongs_to", work_id))
@@ -2720,6 +2971,20 @@ def build_parser() -> argparse.ArgumentParser:
     context_parser.add_argument("task_id")
     context_parser.set_defaults(handler=command_context)
 
+    subparsers.add_parser("audit", help="对流程自身做体检：哪些门禁从未拦过东西").set_defaults(
+        handler=command_audit
+    )
+
+    outcome_parser = subparsers.add_parser(
+        "outcome", help="标记工作结论是否仍然成立（不改变 status）"
+    )
+    outcome_parser.add_argument("work_id")
+    outcome_parser.add_argument("state", nargs="?", choices=sorted(OUTCOME_STATES))
+    outcome_parser.add_argument("--by", help="接替它的工作项，superseded 必填")
+    outcome_parser.add_argument("--reason", required=True)
+    outcome_parser.add_argument("--clear", action="store_true", help="撤销标记，重新视为成立")
+    outcome_parser.set_defaults(handler=command_outcome)
+
     board_parser = subparsers.add_parser("board", help="以项目管理视角查看单个工作项")
     board_parser.add_argument("work_id")
     board_parser.add_argument("--all", action="store_true", help="展开全部要求条目")
@@ -2766,6 +3031,7 @@ def main() -> int:
             "set-stage",
             "link",
             "gate",
+            "outcome",
             "archive",
             "deprecate",
             "supersede",

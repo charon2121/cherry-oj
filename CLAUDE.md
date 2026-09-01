@@ -395,6 +395,9 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
   `docs/product.md` 和关联 FEATURE；存在 blocking 未知或定义未确认时，不把假设固化进代码。
 - **开发后记录证据。** 用 `scripts/work set-status` 记录有理由的状态变化，在 VERIFY 写实际命令、环境、
   结果、遗留问题和剩余风险，再用 `scripts/work refresh WORK-001` 按事实刷新流程阶段和工作项状态。
+- **结论不再成立时用 `outcome`，不要改 status。** 工作被后续工作取代或前提被证伪时，运行
+  `scripts/work outcome <WORK> superseded --by <WORK> --reason ...`（或 `invalidated`，需留 MEMORY）。
+  它确实走完过流程、通过过验证，把 status 改成 `cancelled` 是篡改历史；没有产出的工作才用 `cancelled`。
 - **技术完成不等于产品确认。** TASK done 只表示实现完成；Agent 不能根据测试全绿自动代签人工产品
   判断或关键风险确认。
 - **设计变更先写当前 WORK。** 经确认且长期跨工作有效时再同步 `docs/`；操作步骤变化同步 `tutorial/`。

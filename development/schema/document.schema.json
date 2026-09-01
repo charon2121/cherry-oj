@@ -137,6 +137,16 @@
         "acceptance": { "enum": ["pending", "passed"] }
       }
     },
+    "outcome": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["state", "reason"],
+      "properties": {
+        "state": { "enum": ["superseded", "invalidated"] },
+        "by": { "type": ["string", "null"], "pattern": "^WORK-[0-9]{3,}$" },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
     "blocking_items": { "type": "array", "items": { "type": "string" } },
     "reversible": { "type": "boolean" },
     "data_change": { "type": "boolean" },

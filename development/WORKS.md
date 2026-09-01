@@ -14,7 +14,7 @@
 | WORK-007 | 校正全局 PRD 与当前 MVP 基线的漂移 | 整理维护 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-007/00-work.md) |
 | WORK-008 | 建立 Web 到 Gateway 的 REST 基础连通模块 | 基础能力 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-008/00-work.md) |
 | WORK-009 | 建立统一的 Web REST 交换协议与请求基建 | 基础能力 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-009/00-work.md) |
-| WORK-010 | 建立跨语言可观测性基础设施 | 基础能力 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-010/00-work.md) |
+| WORK-010 | 建立跨语言可观测性基础设施 | 基础能力 | 验证通过 · 已被取代 WORK-012 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-010/00-work.md) |
 | WORK-011 | 收敛 Go 领域日志调用 | 整理维护 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-011/00-work.md) |
 | WORK-012 | 撤回可观测性实现并保留追溯契约 | 整理维护 | 验证通过 | 中 | 整个系统 | codex/root | [00-work.md](./works/WORK-012/00-work.md) |
 | WORK-013 | 建立用户身份与访问控制服务 | 基础能力 | 待确认 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-013/00-work.md) |

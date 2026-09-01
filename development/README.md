@@ -246,6 +246,7 @@ scripts/work list --type work
 scripts/work list --needs-human
 scripts/work trace FEATURE-002
 scripts/work context TASK-004
+scripts/work audit                    # 对流程自身体检：哪些门禁从未拦过东西
 ```
 
 `board` 是**以项目管理方式看单个工作项的入口**。`00-work.md` 里的流程表是静态快照，`board` 才是
@@ -266,6 +267,28 @@ scripts/work context TASK-004
 
 `context` 从一个 TASK 组装恰好够用的智能体上下文：项目规则入口、工作项、上游定义与设计、相关
 决定和记忆，以及该任务的代码读写边界。它不把整个仓库无差别塞给智能体。
+
+`audit` 是这套系统对自己的检验。§1.3 要求「复杂度应当来自工作本身，而不是来自管理工具」，但此前
+没有任何机制检查这句话有没有被违反——流程只能增生，不能收缩。它回答：哪个维度已经不产生信息、
+哪些阶段从未产生过分支、哪些检查项从来没有记录过结论、追踪链断在哪、哪些 PLAN 在空转。
+
+## 结论不再成立的工作
+
+工作状态表达「进展到哪」，`outcome` 表达「结论还算不算数」。这两件事必须分开：一个被后续工作
+撤回的工作**确实**走完过流程、**确实**通过过验证，把它改成 `cancelled` 是篡改历史。
+
+```bash
+scripts/work outcome WORK-010 superseded --by WORK-012 --reason "运行时实现已整体撤回"
+scripts/work outcome WORK-007 invalidated --reason "前提被证伪"      # 必须留下 MEMORY
+scripts/work outcome WORK-010 --clear --reason "撤回判断有误"
+```
+
+`superseded` 必须用 `--by` 指出接替者；`invalidated` 用于没有接替者的证伪，且**强制要求该工作有一份
+MEMORY**——「当时为什么判断错」是这类工作唯一的产出。没有产出的工作（还没到 implemented）不能标记
+outcome，那种情况用 `cancelled`。
+
+标记会出现在 `WORKS.md` 的状态列、`overview` 的独立分节、`board` 的顶部提示和 `trace` 的关系图里。
+不进视图的字段等于不存在。
 
 关系管理与历史操作：
 

@@ -768,5 +768,82 @@ class WorkToolTest(unittest.TestCase):
             self.assertRegex(line, r"↳ \S+\s+[A-Z]+-\d{3} \[")
 
 
+    def finish_fast_work(self) -> None:
+        """造一个走到 implemented 的工作，供 outcome 用例使用。快速流程只有 CHANGE/TASK/VERIFY。"""
+        self.create_fast_work()
+        path = self.one_work_file("10-change-CHANGE-001.md")
+        path.write_text(path.read_text(encoding="utf-8").replace("待补充", "已确认内容"), encoding="utf-8")
+        self.run_work("set-status", "CHANGE-001", "review", "--reason", "写完")
+        self.run_work("gate", "WORK-001", "intent", "--reason", "确认边界")
+        task_path = self.one_work_file("60-task-TASK-001.md")
+        task_path.write_text(
+            task_path.read_text(encoding="utf-8").replace("待补充", "已确认内容").replace("- [ ]", "- [x]"),
+            encoding="utf-8",
+        )
+        for status in ("ready", "doing", "done"):
+            self.run_work("set-status", "TASK-001", status, "--reason", "推进")
+        self.run_work("refresh", "WORK-001")
+
+    def test_outcome_marks_conclusion_without_rewriting_history(self) -> None:
+        """被推翻的工作确实走完过流程；把 status 改掉等于篡改历史。"""
+        self.finish_fast_work()
+        self.assertEqual("implemented", self.metadata(self.one_work_file("00-work.md"))["status"])
+
+        # 判断为什么错，是这类工作唯一的产出；没有 MEMORY 就不许标记。
+        result = self.run_work(
+            "outcome", "WORK-001", "invalidated", "--reason", "前提不成立", success=False
+        )
+        self.assertIn("必须留下 MEMORY", result.stderr)
+        self.run_work("new-doc", "--work", "WORK-001", "--type", "memory", "--title", "当时为什么判断错")
+
+        result = self.run_work(
+            "outcome", "WORK-001", "invalidated", "--reason", "前提不成立"
+        )
+        self.assertIn("结论已被证伪", result.stdout)
+        metadata = self.metadata(self.one_work_file("00-work.md"))
+        self.assertEqual("implemented", metadata["status"])
+        self.assertEqual("invalidated", metadata["outcome"]["state"])
+
+        # 必须进视图：不显示的字段等于不存在。
+        self.assertIn("结论已被证伪", (self.root / "development" / "WORKS.md").read_text(encoding="utf-8"))
+        self.assertIn("结论已不成立", self.run_work("overview").stdout)
+        self.assertIn("⚠ 结论已被证伪", self.run_work("board", "WORK-001").stdout)
+
+        self.run_work("outcome", "WORK-001", "--clear", "--reason", "判断有误")
+        self.assertNotIn("outcome", self.metadata(self.one_work_file("00-work.md")))
+
+    def test_outcome_rejects_work_without_output(self) -> None:
+        self.create_fast_work()
+        result = self.run_work(
+            "outcome", "WORK-001", "invalidated", "--reason", "不做了", success=False
+        )
+        self.assertIn("没有产出", result.stderr)
+        self.assertIn("cancelled", result.stderr)
+
+    def test_superseded_requires_an_existing_successor(self) -> None:
+        self.finish_fast_work()
+        for by, expected in (
+            ("WORK-999", "引用了不存在的工作项"),
+            ("WORK-001", "不能指向自己"),
+        ):
+            with self.subTest(by=by):
+                result = self.run_work(
+                    "outcome", "WORK-001", "superseded",
+                    "--by", by, "--reason", "被取代", success=False,
+                )
+                self.assertIn(expected, result.stderr)
+
+
+    def test_audit_reports_gates_that_cannot_fail(self) -> None:
+        """§1.3 说复杂度应当来自工作本身；这条要求需要一个能检验它的机制。"""
+        self.create_fast_work()
+        report = self.run_work("audit").stdout
+        self.assertIn("① 分级维度的信息量", report)
+        self.assertIn("② 门禁是否可证伪", report)
+        self.assertIn("④ 追踪链完整度", report)
+        # 检查项只出现在元数据里，没有任何地方记录结论——一个不会失败的检查不是门禁。
+        self.assertIn("不会失败，也就不构成门禁", report)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
