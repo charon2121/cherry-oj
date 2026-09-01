@@ -13,7 +13,6 @@ related: ["CAPABILITY-005", "EXPERIENCE-006", "DESIGN-012", "DECISION-011", "PLA
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["WORK-015"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "definition", "label": "能力定义", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["CAPABILITY-005"], "checks": ["definition", "scope"], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "experience", "label": "开发体验 / 运维要求", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["EXPERIENCE-006"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DESIGN-012"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有独立技术方案"}, {"stage": "decision", "label": "技术决策", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DECISION-011"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响需要可长期追踪的技术决定"}, {"stage": "plan", "label": "开发计划", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["PLAN-012"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有显式实施计划"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-021"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-021"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": [], "checks": ["impact-analysis"], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "verification", "label": "验证", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["VERIFY-015"], "checks": ["automated-tests", "cross-module-regression", "accessibility", "compatibility"], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "线上观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["MEMORY-012"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级工作必须沉淀长期记忆"}]
 required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "accessibility", "compatibility"]
 human_confirmations: []
@@ -29,82 +28,57 @@ updated_at: "2026-08-27"
 work_type: "infra"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-015：建立 Cherry OJ Web 设计系统
 
-## 为什么做
+## 流程
 
-Cherry OJ 已有一份早期界面说明，但它只“借鉴 Linear”，实际文档、网页样式和示例之间已经出现
-不同的颜色与规则。继续在这个基础上画页面或写组件，不同参与者会各自理解“像 Linear”意味着什么，
-最终形成多套按钮、间距、主题和状态表达。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本工作把用户指定的 OpenDesign Linear 设计系统整理成 Cherry OJ 的长期界面基线：完整保留其黑色
-主题并作为默认主题，沿用字体节奏、间距、圆角、边框、动效和组件结构，只把 Linear 的紫色交互族
-替换为 Cherry 樱桃红；同时基于同一结构增加以纯白为画布的浅色主题。以后新增或修改共享组件都从
-同一套语义规则出发，不再从空白画布或个人偏好开始。
+```mermaid
+flowchart TD
+    clarify["✔ 需求澄清"]
+    definition["✔ 能力定义"]
+    experience["✔ 开发体验 / 运维要求"]
+    design["✔ 技术方案"]
+    decision["✔ 技术决策"]
+    plan["✔ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["○ 复核"]
+    verification["▶ 验证"]
+    release["· 上线"]
+    observe["· 线上观察"]
+    memory["· 项目记忆"]
+    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class clarify,definition,experience,design,decision,plan,tasks,development done
+    class verification doing
+```
 
-## 成功标准
-
-- [x] `docs/` 中存在一个自包含、可离线阅读的 Cherry OJ 设计系统，不依赖个人下载目录。
-- [x] 除品牌/交互色、Cherry 命名、来源声明和 OJ 必需语义外，Linear 基础规则没有无说明漂移。
-- [x] 人与工具都能从同一处取得颜色、字体、间距、圆角、动效和组件状态规则。
-- [x] Cherry 主色与危险/判题失败语义即使不看颜色也能区分，正文、控件和焦点满足可访问性门槛。
-- [x] 旧的“蓝紫主交互”基线被明确替代，不留下两份都自称有效的 UI 真源。
-- [x] 缺省情况下使用 Linear 黑色主题；pure-white 浅色主题覆盖同一套语义和组件状态。
-- [x] 新主题只需实现稳定合同、登记 metadata 并运行生成/校验工具，不需要修改聚合入口、组件或
-      Tailwind class。
-- [x] 本工作只交付设计系统文档和视觉参考；不会暗示现有 Web 实现已经完成迁移。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-015` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 需求澄清 | ✔ 完成 | 必需 | WORK-015 `implemented` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 能力定义 | ✔ 完成 | 必需 | CAPABILITY-005 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 开发体验 / 运维要求 | ✔ 完成 | 必需 | EXPERIENCE-006 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
+| 技术方案 | ✔ 完成 | 必需 | DESIGN-012 `approved` | 确定技术方案、边界与取舍 |
+| 技术决策 | ✔ 完成 | 必需 | DECISION-011 `approved` |  |
+| 开发计划 | ✔ 完成 | 必需 | PLAN-012 `approved` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-021 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-021 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ▶ 进行中 | 必需 | VERIFY-015 `review` | 用可复现的证据确认要求逐条满足 |
+| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
+| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | · 未开始 | 必需 | MEMORY-012 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 用户已在 2026-08-27 明确批准 DESIGN-012 的双主题色值、Cherry/danger 分离、selector、manifest、
 扩展合同和 docs-only 范围，并明确允许执行 TASK-021。实现现已完成并进入 VERIFY-015 人工复核；
 待确认项不是重新决定方案，而是检查实际组件参考后决定是否签署 `approved/pass`。
-
-## 风险点
-
-- Cherry 红与错误红接近，单靠颜色会把主操作误读为危险操作；所有危险、错误和 verdict 必须同时有
-  稳定文字、图标或形状，验收时单独检查。
-- 机械复制 Linear 的名称、Logo、营销模板或声称“官方 Linear 设计系统”会造成来源与商标误导；只
-  采用 OpenDesign fixture 的视觉规则，并保留 Apache-2.0 归属和修改声明。
-- 现有文档、视觉合同和运行时 token 已经漂移；本工作明确文档真源和迁移边界，不把尚未执行的代码
-  迁移写成既成事实。
-- pure-white 不能靠简单反色生成；正文、弱文字、边框、状态和 Cherry 交互色必须分别通过对比检查。
-- 多主题若允许组件判断具体 theme id，会迅速产生分支；组件只能消费语义 token，主题新增不能修改
-  组件 contract。
-
-## 影响面
-
-设计者、Web 开发者、代码评审者和后续 Agent 都会受这套基线约束。长期文档入口、前端视觉规则和旧
-HTML 视觉合同会在批准后更新；本任务不修改 `apps/web` 运行时代码、服务端、判题引擎、公共契约或
-产品业务行为。现有组件迁移需要独立任务与再次审核。
-
-本 WORK 流程中的“上线”指把已批准规范合并到默认分支并成为仓库入口，“线上观察”指合并后在干净
-克隆中复查入口、链接、派生产物和首个后续组件的采用情况；不代表部署独立服务或声称 Web 已迁移。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -118,3 +92,4 @@ HTML 视觉合同会在批准后更新；本任务不修改 `apps/web` 运行时
 - 2026-08-27：用户批准双主题方案并允许执行；完成 docs 设计系统、全局入口与验证证据，运行时代码
   保持不变，准备将 TASK-021 标记完成并把 VERIFY-015 提交人工复核。
 - 2026-08-27：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

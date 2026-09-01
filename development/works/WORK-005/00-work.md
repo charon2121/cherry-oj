@@ -13,7 +13,6 @@ related: ["ISSUE-001", "TASK-005", "VERIFY-005"]
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["ISSUE-001"], "checks": ["definition", "scope"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "design", "label": "原因与修复方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "tasks", "label": "修复任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-005"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-005"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["VERIFY-005"], "checks": ["automated-tests"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}]
 required_documents: ["issue", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests"]
 human_confirmations: []
@@ -29,54 +28,47 @@ updated_at: "2026-08-25"
 work_type: "fix"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-005：修复开发文档 CI 的 clean checkout 链接校验
 
-## 为什么做
+## 流程
 
-开发文档链接校验在本地读取完整工作区，却在 CI 的 clean checkout 中只看到 Git 跟踪文件。被
-`.gitignore` 排除的本地教程因此让本地检查误报通过，直到推送后才暴露失效链接，破坏了“本地绿则
-CI 应同样通过”的反馈约定。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-## 成功标准
+```mermaid
+flowchart TD
+    definition["✔ 问题说明、复现与预期"]
+    design["⊘ 原因与修复方案"]
+    tasks["✔ 修复任务"]
+    development["✔ 开发"]
+    review["✔ 复核"]
+    verification["✔ 回归验证"]
+    release["✔ 上线"]
+    observe["✔ 观察"]
+    memory["⊘ 项目记忆"]
+    definition --> design --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class definition,tasks,development,review,verification,release,observe done
+    class design,memory skipped
+```
 
-- [x] 全局文档不再链接到新克隆不保证存在的本地教程文件。
-- [x] 链接目标即使存在于本地，只要未进入 Git，文档校验也会拒绝。
-- [x] 工作项、文档链接校验及其单元测试在本地和 GitHub Actions 中通过。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-005` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 问题说明、复现与预期 | ✔ 完成 | 必需 | ISSUE-001 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 原因与修复方案 | ⊘ 跳过 | 可选 | — | 确定技术方案、边界与取舍 |
+| 修复任务 | ✔ 完成 | 必需 | TASK-005 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-005 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-005 `approved` | 用可复现的证据确认要求逐条满足 |
+| 上线 | ✔ 完成 | 必需 | — | 把成果交付出去 |
+| 观察 | ✔ 完成 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 暂无。
-
-## 风险点
-
-风险仅限文档链接判定：若目录链接的判断过严，可能误伤指向已跟踪目录的链接。通过文件、目录和
-未跟踪目标三类单元测试覆盖；出现回归可回退本提交。
-
-## 影响面
-
-只影响 `docs/engine.md` 的教程说明、文档链接校验脚本、对应 hook/CI 步骤和本工作项记录；不改变
-业务代码、契约、数据、部署以及 `tutorial/` 的本地材料策略。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -91,3 +83,4 @@ CI 应同样通过”的反馈约定。
 - 2026-08-25：状态变更：verified → released。原因：修复提交 6688360 已推送到 origin/main，GitHub Actions 运行 32802018365 已通过
 - 2026-08-25：流程阶段 观察：doing → done。原因：GitHub Actions 运行 32802018365 全部通过，开发文档系统 job 四项检查均为绿色
 - 2026-08-25：状态变更：released → confirmed。原因：远端 clean checkout 验证通过且整套 CI 全绿，观察未发现回归
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

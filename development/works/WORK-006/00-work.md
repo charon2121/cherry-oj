@@ -13,7 +13,6 @@ related: ["CHANGE-004", "TASK-006", "VERIFY-006"]
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "definition", "label": "改动说明与边界", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["CHANGE-004"], "checks": ["definition", "scope"], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "plan", "label": "开发计划", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-006"], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-006"], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["VERIFY-006"], "checks": ["automated-tests"], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "release", "label": "上线", "requirement": "optional", "status": "skipped", "status_source": "manual", "artifacts": [], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "observe", "label": "观察", "requirement": "optional", "status": "skipped", "status_source": "manual", "artifacts": [], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "memory", "label": "项目记忆", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}]
 required_documents: ["change", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests"]
 human_confirmations: []
@@ -29,64 +28,49 @@ updated_at: "2026-08-25"
 work_type: "maintenance"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-006：按思维导图结构重写开发文档系统规范
 
-## 为什么做
+## 流程
 
-现有 `development/SPECIFICATION.md` 按规则产生的先后顺序连续编号，78 个一级章节在阅读时缺少
-稳定的主题分区。读者容易看到一条条正确规则，却不容易先建立“工作项如何驱动流程、文档如何承载
-信息、状态和证据如何闭环、脚本与智能体如何分工”的整体模型。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本次以已经生成的思维导图为信息架构，把现行规范重排为九个相互衔接的主题章节，并改写成可以连续
-阅读的文章。思维导图只提供结构，不替代正文细节；现行规范中已经落地的规则必须完整保留。
+```mermaid
+flowchart TD
+    definition["✔ 改动说明与边界"]
+    design["⊘ 技术方案"]
+    plan["⊘ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["✔ 复核"]
+    verification["✔ 回归验证"]
+    release["⊘ 上线"]
+    observe["⊘ 观察"]
+    memory["⊘ 项目记忆"]
+    definition --> design --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class definition,tasks,development,review,verification done
+    class design,plan,release,observe,memory skipped
+```
 
-## 成功标准
-
-- [x] `SPECIFICATION.md` 使用九个主题章节组织全文，章节顺序与思维导图主干一致。
-- [x] 正文以解释性段落为主，清单、表格和代码块只用于枚举、状态、流程和示例。
-- [x] 现行工作类型、风险、影响面、流程叠加、阶段状态、文档模型、目录、追踪和工具规则均被保留。
-- [x] 规范内部术语与 `development/README.md`、Schema 和 `scripts/work` 的当前行为一致。
-- [x] 文档系统检查、链接检查、重复章节检查和差异格式检查通过。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-006` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 改动说明与边界 | ✔ 完成 | 必需 | CHANGE-004 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 技术方案 | ⊘ 跳过 | 可选 | — | 确定技术方案、边界与取舍 |
+| 开发计划 | ⊘ 跳过 | 可选 | — | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-006 `verified` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-006 `verified` | 按任务实施，产出代码与测试 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-006 `approved` | 用可复现的证据确认要求逐条满足 |
+| 上线 | ⊘ 跳过（手动） | 可选 | — | 把成果交付出去 |
+| 观察 | ⊘ 跳过（手动） | 可选 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 暂无。
-
-## 风险点
-
-- RISK-001：重排时遗漏现行规则。通过建立旧章节到新章节的覆盖映射、关键词检查和全文复核缓解。
-- RISK-002：把思维导图的概括误当成规范正文，导致约束失去精度。新正文保留字段、状态、命令和目录
-  示例，并用段落解释它们之间的关系。
-- RISK-003：文字重写意外改变已实现工具语义。以当前 `SPECIFICATION.md`、`development/README.md` 和
-  `scripts/work` 为事实基线，发现分歧时不顺手修改工具。
-
-## 影响面
-
-只修改 `development/SPECIFICATION.md`、本工作项的过程文档，以及创建 WORK-006 时由工具单调推进的
-`development/index.json`。不会修改业务代码、Schema、模板、脚本、既有工作项数据、公共接口、
-数据库、权限、部署或用户可观察行为。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -99,3 +83,4 @@ work_type: "maintenance"
 - 2026-08-25：根据文档、任务与验证事实刷新状态：implemented → verified。
 - 2026-08-25：流程阶段 上线：ready → skipped。原因：纯规范重排，无运行时发布或部署动作
 - 2026-08-25：流程阶段 观察：pending → skipped。原因：无线上行为变化，验证由文档与工具回归检查完成
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

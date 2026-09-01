@@ -1,0 +1,115 @@
+[
+  {
+    "stage": "definition",
+    "label": "问题说明、复现与预期",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "ISSUE-003"
+    ],
+    "checks": [
+      "definition",
+      "scope"
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "原因与修复方案",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "tasks",
+    "label": "修复任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-022"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-022"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "ready",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-016"
+    ],
+    "checks": [
+      "automated-tests",
+      "compatibility"
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "release",
+    "label": "上线",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:delivery",
+    "reason": "工作包含交付或上线影响"
+  },
+  {
+    "stage": "observe",
+    "label": "观察",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:delivery",
+    "reason": "上线后必须观察实际结果"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  }
+]

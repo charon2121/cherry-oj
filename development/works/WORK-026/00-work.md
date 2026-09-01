@@ -13,7 +13,6 @@ related: ["WORK-013", "WORK-025", "CAPABILITY-007", "EXPERIENCE-014", "DESIGN-02
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["WORK-026"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "definition", "label": "能力定义", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["CAPABILITY-007"], "checks": ["definition", "scope"], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "experience", "label": "开发体验 / 运维要求", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["EXPERIENCE-014"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DESIGN-020"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有独立技术方案"}, {"stage": "decision", "label": "技术决策", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DECISION-015"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响需要可长期追踪的技术决定"}, {"stage": "plan", "label": "开发计划", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["PLAN-016"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有显式实施计划"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-041"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-041"], "checks": [], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": [], "checks": ["impact-analysis", "independent-review"], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "verification", "label": "验证", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["VERIFY-026"], "checks": ["automated-tests", "cross-module-regression", "compatibility", "security"], "source": "profile:infra", "reason": "infra 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": ["rollback"], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "线上观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": ["reliability"], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["MEMORY-021"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级工作必须沉淀长期记忆"}]
 required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "compatibility", "reliability", "security"]
 human_confirmations: ["安全边界与权限影响已经由负责人确认"]
@@ -29,21 +28,6 @@ updated_at: "2026-08-31"
 work_type: "infra"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-026：为 Java 服务提供可直接启动的本地默认配置
 
 <!--
@@ -52,51 +36,54 @@ work_type: "infra"
 或 TASK。这里优先说明为什么做、完成后有什么变化、怎样算成功和可能影响谁。
 -->
 
-## 为什么做
+## 流程
 
-五个 Java 服务的大部分本地配置已经带默认值，但仍有少数启动必需项只能靠开发者先在每个终端手工
-`export`。遗漏任意一项时，服务通常要到 Spring 创建数据库连接或签名组件时才失败，日志离真正原因
-较远；重新开终端后还要重复配置，也让“从根工程构建成功”和“服务实际可启动”成为两套体验。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本工作为本地开发建立完整、可覆盖的默认配置。开发者准备好项目约定的 MySQL、Redis 等基础设施后，
-可以直接启动任一 Java 服务；部署环境仍使用自己的 Secret（密码或私钥等敏感配置），不会把本地默认
-误当成生产凭据。
+```mermaid
+flowchart TD
+    clarify["✔ 需求澄清"]
+    definition["✔ 能力定义"]
+    experience["✔ 开发体验 / 运维要求"]
+    design["✔ 技术方案"]
+    decision["✔ 技术决策"]
+    plan["✔ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["○ 复核"]
+    verification["▶ 验证"]
+    release["· 上线"]
+    observe["· 线上观察"]
+    memory["▶ 项目记忆"]
+    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class clarify,definition,experience,design,decision,plan,tasks,development done
+    class verification,memory doing
+```
 
-## 成功标准
-
-- [x] 在未设置任何 `CHERRY_*` 环境变量时，五个 Java 服务都不会因为缺少配置值而拒绝启动。
-- [x] 环境变量仍可覆盖每一项本地默认值，已有部署配置名称和优先级不变。
-- [x] 仓库不新增固定 RSA 私钥、真实账号密码或其它可用于生产的 Secret。
-- [x] 生产配置继续要求显式提供数据库凭据和稳定签名密钥；缺失时明确失败，不能静默采用本地临时值。
-- [x] 可选的空值与框架运行时属性不会被误判为缺失配置；自动化检查能防止后续服务重新引入无默认的
-  本地启动必需变量。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-026` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 需求澄清 | ✔ 完成 | 必需 | WORK-026 `todo` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 能力定义 | ✔ 完成 | 必需 | CAPABILITY-007 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 开发体验 / 运维要求 | ✔ 完成 | 必需 | EXPERIENCE-014 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
+| 技术方案 | ✔ 完成 | 必需 | DESIGN-020 `approved` | 确定技术方案、边界与取舍 |
+| 技术决策 | ✔ 完成 | 必需 | DECISION-015 `approved` |  |
+| 开发计划 | ✔ 完成 | 必需 | PLAN-016 `approved` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-041 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-041 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ▶ 进行中 | 必需 | VERIFY-026 `review` | 用可复现的证据确认要求逐条满足 |
+| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
+| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-021 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 2026-08-31 负责人已确认 DESIGN-020 / DECISION-015，并明确允许实施。本地随机 RSA、生产稳定 PEM、
 数据库最小权限账号默认和有效空值保留均已实现；生产发布仍需目标环境授权与 Secret 注入。
-
-## 风险点
-
-- 临时签名密钥在 user-service 重启后变化，旧 JWT 会失效；这只适用于单实例本地联调，生产必须提供
-  稳定密钥文件。
-- 把本地数据库口令带到部署环境会形成弱凭据风险；生产 profile 和验证必须证明显式覆盖仍为必需。
-- Redis 密码空值是本地无鉴权 Redis 的有效配置，强行填值反而会使 Gateway 无法连接。
-- 默认值只能消除配置导出步骤，不能自动创建数据库、账号或启动 MySQL、Redis、Go Judge。
-
-## 影响面
-
-影响所有本地启动 Java 服务的开发者，以及 user-service 身份签名、user/problem/judging 数据库连接和
-相关启动测试。公开 API、数据库表、Web 页面、Go Judge、生产 Secret 内容和服务端口均不改变。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -110,3 +97,4 @@ work_type: "infra"
 - 2026-08-31：流程阶段 复核：doing → done。原因：复核确认默认仅用于本地、production fail-closed、无固定私钥且未覆盖 WORK-025 实现
 - 2026-08-31：运行时联调发现三个资源服务的本地 JWKS 默认地址与 user-service 实际发布地址不一致；
   已在原批准范围内修正、增加跨服务回归，并重新完成七模块聚合验证。
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

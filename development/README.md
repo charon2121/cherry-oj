@@ -67,7 +67,8 @@ development/
 ├── templates/                 # 各文档模板
 └── works/
     └── WORK-001/              # 目录名只使用永久编号
-        ├── 00-work.md
+        ├── flow.json          # 控制面状态，由 scripts/work 维护
+        ├── 00-work.md         # 控制面入口：流程视图 / 待确认项 / 变更记录
         ├── 10-feature-FEATURE-001.md
         ├── 20-experience-EXPERIENCE-001.md
         ├── 30-design-DESIGN-001.md

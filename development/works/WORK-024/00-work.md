@@ -13,7 +13,6 @@ related: ["FEATURE-006", "EXPERIENCE-012", "TASK-032", "VERIFY-024", "MEMORY-019
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["WORK-024"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "definition", "label": "功能定义", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["FEATURE-006"], "checks": ["definition", "scope"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "experience", "label": "体验设计", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["EXPERIENCE-012"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "plan", "label": "开发计划", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-032"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-032"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "verification", "label": "验证", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["VERIFY-024"], "checks": ["automated-tests", "accessibility"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "线上观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["MEMORY-019"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}]
 required_documents: ["feature", "experience", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "accessibility"]
 human_confirmations: []
@@ -29,30 +28,6 @@ updated_at: "2026-08-30"
 work_type: "product"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-024：重新设计登录页视觉与体验
 
 <!--
@@ -61,49 +36,53 @@ work_type: "product"
 或 TASK。这里优先说明为什么做、完成后有什么变化、怎样算成功和可能影响谁。
 -->
 
-## 为什么做
+## 流程
 
-当前登录页已经能够完成账号密码登录，也能显示提交中和失败状态，但主要内容只是一个位于大面积空白
-中央的表单。它能用，却没有延续主页和导航已经建立的“专注练习空间”感受，用户进入产品的第一步显得
-单调、临时，也没有充分利用桌面空间建立品牌记忆。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本工作重新组织登录页的信息层级与视觉构图，让用户一眼知道自己正在进入 Cherry OJ，并能立即完成
-登录。变化只发生在页面呈现与状态布局，不改变账号、密码、安全、跳转或权限规则。
+```mermaid
+flowchart TD
+    clarify["✔ 需求澄清"]
+    definition["✔ 功能定义"]
+    experience["✔ 体验设计"]
+    design["⊘ 技术方案"]
+    plan["⊘ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["○ 复核"]
+    verification["▶ 验证"]
+    release["· 上线"]
+    observe["· 线上观察"]
+    memory["· 项目记忆"]
+    clarify --> definition --> experience --> design --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class clarify,definition,experience,tasks,development done
+    class verification doing
+    class design,plan skipped
+```
 
-## 成功标准
-
-- [ ] 登录页不再表现为孤立在空白画布中的小表单，品牌信息、登录任务与页面空间形成清楚的整体构图。
-- [ ] 用户名、密码、密码显隐、登录和失败恢复仍是唯一主流程，用户无需寻找或判断下一步。
-- [ ] 登录中、校验错误、接口错误和限流提示不会因视觉改造被弱化、遮挡或造成布局跳动。
-- [ ] 页面与现有 Header、Footer、Cherry 品牌和双主题保持一致，不出现未交付入口或设计系统外样式。
-- [ ] 桌面、320px、200% 缩放、键盘和辅助技术下均可完成登录，关键文案和控件不被裁切。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-024` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 需求澄清 | ✔ 完成 | 必需 | WORK-024 `implemented` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 功能定义 | ✔ 完成 | 必需 | FEATURE-006 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 体验设计 | ✔ 完成 | 必需 | EXPERIENCE-012 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
+| 技术方案 | ⊘ 跳过 | 可选 | — | 确定技术方案、边界与取舍 |
+| 开发计划 | ⊘ 跳过 | 可选 | — | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-032 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-032 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ▶ 进行中 | 必需 | VERIFY-024 `review` | 用可复现的证据确认要求逐条满足 |
+| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
+| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | · 未开始 | 必需 | MEMORY-019 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 视觉方向已选择为本轮第 2 个方案；仍需人工审核 FEATURE-006、EXPERIENCE-012 与 TASK-032，并在后续
 消息中明确允许实施。
-
-## 风险点
-
-- 装饰内容抢过表单注意力；通过首屏视觉复核和任务完成路径检查，保证“登录”始终是唯一主要动作。
-- 桌面构图在窄屏直接压缩后变得拥挤；为 320px 单独定义内容取舍和顺序，不缩小关键控件硬塞。
-- 为了丰富页面误加注册、找回密码或第三方登录；用入口清单和 E2E 检查，只显示真实交付能力。
-- 错误提示与新布局脱节；覆盖空提交、限流、服务失败和重复点击，失败后保持输入并允许恢复。
-
-## 影响面
-
-影响所有进入 `/login` 的访客、登录过期用户和被保护页面重定向来的用户。范围局限于 Web 登录页的
-呈现、必要的页面级展示组件、Storybook/组件测试和登录 E2E；不修改登录接口、Session、权限、路由
-规则、全局 Shell、设计系统真源、主题合同或后端。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -118,3 +97,4 @@ work_type: "product"
 - 2026-08-29：根据文档、任务与验证事实刷新状态：doing → implemented。
 - 2026-08-29：状态变更：implemented → doing。原因：用户复核仍发现登录页滚动条，继续在 TASK-032 内修正短桌面窗口溢出
 - 2026-08-30：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

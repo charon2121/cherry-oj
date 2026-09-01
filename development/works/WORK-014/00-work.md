@@ -13,7 +13,6 @@ related: ["WORK-013", "MEMORY-010", "ISSUE-002", "DESIGN-011", "DECISION-010", "
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["ISSUE-002"], "checks": ["definition", "scope"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "design", "label": "原因与修复方案", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DESIGN-011"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有独立技术方案"}, {"stage": "decision", "label": "技术决策", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DECISION-010"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响需要可长期追踪的技术决定"}, {"stage": "plan", "label": "开发计划", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["PLAN-011"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有显式实施计划"}, {"stage": "tasks", "label": "修复任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-020"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-020"], "checks": [], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": ["impact-analysis", "independent-review"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["VERIFY-014"], "checks": ["automated-tests", "compatibility", "security"], "source": "profile:fix", "reason": "fix 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "blocked", "status_source": "manual", "artifacts": [], "checks": ["rollback"], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "blocked", "status_source": "manual", "artifacts": [], "checks": ["reliability"], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["MEMORY-011"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级工作必须沉淀长期记忆"}]
 required_documents: ["issue", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "compatibility", "reliability", "security"]
 human_confirmations: ["安全边界与权限影响已经由负责人确认"]
@@ -29,25 +28,6 @@ updated_at: "2026-08-27"
 work_type: "fix"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-014：统一登录空闲过期配置并修复提前掉线
 
 <!--
@@ -56,31 +36,45 @@ work_type: "fix"
 或 TASK。这里优先说明为什么做、完成后有什么变化、怎样算成功和可能影响谁。
 -->
 
-## 为什么做
+## 流程
 
-用户在一段时间没有操作网站后会退出登录，但目前看不出实际采用的是哪个时间，也无法通过一个清晰的
-部署配置调整。代码中的登录空闲时间分散在 Gateway 和 user-service：一处直接写死为 30 分钟，另一处
-也有独立的 30 分钟值。两处不一致时会取更早的一个，容易表现为“明明改了配置却仍提前掉线”。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本工作把“最后一次认证操作后多久需要重新输入密码”变成单一、可说明、可测试的配置，同时保留安全
-事件立即失效和最长登录时间上限。
+```mermaid
+flowchart TD
+    definition["✔ 问题说明、复现与预期"]
+    design["✔ 原因与修复方案"]
+    decision["✔ 技术决策"]
+    plan["✔ 开发计划"]
+    tasks["✔ 修复任务"]
+    development["✔ 开发"]
+    review["✔ 复核"]
+    verification["✔ 回归验证"]
+    release["✖ 上线"]
+    observe["✖ 观察"]
+    memory["✔ 项目记忆"]
+    definition --> design --> decision --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class definition,design,decision,plan,tasks,development,review,verification,memory done
+    class release,observe blocked
+```
 
-## 成功标准
-
-- [x] 部署者可分别设置 IDLE 秒数、绝对上限秒数和是否在认证操作后刷新 IDLE，Gateway Session 与
-  user-service 登录授权采用相同语义。
-- [x] IDLE 默认 1800 秒、绝对上限默认 43200 秒；配置为其它合法值后，用户不会在期限到达前因为
-  120 秒内部令牌而退出。
-- [x] 超过配置的空闲时间后，下一次认证操作明确进入未登录状态并要求重新输入密码。
-- [x] 刷新开关为 `true` 时认证操作刷新 IDLE，为 `false` 时 IDLE 从登录开始固定；只停留页面、滚动
-  或编辑未提交表单均不会续期。
-- [x] 无论是否刷新 IDLE，都不能突破可配置的绝对上限；退出、改密、停用和重置仍立即失效。
-- [x] 非法、缺失或两层不一致的配置不能静默退回另一个值，自动化测试覆盖时间边界。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-014` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 问题说明、复现与预期 | ✔ 完成 | 必需 | ISSUE-002 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 原因与修复方案 | ✔ 完成 | 必需 | DESIGN-011 `approved` | 确定技术方案、边界与取舍 |
+| 技术决策 | ✔ 完成 | 必需 | DECISION-010 `approved` |  |
+| 开发计划 | ✔ 完成 | 必需 | PLAN-011 `approved` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 修复任务 | ✔ 完成 | 必需 | TASK-020 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-020 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-014 `approved` | 用可复现的证据确认要求逐条满足 |
+| 上线 | ✖ 受阻（手动） | 必需 | — | 把成果交付出去 |
+| 观察 | ✖ 受阻（手动） | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-011 `approved` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -92,23 +86,6 @@ work_type: "fix"
 
 2026-08-27 负责人已确认 DESIGN-011、DECISION-010、PLAN-011，并明确允许实施；仓库内实现与验证完成。
 生产发布、两个进程的变量注入和线上到期观察仍需目标环境授权。
-
-## 风险点
-
-- 配置过长会扩大离开设备后被他人继续使用的窗口，因此保留上限、绝对期限与安全事件全端撤销。
-- 只修改 Gateway 会让数据库登录授权更早过期，只修改 user-service 会让 Redis Session 更早消失；
-  验证必须同时检查两层实际期限。
-- 把 120 秒内部令牌误当成登录期限会造成频繁掉线；回归测试必须跨过令牌到期点仍保持登录。
-- 回退时恢复原 30 分钟默认即可，不涉及数据库结构和已存用户数据。
-
-## 影响面
-
-影响所有已登录用户、本地和部署环境的会话配置、Gateway Redis Session，以及 user-service 的登录授权
-续期。不会改变账号、密码、角色、公开登录接口、数据库表结构、资源服务验权或 Web 页面样式。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -125,3 +102,4 @@ work_type: "fix"
 - 2026-08-27：流程阶段 复核：doing → done。原因：复核确认 IDLE 等号失效、绝对期限封顶、JWT 透明刷新、503 保留 Session、安全白名单与范围边界均有测试证据
 - 2026-08-27：流程阶段 上线：pending → blocked。原因：未提供生产环境、Secret、配置中心或发布授权，本次仅完成仓库实现
 - 2026-08-27：流程阶段 观察：pending → blocked。原因：尚未生产发布，无法取得真实用户登录期限与可靠性观察证据
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

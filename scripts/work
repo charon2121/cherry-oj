@@ -148,7 +148,7 @@ COMMON_REQUIRED = {
     "updated_at",
 }
 REQUIRED_SECTIONS = {
-    "work": ("为什么做", "成功标准", "当前流程", "待确认项", "风险点", "影响面", "关联文档", "变更记录"),
+    "work": ("流程", "待确认项", "变更记录"),
     "product": ("问题", "目标用户", "目标", "成功标准", "不做什么", "限制", "待确认项"),
     "feature": ("为什么做", "使用者", "入口", "正常流程", "业务规则", "边界与失败", "要求", "验收标准", "不做什么", "待确认项"),
     "capability": ("为什么需要", "使用者", "能力", "接入方式", "输入与输出", "限制与失败", "质量要求", "升级与迁移", "不做什么"),
@@ -164,6 +164,39 @@ REQUIRED_SECTIONS = {
     "memory": ("背景", "决定与原因", "尝试与教训", "已知问题", "重新考虑条件"),
 }
 # 定义层是产品面入口，第一节必须是用日常语言写的开头；只查“存在”挡不住把它挪到文末。
+STAGE_DESCRIPTIONS = {
+    "clarify": "把还没想清楚的问题问出来并得到答复，否则不开工",
+    "definition": "说清楚这件事要达成什么、边界在哪、怎样算完成",
+    "experience": "设计使用者实际看到和操作的流程，包含异常与失败状态",
+    "design": "确定技术方案、边界与取舍",
+    "plan": "拆成阶段与顺序，说明并行、依赖、迁移与回退",
+    "tasks": "拆成可独立完成并验证的任务，划定可读、可写与禁止范围",
+    "development": "按任务实施，产出代码与测试",
+    "review": "独立复核实现是否符合定义与方案，边界有没有被越过",
+    "verification": "用可复现的证据确认要求逐条满足",
+    "release": "把成果交付出去",
+    "observe": "交付后观察实际结果，确认没有引入新问题",
+    "memory": "留下未来仍有参考价值的判断、教训与重审条件",
+}
+# 状态不能只靠颜色表达：符号在纯文本 diff、终端和深浅两种主题下都成立。
+STAGE_SYMBOLS = {
+    "done": "✔",
+    "doing": "▶",
+    "ready": "○",
+    "pending": "·",
+    "skipped": "⊘",
+    "blocked": "✖",
+}
+STAGE_STATUS_LABELS = {
+    "done": "完成",
+    "doing": "进行中",
+    "ready": "就绪",
+    "pending": "未开始",
+    "skipped": "跳过",
+    "blocked": "受阻",
+}
+FLOW_SECTION = "流程"
+FLOW_FILENAME = "flow.json"
 DEFINITION_KINDS = {"product", "feature", "capability", "issue", "change", "improvement"}
 PLACEHOLDER_MARKERS = ("TODO", "待补充", "待填写", "示例内容")
 FINAL_DOCUMENT_STATUSES = {"approved", "checked", "deprecated", "superseded", "archived"}
@@ -351,7 +384,17 @@ def parse_document(path: Path) -> Document:
             raise WorkError(
                 f"{path}:{line_number}: {key} 必须使用 JSON 兼容值：{error.msg}"
             ) from error
-    return Document(path=path, metadata=metadata, body=content[end + 5 :])
+    document = Document(path=path, metadata=metadata, body=content[end + 5 :])
+    if document.kind == "work":
+        # 控制面是工具维护的机器状态，不放进人编辑的 front matter：
+        # 它是一行两千多字符的 JSON，改一个阶段状态就整行变更，diff 完全不可读。
+        flow_path = path.parent / FLOW_FILENAME
+        if flow_path.is_file():
+            try:
+                document.metadata["workflow"] = json.loads(flow_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as error:
+                raise WorkError(f"{flow_path}: 无法解析控制面状态：{error.msg}") from error
+    return document
 
 
 def render_document(document: Document) -> str:
@@ -391,17 +434,20 @@ def render_document(document: Document) -> str:
         "updated_at",
     )
     lines = ["---"]
+    skip = {"workflow"} if document.kind == "work" else set()
     for field in preferred:
-        if field in document.metadata:
+        if field in document.metadata and field not in skip:
             lines.append(f"{field}: {json.dumps(document.metadata[field], ensure_ascii=False)}")
-    for field in sorted(set(document.metadata) - set(preferred)):
+    for field in sorted(set(document.metadata) - set(preferred) - skip):
         lines.append(f"{field}: {json.dumps(document.metadata[field], ensure_ascii=False)}")
-    lines.extend(("---", "", document.body.rstrip(), ""))
+    lines.extend(("---", "", document.body.strip(), ""))
     return "\n".join(lines)
 
 
 def write_document(document: Document) -> None:
     document.path.parent.mkdir(parents=True, exist_ok=True)
+    if document.kind == "work":
+        write_json(document.path.parent / FLOW_FILENAME, document.metadata.get("workflow", []))
     with tempfile.NamedTemporaryFile(
         "w",
         encoding="utf-8",
@@ -425,6 +471,18 @@ def load_index(root: Path) -> dict[str, Any]:
     if not isinstance(value, dict) or not isinstance(value.get("next_ids"), dict):
         raise WorkError(f"{path}: 必须包含 next_ids 对象")
     return value
+
+
+def write_json(path: Path, payload: Any) -> None:
+    """原子写入：中途失败不会留下半份状态文件。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = json.dumps(payload, ensure_ascii=False, indent=2) + "\n"
+    with tempfile.NamedTemporaryFile(
+        "w", encoding="utf-8", dir=path.parent, prefix=f".{path.name}.", delete=False
+    ) as temporary:
+        temporary.write(content)
+        temporary_path = Path(temporary.name)
+    temporary_path.replace(path)
 
 
 def write_index(root: Path, index: dict[str, Any]) -> None:
@@ -569,9 +627,12 @@ def validate_repository_layout(root: Path) -> list[str]:
         for child in entry.iterdir():
             if child.name.startswith("."):
                 continue
+            if child.name == FLOW_FILENAME and child.is_file():
+                continue
             if child.is_dir() or child.suffix != ".md":
                 errors.append(
-                    f"{child.relative_to(root)}: 工作项目录必须保持扁平，且只包含受管理的 Markdown 文档"
+                    f"{child.relative_to(root)}: 工作项目录必须保持扁平，"
+                    f"只包含受管理的 Markdown 文档与工具维护的 {FLOW_FILENAME}"
                 )
     return errors
 
@@ -902,6 +963,65 @@ def bind_workflow_artifacts(work: Document, documents: Iterable[Document]) -> No
         stage["artifacts"].sort()
 
 
+def render_flow(work: "Document", documents: dict[str, "Document"]) -> str:
+    """把控制面渲染成人能读的视图。真源是各文档自己的状态，这里只负责显示。"""
+    workflow = work.metadata.get("workflow") or []
+    lines = [
+        "<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->",
+        "",
+        "```mermaid",
+        "flowchart TD",
+    ]
+    by_status: dict[str, list[str]] = {}
+    for stage in workflow:
+        name, status = stage["stage"], stage["status"]
+        symbol = STAGE_SYMBOLS.get(status, "·")
+        lines.append(f'    {name}["{symbol} {stage["label"]}"]')
+        by_status.setdefault(status, []).append(name)
+    order = [stage["stage"] for stage in workflow]
+    if len(order) > 1:
+        lines.append("    " + " --> ".join(order))
+    lines.extend((
+        "    classDef done stroke-width:2px",
+        "    classDef doing stroke-width:3px",
+        "    classDef skipped stroke-dasharray:4 3",
+        "    classDef blocked stroke-width:3px,stroke-dasharray:2 2",
+    ))
+    for status in ("done", "doing", "skipped", "blocked"):
+        if by_status.get(status):
+            lines.append(f"    class {','.join(by_status[status])} {status}")
+    lines.extend(("```", "", "| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |", "|---|---|---|---|---|"))
+    for stage in workflow:
+        status = stage["status"]
+        cell = f"{STAGE_SYMBOLS.get(status, '·')} {STAGE_STATUS_LABELS.get(status, status)}"
+        if stage.get("status_source") == "manual":
+            cell += "（手动）"
+        artifacts = []
+        for artifact_id in stage.get("artifacts", []):
+            target = documents.get(artifact_id)
+            artifacts.append(
+                f"{artifact_id} `{target.metadata['status']}`" if target else f"{artifact_id} `缺失`"
+            )
+        lines.append(
+            f"| {stage['label']} | {cell} "
+            f"| {'必需' if stage['requirement'] == 'required' else '可选'} "
+            f"| {'、'.join(artifacts) or '—'} "
+            f"| {STAGE_DESCRIPTIONS.get(stage['stage'], '')} |"
+        )
+    return "\n".join(lines)
+
+
+def apply_flow_section(work: "Document", documents: dict[str, "Document"]) -> None:
+    rendered = render_flow(work, documents)
+    pattern = re.compile(rf"(?ms)^## {FLOW_SECTION}\n+.*?(?=^## |\Z)")
+    block = f"## {FLOW_SECTION}\n\n{rendered}\n\n"
+    work.body = (
+        pattern.sub(lambda _: block, work.body, count=1)
+        if pattern.search(work.body)
+        else work.body.rstrip() + "\n\n" + block
+    )
+
+
 def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None:
     """根据文档、任务、验证和 WORK 状态刷新阶段进度。"""
 
@@ -1044,6 +1164,9 @@ def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None
         stage["status"] = status
         if stage["requirement"] == "required" and status != "done":
             prior_required_done = False
+
+    # 视图跟着真源走：每次控制面刷新都重渲染，人永远不需要手工同步这一节。
+    apply_flow_section(work, documents)
 
 
 def new_metadata(
@@ -1547,6 +1670,24 @@ def require_document(documents: dict[str, Document], document_id: str) -> Docume
         raise WorkError(f"找不到文档 {document_id}") from error
 
 
+def flow_view_drift(documents: dict[str, "Document"], root: Path) -> list[str]:
+    """视图过期最危险的地方在于：它看起来和最新的一模一样。
+
+    只在 check 里报，不放进 validate_documents——否则 refresh 会被它自己要修的错误挡住。
+    所有会改动状态的命令都会重渲染并写回，正常路径不会产生漂移。
+    """
+    problems: list[str] = []
+    for work in documents.values():
+        if work.kind != "work":
+            continue
+        if section(work.body, FLOW_SECTION) != render_flow(work, documents).strip():
+            problems.append(
+                f"{work.path.relative_to(root)}: `## {FLOW_SECTION}` 与实际控制面不一致"
+                f"（该节由工具生成）。请运行：scripts/work refresh {work.id}"
+            )
+    return problems
+
+
 def command_check(args: argparse.Namespace) -> None:
     schema_path = args.root / "development" / "schema" / "document.schema.json"
     try:
@@ -1573,6 +1714,7 @@ def command_check(args: argparse.Namespace) -> None:
         raise WorkError("development/ 至少需要保留一个工作项")
     errors, warnings = validate_documents(documents, args.root, index)
     errors.extend(validate_works_index(args.root, documents))
+    errors.extend(flow_view_drift(documents, args.root))
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)
     for error in errors:
@@ -1916,6 +2058,8 @@ def command_refresh(args: argparse.Namespace) -> None:
     if work.kind != "work":
         raise WorkError(f"{args.work_id} 不是工作项")
     settled = settle_record_documents(work.id, documents)
+    # 视图被手工改过时，元数据可能毫无变化；不记下来的话 refresh 会提前返回，修不回去。
+    old_flow = section(work.body, FLOW_SECTION)
     old_workflow = json.dumps(work.metadata["workflow"], ensure_ascii=False, sort_keys=True)
     bind_workflow_artifacts(work, [work, *work_documents(work.id, documents)])
     synchronize_workflow(work, documents)
@@ -1926,15 +2070,19 @@ def command_refresh(args: argparse.Namespace) -> None:
     workflow_changed = old_workflow != json.dumps(
         work.metadata["workflow"], ensure_ascii=False, sort_keys=True
     )
-    if old == derived and not workflow_changed and not settled:
+    flow_changed = old_flow != section(work.body, FLOW_SECTION)
+    if old == derived and not workflow_changed and not settled and not flow_changed:
         print(f"✓ {work.id} 状态无需更新：{old}")
         return
-    work.metadata["updated_at"] = today()
+    # 纯视图重绘不是工作历史：不写变更记录，也不动 updated_at，否则修一次手改就留一条噪音。
     if old != derived:
+        work.metadata["updated_at"] = today()
         append_log(work, f"根据文档、任务与验证事实刷新状态：{old} → {derived}。")
     elif workflow_changed:
+        work.metadata["updated_at"] = today()
         append_log(work, "根据文档、任务与 WORK 事实刷新流程阶段状态。")
     elif settled:
+        work.metadata["updated_at"] = today()
         append_log(work, "记录类文档通过校验，由工具定稿。")
     prospective = dict(documents)
     prospective[work.id] = work
@@ -2383,11 +2531,23 @@ def command_supersede(args: argparse.Namespace) -> None:
     new.metadata["updated_at"] = today()
     append_log(old, f"由 {new.id} 替代：{args.reason}")
     prospective = {**documents, old.id: old, new.id: new}
+    works = []
+    for work_id in dict.fromkeys(d.metadata.get("work") for d in (old, new)):
+        work = prospective.get(work_id)
+        if work is None:
+            continue
+        bind_workflow_artifacts(work, [work, *work_documents(work.id, prospective)])
+        synchronize_workflow(work, prospective)
+        prospective[work.id] = work
+        works.append(work)
     errors, _ = validate_documents(prospective, args.root, index)
     if errors:
         raise WorkError("替代会破坏系统约束：\n- " + "\n- ".join(errors))
     write_document(old)
     write_document(new)
+    for work in works:
+        work.metadata["updated_at"] = today()
+        write_document(work)
     print(f"✓ {old.id} 已由 {new.id} 替代")
 
 

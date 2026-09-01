@@ -13,7 +13,6 @@ related: ["CHANGE-001", "DESIGN-001", "DECISION-001", "PLAN-001", "TASK-001", "V
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "definition", "label": "改动说明与边界", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["CHANGE-001"], "checks": ["definition", "scope"], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DESIGN-001"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有独立技术方案"}, {"stage": "decision", "label": "技术决策", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["DECISION-001"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响需要可长期追踪的技术决定"}, {"stage": "plan", "label": "开发计划", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["PLAN-001"], "checks": ["rollback"], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有显式实施计划"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-001"], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-001"], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": [], "checks": ["impact-analysis", "independent-review"], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "verification", "label": "回归验证", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["VERIFY-001"], "checks": ["automated-tests", "cross-module-regression"], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "release", "label": "上线", "requirement": "optional", "status": "skipped", "status_source": "manual", "artifacts": [], "checks": [], "source": "profile:maintenance", "reason": "maintenance 基础流程"}, {"stage": "observe", "label": "观察", "requirement": "required", "status": "done", "status_source": "manual", "artifacts": [], "checks": ["reliability"], "source": "overlay:concern", "reason": "专项关注要求在实施后持续观察"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["MEMORY-001"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级工作必须沉淀长期记忆"}]
 required_documents: ["change", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "reliability"]
 human_confirmations: []
@@ -29,60 +28,51 @@ updated_at: "2026-08-24"
 work_type: "maintenance"
 ---
 
-
-
-
-
-
-
-
-
-
 # WORK-001：重建统一开发文档系统
 
-## 为什么做
+## 流程
 
-仓库原来把产品需求放在 `product/`、研发执行放在 `tasks/`，两边有独立状态、模板、Schema、命令和
-需要人工维护的双向关系。这个模型只能覆盖 REQ 与 TASK，无法自然表达基建、问题修复、重构、风险、
-体验、设计、验证和项目记忆，也把本应属于一次工作的上下文拆成两个管理中心。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本次以 [`development/SPECIFICATION.md`](../../SPECIFICATION.md) 的工作项规范为基础重建文档系统，并明确
-项目只保留全局文档与开发过程文档两层。
+```mermaid
+flowchart TD
+    definition["✔ 改动说明与边界"]
+    design["✔ 技术方案"]
+    decision["✔ 技术决策"]
+    plan["✔ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["✔ 复核"]
+    verification["✔ 回归验证"]
+    release["⊘ 上线"]
+    observe["✔ 观察"]
+    memory["✔ 项目记忆"]
+    definition --> design --> decision --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class definition,design,decision,plan,tasks,development,review,verification,observe,memory done
+    class release skipped
+```
 
-## 成功标准
-
-- [x] `docs/` 明确只保存已经确认、跨工作项长期有效的全局文档。
-- [x] `development/` 以 WORK 为入口，统一管理定义、设计、计划、任务、验证和记忆。
-- [x] 工具可以选择流程、自动提高风险、生成文档、校验关系、推导状态、追踪和生成任务上下文。
-- [x] 旧 `product/`、`tasks/` 及其专用脚本和 CI 入口被移除，有效产品定义和历史原因没有丢失。
-- [x] 工具端到端测试、全局/开发文档链接校验与现有工程回归检查通过。
-
-## 当前流程
-
-本工作是系统级、高风险维护，采用完整流程。front matter 记录必需阶段、文档与专项检查，
-`scripts/work flow WORK-001` 展示各阶段的实际文档状态。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 改动说明与边界 | ✔ 完成 | 必需 | CHANGE-001 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 技术方案 | ✔ 完成 | 必需 | DESIGN-001 `approved` | 确定技术方案、边界与取舍 |
+| 技术决策 | ✔ 完成 | 必需 | DECISION-001 `approved` |  |
+| 开发计划 | ✔ 完成 | 必需 | PLAN-001 `approved` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-001 `verified` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-001 `verified` | 按任务实施，产出代码与测试 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-001 `approved` | 用可复现的证据确认要求逐条满足 |
+| 上线 | ⊘ 跳过（手动） | 可选 | — | 把成果交付出去 |
+| 观察 | ✔ 完成（手动） | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-001 `approved` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 暂无。
-
-## 风险点
-
-- RISK-001：迁移时丢失仍有效的产品定义。通过逐段迁移旧 REQ-0001 并保留旧 ID 来源降低风险；旧全文
-  仍可从 Git 历史恢复。
-- RISK-002：新流程自身不可执行。使用无第三方依赖的 CLI、端到端测试和 CI 校验，在删除旧工具前验证
-  创建、风险升级、断链检查、状态和上下文功能。
-- RISK-003：把草稿混入全局文档。通过 `docs/README.md` 的准入规则，把工作中的未知和方案保留在
-  `development/`。
-
-## 影响面
-
-影响仓库协作规则、文档目录、CI 和智能体开发入口；不修改运行时代码、跨语言契约、数据库、用户行为
-或部署产物。旧工具删除后不能继续使用 `scripts/task` 与 `scripts/product`，统一改用 `scripts/work`。
-
-## 关联文档
-
-关联 ID 由 `related` 维护。全局规则见 `docs/README.md`，系统使用说明见 `development/README.md`。
 
 ## 变更记录
 
@@ -97,3 +87,4 @@ work_type: "maintenance"
 - 2026-08-24：流程阶段 观察：pending → ready。原因：既有验证证据满足可靠性观察前置条件
 - 2026-08-24：流程阶段 观察：ready → doing。原因：检查迁移后创建、校验和 CI 入口运行情况
 - 2026-08-24：流程阶段 观察：doing → done。原因：后续两次文档系统重构均通过存量回归
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

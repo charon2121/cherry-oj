@@ -13,7 +13,6 @@ related: ["FEATURE-004", "EXPERIENCE-010", "TASK-030", "VERIFY-022", "MEMORY-017
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["WORK-022"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "definition", "label": "功能定义", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["FEATURE-004"], "checks": ["definition", "scope"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "experience", "label": "体验设计", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["EXPERIENCE-010"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "plan", "label": "开发计划", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-030"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-030"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "verification", "label": "验证", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["VERIFY-022"], "checks": ["automated-tests", "accessibility"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "线上观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["MEMORY-017"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}]
 required_documents: ["feature", "experience", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "accessibility"]
 human_confirmations: []
@@ -29,16 +28,6 @@ updated_at: "2026-08-28"
 work_type: "product"
 ---
 
-
-
-
-
-
-
-
-
-
-
 # WORK-022：微调双端应用布局页脚
 
 <!--
@@ -47,49 +36,53 @@ work_type: "product"
 或 TASK。这里优先说明为什么做、完成后有什么变化、怎样算成功和可能影响谁。
 -->
 
-## 为什么做
+## 流程
 
-WORK-020 已建立用户端和管理端两套页面骨架。复核后确认，管理页面长期使用时不需要页脚，保留它会
-占用垂直空间并制造无价值的页面收尾；用户页面仍需要页脚这一结构，但当前边框和独立底色让它像一个
-额外面板，视觉层级比实际信息重要性更高。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本工作只微调两端页脚：管理端完全移除页脚；用户端保留页脚结构与现有简短内容，但让它和主要内容使用
-相同页面表面，不再通过边框、独立背景或阴影制造分区。
+```mermaid
+flowchart TD
+    clarify["✔ 需求澄清"]
+    definition["✔ 功能定义"]
+    experience["✔ 体验设计"]
+    design["⊘ 技术方案"]
+    plan["⊘ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["○ 复核"]
+    verification["▶ 验证"]
+    release["· 上线"]
+    observe["· 线上观察"]
+    memory["· 项目记忆"]
+    clarify --> definition --> experience --> design --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class clarify,definition,experience,tasks,development done
+    class verification doing
+    class design,plan skipped
+```
 
-## 成功标准
-
-- [x] 管理页面只保留页头和“左侧导航 + 右侧内容”的中间区域，桌面与窄屏都不再显示页脚。
-- [x] 用户页面仍保留页脚结构和当前简短内容，短页面时仍位于窗口底部。
-- [x] 用户页脚与主要内容使用相同背景，不显示顶部分隔线、独立面板或阴影。
-- [x] 两端现有导航、Dashboard、登录、改密、权限和用户管理行为不改变。
-- [x] 两个主题及 320px 下均无横向溢出、内容遮挡或多余空白。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
-必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow WORK-022` 查看实际进度。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 需求澄清 | ✔ 完成 | 必需 | WORK-022 `implemented` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 功能定义 | ✔ 完成 | 必需 | FEATURE-004 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 体验设计 | ✔ 完成 | 必需 | EXPERIENCE-010 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
+| 技术方案 | ⊘ 跳过 | 可选 | — | 确定技术方案、边界与取舍 |
+| 开发计划 | ⊘ 跳过 | 可选 | — | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-030 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-030 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ▶ 进行中 | 必需 | VERIFY-022 `review` | 用可复现的证据确认要求逐条满足 |
+| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
+| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | · 未开始 | 必需 | MEMORY-017 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 需要人工确认 FEATURE-004、EXPERIENCE-010 与 TASK-030，并在后续消息中明确允许执行。本轮只整理
 复核意见，不修改 Web 实现。
-
-## 风险点
-
-- 移除管理 Footer 后若网格仍保留第三行，会在页面底部留下无意义空白；通过短 Dashboard 的视口截图和
-  布局尺寸断言发现。
-- 用户 Footer 去掉表面样式时若同时误删结构，会损失 `contentinfo` landmark；通过语义查询发现。
-- 共享样式调整可能误伤 Header 或 Sidebar；源码范围检查、双主题 E2E 和现有回归测试必须继续通过。
-
-## 影响面
-
-影响用户端与管理端所有页面的整体观感，但不改变入口、权限、文案和业务能力。实现范围仅限 WORK-020
-已建立的两个 App Shell 及相应浏览器测试，不修改路由、业务页面、服务端、公开 API、设计系统真源或
-主题合同。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -100,3 +93,4 @@ WORK-020 已建立用户端和管理端两套页面骨架。复核后确认，�
   微调和浏览器回归已完成，验证证据见 VERIFY-022。
 - 2026-08-28：根据文档、任务与验证事实刷新状态：todo → doing。
 - 2026-08-28：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

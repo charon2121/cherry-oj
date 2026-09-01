@@ -13,7 +13,6 @@ related: ["FEATURE-001", "EXPERIENCE-001", "DESIGN-002", "DECISION-002", "PLAN-0
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "required", "status": "blocked", "status_source": "derived", "artifacts": ["WORK-002"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "definition", "label": "功能定义", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["FEATURE-001"], "checks": ["definition", "scope"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "experience", "label": "体验设计", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["EXPERIENCE-001"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["DESIGN-002"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有独立技术方案"}, {"stage": "decision", "label": "技术决策", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["DECISION-002"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响需要可长期追踪的技术决定"}, {"stage": "plan", "label": "开发计划", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["PLAN-002"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级影响必须有显式实施计划"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["TASK-002"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["TASK-002"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": ["impact-analysis"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "verification", "label": "验证", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["VERIFY-002"], "checks": ["automated-tests", "cross-module-regression", "accessibility", "data", "security"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "线上观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["MEMORY-002"], "checks": [], "source": "overlay:risk-impact", "reason": "高风险或系统级工作必须沉淀长期记忆"}]
 required_documents: ["feature", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "cross-module-regression", "accessibility", "data", "security"]
 human_confirmations: []
@@ -29,29 +28,50 @@ updated_at: "2026-08-24"
 work_type: "product"
 ---
 
-
-
-
-
 # WORK-002：交付 C++ ACM 答题闭环
 
-## 为什么做
+## 流程
 
-judge 与 sandbox 已经能完成底层执行和 verdict 汇总，但当前尚不能证明普通用户能通过 Web 和五个
-Java 服务完成一次真实答题。PRD 第一阶段要求先跑通 C++ ACM 纵向切片，再逐步扩展 CORE 和题目工厂。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-## 成功标准
+```mermaid
+flowchart TD
+    clarify["✖ 需求澄清"]
+    definition["· 功能定义"]
+    experience["· 体验设计"]
+    design["· 技术方案"]
+    decision["· 技术决策"]
+    plan["· 开发计划"]
+    tasks["· 开发任务"]
+    development["· 开发"]
+    review["· 复核"]
+    verification["· 验证"]
+    release["· 上线"]
+    observe["· 线上观察"]
+    memory["· 项目记忆"]
+    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class clarify blocked
+```
 
-- [ ] 管理员能发布一个不可变的 C++ ACM A+B 题目版本。
-- [ ] 普通用户能完成找题、读题、编码、自测、正式提交和结果回看。
-- [ ] AC、CE、WA 与平台故障被正确区分，隐藏数据不泄漏。
-- [ ] 提交能追溯实际题目版本、语言限制和判题环境。
-- [ ] FEATURE-001 的所有验收场景具有实际通过证据。
-
-## 当前流程
-
-本工作是系统级产品功能，涉及数据、安全和无障碍，采用完整流程。当前仍在需求澄清；三个会改变用户
-行为或验收口径的问题解决前，不能进入 ready 或正式拆解实现任务。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 需求澄清 | ✖ 受阻 | 必需 | WORK-002 `todo` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 功能定义 | · 未开始 | 必需 | FEATURE-001 `draft` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 体验设计 | · 未开始 | 必需 | EXPERIENCE-001 `draft` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
+| 技术方案 | · 未开始 | 必需 | DESIGN-002 `draft` | 确定技术方案、边界与取舍 |
+| 技术决策 | · 未开始 | 必需 | DECISION-002 `draft` |  |
+| 开发计划 | · 未开始 | 必需 | PLAN-002 `draft` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | · 未开始 | 必需 | TASK-002 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | · 未开始 | 必需 | TASK-002 `todo` | 按任务实施，产出代码与测试 |
+| 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | · 未开始 | 必需 | VERIFY-002 `draft` | 用可复现的证据确认要求逐条满足 |
+| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
+| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | · 未开始 | 必需 | MEMORY-002 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -59,21 +79,6 @@ Java 服务完成一次真实答题。PRD 第一阶段要求先跑通 C++ ACM �
   初始化。身份与会话细节以已确认的 DECISION-009 为准。
 - UNKNOWN-002（blocking）：普通用户在 WA 时允许看到多少测试点信息。
 - UNKNOWN-003（blocking）：内部 MVP 的“发布”是进入主干演示环境，还是必须有独立部署环境。
-
-## 风险点
-
-- RISK-001：隐藏输入或标准答案经 API/页面泄漏；以契约边界、权限测试和端到端检查防护。
-- RISK-002：系统故障被映射为用户 WA；以生命周期事件、错误分类和故障场景验收防护。
-- RISK-003：跨五服务与 Web 的纵向切片产生状态漂移；先冻结接口和不可变 JudgeInput，再分阶段实现。
-
-## 影响面
-
-影响用户与管理员体验、Gateway、user/problem/submission/judging 服务、Kafka 生命周期、Web 页面、
-数据库与端到端环境；Go judge/sandbox 的职责边界保持不变，但其现有契约会被业务链路调用。
-
-## 关联文档
-
-FEATURE-001 保存产品定义；后续体验、技术方案、决定、计划、任务和验证文档均由 `related` 关联。
 
 ## 变更记录
 
@@ -84,3 +89,4 @@ FEATURE-001 保存产品定义；后续体验、技术方案、决定、计划�
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
 - 2026-08-24：根据 WORK Type、风险、影响面和关注项重建流程。
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。

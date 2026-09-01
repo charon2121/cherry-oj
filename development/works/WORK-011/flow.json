@@ -1,0 +1,127 @@
+[
+  {
+    "stage": "definition",
+    "label": "改动说明与边界",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "CHANGE-006"
+    ],
+    "checks": [
+      "definition",
+      "scope"
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:fast",
+    "reason": "低风险、局部、可回退工作采用快速流程"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:fast",
+    "reason": "低风险、局部、可回退工作采用快速流程"
+  },
+  {
+    "stage": "tasks",
+    "label": "开发任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-014"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-014"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-011"
+    ],
+    "checks": [
+      "automated-tests"
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "release",
+    "label": "上线",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "manual",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "observe",
+    "label": "观察",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      "observability"
+    ],
+    "source": "overlay:concern",
+    "reason": "专项关注要求在实施后持续观察"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  }
+]

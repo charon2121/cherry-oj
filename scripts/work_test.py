@@ -97,6 +97,12 @@ class WorkToolTest(unittest.TestCase):
         self.assertTrue(path.is_file(), path)
         return path
 
+    def workflow(self, work_id: str = "WORK-001") -> list[dict]:
+        """控制面存在工作项目录的 flow.json，不再放进人编辑的 front matter。"""
+        path = self.one_work_directory(work_id) / "flow.json"
+        self.assertTrue(path.is_file(), path)
+        return json.loads(path.read_text(encoding="utf-8"))
+
     def metadata(self, path: Path) -> dict[str, object]:
         lines = path.read_text(encoding="utf-8").splitlines()
         self.assertEqual("---", lines[0])
@@ -115,12 +121,13 @@ class WorkToolTest(unittest.TestCase):
                 "10-change-CHANGE-001.md",
                 "60-task-TASK-001.md",
                 "70-verify-VERIFY-001.md",
+                "flow.json",
             ],
             sorted(path.name for path in work_directory.iterdir()),
         )
         work = self.one_work_file("00-work.md").read_text(encoding="utf-8")
         self.assertIn('required_documents: ["change", "task", "verify"]', work)
-        workflow = self.metadata(self.one_work_file("00-work.md"))["workflow"]
+        workflow = self.workflow()
         stages = {stage["stage"]: stage for stage in workflow}
         self.assertEqual(["TASK-001"], stages["tasks"]["artifacts"])
         self.assertEqual(["TASK-001"], stages["development"]["artifacts"])
@@ -154,7 +161,7 @@ class WorkToolTest(unittest.TestCase):
         work = self.one_work_file("00-work.md").read_text(encoding="utf-8")
         self.assertIn('risk: "medium"', work)
         self.assertIn('required_documents: ["change", "design", "plan", "task", "verify"]', work)
-        workflow = self.metadata(self.one_work_file("00-work.md"))["workflow"]
+        workflow = self.workflow()
         stages = {stage["stage"]: stage for stage in workflow}
         self.assertEqual("required", stages["release"]["requirement"])
         self.assertEqual("required", stages["observe"]["requirement"])
@@ -178,7 +185,7 @@ class WorkToolTest(unittest.TestCase):
             ["feature", "experience", "design", "plan", "task", "verify", "memory"],
             metadata["required_documents"],
         )
-        labels = [stage["label"] for stage in metadata["workflow"]]
+        labels = [stage["label"] for stage in self.workflow()]
         self.assertEqual(
             [
                 "需求澄清",
@@ -214,7 +221,7 @@ class WorkToolTest(unittest.TestCase):
             "agent/test",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
-        stages = {stage["stage"]: stage for stage in metadata["workflow"]}
+        stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertEqual("能力定义", stages["definition"]["label"])
         self.assertEqual("开发体验 / 运维要求", stages["experience"]["label"])
         self.assertEqual(["CAPABILITY-001"], stages["definition"]["artifacts"])
@@ -236,7 +243,7 @@ class WorkToolTest(unittest.TestCase):
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
         self.assertEqual(["issue", "task", "verify"], metadata["required_documents"])
-        stages = {stage["stage"]: stage for stage in metadata["workflow"]}
+        stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertNotIn("clarify", stages)
         self.assertNotIn("experience", stages)
         self.assertNotIn("plan", stages)
@@ -265,7 +272,7 @@ class WorkToolTest(unittest.TestCase):
             ["improvement", "design", "plan", "task", "verify", "memory"],
             metadata["required_documents"],
         )
-        stages = {stage["stage"]: stage for stage in metadata["workflow"]}
+        stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertEqual("改进说明与目标指标", stages["definition"]["label"])
         self.assertEqual("持续观察", stages["observe"]["label"])
         self.assertIn("performance", stages["observe"]["checks"])
@@ -288,7 +295,7 @@ class WorkToolTest(unittest.TestCase):
             "agent/test",
         )
         metadata = self.metadata(self.one_work_file("00-work.md"))
-        stages = {stage["stage"]: stage for stage in metadata["workflow"]}
+        stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertEqual("overlay:risk-impact", stages["decision"]["source"])
         self.assertEqual("required", stages["memory"]["requirement"])
         self.assertEqual("required", stages["observe"]["requirement"])
@@ -299,10 +306,10 @@ class WorkToolTest(unittest.TestCase):
 
     def test_check_rejects_workflow_that_does_not_match_profile(self) -> None:
         self.create_fast_work()
-        work_path = self.one_work_file("00-work.md")
-        content = work_path.read_text(encoding="utf-8")
+        flow_path = self.one_work_directory() / "flow.json"
+        content = flow_path.read_text(encoding="utf-8")
         content = content.replace('"label": "改动说明与边界"', '"label": "功能定义"', 1)
-        work_path.write_text(content, encoding="utf-8")
+        flow_path.write_text(content, encoding="utf-8")
         result = self.run_work("check", success=False)
         self.assertIn("workflow 阶段顺序或配置与 WORK Type / 风险规则不一致", result.stderr)
 
@@ -316,7 +323,7 @@ class WorkToolTest(unittest.TestCase):
             "--reason",
             "纯仓库维护无需业务上线",
         )
-        workflow = self.metadata(self.one_work_file("00-work.md"))["workflow"]
+        workflow = self.workflow()
         stages = {stage["stage"]: stage for stage in workflow}
         self.assertEqual("skipped", stages["release"]["status"])
         self.assertEqual("manual", stages["release"]["status_source"])
@@ -514,7 +521,7 @@ class WorkToolTest(unittest.TestCase):
             "确认权限范围",
         )
         work_path = self.one_work_file("00-work.md")
-        workflow = self.metadata(work_path)["workflow"]
+        workflow = self.workflow()
         self.assertEqual("blocked", workflow[0]["status"])
         content = work_path.read_text(encoding="utf-8")
         work_path.write_text(content.replace('status: "todo"', 'status: "ready"', 1), encoding="utf-8")
@@ -663,6 +670,35 @@ class WorkToolTest(unittest.TestCase):
         change_path.write_text(moved, encoding="utf-8")
         result = self.run_work("check", success=False)
         self.assertIn("第一节必须是", result.stderr)
+
+
+    def test_work_entry_holds_only_the_control_plane(self) -> None:
+        self.create_fast_work()
+        body = self.one_work_file("00-work.md").read_text(encoding="utf-8")
+        # 产品面内容归定义层；同一个问题在两处各自表述一定会漂移。
+        for absent in ("## 为什么做", "## 成功标准", "## 风险点", "## 影响面", "## 关联文档"):
+            self.assertNotIn(absent, body)
+        self.assertIn("## 流程", body)
+        self.assertIn("```mermaid", body)
+        # 控制面是机器状态，不放进人编辑的 front matter。
+        self.assertNotIn("workflow:", body.split("---", 2)[1])
+
+    def test_flow_view_is_generated_and_repairable(self) -> None:
+        self.create_fast_work()
+        path = self.one_work_file("00-work.md")
+        original = path.read_text(encoding="utf-8")
+        self.assertIn("· 未开始", original)
+        path.write_text(original.replace("· 未开始", "✔ 完成"), encoding="utf-8")
+
+        # 手改视图会被打回：过期的流程图看起来和最新的一模一样，最危险。
+        result = self.run_work("check", success=False)
+        self.assertIn("与实际控制面不一致", result.stderr)
+
+        # 元数据没有任何变化，refresh 仍然必须能把视图原样修回去，
+        # 且不因为一次修复在变更记录里留下噪音。
+        self.run_work("refresh", "WORK-001")
+        self.run_work("check")
+        self.assertEqual(original, path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

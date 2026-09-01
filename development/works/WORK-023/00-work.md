@@ -13,7 +13,6 @@ related: ["FEATURE-005", "EXPERIENCE-011", "TASK-031", "VERIFY-023", "MEMORY-018
 implements: []
 verifies: []
 tags: []
-workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["WORK-023"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "definition", "label": "功能定义", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["FEATURE-005"], "checks": ["definition", "scope"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "experience", "label": "体验设计", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["EXPERIENCE-011"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "design", "label": "技术方案", "requirement": "optional", "status": "done", "status_source": "derived", "artifacts": ["DESIGN-018"], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "plan", "label": "开发计划", "requirement": "optional", "status": "skipped", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:fast", "reason": "低风险、局部、可回退工作采用快速流程"}, {"stage": "tasks", "label": "开发任务", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-031"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "development", "label": "开发", "requirement": "required", "status": "done", "status_source": "derived", "artifacts": ["TASK-031"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "review", "label": "复核", "requirement": "required", "status": "ready", "status_source": "derived", "artifacts": [], "checks": [], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "verification", "label": "验证", "requirement": "required", "status": "doing", "status_source": "derived", "artifacts": ["VERIFY-023"], "checks": ["automated-tests", "accessibility"], "source": "profile:product", "reason": "product 基础流程"}, {"stage": "release", "label": "上线", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "工作包含交付或上线影响"}, {"stage": "observe", "label": "线上观察", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": [], "checks": [], "source": "overlay:delivery", "reason": "上线后必须观察实际结果"}, {"stage": "memory", "label": "项目记忆", "requirement": "required", "status": "pending", "status_source": "derived", "artifacts": ["MEMORY-018"], "checks": [], "source": "profile:product", "reason": "product 基础流程"}]
 required_documents: ["feature", "experience", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "accessibility"]
 human_confirmations: []
@@ -29,63 +28,55 @@ updated_at: "2026-08-29"
 work_type: "product"
 ---
 
-
-
-
-
-
-
-
-
-
-
-
-
 # WORK-023：设计双端导航栏与导航功能组件
 
-## 为什么做
+## 流程
 
-WORK-020 与 WORK-022 已经搭好用户端和管理端页面骨架，但导航目前仍是为了验证布局而设置的最小版本：
-用户端只有首页，登录用户的账号动作散在页头；管理端菜单虽然已有 Dashboard 和账号管理，却还没有一套
-明确的“什么功能应该放进全局导航、如何随页面增加而扩展”的规则。
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
 
-本工作在现有骨架上设计一套稳定的双端导航系统。它既要让访客、用户和管理员快速找到当前位置与可用
-入口，也要给后续题库、提交记录和管理功能留下清晰的组件边界；尚未交付的页面不能为了填满导航而出现。
+```mermaid
+flowchart TD
+    clarify["✔ 需求澄清"]
+    definition["✔ 功能定义"]
+    experience["✔ 体验设计"]
+    design["✔ 技术方案"]
+    plan["⊘ 开发计划"]
+    tasks["✔ 开发任务"]
+    development["✔ 开发"]
+    review["○ 复核"]
+    verification["▶ 验证"]
+    release["· 上线"]
+    observe["· 线上观察"]
+    memory["· 项目记忆"]
+    clarify --> definition --> experience --> design --> plan --> tasks --> development --> review --> verification --> release --> observe --> memory
+    classDef done stroke-width:2px
+    classDef doing stroke-width:3px
+    classDef skipped stroke-dasharray:4 3
+    classDef blocked stroke-width:3px,stroke-dasharray:2 2
+    class clarify,definition,experience,design,tasks,development done
+    class verification doing
+    class plan skipped
+```
 
-## 成功标准
-
-- [x] 用户端页头稳定承载品牌、当前可用主导航和账号区域，访客、USER、ADMIN 各自只看到可执行的动作。
-- [x] 登录后的账号、改密、管理入口和退出操作有统一承载位置，窄屏不因动作增多而挤坏页头。
-- [x] 管理端页头与侧栏职责清楚：页头负责空间切换和账号，侧栏负责 Dashboard 与分组业务导航。
-- [x] 管理侧栏继续支持二级子菜单，并能从一份导航定义得到桌面和移动端一致的标签、顺序与当前状态。
-- [x] 未交付的题库、提交、通知、搜索、主题等能力不显示空入口；新增页面时有明确接入规则。
-- [x] 两端导航在 320px、键盘、200% 缩放、双主题及辅助技术下仍可识别当前位置并完成切换。
-
-## 当前流程
-
-由 WORK Type 基础模板与风险、影响面和 concern 增量规则生成；使用 `scripts/work flow WORK-023` 查看。
+| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
+|---|---|---|---|---|
+| 需求澄清 | ✔ 完成 | 必需 | WORK-023 `implemented` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 功能定义 | ✔ 完成 | 必需 | FEATURE-005 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
+| 体验设计 | ✔ 完成 | 必需 | EXPERIENCE-011 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
+| 技术方案 | ✔ 完成 | 可选 | DESIGN-018 `approved` | 确定技术方案、边界与取舍 |
+| 开发计划 | ⊘ 跳过 | 可选 | — | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-031 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-031 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ▶ 进行中 | 必需 | VERIFY-023 `review` | 用可复现的证据确认要求逐条满足 |
+| 上线 | · 未开始 | 必需 | — | 把成果交付出去 |
+| 线上观察 | · 未开始 | 必需 | — | 交付后观察实际结果，确认没有引入新问题 |
+| 项目记忆 | · 未开始 | 必需 | MEMORY-018 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
 需要人工确认 FEATURE-005、EXPERIENCE-011、DESIGN-018 与 TASK-031，并在后续消息中明确允许实施。本轮
 只完成导航信息架构、组件职责和开发边界，不修改 Web 实现。
-
-## 风险点
-
-- 把未来能力提前放进导航会产生死链接或误导；通过路由清单与导航可达性测试发现，只渲染已交付入口。
-- 账号动作收进菜单后可能隐藏首次改密或退出错误；通过三种 Session、改密要求和 Mutation 失败场景检查。
-- 桌面和移动端各维护一份菜单会发生顺序、权限或文案漂移；使用共享导航定义并分别做组件/E2E 断言。
-- 当前项匹配过宽可能让多个入口同时激活；对 Dashboard 双入口、子路由和查询参数验证精确匹配规则。
-
-## 影响面
-
-影响所有 Web 访客、登录用户与管理员的全局导航体验，也影响后续页面接入方式。实现范围局限在
-`apps/web` 现有双端 Shell、导航/账号组件、必要的 shadcn/ui 覆盖组件及测试；不新增业务路由、API、
-权限、主题、设计 token 或后端能力，也不改变 WORK-022 已确认的 Footer 结构。
-
-## 关联文档
-
-由 `related` 维护，不在正文复制状态。
 
 ## 变更记录
 
@@ -94,3 +85,4 @@ WORK-020 与 WORK-022 已经搭好用户端和管理端页面骨架，但导航�
 - 2026-08-29：根据文档、任务与验证事实刷新状态：todo → doing。
 - 2026-08-29：用户批准 WORK-023 并授权 TASK-031；完成双端导航、账号菜单、共享模型及回归验证。
 - 2026-08-29：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-01：正文收敛为控制面入口，「为什么做、成功标准、当前流程、风险点、影响面、关联文档」不再在此重复；产品面内容以定义层文档为准。
