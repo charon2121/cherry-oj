@@ -649,5 +649,21 @@ class WorkToolTest(unittest.TestCase):
         self.run_work("check")
 
 
+    def test_definition_documents_open_with_the_plain_language_entry(self) -> None:
+        self.create_fast_work()
+        change_path = self.one_work_file("10-change-CHANGE-001.md")
+        body = change_path.read_text(encoding="utf-8")
+        self.assertIn("## 为什么做", body)
+        # 定义层是产品面入口，非技术读者读到的第一节必须是它。
+        self.assertLess(body.index("## 为什么做"), body.index("## 当前状态"))
+
+        # 只校验“存在”挡不住把入口挪到文末，因此顺序也必须被钉住。
+        moved = body.replace("## 为什么做", "## 曾经的为什么做", 1)
+        moved += "\n## 为什么做\n\n补在最后。\n"
+        change_path.write_text(moved, encoding="utf-8")
+        result = self.run_work("check", success=False)
+        self.assertIn("第一节必须是", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
