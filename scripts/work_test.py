@@ -664,7 +664,9 @@ class WorkToolTest(unittest.TestCase):
         for absent in ("## 为什么做", "## 成功标准", "## 风险点", "## 影响面", "## 关联文档"):
             self.assertNotIn(absent, body)
         self.assertIn("## 流程", body)
-        self.assertIn("```mermaid", body)
+        # 流程图对一条线性阶段链没有表格之外的信息，只是多一处要同步的地方。
+        self.assertNotIn("```mermaid", body)
+        self.assertIn("| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |", body)
         # 控制面是机器状态，不放进人编辑的 front matter。
         self.assertNotIn("workflow:", body.split("---", 2)[1])
 
@@ -718,6 +720,52 @@ class WorkToolTest(unittest.TestCase):
             "set-status", "WORK-001", "released", "--reason", "试图上线", success=False
         )
         self.assertIn("不支持状态 released", result.stderr)
+
+
+    def test_board_separates_anchored_from_document_level_coverage(self) -> None:
+        """把「锚定到条目」和「只引用了文档」混为一谈，追踪链看起来永远是满的。"""
+        self.create_fast_work()
+        change_path = self.one_work_file("10-change-CHANGE-001.md")
+        change_path.write_text(
+            change_path.read_text(encoding="utf-8").replace(
+                "- REQ-002：待补充外部行为和关键边界中不能改变的部分。",
+                "- REQ-002：外部行为保持不变。\n- REQ-003：命令行为保持不变。",
+            ),
+            encoding="utf-8",
+        )
+        board = self.run_work("board", "WORK-001").stdout
+        self.assertIn("CHANGE-001 · 4 条", board)
+        # 模板生成的 TASK 只有文档级 implements，三条要求都还没有人锚定认领。
+        self.assertIn("锚定认领 0/4", board)
+        self.assertIn("认领 ~ TASK-001", board)
+
+        task_path = self.one_work_file("60-task-TASK-001.md")
+        task_path.write_text(
+            task_path.read_text(encoding="utf-8").replace(
+                'implements: ["CHANGE-001"]', 'implements: ["CHANGE-001#REQ-001"]'
+            ),
+            encoding="utf-8",
+        )
+        board = self.run_work("board", "WORK-001").stdout
+        self.assertIn("锚定认领 1/4", board)
+        self.assertIn("REQ-001  认领 ✔ TASK-001", board)
+        self.assertIn("REQ-002  认领 ✖", board)
+
+    def test_board_reports_gates_and_next_action(self) -> None:
+        self.create_fast_work()
+        board = self.run_work("board", "WORK-001").stdout
+        self.assertIn("意图闸", board)
+        self.assertIn("验收闸", board)
+        self.assertIn("下一步:", board)
+
+    def test_trace_keeps_relation_and_target_on_one_line(self) -> None:
+        """曾经是广度优先且先打关系再入队，一层的关系行全挤在一起、目标在后面平铺。"""
+        self.create_fast_work()
+        lines = self.run_work("trace", "WORK-001").stdout.splitlines()
+        arrows = [line for line in lines if "↳" in line]
+        self.assertTrue(arrows)
+        for line in arrows:
+            self.assertRegex(line, r"↳ \S+\s+[A-Z]+-\d{3} \[")
 
 
 if __name__ == "__main__":

@@ -32,29 +32,7 @@ work_type: "infra"
 
 ## 流程
 
-<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
-
-```mermaid
-flowchart TD
-    clarify["✔ 需求澄清"]
-    definition["✔ 能力定义"]
-    experience["✔ 开发体验 / 运维要求"]
-    design["✔ 技术方案"]
-    decision["✔ 技术决策"]
-    plan["✔ 开发计划"]
-    tasks["✔ 开发任务"]
-    development["✔ 开发"]
-    review["○ 复核"]
-    verification["▶ 验证"]
-    memory["· 项目记忆"]
-    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> memory
-    classDef done stroke-width:2px
-    classDef doing stroke-width:3px
-    classDef skipped stroke-dasharray:4 3
-    classDef blocked stroke-width:3px,stroke-dasharray:2 2
-    class clarify,definition,experience,design,decision,plan,tasks,development done
-    class verification doing
-```
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。交互式视图见 `scripts/work board`。 -->
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|

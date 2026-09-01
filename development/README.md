@@ -239,18 +239,30 @@ WORK 进入 `ready / implemented / verified` 时，对应边界之前的全部�
 
 ```bash
 scripts/work check
-scripts/work overview
+scripts/work overview                 # 全部工作：状态分布、卡点、待签的闸
+scripts/work board WORK-021           # 单个工作：闸、流程、要求覆盖、任务、下一步
+scripts/work board WORK-021 --all     # 展开全部要求条目
 scripts/work list --type work
 scripts/work list --needs-human
 scripts/work trace FEATURE-002
 scripts/work context TASK-004
 ```
 
+`board` 是**以项目管理方式看单个工作项的入口**。`00-work.md` 里的流程表是静态快照，`board` 才是
+视图：它额外回答文件回答不了的那个问题——**这个工作要成立哪些事，成立了几件**。
+
+要求覆盖分三种状态，不能混为一谈：`✔` 有 TASK / VERIFY 锚定到具体条目（`ISSUE-004#AC-001`）；
+`~` 只有文档级引用（`ISSUE-004`），说明这份定义有人管，但不保证每条要求都被覆盖；`✖` 无人认领。
+把后两者当成一回事的话，追踪链看起来永远是满的。
+
 `check` 是 CI 边界，校验元数据、永久编号、文件位置、状态、引用、局部要求编号、依赖环、类型流程
 模板、风险增量、阶段进度、artifact 归属、流程必需文档、任务范围和验证证据。它还会拒绝旧类型
 目录、带 slug 的工作项目录、过期的 `WORKS.md`、错误的层级前缀、不在所属工作项目录中的附属文档，
 以及工作项目录内的嵌套目录或非 Markdown 文件。进行中工作缺少后续文档会给提示；一旦进入
 `ready` 或更后状态，同样的断链会成为错误。
+
+`trace` 深度优先展开引用关系，关系与它指向的文档打在同一行；重复出现的节点折成一行摘要，
+避免结构被回边淹没。
 
 `context` 从一个 TASK 组装恰好够用的智能体上下文：项目规则入口、工作项、上游定义与设计、相关
 决定和记忆，以及该任务的代码读写边界。它不把整个仓库无差别塞给智能体。

@@ -32,25 +32,7 @@ work_type: "fix"
 
 ## 流程
 
-<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
-
-```mermaid
-flowchart TD
-    definition["▶ 问题说明、复现与预期"]
-    design["▶ 原因与修复方案"]
-    tasks["· 修复任务"]
-    development["· 开发"]
-    review["· 复核"]
-    verification["· 回归验证"]
-    memory["⊘ 项目记忆"]
-    definition --> design --> tasks --> development --> review --> verification --> memory
-    classDef done stroke-width:2px
-    classDef doing stroke-width:3px
-    classDef skipped stroke-dasharray:4 3
-    classDef blocked stroke-width:3px,stroke-dasharray:2 2
-    class definition,design doing
-    class memory skipped
-```
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。交互式视图见 `scripts/work board`。 -->
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|

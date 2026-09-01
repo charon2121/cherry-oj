@@ -30,36 +30,9 @@ work_type: "product"
 
 # WORK-025：交付题库、题目与测试数据管理
 
-<!--
-本文件面向产品经理和不需要了解实现细节的读者。能用日常语言说清楚时不要使用专业词；必须使用时，
-第一次出现就解释它对使用者意味着什么。字段、类、框架、协议、表名、路径和命令放到 DESIGN、PLAN
-或 TASK。这里优先说明为什么做、完成后有什么变化、怎样算成功和可能影响谁。
--->
-
 ## 流程
 
-<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->
-
-```mermaid
-flowchart TD
-    clarify["✔ 需求澄清"]
-    definition["✔ 功能定义"]
-    experience["✔ 体验设计"]
-    design["✔ 技术方案"]
-    decision["✔ 技术决策"]
-    plan["✔ 开发计划"]
-    tasks["✔ 开发任务"]
-    development["✔ 开发"]
-    review["✔ 复核"]
-    verification["✔ 验证"]
-    memory["✔ 项目记忆"]
-    clarify --> definition --> experience --> design --> decision --> plan --> tasks --> development --> review --> verification --> memory
-    classDef done stroke-width:2px
-    classDef doing stroke-width:3px
-    classDef skipped stroke-dasharray:4 3
-    classDef blocked stroke-width:3px,stroke-dasharray:2 2
-    class clarify,definition,experience,design,decision,plan,tasks,development,review,verification,memory done
-```
+<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。交互式视图见 `scripts/work board`。 -->
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|

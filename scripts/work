@@ -927,31 +927,14 @@ def bind_workflow_artifacts(work: Document, documents: Iterable[Document]) -> No
 def render_flow(work: "Document", documents: dict[str, "Document"]) -> str:
     """把控制面渲染成人能读的视图。真源是各文档自己的状态，这里只负责显示。"""
     workflow = work.metadata.get("workflow") or []
+    # 只留表格：流程图对一条线性阶段链没有任何表格之外的信息，却多出一处需要同步的地方。
     lines = [
-        "<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。 -->",
+        "<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。"
+        "交互式视图见 `scripts/work board`。 -->",
         "",
-        "```mermaid",
-        "flowchart TD",
+        "| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |",
+        "|---|---|---|---|---|",
     ]
-    by_status: dict[str, list[str]] = {}
-    for stage in workflow:
-        name, status = stage["stage"], stage["status"]
-        symbol = STAGE_SYMBOLS.get(status, "·")
-        lines.append(f'    {name}["{symbol} {stage["label"]}"]')
-        by_status.setdefault(status, []).append(name)
-    order = [stage["stage"] for stage in workflow]
-    if len(order) > 1:
-        lines.append("    " + " --> ".join(order))
-    lines.extend((
-        "    classDef done stroke-width:2px",
-        "    classDef doing stroke-width:3px",
-        "    classDef skipped stroke-dasharray:4 3",
-        "    classDef blocked stroke-width:3px,stroke-dasharray:2 2",
-    ))
-    for status in ("done", "doing", "skipped", "blocked"):
-        if by_status.get(status):
-            lines.append(f"    class {','.join(by_status[status])} {status}")
-    lines.extend(("```", "", "| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |", "|---|---|---|---|---|"))
     for stage in workflow:
         status = stage["status"]
         cell = f"{STAGE_SYMBOLS.get(status, '·')} {STAGE_STATUS_LABELS.get(status, status)}"
@@ -1918,6 +1901,21 @@ def command_flow(args: argparse.Namespace) -> None:
         print("卡点: " + "; ".join(work.metadata["blocking_items"]))
     if work.metadata.get("human_confirmations"):
         print("需要人工确认: " + "; ".join(work.metadata["human_confirmations"]))
+    print(f"下一步: {next_step_for(work, documents)}")
+
+
+def next_step_for(work: "Document", documents: dict[str, "Document"]) -> str:
+    """把「现在该做什么」集中到一处，避免每个视图各算一遍、算出不同答案。"""
+    if work.metadata.get("blocking_items"):
+        return "解决 blocking 待确认项并更新上游定义"
+    if work.metadata.get("human_confirmations"):
+        return "完成人工确认并记录决定"
+    for gate in GATE_NAMES:
+        if gate_passed(work, gate) or not gate_covered_documents(work.id, documents, gate):
+            continue
+        if not gate_blockers(work, documents, gate):
+            return f"由负责人签署{GATE_LABELS[gate]}：scripts/work gate {work.id} {gate} --reason \"...\""
+        break
     active_stage = next(
         (
             stage
@@ -1926,17 +1924,11 @@ def command_flow(args: argparse.Namespace) -> None:
         ),
         None,
     )
-    if work.metadata.get("blocking_items"):
-        next_step = "解决 blocking 待确认项并更新上游定义"
-    elif work.metadata.get("human_confirmations"):
-        next_step = "完成人工确认并记录决定"
-    elif active_stage:
-        next_step = f"推进“{active_stage['label']}”阶段（{active_stage['status']}）"
-    elif work.metadata["status"] in {"verified", "cancelled"}:
-        next_step = "无"
-    else:
-        next_step = f"运行 scripts/work refresh {work.id} 按事实刷新工作状态"
-    print(f"下一步: {next_step}")
+    if active_stage:
+        return f"推进“{active_stage['label']}”阶段（{active_stage['status']}）"
+    if work.metadata["status"] in {"verified", "cancelled"}:
+        return "无"
+    return f"运行 scripts/work refresh {work.id} 按事实刷新工作状态"
 
 
 def derive_work_status(work: Document, children: list[Document]) -> str:
@@ -2117,6 +2109,130 @@ def unsettle_record_documents(
         append_log(document, "上游依赖被重新打开，checked 收回为 review。")
         reopened.append(document)
     return reopened
+
+
+REQUIREMENT_PATTERN = re.compile(r"(?m)^\s*-\s+((?:REQ|AC)-[0-9]{3})")
+
+
+def local_requirements(document: "Document") -> list[str]:
+    """定义文档正文里声明的 REQ / AC 条目，按出现顺序去重。"""
+    return list(dict.fromkeys(REQUIREMENT_PATTERN.findall(document.body)))
+
+
+def reference_coverage(
+    sources: list["Document"], field: str, document_id: str, requirement: str
+) -> tuple[str, list["Document"]]:
+    """一条要求被谁认领 / 覆盖。
+
+    区分三种状态很重要：锚定引用能定位到具体条目；文档级引用只说明“这份定义有人管”，
+    并不保证每条要求都被覆盖；两者都没有才是真正的孤儿。把后两者混为一谈，
+    追踪链看起来永远是满的。
+    """
+    anchored, document_level = [], []
+    for source in sources:
+        values = source.metadata.get(field) or []
+        if f"{document_id}#{requirement}" in values:
+            anchored.append(source)
+        elif document_id in values:
+            document_level.append(source)
+    if anchored:
+        return "anchored", anchored
+    if document_level:
+        return "document", document_level
+    return "none", []
+
+
+def command_board(args: argparse.Namespace) -> None:
+    documents = load_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+    children = work_documents(work.id, documents)
+    meta = work.metadata
+
+    print(f"{work.id}  {meta['title']}")
+    print(
+        f"{meta['work_type']} · {meta['risk']} 风险 · {IMPACT_LABELS.get(meta['impact'], meta['impact'])}"
+        f" · {'/'.join(meta['owners'])} · {meta['status']} · 更新于 {meta['updated_at']}"
+    )
+
+    print("\n闸")
+    for gate in GATE_NAMES:
+        if gate_passed(work, gate):
+            state = "✔ 已通过"
+        elif not gate_covered_documents(work.id, documents, gate):
+            state = "— 无覆盖文档"
+        else:
+            blockers = gate_blockers(work, documents, gate)
+            state = "○ 可以签" if not blockers else f"· 未就绪（{blockers[0]}）"
+        print(f"  {GATE_LABELS[gate]:<4} {state}")
+
+    print("\n流程")
+    parts = []
+    for stage in meta.get("workflow", []):
+        mark = STAGE_SYMBOLS.get(stage["status"], "·")
+        parts.append(f"{stage['label']} {mark}")
+    print("  " + " → ".join(parts))
+    active = next(
+        (s for s in meta.get("workflow", []) if s["status"] in {"doing", "ready", "blocked"}), None
+    )
+    if active:
+        print(f"  当前：{active['label']}（{STAGE_STATUS_LABELS.get(active['status'], active['status'])}）")
+
+    tasks = [d for d in children if d.kind == "task"]
+    verifies = [d for d in children if d.kind == "verify"]
+    # 只看定义层：EXPERIENCE 与 DECISION 也归意图闸，但它们不声明要求条目。
+    definitions = [d for d in children if d.kind in DEFINITION_KINDS]
+    print("\n要求")
+    if not definitions:
+        print("  无定义文档")
+    for definition in definitions:
+        requirements = local_requirements(definition)
+        if not requirements:
+            print(f"  {definition.id}  未声明 REQ / AC 条目")
+            continue
+        claimed = verified = 0
+        rows = []
+        for requirement in requirements:
+            claim_state, claim_sources = reference_coverage(tasks, "implements", definition.id, requirement)
+            check_state, check_sources = reference_coverage(verifies, "verifies", definition.id, requirement)
+            if check_state != "none" and not any(
+                d.metadata.get("status") == "approved" and d.metadata.get("result") == "pass"
+                for d in check_sources
+            ):
+                check_state = "pending"
+            claimed += claim_state == "anchored"
+            verified += check_state == "anchored"
+            symbols = {"anchored": "✔", "document": "~", "pending": "▶", "none": "✖"}
+            rows.append(
+                f"    {requirement}  认领 {symbols[claim_state]} "
+                f"{','.join(d.id for d in claim_sources) or '—':<10} "
+                f"验证 {symbols[check_state]} {','.join(d.id for d in check_sources) or '—'}"
+            )
+        print(f"  {definition.id} · {len(requirements)} 条")
+        for row in rows if args.all else rows[:8]:
+            print(row)
+        if not args.all and len(rows) > 8:
+            print(f"    …… 其余 {len(rows) - 8} 条，用 --all 展开")
+        print(f"    小计：锚定认领 {claimed}/{len(requirements)} · 锚定验证 {verified}/{len(requirements)}")
+        print("    （~ 表示只有文档级引用，没有锚定到具体条目）")
+
+    if tasks:
+        print("\n任务")
+        for task in tasks:
+            print(f"  {task.id} [{task.metadata['status']}] {task.metadata['title']}")
+
+    print("\n卡点")
+    blocked = [s for s in meta.get("workflow", []) if s["status"] == "blocked"]
+    if meta.get("blocking_items"):
+        for item in meta["blocking_items"]:
+            print(f"  · {item}")
+    for stage in blocked:
+        print(f"  · 阶段「{stage['label']}」受阻")
+    if not meta.get("blocking_items") and not blocked:
+        print("  无")
+
+    print(f"\n下一步: {next_step_for(work, documents)}")
 
 
 def command_gate(args: argparse.Namespace) -> None:
@@ -2348,20 +2464,35 @@ def command_trace(args: argparse.Namespace) -> None:
             work_id = document.metadata["work"]
             edges[document.id].append(("belongs_to", work_id))
             edges[work_id].append(("contains", document.id))
-    seen = {start.id}
-    queue = deque([(start.id, 0)])
-    while queue:
-        current, depth = queue.popleft()
-        document = documents[current]
-        print(f"{'  ' * depth}{document.id} [{document.kind}/{document.metadata['status']}] {document.metadata['title']}")
+    # 深度优先：关系和它指向的文档必须打在同一行。
+    # 原先是广度优先且先打关系再入队，于是一层的关系行全挤在一起、目标在后面平铺，读不出结构。
+    seen: set[str] = set()
+
+    def walk(document_id: str, relation: str, depth: int) -> None:
+        document = documents[document_id]
+        indent = "  " * depth
+        arrow = f"↳ {relation}  " if relation else ""
+        line = (
+            f"{indent}{arrow}{document.id} "
+            f"[{document.kind}/{document.metadata['status']}] {document.metadata['title']}"
+        )
+        print(line)
+        if document_id in seen:
+            return
+        seen.add(document_id)
         if depth >= args.depth:
-            continue
-        for relation, target in sorted(edges[current]):
+            return
+        # 已展开过的节点折成一行摘要：否则每条回边都占一行，结构被重复淹没。
+        revisits = []
+        for next_relation, target in sorted(set(edges[document_id])):
             if target in seen:
-                continue
-            seen.add(target)
-            print(f"{'  ' * (depth + 1)}↳ {relation}")
-            queue.append((target, depth + 2))
+                revisits.append(f"{next_relation} {target}")
+            else:
+                walk(target, next_relation, depth + 1)
+        if revisits:
+            print(f"{indent}  · 另有 {len(revisits)} 条指向已展开节点：{'、'.join(revisits)}")
+
+    walk(start.id, "", 0)
 
 
 def command_context(args: argparse.Namespace) -> None:
@@ -2588,6 +2719,11 @@ def build_parser() -> argparse.ArgumentParser:
     context_parser = subparsers.add_parser("context", help="组装智能体任务上下文包")
     context_parser.add_argument("task_id")
     context_parser.set_defaults(handler=command_context)
+
+    board_parser = subparsers.add_parser("board", help="以项目管理视角查看单个工作项")
+    board_parser.add_argument("work_id")
+    board_parser.add_argument("--all", action="store_true", help="展开全部要求条目")
+    board_parser.set_defaults(handler=command_board)
 
     gate_parser = subparsers.add_parser("gate", help="签署或撤回工作项的意图闸/验收闸")
     gate_parser.add_argument("work_id")

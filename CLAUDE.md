@@ -386,7 +386,8 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
   表述一定会漂移，而 WORK 不在信息优先级链上、也不携带 REQ / AC 锚点，冲突时无法判定以谁为准。
   「流程」由 `scripts/work` 渲染，控制面状态存在同目录的 `flow.json`；两者都不要手工编辑。
 - **开发前读取上下文。** 先读 `development/README.md` 和 `development/WORKS.md`，运行
-  `scripts/work list --type work`；有对应 TASK 时用 `scripts/work context TASK-001` 获取上游依据和
+  `scripts/work list --type work`；要了解某个工作的全貌用 `scripts/work board WORK-001`（闸、流程、
+  要求覆盖、任务、下一步），有对应 TASK 时用 `scripts/work context TASK-001` 获取上游依据和
   代码边界。没有工作项时先创建 WORK。
 - **只执行 ready TASK。** TASK 的依赖、`read_paths`、`write_paths`、`forbidden_paths` 与完成标准必须
   明确。需要越界时先升级计划或设计，不直接扩大实现。
