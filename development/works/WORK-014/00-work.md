@@ -17,6 +17,7 @@ workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "r
 required_documents: ["issue", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "compatibility", "reliability", "security"]
 human_confirmations: ["安全边界与权限影响已经由负责人确认"]
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false

@@ -26,15 +26,41 @@ todo → ready → doing → done → verified
 除 WORK 与 TASK 外，受管理文档使用：
 
 ```text
-draft → review → approved
-                 ├─ deprecated
-                 ├─ superseded
-                 └─ archived
+draft → review → checked   ┐
+              ↘  approved  ├─ deprecated / superseded / archived
 ```
 
-只有经人审核后进入 approved 的上游文档可以作为稳定开发依据。`approved` 是人的确认，不是智能体
-对自己文档质量的评价。低风险快速流程可以省略独立 review 状态，由人把已补全定义从 draft 直接
-确认到 approved，但不能把带占位内容的草稿直接当作 TASK ready 的依据。
+**定稿有两种方式，因为文档有两类内容。**
+
+| 类别 | 文档 | 终态 | 谁给出 | 判据 |
+|---|---|---|---|---|
+| 决定类 | PRODUCT、FEATURE、CAPABILITY、ISSUE、CHANGE、IMPROVEMENT、EXPERIENCE、DECISION | `approved` | 人，在意图闸上一次签署 | 没有客观标准，只能由人拍板 |
+| 验收类 | VERIFY | `approved` | 人，在验收闸上一次签署 | 结论是否被接受由人决定 |
+| 记录类 | DESIGN、PLAN、MEMORY | `checked` | 工具 | 结构与内容校验通过；陈述只有真假，没有“批准”可言 |
+
+给记录类文档盖章是橡皮图章：它训练人快速通过，而这个习惯会原样带到真正需要判断的文档上。
+**过多的闸门不是更安全，是把所有闸门一起废掉。** 因此记录类文档由工具在 `refresh` 时从 `review`
+推进到 `checked`，不消耗人的判断力。
+
+`approved` 与 `checked` 都表示“已定稿、可以作为开发依据”，区别只在于由谁确认。二者都不允许由
+智能体自行声明代表人的判断：`approved` 只能来自闸，`checked` 只能来自校验通过。带占位内容的草稿
+在任何情况下都不能作为 TASK ready 的依据。
+
+## 6.1.1 两道闸
+
+人工确认收拢到每个工作**仅有的两次**签署，记录在 WORK 的 `gates` 字段：
+
+```text
+意图闸 intent      开工前   覆盖全部决定类文档   回答“这是不是我要的”
+验收闸 acceptance  收束时   覆盖 VERIFY 与完成声明  回答“这是不是做完了”
+```
+
+- 一道闸一次签署，**同时**把它覆盖的全部文档推进到 `approved`；不再逐份审批。
+- 闸有前置条件：意图闸要求没有未澄清的 `blocking_items`、覆盖文档都已脱离 `draft`；验收闸要求
+  意图闸已过、全部 TASK 已完成、VERIFY 已记录结论。前置条件不满足时工具拒绝签署并列出原因。
+- 闸可以撤回，撤回会把它覆盖的 `approved` 文档退回 `review`。若工作状态正建立在该闸之上
+  （例如已经 verified），必须先退工作状态再撤闸。
+- 智能体不能代签任何一道闸，也不能从格式校验通过、测试全绿或最初的完成请求中推断授权。
 
 ## 6.2 状态推导
 

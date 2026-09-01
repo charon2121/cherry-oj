@@ -36,8 +36,8 @@
 - **流程是控制面，文档是产物面。** 阶段与文档是零到多、多到多的关系，一份文档可以支撑多个阶段，
   阶段也可以没有文档。不要为了填满阶段而制造文档。
 - **状态由事实推导。** 工作和阶段的进度来自文档、TASK 与 VERIFY 的真实状态，不由人手工声明。
-- **上游文档必须经人审核。** 只有进入 `approved` 的定义、体验与设计可以作为开发依据；智能体不能
-  代签，也不能从格式校验通过、测试全绿或最初的完成请求中推断授权。详见
+- **人工确认收拢到两道闸。** 每个工作只保留意图闸与验收闸两次人工确认；智能体不能代签任何一道，
+  也不能从格式校验通过、测试全绿或最初的完成请求中推断授权。详见
   [第 8 章](./specification/08-responsibilities.md)。
 - **永久编号不回收。** 文档删除、废弃、替代或归档后编号仍然保留，用于维持历史链接。
 - **实现完成不等于验证通过，验证通过不等于上线确认。**
@@ -52,7 +52,8 @@
 | 风险 / 影响面 | low…critical / local…system，与 concern 共同决定流程增量 | [2](./specification/02-work-item.md) |
 | 阶段 | 控制面上的一步，带 requirement 与 progress 两个维度 | [4](./specification/04-workflows.md) |
 | artifacts | 阶段关联的文档，零到多、多到多 | [4](./specification/04-workflows.md) |
-| approved | 上游文档经人审核后的终态，可作为开发依据 | [6](./specification/06-status-and-gates.md) |
+| 意图闸 / 验收闸 | 每个工作仅有的两次人工确认 | [6](./specification/06-status-and-gates.md)、[8](./specification/08-responsibilities.md) |
+| approved / checked | 人签字的终态 / 工具校验通过的终态 | [6](./specification/06-status-and-gates.md) |
 | 追踪链 | 从定义要求到验收标准再到验证证据的引用链 | [7](./specification/07-tracing.md) |
 
 ---

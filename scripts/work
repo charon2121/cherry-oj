@@ -75,7 +75,27 @@ WORK_STATUSES = {
     "cancelled",
 }
 TASK_STATUSES = {"todo", "ready", "doing", "done", "verified", "blocked", "cancelled"}
-DOCUMENT_STATUSES = {"draft", "review", "approved", "deprecated", "superseded", "archived"}
+DOCUMENT_STATUSES = {"draft", "review", "checked", "approved", "deprecated", "superseded", "archived"}
+# 定稿的两种方式：approved 由人在闸上签字，checked 由工具校验通过后置位。
+SETTLED_DOCUMENT_STATUSES = {"approved", "checked"}
+# 记录类文档只陈述事实，对错是客观的，终态由工具给出。
+RECORD_DOCUMENT_KINDS = {"design", "plan", "memory"}
+# 意图闸覆盖的决定类文档：只有人能拍板，且一次签字覆盖全部。
+INTENT_GATE_KINDS = {
+    "product",
+    "feature",
+    "capability",
+    "issue",
+    "change",
+    "improvement",
+    "experience",
+    "decision",
+}
+# 验收闸覆盖的文档。
+ACCEPTANCE_GATE_KINDS = {"verify"}
+GATE_NAMES = ("intent", "acceptance")
+GATE_LABELS = {"intent": "意图闸", "acceptance": "验收闸"}
+GATE_STATUSES = {"pending", "passed"}
 STAGE_REQUIREMENTS = {"required", "optional"}
 STAGE_PROGRESS = {"pending", "ready", "doing", "done", "skipped", "blocked"}
 REFERENCE_FIELDS = ("depends_on", "related", "implements", "verifies")
@@ -113,6 +133,7 @@ COMMON_FIELDS = {
     "forbidden_paths",
     "result",
     "work_type",
+    "gates",
 }
 COMMON_REQUIRED = {
     "id",
@@ -143,9 +164,10 @@ REQUIRED_SECTIONS = {
     "memory": ("背景", "决定与原因", "尝试与教训", "已知问题", "重新考虑条件"),
 }
 PLACEHOLDER_MARKERS = ("TODO", "待补充", "待填写", "示例内容")
-FINAL_DOCUMENT_STATUSES = {"approved", "deprecated", "superseded", "archived"}
+FINAL_DOCUMENT_STATUSES = {"approved", "checked", "deprecated", "superseded", "archived"}
 SATISFIED_DEPENDENCY_STATUSES = {
     "approved",
+    "checked",
     "deprecated",
     "superseded",
     "archived",
@@ -175,8 +197,9 @@ TASK_TRANSITIONS = {
     "cancelled": set(),
 }
 DOCUMENT_TRANSITIONS = {
-    "draft": {"review", "approved", "deprecated", "archived"},
-    "review": {"draft", "approved", "deprecated"},
+    "draft": {"review", "checked", "approved", "deprecated", "archived"},
+    "review": {"draft", "checked", "approved", "deprecated"},
+    "checked": {"review", "approved", "deprecated", "superseded", "archived"},
     "approved": {"review", "deprecated", "superseded", "archived"},
     "deprecated": {"archived"},
     "superseded": {"archived"},
@@ -351,6 +374,7 @@ def render_document(document: Document) -> str:
         "required_documents",
         "required_checks",
         "human_confirmations",
+        "gates",
         "blocking_items",
         "reversible",
         "data_change",
@@ -492,6 +516,27 @@ def validate_works_index(root: Path, documents: dict[str, Document]) -> list[str
     if path.read_text(encoding="utf-8") != render_works_index(documents):
         return ["development/WORKS.md: 内容与工作项不一致，请运行 scripts/work sync-works"]
     return []
+
+
+def is_settled(document: "Document") -> bool:
+    """文档是否已定稿：人签字的 approved 或工具校验通过的 checked。"""
+    return document.metadata.get("status") in SETTLED_DOCUMENT_STATUSES
+
+
+def gate_kinds(gate: str) -> set[str]:
+    return INTENT_GATE_KINDS if gate == "intent" else ACCEPTANCE_GATE_KINDS
+
+
+def work_gates(work: "Document") -> dict[str, str]:
+    """读取工作项的两道闸；缺失时按未通过处理，便于旧文档平滑过渡。"""
+    gates = work.metadata.get("gates")
+    if not isinstance(gates, dict):
+        gates = {}
+    return {name: gates.get(name, "pending") for name in GATE_NAMES}
+
+
+def gate_passed(work: "Document", gate: str) -> bool:
+    return work_gates(work).get(gate) == "passed"
 
 
 def discover_paths(root: Path) -> list[Path]:
@@ -1149,6 +1194,13 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
         invalid_concerns = set(metadata.get("concerns", [])) - CONCERNS
         if invalid_concerns:
             errors.append(f"{prefix}: concerns 无效：{', '.join(sorted(invalid_concerns))}")
+        gates = metadata.get("gates")
+        if not isinstance(gates, dict) or set(gates) != set(GATE_NAMES):
+            errors.append(f"{prefix}: gates 必须同时包含 {', '.join(GATE_NAMES)}")
+        else:
+            for name, value in gates.items():
+                if value not in GATE_STATUSES:
+                    errors.append(f"{prefix}: gates.{name} 无效：{value}")
         seen_stages: set[str] = set()
         for stage in metadata.get("workflow", []):
             required_fields = {
@@ -1263,7 +1315,7 @@ def validate_documents(
         supersedes = document.metadata.get("supersedes")
         if supersedes is not None and supersedes not in documents:
             errors.append(f"{prefix}: supersedes 引用了不存在的 {supersedes}")
-        if document.kind not in {"work", "task"} and document.metadata.get("status") == "approved":
+        if document.kind not in {"work", "task"} and is_settled(document):
             unsatisfied = []
             for value in document.metadata.get("depends_on", []):
                 target = reference_target(value)
@@ -1361,6 +1413,29 @@ def validate_documents(
                 errors.append(f"{prefix}: 当前状态不允许存在 blocking_items")
             if work.metadata.get("human_confirmations"):
                 errors.append(f"{prefix}: 当前状态不允许存在未完成的 human_confirmations")
+        for gate in GATE_NAMES:
+            covered = gate_covered_documents(work_id, documents, gate)
+            passed = gate_passed(work, gate)
+            premature = [
+                document.id
+                for document in covered
+                if document.metadata.get("status") == "approved" and not passed
+            ]
+            if premature:
+                errors.append(
+                    f"{prefix}: {GATE_LABELS[gate]}尚未通过，以下文档不应是 approved："
+                    + ", ".join(premature)
+                )
+            regressed = [
+                document.id
+                for document in covered
+                if passed and document.metadata.get("status") in {"draft", "review"}
+            ]
+            if regressed:
+                errors.append(
+                    f"{prefix}: {GATE_LABELS[gate]}已通过，以下文档不应退回未定稿："
+                    + ", ".join(regressed)
+                )
         tasks = [document for document in by_work[work_id] if document.kind == "task"]
         verifies = [document for document in by_work[work_id] if document.kind == "verify"]
         if work.metadata.get("status") in {"ready", "doing", "implemented", "verified", "released", "confirmed"}:
@@ -1368,7 +1443,7 @@ def validate_documents(
             unfinished_prep = [
                 document.id
                 for document in by_work[work_id]
-                if document.kind in prep_types and document.metadata.get("status") != "approved"
+                if document.kind in prep_types and not is_settled(document)
             ]
             if unfinished_prep:
                 errors.append(f"{prefix}: ready 之后仍有未确认的上游文档：{', '.join(unfinished_prep)}")
@@ -1521,6 +1596,7 @@ def command_new(args: argparse.Namespace) -> None:
             "public_api_change": args.public_api_change,
             "security_sensitive": args.security_sensitive,
             "user_visible": args.user_visible or args.work_type == "product",
+            "gates": {name: "pending" for name in GATE_NAMES},
         }
     )
     workflow_metadata = select_workflow({**metadata, "type": args.work_type})
@@ -1671,6 +1747,22 @@ def command_overview(args: argparse.Namespace) -> None:
         for work in needs_human:
             print(f"- {work.id}: {'; '.join(work.metadata['human_confirmations'])}")
 
+    # 人工注意力是最稀缺的资源；待签的闸是它唯一该出现的地方，因此单独列出并说明能不能签。
+    waiting: list[str] = []
+    for work in works:
+        if work.metadata["status"] == "cancelled":
+            continue
+        for gate in GATE_NAMES:
+            if gate_passed(work, gate) or not gate_covered_documents(work.id, documents, gate):
+                continue
+            blockers_now = gate_blockers(work, documents, gate)
+            state = "可以签" if not blockers_now else f"未就绪（{blockers_now[0]}）"
+            waiting.append(f"- {work.id} {GATE_LABELS[gate]}：{state}")
+            break
+    if waiting:
+        print(f"\n待签的闸（{len(waiting)}）：")
+        print("\n".join(waiting))
+
 
 def work_documents(work_id: str, documents: dict[str, Document]) -> list[Document]:
     return sorted(
@@ -1782,11 +1874,30 @@ def derive_work_status(work: Document, children: list[Document]) -> str:
         for document in children
         if document.kind in set(work.metadata.get("required_documents", [])) - {"task", "verify", "memory"}
     ]
-    if prep and all(document.metadata.get("status") == "approved" for document in prep) and tasks and all(
+    if prep and all(is_settled(document) for document in prep) and tasks and all(
         task.metadata.get("status") == "ready" for task in tasks
     ):
         return "ready"
     return "todo"
+
+
+def settle_record_documents(
+    work_id: str, documents: dict[str, "Document"]
+) -> list["Document"]:
+    """记录类文档写完（review）且依赖已满足时，由工具置为 checked，不占用人的判断。"""
+    settled: list[Document] = []
+    for document in work_documents(work_id, documents):
+        if document.kind not in RECORD_DOCUMENT_KINDS:
+            continue
+        if document.metadata.get("status") != "review":
+            continue
+        if not status_dependencies_satisfied(document, documents):
+            continue
+        document.metadata["status"] = "checked"
+        document.metadata["updated_at"] = today()
+        append_log(document, "结构与内容校验通过，由工具置为 checked。")
+        settled.append(document)
+    return settled
 
 
 def command_refresh(args: argparse.Namespace) -> None:
@@ -1794,6 +1905,7 @@ def command_refresh(args: argparse.Namespace) -> None:
     work = require_document(documents, args.work_id)
     if work.kind != "work":
         raise WorkError(f"{args.work_id} 不是工作项")
+    settled = settle_record_documents(work.id, documents)
     old_workflow = json.dumps(work.metadata["workflow"], ensure_ascii=False, sort_keys=True)
     bind_workflow_artifacts(work, [work, *work_documents(work.id, documents)])
     synchronize_workflow(work, documents)
@@ -1804,7 +1916,7 @@ def command_refresh(args: argparse.Namespace) -> None:
     workflow_changed = old_workflow != json.dumps(
         work.metadata["workflow"], ensure_ascii=False, sort_keys=True
     )
-    if old == derived and not workflow_changed:
+    if old == derived and not workflow_changed and not settled:
         print(f"✓ {work.id} 状态无需更新：{old}")
         return
     work.metadata["updated_at"] = today()
@@ -1812,12 +1924,18 @@ def command_refresh(args: argparse.Namespace) -> None:
         append_log(work, f"根据文档、任务与验证事实刷新状态：{old} → {derived}。")
     elif workflow_changed:
         append_log(work, "根据文档、任务与 WORK 事实刷新流程阶段状态。")
+    elif settled:
+        append_log(work, "记录类文档通过校验，由工具定稿。")
     prospective = dict(documents)
     prospective[work.id] = work
     errors, _ = validate_documents(prospective, args.root, index)
     if errors:
         raise WorkError("状态刷新不满足系统约束：\n- " + "\n- ".join(errors))
     write_document(work)
+    for document in settled:
+        write_document(document)
+    if settled:
+        print("已由工具定稿：" + ", ".join(f"{d.id}→checked" for d in settled))
     if old == derived:
         print(f"✓ {work.id}: 已同步流程阶段，工作状态保持 {old}")
     else:
@@ -1832,6 +1950,188 @@ def status_dependencies_satisfied(document: Document, documents: dict[str, Docum
     return True
 
 
+def gate_covered_documents(work_id: str, documents: dict[str, "Document"], gate: str) -> list["Document"]:
+    kinds = gate_kinds(gate)
+    return sorted(
+        (
+            document
+            for document in work_documents(work_id, documents)
+            if document.kind in kinds
+            and document.metadata.get("status") not in {"deprecated", "superseded", "archived"}
+        ),
+        key=lambda document: document.id,
+    )
+
+
+def gate_blockers(work: "Document", documents: dict[str, "Document"], gate: str) -> list[str]:
+    """闸能不能签，取决于事实是否齐备；这里只检查人做判断前必须成立的前提。"""
+    blockers: list[str] = []
+    covered = gate_covered_documents(work.id, documents, gate)
+    if not covered:
+        blockers.append(f"{work.id} 没有该闸覆盖的文档，无需也无法签署")
+        return blockers
+    unfinished = [document.id for document in covered if document.metadata.get("status") == "draft"]
+    if unfinished:
+        blockers.append("以下文档仍是 draft，作者尚未声明写完：" + ", ".join(unfinished))
+    # 闸会连带定稿记录类文档，但只能定稿已经写完（review）的那些。
+    unwritten = sorted(
+        {
+            documents[target].id
+            for document in covered
+            for value in document.metadata.get("depends_on", [])
+            if (target := reference_target(value)) in documents
+            and documents[target].kind in RECORD_DOCUMENT_KINDS
+            and documents[target].metadata.get("status") == "draft"
+        }
+    )
+    if unwritten:
+        blockers.append(
+            "覆盖文档依赖的记录类文档仍是 draft，无法在签闸时一并定稿：" + ", ".join(unwritten)
+        )
+    if gate == "intent":
+        if work.metadata.get("blocking_items"):
+            blockers.append("仍有 blocking_items 未澄清：" + "; ".join(work.metadata["blocking_items"]))
+    else:
+        if not gate_passed(work, "intent"):
+            blockers.append("意图闸尚未通过，不能先签验收闸")
+        tasks = [
+            document
+            for document in work_documents(work.id, documents)
+            if document.kind == "task" and document.metadata.get("status") != "cancelled"
+        ]
+        undone = [task.id for task in tasks if task.metadata.get("status") not in {"done", "verified"}]
+        if undone:
+            blockers.append("以下 TASK 尚未完成：" + ", ".join(undone))
+        pending_result = [
+            document.id for document in covered if document.metadata.get("result") == "pending"
+        ]
+        if pending_result:
+            blockers.append("以下 VERIFY 还没有记录结论：" + ", ".join(pending_result))
+    return blockers
+
+
+def unsettle_record_documents(
+    work_id: str, documents: dict[str, "Document"]
+) -> list["Document"]:
+    """撤闸的逆操作：依赖重新变得不确定时，工具给出的 checked 也必须收回。"""
+    reopened: list[Document] = []
+    for document in work_documents(work_id, documents):
+        if document.kind not in RECORD_DOCUMENT_KINDS:
+            continue
+        if document.metadata.get("status") != "checked":
+            continue
+        if status_dependencies_satisfied(document, documents):
+            continue
+        document.metadata["status"] = "review"
+        document.metadata["updated_at"] = today()
+        append_log(document, "上游依赖被重新打开，checked 收回为 review。")
+        reopened.append(document)
+    return reopened
+
+
+def command_gate(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+    gate = args.gate
+    label = GATE_LABELS[gate]
+    gates = work_gates(work)
+    covered = gate_covered_documents(work.id, documents, gate)
+
+    if args.revoke:
+        if gates[gate] != "passed":
+            raise WorkError(f"{work.id} 的{label}当前不是 passed，无需撤回")
+        # 工作状态是从闸覆盖的文档推导出来的；先退状态再撤闸，否则推导链自相矛盾。
+        locked = {"intent": {"doing", "implemented", "verified", "released", "confirmed"},
+                  "acceptance": {"verified", "released", "confirmed"}}[gate]
+        if work.metadata["status"] in locked:
+            raise WorkError(
+                f"{work.id} 当前是 {work.metadata['status']}，该状态正建立在{label}之上，不能直接撤回。\n"
+                f"请先运行：scripts/work set-status {work.id} doing --reason \"...\""
+            )
+        gates[gate] = "pending"
+        demoted = [
+            document
+            for document in covered
+            if document.metadata.get("status") == "approved"
+        ]
+        for document in demoted:
+            document.metadata["status"] = "review"
+            document.metadata["updated_at"] = today()
+            append_log(document, f"{label}被撤回：approved → review。原因：{args.reason}")
+        # 与签署对称：连带定稿的记录类文档也要沿依赖链一起收回。
+        working = dict(documents)
+        for document in demoted:
+            working[document.id] = document
+        reopened: list[Document] = []
+        while True:
+            batch = unsettle_record_documents(work.id, working)
+            if not batch:
+                break
+            for document in batch:
+                working[document.id] = document
+            reopened.extend(batch)
+        changed = demoted + reopened
+        summary = f"✓ {work.id} 的{label}已撤回"
+    else:
+        if gates[gate] == "passed":
+            raise WorkError(f"{work.id} 的{label}已经通过；如需重新审核请先 --revoke")
+        blockers = gate_blockers(work, documents, gate)
+        if blockers:
+            raise WorkError(f"{work.id} 的{label}还不能签署：\n- " + "\n- ".join(blockers))
+        gates[gate] = "passed"
+        promoted = [
+            document
+            for document in covered
+            if document.metadata.get("status") in {"draft", "review"}
+        ]
+        for document in promoted:
+            previous = document.metadata["status"]
+            document.metadata["status"] = "approved"
+            document.metadata["updated_at"] = today()
+            append_log(document, f"{label}通过：{previous} → approved。原因：{args.reason}")
+        # 决定类与记录类在依赖链上交替出现（CHANGE → DESIGN → DECISION → PLAN）。
+        # 分两次处理会互相卡住：闸要求 DECISION 的依赖 DESIGN 已定稿，而 DESIGN 又要求
+        # CHANGE 已定稿，CHANGE 只能由这道闸给出。所以签闸后在同一次事务里推进到不动点。
+        working = dict(documents)
+        for document in promoted:
+            working[document.id] = document
+        settled: list[Document] = []
+        while True:
+            batch = settle_record_documents(work.id, working)
+            if not batch:
+                break
+            for document in batch:
+                working[document.id] = document
+            settled.extend(batch)
+        changed = promoted + settled
+        summary = f"✓ {work.id} 的{label}已通过"
+
+    work.metadata["gates"] = gates
+    work.metadata["updated_at"] = today()
+    append_log(work, f"{label}：{gates[gate]}。原因：{args.reason}")
+
+    prospective = dict(documents)
+    prospective[work.id] = work
+    for document in changed:
+        prospective[document.id] = document
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, prospective)])
+    synchronize_workflow(work, prospective)
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("闸状态变更不满足系统约束：\n- " + "\n- ".join(errors))
+
+    write_document(work)
+    for document in changed:
+        write_document(document)
+    print(summary)
+    if changed:
+        print("同时变更：" + ", ".join(f"{d.id}→{d.metadata['status']}" for d in changed))
+    else:
+        print("没有需要连带变更的文档")
+
+
 def command_set_status(args: argparse.Namespace) -> None:
     documents, index = checked_documents(args.root)
     document = require_document(documents, args.document_id)
@@ -1843,7 +2143,18 @@ def command_set_status(args: argparse.Namespace) -> None:
     if args.status not in transitions[old]:
         targets = ", ".join(sorted(transitions[old])) or "无"
         raise WorkError(f"{document.id} 不能从 {old} 进入 {args.status}；允许的下一状态：{targets}")
-    if args.status in {"approved", "ready", "doing", "done", "verified"} and not status_dependencies_satisfied(document, documents):
+    if args.status == "approved" and document.kind in INTENT_GATE_KINDS | ACCEPTANCE_GATE_KINDS:
+        gate = "intent" if document.kind in INTENT_GATE_KINDS else "acceptance"
+        raise WorkError(
+            f"{document.id} 属于{GATE_LABELS[gate]}覆盖的文档，不再逐份审批。\n"
+            f"请改用：scripts/work gate {document.metadata['work']} {gate} --reason \"...\""
+        )
+    if args.status == "checked" and document.kind not in RECORD_DOCUMENT_KINDS:
+        raise WorkError(
+            f"checked 只用于记录类文档（{', '.join(sorted(RECORD_DOCUMENT_KINDS))}）；"
+            f"{document.id} 是 {document.kind}"
+        )
+    if args.status in {"approved", "checked", "ready", "doing", "done", "verified"} and not status_dependencies_satisfied(document, documents):
         raise WorkError(f"{document.id} 仍有未完成依赖，不能进入 {args.status}")
     if document.kind == "verify" and args.result:
         document.metadata["result"] = args.result
@@ -2053,8 +2364,8 @@ def command_supersede(args: argparse.Namespace) -> None:
     new = require_document(documents, args.by)
     if old.kind in {"work", "task"} or new.kind != old.kind:
         raise WorkError("替代关系要求两个同类型的非 WORK/TASK 文档")
-    if old.metadata["status"] != "approved" or new.metadata["status"] != "approved":
-        raise WorkError("只有两份都已 approved 的同类型文档才能建立替代关系")
+    if not is_settled(old) or not is_settled(new):
+        raise WorkError("只有两份都已定稿（approved 或 checked）的同类型文档才能建立替代关系")
     old.metadata["status"] = "superseded"
     old.metadata["deprecated"] = args.reason
     old.metadata["updated_at"] = today()
@@ -2176,6 +2487,15 @@ def build_parser() -> argparse.ArgumentParser:
     context_parser.add_argument("task_id")
     context_parser.set_defaults(handler=command_context)
 
+    gate_parser = subparsers.add_parser("gate", help="签署或撤回工作项的意图闸/验收闸")
+    gate_parser.add_argument("work_id")
+    gate_parser.add_argument("gate", choices=GATE_NAMES)
+    gate_parser.add_argument("--reason", required=True)
+    gate_parser.add_argument(
+        "--revoke", action="store_true", help="撤回该闸，并把它覆盖的 approved 文档退回 review"
+    )
+    gate_parser.set_defaults(handler=command_gate)
+
     archive_parser = subparsers.add_parser("archive", help="归档不再活跃的文档")
     archive_parser.add_argument("document_id")
     archive_parser.add_argument("--reason", required=True)
@@ -2207,6 +2527,7 @@ def main() -> int:
             "set-status",
             "set-stage",
             "link",
+            "gate",
             "archive",
             "deprecate",
             "supersede",

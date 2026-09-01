@@ -17,6 +17,7 @@ workflow: [{"stage": "definition", "label": "改动说明与边界", "requiremen
 required_documents: ["change", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests"]
 human_confirmations: []
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false

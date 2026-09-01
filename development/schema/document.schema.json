@@ -51,6 +51,7 @@
         "blocked",
         "draft",
         "review",
+        "checked",
         "approved",
         "deprecated",
         "superseded",
@@ -129,6 +130,15 @@
     "required_documents": { "type": "array", "items": { "type": "string" } },
     "required_checks": { "type": "array", "items": { "type": "string" } },
     "human_confirmations": { "type": "array", "items": { "type": "string" } },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intent", "acceptance"],
+      "properties": {
+        "intent": { "enum": ["pending", "passed"] },
+        "acceptance": { "enum": ["pending", "passed"] }
+      }
+    },
     "blocking_items": { "type": "array", "items": { "type": "string" } },
     "reversible": { "type": "boolean" },
     "data_change": { "type": "boolean" },

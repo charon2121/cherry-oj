@@ -136,7 +136,7 @@ scripts/work new-doc \
 
 ## 9.6 管理动作
 
-工具需要支持创建、查看、更新、查询、列出、关联、检查、归档、废弃、替代、追踪、生成流程、刷新状态、按当前分类与风险重建流程，以及推进没有独立 artifact 的操作阶段。
+工具需要支持创建、查看、更新、查询、列出、关联、检查、签署与撤回人工闸、归档、废弃、替代、追踪、生成流程、刷新状态、按当前分类与风险重建流程，以及推进没有独立 artifact 的操作阶段。
 
 常用命令包括：
 
@@ -163,6 +163,17 @@ scripts/work refresh WORK-003
 ```
 
 有 artifacts 的阶段只能由文档、TASK 或 VERIFY 的事实推进；`clarify` 由 `blocking_items` 推进。复核、上线和观察等没有独立 artifact 的阶段可以显式推进，但 required 阶段不能标为 skipped，每次变化都必须记录理由并检查前置 required 阶段。
+
+人工确认通过闸签署，一次覆盖该闸的全部文档；决定类与 VERIFY 文档不再逐份 `set-status ... approved`：
+
+```bash
+scripts/work gate WORK-003 intent --reason "确认这就是要做的事和边界"
+scripts/work gate WORK-003 acceptance --reason "确认已完成，遗留项可接受"
+scripts/work gate WORK-003 acceptance --revoke --reason "回归用例没覆盖，重新审"
+```
+
+工具只检查前置条件是否齐备并在不满足时拒绝签署，不代替人做判断；记录类文档（DESIGN、PLAN、
+MEMORY）由 `refresh` 在校验通过后从 `review` 推进到 `checked`，不进入人工确认。
 
 归档、废弃与替代只改变状态，不把文件移出所属工作项目录：
 

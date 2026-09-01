@@ -17,6 +17,7 @@ workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "require
 required_documents: ["feature", "experience", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "accessibility"]
 human_confirmations: []
+gates: {"intent": "passed", "acceptance": "pending"}
 blocking_items: []
 reversible: true
 data_change: false

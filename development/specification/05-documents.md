@@ -149,7 +149,9 @@ updated_at: 2026-08-24
 `implements`、`verifies`、`supersedes`、`deprecated` 与 `tags`。
 
 WORK 使用 `type: work` 和独立的 `work_type` 区分“文档类型”与“工作类型”，避免同一个 `type`
-字段承担两套语义。
+字段承担两套语义。WORK 还独有 `workflow`、`required_documents`、`required_checks`、
+`blocking_items` 与 `gates`；其中 `gates` 记录意图闸与验收闸是否已由人签署，是全系统仅有的两个
+人工确认点（见[第 6 章](./06-status-and-gates.md)与[第 8 章](./08-responsibilities.md)）。
 
 ## 5.7 永久编号
 

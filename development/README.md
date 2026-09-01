@@ -127,15 +127,36 @@ scripts/work overview
 
 1. 智能体读取上下文，完成本次需要的 WORK、定义、体验、设计、计划和 TASK 文档；上游文档保持
    `draft` 或 `review`，WORK 与 TASK 保持 `todo`，然后停止实施并请人审核；
-2. 人在后续消息中明确表示文档通过并允许执行后，智能体才记录 `approved`，把 TASK 推进到可执行
+2. 人在后续消息中明确表示文档通过并允许执行后，**由人签署意图闸**，智能体才把 TASK 推进到可执行
    状态，并开始编码或其他实施动作。
 
 “请完成这个功能”“按这个意图修改”等初始表达不能同时充当文档审核和执行授权。只读检查、文档
 校验和为了完成文档本身而运行的管理命令可以在第一回合执行；会修改产品实现、数据、部署或外部
 状态的动作必须等待第二回合授权。若人明确只要求改文档，交付文档后就停止。
 
-`approved` 表示人已经确认，不是智能体对自己文档质量的自评。智能体可以建议通过、列出待确认项，
-但不能代替人把自己刚写完的上游文档标为 `approved`，也不能因为测试或格式检查通过就推断已获授权。
+### 人工确认只有两个点
+
+每个工作只有两次人工签署，其余文档由工具定稿：
+
+```bash
+scripts/work gate WORK-003 intent      --reason "确认这就是要做的事和边界"   # 开工前
+scripts/work gate WORK-003 acceptance  --reason "确认已完成，遗留项可接受"   # 收束时
+```
+
+| 文档 | 终态 | 谁给出 |
+|---|---|---|
+| PRODUCT / FEATURE / CAPABILITY / ISSUE / CHANGE / IMPROVEMENT / EXPERIENCE / DECISION | `approved` | 人，意图闸一次覆盖 |
+| VERIFY | `approved` | 人，验收闸一次覆盖 |
+| DESIGN / PLAN / MEMORY | `checked` | 工具，`refresh` 时校验通过后置位 |
+
+`approved` 表示人已经确认，不是智能体对自己文档质量的自评。这两类文档**不能**再逐份
+`set-status ... approved`，工具会直接拒绝并提示改用 `gate`。智能体可以准备材料、说明前置条件
+已满足、列出待确认项，但不能执行 `gate`，也不能因为测试或格式检查通过就推断已获授权。
+
+闸有前置条件（意图闸：无未澄清 `blocking_items`、覆盖文档已脱离 `draft`；验收闸：意图闸已过、
+TASK 全部完成、VERIFY 已记录结论）。不满足时工具拒绝签署并列出原因；**满足也不代表自动通过**。
+签错了可以撤回：`scripts/work gate WORK-003 acceptance --revoke --reason "..."`，被覆盖的文档会退回
+`review`；若工作状态正建立在该闸之上，需先用 `set-status` 退回工作状态。
 
 `workflow` 中每个阶段同时记录：`label`、`requirement=required|optional`、实际 `status`、进度来源
 `status_source=derived|manual`、关联 `artifacts`、阶段 `checks`、规则 `source` 和选择 `reason`。阶段进度使用：

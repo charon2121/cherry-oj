@@ -17,6 +17,7 @@ workflow: [{"stage": "clarify", "label": "需求澄清", "requirement": "require
 required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "compatibility", "data", "privacy", "release", "reliability", "security"]
 human_confirmations: ["安全边界与权限影响已经由负责人确认"]
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: true

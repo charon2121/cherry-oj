@@ -19,6 +19,9 @@
 由 WORK Type 基础模板与风险、影响面、concern 增量规则生成。front matter 的 `workflow` 记录阶段
 必需性、实际进度、artifacts、检查与规则来源；使用 `scripts/work flow {{id}}` 查看实际进度。
 
+本工作只需要你确认两次：开工前的意图闸（这是不是我要的）和收束时的验收闸（这是不是做完了）。
+其余文档由工具校验后自动定稿，不需要逐份批阅。当前进度见 front matter 的 `gates`。
+
 ## 待确认项
 
 暂无。

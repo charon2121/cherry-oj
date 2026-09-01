@@ -17,6 +17,7 @@ workflow: [{"stage": "definition", "label": "问题说明、复现与预期", "r
 required_documents: ["issue", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "compatibility"]
 human_confirmations: []
+gates: {"intent": "passed", "acceptance": "pending"}
 blocking_items: []
 reversible: true
 data_change: false

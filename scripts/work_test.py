@@ -443,6 +443,18 @@ class WorkToolTest(unittest.TestCase):
             "审核通过",
             success=False,
         )
+        self.assertIn("不再逐份审批", result.stderr)
+
+        # 占位内容仍然过不去，只是防线移到了闸上。
+        self.run_work("set-status", "CHANGE-001", "review", "--reason", "初稿写完")
+        result = self.run_work(
+            "gate",
+            "WORK-001",
+            "intent",
+            "--reason",
+            "审核通过",
+            success=False,
+        )
         self.assertIn("仍含占位内容", result.stderr)
 
         result = self.run_work(
@@ -525,14 +537,116 @@ class WorkToolTest(unittest.TestCase):
         change_path = self.one_work_file("10-change-CHANGE-001.md")
         content = change_path.read_text(encoding="utf-8")
         content = content.replace("待补充", "已确认无需补充")
-        content = content.replace('status: "draft"', 'status: "approved"', 1)
         change_path.write_text(content, encoding="utf-8")
 
+        self.run_work("set-status", "CHANGE-001", "review", "--reason", "初稿写完")
+        self.run_work("gate", "WORK-001", "intent", "--reason", "确认改动范围")
+        self.assertIn('status: "approved"', change_path.read_text(encoding="utf-8"))
         self.run_work("rebuild-flow", "WORK-001")
         self.run_work("archive", "CHANGE-001", "--reason", "仅保留历史参考")
         self.assertTrue(change_path.is_file())
         self.assertIn('status: "archived"', change_path.read_text(encoding="utf-8"))
         self.assertFalse((self.root / "development" / "archive").exists())
+
+
+    def create_full_work(self) -> None:
+        """高风险维护会生成两类文档：决定类（CHANGE/DECISION）与记录类（DESIGN/PLAN/MEMORY）。"""
+        self.run_work(
+            "new",
+            "--title",
+            "高风险维护",
+            "--type",
+            "maintenance",
+            "--risk",
+            "high",
+            "--impact",
+            "system",
+            "--owner",
+            "agent/test",
+        )
+
+    def fill(self, *document_ids: str) -> None:
+        """补全占位内容并声明写完，模拟智能体交付初稿。"""
+        for document_id in document_ids:
+            path = next(self.one_work_directory().glob(f"*-{document_id}.md"))
+            content = path.read_text(encoding="utf-8")
+            for marker in ("待补充", "待填写", "示例内容", "TODO"):
+                content = content.replace(marker, "已确认内容")
+            path.write_text(content, encoding="utf-8")
+            self.run_work("set-status", document_id, "review", "--reason", "初稿写完")
+
+    def status_of(self, document_id: str) -> str:
+        path = next(self.one_work_directory().glob(f"*-{document_id}.md"))
+        return str(self.metadata(path)["status"])
+
+    def test_intent_gate_settles_every_decision_document_at_once(self) -> None:
+        self.create_full_work()
+        self.fill("CHANGE-001", "DESIGN-001", "DECISION-001")
+        self.assertEqual(
+            {"intent": "pending", "acceptance": "pending"},
+            self.metadata(self.one_work_file("00-work.md"))["gates"],
+        )
+
+        result = self.run_work("gate", "WORK-001", "intent", "--reason", "确认要做的事和边界")
+        # 一次签署覆盖全部决定类文档，这正是把审批点从「每份文档」收拢到「每个工作」的含义。
+        self.assertIn("CHANGE-001→approved", result.stdout)
+        self.assertIn("DECISION-001→approved", result.stdout)
+        self.assertEqual("approved", self.status_of("CHANGE-001"))
+        self.assertEqual("approved", self.status_of("DECISION-001"))
+        # 决定类与记录类在依赖链上交替，闸必须在同一次事务里把两者都推进到位。
+        self.assertEqual("checked", self.status_of("DESIGN-001"))
+        self.assertEqual(
+            "passed",
+            self.metadata(self.one_work_file("00-work.md"))["gates"]["intent"],
+        )
+
+    def test_decision_documents_cannot_be_approved_one_by_one(self) -> None:
+        self.create_full_work()
+        self.fill("CHANGE-001")
+        result = self.run_work(
+            "set-status", "CHANGE-001", "approved", "--reason", "想逐份批", success=False
+        )
+        self.assertIn("不再逐份审批", result.stderr)
+        self.assertIn("gate WORK-001 intent", result.stderr)
+        self.assertEqual("review", self.status_of("CHANGE-001"))
+
+    def test_record_documents_are_settled_by_the_tool_not_by_a_person(self) -> None:
+        self.create_full_work()
+        self.fill("CHANGE-001", "DESIGN-001", "DECISION-001", "PLAN-001")
+        result = self.run_work("gate", "WORK-001", "intent", "--reason", "确认边界")
+        # 记录类文档只陈述事实，由工具定稿，不出现在任何人工确认点上。
+        for document_id in ("DESIGN-001", "PLAN-001"):
+            self.assertEqual("checked", self.status_of(document_id), document_id)
+            self.assertIn(f"{document_id}→checked", result.stdout)
+        # checked 只属于记录类；决定类不能借这条路径绕过闸。
+        result = self.run_work(
+            "set-status", "VERIFY-001", "checked", "--reason", "想绕过验收闸", success=False
+        )
+        self.assertIn("checked 只用于记录类文档", result.stderr)
+
+    def test_acceptance_gate_requires_intent_gate_and_finished_tasks(self) -> None:
+        self.create_full_work()
+        self.fill("VERIFY-001")
+        result = self.run_work(
+            "gate", "WORK-001", "acceptance", "--reason", "想直接收尾", success=False
+        )
+        self.assertIn("意图闸尚未通过", result.stderr)
+        self.assertIn("TASK-001", result.stderr)
+
+    def test_revoking_a_gate_returns_its_documents_to_review(self) -> None:
+        self.create_full_work()
+        self.fill("CHANGE-001", "DESIGN-001", "DECISION-001")
+        self.run_work("gate", "WORK-001", "intent", "--reason", "确认边界")
+
+        result = self.run_work("gate", "WORK-001", "intent", "--revoke", "--reason", "边界说错了")
+        self.assertIn("CHANGE-001→review", result.stdout)
+        self.assertEqual("review", self.status_of("CHANGE-001"))
+        self.assertEqual("review", self.status_of("DECISION-001"))
+        self.assertEqual(
+            "pending",
+            self.metadata(self.one_work_file("00-work.md"))["gates"]["intent"],
+        )
+        self.run_work("check")
 
 
 if __name__ == "__main__":
