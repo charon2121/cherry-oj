@@ -1,14 +1,29 @@
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Check } from 'lucide-react';
-import { type ComponentProps } from 'react';
 
 import { cn } from '@/lib/utils';
 
+// 骨架取自 shadcn base-nova 官方 badge：useRender + mergeProps 让徽章能渲染成
+// <a>、<button> 或任意元素，属性合并与 ref 转发由 Base UI 处理。
+// 相对官方只改三处，且都有设计系统条款支撑：
+//   1. 颜色全部换成本仓库语义 token，不使用 /10 /20 这类透明度叠加（design-system.md §4）；
+//   2. 焦点用 2px outline + offset，不用官方的透明光晕 ring（§7）；
+//   3. 尺寸放宽为 min-h-6 + 可换行，官方的 h-5 + whitespace-nowrap 会裁切长中文（§7）。
 const badgeVariants = cva(
-  'inline-flex min-h-6 max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[length:var(--ds-text-xs)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] whitespace-normal break-words [&_svg]:size-3 [&_svg]:shrink-0',
+  'group/badge inline-flex min-h-6 w-fit max-w-full shrink-0 items-center justify-center gap-1 rounded-full border border-transparent px-2 py-0.5 text-[length:var(--ds-text-xs)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] whitespace-normal break-words transition-[color,background-color,border-color] duration-[var(--ds-motion-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:border-[var(--ds-danger-border)] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&>svg]:pointer-events-none [&>svg]:size-3 [&>svg]:shrink-0',
   {
     variants: {
       variant: {
+        // 官方变体，语义按 design-system.md §4 的一次性映射
+        default: 'bg-primary text-primary-foreground [a]:hover:bg-[var(--ds-brand-surface-hover)]',
+        secondary: 'bg-secondary text-secondary-foreground [a]:hover:bg-accent',
+        destructive: 'bg-danger-solid text-danger-on-solid',
+        outline:
+          'border-border text-foreground [a]:hover:bg-accent [a]:hover:text-accent-foreground',
+        ghost: '[a]:hover:bg-accent [a]:hover:text-accent-foreground',
+        link: 'text-brand underline underline-offset-4',
+        // Cherry OJ 语义扩展：品牌软底与五类状态，均为 soft surface + 状态边界
         neutral: 'border-border bg-secondary text-[var(--ds-fg-2)]',
         brand: 'border-[var(--ds-brand-foreground)] bg-brand-soft text-[var(--ds-on-brand-soft)]',
         success: 'border-[var(--ds-success-border)] bg-success-soft text-success',
@@ -24,38 +39,18 @@ const badgeVariants = cva(
   },
 );
 
-type BadgeProps = ComponentProps<'span'> &
-  VariantProps<typeof badgeVariants> &
-  Readonly<{
-    selected?: boolean;
-    selectedLabel?: string;
-  }>;
-
 function Badge({
-  children,
   className,
-  selected = false,
-  selectedLabel = '已选择',
   variant = 'neutral',
+  render,
   ...props
-}: BadgeProps) {
-  return (
-    <span
-      data-slot="badge"
-      data-selected={selected ? '' : undefined}
-      className={cn(badgeVariants({ variant, className }))}
-      {...props}
-    >
-      {selected ? (
-        <>
-          <Check aria-hidden="true" />
-          <span>{selectedLabel}</span>
-          <span aria-hidden="true">·</span>
-        </>
-      ) : null}
-      {children}
-    </span>
-  );
+}: useRender.ComponentProps<'span'> & VariantProps<typeof badgeVariants>) {
+  return useRender({
+    defaultTagName: 'span',
+    props: mergeProps<'span'>({ className: cn(badgeVariants({ variant }), className) }, props),
+    render,
+    state: { slot: 'badge', variant },
+  });
 }
 
-export { Badge, type BadgeProps, badgeVariants };
+export { Badge, badgeVariants };

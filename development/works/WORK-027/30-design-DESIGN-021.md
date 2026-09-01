@@ -84,8 +84,8 @@ function Badge({ children, ... }: ComponentProps<'span'> & VariantProps<...>) {
 
 1. **移除手工参考页**（不依赖后两步）。删除 `components.html`，`components.manifest.json` 的
    `reference` 与 `sourceFiles` 改为指向 Storybook，`docs/design-system.md` §1、§6 同步。
-2. **展示类组件换文件**：`badge`、`card`、`icon-button`、`async-state`。这四个没有复杂交互与 aria 关联，
-   回归面集中在视觉。
+2. **展示类组件换文件**：`badge`、`card`。执行中把 `icon-button` 与 `async-state` 移出本步——
+   判据不是「官方有没有同名组件」，而是「官方那份是否覆盖我们依赖的行为」，详见 CHANGE-009 变更记录。
 3. **表单与提示类换文件**：`field`、`inline-notice`。`field` 有 7 个消费者且承担 aria 关联，风险最高，
    单独一步做完再验。
 

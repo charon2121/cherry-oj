@@ -52,8 +52,8 @@ updated_at: "2026-09-01"
 | `card` | `card` | 换成官方那份文件，补齐官方有而我们没有的子组件 |
 | `field` | `field` | 换成官方那份文件；官方提供 10 个可组合子组件，且不绑定任何表单库 |
 | `inline-notice` | `alert` | 换成官方 `alert`，OJ 五态加在官方 2 个变体之上 |
-| `async-state` | `spinner` + `empty` | 换成官方那两份文件；官方已把它拆成两个组件 |
-| `icon-button` | `button` | 并入官方 `button` 的图标尺寸，不再单独存在 |
+| `async-state` | `spinner` + `empty` | **维持现状**（执行中修正，见下） |
+| `icon-button` | `button` | **维持现状**（执行中修正，见下） |
 | `link`、`typography` | 官方没有（registry 返回 404） | **维持现状**，并写明「官方没有」这个依据 |
 | `layout` | 官方没有 | 维持现状 |
 | 其余 7 个 | 官方有同名组件 | **这次不改代码**，只把与官方的出入写下来 |
@@ -70,15 +70,17 @@ updated_at: "2026-09-01"
 
 ## 目标状态
 
-- REQ-001：`badge`、`card`、`field`、`inline-notice`、`async-state`、`icon-button` 六个组件的实现文件
-  替换为 shadcn base-nova 的官方版本，只把其中的颜色与尺寸 class 改成本仓库语义 token 或稳定 Tailwind
-  alias；官方的 DOM 结构、属性接口与可访问性行为原样保留。
+- REQ-001：`badge`、`card`、`field`、`inline-notice` 四个组件的实现文件替换为 shadcn base-nova 的官方
+  版本，只把其中的颜色与尺寸 class 改成本仓库语义 token 或稳定 Tailwind alias；官方的 DOM 结构、
+  属性接口与可访问性行为原样保留。
 - REQ-002：官方变体集合保留，OJ 语义（`success`/`warning`/`danger`/`info`/`special`）以扩展方式叠加，
   不删除官方变体，也不改变官方变体的含义。
 - REQ-003：已基于 `@base-ui/react` 的 7 个组件逐个与官方实现比对，把差异（缺失的子组件、缺失的 slot、
   行为差异）记录在 VERIFY，本次不强制改造。
-- REQ-004：`link`、`typography`、`layout` 维持现状，并在组件清单里注明「官方没有对应组件」这个依据，
-  避免以后重复讨论同一个问题。
+- REQ-004：`link`、`typography`、`layout`、`icon-button`、`async-state` 维持现状，并在组件清单里
+  注明依据，避免以后重复讨论同一个问题。前三个是官方 registry 没有该组件；后两个是**官方有同名
+  组件但不承担我们需要的可访问性保证**——判据不是「官方有没有」，而是「官方那份是否覆盖我们依赖
+  的行为」。
 - REQ-005：删除 `docs/design-system/components.html`，同步 `components.manifest.json` 与
   `docs/design-system.md` §1、§6，视觉参考改指 Storybook。
 - REQ-006：把「基础组件优先用 shadcn，官方没有才手写；采用后只替换 token 不重写结构」写成明确条款，
@@ -114,7 +116,7 @@ updated_at: "2026-09-01"
 
 ## 回归检查
 
-- AC-001：六个换过文件的组件在两个主题下的 default、hover、pressed、focus-visible、disabled、loading
+- AC-001：四个换过文件的组件在两个主题下的 default、hover、pressed、focus-visible、disabled、loading
   状态截图与改动前一致或有书面说明；Storybook 的 a11y addon 无新增违规。
 - AC-002：`field` 的 `aria-describedby`、`aria-invalid`、`required` 关联行为由测试覆盖，且登录、改密、
   用户管理三条表单链路的键盘操作与错误提示不变。
@@ -129,3 +131,14 @@ updated_at: "2026-09-01"
 
 - 2026-09-01：状态变更：draft → review。原因：初稿写完，提交人工审核
 - 2026-09-01：意图闸通过：review → approved。原因：负责人审阅后批准：6 个组件换成 shadcn 官方实现文件、7 个已基于 base-ui 的只记录与官方的出入不改代码、link/typography/layout 因官方 registry 无对应而维持手写；调用方用法尽量不动，TASK-044 与 TASK-045 串行执行
+
+## 变更记录
+
+- 2026-09-01：负责人签署意图闸，按 6 个组件换文件的范围批准。
+- 2026-09-01：**范围缩小为 4 个**，`icon-button` 与 `async-state` 移入「维持现状」，经负责人确认。
+  执行 TASK-044 时取到官方源码逐条比对发现：官方 `button` 不强制无障碍名称
+  （`'aria-label' in 源码` 为 False），而 `IconButton` 把 `label` 设为必填，落实的是
+  `design-system.md` globalRules「icon-only 控件必须有可访问名称」；官方 `spinner` 只有 21 行转圈
+  svg 且依赖 shadcn 站点内部的 `IconPlaceholder`，官方 `empty` 是纯布局（无 `aria-live`、无
+  `role="status"`），而 `AsyncState` 覆盖 empty/loading/error/unauthorized 四态并强制 loading 提供
+  `progressLabel`。换过去会丢失这些保证，与 REQ-007 冲突。

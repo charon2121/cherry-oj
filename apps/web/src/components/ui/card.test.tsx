@@ -2,14 +2,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import { Card, CardDescription, CardHeader, CardTitle, Panel } from './card';
+import { Card, CardAction, CardDescription, CardHeader, CardTitle, Panel } from './card';
 import { Link } from './link';
 
 describe('Card and Panel', () => {
   it('keeps an interactive card as a container around a real link', async () => {
     const user = userEvent.setup();
     render(
-      <Card variant="interactive">
+      <Card>
         <CardHeader>
           <CardTitle>
             <Link href="#problem">P1042 · 字符统计</Link>
@@ -25,17 +25,25 @@ describe('Card and Panel', () => {
     expect(link).toHaveFocus();
   });
 
-  it('pairs selected styling with a visible selection label', () => {
+  it('lays out CardAction beside the title through the official header grid', () => {
+    // CardAction 是换成官方实现后新增的子组件：标题区变成两列网格，
+    // 操作区固定落在右上角，不需要每个调用处自己拼 flex。
     render(
-      <Card selected selectionLabel="当前题目">
-        <CardTitle>P1042</CardTitle>
+      <Card>
+        <CardHeader>
+          <CardTitle>P1042</CardTitle>
+          <CardAction>
+            <button type="button">收藏</button>
+          </CardAction>
+        </CardHeader>
       </Card>,
     );
 
-    const card = screen.getByText('P1042').closest('[data-slot="card"]');
-    expect(card).toHaveAttribute('data-selected');
-    expect(card).toHaveClass('border-border-strong', 'bg-accent', 'text-foreground');
-    expect(card).toHaveTextContent('当前题目P1042');
+    const header = screen.getByText('P1042').closest('[data-slot="card-header"]');
+    expect(header).toHaveClass('has-data-[slot=card-action]:grid-cols-[1fr_auto]');
+    expect(
+      screen.getByRole('button', { name: '收藏' }).closest('[data-slot="card-action"]'),
+    ).toHaveClass('col-start-2');
   });
 
   it('renders a named panel as a semantic region', () => {

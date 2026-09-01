@@ -27,7 +27,7 @@ export const ContainerStackAndCluster: Story = {
             <Text tone="muted">Container 管理页面宽度，Stack 和 Cluster 只表达排列关系。</Text>
           </Stack>
           <Cluster gap={2}>
-            <Badge selected>全部</Badge>
+            <Badge variant="brand">全部</Badge>
             <Badge>已完成</Badge>
             <Badge>判题中</Badge>
           </Cluster>

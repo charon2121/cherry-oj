@@ -11,15 +11,21 @@ describe('Badge', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('adds a visible structural cue for selection', () => {
+  it('renders as any element through the Base UI render prop', () => {
+    // 这是换成官方实现后拿到的能力：手写的 <span> 版本做不到，
+    // 想让徽章可点击必须再包一层。
     render(
-      <Badge variant="brand" selected>
-        当前筛选
+      <Badge
+        variant="brand"
+        // eslint-disable-next-line jsx-a11y/anchor-has-content -- Base UI render 模式下 children 由 Badge 注入，规则看不到
+        render={(anchorProps) => <a href="/problems?tag=dp" {...anchorProps} />}
+      >
+        动态规划
       </Badge>,
     );
 
-    const badge = screen.getByText('当前筛选').closest('[data-slot="badge"]');
-    expect(badge).toHaveTextContent('已选择·当前筛选');
-    expect(badge).toHaveAttribute('data-selected');
+    const badge = screen.getByRole('link', { name: '动态规划' });
+    expect(badge).toHaveAttribute('data-slot', 'badge');
+    expect(badge).toHaveAttribute('href', '/problems?tag=dp');
   });
 });

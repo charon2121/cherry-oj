@@ -37,7 +37,7 @@ updated_at: "2026-09-01"
 ## 阶段与顺序
 
 1. **TASK-043** 移除手工参考页并把视觉参考改指 Storybook，同时把组件优先级原则写进 `docs/frontend.md`。
-2. **TASK-044** 展示类四个组件换文件：badge、card、icon-button、async-state。
+2. **TASK-044** 展示类组件换文件：badge、card（执行中确认 icon-button 与 async-state 应维持现状）。
 3. **TASK-045** 表单与提示类两个组件换文件：field、inline-notice。
 
 顺序理由：TASK-043 与代码无关，先做能立刻消除一个漂移源；TASK-044 的组件没有 aria 关联，用它验证

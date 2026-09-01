@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react';
+import type { ComponentProps } from 'react';
 
 import { Badge } from './badge';
 
@@ -33,11 +34,12 @@ export const Variants: Story = {
   ),
 };
 
-export const Selected: Story = {
+export const AsLink: Story = {
   args: {
     variant: 'brand',
-    selected: true,
-    children: '字符串标签',
+    // eslint-disable-next-line jsx-a11y/anchor-has-content -- Base UI render 模式下 children 由 Badge 通过 props 注入，规则看不到
+    render: (anchorProps: ComponentProps<'a'>) => <a href="/problems?tag=dp" {...anchorProps} />,
+    children: '动态规划',
   },
 };
 
