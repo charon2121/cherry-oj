@@ -201,6 +201,7 @@ ALLOWED_DEVELOPMENT_ENTRIES = {
     "WORKS.md",
     "index.json",
     "schema",
+    "specification",
     "templates",
     "works",
 }

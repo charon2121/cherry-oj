@@ -8,7 +8,8 @@
 - [`docs/`](../docs/README.md) 保存已经确认、跨工作项长期有效的全局事实；
 - `development/` 保存具体工作从提出到验证、上线和沉淀记忆的过程文档。
 
-完整规范与术语依据保存在 [`SPECIFICATION.md`](./SPECIFICATION.md)。本 README 只保留仓库当前实现
+完整规范与术语依据保存在 [`SPECIFICATION.md`](./SPECIFICATION.md)（总览与索引）及其
+[`specification/`](./specification/) 分章。本 README 只保留仓库当前实现
 和开发者需要执行的规则；两者必须一致，出现差异就是需要修复并由测试约束的文档系统错误。
 全部工作项的人类可读总览见 [`WORKS.md`](./WORKS.md)；它从各 `00-work.md` 的元数据生成，使用
 `scripts/work sync-works` 刷新，不手工维护。
@@ -58,7 +59,8 @@ WORK
 ```text
 development/
 ├── README.md
-├── SPECIFICATION.md
+├── SPECIFICATION.md           # 规范总览与索引
+├── specification/             # 规范正文，按九章拆分
 ├── WORKS.md                   # 全部 WORK 的人类可读总览与入口
 ├── index.json                 # 永不回退的 ID 计数器
 ├── schema/                    # 统一元数据 Schema
