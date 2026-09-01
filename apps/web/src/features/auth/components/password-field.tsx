@@ -1,8 +1,10 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
-import { FieldDescription, Input, Label } from '@/components/ui/field';
+import { FieldDescription } from '@/components/ui/field';
 import { IconButton } from '@/components/ui/icon-button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type PasswordFieldProps = {
   id: string;

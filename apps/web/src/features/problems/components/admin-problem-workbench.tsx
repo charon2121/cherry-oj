@@ -12,8 +12,11 @@ import { AsyncState } from '@/components/ui/async-state';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Panel } from '@/components/ui/card';
-import { Field, Input, Select, Textarea } from '@/components/ui/field';
+import { FormField } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
+import { SelectField } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Heading, Text } from '@/components/ui/typography';
 import type { AdminProblemVersion, ProblemDifficulty, ProblemSample } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
@@ -358,24 +361,24 @@ function WorkbenchEditor({
             <div className="mt-4 grid gap-4">
               <form.Field name="title">
                 {(field) => (
-                  <Field label="标题" required>
+                  <FormField label="标题" required>
                     <Input
                       value={field.state.value}
                       onChange={(event) => field.handleChange(event.target.value)}
                     />
-                  </Field>
+                  </FormField>
                 )}
               </form.Field>
               <div className="grid gap-4 lg:grid-cols-2">
                 <form.Field name="statementMarkdown">
                   {(field) => (
-                    <Field label="题目正文 Markdown" required>
+                    <FormField label="题目正文 Markdown" required>
                       <Textarea
                         className="min-h-72 font-mono"
                         value={field.state.value}
                         onChange={(event) => field.handleChange(event.target.value)}
                       />
-                    </Field>
+                    </FormField>
                   )}
                 </form.Field>
                 <form.Subscribe selector={(state) => state.values.statementMarkdown}>
@@ -394,79 +397,77 @@ function WorkbenchEditor({
               <div className="grid gap-4 md:grid-cols-2">
                 <form.Field name="inputDescriptionMarkdown">
                   {(field) => (
-                    <Field label="输入说明">
+                    <FormField label="输入说明">
                       <Textarea
                         value={field.state.value}
                         onChange={(event) => field.handleChange(event.target.value)}
                       />
-                    </Field>
+                    </FormField>
                   )}
                 </form.Field>
                 <form.Field name="outputDescriptionMarkdown">
                   {(field) => (
-                    <Field label="输出说明">
+                    <FormField label="输出说明">
                       <Textarea
                         value={field.state.value}
                         onChange={(event) => field.handleChange(event.target.value)}
                       />
-                    </Field>
+                    </FormField>
                   )}
                 </form.Field>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <form.Field name="constraintsMarkdown">
                   {(field) => (
-                    <Field label="数据范围">
+                    <FormField label="数据范围">
                       <Textarea
                         value={field.state.value}
                         onChange={(event) => field.handleChange(event.target.value)}
                       />
-                    </Field>
+                    </FormField>
                   )}
                 </form.Field>
                 <form.Field name="hintMarkdown">
                   {(field) => (
-                    <Field label="提示">
+                    <FormField label="提示">
                       <Textarea
                         value={field.state.value}
                         onChange={(event) => field.handleChange(event.target.value)}
                       />
-                    </Field>
+                    </FormField>
                   )}
                 </form.Field>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <form.Field name="difficulty">
                   {(field) => (
-                    <Field label="难度">
-                      <Select
-                        value={field.state.value}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value as ProblemDifficulty)
-                        }
-                      >
-                        <option value="UNRATED">未评级</option>
-                        <option value="EASY">简单</option>
-                        <option value="MEDIUM">中等</option>
-                        <option value="HARD">困难</option>
-                      </Select>
-                    </Field>
+                    <SelectField
+                      label="难度"
+                      value={field.state.value}
+                      onValueChange={(value) => field.handleChange(value as ProblemDifficulty)}
+                      items={[
+                        { value: 'UNRATED', label: '未评级' },
+                        { value: 'EASY', label: '简单' },
+                        { value: 'MEDIUM', label: '中等' },
+                        { value: 'HARD', label: '困难' },
+                      ]}
+                    />
                   )}
                 </form.Field>
                 <form.Field name="tags">
                   {(field) => (
-                    <Field label="标签" description="用英文逗号分隔">
+                    <FormField label="标签" description="用英文逗号分隔">
                       <Input
                         value={field.state.value}
                         onChange={(event) => field.handleChange(event.target.value)}
                       />
-                    </Field>
+                    </FormField>
                   )}
                 </form.Field>
               </div>
               <form.Field name="samplesJson">
                 {(field) => (
-                  <Field
+                  <FormField
                     label="样例 JSON"
                     description="ordinal、input、output、explanationMarkdown 数组"
                   >
@@ -475,17 +476,17 @@ function WorkbenchEditor({
                       value={field.state.value}
                       onChange={(event) => field.handleChange(event.target.value)}
                     />
-                  </Field>
+                  </FormField>
                 )}
               </form.Field>
               <form.Field name="changeSummary">
                 {(field) => (
-                  <Field label="修改说明">
+                  <FormField label="修改说明">
                     <Input
                       value={field.state.value}
                       onChange={(event) => field.handleChange(event.target.value)}
                     />
-                  </Field>
+                  </FormField>
                 )}
               </form.Field>
             </div>
@@ -523,7 +524,7 @@ function WorkbenchEditor({
             只接受安全命名且 .in/.out 成对的 ZIP。正文不会进入浏览器缓存或 URL。
           </Text>
           <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_auto_auto]">
-            <Field label="上传测试数据 ZIP">
+            <FormField label="上传测试数据 ZIP">
               <Input
                 type="file"
                 accept=".zip,application/zip"
@@ -536,7 +537,7 @@ function WorkbenchEditor({
                   upload.mutate({ file, signal: controller.signal });
                 }}
               />
-            </Field>
+            </FormField>
             <Button
               className="self-end"
               variant="secondary"
@@ -638,7 +639,7 @@ function WorkbenchEditor({
             </Text>
           ) : null}
           <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <Field label="CPU 上限（ns）">
+            <FormField label="CPU 上限（ns）">
               <Input
                 inputMode="numeric"
                 value={limits.cpuNs}
@@ -646,8 +647,8 @@ function WorkbenchEditor({
                   setLimits((current) => ({ ...current, cpuNs: event.target.value }))
                 }
               />
-            </Field>
-            <Field label="内存上限（bytes）">
+            </FormField>
+            <FormField label="内存上限（bytes）">
               <Input
                 inputMode="numeric"
                 value={limits.memoryBytes}
@@ -655,8 +656,8 @@ function WorkbenchEditor({
                   setLimits((current) => ({ ...current, memoryBytes: event.target.value }))
                 }
               />
-            </Field>
-            <Field label="时钟上限（ns，可选）">
+            </FormField>
+            <FormField label="时钟上限（ns，可选）">
               <Input
                 inputMode="numeric"
                 value={limits.clockNs}
@@ -664,7 +665,7 @@ function WorkbenchEditor({
                   setLimits((current) => ({ ...current, clockNs: event.target.value }))
                 }
               />
-            </Field>
+            </FormField>
           </div>
           <Text className="mt-4" size="sm" tone="secondary">
             参考程序仅保存在当前组件内存，提交成功或离开页面即清空。

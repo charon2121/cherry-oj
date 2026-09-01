@@ -7,7 +7,8 @@ import { AsyncState } from '@/components/ui/async-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/ui/card';
-import { Field, Input } from '@/components/ui/field';
+import { FormField } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
 import { CodeText, Heading, Text } from '@/components/ui/typography';
 import {
@@ -111,7 +112,7 @@ function AdminUsersPage() {
               if (!create.isPending) create.mutate({ username: newUsername });
             }}
           >
-            <Field label="新用户用户名" required>
+            <FormField label="新用户用户名" required>
               <Input
                 id="new-username"
                 minLength={3}
@@ -121,7 +122,7 @@ function AdminUsersPage() {
                 onChange={(event) => setNewUsername(event.target.value)}
                 placeholder="新用户用户名"
               />
-            </Field>
+            </FormField>
             <Button type="submit" size="md" loading={create.isPending} loadingLabel="创建中…">
               <UserPlus aria-hidden="true" />
               创建用户

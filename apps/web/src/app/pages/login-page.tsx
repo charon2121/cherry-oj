@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { Field, Input } from '@/components/ui/field';
+import { FormField } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Container, Section, Stack } from '@/components/ui/layout';
 import { Heading, Text } from '@/components/ui/typography';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
@@ -70,7 +71,7 @@ function LoginPageView({
                 }}
               >
                 <Stack gap={8}>
-                  <Field label="用户名" required>
+                  <FormField label="用户名" required>
                     <Input
                       id="username"
                       name="username"
@@ -83,7 +84,7 @@ function LoginPageView({
                       value={username}
                       onChange={(event) => onUsernameChange(event.target.value)}
                     />
-                  </Field>
+                  </FormField>
                   <div className="[&_input]:min-h-[var(--ds-space-12)]">
                     <PasswordField
                       id="password"

@@ -7,8 +7,10 @@ import { AsyncState } from '@/components/ui/async-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Panel } from '@/components/ui/card';
-import { Field, Input, Select } from '@/components/ui/field';
+import { FormField } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
+import { SelectField } from '@/components/ui/select';
 import { Heading, Text } from '@/components/ui/typography';
 import type { ProblemSummary } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
@@ -62,87 +64,83 @@ export function ProblemListPage({ search, navigate }: Props) {
             });
           }}
         >
-          <Field label="关键词">
+          <FormField label="关键词">
             <Input
               value={keyword}
               maxLength={100}
               onChange={(event) => setKeyword(event.target.value)}
               placeholder="标题或标识"
             />
-          </Field>
-          <Field label="标签">
+          </FormField>
+          <FormField label="标签">
             <Input
               value={tagText}
               maxLength={200}
               onChange={(event) => setTagText(event.target.value)}
               placeholder="数组, 哈希表"
             />
-          </Field>
-          <Field label="难度">
-            <Select
-              value={search.difficulty ?? ''}
-              onChange={(event) =>
-                navigate({
-                  ...search,
-                  difficulty: (event.target.value || undefined) as ProblemSearch['difficulty'],
-                  cursor: undefined,
-                })
-              }
-            >
-              <option value="">全部难度</option>
-              <option value="UNRATED">未评级</option>
-              <option value="EASY">简单</option>
-              <option value="MEDIUM">中等</option>
-              <option value="HARD">困难</option>
-            </Select>
-          </Field>
-          <Field label="语言">
-            <Select
-              value={search.language ?? ''}
-              onChange={(event) =>
-                navigate({
-                  ...search,
-                  language: event.target.value || undefined,
-                  cursor: undefined,
-                })
-              }
-            >
-              <option value="">全部语言</option>
-              <option value="cpp">C++</option>
-            </Select>
-          </Field>
-          <Field label="模式">
-            <Select
-              value={search.codeMode ?? ''}
-              onChange={(event) =>
-                navigate({
-                  ...search,
-                  codeMode: (event.target.value || undefined) as ProblemSearch['codeMode'],
-                  cursor: undefined,
-                })
-              }
-            >
-              <option value="">全部模式</option>
-              <option value="ACM">ACM</option>
-              <option value="CORE">核心代码</option>
-            </Select>
-          </Field>
-          <Field label="排序">
-            <Select
-              value={search.sort}
-              onChange={(event) =>
-                navigate({
-                  ...search,
-                  sort: event.target.value as ProblemSearch['sort'],
-                  cursor: undefined,
-                })
-              }
-            >
-              <option value="UPDATED_DESC">最近更新</option>
-              <option value="UPDATED_ASC">最早更新</option>
-              <option value="TITLE_ASC">标题</option>
-            </Select>
-          </Field>
+          </FormField>
+          <SelectField
+            label="难度"
+            value={search.difficulty ?? ''}
+            onValueChange={(value) =>
+              navigate({
+                ...search,
+                difficulty: (value || undefined) as ProblemSearch['difficulty'],
+                cursor: undefined,
+              })
+            }
+            items={[
+              { value: '', label: '全部难度' },
+              { value: 'UNRATED', label: '未评级' },
+              { value: 'EASY', label: '简单' },
+              { value: 'MEDIUM', label: '中等' },
+              { value: 'HARD', label: '困难' },
+            ]}
+          />
+          <SelectField
+            label="语言"
+            value={search.language ?? ''}
+            onValueChange={(value) =>
+              navigate({ ...search, language: value || undefined, cursor: undefined })
+            }
+            items={[
+              { value: '', label: '全部语言' },
+              { value: 'cpp', label: 'C++' },
+            ]}
+          />
+          <SelectField
+            label="模式"
+            value={search.codeMode ?? ''}
+            onValueChange={(value) =>
+              navigate({
+                ...search,
+                codeMode: (value || undefined) as ProblemSearch['codeMode'],
+                cursor: undefined,
+              })
+            }
+            items={[
+              { value: '', label: '全部模式' },
+              { value: 'ACM', label: 'ACM' },
+              { value: 'CORE', label: '核心代码' },
+            ]}
+          />
+          <SelectField
+            label="排序"
+            value={search.sort}
+            onValueChange={(value) =>
+              navigate({
+                ...search,
+                sort: value as ProblemSearch['sort'],
+                cursor: undefined,
+              })
+            }
+            items={[
+              { value: 'UPDATED_DESC', label: '最近更新' },
+              { value: 'UPDATED_ASC', label: '最早更新' },
+              { value: 'TITLE_ASC', label: '标题' },
+            ]}
+          />
           <Button type="submit" className="self-end">
             <Search aria-hidden="true" />
             筛选

@@ -9,8 +9,10 @@ import { AsyncState } from '@/components/ui/async-state';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Panel } from '@/components/ui/card';
-import { Field, Input, Select } from '@/components/ui/field';
+import { FormField } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
+import { SelectField } from '@/components/ui/select';
 import { Heading, Text } from '@/components/ui/typography';
 import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
 
@@ -135,7 +137,7 @@ export function AdminProblemListPage({
           >
             <form.Field name="slug">
               {(field) => (
-                <Field label="题目标识" required description="小写字母、数字与连字符">
+                <FormField label="题目标识" required description="小写字母、数字与连字符">
                   <Input
                     value={field.state.value}
                     onBlur={field.handleBlur}
@@ -144,34 +146,34 @@ export function AdminProblemListPage({
                     maxLength={80}
                     pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
                   />
-                </Field>
+                </FormField>
               )}
             </form.Field>
             <form.Field name="title">
               {(field) => (
-                <Field label="标题" required>
+                <FormField label="标题" required>
                   <Input
                     value={field.state.value}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
                     maxLength={160}
                   />
-                </Field>
+                </FormField>
               )}
             </form.Field>
             <form.Field name="difficulty">
               {(field) => (
-                <Field label="难度">
-                  <Select
-                    value={field.state.value}
-                    onChange={(event) => field.handleChange(toDifficulty(event.target.value))}
-                  >
-                    <option value="UNRATED">未评级</option>
-                    <option value="EASY">简单</option>
-                    <option value="MEDIUM">中等</option>
-                    <option value="HARD">困难</option>
-                  </Select>
-                </Field>
+                <SelectField
+                  label="难度"
+                  value={field.state.value}
+                  onValueChange={(value) => field.handleChange(toDifficulty(value))}
+                  items={[
+                    { value: 'UNRATED', label: '未评级' },
+                    { value: 'EASY', label: '简单' },
+                    { value: 'MEDIUM', label: '中等' },
+                    { value: 'HARD', label: '困难' },
+                  ]}
+                />
               )}
             </form.Field>
             <Button className="self-end" type="submit" loading={create.isPending}>
@@ -199,25 +201,21 @@ export function AdminProblemListPage({
             });
           }}
         >
-          <Field label="搜索题目">
+          <FormField label="搜索题目">
             <Input name="q" defaultValue={search.q} />
-          </Field>
-          <Field label="状态">
-            <Select
-              value={search.status}
-              onChange={(event) =>
-                navigate({
-                  ...search,
-                  page: 1,
-                  status: event.target.value as AdminProblemSearch['status'],
-                })
-              }
-            >
-              <option value="ALL">全部</option>
-              <option value="ACTIVE">进行中</option>
-              <option value="ARCHIVED">已归档</option>
-            </Select>
-          </Field>
+          </FormField>
+          <SelectField
+            label="状态"
+            value={search.status}
+            onValueChange={(value) =>
+              navigate({ ...search, page: 1, status: value as AdminProblemSearch['status'] })
+            }
+            items={[
+              { value: 'ALL', label: '全部' },
+              { value: 'ACTIVE', label: '进行中' },
+              { value: 'ARCHIVED', label: '已归档' },
+            ]}
+          />
           <Button className="self-end" variant="secondary" type="submit">
             查询
           </Button>
