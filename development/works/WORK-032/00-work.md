@@ -2,7 +2,7 @@
 id: "WORK-032"
 type: "work"
 title: "修复 WORK-031 遗留的 CI 测试断言"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "low"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["issue", "design", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "compatibility"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -50,8 +50,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 原因与修复方案 | ✔ 完成 | 必需 | DESIGN-025 `checked` | 确定技术方案、边界与取舍 |
 | 修复任务 | ✔ 完成 | 必需 | TASK-050 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-050 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-033 `review` | 用可复现的证据确认要求逐条满足 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-033 `approved` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -70,3 +70,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-02：流程阶段 复核：ready → done。原因：复核确认实现严格符合 ISSUE-008/DESIGN-025，未删除有效覆盖或越过 TASK-050 边界
 - 2026-09-02：根据文档、任务与验证事实刷新状态：todo → implemented。
 - 2026-09-02：检查项 automated-tests 记录结论：通过。原因：本地 work/contracts/Web 全量验证通过，提交 93aeef0 的 GitHub Actions run 33631033143 六个 job 全绿
+- 2026-09-02：验收闸：passed。原因：确认修复已提交推送，远端 CI 全部通过
+- 2026-09-02：根据文档、任务与验证事实刷新状态：implemented → verified。

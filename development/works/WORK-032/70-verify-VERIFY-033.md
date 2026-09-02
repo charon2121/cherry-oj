@@ -2,7 +2,7 @@
 id: "VERIFY-033"
 type: "verify"
 title: "修复 WORK-031 遗留的 CI 测试断言"
-status: "review"
+status: "approved"
 work: "WORK-032"
 owners: ["codex/root"]
 depends_on: ["TASK-050"]
@@ -76,3 +76,4 @@ TASK-050 在批准边界内完成，ISSUE-008 的 AC-001～AC-005 均通过本�
 ## 变更记录
 
 - 2026-09-02：状态变更：draft → review。原因：contracts 9 项、Web 单测 109 项、Playwright 30 项、构建与路径检查全部通过，提交人工验收
+- 2026-09-02：验收闸通过：review → approved。原因：确认修复已提交推送，远端 CI 全部通过

@@ -67,7 +67,7 @@
     "label": "复核",
     "requirement": "required",
     "status": "done",
-    "status_source": "manual",
+    "status_source": "derived",
     "artifacts": [],
     "checks": [
       {
@@ -83,7 +83,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-033"
