@@ -9,7 +9,7 @@ import { Field, FieldDescription, FieldLabel } from './field';
 // 骨架取自 shadcn base-nova 官方 select（Base UI Select primitive）：保留官方的九个子组件、
 // Portal/Positioner/Popup 结构、data-slot 命名与开合动画。相对官方改三类内容：
 //   1. 官方用 shadcn 站点内部的 IconPlaceholder 做图标占位，仓库直接用 lucide 图标；
-//   2. 去掉按 color scheme 前缀的主题分支（design-system.md §4 禁止 theme 分支）；
+//   2. 去掉 `dark:` 分支（design-system.md §4 禁止 theme 分支）；
 //   3. `ring-3 ring-ring/50`、`opacity-50`、`ring-foreground/10` 这类透明度叠加换成语义 token
 //      （§4 禁止透明度承担必要对比，§7 要求焦点是 2px outline + offset）。
 const Select = SelectPrimitive.Root;

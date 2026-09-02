@@ -217,6 +217,23 @@ function isAllowed(relativePath, ruleId) {
   );
 }
 
+/**
+ * 把注释内容替换成等长空格后再扫描。
+ *
+ * 规则按字面匹配，因此说明为什么不能用 `dark:` 的注释本身会被判成违规——
+ * 结果是没人敢在组件注释里提这些词，注释质量反而下降。用等长空格替换是为了
+ * 保留原始偏移量，行号和列号才不会错位。
+ */
+function maskComments(content) {
+  const blank = (text) => text.replaceAll(/[^\n]/g, ' ');
+  return content
+    .replaceAll(/\/\*[\s\S]*?\*\//g, blank)
+    .replaceAll(
+      /(^|[^:\w])\/\/[^\n]*/g,
+      (match, prefix) => prefix + blank(match.slice(prefix.length)),
+    );
+}
+
 async function scanFiles(files, rootDirectory, rules) {
   const violations = [];
 
@@ -227,11 +244,12 @@ async function scanFiles(files, rootDirectory, rules) {
       throw new Error(`设计系统源码检查失败：扫描文件不得是符号链接：${relativePath}。`);
     }
     const content = await readFile(path, 'utf8');
+    const scannable = maskComments(content);
 
     for (const rule of rules) {
       if (isAllowed(relativePath, rule.id)) continue;
 
-      for (const match of content.matchAll(rule.pattern)) {
+      for (const match of scannable.matchAll(rule.pattern)) {
         const index = match.index ?? 0;
         violations.push({
           ...positionAt(content, index),
@@ -470,6 +488,23 @@ async function runSelfTest(rules) {
   ];
 
   const allowedFixtures = [
+    // 说明性注释不该被判违规：否则没人敢在组件注释里解释「为什么不能用 dark:」，
+    // 注释质量反而下降。这三条钉住注释豁免，同时确认字符串里的违规仍会被抓。
+    [
+      'line comment mentioning a banned utility',
+      '// 官方带 dark:bg-input/30，本仓库禁止\nexport const a = 1;\n',
+      '.ts',
+    ],
+    [
+      'block comment mentioning a banned utility',
+      '/* 去掉 dark: 分支与 disabled:opacity-50 */\nexport const b = 2;\n',
+      '.ts',
+    ],
+    [
+      'css comment mentioning a banned selector',
+      '/* 不使用 .dark 选择器 */\n.fixture { color: inherit; }\n',
+      '.css',
+    ],
     ['disabled width fraction', "export const width = 'disabled:w-1/2';\n", '.ts'],
     [
       'semantic placeholder foreground',

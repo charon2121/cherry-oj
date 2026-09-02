@@ -14,7 +14,7 @@ import { Label } from './label';
 
 // 骨架取自 shadcn base-nova 官方 field：保留官方的十个子组件、`data-slot` 命名、
 // orientation 变体与 `group/field` 选择器体系，因此以后 `shadcn add` 的表单组件能直接插进来。
-// 相对官方去掉两类内容：按 color scheme 前缀的主题分支（design-system.md §4 禁止 theme 分支），
+// 相对官方去掉两类内容：`dark:` 分支（design-system.md §4 禁止 theme 分支），
 // 以及 `opacity-50`、`ring-3 ring-ring/50`、`bg-primary/5` 这类透明度叠加
 // （§4 要求 disabled 用专门 token、§7 要求焦点是 2px outline）。
 // 官方针对 checkbox/radio 卡片式选择的 `has-data-checked` 样式暂未采用——仓库还没有这类组件。
