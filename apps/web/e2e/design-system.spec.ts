@@ -40,9 +40,6 @@ async function apiSuccess(route: Route, data: object) {
 
 async function mockAnonymousShell(page: Page) {
   await page.route('**/api/auth/session', (route) => apiSuccess(route, { authenticated: false }));
-  await page.route('**/api/status', (route) =>
-    apiSuccess(route, { service: 'gateway-service', status: 'ready' }),
-  );
 }
 
 async function mockAdminShell(page: Page) {
@@ -421,7 +418,7 @@ for (const theme of themeRegistry) {
     await navigationTrigger.click();
     await expect(page.getByRole('navigation', { name: '移动主导航' })).toBeVisible();
     await page.getByRole('button', { name: '关闭主导航' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toBeInViewport();
+    await expect(page.locator('main')).toBeInViewport();
     const shellSurfaces = await page.evaluate(() => {
       const main = document.querySelector('main');
       const footer = document.querySelector('footer');
@@ -451,7 +448,7 @@ for (const theme of themeRegistry) {
   });
 }
 
-test('the 320px admin header keeps navigation, theme, return, and account actions usable', async ({
+test('the 320px admin header keeps navigation, theme, and account actions usable', async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 720 });
@@ -461,9 +458,10 @@ test('the 320px admin header keeps navigation, theme, return, and account action
 
   await expect(page.getByRole('button', { name: '打开管理导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Cherry OJ 管理中心' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /用户端/ })).toBeVisible();
+  await expect(page.locator('header').getByRole('link', { name: /用户端/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: `切换到 ${lightTheme.label}` })).toBeVisible();
-  await expect(page.getByRole('button', { name: /账号菜单，root-admin/ })).toBeVisible();
+  await page.getByRole('button', { name: /账号菜单，root-admin/ }).click();
+  await expect(page.getByRole('menuitem', { name: '返回用户端' })).toBeVisible();
 
   const horizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,

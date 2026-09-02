@@ -17,7 +17,7 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
   if (problem.isPending)
     return (
       <Container>
-        <Section className="py-10">
+        <Section>
           <AsyncState
             variant="loading"
             size="page"
@@ -34,7 +34,7 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
       problem.error instanceof ApiError && problem.error.code === 'PROBLEM_NOT_FOUND';
     return (
       <Container>
-        <Section className="py-10">
+        <Section>
           <AsyncState
             variant={notFound ? 'empty' : 'error'}
             size="page"
@@ -64,7 +64,7 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
   const data = problem.data;
   return (
     <Container>
-      <Section className="py-10">
+      <Section>
         <Stack gap={3}>
           <Text size="sm" tone="muted">
             {data.slug} · v{data.versionNo}

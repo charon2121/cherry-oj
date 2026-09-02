@@ -71,20 +71,15 @@ async function mockCsrf(page: Page) {
 
 test('opens an anonymous application shell without protected-content flash', async ({ page }) => {
   await mockSession(page, () => ({ authenticated: false }));
-  await page.route('**/api/status', (route) =>
-    apiSuccess(route, { service: 'gateway-service', status: 'ready' }),
-  );
 
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: '专注练习，清晰看到每一次进步' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: '登录' })).toBeVisible();
   await expect(page.getByRole('link', { name: '题库' })).toBeVisible();
   await expect(page.getByRole('link', { name: '提交记录' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /账号菜单/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '用户管理' })).toHaveCount(0);
-  await expect(page.getByText('REST API 已连通')).toBeVisible();
   const headerLinkDecorations = await page
     .locator('header a')
     .evaluateAll((links) => links.map((link) => getComputedStyle(link).textDecorationLine));
@@ -224,7 +219,7 @@ test('renders the same empty admin dashboard at both requested routes', async ({
   for (const path of ['/admin', '/admin/dashborad']) {
     await page.goto(path);
     await expect(page).toHaveURL(path);
-    await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await expect(page.locator('h1', { hasText: 'Dashboard' })).toHaveClass(/sr-only/);
     await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
       'aria-current',
       'page',
@@ -259,7 +254,76 @@ test('renders the same empty admin dashboard at both requested routes', async ({
     ).toBeLessThanOrEqual(1);
   }
 
+  await expect(page.locator('header').getByRole('link', { name: /用户端/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /账号菜单，root-admin/ }).click();
+  await expect(page.getByRole('menuitem', { name: '返回用户端' })).toBeVisible();
+  await page.keyboard.press('Escape');
+
   expect(requestedApiPaths).toEqual(['/api/auth/session', '/api/auth/session']);
+});
+
+test('keeps the desktop admin sidebar fixed and scrolls only the main content', async ({
+  page,
+}) => {
+  const admin = account({ username: 'root-admin', role: 'ADMIN' });
+  const users = Array.from({ length: 20 }, (_, index) =>
+    account({
+      id: `d0e35399-6487-4ac8-8138-${String(index).padStart(12, '0')}`,
+      username: `user-${String(index).padStart(2, '0')}`,
+    }),
+  );
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await mockSession(page, () => ({ authenticated: true, user: admin }));
+  await page.route('**/api/admin/users?page=1&size=20', (route) =>
+    apiSuccess(
+      route,
+      { items: users },
+      {
+        meta: {
+          pagination: { kind: 'page', page: 1, size: 20, totalElements: 20, totalPages: 1 },
+        },
+      },
+    ),
+  );
+
+  await page.goto('/admin/users?page=1');
+  await expect(page.getByLabel('新用户用户名')).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'user-00' })).toBeVisible();
+  await expect(page.locator('[data-slot="sidebar"]')).toBeVisible();
+  const geometry = await page.evaluate(() => {
+    const header = document.querySelector('header');
+    const main = document.querySelector<HTMLElement>('#admin-main');
+    const section = main?.querySelector<HTMLElement>('[data-slot="section"]');
+    const firstForm = section?.querySelector<HTMLElement>('form');
+    const sidebar = document.querySelector<HTMLElement>('[data-slot="sidebar"]');
+    if (
+      header === null ||
+      main === null ||
+      section === null ||
+      section === undefined ||
+      firstForm === null ||
+      firstForm === undefined ||
+      sidebar === null
+    )
+      throw new Error('Admin layout regions are missing.');
+    const sidebarTop = sidebar.getBoundingClientRect().top;
+    main.scrollTop = 240;
+    return {
+      firstContentInset:
+        firstForm.getBoundingClientRect().top + main.scrollTop - main.getBoundingClientRect().top,
+      mainClientHeight: main.clientHeight,
+      mainScrollHeight: main.scrollHeight,
+      mainScrollTop: main.scrollTop,
+      sidebarMovement: sidebar.getBoundingClientRect().top - sidebarTop,
+      windowScrollY: window.scrollY,
+    };
+  });
+
+  expect(geometry.firstContentInset).toBe(24);
+  expect(geometry.mainScrollHeight).toBeGreaterThan(geometry.mainClientHeight);
+  expect(geometry.mainScrollTop).toBeGreaterThan(0);
+  expect(Math.abs(geometry.sidebarMovement)).toBeLessThanOrEqual(1);
+  expect(geometry.windowScrollY).toBe(0);
 });
 
 test('keeps authenticated account actions in one recoverable menu', async ({ page }) => {
@@ -268,9 +332,6 @@ test('keeps authenticated account actions in one recoverable menu', async ({ pag
   let logoutCalls = 0;
   await mockSession(page, () => session);
   await mockCsrf(page);
-  await page.route('**/api/status', (route) =>
-    apiSuccess(route, { service: 'gateway-service', status: 'ready' }),
-  );
   await page.route('**/api/auth/logout', async (route) => {
     logoutCalls += 1;
     expect(route.request().headers()['x-csrf-token']).toBe(csrfToken);
@@ -315,9 +376,6 @@ test('recovers from rate limiting, prevents duplicate login, and keeps secrets o
   });
   await mockSession(page, () => session);
   await mockCsrf(page);
-  await page.route('**/api/status', (route) =>
-    apiSuccess(route, { service: 'gateway-service', status: 'ready' }),
-  );
   await page.route('**/api/auth/login', async (route) => {
     loginCalls += 1;
     expect(route.request().headers()['x-csrf-token']).toBe(csrfToken);
@@ -448,10 +506,10 @@ test('lets an admin manage users and reveals a temporary password only once', as
   });
 
   await page.goto('/admin/users?page=1');
-  await expect(page.getByRole('heading', { name: '用户账号' })).toBeVisible();
+  await expect(page.locator('h1', { hasText: '用户账号' })).toHaveClass(/sr-only/);
   await expect(page.getByRole('contentinfo')).toHaveCount(0);
   await expect(page.getByText('○ 已停用')).toBeVisible();
-  await expect(page.getByRole('heading', { name: '用户账号' })).toBeInViewport();
+  await expect(page.getByLabel('新用户用户名')).toBeInViewport();
   const navigationTrigger = page.getByRole('button', { name: '打开管理导航' });
   await navigationTrigger.click();
   const mobileNavigation = page.getByRole('navigation', { name: '移动管理导航' });

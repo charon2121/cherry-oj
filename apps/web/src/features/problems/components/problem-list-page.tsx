@@ -36,20 +36,12 @@ export function ProblemListPage({ search, navigate }: Props) {
 
   return (
     <Container>
-      <Section className="py-10">
-        <Stack gap={2}>
-          <Text size="sm" tone="muted">
-            公开题库
-          </Text>
-          <Heading level={1} size="2xl">
-            选择下一道题
-          </Heading>
-          <Text size="sm" tone="muted">
-            题面、样例和可用语言来自当前公开版本。
-          </Text>
-        </Stack>
+      <Section>
+        <Heading level={1} className="sr-only">
+          题库
+        </Heading>
         <form
-          className="bg-surface border-border mt-6 grid gap-3 rounded-lg border p-4 md:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_repeat(5,minmax(8rem,auto))_auto]"
+          className="bg-surface border-border grid gap-3 rounded-lg border p-4 md:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_repeat(5,minmax(8rem,auto))_auto]"
           onSubmit={(event) => {
             event.preventDefault();
             navigate({

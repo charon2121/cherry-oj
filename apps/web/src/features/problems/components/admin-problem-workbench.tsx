@@ -60,7 +60,7 @@ export function AdminProblemWorkbench({
   if (version.isPending || problem.isPending)
     return (
       <Container>
-        <Section className="py-10">
+        <Section>
           <AsyncState
             variant="loading"
             size="page"
@@ -75,7 +75,7 @@ export function AdminProblemWorkbench({
   if (version.isError || problem.isError)
     return (
       <Container>
-        <Section className="py-10">
+        <Section>
           <AsyncState
             variant="error"
             size="page"
@@ -290,7 +290,7 @@ function WorkbenchEditor({
 
   return (
     <Container>
-      <Section className="py-8">
+      <Section>
         <Cluster gap={4} justify="between" className="items-end">
           <Stack gap={2}>
             <Link

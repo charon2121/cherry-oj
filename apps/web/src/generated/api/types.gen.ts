@@ -503,16 +503,6 @@ export type PublishProblemRequest = {
     rowVersion: number;
 };
 
-export type SystemStatusData = {
-    service: 'gateway-service';
-    status: 'ready';
-};
-
-export type SystemStatusSuccess = {
-    data: SystemStatusData;
-    meta: ApiMeta;
-};
-
 export type LoginRequestWritable = {
     username: Username;
     password: string;
@@ -574,31 +564,6 @@ export type CursorPageSize = number;
  * 乐观锁版本；过期值返回 409 ROW_VERSION_CONFLICT。
  */
 export type RowVersion = number;
-
-export type GetSystemStatusData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/status';
-};
-
-export type GetSystemStatusErrors = {
-    /**
-     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
-     */
-    default: ApiProblem;
-};
-
-export type GetSystemStatusError = GetSystemStatusErrors[keyof GetSystemStatusErrors];
-
-export type GetSystemStatusResponses = {
-    /**
-     * Gateway 已就绪
-     */
-    200: SystemStatusSuccess;
-};
-
-export type GetSystemStatusResponse = GetSystemStatusResponses[keyof GetSystemStatusResponses];
 
 export type ListProblemsData = {
     body?: never;

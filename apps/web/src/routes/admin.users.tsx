@@ -92,43 +92,33 @@ function AdminUsersPage() {
 
   return (
     <Container>
-      <Section className="py-10">
-        <Cluster gap={4} justify="between" className="items-end">
-          <Stack gap={2}>
-            <Text size="sm" tone="muted">
-              管理中心
-            </Text>
-            <Heading level={1} size="2xl">
-              用户账号
-            </Heading>
-            <Text size="sm" tone="muted">
-              创建、停用、恢复账号或签发一次性临时密码。
-            </Text>
-          </Stack>
-          <form
-            className="grid w-full items-end gap-2 sm:w-auto sm:grid-cols-[minmax(12rem,1fr)_auto]"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!create.isPending) create.mutate({ username: newUsername });
-            }}
-          >
-            <FormField label="新用户用户名" required>
-              <Input
-                id="new-username"
-                minLength={3}
-                maxLength={64}
-                pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
-                value={newUsername}
-                onChange={(event) => setNewUsername(event.target.value)}
-                placeholder="新用户用户名"
-              />
-            </FormField>
-            <Button type="submit" size="md" loading={create.isPending} loadingLabel="创建中…">
-              <UserPlus aria-hidden="true" />
-              创建用户
-            </Button>
-          </form>
-        </Cluster>
+      <Section>
+        <Heading level={1} className="sr-only">
+          用户账号
+        </Heading>
+        <form
+          className="grid w-full items-end gap-2 sm:w-auto sm:max-w-xl sm:grid-cols-[minmax(12rem,1fr)_auto]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!create.isPending) create.mutate({ username: newUsername });
+          }}
+        >
+          <FormField label="新用户用户名" required>
+            <Input
+              id="new-username"
+              minLength={3}
+              maxLength={64}
+              pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
+              value={newUsername}
+              onChange={(event) => setNewUsername(event.target.value)}
+              placeholder="新用户用户名"
+            />
+          </FormField>
+          <Button type="submit" size="md" loading={create.isPending} loadingLabel="创建中…">
+            <UserPlus aria-hidden="true" />
+            创建用户
+          </Button>
+        </form>
 
         <ErrorNotice message={mutationError ? authErrorMessage(mutationError) : undefined} />
         {temporaryPassword !== undefined ? (

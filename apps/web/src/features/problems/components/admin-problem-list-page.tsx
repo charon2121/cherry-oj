@@ -11,7 +11,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Panel } from '@/components/ui/card';
 import { FormField } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
+import { Cluster, Container, Section } from '@/components/ui/layout';
 import { SelectField } from '@/components/ui/select';
 import { Heading, Text } from '@/components/ui/typography';
 import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
@@ -111,20 +111,11 @@ export function AdminProblemListPage({
 
   return (
     <Container>
-      <Section className="py-10">
-        <Stack gap={2}>
-          <Text size="sm" tone="muted">
-            题目生产
-          </Text>
-          <Heading level={1} size="2xl">
-            题目管理
-          </Heading>
-          <Text size="sm" tone="muted">
-            创建题目后进入版本工作台，完成题面、测试数据、校准与发布。
-          </Text>
-        </Stack>
-
-        <Panel className="mt-6">
+      <Section>
+        <Heading level={1} className="sr-only">
+          题目管理
+        </Heading>
+        <Panel>
           <Heading level={2} size="lg">
             新建题目草稿
           </Heading>

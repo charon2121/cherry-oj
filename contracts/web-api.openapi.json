@@ -7,35 +7,6 @@
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "paths": {
-    "/api/status": {
-      "get": {
-        "operationId": "getSystemStatus",
-        "summary": "读取 Gateway 就绪状态",
-        "responses": {
-          "200": {
-            "description": "Gateway 已就绪",
-            "headers": {
-              "X-Request-Id": { "$ref": "#/components/headers/XRequestId" }
-            },
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/SystemStatusSuccess" },
-                "example": {
-                  "data": {
-                    "service": "gateway-service",
-                    "status": "ready"
-                  },
-                  "meta": {
-                    "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0"
-                  }
-                }
-              }
-            }
-          },
-          "default": { "$ref": "#/components/responses/ApiProblemResponse" }
-        }
-      }
-    },
     "/api/problems": {
       "get": {
         "operationId": "listProblems",
@@ -1595,33 +1566,6 @@
         "additionalProperties": false,
         "required": ["rowVersion"],
         "properties": { "rowVersion": { "type": "integer", "minimum": 0 } }
-      },
-      "SystemStatusData": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["service", "status"],
-        "properties": {
-          "service": { "const": "gateway-service", "type": "string" },
-          "status": { "const": "ready", "type": "string" }
-        },
-        "examples": [
-          { "service": "gateway-service", "status": "ready" }
-        ]
-      },
-      "SystemStatusSuccess": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["data", "meta"],
-        "properties": {
-          "data": { "$ref": "#/components/schemas/SystemStatusData" },
-          "meta": { "$ref": "#/components/schemas/ApiMeta" }
-        },
-        "examples": [
-          {
-            "data": { "service": "gateway-service", "status": "ready" },
-            "meta": { "requestId": "req_01K37XZ3MFXBK92WMG67G4XFN0" }
-          }
-        ]
       }
     }
   }

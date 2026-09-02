@@ -4,8 +4,8 @@ import { Heading } from '@/components/ui/typography';
 function AdminDashboardPage() {
   return (
     <Container className="max-w-none">
-      <Section className="py-10">
-        <Heading level={1} size="2xl">
+      <Section>
+        <Heading level={1} className="sr-only">
           Dashboard
         </Heading>
       </Section>

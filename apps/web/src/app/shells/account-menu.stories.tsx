@@ -24,6 +24,8 @@ const baseArgs = {
   passwordLink: <a href="#password" aria-label="修改密码" />,
   role: 'USER' as const,
   showAdminEntry: false,
+  showSiteEntry: false,
+  siteLink: <a href="#site" aria-label="返回用户端" />,
   username: 'alice',
 };
 
@@ -36,6 +38,15 @@ export const Admin: Story = {
     ...baseArgs,
     role: 'ADMIN',
     showAdminEntry: true,
+    username: 'root-admin',
+  },
+};
+
+export const AdminSpace: Story = {
+  args: {
+    ...baseArgs,
+    role: 'ADMIN',
+    showSiteEntry: true,
     username: 'root-admin',
   },
 };

@@ -35,3 +35,4 @@
 | WORK-028 | 修复后台用户列表偶发误跳登录页 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-028/00-work.md) |
 | WORK-029 | 新增页面主题切换入口 | 产品功能 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-029/00-work.md) |
 | WORK-030 | 修复后台题目列表间歇性 502 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-030/00-work.md) |
+| WORK-031 | 统一页面任务优先布局并移除状态占位 | 产品功能 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-031/00-work.md) |

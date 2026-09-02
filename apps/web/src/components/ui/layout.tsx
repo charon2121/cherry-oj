@@ -78,10 +78,7 @@ function Section({ className, ...props }: ComponentProps<'section'>) {
   return (
     <section
       data-slot="section"
-      className={cn(
-        'py-[var(--ds-section-y-phone)] md:py-[var(--ds-section-y-tablet)] lg:py-[var(--ds-section-y-desktop)]',
-        className,
-      )}
+      className={cn('pt-[var(--ds-space-6)] pb-[var(--ds-space-8)]', className)}
       {...props}
     />
   );

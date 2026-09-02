@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ChevronDown, KeyRound, LayoutDashboard, LogOut, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronDown, KeyRound, LayoutDashboard, LogOut, UserRound } from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 type AccountMenuProps = Readonly<{
   className?: string;
   showAdminEntry?: boolean;
+  showSiteEntry?: boolean;
 }>;
 
 type AccountMenuViewProps = Readonly<{
@@ -37,6 +38,8 @@ type AccountMenuViewProps = Readonly<{
   passwordLink: ReactElement;
   role: 'ADMIN' | 'USER';
   showAdminEntry?: boolean;
+  showSiteEntry?: boolean;
+  siteLink: ReactElement;
   username: string;
 }>;
 
@@ -51,6 +54,8 @@ function AccountMenuView({
   passwordLink,
   role,
   showAdminEntry = false,
+  showSiteEntry = false,
+  siteLink,
   username,
 }: AccountMenuViewProps) {
   const hasLogoutError = logoutState === 'error';
@@ -106,6 +111,12 @@ function AccountMenuView({
             </div>
           ) : null}
           <DropdownMenuGroup>
+            {showSiteEntry ? (
+              <DropdownMenuLinkItem render={siteLink}>
+                <ArrowLeft aria-hidden="true" />
+                返回用户端
+              </DropdownMenuLinkItem>
+            ) : null}
             <DropdownMenuLinkItem render={passwordLink}>
               <KeyRound aria-hidden="true" />
               {passwordChangeRequired ? '请先修改密码' : '修改密码'}
@@ -132,7 +143,11 @@ function AccountMenuView({
   );
 }
 
-function AccountMenu({ className, showAdminEntry = false }: AccountMenuProps) {
+function AccountMenu({
+  className,
+  showAdminEntry = false,
+  showSiteEntry = false,
+}: AccountMenuProps) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQueryOptions());
   const mutation = useMutation({
@@ -206,6 +221,8 @@ function AccountMenu({ className, showAdminEntry = false }: AccountMenuProps) {
       passwordLink={<Link to="/account/password" />}
       role={user.role}
       showAdminEntry={showAdminEntry}
+      showSiteEntry={showSiteEntry}
+      siteLink={<Link to="/" />}
       username={user.username}
     />
   );

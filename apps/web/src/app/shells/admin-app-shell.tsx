@@ -1,8 +1,8 @@
-import { Link, Outlet } from '@tanstack/react-router';
-import { ArrowLeft, Menu } from 'lucide-react';
+import { Outlet } from '@tanstack/react-router';
+import { Menu } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Container } from '@/components/ui/layout';
 import {
   Sheet,
@@ -22,7 +22,7 @@ function AdminAppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
 
   return (
-    <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_1fr]">
+    <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_minmax(0,1fr)] md:h-svh md:overflow-hidden">
       <a
         href="#admin-main"
         className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 -translate-y-20 rounded-sm border px-3 py-2 text-sm focus-visible:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2"
@@ -46,30 +46,23 @@ function AdminAppShell() {
               导航
             </Button>
             <AppBrand destination="admin" />
-            <Link
-              to="/"
-              className={buttonVariants({
-                size: 'sm',
-                variant: 'ghost',
-                className: 'ml-auto rounded-md px-3 no-underline',
-              })}
-            >
-              <ArrowLeft aria-hidden="true" className="hidden size-4 sm:block" />
-              <span className="hidden sm:inline">返回</span>用户端
-            </Link>
-            <ThemeSwitcher />
-            <AccountMenu className="ml-0" />
+            <ThemeSwitcher className="ml-auto" />
+            <AccountMenu className="ml-0" showSiteEntry />
           </div>
         </Container>
       </header>
 
-      <div className="grid min-h-0 min-w-0 md:grid-cols-[15rem_minmax(0,1fr)]">
+      <div className="grid min-h-0 min-w-0 md:grid-cols-[15rem_minmax(0,1fr)] md:overflow-hidden">
         <Sidebar aria-label="管理导航" className="hidden md:flex">
           <nav aria-label="管理侧栏导航" className="contents">
             <AdminNavigation />
           </nav>
         </Sidebar>
-        <main id="admin-main" tabIndex={-1} className="min-h-0 min-w-0 outline-none">
+        <main
+          id="admin-main"
+          tabIndex={-1}
+          className="min-h-0 min-w-0 outline-none md:overflow-y-auto"
+        >
           <Outlet />
         </main>
       </div>

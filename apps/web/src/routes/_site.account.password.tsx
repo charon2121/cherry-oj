@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FieldError } from '@/components/ui/field';
 import { Container, Section, Stack } from '@/components/ui/layout';
-import { Heading, Text } from '@/components/ui/typography';
+import { Heading } from '@/components/ui/typography';
 import { changePassword } from '@/features/auth/api/auth-api';
 import { authKeys } from '@/features/auth/api/session-query';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
@@ -45,20 +45,11 @@ function ChangePasswordPage() {
   return (
     <Container className="max-w-xl">
       <Section>
-        <Stack gap={2}>
-          <Text size="sm" tone="muted">
-            账号安全
-          </Text>
-          <Heading level={1} size="2xl">
-            修改密码
-          </Heading>
-          <Text size="sm" tone="muted">
-            修改成功后所有设备都会退出，请使用新密码重新登录。
-          </Text>
-        </Stack>
+        <Heading level={1} className="sr-only">
+          修改密码
+        </Heading>
         <ErrorNotice message={mutation.isError ? authErrorMessage(mutation.error) : undefined} />
         <form
-          className="border-border mt-6 border-t pt-6"
           onSubmit={(event) => {
             event.preventDefault();
             if (!mismatch && !mutation.isPending) mutation.mutate({ currentPassword, newPassword });

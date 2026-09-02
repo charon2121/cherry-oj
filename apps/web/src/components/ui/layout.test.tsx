@@ -30,6 +30,6 @@ describe('Layout', () => {
 
     expect(screen.getByTestId('stack').className).toContain('--ds-space-6');
     expect(screen.getByTestId('cluster').className).toContain('--ds-space-3');
-    expect(screen.getByRole('region', { name: '布局样例' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '布局样例' })).toHaveClass('pt-[var(--ds-space-6)]');
   });
 });

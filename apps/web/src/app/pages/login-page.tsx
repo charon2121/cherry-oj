@@ -25,7 +25,7 @@ function WorkspaceWordmark() {
     >
       <img
         alt=""
-        className="absolute top-[var(--ds-space-8)] left-[calc(var(--ds-space-12)+var(--ds-space-12))] h-[calc(100%-var(--ds-space-8))] w-auto max-w-[calc(100%-var(--ds-space-8))] object-contain object-left-top mix-blend-difference"
+        className="absolute top-0 left-[calc(var(--ds-space-12)+var(--ds-space-12))] h-full w-auto max-w-[calc(100%-var(--ds-space-8))] object-contain object-left-top mix-blend-difference"
         src="/login-workspace-art.png"
       />
     </div>
@@ -43,9 +43,9 @@ function LoginPageView({
 }: LoginPageViewProps) {
   return (
     <Container className="h-0 min-h-full">
-      <Section className="box-border grid h-full min-h-0 pt-[var(--ds-space-8)] pb-0 lg:pt-[var(--ds-space-12)] [@media(max-height:800px)]:lg:pt-[var(--ds-space-8)]">
+      <Section className="box-border grid h-full min-h-0 pb-0">
         <div className="grid h-full min-h-0 items-start gap-[var(--ds-space-12)] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div className="w-full max-w-xl justify-self-center lg:justify-self-start lg:pt-[calc(var(--ds-space-12)+var(--ds-space-12))] [@media(max-height:800px)]:lg:pt-[var(--ds-space-8)]">
+          <div className="w-full max-w-xl justify-self-center lg:justify-self-start">
             <Stack gap={8}>
               <Stack gap={3}>
                 <Text size="sm" tone="muted">
