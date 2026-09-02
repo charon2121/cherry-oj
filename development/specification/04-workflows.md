@@ -52,6 +52,14 @@ reason: product 基础流程
 `skipped` 只适用于 optional 阶段，并且必须记录原因。`status_source` 使用 `derived` 或 `manual`，
 区分由事实推导的状态和显式操作。
 
+每个检查项都必须有结论，取值为 `pending`、`pass`、`fail`、`not-applicable` 或 `unrecorded`。
+**声明了检查却没有结论的阶段停在进行中，推不动。** 这条是检查项的牙齿：一个不会失败的检查不构成
+门禁，它只是元数据里的一个词。`unrecorded` 专给历史数据——那些检查产生于「只声明不记录」的年代，
+标成 pass 是撒谎，标成 pending 是要求回填全部历史工作，所以如实记为「从未记录」。
+
+`definition` 与 `scope` 由意图闸签署时直接记录：意图闸问的就是「定义清不清楚、范围明不明确」，
+这两项是它自己的题目。其余检查必须各自拿出证据，不能被一次签名顺带带过。
+
 阶段状态应优先根据 artifacts、TASK、VERIFY 和 WORK 的事实推导：定义文档确认后定义阶段完成；TASK 进入 ready 后任务拆分完成；所有 TASK done 后开发完成；approved 且 `result=pass` 的 VERIFY使复核与验证阶段完成。不能可靠推导的价值判断仍由负责人确认。
 
 ## 4.3 产品功能默认流程

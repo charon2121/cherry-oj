@@ -9,8 +9,16 @@
       "CHANGE-004"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"
@@ -84,7 +92,11 @@
       "VERIFY-006"
     ],
     "checks": [
-      "automated-tests"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"

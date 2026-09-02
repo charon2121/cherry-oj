@@ -273,7 +273,7 @@ class WorkToolTest(unittest.TestCase):
         stages = {stage["stage"]: stage for stage in self.workflow()}
         self.assertEqual("改进说明与目标指标", stages["definition"]["label"])
         self.assertNotIn("observe", stages)
-        self.assertIn("performance", stages["verification"]["checks"])
+        self.assertIn("performance", [c["name"] for c in stages["verification"]["checks"]])
         self.assertEqual("required", stages["memory"]["requirement"])
 
     def test_high_system_overlay_inserts_decision_memory_and_checks(self) -> None:
@@ -297,10 +297,10 @@ class WorkToolTest(unittest.TestCase):
         self.assertEqual("overlay:risk-impact", stages["decision"]["source"])
         self.assertEqual("required", stages["memory"]["requirement"])
         self.assertNotIn("observe", stages)
-        self.assertIn("independent-review", stages["review"]["checks"])
-        self.assertIn("rollback", stages["plan"]["checks"])
-        self.assertIn("cross-module-regression", stages["verification"]["checks"])
-        self.assertIn("reliability", stages["verification"]["checks"])
+        self.assertIn("independent-review", [c["name"] for c in stages["review"]["checks"]])
+        self.assertIn("rollback", [c["name"] for c in stages["plan"]["checks"]])
+        self.assertIn("cross-module-regression", [c["name"] for c in stages["verification"]["checks"]])
+        self.assertIn("reliability", [c["name"] for c in stages["verification"]["checks"]])
 
     def test_check_rejects_workflow_that_does_not_match_profile(self) -> None:
         self.create_fast_work()
@@ -771,6 +771,10 @@ class WorkToolTest(unittest.TestCase):
     def finish_fast_work(self) -> None:
         """造一个走到 implemented 的工作，供 outcome 用例使用。快速流程只有 CHANGE/TASK/VERIFY。"""
         self.create_fast_work()
+        self.finish_fast_work_from_here()
+
+    def finish_fast_work_from_here(self) -> None:
+        """把已创建的快速流程工作推到 implemented。"""
         path = self.one_work_file("10-change-CHANGE-001.md")
         path.write_text(path.read_text(encoding="utf-8").replace("待补充", "已确认内容"), encoding="utf-8")
         self.run_work("set-status", "CHANGE-001", "review", "--reason", "写完")
@@ -842,7 +846,7 @@ class WorkToolTest(unittest.TestCase):
         self.assertIn("② 门禁是否可证伪", report)
         self.assertIn("④ 追踪链完整度", report)
         # 检查项只出现在元数据里，没有任何地方记录结论——一个不会失败的检查不是门禁。
-        self.assertIn("不会失败，也就不构成门禁", report)
+        self.assertIn("项检查已声明但还没有结论", report)
 
 
     def test_gates_are_the_only_human_confirmation_mechanism(self) -> None:
@@ -900,6 +904,53 @@ class WorkToolTest(unittest.TestCase):
         self.run_work("link", "VERIFY-001", "--relation", "verifies", "--to", "CHANGE-001#AC-001")
         result = self.run_work("gate", "WORK-001", "acceptance", "--reason", "验证通过")
         self.assertNotIn("没有被任何 VERIFY 锚定验证", result.stdout)
+
+
+    def test_stage_cannot_complete_with_pending_checks(self) -> None:
+        """一个不会失败的检查不构成门禁。阶段完成时它声明的检查必须有结论。"""
+        self.create_fast_work()
+        definition = next(s for s in self.workflow() if s["stage"] == "definition")
+        self.assertEqual(
+            [("definition", "pending"), ("scope", "pending")],
+            [(c["name"], c["result"]) for c in definition["checks"]],
+        )
+
+        # 意图闸问的就是「定义清不清楚、范围明不明确」，这两项由签署动作直接记录。
+        self.finish_fast_work_from_here()
+        definition = next(s for s in self.workflow() if s["stage"] == "definition")
+        self.assertEqual(
+            ["pass", "pass"], [c["result"] for c in definition["checks"]]
+        )
+        self.assertIn("意图闸签署时确认", definition["checks"][0]["note"])
+
+        # 闸不拥有的检查项必须各自拿出证据：没有结论，阶段就停在进行中推不动。
+        verification = next(s for s in self.workflow() if s["stage"] == "verification")
+        self.assertEqual([("automated-tests", "pending")],
+                         [(c["name"], c["result"]) for c in verification["checks"]])
+
+        verify_path = self.one_work_file("70-verify-VERIFY-001.md")
+        verify_path.write_text(
+            verify_path.read_text(encoding="utf-8").replace("待补充", "已确认内容"), encoding="utf-8"
+        )
+        self.run_work("set-status", "VERIFY-001", "review", "--reason", "记录结论", "--result", "pass")
+        self.run_work("gate", "WORK-001", "acceptance", "--reason", "验收通过")
+        held = next(s for s in self.workflow() if s["stage"] == "verification")
+        self.assertEqual("doing", held["status"])
+
+        self.run_work(
+            "check-result", "WORK-001", "automated-tests", "pass", "--reason", "全部用例通过"
+        )
+        self.run_work("refresh", "WORK-001")
+        released = next(s for s in self.workflow() if s["stage"] == "verification")
+        self.assertEqual("done", released["status"])
+
+    def test_check_result_rejects_undeclared_checks(self) -> None:
+        self.create_fast_work()
+        result = self.run_work(
+            "check-result", "WORK-001", "independent-review", "pass", "--reason", "x", success=False
+        )
+        self.assertIn("没有声明检查项", result.stderr)
+        self.assertIn("已声明的是", result.stderr)
 
 
 if __name__ == "__main__":

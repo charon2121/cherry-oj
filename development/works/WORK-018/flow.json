@@ -9,8 +9,16 @@
       "CHANGE-008"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"
@@ -88,7 +96,11 @@
     "status_source": "derived",
     "artifacts": [],
     "checks": [
-      "impact-analysis"
+      {
+        "name": "impact-analysis",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"
@@ -103,10 +115,26 @@
       "VERIFY-018"
     ],
     "checks": [
-      "automated-tests",
-      "cross-module-regression",
-      "accessibility",
-      "compatibility"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "accessibility",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "compatibility",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"

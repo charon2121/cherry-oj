@@ -164,6 +164,16 @@ scripts/work refresh WORK-003
 
 有 artifacts 的阶段只能由文档、TASK 或 VERIFY 的事实推进；`clarify` 由 `blocking_items` 推进。复核等没有独立 artifact 的阶段可以显式推进，但 required 阶段不能标为 skipped，每次变化都必须记录理由并检查前置 required 阶段。
 
+检查项的结论用专门命令记录，并在 `board` 与 `flow` 中显示：
+
+```bash
+scripts/work check-result WORK-003 impact-analysis pass --reason "12 个消费者逐个核对"
+scripts/work check-result WORK-003 rollback not-applicable --reason "纯文档改动，无需回退方案"
+```
+
+没有结论的检查会把它所属的阶段按在「进行中」，这是检查项唯一的强制力来源。`rebuild-flow` 重建
+流程时保留已记录的结论——它重建的是「流程该长什么样」，不是「过程中发生了什么」。
+
 人工确认通过闸签署，一次覆盖该闸的全部文档；决定类与 VERIFY 文档不再逐份 `set-status ... approved`：
 
 ```bash

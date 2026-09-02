@@ -9,8 +9,16 @@
       "ISSUE-003"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:fix",
     "reason": "fix 基础流程"
@@ -73,8 +81,16 @@
       "VERIFY-016"
     ],
     "checks": [
-      "automated-tests",
-      "compatibility"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "compatibility",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:fix",
     "reason": "fix 基础流程"

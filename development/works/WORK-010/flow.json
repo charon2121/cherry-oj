@@ -22,8 +22,16 @@
       "CAPABILITY-003"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:infra",
     "reason": "infra 基础流程"
@@ -120,7 +128,11 @@
     "status_source": "derived",
     "artifacts": [],
     "checks": [
-      "impact-analysis"
+      {
+        "name": "impact-analysis",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:infra",
     "reason": "infra 基础流程"
@@ -135,9 +147,21 @@
       "VERIFY-010"
     ],
     "checks": [
-      "automated-tests",
-      "cross-module-regression",
-      "observability"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "observability",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:infra",
     "reason": "infra 基础流程"

@@ -22,8 +22,16 @@
       "FEATURE-004"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"
@@ -110,8 +118,16 @@
       "VERIFY-022"
     ],
     "checks": [
-      "automated-tests",
-      "accessibility"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "accessibility",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"

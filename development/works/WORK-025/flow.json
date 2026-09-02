@@ -23,8 +23,16 @@
       "ISSUE-005"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"
@@ -78,8 +86,16 @@
       "PLAN-015"
     ],
     "checks": [
-      "rollback",
-      "release"
+      {
+        "name": "rollback",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "release",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "overlay:risk-impact",
     "reason": "高风险或系统级影响必须有显式实施计划"
@@ -134,8 +150,16 @@
     "status_source": "derived",
     "artifacts": [],
     "checks": [
-      "impact-analysis",
-      "independent-review"
+      {
+        "name": "impact-analysis",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "independent-review",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"
@@ -151,13 +175,41 @@
       "VERIFY-027"
     ],
     "checks": [
-      "automated-tests",
-      "cross-module-regression",
-      "accessibility",
-      "data",
-      "performance",
-      "reliability",
-      "security"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "accessibility",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "data",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "performance",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "reliability",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "security",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"

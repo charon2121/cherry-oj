@@ -67,3 +67,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-01：根据文档、任务与验证事实刷新状态：doing → implemented。
 - 2026-09-02：验收闸：passed。原因：目前先通过。移动端不再唤起系统选择器这一项接受，后续做移动端优化时遇到再解决；FormField 对复合组件的限制与 REQ-003 未逐个比对的 6 个组件作为已知遗留项
 - 2026-09-02：根据文档、任务与验证事实刷新状态：implemented → verified。
+- 2026-09-02：检查项 automated-tests 记录结论：通过。原因：npm run check 30 个测试文件 109 个用例、npm run test:e2e 26 项全部通过
+- 2026-09-02：检查项 accessibility 记录结论：通过。原因：forced-colors E2E 抓出焦点指示器缺失并已修复；aria 关联由 field.test.tsx 断言覆盖
+- 2026-09-02：检查项 compatibility 记录结论：通过。原因：26 项 E2E 覆盖题库筛选、管理端建题、登录、改密、用户管理，行为未变
+- 2026-09-02：检查项 impact-analysis 记录结论：通过。原因：12 个消费者文件逐个核对；6 处 Select 的静默失效正是靠这次人工核对发现
+- 2026-09-02：检查项 definition 记录结论：通过。原因：CHANGE-009 的 11 条 REQ 与 6 条 AC 均已明确，范围两次修正都记录在变更记录
+- 2026-09-02：检查项 scope 记录结论：通过。原因：TASK 边界三次扩大均先改 write_paths 再动文件，未越界

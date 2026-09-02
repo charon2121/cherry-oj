@@ -117,7 +117,18 @@
           "checks": {
             "type": "array",
             "uniqueItems": true,
-            "items": { "type": "string", "minLength": 1 }
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "result", "note"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1 },
+                "result": {
+                  "enum": ["pending", "pass", "fail", "not-applicable", "unrecorded"]
+                },
+                "note": { "type": "string" }
+              }
+            }
           },
           "source": { "type": "string", "minLength": 1 },
           "reason": { "type": "string" }

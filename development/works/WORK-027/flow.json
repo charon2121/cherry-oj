@@ -9,8 +9,16 @@
       "CHANGE-009"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "CHANGE-009 的 11 条 REQ 与 6 条 AC 均已明确，范围两次修正都记录在变更记录"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "TASK 边界三次扩大均先改 write_paths 再动文件，未越界"
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"
@@ -79,7 +87,11 @@
     "status_source": "derived",
     "artifacts": [],
     "checks": [
-      "impact-analysis"
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "12 个消费者文件逐个核对；6 处 Select 的静默失效正是靠这次人工核对发现"
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"
@@ -94,9 +106,21 @@
       "VERIFY-028"
     ],
     "checks": [
-      "automated-tests",
-      "accessibility",
-      "compatibility"
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "npm run check 30 个测试文件 109 个用例、npm run test:e2e 26 项全部通过"
+      },
+      {
+        "name": "accessibility",
+        "result": "pass",
+        "note": "forced-colors E2E 抓出焦点指示器缺失并已修复；aria 关联由 field.test.tsx 断言覆盖"
+      },
+      {
+        "name": "compatibility",
+        "result": "pass",
+        "note": "26 项 E2E 覆盖题库筛选、管理端建题、登录、改密、用户管理，行为未变"
+      }
     ],
     "source": "profile:maintenance",
     "reason": "maintenance 基础流程"

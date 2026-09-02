@@ -22,8 +22,16 @@
       "FEATURE-001"
     ],
     "checks": [
-      "definition",
-      "scope"
+      {
+        "name": "definition",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"
@@ -114,7 +122,11 @@
     "status_source": "derived",
     "artifacts": [],
     "checks": [
-      "impact-analysis"
+      {
+        "name": "impact-analysis",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"
@@ -129,11 +141,31 @@
       "VERIFY-002"
     ],
     "checks": [
-      "automated-tests",
-      "cross-module-regression",
-      "accessibility",
-      "data",
-      "security"
+      {
+        "name": "automated-tests",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "accessibility",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "data",
+        "result": "unrecorded",
+        "note": ""
+      },
+      {
+        "name": "security",
+        "result": "unrecorded",
+        "note": ""
+      }
     ],
     "source": "profile:product",
     "reason": "product 基础流程"

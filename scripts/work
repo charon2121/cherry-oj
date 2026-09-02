@@ -94,9 +94,22 @@ ACCEPTANCE_GATE_KINDS = {"verify"}
 GATE_NAMES = ("intent", "acceptance")
 GATE_LABELS = {"intent": "意图闸", "acceptance": "验收闸"}
 GATE_STATUSES = {"pending", "passed"}
+# 意图闸问的就是「定义清不清楚、范围明不明确」，这两项检查是它自己的题目，
+# 由签署动作直接记录；其余检查必须各自拿出证据，不能被一次签名顺带带过。
+GATE_OWNED_CHECKS = {"intent": ("definition", "scope"), "acceptance": ()}
 # status 表达「进展到哪」，outcome 表达「结论还算不算数」。
 # 把两者合并会篡改历史：一个被推翻的工作确实走完过全流程、确实通过过验证。
 OUTCOME_STATES = {"superseded", "invalidated"}
+# 检查项的结论。unrecorded 专给历史数据：它们产生于「检查只是声明」的年代，
+# 谁也不知道当时到底查没查——标成 pass 是撒谎，标成 pending 是要求回填 27 个工作。
+CHECK_RESULTS = {"pending", "pass", "fail", "not-applicable", "unrecorded"}
+CHECK_RESULT_LABELS = {
+    "pending": "待检查",
+    "pass": "通过",
+    "fail": "未通过",
+    "not-applicable": "不适用",
+    "unrecorded": "历史未记录",
+}
 OUTCOME_LABELS = {"superseded": "已被取代", "invalidated": "结论已被证伪"}
 # 没有产出就谈不上结论被推翻——那种情况用 cancelled。
 OUTCOME_ALLOWED_WORK_STATUSES = {"implemented", "verified", "cancelled"}
@@ -581,6 +594,15 @@ def pending_gates(work: "Document", documents: dict[str, "Document"]) -> list[st
     ]
 
 
+def check_name(check: Any) -> str:
+    """兼容两种形态：迁移前 checks 是字符串列表，迁移后是带结论的对象。"""
+    return check["name"] if isinstance(check, dict) else str(check)
+
+
+def check_result(check: Any) -> str:
+    return check.get("result", "unrecorded") if isinstance(check, dict) else "unrecorded"
+
+
 def work_outcome(work: "Document") -> dict[str, Any] | None:
     """结论是否仍然成立。缺省即成立。"""
     outcome = work.metadata.get("outcome")
@@ -873,7 +895,10 @@ def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
                 "status": "skipped" if skipped else "pending",
                 "status_source": "derived",
                 "artifacts": [],
-                "checks": list(dict.fromkeys(checks_by_stage[stage["stage"]])),
+                "checks": [
+                    {"name": name, "result": "pending", "note": ""}
+                    for name in dict.fromkeys(checks_by_stage[stage["stage"]])
+                ],
                 "source": stage["source"],
                 "reason": stage["reason"],
             }
@@ -1108,6 +1133,14 @@ def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None
         if not prior_required_done and (status == "ready" or invalid_manual_progress):
             status = "pending"
             stage["status_source"] = "derived"
+        # 检查项的牙齿：声明了检查却没有结论，阶段就停在进行中。
+        # 用「拦住推进」而不是「校验报错」——报错会让签闸这类正常动作直接失败，
+        # 而门禁的本意是让工作停下来等结论，不是让人无法操作。
+        # 历史数据是 unrecorded 不是 pending，因此这条不追溯既往。
+        if status == "done" and any(
+            check_result(check) == "pending" for check in stage.get("checks") or []
+        ):
+            status = "doing"
         stage["status"] = status
         if stage["requirement"] == "required" and status != "done":
             prior_required_done = False
@@ -1317,7 +1350,20 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
                 errors.append(f"{prefix}: workflow.status 无效：{stage['status']}")
             if stage["status_source"] not in {"derived", "manual"}:
                 errors.append(f"{prefix}: workflow.status_source 无效：{stage['status_source']}")
-            for field in ("artifacts", "checks"):
+            if not isinstance(stage["checks"], list) or not all(
+                isinstance(check, dict)
+                and set(check) == {"name", "result", "note"}
+                and isinstance(check["name"], str)
+                and check["name"]
+                and check["result"] in CHECK_RESULTS
+                and isinstance(check["note"], str)
+                for check in stage["checks"]
+            ):
+                errors.append(
+                    f"{prefix}: workflow.checks 每项必须是 "
+                    f"{{name, result, note}}，result 取值 {', '.join(sorted(CHECK_RESULTS))}"
+                )
+            for field in ("artifacts",):
                 if not isinstance(stage[field], list) or not all(
                     isinstance(item, str) and item for item in stage[field]
                 ):
@@ -1453,15 +1499,18 @@ def validate_documents(
                 errors.append(f"{prefix}: {field} 必须由 WORK Type 与风险增量规则生成")
         actual_workflow = work.metadata.get("workflow", [])
         expected_workflow = expected_flow["workflow"]
-        configuration_fields = ("stage", "label", "requirement", "checks", "source", "reason")
+        # 只比较检查项的名字：结论是执行过程中的事实，不属于「流程该长什么样」。
+        configuration_fields = ("stage", "label", "requirement", "source", "reason")
+
+        def configuration(stage: dict[str, Any]) -> dict[str, Any]:
+            shape = {field: stage.get(field) for field in configuration_fields}
+            shape["checks"] = [check_name(check) for check in stage.get("checks") or []]
+            return shape
+
         actual_configuration = [
-            {field: stage.get(field) for field in configuration_fields}
-            for stage in actual_workflow
-            if isinstance(stage, dict)
+            configuration(stage) for stage in actual_workflow if isinstance(stage, dict)
         ]
-        expected_configuration = [
-            {field: stage[field] for field in configuration_fields} for stage in expected_workflow
-        ]
+        expected_configuration = [configuration(stage) for stage in expected_workflow]
         if actual_configuration != expected_configuration:
             errors.append(f"{prefix}: workflow 阶段顺序或配置与 WORK Type / 风险规则不一致")
 
@@ -1927,7 +1976,20 @@ def work_documents(work_id: str, documents: dict[str, Document]) -> list[Documen
 
 
 def rebuild_workflow(work: Document, documents: dict[str, Document]) -> None:
+    # 重建的是「流程该长什么样」，不是「过程中发生了什么」。检查结论是后者，
+    # 按 阶段+检查名 保留下来——否则重建一次就把已经记录的证据全抹掉。
+    recorded = {
+        (stage.get("stage"), check_name(check)): check
+        for stage in work.metadata.get("workflow") or []
+        for check in stage.get("checks") or []
+        if isinstance(check, dict) and check.get("result") != "pending"
+    }
     generated = select_workflow({**work.metadata, "type": work.metadata["work_type"]})
+    for stage in generated["workflow"]:
+        for index, check in enumerate(stage["checks"]):
+            previous = recorded.get((stage["stage"], check["name"]))
+            if previous is not None:
+                stage["checks"][index] = dict(previous)
     for field in ("workflow", "required_documents", "required_checks"):
         work.metadata[field] = generated[field]
     bind_workflow_artifacts(work, [work, *work_documents(work.id, documents)])
@@ -1976,7 +2038,11 @@ def command_flow(args: argparse.Namespace) -> None:
                 artifact_status = artifact.metadata["status"] if artifact else "missing"
                 values.append(f"{artifact_id}:{artifact_status}")
             artifact_text = " [" + ", ".join(values) + "]"
-        checks = f" checks={','.join(stage['checks'])}" if stage["checks"] else ""
+        checks = (
+            " checks=" + ",".join(f"{check_name(c)}:{check_result(c)}" for c in stage["checks"])
+            if stage["checks"]
+            else ""
+        )
         print(
             f"- {stage['label']} ({stage['stage']}): "
             f"{stage['requirement']}/{stage['status']}{artifact_text}{checks}"
@@ -2265,6 +2331,23 @@ def command_board(args: argparse.Namespace) -> None:
     if active:
         print(f"  当前：{active['label']}（{STAGE_STATUS_LABELS.get(active['status'], active['status'])}）")
 
+    checks = [
+        (stage, check)
+        for stage in meta.get("workflow", [])
+        for check in stage.get("checks") or []
+    ]
+    if checks:
+        symbols = {"pass": "✔", "fail": "✖", "not-applicable": "—", "pending": "·", "unrecorded": "?"}
+        print("\n检查")
+        for stage, check in checks:
+            result = check_result(check)
+            note = check.get("note") if isinstance(check, dict) else ""
+            suffix = f"  {note}" if note else ""
+            print(
+                f"  {symbols.get(result, '·')} {check_name(check):<24} "
+                f"{CHECK_RESULT_LABELS.get(result, result):<6} [{stage['label']}]{suffix}"
+            )
+
     tasks = [d for d in children if d.kind == "task"]
     verifies = [d for d in children if d.kind == "verify"]
     # 只看定义层：EXPERIENCE 与 DECISION 也归意图闸，但它们不声明要求条目。
@@ -2355,12 +2438,22 @@ def command_audit(args: argparse.Namespace) -> None:
             declared_checks[check] += 1
     print(f"  声明的检查项 {sum(declared_checks.values())} 次："
           f"{'、'.join(f'{k}×{v}' for k, v in declared_checks.most_common())}")
-    print("  其中记录过执行结论的：0（系统里没有任何地方保存单个检查项的结果）")
-    if declared_checks:
+    outcomes: Counter = Counter()
+    for work in works:
+        for stage in work.metadata.get("workflow", []):
+            for check in stage.get("checks") or []:
+                outcomes[check_result(check)] += 1
+    total_checks = sum(outcomes.values())
+    print("  结论分布：" + "、".join(
+        f"{CHECK_RESULT_LABELS.get(k, k)} {v}" for k, v in outcomes.most_common()
+    ))
+    if outcomes["unrecorded"]:
         findings.append(
-            f"{sum(declared_checks.values())} 次检查项声明没有一次记录过结论——"
-            f"它们只存在于元数据里，不会失败，也就不构成门禁"
+            f"{outcomes['unrecorded']}/{total_checks} 项检查是历史遗留、从未记录结论——"
+            f"它们产生于「检查只是声明」的年代，现在无法追认查没查过"
         )
+    if outcomes["pending"]:
+        findings.append(f"{outcomes['pending']} 项检查已声明但还没有结论")
 
     stages: dict[str, Counter] = defaultdict(Counter)
     required_count: Counter = Counter()
@@ -2530,6 +2623,51 @@ def unanchored_acceptance_criteria(
     return missing
 
 
+def command_check_result(args: argparse.Namespace) -> None:
+    documents, index = checked_documents(args.root)
+    work = require_document(documents, args.work_id)
+    if work.kind != "work":
+        raise WorkError(f"{args.work_id} 不是工作项")
+
+    matches = [
+        (stage, check)
+        for stage in work.metadata.get("workflow", [])
+        for check in stage.get("checks") or []
+        if check_name(check) == args.check
+    ]
+    if not matches:
+        declared = sorted(
+            {
+                check_name(check)
+                for stage in work.metadata.get("workflow", [])
+                for check in stage.get("checks") or []
+            }
+        )
+        raise WorkError(
+            f"{work.id} 没有声明检查项 {args.check}；已声明的是：{'、'.join(declared) or '无'}"
+        )
+
+    for stage, check in matches:
+        previous = check_result(check)
+        check["result"] = args.result
+        check["note"] = args.reason
+        print(f"✓ {work.id} 阶段「{stage['label']}」的 {args.check}：{previous} → {args.result}")
+
+    work.metadata["updated_at"] = today()
+    append_log(
+        work,
+        f"检查项 {args.check} 记录结论：{CHECK_RESULT_LABELS[args.result]}。原因：{args.reason}",
+    )
+    # 结论变化会解除阶段的推进限制，必须重新推导一次，否则阶段状态与事实不符。
+    prospective = {**documents, work.id: work}
+    bind_workflow_artifacts(work, [work, *work_documents(work.id, prospective)])
+    synchronize_workflow(work, prospective)
+    errors, _ = validate_documents(prospective, args.root, index)
+    if errors:
+        raise WorkError("记录检查结论不满足系统约束：\n- " + "\n- ".join(errors))
+    write_document(work)
+
+
 def command_gate(args: argparse.Namespace) -> None:
     documents, index = checked_documents(args.root)
     work = require_document(documents, args.work_id)
@@ -2582,6 +2720,11 @@ def command_gate(args: argparse.Namespace) -> None:
         if blockers:
             raise WorkError(f"{work.id} 的{label}还不能签署：\n- " + "\n- ".join(blockers))
         gates[gate] = "passed"
+        for stage in work.metadata.get("workflow", []):
+            for check in stage.get("checks") or []:
+                if check_name(check) in GATE_OWNED_CHECKS[gate] and check_result(check) == "pending":
+                    check["result"] = "pass"
+                    check["note"] = f"{label}签署时确认：{args.reason}"
         promoted = [
             document
             for document in covered
@@ -3040,6 +3183,17 @@ def build_parser() -> argparse.ArgumentParser:
         handler=command_audit
     )
 
+    check_result_parser = subparsers.add_parser(
+        "check-result", help="记录某个检查项的结论"
+    )
+    check_result_parser.add_argument("work_id")
+    check_result_parser.add_argument("check")
+    check_result_parser.add_argument(
+        "result", choices=["pass", "fail", "not-applicable"]
+    )
+    check_result_parser.add_argument("--reason", required=True)
+    check_result_parser.set_defaults(handler=command_check_result)
+
     outcome_parser = subparsers.add_parser(
         "outcome", help="标记工作结论是否仍然成立（不改变 status）"
     )
@@ -3096,6 +3250,7 @@ def main() -> int:
             "set-stage",
             "link",
             "gate",
+            "check-result",
             "outcome",
             "archive",
             "deprecate",
