@@ -69,3 +69,4 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-02：检查项 compatibility 记录结论：通过。原因：新断言保持 URL 筛选、详情安全、成功信封、Problem Details 与 request ID 覆盖且不恢复已删除 status 资产
 - 2026-09-02：流程阶段 复核：ready → done。原因：复核确认实现严格符合 ISSUE-008/DESIGN-025，未删除有效覆盖或越过 TASK-050 边界
 - 2026-09-02：根据文档、任务与验证事实刷新状态：todo → implemented。
+- 2026-09-02：检查项 automated-tests 记录结论：通过。原因：本地 work/contracts/Web 全量验证通过，提交 93aeef0 的 GitHub Actions run 33631033143 六个 job 全绿

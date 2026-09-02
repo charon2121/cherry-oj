@@ -41,7 +41,11 @@ updated_at: "2026-09-02"
 - `git diff --check`：退出码 0；禁止路径差异为空。
 
 构建只出现既有的大 chunk、Node experimental/deprecation 和 `NO_COLOR` 提示，没有失败或新增产物进入
-版本差异。当前尚未获得提交/推送请求，因此不创建远端 run，远端 CI 证据留待用户另行授权后补充。
+版本差异。
+
+提交 `93aeef0` 推送到 `origin/main` 后，[GitHub Actions run 33631033143](https://github.com/charon2121/cherry-oj/actions/runs/33631033143)
+结论为 success：原失败的 `web (React SPA)` 与 `contracts (结构与边界)` 均完整通过；Go、开发文档、
+`go.mod` 整洁度和容器联调另外 4 个 job 也全部通过。
 
 ## 未通过项
 
@@ -57,13 +61,12 @@ updated_at: "2026-09-02"
 
 ## 遗留问题
 
-暂无代码遗留。远端 GitHub Actions 尚未运行，因为本轮没有提交或推送授权；这不影响本地 CI 等价检查
-结论，后续推送时应把对应 run 补入记录。
+暂无。
 
 ## 剩余风险
 
-剩余风险仅是本机与 GitHub Linux runner 的环境差异；Web 与 contracts 命令、依赖锁和 CI 入口均与
-workflow 相同，且改动不包含平台相关逻辑。推送后仍应读取远端 run 作最终确认。
+本地与 GitHub Linux runner 均已通过，没有已知技术风险。未来若题库筛选入口或公开题库接口有意删除，
+应在对应产品工作中同步迁移测试锚点，不能再次遗留旧资产断言。
 
 ## 结论
 

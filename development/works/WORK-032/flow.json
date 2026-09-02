@@ -92,7 +92,7 @@
       {
         "name": "automated-tests",
         "result": "pass",
-        "note": "work 工具、contracts 9 项、Web 109 项、Playwright 30 项、生产与 Storybook 构建全部通过"
+        "note": "本地 work/contracts/Web 全量验证通过，提交 93aeef0 的 GitHub Actions run 33631033143 六个 job 全绿"
       },
       {
         "name": "compatibility",
