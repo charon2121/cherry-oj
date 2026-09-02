@@ -2509,6 +2509,27 @@ def command_outcome(args: argparse.Namespace) -> None:
     print("提示：工作状态保持不变——它确实走完过流程，改状态等于篡改历史。")
 
 
+def unanchored_acceptance_criteria(
+    work_id: str, documents: dict[str, "Document"]
+) -> list[str]:
+    """没有被任何 VERIFY 锚定到条目的验收标准。
+
+    放在签闸时提示而不是 check 里报警：历史上 26 个工作一条锚点都没有，
+    每次 check 刷 17 条警告只会训练人忽略警告。签闸是「即将认证做完了」的那一刻，
+    提示落在这里才有人看。
+    """
+    children = work_documents(work_id, documents)
+    verifies = [d for d in children if d.kind == "verify"]
+    missing: list[str] = []
+    for definition in (d for d in children if d.kind in DEFINITION_KINDS):
+        for requirement in local_requirements(definition):
+            if not requirement.startswith("AC-"):
+                continue
+            if reference_coverage(verifies, "verifies", definition.id, requirement)[0] != "anchored":
+                missing.append(f"{definition.id}#{requirement}")
+    return missing
+
+
 def command_gate(args: argparse.Namespace) -> None:
     documents, index = checked_documents(args.root)
     work = require_document(documents, args.work_id)
@@ -2606,6 +2627,16 @@ def command_gate(args: argparse.Namespace) -> None:
     for document in changed:
         write_document(document)
     print(summary)
+    if gate == "acceptance" and not args.revoke:
+        missing = unanchored_acceptance_criteria(work.id, prospective)
+        if missing:
+            shown = "、".join(missing[:5])
+            more = f" 等 {len(missing)} 条" if len(missing) > 5 else ""
+            print(
+                f"提示：{shown}{more} 没有被任何 VERIFY 锚定验证。\n"
+                f"      「每条验收标准都验过了吗」目前只能靠人读 VERIFY 正文自己对。\n"
+                f"      补锚点：scripts/work link <VERIFY> --relation verifies --to <定义>#<AC>"
+            )
     if changed:
         print("同时变更：" + ", ".join(f"{d.id}→{d.metadata['status']}" for d in changed))
     else:

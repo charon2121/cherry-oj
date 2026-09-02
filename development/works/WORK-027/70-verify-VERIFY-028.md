@@ -8,7 +8,7 @@ owners: ["codex/root"]
 depends_on: ["TASK-043"]
 related: []
 implements: []
-verifies: ["CHANGE-009", "TASK-043"]
+verifies: ["CHANGE-009", "TASK-043", "CHANGE-009#AC-001", "CHANGE-009#AC-002", "CHANGE-009#AC-003", "CHANGE-009#AC-004", "CHANGE-009#AC-005", "CHANGE-009#AC-006"]
 tags: []
 result: "pass"
 created_at: "2026-09-01"

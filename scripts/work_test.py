@@ -882,5 +882,25 @@ class WorkToolTest(unittest.TestCase):
         self.assertIn("不存在局部编号", result.stderr)
 
 
+    def test_acceptance_gate_names_unanchored_criteria(self) -> None:
+        """签验收闸是「即将认证做完了」的那一刻，追踪链的缺口该在这里说，
+        而不是让 check 对 26 个历史工作每次刷一屏警告——那只会训练人忽略警告。"""
+        self.finish_fast_work()
+        verify_path = self.one_work_file("70-verify-VERIFY-001.md")
+        verify_path.write_text(
+            verify_path.read_text(encoding="utf-8").replace("待补充", "已确认内容"), encoding="utf-8"
+        )
+        self.run_work("set-status", "VERIFY-001", "review", "--reason", "记录结论", "--result", "pass")
+        result = self.run_work("gate", "WORK-001", "acceptance", "--reason", "验证通过")
+        self.assertIn("没有被任何 VERIFY 锚定验证", result.stdout)
+        self.assertIn("CHANGE-001#AC-001", result.stdout)
+
+        # 补上锚点后不再提示。
+        self.run_work("gate", "WORK-001", "acceptance", "--revoke", "--reason", "补锚点")
+        self.run_work("link", "VERIFY-001", "--relation", "verifies", "--to", "CHANGE-001#AC-001")
+        result = self.run_work("gate", "WORK-001", "acceptance", "--reason", "验证通过")
+        self.assertNotIn("没有被任何 VERIFY 锚定验证", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
