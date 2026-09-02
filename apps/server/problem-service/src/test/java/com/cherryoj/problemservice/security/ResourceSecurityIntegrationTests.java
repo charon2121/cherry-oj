@@ -16,6 +16,11 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.PublicProblemService;
@@ -65,7 +70,11 @@ class ResourceSecurityIntegrationTests {
 
 	private static final String USER_ID = "019c8e42-7f70-7000-8000-000000000001";
 	private static final RSAKey KEY = newKey("key-1");
+	private static final RSAKey ROTATED_KEY = newKey("key-2");
 	private static final RSAKey UNKNOWN_KEY = newKey("key-unknown");
+	private static final AtomicReference<JWKSet> PUBLISHED_KEYS =
+			new AtomicReference<>(new JWKSet(KEY.toPublicJWK()));
+	private static final AtomicInteger JWKS_REQUESTS = new AtomicInteger();
 	private static final HttpServer JWKS = startJwksServer();
 
 	private final MockMvc mockMvc;
@@ -213,7 +222,44 @@ class ResourceSecurityIntegrationTests {
 
 	@Test
 	@Order(3)
+	void refreshesRotatedJwksOnceForConcurrentValidTokens() throws Exception {
+		PUBLISHED_KEYS.set(new JWKSet(KEY.toPublicJWK()));
+		var decoder = configuration.jwtDecoder(properties);
+		decoder.decode(token(KEY, "ADMIN", Map.of()));
+		int requestsBeforeRotation = JWKS_REQUESTS.get();
+		PUBLISHED_KEYS.set(new JWKSet(ROTATED_KEY.toPublicJWK()));
+
+		int concurrency = 16;
+		CountDownLatch ready = new CountDownLatch(concurrency);
+		CountDownLatch start = new CountDownLatch(1);
+		try (var executor = Executors.newFixedThreadPool(concurrency)) {
+			var validations = java.util.stream.IntStream.range(0, concurrency)
+					.mapToObj(index -> executor.submit(() -> {
+						ready.countDown();
+						start.await();
+						decoder.decode(token(ROTATED_KEY, "ADMIN", Map.of("jti", "rotated-" + index)));
+						return null;
+					})).toList();
+			ready.await();
+			start.countDown();
+			for (Future<?> validation : validations) {
+				validation.get();
+			}
+		}
+
+		org.assertj.core.api.Assertions.assertThat(JWKS_REQUESTS.get() - requestsBeforeRotation)
+				.as("a concurrent unknown kid is coordinated into one JWKS refresh")
+				.isEqualTo(1);
+		PUBLISHED_KEYS.set(new JWKSet(List.of(
+				ROTATED_KEY.toPublicJWK(), KEY.toPublicJWK())));
+		decoder.decode(token(KEY, "ADMIN", Map.of("jti", "overlap-key")));
+	}
+
+	@Test
+	@Order(4)
 	void cachedKnownKeyContinuesAfterJwksOutageAndUnknownKeyFailsClosed() throws Exception {
+		PUBLISHED_KEYS.set(new JWKSet(List.of(
+				ROTATED_KEY.toPublicJWK(), KEY.toPublicJWK())));
 		var decoder = configuration.jwtDecoder(properties);
 		decoder.decode(token(KEY, "USER", Map.of()));
 		JWKS.stop(0);
@@ -246,6 +292,7 @@ class ResourceSecurityIntegrationTests {
 			else if ("aud".equals(name)) claims.audience((List<String>) value);
 			else if ("iat".equals(name)) claims.issueTime(Date.from((Instant) value));
 			else if ("exp".equals(name)) claims.expirationTime(Date.from((Instant) value));
+			else if ("jti".equals(name)) claims.jwtID((String) value);
 			else claims.claim(name, value);
 		});
 		return sign(key, new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(key.getKeyID()).build(), claims.build());
@@ -297,7 +344,8 @@ class ResourceSecurityIntegrationTests {
 		try {
 			HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 			server.createContext("/jwks", exchange -> {
-				byte[] body = new JWKSet(KEY.toPublicJWK()).toString().getBytes(StandardCharsets.UTF_8);
+				JWKS_REQUESTS.incrementAndGet();
+				byte[] body = PUBLISHED_KEYS.get().toString().getBytes(StandardCharsets.UTF_8);
 				exchange.getResponseHeaders().set("Content-Type", MediaType.APPLICATION_JSON_VALUE);
 				exchange.sendResponseHeaders(200, body.length);
 				exchange.getResponseBody().write(body);

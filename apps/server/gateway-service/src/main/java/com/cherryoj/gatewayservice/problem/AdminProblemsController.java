@@ -67,7 +67,7 @@ public class AdminProblemsController {
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
+		return adminRead(exchange, requestId, token -> problemService
 				.listAdmin(token, q, status, page, size, requestId))
 				.map(result -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
 						.body(ApiSuccess.of(new ProblemDtos.AdminProblemListData(result.items()), requestId,
@@ -88,7 +88,8 @@ public class AdminProblemsController {
 	Mono<ResponseEntity<ApiSuccess<ProblemDtos.AdminProblem>>> get(
 			@PathVariable @Pattern(regexp = UUID) String problemId, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService.getProblem(token, problemId, requestId))
+		return adminRead(exchange, requestId,
+				token -> problemService.getProblem(token, problemId, requestId))
 				.map(problem -> ok(problem, requestId));
 	}
 
@@ -130,7 +131,7 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
+		return adminRead(exchange, requestId, token -> problemService
 				.getVersion(token, problemId, problemVersionId, requestId))
 				.map(version -> ok(version, requestId));
 	}
@@ -163,7 +164,7 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId,
+		return adminRead(exchange, requestId,
 				token -> problemService.preview(token, problemId, problemVersionId, requestId))
 				.map(detail -> ok(detail, requestId));
 	}
@@ -172,7 +173,7 @@ public class AdminProblemsController {
 	Mono<ResponseEntity<ApiSuccess<ProblemDtos.TestDataVersionListData>>> listTestData(
 			@PathVariable @Pattern(regexp = UUID) String problemId, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId,
+		return adminRead(exchange, requestId,
 				token -> problemService.listTestData(token, problemId, requestId))
 				.map(items -> ok(new ProblemDtos.TestDataVersionListData(items), requestId));
 	}
@@ -248,7 +249,7 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
+		return adminRead(exchange, requestId, token -> problemService
 				.publishCheck(token, problemId, problemVersionId, requestId))
 				.map(check -> ok(check, requestId));
 	}
@@ -268,6 +269,21 @@ public class AdminProblemsController {
 			ServerWebExchange exchange, String requestId, Function<String, Mono<T>> action) {
 		return adminAccess.accessToken(exchange, requestId).flatMap(action)
 				.onErrorMap(error -> ProblemApiErrors.map(error, false));
+	}
+
+	private <T> Mono<T> adminRead(
+			ServerWebExchange exchange, String requestId, Function<String, Mono<T>> action) {
+		return adminAccess.readWithRecovery(
+				exchange,
+				requestId,
+				action,
+				AdminProblemsController::isUnauthorized,
+				error -> ProblemApiErrors.map(error, false));
+	}
+
+	private static boolean isUnauthorized(Throwable error) {
+		return error instanceof ProblemServiceClientException upstream
+				&& upstream.status().value() == HttpStatus.UNAUTHORIZED.value();
 	}
 
 	private static String requestId(ServerWebExchange exchange) {
