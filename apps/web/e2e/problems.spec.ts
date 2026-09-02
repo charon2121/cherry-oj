@@ -64,7 +64,7 @@ test('anonymous URL filters restore and a real detail link stays safe at 320px',
   );
 
   await page.goto('/problems?q=%E4%B8%A4%E6%95%B0&difficulty=EASY&sort=TITLE_ASC&size=20');
-  await expect(page.getByRole('heading', { name: '选择下一道题' })).toBeVisible();
+  await expect(page.getByLabel('关键词')).toBeVisible();
   await expect(page.getByLabel('关键词')).toHaveValue('两数');
   // 难度筛选器已从原生 <select> 换成 Base UI Select：trigger 是 button，
   // 当前值读 trigger 的可见文本，不再是表单控件的 value。

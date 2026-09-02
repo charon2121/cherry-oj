@@ -3,16 +3,16 @@
     "capability": 8,
     "change": 10,
     "decision": 18,
-    "design": 25,
+    "design": 26,
     "experience": 17,
     "feature": 10,
     "improvement": 1,
-    "issue": 8,
+    "issue": 9,
     "memory": 26,
     "plan": 21,
     "product": 1,
-    "task": 50,
-    "verify": 33,
-    "work": 32
+    "task": 51,
+    "verify": 34,
+    "work": 33
   }
 }

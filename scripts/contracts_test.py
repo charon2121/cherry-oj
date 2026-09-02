@@ -180,7 +180,7 @@ class ContractsTest(unittest.TestCase):
         self.assertEqual(document["openapi"], "3.1.2")
 
         schemas = document["components"]["schemas"]
-        self.assertEqual(set(schemas["SystemStatusSuccess"]["required"]), {"data", "meta"})
+        self.assertEqual(set(schemas["ProblemListSuccess"]["required"]), {"data", "meta"})
         self.assertEqual(set(schemas["ApiMeta"]["required"]), {"requestId"})
         self.assertTrue(
             {"type", "title", "status", "code", "meta"}.issubset(
@@ -188,12 +188,12 @@ class ContractsTest(unittest.TestCase):
             )
         )
 
-        status_responses = document["paths"]["/api/status"]["get"]["responses"]
-        success = status_responses["200"]
+        problem_list_responses = document["paths"]["/api/problems"]["get"]["responses"]
+        success = problem_list_responses["200"]
         self.assertIn("X-Request-Id", success["headers"])
         self.assertEqual(
             success["content"]["application/json"]["schema"]["$ref"],
-            "#/components/schemas/SystemStatusSuccess",
+            "#/components/schemas/ProblemListSuccess",
         )
 
         problem_response = document["components"]["responses"]["ApiProblemResponse"]
@@ -205,16 +205,14 @@ class ContractsTest(unittest.TestCase):
 
     def test_web_api_request_ids_match_in_examples(self) -> None:
         document = load("web-api.openapi.json")
-        success = document["paths"]["/api/status"]["get"]["responses"]["200"]
+        success = document["paths"]["/api/problems"]["get"]["responses"]["200"]
         success_example = success["content"]["application/json"]["example"]
         problem_response = document["components"]["responses"]["ApiProblemResponse"]
         problem_example = problem_response["content"]["application/problem+json"]["example"]
 
         self.assertEqual(
             success_example["meta"]["requestId"],
-            document["components"]["schemas"]["SystemStatusSuccess"]["examples"][0][
-                "meta"
-            ]["requestId"],
+            document["components"]["schemas"]["ApiMeta"]["examples"][0]["requestId"],
         )
         self.assertIn(problem_example["meta"]["requestId"], problem_example["instance"])
 
