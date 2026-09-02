@@ -45,6 +45,24 @@ async function mockAnonymousShell(page: Page) {
   );
 }
 
+async function mockAdminShell(page: Page) {
+  await page.route('**/api/auth/session', (route) =>
+    apiSuccess(route, {
+      authenticated: true,
+      user: {
+        id: 'd0e35399-6487-4ac8-8138-8d5bd60eb003',
+        username: 'root-admin',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        passwordChangeRequired: false,
+        createdAt: '2026-08-26T01:00:00Z',
+        updatedAt: '2026-08-26T01:00:00Z',
+        rowVersion: 0,
+      },
+    }),
+  );
+}
+
 async function installPreferenceAndFirstFrameProbe(page: Page, setup: PreferenceSetup = {}) {
   await page.addInitScript(
     ({ failStorageRead, storageKey, value }) => {
@@ -188,6 +206,72 @@ test('theme changes converge across tabs and unknown values fall back safely', a
     .toBeNull();
 });
 
+test('the global theme switcher persists its choice and synchronizes another tab', async ({
+  context,
+  page,
+}) => {
+  await mockAnonymousShell(page);
+  await page.goto('/');
+  await expectTheme(page, defaultThemeId);
+
+  const switchToLight = page.getByRole('button', { name: `切换到 ${lightTheme.label}` });
+  await switchToLight.focus();
+  await page.keyboard.press('Enter');
+
+  await expectTheme(page, lightTheme.id);
+  await expect(page.getByRole('status')).toHaveText(`已切换到 ${lightTheme.label}`);
+  await expect
+    .poll(() =>
+      page.evaluate((storageKey) => window.localStorage.getItem(storageKey), themeStorageKey),
+    )
+    .toBe(lightTheme.id);
+
+  await page.reload();
+  await expectTheme(page, lightTheme.id);
+  await expect(page.getByRole('button', { name: `切换到 ${darkTheme.label}` })).toBeVisible();
+
+  const otherPage = await context.newPage();
+  await mockAnonymousShell(otherPage);
+  await otherPage.goto('/');
+  await expectTheme(otherPage, lightTheme.id);
+
+  await page.getByRole('button', { name: `切换到 ${darkTheme.label}` }).click();
+  await expectTheme(page, darkTheme.id);
+  await expectTheme(otherPage, darkTheme.id);
+});
+
+test('the theme switcher still applies a choice when preference storage rejects writes', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const browserStorage = window.localStorage;
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        clear: browserStorage.clear.bind(browserStorage),
+        getItem: browserStorage.getItem.bind(browserStorage),
+        get length() {
+          return browserStorage.length;
+        },
+        key: browserStorage.key.bind(browserStorage),
+        removeItem: browserStorage.removeItem.bind(browserStorage),
+        setItem() {
+          throw new DOMException('Storage is full.', 'QuotaExceededError');
+        },
+      },
+    });
+  });
+  await mockAnonymousShell(page);
+  await page.goto('/');
+
+  await page.getByRole('button', { name: `切换到 ${lightTheme.label}` }).click();
+
+  await expectTheme(page, lightTheme.id);
+  await expect(page.getByRole('status')).toHaveText(
+    `已切换到 ${lightTheme.label}，但浏览器未能记住选择`,
+  );
+});
+
 test('reduced motion collapses design-system durations without changing theme', async ({
   page,
 }) => {
@@ -226,13 +310,11 @@ test('forced colors keeps keyboard navigation and theme metadata usable', async 
     true,
   );
 
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-  await page.keyboard.press('Tab');
-
   const loginLink = page.getByRole('link', { name: '登录' });
+  for (let index = 0; index < 8; index += 1) {
+    if (await loginLink.evaluate((element) => element === document.activeElement)) break;
+    await page.keyboard.press('Tab');
+  }
   await expect(loginLink).toBeFocused();
   const focusIndicator = await loginLink.evaluate((element) => {
     const styles = getComputedStyle(element);
@@ -330,6 +412,11 @@ for (const theme of themeRegistry) {
 
     await expectTheme(page, theme.id);
     const navigationTrigger = page.getByRole('button', { name: '打开主导航' });
+    await expect(
+      page.getByRole('button', {
+        name: `切换到 ${theme.colorScheme === 'dark' ? lightTheme.label : darkTheme.label}`,
+      }),
+    ).toBeVisible();
     await expect(navigationTrigger).toBeVisible();
     await navigationTrigger.click();
     await expect(page.getByRole('navigation', { name: '移动主导航' })).toBeVisible();
@@ -363,3 +450,23 @@ for (const theme of themeRegistry) {
     expect(horizontalOverflow).toBeLessThanOrEqual(1);
   });
 }
+
+test('the 320px admin header keeps navigation, theme, return, and account actions usable', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 720 });
+  await mockAdminShell(page);
+
+  await page.goto('/admin');
+
+  await expect(page.getByRole('button', { name: '打开管理导航' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Cherry OJ 管理中心' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /用户端/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: `切换到 ${lightTheme.label}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: /账号菜单，root-admin/ })).toBeVisible();
+
+  const horizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+  expect(horizontalOverflow).toBeLessThanOrEqual(1);
+});

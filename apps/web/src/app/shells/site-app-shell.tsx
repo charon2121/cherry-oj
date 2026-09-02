@@ -15,6 +15,7 @@ import {
 import { AccountMenu } from './account-menu';
 import { AppBrand } from './app-brand';
 import { SitePrimaryNavigation } from './site-primary-navigation';
+import { ThemeSwitcher } from './theme-switcher';
 
 type SiteAppShellProps = Readonly<{ children?: ReactNode }>;
 
@@ -31,7 +32,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
       </a>
       <header className="bg-background sticky top-0 z-40">
         <Container>
-          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-3 py-2">
+          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-1 py-2 sm:gap-3">
             <AppBrand />
             <SitePrimaryNavigation />
             <Button
@@ -47,7 +48,8 @@ function SiteAppShell({ children }: SiteAppShellProps) {
               <Menu aria-hidden="true" />
               导航
             </Button>
-            <AccountMenu showAdminEntry />
+            <ThemeSwitcher className="ml-auto" />
+            <AccountMenu className="ml-0" showAdminEntry />
           </div>
         </Container>
       </header>

@@ -16,6 +16,7 @@ import { Sidebar } from '@/components/ui/sidebar';
 import { AccountMenu } from './account-menu';
 import { AdminNavigation } from './admin-navigation';
 import { AppBrand } from './app-brand';
+import { ThemeSwitcher } from './theme-switcher';
 
 function AdminAppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
@@ -30,7 +31,7 @@ function AdminAppShell() {
       </a>
       <header className="bg-background sticky top-0 z-40">
         <Container className="max-w-none">
-          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-3 py-2">
+          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-1 py-2 sm:gap-3">
             <Button
               type="button"
               variant="ghost"
@@ -53,9 +54,10 @@ function AdminAppShell() {
                 className: 'ml-auto rounded-md px-3 no-underline',
               })}
             >
-              <ArrowLeft aria-hidden="true" className="size-4" />
+              <ArrowLeft aria-hidden="true" className="hidden size-4 sm:block" />
               <span className="hidden sm:inline">返回</span>用户端
             </Link>
+            <ThemeSwitcher />
             <AccountMenu className="ml-0" />
           </div>
         </Container>

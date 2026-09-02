@@ -1,0 +1,148 @@
+[
+  {
+    "stage": "clarify",
+    "label": "需求澄清",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-029"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "definition",
+    "label": "功能定义",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "FEATURE-008"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认主题切换入口、交互和本地偏好边界"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认主题切换入口、交互和本地偏好边界"
+      }
+    ],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "experience",
+    "label": "体验设计",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "EXPERIENCE-015"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:fast",
+    "reason": "低风险、局部、可回退工作采用快速流程"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:fast",
+    "reason": "低风险、局部、可回退工作采用快速流程"
+  },
+  {
+    "stage": "tasks",
+    "label": "开发任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-047"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-047"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-030"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "Node 24 下 Vitest 31 文件 112 项、生产构建、Storybook 和 Playwright 29 项全部通过"
+      },
+      {
+        "name": "accessibility",
+        "result": "pass",
+        "note": "键盘、动态可访问名称、礼貌级播报、forced-colors、reduced-motion、双主题及 320px 双端页头均通过"
+      }
+    ],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-023"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  }
+]
