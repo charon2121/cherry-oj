@@ -2,7 +2,7 @@
 id: "WORK-030"
 type: "work"
 title: "修复后台题目列表间歇性 502"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["issue", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "security"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -52,9 +52,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发计划 | ✔ 完成 | 必需 | PLAN-019 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 修复任务 | ✔ 完成 | 必需 | TASK-048 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-048 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-031 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-024 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-031 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-024 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -74,3 +74,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-02：检查项 security 记录结论：通过。原因：K1→K2 16 路并发只刷新一次且全部成功，未知/错误签名/过期 token fail-closed，日志脱敏测试通过
 - 2026-09-02：流程阶段 复核：ready → done。原因：影响分析、独立安全复核、范围与重放边界检查均通过
 - 2026-09-02：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-02：验收闸：passed。原因：用户明确授权签署 WORK-030 验收闸，接受当前实现、验证结果与已记录剩余风险
+- 2026-09-02：根据文档、任务与验证事实刷新状态：implemented → verified。

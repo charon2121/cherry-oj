@@ -2,7 +2,7 @@
 id: "MEMORY-024"
 type: "memory"
 title: "修复后台题目列表间歇性 502"
-status: "review"
+status: "checked"
 work: "WORK-030"
 owners: ["codex/root"]
 depends_on: ["VERIFY-031"]
@@ -63,3 +63,4 @@ JWT 改为 introspection/外部 IdP、Gateway 不再保存 login grant、需要�
 ## 变更记录
 
 - 2026-09-02：状态变更：draft → review。原因：已沉淀未复现 Nimbus 缓存缺陷、共享只读恢复边界、安全观测与部署剩余风险
+- 2026-09-02：结构与内容校验通过，由工具置为 checked。

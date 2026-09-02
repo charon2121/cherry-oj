@@ -2,7 +2,7 @@
 id: "VERIFY-031"
 type: "verify"
 title: "修复后台题目列表间歇性 502"
-status: "review"
+status: "approved"
 work: "WORK-030"
 owners: ["codex/root"]
 depends_on: ["TASK-048"]
@@ -88,3 +88,4 @@ Session 单飞不提供多 Gateway 实例的全局单飞。写请求与下载仍
 - 2026-09-02：记录 K1→K2 并发基线、Gateway 一次恢复、重放边界、日志脱敏及服务端全量回归结果。
 - 2026-09-02：独立安全复核未发现可操作 finding。
 - 2026-09-02：状态变更：draft → review。原因：K1→K2 并发基线、Gateway 恢复边界、fail-closed、日志脱敏、135 项服务端回归和独立安全复核均通过
+- 2026-09-02：验收闸通过：review → approved。原因：用户明确授权签署 WORK-030 验收闸，接受当前实现、验证结果与已记录剩余风险
