@@ -1,0 +1,156 @@
+[
+  {
+    "stage": "definition",
+    "label": "问题说明、复现与预期",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "ISSUE-006"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认 Gateway 在下游 JWT 401 后单次恢复，只有登录授权失效才退出，并允许实施"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认 Gateway 在下游 JWT 401 后单次恢复，只有登录授权失效才退出，并允许实施"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "原因与修复方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-022"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-016"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-018"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "PLAN-018 明确无数据迁移，回退仅撤销 Gateway forced exchange 与单次重试，旧 Redis Session 结构兼容"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "修复任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-046"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-046"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "复核 Gateway 其它 BFF：Admin problems 的资源 401 映射 502；Admin 用户写请求未自动重放；实际 diff 未越过 TASK-046 边界"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "用户选择 Security Review；独立安全复核 branch changes 未发现 finding"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-029"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "Gateway 55/55、服务端 130 项零失败（1 项环境跳过）、Web 109/109、typecheck/build 与 2 项 Admin E2E 通过"
+      },
+      {
+        "name": "security",
+        "result": "pass",
+        "note": "Security Review 无 finding；grant/JWT/Cookie 未进入响应或新增日志，真实 grant 401 仍逐 WebSession fail-closed"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-022"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]

@@ -41,6 +41,8 @@ class GatewaySessionRedisIntegrationTests {
 
 	private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
 	private static final AtomicInteger AUTHENTICATE_CALLS = new AtomicInteger();
+	private static final AtomicInteger TOKEN_EXCHANGE_CALLS = new AtomicInteger();
+	private static final AtomicInteger ADMIN_USER_CALLS = new AtomicInteger();
 	private static volatile LocalDateTime sessionAbsoluteExpiresAt;
 	private static final DisposableServer USER_SERVICE = startUserService();
 
@@ -73,8 +75,27 @@ class GatewaySessionRedisIntegrationTests {
 						.then(response.status(HttpStatus.OK.value())
 								.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 								.sendString(Mono.just(touchJson())).then()))
+				.post("/internal/auth/token", (request, response) -> {
+					TOKEN_EXCHANGE_CALLS.incrementAndGet();
+					return request.receive().aggregate().then(response.status(HttpStatus.OK.value())
+							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+							.sendString(Mono.just(tokenExchangeJson())).then());
+				})
 				.post("/internal/auth/revoke", (request, response) -> request.receive().aggregate()
-						.then(response.status(HttpStatus.NO_CONTENT.value()).send())))
+						.then(response.status(HttpStatus.NO_CONTENT.value()).send()))
+				.get("/internal/admin/users", (request, response) -> {
+					ADMIN_USER_CALLS.incrementAndGet();
+					String authorization = request.requestHeaders().get(HttpHeaders.AUTHORIZATION);
+					if ("Bearer fresh-internal-jwt-canary".equals(authorization)) {
+						return response.status(HttpStatus.OK.value())
+								.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+								.sendString(Mono.just(userPageJson())).then();
+					}
+					return response.status(HttpStatus.UNAUTHORIZED.value())
+							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+							.sendString(Mono.just("{\"code\":\"INVALID_TOKEN\",\"message\":\"\"}"))
+							.then();
+				}))
 				.bindNow();
 	}
 
@@ -162,6 +183,41 @@ class GatewaySessionRedisIntegrationTests {
 	}
 
 	@Test
+	void rejectedDelegatedTokenIsExchangedOnceAndAdminListRecoversWithoutLogout() {
+		WebTestClient client = WebTestClient.bindToServer()
+				.baseUrl("http://127.0.0.1:" + port).build();
+		int exchangesBefore = TOKEN_EXCHANGE_CALLS.get();
+		int adminCallsBefore = ADMIN_USER_CALLS.get();
+		EntityExchangeResult<byte[]> csrf = client.get().uri("/api/auth/csrf")
+				.exchange().expectStatus().isOk().expectBody().returnResult();
+		ResponseCookie anonymousCookie = csrf.getResponseCookies().getFirst("CHERRY_SESSION");
+		EntityExchangeResult<byte[]> login = client.post().uri("/api/auth/login")
+				.cookie("CHERRY_SESSION", anonymousCookie.getValue())
+				.header("X-CSRF-Token", token(csrf))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{\"username\":\"admin01\",\"password\":\"correct-password\"}")
+				.exchange().expectStatus().isOk().expectBody().returnResult();
+		ResponseCookie authenticatedCookie = login.getResponseCookies().getFirst("CHERRY_SESSION");
+
+		client.get().uri("/api/admin/users?page=1&size=20")
+				.cookie("CHERRY_SESSION", authenticatedCookie.getValue())
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.data.items[0].username").isEqualTo("admin01")
+				.jsonPath("$.meta.pagination.totalElements").isEqualTo(1);
+
+		assertThat(TOKEN_EXCHANGE_CALLS.get() - exchangesBefore).isEqualTo(1);
+		assertThat(ADMIN_USER_CALLS.get() - adminCallsBefore).isEqualTo(2);
+		client.get().uri("/api/auth/session")
+				.cookie("CHERRY_SESSION", authenticatedCookie.getValue())
+				.exchange()
+				.expectStatus().isOk()
+				.expectBody()
+				.jsonPath("$.data.authenticated").isEqualTo(true);
+	}
+
+	@Test
 	void redisSessionRepositoryUsesConfiguredIdleSeconds() {
 		Session session = sessions.createSession().cast(Session.class).block();
 		assertThat(session).isNotNull();
@@ -226,5 +282,54 @@ class GatewaySessionRedisIntegrationTests {
 				  "sessionRefreshIdleOnActivity": true
 				}
 				""".formatted(idleExpiresAt, sessionAbsoluteExpiresAt);
+	}
+
+	private static String tokenExchangeJson() {
+		Instant exchanged = Instant.now();
+		LocalDateTime idleExpiresAt = LocalDateTime.ofInstant(
+				exchanged.plusSeconds(1_800), ZoneOffset.UTC);
+		return """
+				{
+				  "user": {
+				    "id": "019c8e42-7f70-7000-8000-000000000001",
+				    "username": "admin01",
+				    "role": "ADMIN",
+				    "status": "ACTIVE",
+				    "passwordChangeRequired": false,
+				    "createdAt": "2026-08-26T01:00:00",
+				    "updatedAt": "2026-08-26T01:00:00",
+				    "rowVersion": 0
+				  },
+				  "accessToken": "fresh-internal-jwt-canary",
+				  "accessTokenExpiresAt": "%s",
+				  "sessionIdleExpiresAt": "%s",
+				  "sessionAbsoluteExpiresAt": "%s",
+				  "sessionIdleTimeoutSeconds": 1800,
+				  "sessionAbsoluteTimeoutSeconds": 43200,
+				  "sessionRefreshIdleOnActivity": true
+				}
+				""".formatted(
+					exchanged.plusSeconds(120), idleExpiresAt, sessionAbsoluteExpiresAt);
+	}
+
+	private static String userPageJson() {
+		return """
+				{
+				  "items": [{
+				    "id": "019c8e42-7f70-7000-8000-000000000001",
+				    "username": "admin01",
+				    "role": "ADMIN",
+				    "status": "ACTIVE",
+				    "passwordChangeRequired": false,
+				    "createdAt": "2026-08-26T01:00:00",
+				    "updatedAt": "2026-08-26T01:00:00",
+				    "rowVersion": 0
+				  }],
+				  "page": 1,
+				  "size": 20,
+				  "totalElements": 1,
+				  "totalPages": 1
+				}
+				""";
 	}
 }

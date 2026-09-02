@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -45,6 +47,95 @@ class GatewayAuthenticationServiceTests {
 		assertThat(results).hasSize(2).allSatisfy(result ->
 				assertThat(result.accessToken()).isEqualTo("fresh-access-token"));
 		verify(client).exchange("grant-value", "req_test");
+	}
+
+	@Test
+	void rejectedAccessTokenForcesExchangeBeforeRefreshWindow() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		AuthSessionState initial = state(NOW.plusSeconds(120));
+		session.getAttributes().put(GatewayAuthenticationService.SESSION_STATE, initial);
+		when(client.exchange("grant-value", "req_test")).thenReturn(Mono.just(exchangeResult()));
+
+		AuthSessionState recovered = service(client)
+				.recoverRejectedAccessToken(session, initial, "req_test").block();
+
+		assertThat(recovered.accessToken()).isEqualTo("fresh-access-token");
+		assertThat((AuthSessionState) session.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+				.isEqualTo(recovered);
+		verify(client).exchange("grant-value", "req_test");
+		verify(client, never()).touch("grant-value", "req_test");
+	}
+
+	@Test
+	void concurrentRejectedTokenRecoveryUpdatesEverySessionInstanceWithOneExchange() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		AuthSessionState initial = state(NOW.plusSeconds(120));
+		WebSession first = session("shared-session", initial);
+		WebSession second = session("shared-session", initial);
+		when(client.exchange("grant-value", "req_test"))
+				.thenReturn(Mono.delay(Duration.ofMillis(10)).map(ignored -> exchangeResult()));
+		GatewayAuthenticationService service = service(client);
+
+		List<AuthSessionState> recovered = Mono.zip(
+				service.recoverRejectedAccessToken(first, initial, "req_test"),
+				service.recoverRejectedAccessToken(second, initial, "req_test"),
+				List::of).block();
+
+		assertThat(recovered).hasSize(2).allSatisfy(state ->
+				assertThat(state.accessToken()).isEqualTo("fresh-access-token"));
+		assertThat(((AuthSessionState) first.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+				.accessToken()).isEqualTo("fresh-access-token");
+		assertThat(((AuthSessionState) second.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+				.accessToken()).isEqualTo("fresh-access-token");
+		verify(client).exchange("grant-value", "req_test");
+	}
+
+	@Test
+	void concurrentRejectedGrantInvalidatesEverySessionInstanceWithOneExchange() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		AuthSessionState initial = state(NOW.plusSeconds(120));
+		WebSession first = session("shared-session", initial);
+		WebSession second = session("shared-session", initial);
+		when(client.exchange("grant-value", "req_test"))
+				.thenReturn(Mono.delay(Duration.ofMillis(10)).flatMap(ignored -> Mono.error(
+						new UserServiceClientException(
+								HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED"))));
+		GatewayAuthenticationService service = service(client);
+
+		Mono.when(
+				service.recoverRejectedAccessToken(first, initial, "req_test")
+						.onErrorResume(error -> assertUnauthenticated(error)),
+				service.recoverRejectedAccessToken(second, initial, "req_test")
+						.onErrorResume(error -> assertUnauthenticated(error)))
+				.block();
+
+		assertThat(first.getAttributes()).isEmpty();
+		assertThat(second.getAttributes()).isEmpty();
+		verify(client).exchange("grant-value", "req_test");
+	}
+
+	@Test
+	void lateTouchDoesNotOverwriteNewerAccessToken() {
+		UserServiceClient client = mock(UserServiceClient.class);
+		WebSession session = new MockWebSession();
+		AuthSessionState initial = state(NOW.plusSeconds(120));
+		AuthSessionState newer = new AuthSessionState(
+				initial.user(), initial.loginGrant(), "newer-access-token", NOW.plusSeconds(240),
+				initial.idleExpiresAt(), initial.absoluteExpiresAt());
+		session.getAttributes().put(GatewayAuthenticationService.SESSION_STATE, initial);
+		when(client.touch("grant-value", "req_test"))
+				.thenReturn(Mono.delay(Duration.ofMillis(10)).map(ignored -> touchResult(true)));
+
+		Mono<AuthSessionState> touching = service(client).current(session, "req_test", true);
+		AuthSessionState result = touching
+				.doOnSubscribe(ignored -> session.getAttributes().put(
+						GatewayAuthenticationService.SESSION_STATE, newer))
+				.block();
+
+		assertThat(result).isSameAs(newer);
+		assertThat((AuthSessionState) session.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+				.isSameAs(newer);
 	}
 
 	@Test
@@ -204,6 +295,29 @@ class GatewayAuthenticationServiceTests {
 		return new AuthSessionState(
 				user(), "grant-value", "old-access-token", tokenExpiry,
 				NOW.plusSeconds(1_800), NOW.plusSeconds(3_600));
+	}
+
+	private static WebSession session(String id, AuthSessionState initial) {
+		WebSession session = mock(WebSession.class);
+		Map<String, Object> attributes = new ConcurrentHashMap<>();
+		attributes.put(GatewayAuthenticationService.SESSION_STATE, initial);
+		when(session.getId()).thenReturn(id);
+		when(session.getAttributes()).thenReturn(attributes);
+		when(session.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+				.thenAnswer(ignored -> attributes.get(GatewayAuthenticationService.SESSION_STATE));
+		when(session.invalidate()).thenAnswer(ignored -> {
+			attributes.clear();
+			return Mono.empty();
+		});
+		return session;
+	}
+
+	private static Mono<AuthSessionState> assertUnauthenticated(Throwable error) {
+		assertThat(error).isInstanceOfSatisfying(ApiProblemException.class, problem -> {
+			assertThat(problem.status()).isEqualTo(HttpStatus.UNAUTHORIZED);
+			assertThat(problem.code()).isEqualTo("UNAUTHENTICATED");
+		});
+		return Mono.empty();
 	}
 
 	private static UserServiceClient.TokenExchangeResult exchangeResult() {

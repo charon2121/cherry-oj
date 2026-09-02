@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebSession;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
 import com.cherryoj.gatewayservice.api.ApiRequestContext;
@@ -49,9 +50,8 @@ public class AdminUserController {
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
 			ServerWebExchange exchange) {
 		String requestId = ApiRequestContext.requestId(exchange);
-		return withAdmin(exchange, requestId).flatMap(state ->
-				userService.listUsers(state.accessToken(), page, size, requestId)
-						.onErrorMap(error -> GatewayAuthenticationService.mapUpstream(error, false))
+		return exchange.getSession().flatMap(session -> withAdmin(session, requestId).flatMap(state ->
+				listUsersWithRecovery(session, state, page, size, requestId)
 						.map(result -> ResponseEntity.ok()
 								.cacheControl(CacheControl.noStore())
 								.body(ApiSuccess.of(
@@ -59,7 +59,7 @@ public class AdminUserController {
 												.map(UserServiceClient.InternalUser::publicView).toList()),
 										requestId,
 										new PagePagination(result.page(), result.size(),
-												result.totalElements(), result.totalPages())))));
+												result.totalElements(), result.totalPages()))))));
 	}
 
 	@PostMapping
@@ -106,7 +106,11 @@ public class AdminUserController {
 	}
 
 	private Mono<AuthSessionState> withAdmin(ServerWebExchange exchange, String requestId) {
-		return exchange.getSession().flatMap(session -> authentication.current(session, requestId, true))
+		return exchange.getSession().flatMap(session -> withAdmin(session, requestId));
+	}
+
+	private Mono<AuthSessionState> withAdmin(WebSession session, String requestId) {
+		return authentication.current(session, requestId, true)
 				.flatMap(state -> {
 					if (state.user().passwordChangeRequired()) {
 						return Mono.error(new ApiProblemException(
@@ -123,6 +127,36 @@ public class AdminUserController {
 									"无权访问",
 									"当前身份无权执行此操作。"));
 				});
+	}
+
+	private Mono<UserServiceClient.UserPage> listUsersWithRecovery(
+			WebSession session, AuthSessionState state, int page, int size, String requestId) {
+		return userService.listUsers(state.accessToken(), page, size, requestId)
+				.onErrorResume(error -> {
+					if (!isUnauthorized(error)) {
+						return Mono.error(GatewayAuthenticationService.mapUpstream(error, false));
+					}
+					return authentication.recoverRejectedAccessToken(session, state, requestId)
+							.flatMap(refreshed -> userService.listUsers(
+										refreshed.accessToken(), page, size, requestId)
+									.onErrorMap(AdminUserController::mapRetriedListError));
+				});
+	}
+
+	private static boolean isUnauthorized(Throwable error) {
+		return error instanceof UserServiceClientException upstream
+				&& upstream.status().value() == HttpStatus.UNAUTHORIZED.value();
+	}
+
+	private static ApiProblemException mapRetriedListError(Throwable error) {
+		if (isUnauthorized(error)) {
+			return new ApiProblemException(
+					HttpStatus.SERVICE_UNAVAILABLE,
+					"SERVICE_UNAVAILABLE",
+					"服务暂不可用",
+					"身份服务暂时无法确认当前权限，请稍后重试。");
+		}
+		return GatewayAuthenticationService.mapUpstream(error, false);
 	}
 
 	record UserListData(List<UserAccountData> items) {
