@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: false
 user_visible: false
 created_at: "2026-09-01"
-updated_at: "2026-09-01"
+updated_at: "2026-09-02"
 work_type: "maintenance"
 ---
 
@@ -52,7 +52,7 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发任务 | ✔ 完成 | 必需 | TASK-043 `done`、TASK-044 `done`、TASK-045 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-043 `done`、TASK-044 `done`、TASK-045 `done` | 按任务实施，产出代码与测试 |
 | 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | · 未开始 | 必需 | VERIFY-028 `draft` | 用可复现的证据确认要求逐条满足 |
+| 回归验证 | ▶ 进行中 | 必需 | VERIFY-028 `review` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项

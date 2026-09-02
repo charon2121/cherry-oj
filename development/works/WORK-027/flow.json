@@ -88,7 +88,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-028"

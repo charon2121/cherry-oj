@@ -89,6 +89,34 @@ describe('SelectField', () => {
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
   });
 
+  it('shows the item label on the trigger, not the raw value', () => {
+    // items 必须交给 Base UI Root，否则 trigger 显示 EASY 而不是「简单」。
+    // 这个 bug 单测和类型检查都没抓到，是 E2E 发现的，补在这里免得再犯。
+    render(
+      <SelectField
+        label="难度"
+        value="EASY"
+        onValueChange={() => {}}
+        items={[
+          { value: '', label: '全部难度' },
+          { value: 'EASY', label: '简单' },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('combobox', { name: '难度' })).toHaveTextContent('简单');
+  });
+
+  it('keeps a visible focus outline so keyboard users can see the control', () => {
+    // controlClasses 里的 outline-none 会让 focus-visible:outline-2 永远画不出来；
+    // 必须同时给出 outline-solid。这条也是 E2E 在 forced-colors 下发现的。
+    render(<SelectField label="难度" value="" onValueChange={() => {}} items={[]} />);
+
+    expect(screen.getByRole('combobox', { name: '难度' }).className).toContain(
+      'focus-visible:outline-solid',
+    );
+  });
+
   it('opens the listbox and reports the chosen value', async () => {
     const user = userEvent.setup();
     const onValueChange = vi.fn();

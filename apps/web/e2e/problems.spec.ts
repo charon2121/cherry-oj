@@ -66,7 +66,9 @@ test('anonymous URL filters restore and a real detail link stays safe at 320px',
   await page.goto('/problems?q=%E4%B8%A4%E6%95%B0&difficulty=EASY&sort=TITLE_ASC&size=20');
   await expect(page.getByRole('heading', { name: '选择下一道题' })).toBeVisible();
   await expect(page.getByLabel('关键词')).toHaveValue('两数');
-  await expect(page.getByLabel('难度')).toHaveValue('EASY');
+  // 难度筛选器已从原生 <select> 换成 Base UI Select：trigger 是 button，
+  // 当前值读 trigger 的可见文本，不再是表单控件的 value。
+  await expect(page.getByRole('combobox', { name: '难度' })).toContainText('简单');
   await expect(page.getByRole('link', { name: /两数之和/ })).toHaveAttribute(
     'href',
     '/problems/two-sum',
@@ -218,7 +220,8 @@ test('an admin creates a draft and restores the complete version workbench', asy
   expect(adminListUrl.searchParams.get('size')).toBe('20');
   await page.getByLabel('题目标识').fill('two-sum');
   await page.getByLabel('标题').fill('两数之和');
-  await page.getByLabel('难度').selectOption('EASY');
+  await page.getByRole('combobox', { name: '难度' }).click();
+  await page.getByRole('option', { name: '简单' }).click();
   await page.getByRole('button', { name: '新建' }).click();
 
   await expect(page).toHaveURL(

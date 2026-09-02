@@ -7,4 +7,4 @@
  * disabled 使用专门 token），因此抽到一处集中维护，避免三份实现各自漂移。
  */
 export const controlClasses =
-  'min-h-10 w-full min-w-0 rounded-sm border border-border-strong bg-input-background px-3 py-2 text-foreground transition-colors duration-[var(--ds-motion-fast)] outline-none placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border-strong disabled:bg-secondary disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)]';
+  'min-h-10 w-full min-w-0 rounded-sm border border-border-strong bg-input-background px-3 py-2 text-foreground transition-colors duration-[var(--ds-motion-fast)] outline-none placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border-strong disabled:bg-secondary disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)]';

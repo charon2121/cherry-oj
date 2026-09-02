@@ -11,7 +11,7 @@ implements: ["CHANGE-009#REQ-001", "CHANGE-009#REQ-002"]
 verifies: []
 tags: []
 read_paths: ["apps/web", "docs/design-system.md"]
-write_paths: ["apps/web/src/components/ui", "apps/web/src/features", "apps/web/src/routes", "apps/web/src/app"]
+write_paths: ["apps/web/src/components/ui", "apps/web/src/features", "apps/web/src/routes", "apps/web/src/app", "apps/web/e2e"]
 forbidden_paths: ["apps/web/design-system", "contracts", "apps/server"]
 created_at: "2026-09-01"
 updated_at: "2026-09-01"

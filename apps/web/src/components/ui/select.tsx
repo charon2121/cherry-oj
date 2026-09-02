@@ -27,7 +27,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        'border-border-strong bg-input-background text-foreground data-placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring focus-visible:outline-ring disabled:border-border-strong disabled:bg-secondary flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-[length:var(--ds-text-sm)] transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)] data-[size=default]:min-h-10 data-[size=sm]:min-h-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'border-border-strong bg-input-background text-foreground data-placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring focus-visible:outline-ring disabled:border-border-strong disabled:bg-secondary flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-[length:var(--ds-text-sm)] transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)] data-[size=default]:min-h-10 data-[size=sm]:min-h-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}
@@ -194,7 +194,12 @@ function SelectField({
   return (
     <Field className={className}>
       <FieldLabel htmlFor={triggerId}>{label}</FieldLabel>
-      <Select value={value} onValueChange={(next) => onValueChange(String(next ?? ''))}>
+      {/* items 必须交给 Root：否则 SelectValue 只能显示原始 value（例如显示 EASY 而不是「简单」）。 */}
+      <Select
+        items={items}
+        value={value}
+        onValueChange={(next) => onValueChange(String(next ?? ''))}
+      >
         <SelectTrigger
           id={triggerId}
           {...(description === undefined ? {} : { 'aria-describedby': descriptionId })}
