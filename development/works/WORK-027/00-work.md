@@ -2,7 +2,7 @@
 id: "WORK-027"
 type: "work"
 title: "把手写基础组件改为基于 shadcn 官方实现"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "medium"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["change", "design", "plan", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "accessibility", "compatibility"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -51,8 +51,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发计划 | ✔ 完成 | 必需 | PLAN-017 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-043 `done`、TASK-044 `done`、TASK-045 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-043 `done`、TASK-044 `done`、TASK-045 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-028 `review` | 用可复现的证据确认要求逐条满足 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-028 `approved` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -65,3 +65,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-01：意图闸：passed。原因：负责人审阅后批准：6 个组件换成 shadcn 官方实现文件、7 个已基于 base-ui 的只记录与官方的出入不改代码、link/typography/layout 因官方 registry 无对应而维持手写；调用方用法尽量不动，TASK-044 与 TASK-045 串行执行
 - 2026-09-01：根据文档、任务与验证事实刷新状态：todo → doing。
 - 2026-09-01：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-02：验收闸：passed。原因：目前先通过。移动端不再唤起系统选择器这一项接受，后续做移动端优化时遇到再解决；FormField 对复合组件的限制与 REQ-003 未逐个比对的 6 个组件作为已知遗留项
+- 2026-09-02：根据文档、任务与验证事实刷新状态：implemented → verified。

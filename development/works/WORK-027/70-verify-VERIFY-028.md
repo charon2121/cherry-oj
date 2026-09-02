@@ -2,7 +2,7 @@
 id: "VERIFY-028"
 type: "verify"
 title: "组件实现文件替换验证"
-status: "review"
+status: "approved"
 work: "WORK-027"
 owners: ["codex/root"]
 depends_on: ["TASK-043"]
@@ -123,3 +123,4 @@ CHANGE-009 的 REQ-001～REQ-011 与 AC-001～AC-006 全部满足，执行中发
 ## 变更记录
 
 - 2026-09-02：状态变更：draft → review。原因：验证执行完毕，结果提交复核
+- 2026-09-02：验收闸通过：review → approved。原因：目前先通过。移动端不再唤起系统选择器这一项接受，后续做移动端优化时遇到再解决；FormField 对复合组件的限制与 REQ-003 未逐个比对的 6 个组件作为已知遗留项
