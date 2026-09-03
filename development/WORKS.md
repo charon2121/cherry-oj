@@ -39,3 +39,4 @@
 | WORK-032 | 修复 WORK-031 遗留的 CI 测试断言 | 问题修复 | 验证通过 | 低 | 多个模块 | codex/root | [00-work.md](./works/WORK-032/00-work.md) |
 | WORK-033 | 重设计后台题目创建与编辑体验 | 工程改进 | 实现完成 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-033/00-work.md) |
 | WORK-034 | 基于下载版重建 Web 设计系统并保留浅色主题 | 工程改进 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-034/00-work.md) |
+| WORK-035 | 收敛设计系统为单一真源 | 整理维护 | 待确认 | 中 | 多个模块 | claude/root | [00-work.md](./works/WORK-035/00-work.md) |
