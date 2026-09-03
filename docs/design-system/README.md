@@ -6,18 +6,23 @@ production dual-theme interpretation for Cherry OJ.
 
 # Cherry OJ 设计系统说明包
 
-本目录保存 WORK-034 新设计系统的人类可读依据：下载版 Claude Design 完整快照、来源锁、双主题参考
-token、组件合同和检查页。它用于审阅和追溯，不是 Web 的安装或运行依赖；真正被前端构建消费的代码真源
-位于 `apps/web/design-system/`。
+本目录保存设计系统的人类可读依据：下载版 Claude Design 完整快照、来源锁和组件合同。它只用于审阅和
+追溯，**不持有任何设计值**——token、主题、合同、adapter 和校验器的唯一真源是
+`apps/web/design-system/`。
+
+WORK-035 之前，本目录还存放着与代码树字节相同的 token、主题、合同、adapter 和一份 1336 行的校验器。
+那份副本没有消费者，也没有任何机制保证它与真源一致，只是让每次改动都要在两处各做一遍。现在它们
+已被删除：需要查某个值，去代码树；需要查这个值凭什么是这样，看 `source/`。
 
 ## 权威顺序
 
-1. [`../design-system.md`](../design-system.md) 定义生产设计原则、组件/页面规则和例外流程；
-2. [`source/claude-design-v1/`](./source/claude-design-v1/) 是用户认可下载版的原样视觉证据，
+1. [`source/claude-design-v1/`](./source/claude-design-v1/) 是用户认可下载版的原样视觉证据，
    [`source-lock.json`](./source-lock.json) 锁定其 99 文件、239831 bytes 和逐文件 SHA-256；
-3. 本目录的 Foundation、主题、合同、manifest 和 preview 是对来源的中文生产解释；
-4. `apps/web/design-system/` 是 Web 可执行真源；真实 React 组件和 Storybook 是最终消费结果；
-5. 来源里的 JSX/HTML/bundle 是原型证据，不可覆盖 TypeScript、语义 HTML、Base UI、可访问性和业务合同。
+2. [`../design-system.md`](../design-system.md) 定义生产设计原则、组件/页面规则和例外流程；
+3. `apps/web/design-system/` 是 Web 可执行真源，持有全部 token、主题、合同、adapter 与校验器；
+   真实 React 组件和 Storybook 是最终消费结果。
+
+来源里的 JSX/HTML/bundle 是原型证据，不可覆盖 TypeScript、语义 HTML、Base UI、可访问性和业务合同。
 
 ## 暗色与浅色
 
@@ -35,15 +40,14 @@ token、组件合同和检查页。它用于审阅和追溯，不是 Web 的安�
 |---|---|---|
 | `source/claude-design-v1/**` | 冻结来源证据 | 否 |
 | `source-lock.json` | 来源路径、大小与摘要锁 | 由工具生成 |
-| `tokens.foundation.css` | 共享字体、字号、间距、圆角、布局与动效 | 是 |
-| `theme-contract.json` | 主题 semantic key、允许组合与对比门槛 | 是，不保存主题值 |
-| `themes.manifest.json` | 双主题登记、默认值、来源与版本 | 是 |
-| `themes/*.css` | 两主题完整 semantic 映射 | 是 |
-| `tokens.css` / `design-tokens.json` | 稳定 CSS 与机器参考快照 | 由工具生成 |
-| `tailwind-v4.css` | Tailwind/shadcn 语义映射参考 | 是，不保存主题值 |
 | `components.manifest.json` | 组件 anatomy、状态、键盘与 token 合同 | 是 |
-| `preview/*.html` | 主题、颜色、字体和间距的参考检查页 | 是 |
 | `manifest.json` | 说明包入口、来源和完整文件登记 | 是 |
+| `NOTICE.md` / `LICENSE.*` | 来源链、生产适配与许可原文 | 是 |
+
+token、主题、合同、Tailwind adapter、生成快照与校验器**不在本目录**，见
+`apps/web/design-system/`。Foundation 与主题的视觉参考用来源自带的
+[`source/claude-design-v1/guidelines/`](./source/claude-design-v1/guidelines/)（20 张 specimen 卡片），
+本目录不再自制 preview 页。
 
 ## 生产化原则
 
@@ -60,18 +64,16 @@ token、组件合同和检查页。它用于审阅和追溯，不是 Web 的安�
 
 ## 维护与检查
 
-真正修改设计系统时，在同一 WORK/TASK 内同步代码树和文档树；普通 CI 不做跨树 copy、drift 或 symlink。
-从仓库根目录运行：
+本目录只有一条检查命令，从仓库根目录运行：
 
 ```bash
 node docs/design-system/tools/source-lock.mjs --check
-node docs/design-system/tools/build.mjs
-node docs/design-system/tools/build.mjs --check
-node docs/design-system/tools/check.mjs
-node docs/design-system/tools/check.mjs --self-test
 ```
 
-组件视觉只在 Storybook 和产品页面验收；`preview/` 只帮助核对 Foundation/主题，不手抄 React 组件。
+它确认冻结来源的 99 个文件未被改动。设计值的生成与校验全部在代码树，见
+`apps/web/design-system/README.md`。
+
+组件视觉只在 Storybook 和产品页面验收；Foundation 与主题的核对用 `source/` 的 guidelines 卡片。
 
 ## 来源与许可
 

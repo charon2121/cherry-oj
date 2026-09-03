@@ -53,8 +53,14 @@ updated_at: "2026-09-03"
 
 出口条件：把 `docs/` 临时移走后 Web 全套命令仍通过；被删路径的仓库引用数为 0。
 
+阶段 2 的删除必须与"修正指向被删文件的链接"同属一个提交：`scripts/docs_test.py:68` 校验 markdown
+链接目标存在，而 `docs/design-system.md` 有 5 处链接指向待删文件（`themes/*.css` 两处、
+`themes.manifest.json`、`tailwind-v4.css`、`preview/`）。拆开会让中间那个提交的文档检查变红，
+违反"每个提交都能独立通过检查"。因此阶段 2 负责"删除并让文档重新自洽"，阶段 3 负责"让文档说对话"。
+
 **阶段 3 — 叙述与引用对齐（TASK-058）**
-1. `docs/design-system.md` 权威顺序由 6 层降为 3 层，来源叙述改写为与 git 历史一致的事实；
+1. `docs/design-system.md` 权威顺序由 6 层降为 3 层，来源叙述改写为与 git 历史一致的事实
+   （指向被删文件的链接已在阶段 2 修正）；
 2. `components.manifest.json` 每个组件条目补 `sourceRefs`，指向来源中实际存在的
    `*.prompt.md` / `*.card.html`；
 3. `CLAUDE.md`、`AGENTS.md` 的设计系统路由指向新结构。

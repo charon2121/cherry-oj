@@ -54,15 +54,18 @@ updated_at: "2026-09-03"
    - §1 权威关系由 6 条降为 3 条：冻结来源 → 本文的原则与组件合同 → `apps/web/design-system/` 可执行真源；
    - 开头的来源叙述改写为事实：当前系统是 2026-08-28 建立的架构在 2026-09-03 引入冻结来源后
      完成数值适配的结果，冻结来源是视觉依据而非架构来源；
-   - 删除对已删文件（`docs/design-system/` 侧 token、主题、adapter、preview）的全部引用，
-     视觉参考改指 Storybook 与 `source/claude-design-v1/guidelines/`；
+   - 链接目标已由 TASK-057 修正，本任务只处理叙述：确认正文对这些文件的**描述**也已随之更新，
+     视觉参考的说法改指 Storybook 与 `source/claude-design-v1/guidelines/`；
    - §10「当前实现边界」更新为收敛后的结构。
 2. `docs/design-system/components.manifest.json`：每个组件条目新增 `sourceRefs`（仓库相对路径数组），
    指向 `source/claude-design-v1/` 内实际存在的 `*.prompt.md` 或 `*.card.html`。
    来源中没有对应物的 OJ 业务组件（`verdict`、`submission-lifecycle`、`editor-workspace`、
    `data-table-list`、`app-shell-navigation`、`async-state`、`inline-notice` 等）填空数组，
    不得为了凑齐而指向不相关的卡片。
-3. `CLAUDE.md`、`AGENTS.md`：设计系统相关的路由行指向新结构，只改这些行，不动其他条目。
+3. `docs/design-system.md` 散文中复述的具体色值改为语义描述（§3.1 的画布/surface/文字锚点、
+   §5 的 Cherry 实心与 hover/active 色值）。TASK-057 完成后，`#d2042d` / `#08090a` 仍出现在本文，
+   它是 REQ-001「值只有一处手写定义」的最后一处残留；具体值只以 `themes/*.css` 为准。
+4. `CLAUDE.md`、`AGENTS.md`：设计系统相关的路由行指向新结构，只改这些行，不动其他条目。
 
 ## 完成标准
 
@@ -73,6 +76,8 @@ updated_at: "2026-09-03"
 - [ ] `components.manifest.json` 中每条 `sourceRefs` 路径在 `source/claude-design-v1/` 内真实存在，
       逐条核对通过。
 - [ ] WORK-034 目录下文件的 diff 为空。
+- [ ] `git grep -l` 确认 `#d2042d`、`#08090a` 等主题值只出现在 `apps/web/design-system/themes/*.css`
+      与生成物 `design-tokens.json`、冻结来源 `source/` 之中。
 
 ## 验证
 
@@ -93,3 +98,5 @@ node -e "const m=require('./docs/design-system/components.manifest.json');const 
 ## 执行记录
 
 - 2026-09-03：创建任务。
+- 2026-09-03：范围收窄：`docs/design-system.md` 中指向被删文件的链接改由 TASK-057 处理，
+  本任务只负责叙述、`sourceRefs` 与入口路由。原因见 TASK-057 执行记录。

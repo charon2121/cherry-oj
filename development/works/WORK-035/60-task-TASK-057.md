@@ -2,7 +2,7 @@
 id: "TASK-057"
 type: "task"
 title: "删除文档树设计系统副本"
-status: "todo"
+status: "done"
 work: "WORK-035"
 owners: ["claude/root"]
 depends_on: ["TASK-056"]
@@ -11,7 +11,7 @@ implements: ["CHANGE-010", "CHANGE-010#REQ-003", "CHANGE-010#REQ-004", "CHANGE-0
 verifies: []
 tags: []
 read_paths: ["docs/design-system", "apps/web/design-system", "apps/web/package.json", ".github", "scripts"]
-write_paths: ["docs/design-system"]
+write_paths: ["docs/design-system", "docs/design-system.md"]
 forbidden_paths: ["docs/design-system/source", "docs/design-system/source-lock.json", "apps/web", "contracts"]
 created_at: "2026-09-03"
 updated_at: "2026-09-03"
@@ -66,6 +66,10 @@ CI 或检查脚本依赖被删文件。
    `node docs/design-system/tools/source-lock.mjs --check`；Foundation 与主题的视觉参考指向
    `source/claude-design-v1/guidelines/` 的 20 张 specimen 卡片。
 4. `docs/design-system/manifest.json` 改写：只登记保留下来的文件。
+5. `docs/design-system.md` 中指向被删文件的 5 处 markdown 链接就地修正（`themes/*.css` 两处、
+   `themes.manifest.json`、`tailwind-v4.css`、`preview/`），改为指向 `apps/web/design-system/`
+   的对应文件或冻结来源的 `guidelines/`。**本任务只改这些链接，不改叙述**——权威顺序和来源
+   表述属于 TASK-058。
 
 **保留集（以此为准，不以删除集为准）**：`source/`、`source-lock.json`、`tools/source-lock.mjs`、
 `NOTICE.md`、`LICENSE.open-design`、`LICENSE.lucide`、`README.md`、`components.manifest.json`、
@@ -73,12 +77,14 @@ CI 或检查脚本依赖被删文件。
 
 ## 完成标准
 
-- [ ] 上述文件已删除，保留集完整存在。
-- [ ] `git grep` 全仓库，被删路径的引用数为 0。
-- [ ] `docs/design-system/README.md` 与 `manifest.json` 不再引用任何已删除文件。
-- [ ] OpenDesign Apache-2.0、Lucide、字体许可原文与 `NOTICE.md` 的归因链完整，未因删除而缺失。
-- [ ] `node docs/design-system/tools/source-lock.mjs --check` 通过，99 文件清单与摘要未变。
-- [ ] `apps/web` 目录下没有任何文件改动。
+- [x] 上述文件已删除，保留集完整存在。
+- [x] `git grep` 全仓库，被删路径的引用数为 0。
+- [x] `docs/design-system/README.md` 与 `manifest.json` 不再引用任何已删除文件。
+- [x] OpenDesign Apache-2.0、Lucide、字体许可原文与 `NOTICE.md` 的归因链完整，未因删除而缺失。
+- [x] `node docs/design-system/tools/source-lock.mjs --check` 通过，99 文件清单与摘要未变。
+- [x] `apps/web` 目录下没有任何文件改动。
+- [x] `python3 scripts/docs_test.py` 通过，仓库中不存在指向被删文件的 markdown 链接。
+- [x] `docs/design-system.md` 的叙述段落（权威顺序、来源关系、章节结构）未被修改，只动链接目标。
 
 ## 验证
 
@@ -104,3 +110,18 @@ cd ../.. && mv /tmp/cherry-docs-isolation docs
 ## 执行记录
 
 - 2026-09-03：创建任务。
+- 2026-09-03：实施完成。删除 14 个文件（6 个与代码树字节相同的 token/主题/合同文件、tailwind adapter、
+  design-tokens.json、两个工具、4 个 preview HTML）。改写 `docs/design-system/README.md`（权威顺序
+  3 层、文件角色表只剩 5 行、维护命令只剩 source-lock）与 `manifest.json`（files 12 → 8、
+  entrypoints 重定向到代码树、移除 themes.manifest 的 managedFiles）。修正 `docs/design-system.md`
+  的 5 处死链。隔离验证：`docs/` 移出后 `npm run check`（32 文件 116 测试）、`build`、
+  `storybook:build`、`test:e2e`（30/30）全部通过。`source-lock.mjs --check` 通过，99 文件未变；
+  许可与 NOTICE 完整。主题值副本由 7 个文件降到 3 个，剩余 `docs/design-system.md` 的散文复述
+  交由 TASK-058 清理。
+- 2026-09-03：扩大 `write_paths` 增加 `docs/design-system.md`。原因：引用扫描发现
+  `scripts/docs_test.py:68` 校验 markdown 链接目标存在，而 `docs/design-system.md` 有 5 处链接
+  指向本任务要删除的文件。若留给 TASK-058，本任务的提交会让文档检查变红，违反"每个提交都能
+  独立通过检查"。阶段边界据此修正并同步进 PLAN-023：阶段 2 删除并恢复自洽，阶段 3 改写叙述。
+- 2026-09-03：状态变更：todo → ready。原因：TASK-056 已完成，Web 侧值锚点已建立
+- 2026-09-03：状态变更：ready → doing。原因：开始阶段 2：删除 docs 树可执行副本
+- 2026-09-03：状态变更：doing → done。原因：阶段 2 完成：docs 树可执行副本已删除，隔离验证确认 Web 完全不依赖 docs

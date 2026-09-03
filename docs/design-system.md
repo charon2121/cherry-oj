@@ -66,8 +66,8 @@ Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑
 
 当前主题文件为：
 
-- [`themes/cherry-black.css`](./design-system/themes/cherry-black.css)
-- [`themes/pure-white.css`](./design-system/themes/pure-white.css)
+- `apps/web/design-system/themes/cherry-black.css`
+- `apps/web/design-system/themes/pure-white.css`
 
 `cherry-black` 的画布、主要 surface 和主文字锚点分别为 `#08090a`、`#191a1b`、`#f7f8f8`；
 `pure-white` 的画布/抬升面为 `#ffffff`，panel、subtle、hover 使用
@@ -80,7 +80,7 @@ Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑
 1. 建立一个设计系统 WORK/TASK，并把代码侧与本文档包同时列入写入和验证范围。
 2. 在 `apps/web/design-system/` 新增完整 theme CSS，并在代码侧 manifest 登记稳定 id、label、color
    scheme、文件、provenance 和版本；不得只覆盖相对默认主题的差值。
-3. 同步本文、[`themes.manifest.json`](./design-system/themes.manifest.json) 和相应参考资产，分别运行 Web
+3. 同步本文、`apps/web/design-system/themes.manifest.json` 和相应参考资产，分别运行 Web
    本地 build/check 与文档包 build/check；不使用日常 drift、prebuild copy 或 symlink 自动同步。
 4. 用同一组件矩阵验证桌面、320px、键盘、长中文和 reduced-motion。
 
@@ -100,7 +100,7 @@ selection、overlay、status 与 elevation 由每个主题完整实现。Token �
 组件和页面必须：
 
 - 只消费代码侧设计系统提供的语义 token 或稳定 Tailwind alias；本文档中的
-  [`tailwind-v4.css`](./design-system/tailwind-v4.css) 仅供设计评审和同步维护参考；
+  Tailwind adapter 唯一真源是 `apps/web/design-system/tailwind-v4.css`；
 - 不写 raw hex/OKLCH，不读取 primitive palette，不出现主题 selector，也不按 theme id 分支；
 - 不用承担必要对比的动态 `color-mix()`；disabled/placeholder 使用专门 token，不再叠 opacity；
 - 只把 `border`/`border-soft` 当装饰分隔，控件或状态识别使用 `border-strong` 或对应 status border；
@@ -155,7 +155,8 @@ default、hover、pressed、focus-visible、disabled 和 loading；disabled 不�
 已知官方没有对应实现的是 `link`、`typography` 和 `layout`——shadcn 的定位是交互组件，排版与布局原语
 它一向不提供。第 3、4 层的 OJ 业务组件和页面模板本就没有官方对应，按本文合同自行设计。
 
-视觉参考见 Storybook（`cd apps/web && npm run storybook`）与 [`preview/`](./design-system/preview/)；
+视觉参考见 Storybook（`cd apps/web && npm run storybook`）与冻结来源的 20 张 specimen 卡片
+[`guidelines/`](./design-system/source/claude-design-v1/guidelines/)；
 它们用于评审，不是 token 或组件行为的真源。
 
 WORK-034 的来源核心配方为 Button、IconButton、Pill、Input、SearchInput、Textarea、Container、Stack、

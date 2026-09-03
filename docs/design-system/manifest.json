@@ -17,24 +17,16 @@
   "modified": {
     "for": "Cherry OJ",
     "date": "2026-09-03",
-    "summary": "Rebuilt the Cherry OJ design system from the frozen Claude Design export while retaining a first-class light theme."
+    "summary": "Documentation-only package: freezes the Claude Design source and the component contract. All design values live in apps/web/design-system/."
   },
   "entrypoints": {
     "documentation": "README.md",
-    "tokens": "tokens.css",
-    "tailwind": "tailwind-v4.css",
-    "components": "storybook: cd apps/web && npm run storybook",
-    "themeContract": "theme-contract.json",
-    "themeManifest": "themes.manifest.json",
-    "machineTokens": "design-tokens.json",
-    "sourceLock": "source-lock.json"
+    "source": "source/claude-design-v1/",
+    "sourceLock": "source-lock.json",
+    "components": "components.manifest.json",
+    "executableTruth": "apps/web/design-system/"
   },
   "managedFiles": [
-    {
-      "registry": "themes.manifest.json",
-      "selector": "themes[].file",
-      "role": "complete registered theme sources"
-    },
     {
       "registry": "source-lock.json",
       "selector": "files[].path",
@@ -64,58 +56,8 @@
       "role": "source attribution and modification notice"
     },
     {
-      "path": "tokens.foundation.css",
-      "role": "shared metric source"
-    },
-    {
-      "path": "theme-contract.json",
-      "role": "semantic theme contract"
-    },
-    {
-      "path": "themes.manifest.json",
-      "role": "theme registry and default"
-    },
-    {
-      "path": "tokens.css",
-      "role": "generated stable CSS entrypoint",
-      "generated": true
-    },
-    {
-      "path": "design-tokens.json",
-      "role": "generated machine token snapshot",
-      "generated": true
-    },
-    {
-      "path": "tailwind-v4.css",
-      "role": "theme-neutral Tailwind v4 and shadcn adapter"
-    },
-    {
       "path": "components.manifest.json",
       "role": "component contract registry"
-    },
-    {
-      "path": "preview/themes.html",
-      "role": "theme selection reference"
-    },
-    {
-      "path": "preview/colors.html",
-      "role": "semantic color reference"
-    },
-    {
-      "path": "preview/typography.html",
-      "role": "typography reference"
-    },
-    {
-      "path": "preview/spacing.html",
-      "role": "spacing reference"
-    },
-    {
-      "path": "tools/build.mjs",
-      "role": "deterministic generated-output builder"
-    },
-    {
-      "path": "tools/check.mjs",
-      "role": "contract and accessibility verifier"
     },
     {
       "path": "tools/source-lock.mjs",
