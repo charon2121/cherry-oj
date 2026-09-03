@@ -51,8 +51,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-030 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-020 `approved` |  |
 | 开发计划 | ▶ 进行中 | 必需 | PLAN-024 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 实施任务 | · 未开始 | 必需 | TASK-059 `done`、TASK-060 `done`、TASK-061 `done`、TASK-062 `todo`、TASK-063 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 实施 | · 未开始 | 必需 | TASK-059 `done`、TASK-060 `done`、TASK-061 `done`、TASK-062 `todo`、TASK-063 `todo` | 按任务实施，产出代码与测试 |
+| 实施任务 | · 未开始 | 必需 | TASK-059 `done`、TASK-060 `done`、TASK-061 `done`、TASK-062 `done`、TASK-063 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 实施 | · 未开始 | 必需 | TASK-059 `done`、TASK-060 `done`、TASK-061 `done`、TASK-062 `done`、TASK-063 `todo` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 验证 | · 未开始 | 必需 | VERIFY-037 `draft` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | · 未开始 | 必需 | MEMORY-028 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |

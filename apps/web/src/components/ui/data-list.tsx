@@ -51,7 +51,7 @@ type DataListProps<Row> = Readonly<{
   rowInteractive?: boolean;
   rowStatus?: (row: Row) => DataListStatus;
   rowStatusLabel?: (row: Row) => string;
-  'aria-busy'?: boolean;
+  'aria-busy'?: boolean | undefined;
 }>;
 
 const statusShape: Record<DataListStatus, string> = {
@@ -93,7 +93,9 @@ function DataList<Row>({
       data-slot="data-list"
       className={cn('border-border overflow-hidden rounded-lg border', className)}
     >
-      <Table aria-busy={ariaBusy}>
+      {/* table-fixed 不是样式偏好：默认的 table-layout: auto 会让声明的列宽变成"建议"，
+          内容一长就撑开，列边缘跨行对不齐——构图合同里最硬的那一条就落空了。 */}
+      <Table aria-busy={ariaBusy} className="table-fixed">
         <TableCaption className={cn('mt-0 px-4 py-2', !captionVisible && 'sr-only')}>
           {caption}
         </TableCaption>
@@ -132,7 +134,8 @@ function DataList<Row>({
                     key={column.id}
                     style={column.width === undefined ? undefined : { width: column.width }}
                     className={cn(
-                      column.mono && 'font-mono',
+                      // 度量值与标识固定一行：折行会让行高随内容跳动，密集列表随之散架。
+                      column.mono && 'truncate font-mono',
                       column.align === 'end' && 'text-right',
                       column.priority === 'secondary' && 'hidden md:table-cell',
                       column.priority !== 'secondary' && 'min-w-0',
