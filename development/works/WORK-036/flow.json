@@ -85,7 +85,7 @@
     "stage": "tasks",
     "label": "实施任务",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-059",
@@ -102,7 +102,7 @@
     "stage": "development",
     "label": "实施",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-059",

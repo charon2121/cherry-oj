@@ -571,7 +571,8 @@
         "source/claude-design-v1/ui_kits/app/Sidebar.jsx",
         "source/claude-design-v1/ui_kits/app/index.html",
         "source/claude-design-v1/ui_kits/app/README.md"
-      ]
+      ],
+      "implementation": "apps/web/src/app/shells/"
     },
     {
       "id": "data-table-list",
@@ -579,17 +580,18 @@
       "anatomy": [
         "caption",
         "header",
+        "status-dot",
         "rows",
-        "status",
-        "pagination"
+        "primary-column",
+        "secondary-columns"
       ],
       "sizes": [
         "comfortable",
         "compact"
       ],
       "variants": [
-        "problem-list",
-        "submission-list"
+        "static",
+        "interactive"
       ],
       "states": [
         "default",
@@ -614,12 +616,18 @@
         "Caption names the data set"
       ],
       "constraints": [
-        "Do not make the row a generic clickable container",
-        "Phone layout may become a labeled list without changing reading order"
+        "Column widths are declared once and shared across rows; the table must use table-fixed so a long cell cannot widen its column.",
+        "Measure and identifier columns stay on one line and truncate; wrapping makes row height track content and the dense list falls apart.",
+        "Rows are separated by a 1px hairline, never by card spacing, and never rendered as a card grid.",
+        "A clickable row is exactly one link placed in the primary column, extended over the row with ::after; never a div with onClick, and never an <a> between <tr> and <td>.",
+        "Row titles use the foreground ladder, not the brand colour: a screenful of Cherry titles is the large colour field the source forbids.",
+        "Narrow screens fold secondary columns under the first primary column; they are never truncated or horizontally scrolled away.",
+        "Status is a shape (filled dot / hollow dot / rounded square) plus readable text, never colour alone."
       ],
       "sourceRefs": [
         "source/claude-design-v1/ui_kits/app/ProblemList.jsx"
-      ]
+      ],
+      "implementation": "apps/web/src/components/ui/data-list.tsx"
     },
     {
       "id": "dialog-popover",

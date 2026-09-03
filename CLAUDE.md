@@ -71,7 +71,7 @@ cherry-oj/
 | 写 Go（judge / sandbox）                   | [`docs/engineering/go.md`](./docs/engineering/go.md)                                                                      |
 | 写 Java（`apps/server`）                   | [`docs/engineering/java.md`](./docs/engineering/java.md) + [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md)       |
 | 写 TypeScript                              | [`docs/engineering/typescript.md`](./docs/engineering/typescript.md) + [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
-| 动任何 Web UI、组件、样式或主题            | 上一行，**外加** [`docs/design-system.md`](./docs/design-system.md)：三层权威（冻结来源 → 本文合同 → `apps/web/design-system/` 真源），对照来源但不执行其 demo |
+| 动任何 Web UI、组件、样式或主题            | 上一行，**外加** [`docs/design-system/PROMPT.md`](./docs/design-system/PROMPT.md)：三层来源、页面语法与交付前自检；规则全文见 [`docs/design-system.md`](./docs/design-system.md)，对照来源但不执行其 demo |
 | 命名、错误、资源、依赖方向、测试的通用约定 | [`docs/engineering/conventions.md`](./docs/engineering/conventions.md)                                                    |
 | 提交、hooks、CI 细节                       | [`docs/engineering/git-workflow.md`](./docs/engineering/git-workflow.md)                                                  |
 | 开发流程、工作项、两道闸                   | [`development/README.md`](./development/README.md)                                                                        |
