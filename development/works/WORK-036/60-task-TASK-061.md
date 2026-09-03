@@ -2,7 +2,7 @@
 id: "TASK-061"
 type: "task"
 title: "实现 DataList、Toolbar 与页面模板"
-status: "todo"
+status: "done"
 work: "WORK-036"
 owners: ["claude/root"]
 depends_on: ["TASK-060"]
@@ -64,15 +64,15 @@ updated_at: "2026-09-03"
 
 ## 完成标准
 
-- [ ] shadcn registry 查询结果已记录；若官方有 `table`，骨架来自官方且未重写其 DOM/a11y。
-- [ ] `DataList` 桌面下列跨行严格对齐——截图中列边缘可连成直线。
-- [ ] 320px 下不横向裁切关键信息；低优先级列按 priority 折行，关键列始终可见。
-- [ ] 行可键盘聚焦、有可访问名称；整行可点击时是单个链接/按钮而非 `div` + `onClick`。
-- [ ] `Toolbar` 的 pill 过滤即时生效，不存在提交按钮；搜索框有可访问 label。
-- [ ] 三个页面模板独占首内容间距（`--ds-space-6`），页面不再自写 `pt-*`。
-- [ ] 组件不含业务逻辑、不发请求、不引用 `features/`。
-- [ ] Storybook 覆盖两主题 × default/hover/selected/focus/empty/loading；a11y 无 violation。
-- [ ] 组件内不出现 `var(--ds-`（除非已回到 TASK-060 补过 alias 仍无法表达并说明理由）。
+- [x] shadcn registry 查询结果已记录；若官方有 `table`，骨架来自官方且未重写其 DOM/a11y。
+- [x] `DataList` 桌面下列跨行严格对齐——截图中列边缘可连成直线。
+- [x] 320px 下不横向裁切关键信息；低优先级列按 priority 折行，关键列始终可见。
+- [x] 行可键盘聚焦、有可访问名称；整行可点击时是单个链接/按钮而非 `div` + `onClick`。
+- [x] `Toolbar` 的 pill 过滤即时生效，不存在提交按钮；搜索框有可访问 label。
+- [x] 三个页面模板独占首内容间距（`--ds-space-6`），页面不再自写 `pt-*`。
+- [x] 组件不含业务逻辑、不发请求、不引用 `features/`。
+- [x] Storybook 覆盖两主题 × default/hover/selected/focus/empty/loading；a11y 无 violation。
+- [x] 组件内不出现 `var(--ds-`（除非已回到 TASK-060 补过 alias 仍无法表达并说明理由）。
 
 ## 验证
 
@@ -93,3 +93,23 @@ Storybook 中逐个对照 `ui_kits/app/` 的对应界面，记录差异。
 ## 执行记录
 
 - 2026-09-03：创建任务。
+- 2026-09-03：shadcn registry 查询结果：`https://ui.shadcn.com/r/styles/base-nova/table.json`
+  返回 **200**，因此按 design-system.md §6 以官方 table 为骨架落 `table.tsx`——保留官方八个子组件、
+  `data-slot` 与 DOM/a11y，只把 `bg-muted/50`、`border-b` 等透明度叠加换成语义 token，
+  并把通用后台密度（h-10 / p-2）改成来源的 11px/16px。
+- 2026-09-03：实施完成。新增 `table.tsx`（第 2 层官方骨架）、`data-list.tsx`、`toolbar.tsx`、
+  `page-templates.tsx`，各配 stories 与 tests，测试 121→129。
+
+  实现中修正了三处自己的设计错误：
+  1. 最初的 `rowAction` 会把 `<a>` 插在 `<tr>` 与 `<td>` 之间，是非法 HTML。改为整行覆盖式链接：
+     行做定位上下文，主列里的真实链接用 `::after` 铺满整行，一个链接、键盘可达、语义正确。
+  2. 窄屏折行区最初挂在每个主列下，导致被隐藏的次要列在窄屏重复出现多份。改为只挂第一个主列。
+  3. 行标题最初用了 `Link` 的品牌色。来源把 Cherry 限制在主按钮、focus、活动态和正文链接上，
+     一屏几十行标题全是品牌色就成了它明确禁止的"大面积色块"。改为前景色 + hover 提亮，
+     并把这条理由写进 `dataListRowLinkClasses` 的注释。
+
+  另记一个工具链坑：`npm run typecheck` 用 `tsc -b`（增量），改动后可能不重新检查；
+  本次有两处类型错误是 `tsc --noEmit -p tsconfig.app.json` 才暴露的。
+- 2026-09-03：状态变更：todo → ready。原因：TASK-060 完成，alias 词汇表可用
+- 2026-09-03：状态变更：ready → doing。原因：开始阶段 3：构图层组件
+- 2026-09-03：状态变更：doing → done。原因：DataList/Toolbar/三个页面模板就位，官方 table 为骨架，窄屏折行与整行链接语义已验证
