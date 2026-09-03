@@ -53,7 +53,7 @@
     "stage": "tasks",
     "label": "开发任务",
     "requirement": "required",
-    "status": "ready",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-056",
@@ -68,7 +68,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-056",
@@ -83,7 +83,7 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
+    "status": "ready",
     "status_source": "derived",
     "artifacts": [],
     "checks": [
@@ -100,7 +100,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-036"

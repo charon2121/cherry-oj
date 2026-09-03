@@ -71,7 +71,7 @@ cherry-oj/
 | 写 Go（judge / sandbox）                   | [`docs/engineering/go.md`](./docs/engineering/go.md)                                                                      |
 | 写 Java（`apps/server`）                   | [`docs/engineering/java.md`](./docs/engineering/java.md) + [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md)       |
 | 写 TypeScript                              | [`docs/engineering/typescript.md`](./docs/engineering/typescript.md) + [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
-| 动任何 Web UI、组件、样式或主题            | 上一行，**外加** [`docs/design-system.md`](./docs/design-system.md)；按其权威顺序对照冻结来源，不执行来源 demo            |
+| 动任何 Web UI、组件、样式或主题            | 上一行，**外加** [`docs/design-system.md`](./docs/design-system.md)：三层权威（冻结来源 → 本文合同 → `apps/web/design-system/` 真源），对照来源但不执行其 demo |
 | 命名、错误、资源、依赖方向、测试的通用约定 | [`docs/engineering/conventions.md`](./docs/engineering/conventions.md)                                                    |
 | 提交、hooks、CI 细节                       | [`docs/engineering/git-workflow.md`](./docs/engineering/git-workflow.md)                                                  |
 | 开发流程、工作项、两道闸                   | [`development/README.md`](./development/README.md)                                                                        |
@@ -148,8 +148,9 @@ cherry-oj/
 - **技术完成不等于产品确认。** TASK done 只表示实现完成；Agent 不能根据测试全绿自动代签人工产品
   判断或关键风险确认。
 - **设计变更先写当前 WORK。** 经确认且长期跨工作有效时再同步 `docs/`；操作步骤变化同步 `tutorial/`。
-  Web 设计系统的真实变更必须让同一 WORK/TASK 同时覆盖 `apps/web/design-system/` 与
-  `docs/design-system/`，但普通 Web 命令不得用跨树 drift、copy 或 symlink 代替这项显式维护责任。
+  Web 设计系统的**唯一可执行真源是 `apps/web/design-system/`**：设计值只在那里手写一次，
+  `docs/design-system/` 只保存冻结来源、组件合同与许可，不持有任何值。改了值就重新生成
+  `design-tokens.json`，不要把值抄进文档或校验器。
 - 已知技术债在所属 `development/works/WORK-xxx/` 中建立 `60-task-TASK-xxx.md`，代码锚点使用
   `TODO(TASK-001): ...`。
 - 教程里的代码是给人照着写的，保留 `// TODO(你来写)`，别直接把答案填满。

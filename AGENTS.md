@@ -12,7 +12,7 @@
 | 承接某个任务                    | `scripts/work context TASK-xxx`，它给出上游依据与代码读写边界                                                  |
 | 了解某个工作的全貌              | `scripts/work board WORK-xxx`                                                                                  |
 | 写 Go / Java / TypeScript       | [`docs/engineering/README.md`](./docs/engineering/README.md) 的索引表                                          |
-| 动任何 Web UI、组件、样式或主题 | [`docs/design-system.md`](./docs/design-system.md)；按其中权威顺序对照冻结来源，禁止把来源 demo 直接当生产代码 |
+| 动任何 Web UI、组件、样式或主题 | [`docs/design-system.md`](./docs/design-system.md)；三层权威依次是冻结来源、该文合同、`apps/web/design-system/` 可执行真源。设计值只在真源手写一次，禁止把来源 demo 直接当生产代码 |
 
 ## 三条硬禁止
 

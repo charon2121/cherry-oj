@@ -1,34 +1,43 @@
 # Cherry OJ Web 设计系统
 
 > **状态：已确认的长期规范。** 本文与 [`design-system/`](./design-system/) 共同定义 Cherry OJ
-> 后续 Web 组件、业务组件和页面的视觉与交互合同。当前 2.0 系统由
-> [WORK-034 / DECISION-019](../development/works/WORK-034/40-decision-DECISION-019.md) 确认，以用户认可的
-> Claude Design 下载版为直接视觉来源，同时保留正式浅色主题。它不是 Linear 官方设计系统；来源、许可、
-> 冻结摘要与生产适配见 [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
+> 后续 Web 组件、业务组件和页面的视觉与交互合同。
+>
+> **系统的来历要说准确。** 现有 token 结构、主题合同、Tailwind adapter 与校验器由 WORK-015 在
+> 2026-08-28 建立；用户认可的 Claude Design 下载版在 2026-09-03 由
+> [WORK-034 / DECISION-019](../development/works/WORK-034/40-decision-DECISION-019.md) 引入，冻结为
+> 只读来源，并据此完成了数值适配。因此下载版是**视觉依据**，不是这套架构的来源——把两者说反，
+> 后续工作会误判改动该以谁为准。构图层（页面语法、密集列表、工作台模板）尚未从来源迁移到生产，
+> 这是已知缺口，不是已完成事实。
+>
+> 它不是 Linear 官方设计系统；来源、许可、冻结摘要与生产适配见
+> [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
 
 ## 1. 权威关系
 
-设计意图与 Web 可执行资产分层持有，依赖方向不能倒置：
+只有三层，每层回答一个不同的问题，依赖方向不能倒置：
 
-1. 本文规定设计原则、消费规则、组件合同和例外流程；
-2. [`design-system/source/claude-design-v1/`](./design-system/source/claude-design-v1/) 是用户认可下载版的
-   原样来源证据，[`source-lock.json`](./design-system/source-lock.json) 锁定其 99 文件、239831 bytes、
-   相对路径与逐文件摘要；来源定义视觉和构图，不授权直接复制原型实现；
-3. `docs/design-system/` 的合同、Foundation、主题 CSS、生成快照和 HTML 帮助人检查中文生产解释是否完整，
-   但不是 Web 安装、开发、检查或构建的输入；
-4. `apps/web/design-system/` 是 Web 的可执行真源，持有运行所需的 Foundation、主题、manifest、合同、
-   Tailwind adapter、生成器、校验器、来源与许可证；
-5. 普通 Web CI 不比较、复制或链接代码树与文档树。只有真正修改设计系统时，才在同一 WORK/TASK 中
-   同步两侧，并分别通过代码检查与文档参考检查；
-6. Storybook 和业务页面用于验证生产实现；来源 snapshot 用于视觉对照。preview HTML 只检查 Foundation
-   与主题，任何一方都不能反向改变已批准的业务、路由、权限或 API 合同。
+1. **凭什么是这样** —— [`design-system/source/claude-design-v1/`](./design-system/source/claude-design-v1/)
+   是用户认可下载版的原样来源证据，[`source-lock.json`](./design-system/source-lock.json) 锁定其
+   99 文件、239831 bytes、相对路径与逐文件摘要。来源定义视觉和构图，不授权直接复制原型实现。
+2. **应该怎么用** —— 本文规定设计原则、消费规则、组件合同和例外流程；
+   [`components.manifest.json`](./design-system/components.manifest.json) 保存逐组件合同，其中每条
+   `sourceRefs` 指回上一层的具体依据。
+3. **实际是什么** —— `apps/web/design-system/` 是唯一可执行真源，持有全部 Foundation、主题、
+   manifest、合同、Tailwind adapter、生成器与校验器。
 
-因此删除 `docs/design-system/` 不得影响 Web 的 `npm ci`、开发服务器、检查、生产构建、Storybook 或
-E2E。文档包自身的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)。
+**设计值只有一处手写定义**，在 `apps/web/design-system/` 的 `tokens.foundation.css` 与 `themes/*.css`。
+其余出现该值的地方必须是生成物（`tokens.css`、`design-tokens.json`）或冻结来源。文档不复述具体值——
+复述出来的那一份迟早会和真源对不上，WORK-035 之前就是这样：同一个品牌色散落在 7 个文件里，
+其中两个还是负责检查它对不对的校验器。
+
+`docs/design-system/` 不参与构建，也不持有任何设计值；删除它不得影响 Web 的 `npm ci`、开发服务器、
+检查、生产构建、Storybook 或 E2E。它自身唯一的检查命令见
+[`design-system/README.md`](./design-system/README.md)。
 
 组件生产参考入口是 Storybook（`cd apps/web && npm run storybook`），它渲染真实组件并覆盖两个主题和
 a11y；来源视觉入口是冻结 snapshot 的 specimen 与 app UI kit。实现验收必须在相同 viewport/state 下对照
-来源与生产截图，不能只看 token 是否通过校验。静态 preview 不承担 React 组件参考职责。
+来源与生产截图，不能只看 token 是否通过校验。
 
 ## 2. 设计方向
 
@@ -69,19 +78,19 @@ Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑
 - `apps/web/design-system/themes/cherry-black.css`
 - `apps/web/design-system/themes/pure-white.css`
 
-`cherry-black` 的画布、主要 surface 和主文字锚点分别为 `#08090a`、`#191a1b`、`#f7f8f8`；
-`pure-white` 的画布/抬升面为 `#ffffff`，panel、subtle、hover 使用
-`#f7f8f8`、`#f5f6f7`、`#f3f4f5`。完整值只以主题 CSS 为准。
+`cherry-black` 以近黑画布、略亮的 surface 和接近白但不是纯白的主文字建立层级；`pure-white` 以纯白
+画布/抬升面和三档冷灰 panel/subtle/hover 建立同样的层级。**具体值只以主题 CSS 为准，本文不复述。**
 
 ### 3.2 扩展新主题
 
 新增主题是“实现同一合同”，不是在组件中增加模式：
 
-1. 建立一个设计系统 WORK/TASK，并把代码侧与本文档包同时列入写入和验证范围。
-2. 在 `apps/web/design-system/` 新增完整 theme CSS，并在代码侧 manifest 登记稳定 id、label、color
-   scheme、文件、provenance 和版本；不得只覆盖相对默认主题的差值。
-3. 同步本文、`apps/web/design-system/themes.manifest.json` 和相应参考资产，分别运行 Web
-   本地 build/check 与文档包 build/check；不使用日常 drift、prebuild copy 或 symlink 自动同步。
+1. 建立一个设计系统 WORK/TASK，把 `apps/web/design-system/` 与本文列入写入和验证范围。
+2. 在 `apps/web/design-system/` 新增完整 theme CSS，并在 `themes.manifest.json` 登记稳定 id、label、
+   color scheme、文件、provenance 和版本；不得只覆盖相对默认主题的差值。
+3. 运行 `node design-system/tools/build.mjs` 重新生成 `tokens.css` 与 `design-tokens.json`，
+   再运行 `build.mjs --check`、`check.mjs` 与 `check.mjs --self-test`。新主题的每个值都会进入
+   生成的值锚点，这是它被记录下来的方式；不要手抄进任何文档或校验器。
 4. 用同一组件矩阵验证桌面、320px、键盘、长中文和 reduced-motion。
 
 新增完整主题不应修改 Tailwind adapter、组件或页面。删除/改义合同字段、改变默认主题或改变组件默认行为
@@ -117,9 +126,9 @@ Tailwind/shadcn 只做一次 theme-neutral 映射：
 ## 5. 品牌、危险与 OJ 状态
 
 品牌角色拆为 `brand-surface`、hover/active、`on-brand`、`brand-foreground`、`brand-soft` 和
-`on-brand-soft`。实心 CTA 使用来源 Cherry `#d2042d`；为确保白字在全部按钮状态可读，hover/active 使用同色
-族更深的 `#a80324` / `#7d0219`。暗色品牌文字/focus 使用 `#ff4d67`，hover 可到 `#ff7088`；pure-white
-文字、链接和 focus 使用可达对比的深 Cherry。暗色亮粉不得直接搬到白底正文或必要图标。
+`on-brand-soft`。实心 CTA 使用来源 Cherry；为确保白字在全部按钮状态可读，hover/active 使用同色族
+更深的两档。暗色品牌文字/focus 使用亮 Cherry，hover 再亮一档；pure-white 的文字、链接和 focus 使用
+可达对比的深 Cherry。暗色亮粉不得直接搬到白底正文或必要图标。具体值见主题 CSS。
 
 `success`、`warning`、`danger`、`info`、`special` 每类状态都完整实现：
 
@@ -255,23 +264,33 @@ Shell 导航底部到页面第一个可见主内容的垂直距离统一为 `--d
 1. 先说明用户语义、允许 surface、对比类别和为什么现有 token 不能表达；
 2. 在 `development/` 建立或关联 WORK，评估两个主题、全部组件消费者和未来主题兼容性；
 3. 需要新增/改义合同、改变默认主题或组件默认行为时，先更新 DESIGN/DECISION 并获人工批准；
-4. 在同一 WORK/TASK 中同步 `apps/web/design-system/` 与本文档包的主题、adapter、manifest、生成物、
-   组件参考和各自校验，不能只修调用处，也不能给普通 CI 增加跨树复制或漂移门禁。
+4. 在同一 WORK/TASK 中修改 `apps/web/design-system/` 的主题、adapter 与合同并重新生成值锚点，
+   同时更新本文与组件合同的说明；不能只修调用处，也不能把设计值再复制到文档或校验器里。
 
 紧急兼容代码也不得引入 raw color 或 theme-id 分支；确需临时例外时使用带 TASK 退出条件的 TODO，并在
 同一工作项记录移除计划。
 
 ## 10. 当前实现边界
 
-Web 的 2.0 Foundation 已登记默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color
-scheme、首屏防闪和主题偏好合同。可执行资产与内部合同位于
-`apps/web/design-system/`；Web 的 install/check/dev/build/Storybook/E2E 不读取本目录，移除本文档包
-不会改变前端行为或质量门禁。`contracts/web-api.openapi.json` 的 OpenAPI 生成检查仍是 Web 明确保留的
-monorepo 契约依赖，不属于设计文档依赖。
+Web 的 Foundation 已登记默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color
+scheme、首屏防闪和主题偏好合同。可执行资产与内部合同位于 `apps/web/design-system/`；
+Web 的 install/check/dev/build/Storybook/E2E 不读取 `docs/`。这条不是声明而是被验证过的事实：
+WORK-035 把 `docs/` 整个移出仓库后重跑了全套命令，check、build、Storybook 与 E2E 均通过。
+`contracts/web-api.openapi.json` 的 OpenAPI 生成检查仍是 Web 明确保留的 monorepo 契约依赖，
+不属于设计文档依赖。
 
-共享 UI 与 Storybook 已迁移到 14 个来源核心配方及同语法生产扩展。ThemeSwitcher、真实 Shell 和页面的
-2.0 迁移由 WORK-034 后续 TASK 分阶段完成；最终交付前不得发布旧页面与新组件的混搭状态。切换入口只在
-这两个正式主题间工作，沿用同一偏好 key 和无闪烁首屏流程，不新增“旧系统/新系统”开关。
+设计值的漂移由生成的值锚点 `design-tokens.json` 检测：改动任何主题或 Foundation 值都会让
+`build.mjs --check` 失败，必须显式重新生成。校验器本身不持有任何设计值——它校验的是合同结构、
+主题同构、对比度、废弃旧值、来源与生成物一致性。
+
+共享 UI 与 Storybook 已迁移到 14 个来源核心配方及同语法生产扩展。切换入口只在这两个正式主题间
+工作，沿用同一偏好 key 和无闪烁首屏流程，不新增“旧系统/新系统”开关。
+
+**已知缺口，不要当成已完成。** §6 所列的第 3、4 层里，`data-table-list`、`app-shell-navigation`、
+`editor-workspace`、`submission-lifecycle`、`verdict` 只有合同没有实现，页面因此在用第 2 层原语和
+原始 token 现拼；这是“token 合规但页面风格不合规”的机制性原因。前景色的 muted / meta / disabled
+三档在两个主题中都塌成同一个值，来源的四档文字层级没有落地，disabled 与普通 metadata 视觉不可
+区分。补齐构图层与修复四档层级由后续工作负责。
 
 ## 11. 评审清单
 
@@ -281,7 +300,7 @@ monorepo 契约依赖，不属于设计文档依赖。
 - 状态和 verdict 是否有文字、code、图标或形状等非颜色信息？
 - 是否覆盖键盘、320px、长中文、loading/error/disabled 和 reduced-motion？
 - 若引入新语义，是否已走例外流程并同步合同、主题、adapter、参考与校验？
-- 真实设计系统变更是否由同一 WORK/TASK 同步代码侧与设计说明，并分别验证两侧？
+- 新增或改动设计值后，是否重新生成了 `design-tokens.json`，并且值没有被复制到文档或校验器里？
 - 普通 Web 命令是否仍完全不读取、复制或链接设计文档目录？
 - 页面是否直接进入任务、保留语义标题，并统一使用 24px 的首内容间距？
 - 管理端桌面是否只滚动主内容区，跨端入口是否只出现在头像菜单？

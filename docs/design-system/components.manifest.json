@@ -26,7 +26,8 @@
   "reference": {
     "kind": "storybook",
     "command": "cd apps/web && npm run storybook",
-    "note": "视觉参考由 Storybook 承担，它渲染的是 apps/web/src/components/ui 下的真实组件；不再维护手写 HTML 参考页。"
+    "note": "视觉参考由 Storybook 承担，它渲染的是 apps/web/src/components/ui 下的真实组件；不再维护手写 HTML 参考页。",
+    "sourceRefs": "每个组件的 sourceRefs 指向冻结来源中该组件的视觉与构图依据，路径相对本目录。空数组表示来源中确无对应物（Cherry OJ 自有扩展），不是遗漏。"
   },
   "globalRules": {
     "themeBranching": "forbidden",
@@ -91,6 +92,10 @@
       "constraints": [
         "Never use brand styling for a destructive action",
         "Loading preserves width and exposes readable status text"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/controls/Button.prompt.md",
+        "source/claude-design-v1/components/controls/controls.card.html"
       ]
     },
     {
@@ -128,6 +133,10 @@
       "constraints": [
         "Never attach button behavior to a span",
         "Dots are decorative unless a visible label explains their meaning"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/controls/Pill.prompt.md",
+        "source/claude-design-v1/components/controls/controls.card.html"
       ]
     },
     {
@@ -174,6 +183,12 @@
       "constraints": [
         "Placeholder is not a label",
         "Do not lower placeholder or disabled text opacity"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/forms/Input.prompt.md",
+        "source/claude-design-v1/components/forms/SearchInput.prompt.md",
+        "source/claude-design-v1/components/forms/Textarea.prompt.md",
+        "source/claude-design-v1/components/forms/forms.card.html"
       ]
     },
     {
@@ -216,6 +231,11 @@
       "constraints": [
         "Nested content surfaces stay opaque",
         "Decorative borders do not carry selection alone"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/surfaces/Card.prompt.md",
+        "source/claude-design-v1/components/surfaces/surfaces.card.html",
+        "source/claude-design-v1/guidelines/elevation.card.html"
       ]
     },
     {
@@ -252,6 +272,13 @@
       "constraints": [
         "Use Stack for one-dimensional relationships",
         "Responsive gutters remain tokenized"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/layout/Container.prompt.md",
+        "source/claude-design-v1/components/layout/Stack.prompt.md",
+        "source/claude-design-v1/components/layout/layout.card.html",
+        "source/claude-design-v1/guidelines/spacing-scale.card.html",
+        "source/claude-design-v1/guidelines/spacing-rhythm.card.html"
       ]
     },
     {
@@ -299,6 +326,10 @@
       "constraints": [
         "Verdict badges always show stable code and readable name",
         "Color never carries meaning alone"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/surfaces/Badge.prompt.md",
+        "source/claude-design-v1/components/surfaces/surfaces.card.html"
       ]
     },
     {
@@ -335,6 +366,10 @@
       "constraints": [
         "Inline links keep a visible underline",
         "Buttons are not styled as navigation links"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/guidelines/colors-cherry.card.html",
+        "source/claude-design-v1/guidelines/colors-text.card.html"
       ]
     },
     {
@@ -372,6 +407,10 @@
       "constraints": [
         "Do not hand-draw replacement icons",
         "Necessary icons meet non-text contrast on every allowed surface"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/controls/IconButton.prompt.md",
+        "source/claude-design-v1/readme.md"
       ]
     },
     {
@@ -428,6 +467,19 @@
       "constraints": [
         "Chinese uses the system CJK fallback",
         "Metadata is not made fainter with opacity"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/typography/Eyebrow.prompt.md",
+        "source/claude-design-v1/components/typography/Heading.prompt.md",
+        "source/claude-design-v1/components/typography/Text.prompt.md",
+        "source/claude-design-v1/components/typography/typography.card.html",
+        "source/claude-design-v1/guidelines/type-display.card.html",
+        "source/claude-design-v1/guidelines/type-headings.card.html",
+        "source/claude-design-v1/guidelines/type-body.card.html",
+        "source/claude-design-v1/guidelines/type-small.card.html",
+        "source/claude-design-v1/guidelines/type-weights.card.html",
+        "source/claude-design-v1/guidelines/type-mono.card.html",
+        "source/claude-design-v1/guidelines/type-opentype.card.html"
       ]
     },
     {
@@ -466,6 +518,10 @@
       "constraints": [
         "The brand remains typographic",
         "At narrow widths the product shell supplies a semantic menu trigger"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/components/navigation/NavBar.prompt.md",
+        "source/claude-design-v1/components/navigation/navbar.card.html"
       ]
     },
     {
@@ -510,6 +566,11 @@
       "constraints": [
         "Navigation remains usable at 320px",
         "Current state uses text structure as well as surface color"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/ui_kits/app/Sidebar.jsx",
+        "source/claude-design-v1/ui_kits/app/index.html",
+        "source/claude-design-v1/ui_kits/app/README.md"
       ]
     },
     {
@@ -555,6 +616,9 @@
       "constraints": [
         "Do not make the row a generic clickable container",
         "Phone layout may become a labeled list without changing reading order"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/ui_kits/app/ProblemList.jsx"
       ]
     },
     {
@@ -600,6 +664,10 @@
       "constraints": [
         "Use explicit labels for destructive confirmation",
         "Popover uses details-summary or equivalent managed disclosure semantics"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/ui_kits/app/CommandPalette.jsx",
+        "source/claude-design-v1/guidelines/elevation.card.html"
       ]
     },
     {
@@ -649,7 +717,8 @@
       "constraints": [
         "A visible status word accompanies color",
         "Do not use brand color as a danger substitute"
-      ]
+      ],
+      "sourceRefs": []
     },
     {
       "id": "async-state",
@@ -690,7 +759,8 @@
       "constraints": [
         "Skeletons are decorative and cannot replace an accessible progress label",
         "Error details remain selectable text"
-      ]
+      ],
+      "sourceRefs": []
     },
     {
       "id": "editor-workspace",
@@ -738,6 +808,9 @@
       "constraints": [
         "Do not infer verdict from editor decoration",
         "At phone width panels stack in source order"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/ui_kits/app/ProblemView.jsx"
       ]
     },
     {
@@ -781,7 +854,8 @@
       "constraints": [
         "Stage name is always visible",
         "Order and labels carry progress without color"
-      ]
+      ],
+      "sourceRefs": []
     },
     {
       "id": "verdict",
@@ -829,6 +903,9 @@
         "Never communicate verdict by color alone",
         "OLE, RAN, and SE are first-class states",
         "Resource units are explicit: ns and bytes"
+      ],
+      "sourceRefs": [
+        "source/claude-design-v1/guidelines/colors-status.card.html"
       ]
     }
   ]

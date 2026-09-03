@@ -35,7 +35,7 @@ creating a runtime dependency on repository documentation.
 | `design-tokens.json` | 由 builder 生成的值锚点快照，禁止手改；改动任何设计值都必须重新生成 |
 | `tailwind-v4.css` | 主题无关的 Tailwind/shadcn adapter |
 | `manifest.json` | 包版本、来源摘要和文件完整性清单 |
-| `tools/build.mjs` | 确定性生成 `tokens.css` |
+| `tools/build.mjs` | 确定性生成 `tokens.css` 与 `design-tokens.json` |
 | `tools/check.mjs` | 校验合同结构、主题同构、对比度、废弃旧值、来源、许可和生成物；**不持有任何设计值** |
 | `NOTICE.md` / `LICENSE.open-design` / `LICENSE.fonts` | 来源链、生产适配、OpenDesign Apache-2.0 与字体 OFL-1.1 许可 |
 
@@ -61,9 +61,13 @@ node design-system/tools/check.mjs
 node design-system/tools/check.mjs --self-test
 ```
 
-主题文件必须是本包内普通文件；绝对路径、`..`、符号链接和真实路径越界都会失败。日常 Web 命令不比较
-本目录与文档树，也不从文档自动复制。真正修改系统时，必须在同一 WORK/TASK 内同步
-`apps/web/design-system/` 与 `docs/design-system/`，并分别通过两侧检查。
+主题文件必须是本包内普通文件；绝对路径、`..`、符号链接和真实路径越界都会失败。
+
+**本目录是设计值的唯一手写来源。** `docs/design-system/` 不再持有 token、主题、合同、adapter 或
+校验器，因此没有"两侧检查"，也不需要跨树同步。改动任何设计值后运行 `build.mjs` 重新生成
+`tokens.css` 与 `design-tokens.json`；忘记重新生成会被 `build.mjs --check` 拦下。
+设计原则、组件合同与来源追溯仍在 `docs/design-system.md` 与 `docs/design-system/`，
+改动语义时一并更新那里的说明——但不要把值抄过去。
 
 ## 来源与许可
 
