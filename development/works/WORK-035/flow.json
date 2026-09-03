@@ -83,14 +83,14 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "ready",
-    "status_source": "derived",
+    "status": "done",
+    "status_source": "manual",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "改动范围限于设计系统两棵树与三份入口文档；apps/web/src、后端、contracts、数据库未触及；三处边界扩大均在动手前记录理由"
       }
     ],
     "source": "profile:maintenance",
@@ -108,8 +108,8 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "check 32 文件 116 测试、build、storybook:build、e2e 30/30、docs_test 347 文档、work check 280 文档、source-lock 全部通过"
       }
     ],
     "source": "profile:maintenance",
