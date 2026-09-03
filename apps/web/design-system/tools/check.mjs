@@ -150,251 +150,6 @@ const fixedSourceProvenance = {
   sourceDesignSha256: "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
   sourceLicenseSha256: "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da"
 };
-const expectedFoundationTokens = {
-  "--ds-font-display": '"Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif',
-  "--ds-font-body": '"Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif',
-  "--ds-font-mono": '"Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-  "--ds-font-features": '"cv01", "ss03"',
-  "--ds-weight-light": "300",
-  "--ds-weight-regular": "400",
-  "--ds-weight-body": "510",
-  "--ds-weight-heading": "590",
-  "--ds-text-tiny": "10px",
-  "--ds-text-micro": "11px",
-  "--ds-text-xs": "12px",
-  "--ds-text-cap": "13px",
-  "--ds-text-sm": "14px",
-  "--ds-text-15": "15px",
-  "--ds-text-base": "16px",
-  "--ds-text-17": "17px",
-  "--ds-text-lg": "18px",
-  "--ds-text-h3": "20px",
-  "--ds-text-xl": "24px",
-  "--ds-text-2xl": "32px",
-  "--ds-text-3xl": "48px",
-  "--ds-text-display-lg": "64px",
-  "--ds-text-4xl": "72px",
-  "--ds-leading-body": "1.5",
-  "--ds-leading-tight": "1",
-  "--ds-leading-heading": "1.13",
-  "--ds-leading-h2": "1.33",
-  "--ds-leading-label": "1.4",
-  "--ds-leading-relaxed": "1.6",
-  "--ds-tracking-display": "-0.022em",
-  "--ds-tracking-heading": "-0.012em",
-  "--ds-tracking-body": "-0.009em",
-  "--ds-tracking-caption": "-0.01em",
-  "--ds-tracking-eyebrow": "0.08em",
-  "--ds-space-px": "1px",
-  "--ds-space-1": "4px",
-  "--ds-space-1x": "7px",
-  "--ds-space-2": "8px",
-  "--ds-space-2x": "11px",
-  "--ds-space-3": "12px",
-  "--ds-space-4": "16px",
-  "--ds-space-4x": "19px",
-  "--ds-space-5": "20px",
-  "--ds-space-5x": "22px",
-  "--ds-space-6": "24px",
-  "--ds-space-7": "28px",
-  "--ds-space-8": "32px",
-  "--ds-space-9": "35px",
-  "--ds-space-12": "48px",
-  "--ds-section-y-desktop": "80px",
-  "--ds-section-y-tablet": "48px",
-  "--ds-section-y-phone": "32px",
-  "--ds-radius-micro": "2px",
-  "--ds-radius-xs": "4px",
-  "--ds-radius-sm": "6px",
-  "--ds-radius-md": "8px",
-  "--ds-radius-lg": "12px",
-  "--ds-radius-xl": "22px",
-  "--ds-radius-pill": "9999px",
-  "--ds-radius-circle": "50%",
-  "--ds-radius-image-top": "12px 12px 0 0",
-  "--ds-focus-width": "2px",
-  "--ds-focus-offset": "2px",
-  "--ds-motion-fast": "150ms",
-  "--ds-motion-base": "200ms",
-  "--ds-motion-slow": "320ms",
-  "--ds-ease-standard": "cubic-bezier(0.2, 0, 0, 1)",
-  "--ds-container-max": "1200px",
-  "--ds-container-gutter-desktop": "24px",
-  "--ds-container-gutter-tablet": "16px",
-  "--ds-container-gutter-phone": "12px",
-  "--ds-breakpoint-mobile-sm": "600px",
-  "--ds-breakpoint-mobile": "640px",
-  "--ds-breakpoint-tablet": "768px",
-  "--ds-breakpoint-desktop-sm": "1024px",
-  "--ds-breakpoint-desktop": "1280px",
-  "--ds-sidebar-width": "220px",
-  "--ds-header-height": "56px"
-};
-
-const exactThemeValues = {
-  "cherry-black": {
-    "--ds-raw-linear-canvas": "#08090a",
-    "--ds-raw-linear-surface": "#191a1b",
-    "--ds-raw-linear-fg": "#f7f8f8",
-    "--ds-raw-linear-fg-2": "#d0d6e0",
-    "--ds-raw-linear-muted": "#8a8f98",
-    "--ds-raw-linear-meta": "#62666d",
-    "--ds-raw-linear-success": "#27a644",
-    "--ds-raw-linear-warning": "#eab308",
-    "--ds-raw-linear-danger": "#dc2626",
-    "--ds-canvas": "#08090a",
-    "--ds-panel": "#0f1011",
-    "--ds-surface": "#191a1b",
-    "--ds-surface-subtle": "#141516",
-    "--ds-surface-raised": "#191a1b",
-    "--ds-surface-hover": "#28282c",
-    "--ds-surface-translucent": "rgba(255, 255, 255, 0.02)",
-    "--ds-surface-translucent-hover": "rgba(255, 255, 255, 0.04)",
-    "--ds-surface-translucent-selected": "rgba(255, 255, 255, 0.05)",
-    "--ds-fg": "#f7f8f8",
-    "--ds-fg-2": "#d0d6e0",
-    "--ds-fg-muted": "#8a8f98",
-    "--ds-fg-meta": "#8a8f98",
-    "--ds-fg-disabled": "#8a8f98",
-    "--ds-fg-ghost": "#e2e4e7",
-    "--ds-border-soft": "rgba(255, 255, 255, 0.05)",
-    "--ds-border": "rgba(255, 255, 255, 0.08)",
-    "--ds-border-solid": "#23252a",
-    "--ds-border-strong": "#80848d",
-    "--ds-line-tertiary": "#18191a",
-    "--ds-brand-surface": "#d2042d",
-    "--ds-brand-surface-hover": "#a80324",
-    "--ds-brand-surface-active": "#7d0219",
-    "--ds-on-brand": "#ffffff",
-    "--ds-brand-foreground": "#ff4d67",
-    "--ds-brand-foreground-hover": "#ff7088",
-    "--ds-brand-soft": "#32141d",
-    "--ds-on-brand-soft": "#ff4d67",
-    "--ds-link": "var(--ds-brand-foreground)",
-    "--ds-link-hover": "var(--ds-brand-foreground-hover)",
-    "--ds-focus": "var(--ds-brand-foreground)",
-    "--ds-selection-surface": "var(--ds-brand-soft)",
-    "--ds-selection-foreground": "var(--ds-fg)",
-    "--ds-success-foreground": "#27a644",
-    "--ds-success-surface": "#14271a",
-    "--ds-success-border": "var(--ds-success-foreground)",
-    "--ds-success-solid": "#187a34",
-    "--ds-success-on-solid": "#ffffff",
-    "--ds-warning-foreground": "#eab308",
-    "--ds-warning-surface": "#2c2410",
-    "--ds-warning-border": "var(--ds-warning-foreground)",
-    "--ds-warning-solid": "#eab308",
-    "--ds-warning-on-solid": "#08090a",
-    "--ds-danger-foreground": "#f97066",
-    "--ds-danger-surface": "#321619",
-    "--ds-danger-border": "var(--ds-danger-foreground)",
-    "--ds-danger-solid": "#dc2626",
-    "--ds-danger-on-solid": "#ffffff",
-    "--ds-info-foreground": "#60a5fa",
-    "--ds-info-surface": "#142236",
-    "--ds-info-border": "var(--ds-info-foreground)",
-    "--ds-info-solid": "#245ea8",
-    "--ds-info-on-solid": "#ffffff",
-    "--ds-special-foreground": "#c084fc",
-    "--ds-special-surface": "#281a35",
-    "--ds-special-border": "var(--ds-special-foreground)",
-    "--ds-special-solid": "#6941c6",
-    "--ds-special-on-solid": "#ffffff",
-    "--ds-overlay": "rgba(0, 0, 0, 0.85)",
-    "--ds-elevation-flat": "none",
-    "--ds-elevation-subtle": "rgba(0, 0, 0, 0.03) 0 1.2px 0 0",
-    "--ds-elevation-ring": "0 0 0 1px var(--ds-border)",
-    "--ds-elevation-inset": "rgba(0, 0, 0, 0.2) 0 0 12px 0 inset",
-    "--ds-elevation-dialog": "rgba(0, 0, 0, 0) 0 8px 2px, rgba(0, 0, 0, 0.01) 0 5px 2px, rgba(0, 0, 0, 0.04) 0 3px 2px, rgba(0, 0, 0, 0.07) 0 1px 1px, rgba(0, 0, 0, 0.08) 0 0 1px",
-    "--ds-elevation-raised": "rgba(0, 0, 0, 0.4) 0 2px 4px, 0 0 0 1px rgba(255, 255, 255, 0.05)"
-  },
-  "pure-white": {
-    "--ds-canvas": "#ffffff",
-    "--ds-panel": "#f7f8f8",
-    "--ds-surface": "#ffffff",
-    "--ds-surface-subtle": "#f5f6f7",
-    "--ds-surface-raised": "#ffffff",
-    "--ds-surface-hover": "#f3f4f5",
-    "--ds-surface-translucent": "rgba(8, 9, 10, 0.02)",
-    "--ds-surface-translucent-hover": "rgba(8, 9, 10, 0.04)",
-    "--ds-surface-translucent-selected": "rgba(8, 9, 10, 0.05)",
-    "--ds-fg": "#191a1b",
-    "--ds-fg-2": "#34343a",
-    "--ds-fg-muted": "#62666d",
-    "--ds-fg-meta": "#676b73",
-    "--ds-fg-disabled": "#676b73",
-    "--ds-fg-ghost": "#34343a",
-    "--ds-border-soft": "#e6e6e6",
-    "--ds-border": "#d0d6e0",
-    "--ds-border-solid": "#d0d6e0",
-    "--ds-border-strong": "#80848d",
-    "--ds-line-tertiary": "#e6e6e6",
-    "--ds-brand-surface": "#d2042d",
-    "--ds-brand-surface-hover": "#a80324",
-    "--ds-brand-surface-active": "#7d0219",
-    "--ds-on-brand": "#ffffff",
-    "--ds-brand-foreground": "#a80324",
-    "--ds-brand-foreground-hover": "#7d0219",
-    "--ds-brand-soft": "#fce7ed",
-    "--ds-on-brand-soft": "#a80324",
-    "--ds-link": "var(--ds-brand-foreground)",
-    "--ds-link-hover": "var(--ds-brand-foreground-hover)",
-    "--ds-focus": "var(--ds-brand-foreground)",
-    "--ds-selection-surface": "var(--ds-brand-soft)",
-    "--ds-selection-foreground": "var(--ds-fg)",
-    "--ds-success-foreground": "#087c2f",
-    "--ds-success-surface": "#ecfdf3",
-    "--ds-success-border": "var(--ds-success-foreground)",
-    "--ds-success-solid": "#087c2f",
-    "--ds-success-on-solid": "#ffffff",
-    "--ds-warning-foreground": "#8a5a00",
-    "--ds-warning-surface": "#fff8db",
-    "--ds-warning-border": "var(--ds-warning-foreground)",
-    "--ds-warning-solid": "#eab308",
-    "--ds-warning-on-solid": "#08090a",
-    "--ds-danger-foreground": "#b42318",
-    "--ds-danger-surface": "#fef3f2",
-    "--ds-danger-border": "var(--ds-danger-foreground)",
-    "--ds-danger-solid": "#b42318",
-    "--ds-danger-on-solid": "#ffffff",
-    "--ds-info-foreground": "#175cd3",
-    "--ds-info-surface": "#eff8ff",
-    "--ds-info-border": "var(--ds-info-foreground)",
-    "--ds-info-solid": "#175cd3",
-    "--ds-info-on-solid": "#ffffff",
-    "--ds-special-foreground": "#6941c6",
-    "--ds-special-surface": "#f4f3ff",
-    "--ds-special-border": "var(--ds-special-foreground)",
-    "--ds-special-solid": "#6941c6",
-    "--ds-special-on-solid": "#ffffff",
-    "--ds-overlay": "rgba(8, 9, 10, 0.56)",
-    "--ds-elevation-flat": "none",
-    "--ds-elevation-subtle": "rgba(8, 9, 10, 0.04) 0 1.2px 0 0",
-    "--ds-elevation-ring": "0 0 0 1px var(--ds-border)",
-    "--ds-elevation-inset": "rgba(8, 9, 10, 0.06) 0 0 12px 0 inset",
-    "--ds-elevation-dialog": "rgba(8, 9, 10, 0.04) 0 8px 2px, rgba(8, 9, 10, 0.05) 0 5px 2px, rgba(8, 9, 10, 0.07) 0 3px 2px, rgba(8, 9, 10, 0.1) 0 1px 1px, rgba(8, 9, 10, 0.12) 0 0 1px",
-    "--ds-elevation-raised": "0 1px 2px rgba(8, 9, 10, 0.08), 0 8px 24px rgba(8, 9, 10, 0.08), 0 0 0 1px rgba(8, 9, 10, 0.08)"
-  }
-};
-
-const expectedThemeDefinitions = [
-  {
-    id: "cherry-black",
-    label: "Cherry Black",
-    colorScheme: "dark",
-    file: "themes/cherry-black.css",
-    version: 2,
-    provenance: "Frozen Claude Design Cherry OJ export, productionized for the Web runtime"
-  },
-  {
-    id: "pure-white",
-    label: "Pure White",
-    colorScheme: "light",
-    file: "themes/pure-white.css",
-    version: 2,
-    provenance: "Cherry OJ light counterpart preserving the Claude Design semantic structure"
-  }
-];
 
 const expectedContractRules = {
   themeMustDeclareEveryRequiredEntry: true,
@@ -414,6 +169,7 @@ const expectedPackageFiles = [
   "theme-contract.json",
   "themes.manifest.json",
   "tokens.css",
+  "design-tokens.json",
   "tailwind-v4.css",
   "tools/build.mjs",
   "tools/check.mjs"
@@ -731,10 +487,10 @@ function verifyTheme(theme, contract, css, selectorBlock) {
     }
   }
 
-  const expected = exactThemeValues[theme.id];
-  for (const [name, value] of Object.entries(expected ?? {})) {
-    if (tokens[name] !== value) fail(`${theme.id} ${name} changed: expected ${value}, received ${tokens[name]}`);
-  }
+  // Exact theme values are not re-listed here. They are pinned by the committed
+  // design-tokens.json snapshot, which build.mjs regenerates from these same files; editing a
+  // value makes `build.mjs --check` (and verifyGeneratedOutputs below) report a stale output.
+  // A hand-copied table here would be a second, unverifiable transcription of the same values.
   for (const status of statuses) {
     const border = tokens[`--ds-${status}-border`];
     if (border !== `var(--ds-${status}-foreground)`) {
@@ -839,11 +595,14 @@ async function verifyPackage(packageManifest, themeManifest) {
   for (const file of packageManifest.files) {
     if (typeof file.path !== "string" || file.path.length === 0) fail("manifest.json file path must be non-empty");
     if (typeof file.role !== "string" || file.role.length === 0) fail(`${file.path} manifest role must be non-empty`);
-    if (file.generated === true && file.path !== "tokens.css") fail(`${file.path} must not be marked generated`);
+    if (file.generated === true && !["tokens.css", "design-tokens.json"].includes(file.path)) {
+      fail(`${file.path} must not be marked generated`);
+    }
   }
   const expectedEntrypoints = {
     documentation: "README.md",
     tokens: "tokens.css",
+    valueAnchor: "design-tokens.json",
     tailwind: "tailwind-v4.css",
     themeContract: "theme-contract.json",
     themeManifest: "themes.manifest.json"
@@ -966,9 +725,8 @@ async function run() {
   if (JSON.stringify(ids) !== JSON.stringify(["cherry-black", "pure-white"])) {
     fail("theme ids must remain exactly [cherry-black, pure-white] in that order");
   }
-  if (JSON.stringify(themeManifest.themes) !== JSON.stringify(expectedThemeDefinitions)) {
-    fail("theme manifest definitions must preserve exact id, label, colorScheme, file, version, and provenance values");
-  }
+  // id, label, colorScheme, file, version and provenance are carried into design-tokens.json,
+  // so a silent edit here shows up as a stale generated output rather than needing a copy.
   if (new Set(ids).size !== ids.length) fail("theme ids must be unique");
   verifyFixedProvenance("manifest.json", packageManifest.provenance);
   if (!ids.includes(themeManifest.defaultTheme) || !ids.includes(themeManifest.fallbackTheme)) {
@@ -1014,12 +772,9 @@ async function run() {
   if (!foundation.includes('"cv01", "ss03"')) fail("Foundation must preserve Inter cv01/ss03 features");
   const foundationRoot = foundation.match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   const foundationTokens = parseCustomProperties(foundationRoot);
-  for (const [name, value] of Object.entries(expectedFoundationTokens)) {
-    if (foundationTokens[name] !== value) fail(`Foundation ${name} changed: expected ${value}, received ${foundationTokens[name]}`);
-  }
-  for (const name of Object.keys(foundationTokens)) {
-    if (!(name in expectedFoundationTokens)) fail(`Foundation contains unapproved token ${name}`);
-  }
+  // Foundation values and the closed token set are both pinned by design-tokens.json:
+  // a changed value or an added key makes the committed snapshot stale, which fails above.
+  if (Object.keys(foundationTokens).length === 0) fail("Foundation :root block declares no tokens");
   const reducedMotion = foundation.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? "";
   const reducedTokens = parseCustomProperties(reducedMotion);
   if (
@@ -1112,18 +867,24 @@ async function runSelfTest() {
       "wrong but contrast-compliant token",
       async () => {
         const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const content = await readFile(themePath, "utf8");
-        await writeFile(themePath, content.replace("--ds-canvas: #ffffff;", "--ds-canvas: #fefefe;"), "utf8");
+        const themeCss = await readFile(themePath, "utf8");
+        const current = themeCss.match(/--ds-canvas:\s*([^;]+);/)?.[1]?.trim();
+        if (!current) throw new Error("pure-white fixture does not declare --ds-canvas");
+        // Read the current value instead of naming it: the checker must not hold design values.
+        await writeFile(themePath, themeCss.replace(`--ds-canvas: ${current};`, "--ds-canvas: #fefefe;"), "utf8");
       },
-      "changed: expected #ffffff, received #fefefe"
+      "design-tokens.json is stale"
     );
 
     await expectFailure(
       "retired Cherry palette",
       async () => {
         const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const content = await readFile(themePath, "utf8");
-        await writeFile(themePath, content.replace("--ds-brand-surface: #d2042d;", "--ds-brand-surface: #de1c4e;"), "utf8");
+        const themeCss = await readFile(themePath, "utf8");
+        const current = themeCss.match(/--ds-brand-surface:\s*([^;]+);/)?.[1]?.trim();
+        if (!current) throw new Error("pure-white fixture does not declare --ds-brand-surface");
+        // #de1c4e is a retired value the checker legitimately blacklists, not a current one.
+        await writeFile(themePath, themeCss.replace(`--ds-brand-surface: ${current};`, "--ds-brand-surface: #de1c4e;"), "utf8");
       },
       "contains a retired pre-WORK-034 Cherry value"
     );
@@ -1132,8 +893,10 @@ async function runSelfTest() {
       "missing required token",
       async () => {
         const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const content = await readFile(themePath, "utf8");
-        await writeFile(themePath, content.replace("  --ds-fg: #191a1b;\n", ""), "utf8");
+        const themeCss = await readFile(themePath, "utf8");
+        const declaration = themeCss.match(/^[ \t]*--ds-fg:[^;]+;\n/m)?.[0];
+        if (!declaration) throw new Error("pure-white fixture does not declare --ds-fg");
+        await writeFile(themePath, themeCss.replace(declaration, ""), "utf8");
       },
       "pure-white does not explicitly declare --ds-fg"
     );
@@ -1147,7 +910,7 @@ async function runSelfTest() {
         manifest.themes[1].colorScheme = "dark";
         await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
       },
-      "theme manifest definitions must preserve exact"
+      "exact selector must declare exactly one color-scheme"
     );
 
     await expectFailure(
@@ -1228,10 +991,12 @@ async function runSelfTest() {
       "opaque token alpha",
       async () => {
         const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const content = await readFile(themePath, "utf8");
+        const themeCss = await readFile(themePath, "utf8");
+        const current = themeCss.match(/--ds-brand-soft:\s*([^;]+);/)?.[1]?.trim();
+        if (!current) throw new Error("pure-white fixture does not declare --ds-brand-soft");
         await writeFile(
           themePath,
-          content.replace("--ds-brand-soft: #fce7ed;", "--ds-brand-soft: rgba(252, 231, 237, 0.5);"),
+          themeCss.replace(`--ds-brand-soft: ${current};`, "--ds-brand-soft: rgba(252, 231, 237, 0.5);"),
           "utf8"
         );
       },
@@ -1242,8 +1007,11 @@ async function runSelfTest() {
       "low contrast token",
       async () => {
         const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const content = await readFile(themePath, "utf8");
-        await writeFile(themePath, content.replace("--ds-fg: #191a1b;", "--ds-fg: #ffffff;"), "utf8");
+        const themeCss = await readFile(themePath, "utf8");
+        const current = themeCss.match(/--ds-fg:\s*([^;]+);/)?.[1]?.trim();
+        if (!current) throw new Error("pure-white fixture does not declare --ds-fg");
+        // pure-white is a light theme, so white-on-white is a guaranteed contrast failure.
+        await writeFile(themePath, themeCss.replace(`--ds-fg: ${current};`, "--ds-fg: #ffffff;"), "utf8");
       },
       "requires 4.5:1"
     );

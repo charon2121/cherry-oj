@@ -22,6 +22,7 @@
   "entrypoints": {
     "documentation": "README.md",
     "tokens": "tokens.css",
+    "valueAnchor": "design-tokens.json",
     "tailwind": "tailwind-v4.css",
     "themeContract": "theme-contract.json",
     "themeManifest": "themes.manifest.json"
@@ -43,6 +44,7 @@
     { "path": "theme-contract.json", "role": "semantic theme contract" },
     { "path": "themes.manifest.json", "role": "theme registry and default" },
     { "path": "tokens.css", "role": "generated stable CSS entrypoint", "generated": true },
+    { "path": "design-tokens.json", "role": "generated value anchor for Foundation and both themes", "generated": true },
     { "path": "tailwind-v4.css", "role": "theme-neutral Tailwind v4 and shadcn adapter" },
     { "path": "tools/build.mjs", "role": "deterministic CSS entrypoint builder" },
     { "path": "tools/check.mjs", "role": "runtime contract, provenance, license, and package verifier" }

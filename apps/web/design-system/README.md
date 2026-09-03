@@ -19,8 +19,9 @@ creating a runtime dependency on repository documentation.
 - 两个主题都完整实现 `theme-contract.json`，组件不得按 theme id 分支，也不得维护第二套 DOM 或 variant；
 - 来源明确的三档透明 surface、ghost solid border、tertiary line 与 subtle/inset/dialog elevation 都是正式
   semantic token；组件不得内联 rgba 或 shadow 重造它们；
-- `--ds-brand-surface` 使用来源 Cherry `#d2042d`。为了保证白字在按钮全部状态可读，hover/active 使用
-  来源同色族更深的 `#a80324` / `#7d0219`；亮 Cherry 只用于暗色前景与链接。
+- `--ds-brand-surface` 沿用来源 Cherry 实心色。为了保证白字在按钮全部状态可读，hover/active 使用
+  来源同色族更深的两档；亮 Cherry 只用于暗色前景与链接。具体色值只以 `themes/*.css` 为准——
+  本文不复述任何设计值，复述出来的那一份迟早会和真源对不上。
 
 ## 文件角色
 
@@ -31,10 +32,11 @@ creating a runtime dependency on repository documentation.
 | `themes.manifest.json` | 主题登记、默认/fallback、color scheme、来源与版本 |
 | `themes/*.css` | 两个主题的完整 semantic token 源 |
 | `tokens.css` | 由 builder 生成的稳定 CSS 入口，禁止手改 |
+| `design-tokens.json` | 由 builder 生成的值锚点快照，禁止手改；改动任何设计值都必须重新生成 |
 | `tailwind-v4.css` | 主题无关的 Tailwind/shadcn adapter |
 | `manifest.json` | 包版本、来源摘要和文件完整性清单 |
 | `tools/build.mjs` | 确定性生成 `tokens.css` |
-| `tools/check.mjs` | 校验逐值合同、主题同构、对比度、旧值、来源、许可和生成物 |
+| `tools/check.mjs` | 校验合同结构、主题同构、对比度、废弃旧值、来源、许可和生成物；**不持有任何设计值** |
 | `NOTICE.md` / `LICENSE.open-design` / `LICENSE.fonts` | 来源链、生产适配、OpenDesign Apache-2.0 与字体 OFL-1.1 许可 |
 
 ## 生产适配边界

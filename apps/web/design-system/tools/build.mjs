@@ -94,6 +94,15 @@ export function parseCustomProperties(css) {
   return tokens;
 }
 
+// The Foundation file also carries a prefers-reduced-motion override that redefines the
+// motion tokens. The snapshot pins the base :root block only; the override is behavioural,
+// not a second source of truth, and including it would make the same key appear twice.
+function parseFirstRootBlock(css) {
+  const block = css.match(/:root\s*\{([\s\S]*?)\}/)?.[1];
+  if (!block) throw new Error("tokens.foundation.css does not contain a :root block");
+  return parseCustomProperties(block);
+}
+
 function generatedCss(themeManifest) {
   const imports = ["tokens.foundation.css", ...themeManifest.themes.map((theme) => theme.file)]
     .map((file) => `@import "./${file}";`)
@@ -109,6 +118,56 @@ function generatedCss(themeManifest) {
 
 ${imports}
 `;
+}
+
+// design-tokens.json is the committed value anchor: `build.mjs --check` compares it against a
+// fresh read of tokens.foundation.css and themes/*.css, so any edited design value shows up as a
+// stale generated output. This is what lets check.mjs hold no hand-copied value tables.
+async function generatedJson(themeManifest, contract) {
+  const foundationFile = "tokens.foundation.css";
+  const foundation = parseFirstRootBlock(await readText(foundationFile));
+  const themes = [];
+
+  for (const theme of themeManifest.themes) {
+    themes.push({
+      id: theme.id,
+      label: theme.label,
+      colorScheme: theme.colorScheme,
+      version: theme.version,
+      file: theme.file,
+      provenance: theme.provenance,
+      tokens: parseCustomProperties(await readText(theme.file))
+    });
+  }
+
+  return `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      provenance: {
+        ...themeManifest.provenance,
+        contract: "theme-contract.json"
+      },
+      modified: {
+        for: "Cherry OJ Web",
+        date: "2026-09-03",
+        summary: "Generated value anchor for the Web Foundation and both production themes."
+      },
+      generated: {
+        by: "tools/build.mjs",
+        inputs: [foundationFile, "theme-contract.json", "themes.manifest.json", ...themeManifest.themes.map((theme) => theme.file)]
+      },
+      defaultTheme: themeManifest.defaultTheme,
+      fallbackTheme: themeManifest.fallbackTheme,
+      contractSchemaVersion: contract.schemaVersion,
+      foundation: {
+        file: foundationFile,
+        tokens: foundation
+      },
+      themes
+    },
+    null,
+    2
+  )}\n`;
 }
 
 function validateInputs(themeManifest, contract) {
@@ -160,7 +219,10 @@ export async function generateOutputs() {
   await resolveInputPath("tokens.foundation.css");
   for (const theme of themeManifest.themes) await resolveInputPath(theme.file);
 
-  return { "tokens.css": generatedCss(themeManifest) };
+  return {
+    "tokens.css": generatedCss(themeManifest),
+    "design-tokens.json": await generatedJson(themeManifest, contract)
+  };
 }
 
 async function run() {
