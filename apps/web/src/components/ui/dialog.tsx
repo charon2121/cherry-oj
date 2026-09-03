@@ -28,7 +28,7 @@ function DialogBackdrop({
     <DialogPrimitive.Backdrop
       data-slot="dialog-backdrop"
       className={cn(
-        'fixed inset-0 z-50 min-h-dvh bg-[var(--ds-overlay)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 supports-[-webkit-touch-callout:none]:absolute motion-reduce:transition-none',
+        'bg-overlay duration-fast ease-standard fixed inset-0 z-50 min-h-dvh transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 supports-[-webkit-touch-callout:none]:absolute motion-reduce:transition-none',
         className,
       )}
       {...props}
@@ -72,7 +72,7 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            'text-foreground focus-visible:outline-ring pointer-events-auto relative grid max-h-[calc(100dvh-var(--ds-space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-5 break-words shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
+            'text-foreground focus-visible:outline-ring border-border bg-panel shadow-dialog duration-fast ease-standard pointer-events-auto relative grid max-h-[calc(100dvh-var(--space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-lg border p-5 break-words transition-opacity outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
             dialogSizeClasses[size],
             className,
           )}
@@ -81,7 +81,7 @@ function DialogContent({
           {children}
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="border-border-strong bg-surface-subtle text-foreground hover:bg-accent focus-visible:outline-ring absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-sm border transition-colors duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:text-[var(--ds-fg-disabled)] motion-reduce:transition-none"
+            className="border-border-strong bg-surface-subtle text-foreground hover:bg-accent focus-visible:outline-ring duration-fast ease-standard disabled:text-fg-disabled absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-sm border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed motion-reduce:transition-none"
             aria-label={closeLabel}
           >
             <X className="size-4" aria-hidden="true" />
@@ -119,10 +119,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn(
-        'font-display text-foreground text-lg leading-[var(--ds-leading-heading)] font-[var(--ds-weight-heading)]',
-        className,
-      )}
+      className={cn('font-display text-foreground leading-heading font-heading text-lg', className)}
       {...props}
     />
   );
@@ -135,7 +132,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn('text-muted-foreground text-sm leading-[var(--ds-leading-body)]', className)}
+      className={cn('text-muted-foreground leading-body text-sm', className)}
       {...props}
     />
   );

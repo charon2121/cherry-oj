@@ -111,7 +111,7 @@ export function AdminProblemCreateDialog({
           </DialogDescription>
         </DialogHeader>
         <form
-          className="grid gap-[var(--ds-space-5)]"
+          className="grid gap-5"
           onSubmit={(event) => {
             event.preventDefault();
             void form.handleSubmit();

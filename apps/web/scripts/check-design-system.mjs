@@ -14,7 +14,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { argv, execPath } from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 import { promisify } from 'node:util';
@@ -113,6 +113,21 @@ function createRules(themeIds) {
       id: 'external-design-system-source',
       message: '禁止从 Web 根目录外读取设计系统文档；请使用本地设计系统包。',
       pattern: new RegExp(String.raw`\bdocs[\\/]+(?:\.[\\/]+)*design-system\b`, 'g'),
+    },
+    {
+      id: 'ds-var-outside-ui',
+      // 业务页面写 var(--ds-*) 说明缺少承载它的 alias 或组件——那正是"材料合规、页面风格
+      // 不合规"的来源：每个页面自己从 token 现拼，拼出来必然各不相同。命中时的正确处理是
+      // 去 tailwind-v4.css 补 alias，或把这段样式收进 components/ui 的组件，不是加例外。
+      // components/ui 与设计系统入口样式表除外：组件本来就是 token 的消费边界，
+      // 而 globals.css 需要在 CSS 层直接消费 selection 与 font-feature 这类非工具类 token。
+      message:
+        '业务代码不得直接消费 --ds-* token；请使用 Tailwind alias 或收进 components/ui 组件。',
+      pattern: /var\(\s*--ds-[A-Za-z0-9_-]+/g,
+      appliesTo: (path) =>
+        path.startsWith('src/') &&
+        !path.startsWith('src/components/ui/') &&
+        path !== 'src/styles/globals.css',
     },
     {
       id: 'raw-hex',
@@ -275,6 +290,7 @@ async function scanFiles(files, rootDirectory, rules) {
 
     for (const rule of rules) {
       if (isAllowed(relativePath, rule.id)) continue;
+      if (rule.appliesTo && !rule.appliesTo(relativePath)) continue;
 
       for (const match of scannable.matchAll(rule.pattern)) {
         const index = match.index ?? 0;
@@ -308,7 +324,8 @@ function printViolations(violations) {
 }
 
 async function runProductionScan(rules) {
-  const violations = await scanFiles(await collectProductionFiles(), webDirectory, rules);
+  const productionFiles = await collectProductionFiles();
+  const violations = await scanFiles(productionFiles, webDirectory, rules);
   const externalSourceRule = rules.find((rule) => rule.id === 'external-design-system-source');
   if (externalSourceRule === undefined) {
     throw new Error('设计系统源码检查失败：缺少外部设计系统源规则。');
@@ -329,7 +346,43 @@ async function runProductionScan(rules) {
     printViolations(violations);
     throw new Error(`设计系统源码检查失败：发现 ${violations.length} 处违规。`);
   }
+
+  await verifyReferencedTokensExist(productionFiles);
   console.log('设计系统源码检查通过。');
+}
+
+// 禁止业务层写 var(--ds-*) 并不能发现"引用了一个根本不存在的 token"：CSS 对未定义变量是
+// 静默的，样式直接消失。--ds-surface-recessed 就这样活了下来——4 处消费、0 处定义，那几个
+// 本应下陷的代码块一直是透明背景，没有任何检查报错。这里补上引用有效性。
+async function verifyReferencedTokensExist(files) {
+  const declared = new Set();
+  for (const fileName of [
+    'tokens.foundation.css',
+    'themes/cherry-black.css',
+    'themes/pure-white.css',
+  ]) {
+    const css = await readFile(join(designSystemDirectory, ...fileName.split('/')), 'utf8');
+    for (const match of css.matchAll(/(--ds-[A-Za-z0-9_-]+)\s*:/g)) declared.add(match[1]);
+  }
+
+  const unknown = [];
+  for (const path of files) {
+    // 校验器自身把违规拼写当测试数据，与 fullyAllowedFiles 的既有豁免保持一致。
+    const relativePath = normalizePath(relative(webDirectory, path));
+    if (fullyAllowedFiles.has(relativePath)) continue;
+    const content = await readFile(path, 'utf8');
+    for (const match of maskComments(content).matchAll(/var\(\s*(--ds-[A-Za-z0-9_-]+)/g)) {
+      if (!declared.has(match[1])) {
+        unknown.push(`${relativePath}: ${match[1]}`);
+      }
+    }
+  }
+  if (unknown.length > 0) {
+    for (const line of unknown) console.error(`  ${line}`);
+    throw new Error(
+      `设计系统源码检查失败：引用了 ${unknown.length} 个未定义的 --ds-* token；拼错的 token 会静默失效。`,
+    );
+  }
 }
 
 async function runGeneratorDriftSelfTest(temporaryDirectory) {
@@ -481,6 +534,13 @@ async function runSelfTest(rules) {
       `@import '${['docs', '.', 'design-system', 'tokens.css'].join('/')}';\n`,
       '.css',
     ],
+    [
+      'business code consuming a --ds-* token',
+      'ds-var-outside-ui',
+      'export const fixture = <div className="p-[var(--ds-space-4)]" />;\n',
+      '.tsx',
+      'src/features/fixture.tsx',
+    ],
     ['raw hex', 'raw-hex', "export const color = '#123456';\n", '.ts'],
     ['OKLCH', 'raw-oklch', '.fixture { color: oklch(0.5 0.2 40); }\n', '.css'],
     ['.dark selector', 'legacy-dark-selector', '.dark .fixture { color: inherit; }\n', '.css'],
@@ -568,8 +628,11 @@ async function runSelfTest(rules) {
 
   const temporaryDirectory = await mkdtemp(join(tmpdir(), 'cherry-oj-design-system-check-'));
   try {
-    for (const [name, expectedRuleId, content, extension] of fixtures) {
-      const fixturePath = join(temporaryDirectory, `fixture${extension}`);
+    for (const [name, expectedRuleId, content, extension, relativePath] of fixtures) {
+      const fixturePath = relativePath
+        ? join(temporaryDirectory, ...relativePath.split('/'))
+        : join(temporaryDirectory, `fixture${extension}`);
+      await mkdir(dirname(fixturePath), { recursive: true });
       await writeFile(fixturePath, content, 'utf8');
 
       const violations = await scanFiles([fixturePath], temporaryDirectory, rules);

@@ -27,27 +27,27 @@ const noticeAppearances: Record<InlineNoticeVariant, NoticeAppearance> = {
   success: {
     icon: CircleCheckBig,
     label: '成功',
-    className: 'border-[var(--ds-success-border)] bg-success-soft text-success',
+    className: 'border-success-border bg-success-soft text-success',
   },
   warning: {
     icon: TriangleAlert,
     label: '警告',
-    className: 'border-[var(--ds-warning-border)] bg-warning-soft text-warning',
+    className: 'border-warning-border bg-warning-soft text-warning',
   },
   danger: {
     icon: CircleAlert,
     label: '错误',
-    className: 'border-[var(--ds-danger-border)] bg-danger-soft text-danger',
+    className: 'border-danger-border bg-danger-soft text-danger',
   },
   info: {
     icon: Info,
     label: '信息',
-    className: 'border-[var(--ds-info-border)] bg-info-soft text-info',
+    className: 'border-info-border bg-info-soft text-info',
   },
   special: {
     icon: Sparkles,
     label: '特别提示',
-    className: 'border-[var(--ds-special-border)] bg-special-soft text-special',
+    className: 'border-special-border bg-special-soft text-special',
   },
 };
 
@@ -101,7 +101,7 @@ export function InlineNotice({
     >
       <Icon aria-hidden="true" />
       <AlertTitle className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-[length:var(--ds-text-xs)] tracking-wide">{visibleStatusLabel}</span>
+        <span className="text-xs tracking-wide">{visibleStatusLabel}</span>
         <span className="min-w-0 wrap-anywhere">{title}</span>
       </AlertTitle>
       <AlertDescription className="mt-1 text-current">{children}</AlertDescription>

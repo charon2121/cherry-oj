@@ -40,9 +40,9 @@ export function ProblemListPage({ search, navigate }: Props) {
         <Heading level={1} className="sr-only">
           题库
         </Heading>
-        <Panel className="p-[var(--ds-space-4)]">
+        <Panel className="p-4">
           <form
-            className="grid gap-[var(--ds-space-3)] md:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_repeat(5,minmax(8rem,auto))_auto]"
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_repeat(5,minmax(8rem,auto))_auto]"
             onSubmit={(event) => {
               event.preventDefault();
               navigate({
@@ -143,7 +143,7 @@ export function ProblemListPage({ search, navigate }: Props) {
 
         {result.isPending ? (
           <AsyncState
-            className="mt-[var(--ds-space-6)]"
+            className="mt-6"
             variant="loading"
             size="page"
             title="正在加载题库…"
@@ -154,7 +154,7 @@ export function ProblemListPage({ search, navigate }: Props) {
         ) : null}
         {result.isError && !result.data ? (
           <AsyncState
-            className="mt-[var(--ds-space-6)]"
+            className="mt-6"
             variant="error"
             size="page"
             live="assertive"
@@ -182,7 +182,7 @@ export function ProblemListPage({ search, navigate }: Props) {
         ) : null}
         {result.data?.items.length === 0 ? (
           <AsyncState
-            className="mt-[var(--ds-space-6)]"
+            className="mt-6"
             variant="empty"
             size="page"
             title={filtered ? '没有符合筛选的题目' : '题库还没有公开题目'}
@@ -205,18 +205,11 @@ export function ProblemListPage({ search, navigate }: Props) {
           </AsyncState>
         ) : null}
         {result.data && result.data.items.length > 0 ? (
-          <div
-            className="mt-[var(--ds-space-6)] grid gap-[var(--ds-space-3)]"
-            aria-busy={result.isFetching || undefined}
-          >
+          <div className="mt-6 grid gap-3" aria-busy={result.isFetching || undefined}>
             {result.isError ? (
               <Panel role="alert">
                 <Text>下一批加载失败，当前结果已保留。</Text>
-                <Button
-                  className="mt-[var(--ds-space-3)]"
-                  variant="secondary"
-                  onClick={() => void result.refetch()}
-                >
+                <Button className="mt-3" variant="secondary" onClick={() => void result.refetch()}>
                   重试当前批次
                 </Button>
               </Panel>
@@ -228,7 +221,7 @@ export function ProblemListPage({ search, navigate }: Props) {
             </Panel>
             <nav
               aria-label="题库分页"
-              className="flex flex-wrap items-center justify-between gap-[var(--ds-space-3)]"
+              className="flex flex-wrap items-center justify-between gap-3"
             >
               <Text size="sm" tone="muted">
                 本批 {result.data.items.length} 道题{result.isFetching ? '，正在更新…' : ''}
@@ -266,7 +259,7 @@ function ProblemRow({ problem }: { problem: ProblemSummary }) {
       to="/problems/$slug"
       params={{ slug: problem.slug }}
       search={{}}
-      className="focus-visible:outline-ring flex min-w-0 flex-wrap items-center gap-[var(--ds-space-3)] border-b border-[var(--ds-line-tertiary)] px-[var(--ds-space-4)] py-[var(--ds-space-2x)] no-underline transition-colors duration-[var(--ds-motion-fast)] last:border-b-0 hover:bg-[var(--ds-surface-translucent-hover)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] motion-reduce:transition-none"
+      className="focus-visible:outline-ring border-line py-2x duration-fast hover:bg-surface-translucent-hover flex min-w-0 flex-wrap items-center gap-3 border-b px-4 no-underline transition-colors last:border-b-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] motion-reduce:transition-none"
     >
       <Text size="cap" tone="meta" className="w-24 shrink-0 font-mono">
         {problem.slug} · v{problem.versionNo}

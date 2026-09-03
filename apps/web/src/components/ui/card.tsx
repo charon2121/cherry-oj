@@ -28,15 +28,15 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        'group/card text-card-foreground flex min-w-0 flex-col overflow-hidden border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] transition-colors duration-[var(--ds-motion-base)] ease-[var(--ds-ease-standard)] motion-reduce:transition-none',
-        resolvedPadding === 'sm' && 'gap-[var(--ds-space-4)] p-[var(--ds-space-4)]',
-        resolvedPadding === 'md' && 'gap-[var(--ds-space-6)] p-[var(--ds-space-6)]',
-        resolvedPadding === 'lg' && 'gap-[var(--ds-space-8)] p-[var(--ds-space-8)]',
-        radius === 'md' && 'rounded-[var(--ds-radius-md)]',
-        radius === 'lg' && 'rounded-[var(--ds-radius-lg)]',
-        radius === 'xl' && 'rounded-[var(--ds-radius-xl)]',
-        interactive && 'hover:bg-[var(--ds-surface-translucent-hover)]',
-        elevated && 'shadow-[var(--ds-elevation-raised)]',
+        'group/card text-card-foreground border-border bg-surface-translucent duration-base ease-standard flex min-w-0 flex-col overflow-hidden border transition-colors motion-reduce:transition-none',
+        resolvedPadding === 'sm' && 'gap-4 p-4',
+        resolvedPadding === 'md' && 'gap-6 p-6',
+        resolvedPadding === 'lg' && 'gap-8 p-8',
+        radius === 'md' && 'rounded-md',
+        radius === 'lg' && 'rounded-lg',
+        radius === 'xl' && 'rounded-xl',
+        interactive && 'hover:bg-surface-translucent-hover',
+        elevated && 'shadow-raised',
         className,
       )}
       {...props}
@@ -49,7 +49,7 @@ function CardHeader({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-header"
       className={cn(
-        'group/card-header grid min-w-0 auto-rows-min items-start gap-[var(--ds-space-1)] has-data-[slot=card-action]:grid-cols-[minmax(0,1fr)_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]',
+        'group/card-header grid min-w-0 auto-rows-min items-start gap-1 has-data-[slot=card-action]:grid-cols-[minmax(0,1fr)_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]',
         className,
       )}
       {...props}
@@ -62,7 +62,7 @@ function CardTitle({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-title"
       className={cn(
-        'font-display text-[length:var(--ds-text-base)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)] group-data-[size=sm]/card:text-[length:var(--ds-text-sm)]',
+        'font-display leading-h2 font-heading tracking-heading text-base group-data-[size=sm]/card:text-sm',
         className,
       )}
       {...props}
@@ -74,7 +74,7 @@ function CardDescription({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-description"
-      className={cn('text-muted-foreground text-[length:var(--ds-text-sm)]', className)}
+      className={cn('text-muted-foreground text-sm', className)}
       {...props}
     />
   );
@@ -99,7 +99,7 @@ function CardFooter({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-footer"
       className={cn(
-        'flex min-w-0 flex-wrap items-center gap-[var(--ds-space-2)] border-t border-[var(--ds-border)] pt-[var(--ds-space-4)]',
+        'border-border flex min-w-0 flex-wrap items-center gap-2 border-t pt-4',
         className,
       )}
       {...props}
@@ -113,10 +113,7 @@ function Panel({ className, ...props }: ComponentProps<'section'>) {
   return (
     <section
       data-slot="panel"
-      className={cn(
-        'min-w-0 rounded-[var(--ds-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-[var(--ds-space-5)]',
-        className,
-      )}
+      className={cn('border-border bg-panel min-w-0 rounded-lg border p-5', className)}
       {...props}
     />
   );

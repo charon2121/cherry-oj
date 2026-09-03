@@ -80,12 +80,7 @@ function AccountMenuView({
       <DropdownMenu defaultOpen={defaultOpen}>
         <DropdownMenuTrigger
           render={
-            <Button
-              variant="ghost"
-              size="sm"
-              className="max-w-48 px-[var(--ds-space-2)]"
-              aria-label={triggerLabel}
-            />
+            <Button variant="ghost" size="sm" className="max-w-48 px-2" aria-label={triggerLabel} />
           }
         >
           <UserRound aria-hidden="true" />
@@ -103,7 +98,7 @@ function AccountMenuView({
             <DropdownMenuLabel>
               <span>登录账号</span>
               <span
-                className="text-foreground max-w-48 truncate text-sm font-[var(--ds-weight-heading)]"
+                className="text-foreground font-heading max-w-48 truncate text-sm"
                 title={username}
               >
                 {username}
@@ -111,10 +106,7 @@ function AccountMenuView({
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           {logoutError ? (
-            <div
-              role="alert"
-              className="text-destructive px-[var(--ds-space-2)] py-[var(--ds-space-1x)] text-[length:var(--ds-text-xs)]"
-            >
+            <div role="alert" className="text-destructive py-1x px-2 text-xs">
               {logoutError}
             </div>
           ) : null}
@@ -208,7 +200,7 @@ function AccountMenu({
         className={buttonVariants({
           variant: 'ghost',
           size: 'sm',
-          className: cn('ml-auto px-[var(--ds-space-3)] no-underline', className),
+          className: cn('ml-auto px-3 no-underline', className),
         })}
       >
         登录

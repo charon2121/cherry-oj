@@ -82,58 +82,49 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
             ))}
           </Cluster>
         </Stack>
-        <div className="mt-[var(--ds-space-8)] grid min-w-0 gap-[var(--ds-space-8)] lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <article className="min-w-0 space-y-[var(--ds-space-8)]">
+        <div className="mt-8 grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <article className="min-w-0 space-y-8">
             <SafeMarkdown value={data.statementMarkdown} />
             <section>
               <Heading level={2} size="lg">
                 输入说明
               </Heading>
-              <SafeMarkdown
-                className="mt-[var(--ds-space-3)]"
-                value={data.inputDescriptionMarkdown}
-              />
+              <SafeMarkdown className="mt-3" value={data.inputDescriptionMarkdown} />
             </section>
             <section>
               <Heading level={2} size="lg">
                 输出说明
               </Heading>
-              <SafeMarkdown
-                className="mt-[var(--ds-space-3)]"
-                value={data.outputDescriptionMarkdown}
-              />
+              <SafeMarkdown className="mt-3" value={data.outputDescriptionMarkdown} />
             </section>
             {data.constraintsMarkdown ? (
               <section>
                 <Heading level={2} size="lg">
                   数据范围
                 </Heading>
-                <SafeMarkdown className="mt-[var(--ds-space-3)]" value={data.constraintsMarkdown} />
+                <SafeMarkdown className="mt-3" value={data.constraintsMarkdown} />
               </section>
             ) : null}
             <section>
               <Heading level={2} size="lg">
                 样例
               </Heading>
-              <div className="mt-[var(--ds-space-3)] grid gap-[var(--ds-space-4)]">
+              <div className="mt-3 grid gap-4">
                 {data.samples.map((sample) => (
                   <Panel key={sample.ordinal}>
                     <Text size="sm" tone="muted">
                       样例 {sample.ordinal}
                     </Text>
-                    <div className="mt-[var(--ds-space-3)] grid gap-[var(--ds-space-3)] sm:grid-cols-2">
-                      <pre className="overflow-x-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-recessed)] p-[var(--ds-space-3)] font-mono text-[length:var(--ds-text-sm)]">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <pre className="bg-surface-subtle overflow-x-auto rounded-sm p-3 font-mono text-sm">
                         <code>{sample.input}</code>
                       </pre>
-                      <pre className="overflow-x-auto rounded-[var(--ds-radius-sm)] bg-[var(--ds-surface-recessed)] p-[var(--ds-space-3)] font-mono text-[length:var(--ds-text-sm)]">
+                      <pre className="bg-surface-subtle overflow-x-auto rounded-sm p-3 font-mono text-sm">
                         <code>{sample.output}</code>
                       </pre>
                     </div>
                     {sample.explanationMarkdown ? (
-                      <SafeMarkdown
-                        className="mt-[var(--ds-space-3)]"
-                        value={sample.explanationMarkdown}
-                      />
+                      <SafeMarkdown className="mt-3" value={sample.explanationMarkdown} />
                     ) : null}
                   </Panel>
                 ))}
@@ -141,11 +132,11 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
             </section>
           </article>
           <aside>
-            <Panel className="sticky top-[calc(var(--ds-header-height)+var(--ds-space-6))]">
+            <Panel className="sticky top-[calc(var(--layout-header)+var(--space-6))]">
               <Heading level={2} size="lg">
                 可用语言
               </Heading>
-              <ul className="mt-[var(--ds-space-3)] space-y-[var(--ds-space-2)]">
+              <ul className="mt-3 space-y-2">
                 {data.allowedLanguages.map((language) => (
                   <li key={language.id}>
                     <Badge variant="success">{language.displayName}</Badge>
@@ -156,7 +147,7 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
                 to="/login"
                 search={{ returnTo: `/problems/${data.slug}` }}
                 className={buttonVariants({
-                  className: 'mt-[var(--ds-space-5)] w-full',
+                  className: 'mt-5 w-full',
                 })}
               >
                 登录后开始答题

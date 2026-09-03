@@ -6,55 +6,50 @@ import { cn } from '@/lib/utils';
 const typographyToneVariants = {
   primary: 'text-foreground',
   strong: 'text-foreground',
-  default: 'text-[var(--ds-fg-2)]',
-  secondary: 'text-[var(--ds-fg-2)]',
+  default: 'text-fg-2',
+  secondary: 'text-fg-2',
   muted: 'text-muted-foreground',
-  meta: 'text-[var(--ds-fg-meta)]',
-  metadata: 'text-[var(--ds-fg-meta)]',
-  accent: 'text-[var(--ds-brand-foreground)]',
-  mono: 'font-mono text-[var(--ds-fg-2)]',
+  meta: 'text-fg-meta',
+  metadata: 'text-fg-meta',
+  accent: 'text-brand',
+  mono: 'font-mono text-fg-2',
 } as const;
 
 const typographySizeVariants = {
-  tiny: 'text-[length:var(--ds-text-tiny)]',
-  micro: 'text-[length:var(--ds-text-micro)]',
-  xs: 'text-[length:var(--ds-text-xs)]',
-  cap: 'text-[length:var(--ds-text-cap)]',
-  sm: 'text-[length:var(--ds-text-sm)]',
-  md: 'text-[length:var(--ds-text-15)]',
-  base: 'text-[length:var(--ds-text-base)]',
-  lg: 'text-[length:var(--ds-text-lg)]',
-  xl: 'text-[length:var(--ds-text-xl)]',
-  h3: 'text-[length:var(--ds-text-h3)]',
-  '2xl': 'text-[length:var(--ds-text-2xl)]',
-  '3xl': 'text-[length:var(--ds-text-3xl)]',
-  'display-lg': 'text-[length:var(--ds-text-display-lg)]',
-  '4xl': 'text-[length:var(--ds-text-4xl)]',
+  tiny: 'text-tiny',
+  micro: 'text-micro',
+  xs: 'text-xs',
+  cap: 'text-cap',
+  sm: 'text-sm',
+  md: 'text-15',
+  base: 'text-base',
+  lg: 'text-lg',
+  xl: 'text-xl',
+  h3: 'text-h3',
+  '2xl': 'text-2xl',
+  '3xl': 'text-3xl',
+  'display-lg': 'text-display-lg',
+  '4xl': 'text-4xl',
 } as const;
 
 const headingVariants = cva('m-0 min-w-0 break-words font-display text-pretty text-foreground', {
   variants: {
     tone: typographyToneVariants,
     size: {
-      tiny: 'text-[length:var(--ds-text-tiny)] leading-[var(--ds-leading-label)] font-[var(--ds-weight-heading)]',
-      micro:
-        'text-[length:var(--ds-text-micro)] leading-[var(--ds-leading-label)] font-[var(--ds-weight-heading)]',
-      xs: 'text-[length:var(--ds-text-xs)] leading-[var(--ds-leading-label)] font-[var(--ds-weight-heading)]',
-      cap: 'text-[length:var(--ds-text-cap)] leading-[var(--ds-leading-label)] font-[var(--ds-weight-heading)]',
-      sm: 'text-[length:var(--ds-text-sm)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]',
-      md: 'text-[length:var(--ds-text-15)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]',
-      base: 'text-[length:var(--ds-text-base)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]',
-      lg: 'text-[length:var(--ds-text-lg)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]',
-      h3: 'text-[length:var(--ds-text-h3)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]',
-      xl: 'text-[length:var(--ds-text-xl)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-regular)] tracking-[var(--ds-tracking-heading)]',
-      '2xl':
-        'text-[length:var(--ds-text-2xl)] leading-[var(--ds-leading-heading)] font-[var(--ds-weight-regular)] tracking-[var(--ds-tracking-heading)]',
-      '3xl':
-        'text-[length:var(--ds-text-3xl)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] tracking-[var(--ds-tracking-display)]',
-      'display-lg':
-        'text-[length:var(--ds-text-display-lg)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] tracking-[var(--ds-tracking-display)]',
-      '4xl':
-        'text-[length:var(--ds-text-4xl)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] tracking-[var(--ds-tracking-display)]',
+      tiny: 'text-tiny leading-label font-heading',
+      micro: 'text-micro leading-label font-heading',
+      xs: 'text-xs leading-label font-heading',
+      cap: 'text-cap leading-label font-heading',
+      sm: 'text-sm leading-h2 font-heading tracking-heading',
+      md: 'text-15 leading-h2 font-heading tracking-heading',
+      base: 'text-base leading-h2 font-heading tracking-heading',
+      lg: 'text-lg leading-h2 font-heading tracking-heading',
+      h3: 'text-h3 leading-h2 font-heading tracking-heading',
+      xl: 'text-xl leading-h2 font-regular tracking-heading',
+      '2xl': 'text-2xl leading-heading font-regular tracking-heading',
+      '3xl': 'text-3xl leading-tight font-body tracking-display',
+      'display-lg': 'text-display-lg leading-tight font-body tracking-display',
+      '4xl': 'text-4xl leading-tight font-body tracking-display',
     },
   },
   defaultVariants: {
@@ -62,26 +57,23 @@ const headingVariants = cva('m-0 min-w-0 break-words font-display text-pretty te
   },
 });
 
-const textVariants = cva(
-  'm-0 min-w-0 break-words leading-[var(--ds-leading-body)] font-[var(--ds-weight-regular)] text-pretty',
-  {
-    variants: {
-      tone: typographyToneVariants,
-      size: typographySizeVariants,
-      weight: {
-        light: 'font-[var(--ds-weight-light)]',
-        regular: 'font-[var(--ds-weight-regular)]',
-        medium: 'font-[var(--ds-weight-body)]',
-        semibold: 'font-[var(--ds-weight-heading)]',
-      },
-    },
-    defaultVariants: {
-      tone: 'secondary',
-      size: 'base',
-      weight: 'regular',
+const textVariants = cva('m-0 min-w-0 break-words leading-body font-regular text-pretty', {
+  variants: {
+    tone: typographyToneVariants,
+    size: typographySizeVariants,
+    weight: {
+      light: 'font-light',
+      regular: 'font-regular',
+      medium: 'font-body',
+      semibold: 'font-heading',
     },
   },
-);
+  defaultVariants: {
+    tone: 'secondary',
+    size: 'base',
+    weight: 'regular',
+  },
+});
 
 type HeadingProps = Omit<ComponentProps<'h2'>, 'color'> &
   VariantProps<typeof headingVariants> &
@@ -98,11 +90,11 @@ const headingTags = {
 } as const;
 
 const headingLevelClasses = {
-  1: 'text-[length:var(--ds-text-4xl)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] tracking-[var(--ds-tracking-display)]',
-  2: 'text-[length:var(--ds-text-3xl)] leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] tracking-[var(--ds-tracking-display)]',
-  3: 'text-[length:var(--ds-text-2xl)] leading-[var(--ds-leading-heading)] font-[var(--ds-weight-regular)] tracking-[var(--ds-tracking-heading)]',
-  4: 'text-[length:var(--ds-text-xl)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-regular)] tracking-[var(--ds-tracking-heading)]',
-  5: 'text-[length:var(--ds-text-h3)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]',
+  1: 'text-4xl leading-tight font-body tracking-display',
+  2: 'text-3xl leading-tight font-body tracking-display',
+  3: 'text-2xl leading-heading font-regular tracking-heading',
+  4: 'text-xl leading-h2 font-regular tracking-heading',
+  5: 'text-h3 leading-h2 font-heading tracking-heading',
 } as const;
 
 function Heading({ className, level = 2, size, tone = 'primary', ...props }: HeadingProps) {
@@ -155,8 +147,8 @@ function Eyebrow({
     <p
       data-slot="eyebrow"
       className={cn(
-        'font-display m-0 text-[length:var(--ds-text-xs)] font-[var(--ds-weight-body)] tracking-[var(--ds-tracking-eyebrow)] uppercase',
-        tone === 'accent' ? 'text-[var(--ds-brand-foreground)]' : 'text-[var(--ds-fg-meta)]',
+        'font-display font-body tracking-eyebrow m-0 text-xs uppercase',
+        tone === 'accent' ? 'text-brand' : 'text-fg-meta',
         className,
       )}
       {...props}
@@ -168,10 +160,7 @@ function CodeText({ className, ...props }: ComponentProps<'code'>) {
   return (
     <code
       data-slot="code-text"
-      className={cn(
-        'font-mono text-[length:var(--ds-text-sm)] leading-[var(--ds-leading-body)] text-[var(--ds-fg-2)]',
-        className,
-      )}
+      className={cn('leading-body text-fg-2 font-mono text-sm', className)}
       {...props}
     />
   );

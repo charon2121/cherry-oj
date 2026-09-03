@@ -27,26 +27,23 @@ export function HomePage() {
             </InlineNotice>
           ) : null}
 
-          <div className="grid gap-[var(--ds-space-4)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             <Link
               to="/problems"
               search={{ sort: 'UPDATED_DESC', size: 20 }}
-              className="focus-visible:outline-ring rounded-[var(--ds-radius-lg)] no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <Card interactive elevated padding="lg" className="h-full min-h-56 justify-center">
                 <CardHeader>
-                  <BookOpen
-                    aria-hidden="true"
-                    className="size-5 text-[var(--ds-brand-foreground)]"
-                  />
-                  <CardTitle className="text-[length:var(--ds-text-xl)] font-[var(--ds-weight-regular)]">
+                  <BookOpen aria-hidden="true" className="text-brand size-5" />
+                  <CardTitle className="font-regular text-xl">
                     {session.data?.authenticated ? '继续进入题库' : '浏览公开题库'}
                   </CardTitle>
-                  <CardDescription className="max-w-xl text-[length:var(--ds-text-15)]">
+                  <CardDescription className="text-15 max-w-xl">
                     查找题目，打开详情后编写并提交你的解答。
                   </CardDescription>
                   <CardAction>
-                    <ArrowRight aria-hidden="true" className="size-5 text-[var(--ds-fg-meta)]" />
+                    <ArrowRight aria-hidden="true" className="text-fg-meta size-5" />
                   </CardAction>
                 </CardHeader>
               </Card>
@@ -55,18 +52,15 @@ export function HomePage() {
             {session.data?.authenticated && session.data.user.role === 'ADMIN' ? (
               <Link
                 to="/admin"
-                className="focus-visible:outline-ring rounded-[var(--ds-radius-lg)] no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 <Card interactive padding="lg" className="h-full min-h-56 justify-center">
                   <CardHeader>
-                    <LayoutDashboard
-                      aria-hidden="true"
-                      className="size-5 text-[var(--ds-brand-foreground)]"
-                    />
+                    <LayoutDashboard aria-hidden="true" className="text-brand size-5" />
                     <CardTitle>进入管理中心</CardTitle>
                     <CardDescription>管理账号与题目内容。</CardDescription>
                     <CardAction>
-                      <ArrowRight aria-hidden="true" className="size-4 text-[var(--ds-fg-meta)]" />
+                      <ArrowRight aria-hidden="true" className="text-fg-meta size-4" />
                     </CardAction>
                   </CardHeader>
                 </Card>

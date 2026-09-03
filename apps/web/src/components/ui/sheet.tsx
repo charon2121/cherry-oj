@@ -17,7 +17,7 @@ function SheetBackdrop({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-backdrop"
       className={cn(
-        'fixed inset-0 z-50 min-h-dvh bg-[var(--ds-overlay)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+        'bg-overlay duration-fast ease-standard fixed inset-0 z-50 min-h-dvh transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
         className,
       )}
       {...props}
@@ -56,7 +56,7 @@ function SheetContent({
           data-slot="sheet-content"
           data-side={side}
           className={cn(
-            'text-sidebar-foreground pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--ds-space-8)))] flex-col border-r border-[var(--ds-border)] bg-[var(--ds-panel)] shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-sidebar-foreground border-border bg-panel shadow-dialog duration-fast ease-standard pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--space-8)))] flex-col border-r transition-opacity outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             side === 'left' ? 'left-0' : 'right-0 border-r-0 border-l',
             className,
           )}
@@ -66,7 +66,7 @@ function SheetContent({
           <SheetPrimitive.Close
             data-slot="sheet-close"
             aria-label={closeLabel}
-            className="border-border-strong bg-surface-subtle text-foreground hover:bg-accent focus-visible:outline-ring absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-sm border transition-colors duration-[var(--ds-motion-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+            className="border-border-strong bg-surface-subtle text-foreground hover:bg-accent focus-visible:outline-ring duration-fast absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-sm border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
           >
             <X className="size-4" aria-hidden="true" />
           </SheetPrimitive.Close>
@@ -91,7 +91,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
     <SheetPrimitive.Title
       data-slot="sheet-title"
       className={cn(
-        'font-display text-foreground text-base leading-[var(--ds-leading-heading)] font-[var(--ds-weight-heading)]',
+        'font-display text-foreground leading-heading font-heading text-base',
         className,
       )}
       {...props}

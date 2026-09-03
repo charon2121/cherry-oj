@@ -36,9 +36,7 @@ function AccountMenuExample({ defaultOpen = false }: Readonly<{ defaultOpen?: bo
         <DropdownMenuGroup>
           <DropdownMenuLabel>
             <span>登录账号</span>
-            <span className="text-foreground text-sm font-[var(--ds-weight-heading)]">
-              root-admin
-            </span>
+            <span className="text-foreground font-heading text-sm">root-admin</span>
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuGroup>

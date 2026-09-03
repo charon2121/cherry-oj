@@ -28,8 +28,9 @@ describe('Layout', () => {
       </Section>,
     );
 
-    expect(screen.getByTestId('stack').className).toContain('--ds-space-6');
-    expect(screen.getByTestId('cluster').className).toContain('--ds-space-3');
-    expect(screen.getByRole('region', { name: '布局样例' })).toHaveClass('pt-[var(--ds-space-6)]');
+    // 间距改由 Tailwind alias 表达；alias 的取值由 adapter 锚定到 --ds-space-6。
+    expect(screen.getByTestId('stack').className).toContain('gap-6');
+    expect(screen.getByTestId('cluster').className).toContain('gap-3');
+    expect(screen.getByRole('region', { name: '布局样例' })).toHaveClass('pt-6');
   });
 });

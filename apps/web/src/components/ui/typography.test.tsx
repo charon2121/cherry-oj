@@ -22,7 +22,8 @@ describe('Typography', () => {
     );
 
     const metadata = screen.getByText('2026-08-28 13:20');
-    expect(metadata.className).toContain('--ds-fg-meta');
+    // 断言的是用了专门的 metadata 前景档，而不是它的字面量；alias 由 adapter 锚定到 --ds-fg-meta。
+    expect(metadata.className).toContain('text-fg-meta');
     expect(metadata.className).not.toContain('opacity');
   });
 

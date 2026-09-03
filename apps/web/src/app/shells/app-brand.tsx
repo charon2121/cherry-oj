@@ -9,12 +9,9 @@ type AppBrandProps = Readonly<{
 
 function BrandName({ showMark = false }: Readonly<{ showMark?: boolean }>) {
   return (
-    <span className="inline-flex items-center gap-[var(--ds-space-2)] whitespace-nowrap">
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
       {showMark ? (
-        <span
-          aria-hidden="true"
-          className="bg-primary size-[var(--ds-space-4x)] shrink-0 rounded-[var(--ds-radius-xs)]"
-        />
+        <span aria-hidden="true" className="bg-primary size-4x shrink-0 rounded-xs" />
       ) : null}
       <span>Cherry OJ</span>
     </span>
@@ -23,10 +20,8 @@ function BrandName({ showMark = false }: Readonly<{ showMark?: boolean }>) {
 
 function AppBrand({ className, destination = 'site' }: AppBrandProps) {
   const classes = cn(
-    'text-foreground visited:text-foreground focus-visible:outline-ring inline-flex min-h-8 min-w-0 shrink-0 items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-xs)] font-display font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)] no-underline transition-colors duration-[var(--ds-motion-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
-    destination === 'admin'
-      ? 'px-[var(--ds-space-1)] text-[length:var(--ds-text-sm)]'
-      : 'text-[length:var(--ds-text-base)]',
+    'text-foreground visited:text-foreground focus-visible:outline-ring inline-flex min-h-8 min-w-0 shrink-0 items-center gap-2 rounded-xs font-display font-heading tracking-heading no-underline transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+    destination === 'admin' ? 'px-1 text-sm' : 'text-base',
     className,
   );
 

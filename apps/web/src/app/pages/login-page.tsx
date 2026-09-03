@@ -21,11 +21,11 @@ function WorkspaceWordmark() {
     <div
       aria-hidden="true"
       data-testid="login-workspace-art"
-      className="relative hidden h-full min-h-0 min-w-0 border-l border-[var(--ds-border-soft)] lg:block"
+      className="border-border-soft relative hidden h-full min-h-0 min-w-0 border-l lg:block"
     >
       <img
         alt=""
-        className="absolute top-0 left-[calc(var(--ds-space-12)+var(--ds-space-12))] h-full w-auto max-w-[calc(100%-var(--ds-space-8))] object-contain object-left-top opacity-90 mix-blend-difference"
+        className="absolute top-0 left-[calc(var(--space-12)+var(--space-12))] h-full w-auto max-w-[calc(100%-var(--space-8))] object-contain object-left-top opacity-90 mix-blend-difference"
         src="/login-workspace-art.png"
       />
     </div>
@@ -44,8 +44,8 @@ function LoginPageView({
   return (
     <Container className="h-0 min-h-full">
       <Section className="box-border grid h-full min-h-0 pb-0">
-        <div className="grid h-full min-h-0 items-start gap-[var(--ds-space-12)] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div className="w-full max-w-xl justify-self-center lg:justify-self-start lg:pt-[var(--ds-space-12)]">
+        <div className="grid h-full min-h-0 items-start gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div className="w-full max-w-xl justify-self-center lg:justify-self-start lg:pt-12">
             <Stack gap={8}>
               <Stack gap={3}>
                 <Eyebrow tone="accent">安全登录</Eyebrow>
@@ -58,7 +58,7 @@ function LoginPageView({
               </Stack>
 
               <form
-                className="border-t border-[var(--ds-border-soft)] pt-[var(--ds-space-6)]"
+                className="border-border-soft border-t pt-6"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!pending) onSubmit();
@@ -74,12 +74,12 @@ function LoginPageView({
                       maxLength={64}
                       pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
                       placeholder="请输入用户名"
-                      className="min-h-[var(--ds-space-12)]"
+                      className="min-h-12"
                       value={username}
                       onChange={(event) => onUsernameChange(event.target.value)}
                     />
                   </FormField>
-                  <div className="[&_input]:min-h-[var(--ds-space-12)]">
+                  <div className="[&_input]:min-h-12">
                     <PasswordField
                       id="password"
                       label="密码"
@@ -91,7 +91,7 @@ function LoginPageView({
                   <Button
                     type="submit"
                     size="md"
-                    className="min-h-[var(--ds-space-12)] w-full"
+                    className="min-h-12 w-full"
                     loading={pending}
                     loadingLabel="正在登录…"
                   >

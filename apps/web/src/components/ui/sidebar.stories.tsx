@@ -49,7 +49,7 @@ function NavigationExample({ defaultOpen = true }: Readonly<{ defaultOpen?: bool
                   <span>账号管理</span>
                   <ChevronRight
                     aria-hidden="true"
-                    className="group-data-[panel-open]/account:text-foreground ml-auto transition-colors duration-[var(--ds-motion-fast)] motion-reduce:transition-none"
+                    className="group-data-[panel-open]/account:text-foreground duration-fast ml-auto transition-colors motion-reduce:transition-none"
                   />
                 </CollapsibleTrigger>
                 <CollapsibleContent>

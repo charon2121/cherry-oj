@@ -58,19 +58,19 @@ export function ProblemTagInput({
   return (
     <div
       className={cn(
-        'focus-within:outline-ring flex min-h-10 flex-wrap items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] px-[var(--ds-space-2)] py-[var(--ds-space-1x)] focus-within:border-[var(--ds-brand-surface)] focus-within:outline-2 focus-within:outline-offset-2',
-        ariaInvalid && 'border-[var(--ds-danger-border)]',
+        'focus-within:outline-ring border-border bg-surface-translucent py-1x focus-within:border-brand-surface flex min-h-10 flex-wrap items-center gap-2 rounded-sm border px-2 focus-within:outline-2 focus-within:outline-offset-2',
+        ariaInvalid && 'border-danger-border',
       )}
     >
       {value.map((tag) => (
         <span
           key={tag}
-          className="inline-flex min-h-7 items-center gap-[var(--ds-space-1)] rounded-[var(--ds-radius-micro)] border border-[var(--ds-border-soft)] bg-[var(--ds-surface-translucent-selected)] px-[var(--ds-space-2)] text-[length:var(--ds-text-sm)]"
+          className="rounded-micro border-border-soft bg-surface-translucent-selected inline-flex min-h-7 items-center gap-1 border px-2 text-sm"
         >
           {tag}
           <button
             type="button"
-            className="focus-visible:outline-ring inline-flex size-6 items-center justify-center rounded-[var(--ds-radius-xs)] transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-hover)] focus-visible:outline-2 motion-reduce:transition-none"
+            className="focus-visible:outline-ring duration-fast hover:bg-surface-hover inline-flex size-6 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 motion-reduce:transition-none"
             aria-label={`删除标签 ${tag}`}
             disabled={disabled}
             onClick={() => onChange(value.filter((item) => item !== tag))}
@@ -81,7 +81,7 @@ export function ProblemTagInput({
       ))}
       <Input
         id={id}
-        className="min-w-36 flex-1 border-0 bg-transparent px-[var(--ds-space-1)] focus-visible:outline-0"
+        className="min-w-36 flex-1 border-0 bg-transparent px-1 focus-visible:outline-0"
         value={draft}
         disabled={disabled}
         aria-describedby={ariaDescribedBy}

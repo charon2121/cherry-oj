@@ -76,6 +76,46 @@
   --chart-4: var(--ds-warning-foreground);
   --chart-5: var(--ds-special-foreground);
 
+  --fg-2: var(--ds-fg-2);
+  --fg-muted: var(--ds-fg-muted);
+  --fg-meta: var(--ds-fg-meta);
+  --fg-ghost: var(--ds-fg-ghost);
+  --fg-disabled: var(--ds-fg-disabled);
+
+  --panel: var(--ds-panel);
+  --surface-translucent: var(--ds-surface-translucent);
+  --surface-translucent-hover: var(--ds-surface-translucent-hover);
+  --surface-translucent-selected: var(--ds-surface-translucent-selected);
+  --surface-hover: var(--ds-surface-hover);
+
+  --border-soft: var(--ds-border-soft);
+  --border-solid: var(--ds-border-solid);
+  --line: var(--ds-line-tertiary);
+
+  --link: var(--ds-link);
+  --link-hover: var(--ds-link-hover);
+  --brand-surface: var(--ds-brand-surface);
+  --brand-surface-hover: var(--ds-brand-surface-hover);
+  --brand-surface-active: var(--ds-brand-surface-active);
+  --on-brand-soft: var(--ds-on-brand-soft);
+  --overlay: var(--ds-overlay);
+
+  --success-border: var(--ds-success-border);
+  --warning-border: var(--ds-warning-border);
+  --danger-border: var(--ds-danger-border);
+  --info-border: var(--ds-info-border);
+  --special-border: var(--ds-special-border);
+
+  /* Metrics that page-level calc() needs. Utilities cannot express "header height plus one
+   * spacing step", and `@theme inline` deliberately does not emit its keys as CSS variables,
+   * so this is the only legal vocabulary for that math. Named without the --ds- prefix so the
+   * "business code never writes --ds-*" rule stays absolute and needs no exceptions. */
+  --space-6: var(--ds-space-6);
+  --space-8: var(--ds-space-8);
+  --space-12: var(--ds-space-12);
+  --layout-header: var(--ds-header-height);
+  --layout-sidebar: var(--ds-sidebar-width);
+
   --radius: var(--ds-radius-md);
   --font-sans: var(--ds-font-body);
   --font-display: var(--ds-font-display);
@@ -142,9 +182,137 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  /* Foreground ladder. Four text tones plus the exempt disabled tone; see design-system.md 5. */
+  --color-fg-2: var(--fg-2);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-meta: var(--fg-meta);
+  --color-fg-ghost: var(--fg-ghost);
+  --color-fg-disabled: var(--fg-disabled);
+
+  /* Source-faithful translucent surfaces and structural lines. */
+  --color-panel: var(--panel);
+  --color-surface-translucent: var(--surface-translucent);
+  --color-surface-translucent-hover: var(--surface-translucent-hover);
+  --color-surface-translucent-selected: var(--surface-translucent-selected);
+  --color-surface-hover: var(--surface-hover);
+  --color-border-soft: var(--border-soft);
+  --color-border-solid: var(--border-solid);
+  --color-line: var(--line);
+
+  --color-link: var(--link);
+  --color-link-hover: var(--link-hover);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-hover: var(--brand-surface-hover);
+  --color-brand-surface-active: var(--brand-surface-active);
+  --color-on-brand-soft: var(--on-brand-soft);
+  --color-overlay: var(--overlay);
+  --color-success-border: var(--success-border);
+  --color-warning-border: var(--warning-border);
+  --color-danger-border: var(--danger-border);
+  --color-info-border: var(--info-border);
+  --color-special-border: var(--special-border);
+
+  /* Spacing. Every step is named explicitly so the design system owns the scale: Tailwind's
+   * default 4px grid only coincides with it, and --ds-space-9 (35px) would silently render as
+   * 36px if left to the default. 1x/2x/4x/5x are the source's optical micro-steps. */
+  --spacing-px: var(--ds-space-px);
+  --spacing-1: var(--ds-space-1);
+  --spacing-1x: var(--ds-space-1x);
+  --spacing-2: var(--ds-space-2);
+  --spacing-2x: var(--ds-space-2x);
+  --spacing-3: var(--ds-space-3);
+  --spacing-4: var(--ds-space-4);
+  --spacing-4x: var(--ds-space-4x);
+  --spacing-5: var(--ds-space-5);
+  --spacing-5x: var(--ds-space-5x);
+  --spacing-6: var(--ds-space-6);
+  --spacing-7: var(--ds-space-7);
+  --spacing-8: var(--ds-space-8);
+  --spacing-9: var(--ds-space-9);
+  --spacing-12: var(--ds-space-12);
+  --spacing-gutter-phone: var(--ds-container-gutter-phone);
+  --spacing-gutter-tablet: var(--ds-container-gutter-tablet);
+  --spacing-gutter-desktop: var(--ds-container-gutter-desktop);
+  --spacing-header: var(--ds-header-height);
+  --spacing-sidebar: var(--ds-sidebar-width);
+
+  /* Optical type scale. Tailwind pairs its built-in text-* names with a default line-height and
+   * emits it alongside the font-size; the codebase previously used bare font-size utilities and
+   * sets leading-* explicitly where it wants one. Unset every paired line-height so a size alias
+   * stays a size alias — otherwise switching to text-sm silently adds a 20px line box. */
+  --text-tiny: var(--ds-text-tiny);
+  --text-micro: var(--ds-text-micro);
+  --text-xs: var(--ds-text-xs);
+  --text-cap: var(--ds-text-cap);
+  --text-sm: var(--ds-text-sm);
+  --text-15: var(--ds-text-15);
+  --text-base: var(--ds-text-base);
+  --text-17: var(--ds-text-17);
+  --text-lg: var(--ds-text-lg);
+  --text-h3: var(--ds-text-h3);
+  --text-xl: var(--ds-text-xl);
+  --text-2xl: var(--ds-text-2xl);
+  --text-3xl: var(--ds-text-3xl);
+  --text-display-lg: var(--ds-text-display-lg);
+  --text-4xl: var(--ds-text-4xl);
+
+  --text-tiny--line-height: initial;
+  --text-micro--line-height: initial;
+  --text-xs--line-height: initial;
+  --text-cap--line-height: initial;
+  --text-sm--line-height: initial;
+  --text-15--line-height: initial;
+  --text-base--line-height: initial;
+  --text-17--line-height: initial;
+  --text-lg--line-height: initial;
+  --text-h3--line-height: initial;
+  --text-xl--line-height: initial;
+  --text-2xl--line-height: initial;
+  --text-3xl--line-height: initial;
+  --text-display-lg--line-height: initial;
+  --text-4xl--line-height: initial;
+
+  --font-weight-light: var(--ds-weight-light);
+  --font-weight-regular: var(--ds-weight-regular);
+  --font-weight-body: var(--ds-weight-body);
+  --font-weight-heading: var(--ds-weight-heading);
+
+  --leading-tight: var(--ds-leading-tight);
+  --leading-heading: var(--ds-leading-heading);
+  --leading-h2: var(--ds-leading-h2);
+  --leading-label: var(--ds-leading-label);
+  --leading-body: var(--ds-leading-body);
+  --leading-relaxed: var(--ds-leading-relaxed);
+
+  --tracking-display: var(--ds-tracking-display);
+  --tracking-heading: var(--ds-tracking-heading);
+  --tracking-body: var(--ds-tracking-body);
+  --tracking-caption: var(--ds-tracking-caption);
+  --tracking-eyebrow: var(--ds-tracking-eyebrow);
+
+  /* Motion. Only opacity, color and background-color animate; see design-system.md 2. */
+  --duration-fast: var(--ds-motion-fast);
+  --duration-base: var(--ds-motion-base);
+  --duration-slow: var(--ds-motion-slow);
+  --ease-standard: var(--ds-ease-standard);
+
+  --shadow-subtle: var(--ds-elevation-subtle);
+  --shadow-inset: var(--ds-elevation-inset);
+  --shadow-dialog: var(--ds-elevation-dialog);
+  --shadow-raised: var(--ds-elevation-raised);
+  --shadow-ring: var(--ds-elevation-ring);
+
+  /* Named --container-page, not --container-max: Tailwind already ships max-w-max
+   * (max-content), and shadowing it would silently change every existing use. */
+  --container-page: var(--ds-container-max);
+
+  --radius-circle: var(--ds-radius-circle);
+  --radius-micro: var(--ds-radius-micro);
+  --radius-xs: var(--ds-radius-xs);
   --radius-sm: var(--ds-radius-sm);
   --radius-md: var(--ds-radius-md);
   --radius-lg: var(--ds-radius-lg);
+  --radius-xl: var(--ds-radius-xl);
   --radius-full: var(--ds-radius-pill);
   --font-sans: var(--ds-font-body);
   --font-display: var(--ds-font-display);

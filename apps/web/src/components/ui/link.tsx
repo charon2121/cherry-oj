@@ -5,17 +5,16 @@ import { type ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 const linkVariants = cva(
-  'max-w-full cursor-pointer break-words underline decoration-current underline-offset-[0.18em] transition-colors duration-[var(--ds-motion-fast)] focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+  'max-w-full cursor-pointer break-words underline decoration-current underline-offset-[0.18em] transition-colors duration-fast focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
   {
     variants: {
       variant: {
-        brand:
-          'text-[var(--ds-link)] visited:text-[var(--ds-link)] hover:text-[var(--ds-link-hover)]',
+        brand: 'text-link visited:text-link hover:text-link-hover',
         muted: 'text-muted-foreground visited:text-muted-foreground hover:text-foreground',
       },
       size: {
         inline: 'inline',
-        standalone: 'inline-flex items-center gap-2 font-[var(--ds-weight-body)]',
+        standalone: 'inline-flex items-center gap-2 font-body',
       },
     },
     defaultVariants: {

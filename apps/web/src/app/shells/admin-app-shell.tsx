@@ -22,16 +22,16 @@ function AdminAppShell() {
   const [navigationOpen, setNavigationOpen] = useState(false);
 
   return (
-    <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_minmax(0,1fr)] md:h-svh md:grid-cols-[var(--ds-sidebar-width)_minmax(0,1fr)] md:grid-rows-1 md:overflow-hidden">
+    <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_minmax(0,1fr)] md:h-svh md:grid-cols-[var(--layout-sidebar)_minmax(0,1fr)] md:grid-rows-1 md:overflow-hidden">
       <a
         href="#admin-main"
-        className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 h-px w-px overflow-hidden rounded-[var(--ds-radius-sm)] border whitespace-nowrap [clip:rect(0,0,0,0)] focus-visible:h-auto focus-visible:w-auto focus-visible:overflow-visible focus-visible:px-[var(--ds-space-3)] focus-visible:py-[var(--ds-space-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:[clip:auto]"
+        className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 h-px w-px overflow-hidden rounded-sm border whitespace-nowrap [clip:rect(0,0,0,0)] focus-visible:h-auto focus-visible:w-auto focus-visible:overflow-visible focus-visible:px-3 focus-visible:py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:[clip:auto]"
       >
         跳到主要内容
       </a>
 
       <Sidebar aria-label="管理导航" className="hidden md:flex">
-        <div className="flex h-[var(--ds-header-height)] shrink-0 items-center border-b border-[var(--ds-border-soft)] px-[var(--ds-space-3)]">
+        <div className="h-header border-border-soft flex shrink-0 items-center border-b px-3">
           <AppBrand destination="admin" />
         </div>
         <nav aria-label="管理侧栏导航" className="contents">
@@ -39,10 +39,10 @@ function AdminAppShell() {
         </nav>
       </Sidebar>
 
-      <div className="grid min-h-0 min-w-0 grid-rows-[var(--ds-header-height)_minmax(0,1fr)] md:overflow-hidden">
-        <header className="sticky top-0 z-40 border-b border-[var(--ds-border-soft)] bg-[var(--ds-panel)]">
+      <div className="grid min-h-0 min-w-0 grid-rows-[var(--layout-header)_minmax(0,1fr)] md:overflow-hidden">
+        <header className="border-border-soft bg-panel sticky top-0 z-40 border-b">
           <Container className="h-full max-w-none">
-            <div className="flex h-full min-w-0 flex-nowrap items-center gap-[var(--ds-space-2)]">
+            <div className="flex h-full min-w-0 flex-nowrap items-center gap-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -59,7 +59,7 @@ function AdminAppShell() {
               <div className="md:hidden">
                 <AppBrand destination="admin" />
               </div>
-              <span className="font-display text-[length:var(--ds-text-cap)] font-[var(--ds-weight-body)] text-[var(--ds-fg-2)] max-md:hidden">
+              <span className="font-display text-cap font-body text-fg-2 max-md:hidden">
                 管理中心
               </span>
               <ThemeSwitcher className="ml-auto" />

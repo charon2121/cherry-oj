@@ -58,10 +58,8 @@ export const SmallSize: Story = {
 export const PanelGrouping: Story = {
   render: () => (
     <Panel className="w-80">
-      <h2 className="text-[length:var(--ds-text-base)] font-[var(--ds-weight-heading)]">
-        提交记录
-      </h2>
-      <p className="text-muted-foreground mt-1 text-[length:var(--ds-text-sm)]">
+      <h2 className="font-heading text-base">提交记录</h2>
+      <p className="text-muted-foreground mt-1 text-sm">
         Panel 是 Cherry OJ 自有容器，官方没有对应组件；普通分组优先用它而不是 Card 的抬升面。
       </p>
     </Panel>

@@ -31,7 +31,7 @@ type Story = StoryObj<typeof meta>;
 
 export const CompleteSpecimen: Story = {
   render: () => (
-    <div className="text-foreground min-h-screen bg-[var(--ds-canvas)]">
+    <div className="text-foreground bg-background min-h-screen">
       <NavBar
         links={[
           { href: '#overview', label: '概览', active: true },
@@ -48,7 +48,7 @@ export const CompleteSpecimen: Story = {
         }
       />
 
-      <Container className="py-[var(--ds-space-12)]">
+      <Container className="py-12">
         <Stack gap={12}>
           <Stack gap={3}>
             <Eyebrow tone="accent">Cherry OJ design system</Eyebrow>
@@ -58,7 +58,7 @@ export const CompleteSpecimen: Story = {
             </Text>
           </Stack>
 
-          <div className="grid gap-[var(--ds-space-6)] lg:grid-cols-2">
+          <div className="grid gap-6 lg:grid-cols-2">
             <Card padding="lg" radius="lg">
               <Stack gap={6}>
                 <Stack gap={2}>
@@ -129,7 +129,7 @@ export const CompleteSpecimen: Story = {
 export const NarrowChineseAndStates: Story = {
   globals: { viewport: 'mobile1' },
   render: () => (
-    <div className="w-[320px] max-w-full p-[var(--ds-space-4)]">
+    <div className="w-[320px] max-w-full p-4">
       <Stack gap={4}>
         <Heading level={4}>窄屏中文与状态检查</Heading>
         <Button className="w-full">保存这份包含很长中文名称的题目配置</Button>

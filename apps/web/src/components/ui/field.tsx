@@ -46,7 +46,7 @@ function FieldLegend({
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        'mb-1.5 font-[var(--ds-weight-body)] data-[variant=label]:text-[length:var(--ds-text-sm)] data-[variant=legend]:text-[length:var(--ds-text-base)]',
+        'font-body mb-1.5 data-[variant=label]:text-sm data-[variant=legend]:text-base',
         className,
       )}
       {...props}
@@ -98,7 +98,7 @@ function FieldLabel({ className, ...props }: ComponentProps<typeof Label>) {
     <Label
       data-slot="field-label"
       className={cn(
-        'group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:text-[var(--ds-fg-disabled)]',
+        'group/field-label peer/field-label group-data-[disabled=true]/field:text-fg-disabled flex w-fit gap-2 leading-snug',
         className,
       )}
       {...props}
@@ -111,7 +111,7 @@ function FieldTitle({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="field-label"
       className={cn(
-        'flex w-fit items-center gap-2 text-[length:var(--ds-text-sm)] font-[var(--ds-weight-body)] group-data-[disabled=true]/field:text-[var(--ds-fg-disabled)]',
+        'font-body group-data-[disabled=true]/field:text-fg-disabled flex w-fit items-center gap-2 text-sm',
         className,
       )}
       {...props}
@@ -124,7 +124,7 @@ function FieldDescription({ className, ...props }: ComponentProps<'p'>) {
     <p
       data-slot="field-description"
       className={cn(
-        'text-muted-foreground text-left text-[length:var(--ds-text-sm)] leading-normal wrap-anywhere last:mt-0 [&>a]:underline [&>a]:underline-offset-4',
+        'text-muted-foreground text-left text-sm leading-normal wrap-anywhere last:mt-0 [&>a]:underline [&>a]:underline-offset-4',
         className,
       )}
       {...props}
@@ -166,7 +166,7 @@ function FieldError({
     <p
       role="alert"
       data-slot="field-error"
-      className={cn('text-danger text-[length:var(--ds-text-sm)] wrap-anywhere', className)}
+      className={cn('text-danger text-sm wrap-anywhere', className)}
       {...props}
     >
       {content}

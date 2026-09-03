@@ -13,7 +13,7 @@ function ForbiddenPage() {
       <Section>
         <Card padding="lg">
           <Stack gap={4}>
-            <Text size="sm" tone="primary" className="text-danger font-[var(--ds-weight-body)]">
+            <Text size="sm" tone="primary" className="text-danger font-body">
               403 · 无权访问
             </Text>
             <Heading level={1} size="2xl">

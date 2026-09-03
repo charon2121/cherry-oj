@@ -19,11 +19,7 @@ function SitePrimaryNavigation({
     <nav
       id={id}
       aria-label={variant === 'mobile' ? '移动主导航' : '主导航'}
-      className={cn(
-        variant === 'desktop'
-          ? 'hidden items-center gap-[var(--ds-space-5)] sm:flex'
-          : 'grid gap-[var(--ds-space-1)] p-[var(--ds-space-3)]',
-      )}
+      className={cn(variant === 'desktop' ? 'hidden items-center gap-5 sm:flex' : 'grid gap-1 p-3')}
     >
       {siteNavigationItems.map((item) => (
         <Link
@@ -37,13 +33,13 @@ function SitePrimaryNavigation({
             'aria-current': 'page',
             className:
               variant === 'mobile'
-                ? 'bg-[var(--ds-surface-translucent-selected)] text-foreground'
+                ? 'bg-surface-translucent-selected text-foreground'
                 : 'text-foreground',
           }}
           className={cn(
-            'font-display focus-visible:outline-ring hover:text-foreground rounded-[var(--ds-radius-xs)] text-[length:var(--ds-text-cap)] font-[var(--ds-weight-body)] text-[var(--ds-fg-2)] no-underline transition-colors duration-[var(--ds-motion-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+            'font-display focus-visible:outline-ring hover:text-foreground text-cap font-body text-fg-2 duration-fast rounded-xs no-underline transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
             variant === 'mobile' &&
-              'flex min-h-8 w-full items-center px-[var(--ds-space-2)] py-[var(--ds-space-1)] hover:bg-[var(--ds-surface-translucent-hover)]',
+              'hover:bg-surface-translucent-hover flex min-h-8 w-full items-center px-2 py-1',
           )}
           onClick={onNavigate}
         >

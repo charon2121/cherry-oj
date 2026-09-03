@@ -112,7 +112,7 @@ export const LongChineseAt320: Story = {
   render: () => (
     <Dialog>
       <DialogTrigger render={<Button variant="secondary" />}>审核窄屏长中文</DialogTrigger>
-      <DialogContent className="max-w-[calc(320px-var(--ds-space-6))]">
+      <DialogContent className="max-w-[calc(320px-var(--space-6))]">
         <DialogHeader>
           <DialogTitle>
             确认离开这道包含非常长中文标题、连续技术说明和多项边界条件的在线判题练习题？

@@ -95,9 +95,9 @@ export function AdminProblemListPage({
         <Heading level={1} className="sr-only">
           题目管理
         </Heading>
-        <Panel className="p-[var(--ds-space-4)]">
+        <Panel className="p-4">
           <form
-            className="grid gap-[var(--ds-space-3)] sm:grid-cols-[minmax(12rem,1fr)_10rem_auto_auto]"
+            className="grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_10rem_auto_auto]"
             onSubmit={(event) => {
               event.preventDefault();
               const formData = new FormData(event.currentTarget);
@@ -138,9 +138,9 @@ export function AdminProblemListPage({
           </form>
         </Panel>
 
-        <Panel className="mt-[var(--ds-space-4)] overflow-x-auto p-0">
+        <Panel className="mt-4 overflow-x-auto p-0">
           {problems.isPending ? (
-            <div className="p-[var(--ds-space-6)]">
+            <div className="p-6">
               <AsyncState
                 variant="loading"
                 size="inline"
@@ -152,7 +152,7 @@ export function AdminProblemListPage({
             </div>
           ) : null}
           {problems.isError ? (
-            <div className="p-[var(--ds-space-6)]">
+            <div className="p-6">
               <AsyncState
                 variant="error"
                 size="inline"
@@ -169,29 +169,26 @@ export function AdminProblemListPage({
             </div>
           ) : null}
           {problems.data ? (
-            <table className="w-full min-w-4xl text-left text-[length:var(--ds-text-sm)]">
-              <thead className="bg-[var(--ds-surface-translucent)] text-[var(--ds-fg-meta)]">
+            <table className="w-full min-w-4xl text-left text-sm">
+              <thead className="bg-surface-translucent text-fg-meta">
                 {table.getHeaderGroups().map((group) => (
                   <tr key={group.id}>
                     {group.headers.map((header) => (
-                      <th
-                        key={header.id}
-                        className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]"
-                      >
+                      <th key={header.id} className="font-body px-4 py-3">
                         {header.isPlaceholder ? null : <table.FlexRender header={header} />}
                       </th>
                     ))}
                   </tr>
                 ))}
               </thead>
-              <tbody className="divide-y divide-[var(--ds-border-soft)]">
+              <tbody className="divide-border-soft divide-y">
                 {table.getRowModel().rows.map((row) => (
                   <tr
                     key={row.id}
-                    className="transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-translucent-hover)] motion-reduce:transition-none"
+                    className="duration-fast hover:bg-surface-translucent-hover transition-colors motion-reduce:transition-none"
                   >
                     {row.getAllCells().map((cell) => (
-                      <td key={cell.id} className="px-[var(--ds-space-4)] py-[var(--ds-space-3)]">
+                      <td key={cell.id} className="px-4 py-3">
                         <table.FlexRender cell={cell} />
                       </td>
                     ))}
@@ -199,10 +196,7 @@ export function AdminProblemListPage({
                 ))}
                 {data.length === 0 ? (
                   <tr>
-                    <td
-                      className="px-[var(--ds-space-4)] py-[var(--ds-space-8)] text-center"
-                      colSpan={5}
-                    >
+                    <td className="px-4 py-8 text-center" colSpan={5}>
                       没有符合条件的题目。
                     </td>
                   </tr>
@@ -212,7 +206,7 @@ export function AdminProblemListPage({
           ) : null}
         </Panel>
         {problems.data ? (
-          <nav aria-label="题目管理分页" className="mt-[var(--ds-space-4)]">
+          <nav aria-label="题目管理分页" className="mt-4">
             <Cluster justify="between" gap={3}>
               <Text size="sm" tone="muted">
                 第 {problems.data.pagination.page} /{' '}

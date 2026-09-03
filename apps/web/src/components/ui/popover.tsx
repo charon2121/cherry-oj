@@ -49,12 +49,12 @@ function PopoverContent({
         collisionPadding={collisionPadding}
         side={side}
         sideOffset={sideOffset}
-        className="z-50 max-w-[calc(100vw-var(--ds-space-6))] outline-none"
+        className="z-50 max-w-[calc(100vw-var(--space-6))] outline-none"
       >
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            'text-foreground focus-visible:outline-ring relative grid max-h-[var(--available-height)] max-w-full gap-3 overflow-x-hidden overflow-y-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-4 break-words shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground focus-visible:outline-ring border-border bg-panel shadow-dialog duration-fast ease-standard relative grid max-h-[var(--available-height)] max-w-full gap-3 overflow-x-hidden overflow-y-auto rounded-sm border p-4 break-words transition-opacity outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             popoverSizeClasses[size],
             className,
           )}
@@ -90,10 +90,7 @@ function PopoverTitle({
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
-      className={cn(
-        'font-display text-foreground text-sm leading-[var(--ds-leading-heading)] font-[var(--ds-weight-heading)]',
-        className,
-      )}
+      className={cn('font-display text-foreground leading-heading font-heading text-sm', className)}
       {...props}
     />
   );
@@ -106,7 +103,7 @@ function PopoverDescription({
   return (
     <PopoverPrimitive.Description
       data-slot="popover-description"
-      className={cn('text-muted-foreground text-sm leading-[var(--ds-leading-body)]', className)}
+      className={cn('text-muted-foreground leading-body text-sm', className)}
       {...props}
     />
   );

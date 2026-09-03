@@ -596,9 +596,9 @@ function WorkbenchEditor({
 
   return (
     <Container width="wide">
-      <div className="sticky top-[var(--ds-header-height)] z-20 -mx-[var(--ds-container-gutter-phone)] border-b border-[var(--ds-border-soft)] bg-[var(--ds-panel)] px-[var(--ds-container-gutter-phone)] sm:-mx-[var(--ds-container-gutter-tablet)] sm:px-[var(--ds-container-gutter-tablet)] md:top-0 lg:-mx-[var(--ds-container-gutter-desktop)] lg:px-[var(--ds-container-gutter-desktop)]">
-        <div className="flex min-h-[var(--ds-header-height)] min-w-0 flex-wrap items-center justify-between gap-[var(--ds-space-3)] py-[var(--ds-space-2)]">
-          <div className="flex min-w-0 items-center gap-[var(--ds-space-3)]">
+      <div className="top-header -mx-gutter-phone border-border-soft bg-panel px-gutter-phone sm:-mx-gutter-tablet sm:px-gutter-tablet lg:-mx-gutter-desktop lg:px-gutter-desktop sticky z-20 border-b md:top-0">
+        <div className="min-h-header flex min-w-0 flex-wrap items-center justify-between gap-3 py-2">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
               to="/admin/problems"
               search={{ page: 1, q: '', status: 'ALL' }}
@@ -609,7 +609,7 @@ function WorkbenchEditor({
               <span className="hidden sm:inline">题目管理</span>
             </Link>
             <div className="min-w-0">
-              <div className="flex min-w-0 flex-wrap items-center gap-[var(--ds-space-2)]">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Heading level={1} size="sm" className="truncate">
                   {formValues.title || version.title}
                 </Heading>
@@ -621,7 +621,7 @@ function WorkbenchEditor({
               </Text>
             </div>
           </div>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-[var(--ds-space-2)]">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
             <SaveStatus
               isDirty={isDirty}
               isSaving={save.isPending}
@@ -648,26 +648,22 @@ function WorkbenchEditor({
       </div>
 
       {!editable ? (
-        <UiInlineNotice
-          className="mt-[var(--ds-space-4)]"
-          variant="info"
-          title="这个版本当前为只读状态"
-        >
+        <UiInlineNotice className="mt-4" variant="info" title="这个版本当前为只读状态">
           已发布或归档版本不能直接修改；请在“检查与发布”中创建新修订。
         </UiInlineNotice>
       ) : null}
 
       {save.isError ? (
-        <Panel className="mt-[var(--ds-space-4)]" role="alert">
+        <Panel className="mt-4" role="alert">
           <Heading level={2} size="lg">
             {conflict ? '服务端已有更新，本地内容仍保留' : '草稿保存失败'}
           </Heading>
-          <Text className="text-danger mt-[var(--ds-space-2)]" size="sm">
+          <Text className="text-danger mt-2" size="sm">
             {conflict
               ? '先复制本地草稿，再加载服务端最新版本并手动合并；不会自动覆盖。'
               : apiErrorMessage(save.error, '请检查内容后重试。')}
           </Text>
-          <Cluster className="mt-[var(--ds-space-3)]" gap={2}>
+          <Cluster className="mt-3" gap={2}>
             {conflict ? (
               <Button variant="secondary" onClick={() => void copyLocalDraft()}>
                 <Copy aria-hidden="true" />
@@ -683,19 +679,19 @@ function WorkbenchEditor({
       ) : null}
 
       {formError ? (
-        <Text className="text-danger mt-[var(--ds-space-4)]" role="alert">
+        <Text className="text-danger mt-4" role="alert">
           {formError}
         </Text>
       ) : null}
 
-      <div className="mt-[var(--ds-space-5)] lg:grid lg:grid-cols-[var(--ds-sidebar-width)_minmax(0,1fr)] lg:items-start lg:gap-[var(--ds-space-6)]">
+      <div className="mt-5 lg:grid lg:grid-cols-[var(--layout-sidebar)_minmax(0,1fr)] lg:items-start lg:gap-6">
         <WorkbenchNavigation current={step} statuses={stepStatuses} onChange={setStep} />
 
         <div
           ref={stepContentRef}
           role="region"
           aria-label={`${steps[currentStepIndex]?.label ?? '题目'}编辑`}
-          className="scroll-mt-[calc(var(--ds-header-height)+var(--ds-header-height)+var(--ds-space-6))] md:scroll-mt-[calc(var(--ds-header-height)+var(--ds-space-6))]"
+          className="scroll-mt-[calc(var(--layout-header)+var(--layout-header)+var(--space-6))] md:scroll-mt-[calc(var(--layout-header)+var(--space-6))]"
         >
           <form
             onSubmit={(event) => {
@@ -705,7 +701,7 @@ function WorkbenchEditor({
           >
             {step === 'basic' ? (
               <Stack gap={6}>
-                <div className="grid gap-[var(--ds-space-5)] md:grid-cols-2">
+                <div className="grid gap-5 md:grid-cols-2">
                   <form.Field name="title">
                     {(field) => (
                       <FormField label="题目标题" required>
@@ -793,7 +789,7 @@ function WorkbenchEditor({
                     />
                   )}
                 </form.Field>
-                <div className="grid gap-[var(--ds-space-6)] xl:grid-cols-2">
+                <div className="grid gap-6 xl:grid-cols-2">
                   <form.Field name="inputDescriptionMarkdown">
                     {(field) => (
                       <ProblemMarkdownEditor
@@ -907,7 +903,7 @@ function WorkbenchEditor({
                 title="准备测试数据"
                 status={version.testDataVersion ? '可用' : '未开始'}
               >
-                <div className="grid gap-[var(--ds-space-3)] sm:grid-cols-[minmax(14rem,1fr)_auto]">
+                <div className="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_auto]">
                   <FormField
                     label="测试数据 ZIP"
                     description="文件名需安全，.in/.out 必须成对；上传完成后自动用于当前版本。"
@@ -937,19 +933,16 @@ function WorkbenchEditor({
                   </Button>
                 </div>
                 {uploadState ? (
-                  <Text className="mt-[var(--ds-space-3)]" role="status" aria-live="polite">
+                  <Text className="mt-3" role="status" aria-live="polite">
                     {uploadState}
                   </Text>
                 ) : null}
                 {upload.isPending ? (
-                  <progress
-                    className="mt-[var(--ds-space-3)] w-full"
-                    aria-label="测试数据正在上传并检查"
-                  />
+                  <progress className="mt-3 w-full" aria-label="测试数据正在上传并检查" />
                 ) : null}
                 {testData.isPending ? (
                   <AsyncState
-                    className="mt-[var(--ds-space-4)]"
+                    className="mt-4"
                     variant="loading"
                     size="inline"
                     title="正在读取测试数据…"
@@ -959,15 +952,15 @@ function WorkbenchEditor({
                   </AsyncState>
                 ) : null}
                 {testData.isError ? (
-                  <Text className="text-danger mt-[var(--ds-space-4)]" role="alert">
+                  <Text className="text-danger mt-4" role="alert">
                     {apiErrorMessage(testData.error, '测试数据列表加载失败。')}
                   </Text>
                 ) : null}
-                <div className="mt-[var(--ds-space-4)] grid gap-[var(--ds-space-2)]">
+                <div className="mt-4 grid gap-2">
                   {testData.data?.map((item) => (
                     <label
                       key={item.id}
-                      className="flex min-w-0 flex-wrap items-center gap-[var(--ds-space-3)] rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] p-[var(--ds-space-3)] transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-translucent-hover)] motion-reduce:transition-none"
+                      className="border-border bg-surface-translucent duration-fast hover:bg-surface-translucent-hover flex min-w-0 flex-wrap items-center gap-3 rounded-sm border p-3 transition-colors motion-reduce:transition-none"
                     >
                       <input
                         type="radio"
@@ -986,18 +979,18 @@ function WorkbenchEditor({
                         </strong>{' '}
                         · {item.caseCount ?? '—'} 组 · {formatBytes(item.totalBytes)}
                         {version.testDataVersion?.id === item.id ? (
-                          <Badge className="ml-[var(--ds-space-2)]" variant="success">
+                          <Badge className="ml-2" variant="success">
                             当前版本正在使用
                           </Badge>
                         ) : null}
-                        <details className="text-muted-foreground mt-[var(--ds-space-1)] text-[length:var(--ds-text-sm)]">
+                        <details className="text-muted-foreground mt-1 text-sm">
                           <summary>技术详情</summary>
                           <span className="font-mono wrap-anywhere">
                             {item.contentSha256 ?? item.errorMessage ?? item.id}
                           </span>
                         </details>
                       </span>
-                      <div className="flex flex-wrap gap-[var(--ds-space-2)]">
+                      <div className="flex flex-wrap gap-2">
                         <a
                           className={buttonVariants({ size: 'sm', variant: 'secondary' })}
                           href={`/api/admin/problems/${problem.id}/test-data/${item.id}/download`}
@@ -1028,7 +1021,7 @@ function WorkbenchEditor({
                   ))}
                 </div>
                 {bind.isError ? (
-                  <Text className="text-danger mt-[var(--ds-space-3)]" role="alert">
+                  <Text className="text-danger mt-3" role="alert">
                     {apiErrorMessage(bind.error, '绑定失败；已上传的数据仍保留。')}
                   </Text>
                 ) : null}
@@ -1050,18 +1043,18 @@ function WorkbenchEditor({
                   部署测试数据
                 </Button>
                 {!boundTestData ? (
-                  <Text className="mt-[var(--ds-space-2)]" size="sm" tone="muted">
+                  <Text className="mt-2" size="sm" tone="muted">
                     先选择一份可用数据并用于当前版本。
                   </Text>
                 ) : null}
                 {deploy.data ? (
-                  <Text className="mt-[var(--ds-space-3)]" role="status">
+                  <Text className="mt-3" role="status">
                     {deploy.data.environmentName}：
                     {deploy.data.status === 'READY' ? '部署可用' : deploy.data.status}
                   </Text>
                 ) : null}
                 {deploy.isError ? (
-                  <Text className="text-danger mt-[var(--ds-space-3)]" role="alert">
+                  <Text className="text-danger mt-3" role="alert">
                     {apiErrorMessage(deploy.error, '部署失败或结果不明，请刷新状态后再试。')}
                   </Text>
                 ) : null}
@@ -1072,7 +1065,7 @@ function WorkbenchEditor({
                 title="运行参考程序校准"
                 status={calibrationReady ? '可用' : '未完成'}
               >
-                <div className="grid gap-[var(--ds-space-4)] md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-3">
                   <FormField label="CPU 时间（秒）">
                     <Input
                       inputMode="decimal"
@@ -1104,10 +1097,10 @@ function WorkbenchEditor({
                     />
                   </FormField>
                 </div>
-                <Text className="mt-[var(--ds-space-3)]" size="sm" tone="muted">
+                <Text className="mt-3" size="sm" tone="muted">
                   提交时会换算为判题系统使用的纳秒和字节，不需要手工计算。
                 </Text>
-                <div className="mt-[var(--ds-space-4)]">
+                <div className="mt-4">
                   <FormField
                     label="C++ 参考程序"
                     description="只保存在当前页面内存；校准成功或离开工作台后清空。"
@@ -1123,7 +1116,7 @@ function WorkbenchEditor({
                   </FormField>
                 </div>
                 <Button
-                  className="mt-[var(--ds-space-4)]"
+                  className="mt-4"
                   loading={calibration.isPending}
                   disabled={
                     !canUseTestActions ||
@@ -1136,21 +1129,21 @@ function WorkbenchEditor({
                   运行参考程序校准
                 </Button>
                 {!boundTestData ? (
-                  <Text className="mt-[var(--ds-space-2)]" size="sm" tone="muted">
+                  <Text className="mt-2" size="sm" tone="muted">
                     先选中当前版本正在使用的测试数据。
                   </Text>
                 ) : !deploymentReady ? (
-                  <Text className="mt-[var(--ds-space-2)]" size="sm" tone="muted">
+                  <Text className="mt-2" size="sm" tone="muted">
                     先完成当前环境的测试数据部署。
                   </Text>
                 ) : null}
                 {calibration.data ? (
-                  <Text className="mt-[var(--ds-space-3)]" role="status">
+                  <Text className="mt-3" role="status">
                     校准状态：{calibration.data.status}。参考源码已从页面内存清除。
                   </Text>
                 ) : null}
                 {calibration.isError ? (
-                  <Text className="text-danger mt-[var(--ds-space-3)]" role="alert">
+                  <Text className="text-danger mt-3" role="alert">
                     {apiErrorMessage(calibration.error, '校准失败，参考程序仍保留在当前页面。')}
                   </Text>
                 ) : null}
@@ -1160,7 +1153,7 @@ function WorkbenchEditor({
 
           {step === 'publish' ? (
             <Stack gap={6}>
-              <div className="flex flex-wrap items-center justify-between gap-[var(--ds-space-3)] border-b border-[var(--ds-border-soft)] pb-[var(--ds-space-4)]">
+              <div className="border-border-soft flex flex-wrap items-center justify-between gap-3 border-b pb-4">
                 <div>
                   <Text weight="medium">
                     {check.data?.ready ? '已满足发布条件' : '仍有项目需要处理'}
@@ -1183,7 +1176,7 @@ function WorkbenchEditor({
                   {apiErrorMessage(check.error, '发布检查失败，请刷新版本状态。')}
                 </Text>
               ) : null}
-              <div className="grid gap-[var(--ds-space-2)]">
+              <div className="grid gap-2">
                 {check.isPending ? (
                   <AsyncState
                     variant="loading"
@@ -1199,7 +1192,7 @@ function WorkbenchEditor({
                   return (
                     <div
                       key={item.code}
-                      className="flex min-w-0 flex-wrap items-center gap-[var(--ds-space-3)] rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] p-[var(--ds-space-3)]"
+                      className="border-border bg-surface-translucent flex min-w-0 flex-wrap items-center gap-3 rounded-sm border p-3"
                     >
                       {item.passed ? (
                         <CheckCircle2 className="text-success size-5" aria-hidden="true" />
@@ -1217,7 +1210,7 @@ function WorkbenchEditor({
                   );
                 })}
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-[var(--ds-space-3)] border-b border-[var(--ds-border-soft)] pb-[var(--ds-space-6)]">
+              <div className="border-border-soft flex flex-wrap items-center justify-between gap-3 border-b pb-6">
                 <Text size="sm" tone="muted">
                   发布后该版本不可直接修改，旧公开版本只会在发布成功后切换。
                 </Text>
@@ -1246,14 +1239,11 @@ function WorkbenchEditor({
                 </Text>
               ) : null}
 
-              <section
-                className="grid gap-[var(--ds-space-4)]"
-                aria-labelledby="version-actions-heading"
-              >
+              <section className="grid gap-4" aria-labelledby="version-actions-heading">
                 <Heading id="version-actions-heading" level={2} size="lg">
                   版本操作
                 </Heading>
-                <div className="flex flex-wrap gap-[var(--ds-space-2)]">
+                <div className="flex flex-wrap gap-2">
                   <ConfirmationDialog
                     title="创建新修订"
                     description="以当前版本内容创建可编辑的新草稿，并复用当前测试数据绑定。"
@@ -1279,18 +1269,18 @@ function WorkbenchEditor({
               </section>
 
               <section
-                className="bg-danger-soft grid gap-[var(--ds-space-4)] rounded-[var(--ds-radius-sm)] border border-[var(--ds-danger-border)] p-[var(--ds-space-4)]"
+                className="bg-danger-soft border-danger-border grid gap-4 rounded-sm border p-4"
                 aria-labelledby="danger-zone-heading"
               >
                 <div>
                   <Heading id="danger-zone-heading" level={2} size="lg">
                     危险操作
                   </Heading>
-                  <Text className="mt-[var(--ds-space-1)]" size="sm" tone="muted">
+                  <Text className="mt-1" size="sm" tone="muted">
                     这些动作会影响整个题目或永久删除草稿版本。
                   </Text>
                 </div>
-                <div className="flex flex-wrap gap-[var(--ds-space-2)]">
+                <div className="flex flex-wrap gap-2">
                   <ConfirmationDialog
                     title={`归档题目 ${problem.slug}`}
                     description="归档会让整道题退出正常管理流程；已有公开版本不会被当成草稿编辑。"
@@ -1326,7 +1316,7 @@ function WorkbenchEditor({
             </Stack>
           ) : null}
 
-          <div className="mt-[var(--ds-space-8)] flex flex-wrap items-center justify-between gap-[var(--ds-space-3)] border-t border-[var(--ds-border-soft)] py-[var(--ds-space-5)]">
+          <div className="border-border-soft mt-8 flex flex-wrap items-center justify-between gap-3 border-t py-5">
             <Button
               variant="secondary"
               disabled={currentStepIndex <= 0}
@@ -1391,7 +1381,7 @@ function WorkbenchNavigation({
   return (
     <nav
       aria-label="题目编辑步骤"
-      className="mb-[var(--ds-space-6)] lg:sticky lg:top-[calc(var(--ds-header-height)+var(--ds-space-6))] lg:mb-0"
+      className="mb-6 lg:sticky lg:top-[calc(var(--layout-header)+var(--space-6))] lg:mb-0"
     >
       <div className="sm:hidden">
         <SelectField
@@ -1404,7 +1394,7 @@ function WorkbenchNavigation({
           }))}
         />
       </div>
-      <ol className="hidden gap-[var(--ds-space-1)] overflow-x-auto pb-[var(--ds-space-2)] sm:flex lg:grid">
+      <ol className="hidden gap-1 overflow-x-auto pb-2 sm:flex lg:grid">
         {steps.map((item, index) => {
           const status = statuses[item.id];
           return (
@@ -1413,20 +1403,17 @@ function WorkbenchNavigation({
                 type="button"
                 aria-current={current === item.id ? 'step' : undefined}
                 className={cn(
-                  'focus-visible:outline-ring hover:text-foreground flex min-h-8 w-full items-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-xs)] border border-transparent px-[var(--ds-space-2)] py-[var(--ds-space-1)] text-left text-[var(--ds-fg-2)] transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-translucent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
-                  current === item.id &&
-                    'text-foreground bg-[var(--ds-surface-translucent-selected)]',
+                  'focus-visible:outline-ring hover:text-foreground text-fg-2 duration-fast hover:bg-surface-translucent-hover flex min-h-8 w-full items-center gap-2 rounded-xs border border-transparent px-2 py-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+                  current === item.id && 'text-foreground bg-surface-translucent-selected',
                 )}
                 onClick={() => onChange(item.id)}
               >
                 <StepStatusIcon status={status} />
                 <span className="min-w-0">
-                  <span className="block text-[length:var(--ds-text-cap)] font-[var(--ds-weight-body)]">
+                  <span className="text-cap font-body block">
                     {index + 1}. {item.label}
                   </span>
-                  <span className="block text-[length:var(--ds-text-xs)] text-[var(--ds-fg-meta)]">
-                    {stepStatusLabel(status)}
-                  </span>
+                  <span className="text-fg-meta block text-xs">{stepStatusLabel(status)}</span>
                 </span>
               </button>
             </li>
@@ -1508,9 +1495,9 @@ function ProcessSection({
   children: ReactNode;
 }) {
   return (
-    <section className="border-b border-[var(--ds-border-soft)] pb-[var(--ds-space-6)] last:border-b-0">
-      <div className="mb-[var(--ds-space-4)] flex flex-wrap items-center gap-[var(--ds-space-3)]">
-        <span className="inline-flex size-8 items-center justify-center rounded-[var(--ds-radius-circle)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent-selected)] font-[var(--ds-weight-body)]">
+    <section className="border-border-soft border-b pb-6 last:border-b-0">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <span className="rounded-circle border-border bg-surface-translucent-selected font-body inline-flex size-8 items-center justify-center border">
           {number}
         </span>
         <Heading level={2} size="lg">

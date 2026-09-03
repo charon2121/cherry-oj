@@ -27,7 +27,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        'text-foreground data-placeholder:text-muted-foreground focus-visible:outline-ring flex w-full min-w-0 items-center justify-between gap-1.5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] py-2 pr-2 pl-3 text-left text-[length:var(--ds-text-sm)] transition-[background-color,border-color] duration-[var(--ds-motion-fast)] outline-none select-none hover:bg-[var(--ds-surface-translucent-hover)] focus-visible:border-[var(--ds-brand-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed disabled:border-[var(--ds-border)] disabled:bg-[var(--ds-surface-translucent)] disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)] data-[size=default]:min-h-10 data-[size=sm]:min-h-8 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'text-foreground data-placeholder:text-muted-foreground focus-visible:outline-ring border-border bg-surface-translucent duration-fast hover:bg-surface-translucent-hover focus-visible:border-brand-surface disabled:border-border disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:border-danger-border flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-sm transition-[background-color,border-color] outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed data-[size=default]:min-h-10 data-[size=sm]:min-h-8 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}
@@ -68,7 +68,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'text-foreground relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-1 shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground border-border bg-panel shadow-dialog duration-fast ease-standard relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-sm border p-1 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             className,
           )}
           {...props}
@@ -86,7 +86,7 @@ function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props) 
   return (
     <SelectPrimitive.GroupLabel
       data-slot="select-label"
-      className={cn('text-muted-foreground px-1.5 py-1 text-[length:var(--ds-text-xs)]', className)}
+      className={cn('text-muted-foreground px-1.5 py-1 text-xs', className)}
       {...props}
     />
   );
@@ -97,7 +97,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        'focus:text-foreground relative flex w-full cursor-default items-center gap-1.5 rounded-[var(--ds-radius-xs)] py-1.5 pr-8 pl-2 text-[length:var(--ds-text-sm)] outline-hidden select-none focus:bg-[var(--ds-surface-translucent-selected)] data-disabled:pointer-events-none data-disabled:text-[var(--ds-fg-disabled)] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'focus:text-foreground focus:bg-surface-translucent-selected data-disabled:text-fg-disabled relative flex w-full cursor-default items-center gap-1.5 rounded-xs py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}

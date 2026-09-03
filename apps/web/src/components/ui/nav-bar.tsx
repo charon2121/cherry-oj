@@ -27,34 +27,29 @@ function NavBar({
     <header
       data-slot="nav-bar"
       className={cn(
-        'sticky top-0 z-20 flex h-[var(--ds-header-height)] items-center border-b border-[var(--ds-border-soft)] bg-[var(--ds-panel)] px-[var(--ds-container-gutter-phone)] sm:px-[var(--ds-container-gutter-tablet)] lg:px-[var(--ds-container-gutter-desktop)]',
+        'h-header border-border-soft bg-panel px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop sticky top-0 z-20 flex items-center border-b',
         className,
       )}
       {...props}
     >
-      <div className="mx-auto flex w-full max-w-[var(--ds-container-max)] min-w-0 items-center gap-[var(--ds-space-6)]">
-        <div className="font-display text-foreground shrink-0 text-[length:var(--ds-text-base)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)]">
+      <div className="max-w-page mx-auto flex w-full min-w-0 items-center gap-6">
+        <div className="font-display text-foreground font-heading tracking-heading shrink-0 text-base">
           {brand}
         </div>
-        <nav
-          aria-label="主导航"
-          className="flex min-w-0 flex-1 items-center gap-[var(--ds-space-5)] overflow-x-auto"
-        >
+        <nav aria-label="主导航" className="flex min-w-0 flex-1 items-center gap-5 overflow-x-auto">
           {links.map((link) => (
             <a
               key={link.href}
               href={link.href}
               aria-current={link.active ? 'page' : undefined}
-              className="font-display hover:text-foreground focus-visible:outline-ring aria-[current=page]:text-foreground shrink-0 rounded-[var(--ds-radius-micro)] text-[length:var(--ds-text-cap)] font-[var(--ds-weight-body)] text-[var(--ds-fg-2)] no-underline transition-colors duration-[var(--ds-motion-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+              className="font-display hover:text-foreground focus-visible:outline-ring aria-[current=page]:text-foreground rounded-micro text-cap font-body text-fg-2 duration-fast shrink-0 no-underline transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
             >
               {link.label}
             </a>
           ))}
           {children}
         </nav>
-        {actions ? (
-          <div className="flex shrink-0 items-center gap-[var(--ds-space-3)]">{actions}</div>
-        ) : null}
+        {actions ? <div className="flex shrink-0 items-center gap-3">{actions}</div> : null}
       </div>
     </header>
   );

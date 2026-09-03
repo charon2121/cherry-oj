@@ -4,13 +4,13 @@ import { type ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 const gapVariants = {
-  1: 'gap-[var(--ds-space-1)]',
-  2: 'gap-[var(--ds-space-2)]',
-  3: 'gap-[var(--ds-space-3)]',
-  4: 'gap-[var(--ds-space-4)]',
-  6: 'gap-[var(--ds-space-6)]',
-  8: 'gap-[var(--ds-space-8)]',
-  12: 'gap-[var(--ds-space-12)]',
+  1: 'gap-1',
+  2: 'gap-2',
+  3: 'gap-3',
+  4: 'gap-4',
+  6: 'gap-6',
+  8: 'gap-8',
+  12: 'gap-12',
 } as const;
 
 const stackVariants = cva('flex min-w-0', {
@@ -69,9 +69,9 @@ function Container({ as = 'div', className, width = 'default', ...props }: Conta
     <ContainerTag
       data-slot="container"
       className={cn(
-        'mx-auto w-full px-[var(--ds-container-gutter-phone)] sm:px-[var(--ds-container-gutter-tablet)] lg:px-[var(--ds-container-gutter-desktop)]',
+        'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-auto w-full',
         width === 'narrow' && 'max-w-[760px]',
-        width === 'default' && 'max-w-[var(--ds-container-max)]',
+        width === 'default' && 'max-w-page',
         width === 'wide' && 'max-w-[1440px]',
         className,
       )}
@@ -113,13 +113,7 @@ function Cluster({ className, gap = 2, justify = 'start', ...props }: ClusterPro
 }
 
 function Section({ className, ...props }: ComponentProps<'section'>) {
-  return (
-    <section
-      data-slot="section"
-      className={cn('pt-[var(--ds-space-6)] pb-[var(--ds-space-8)]', className)}
-      {...props}
-    />
-  );
+  return <section data-slot="section" className={cn('pt-6 pb-8', className)} {...props} />;
 }
 
 export {

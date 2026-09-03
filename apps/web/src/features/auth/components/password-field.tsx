@@ -35,7 +35,7 @@ export function PasswordField({
     .join(' ');
 
   return (
-    <div className="grid min-w-0 gap-[var(--ds-space-2)]">
+    <div className="grid min-w-0 gap-2">
       <Label htmlFor={id}>{label}</Label>
       <div className="relative">
         <Input
@@ -53,11 +53,11 @@ export function PasswordField({
           onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
           onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
           onBlur={() => setCapsLock(false)}
-          className="pr-[var(--ds-space-12)]"
+          className="pr-12"
         />
         <IconButton
           aria-pressed={visible}
-          className="absolute top-[var(--ds-space-1)] right-[var(--ds-space-1)]"
+          className="absolute top-1 right-1"
           label={visible ? '隐藏密码' : '显示密码'}
           size="sm"
           type="button"

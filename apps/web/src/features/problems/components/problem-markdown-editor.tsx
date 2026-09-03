@@ -40,16 +40,13 @@ export function ProblemMarkdownEditor({
   const showPreview = view !== 'edit';
 
   return (
-    <div className="grid gap-[var(--ds-space-2)]">
-      <div className="flex flex-wrap items-center justify-between gap-[var(--ds-space-2)]">
-        <label
-          className="text-[length:var(--ds-text-sm)] font-[var(--ds-weight-body)]"
-          htmlFor={editorId}
-        >
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <label className="font-body text-sm" htmlFor={editorId}>
           {label}
           {required ? <span aria-hidden="true"> *</span> : null}
         </label>
-        <div className="flex flex-wrap gap-[var(--ds-space-1)]" aria-label={`${label}视图`}>
+        <div className="flex flex-wrap gap-1" aria-label={`${label}视图`}>
           {(['edit', 'split', 'preview'] as const).map((mode) => (
             <Button
               key={mode}
@@ -73,7 +70,7 @@ export function ProblemMarkdownEditor({
           </Button>
         </div>
       </div>
-      <div className={cn('grid gap-[var(--ds-space-3)]', view === 'split' && 'lg:grid-cols-2')}>
+      <div className={cn('grid gap-3', view === 'split' && 'lg:grid-cols-2')}>
         {showEditor ? (
           <TextEditor
             id={editorId}
@@ -93,7 +90,7 @@ export function ProblemMarkdownEditor({
           <section
             aria-label={`${label}安全预览`}
             className={cn(
-              'min-h-32 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] p-[var(--ds-space-4)]',
+              'border-border bg-surface-translucent min-h-32 rounded-sm border p-4',
               view === 'split' && 'hidden lg:block',
             )}
           >

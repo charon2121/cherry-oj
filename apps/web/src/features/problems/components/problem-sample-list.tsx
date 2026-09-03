@@ -54,13 +54,13 @@ export function ProblemSampleList({
   };
 
   return (
-    <div className="grid gap-[var(--ds-space-5)]">
+    <div className="grid gap-5">
       {value.length === 0 ? (
-        <div className="rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] p-[var(--ds-space-5)]">
+        <div className="border-border bg-surface-translucent rounded-sm border p-5">
           <Heading level={3} size="lg">
             还没有样例
           </Heading>
-          <Text className="mt-[var(--ds-space-2)]" size="sm" tone="muted">
+          <Text className="mt-2" size="sm" tone="muted">
             样例帮助答题者理解输入输出。至少添加一组后才能通过发布检查。
           </Text>
         </div>
@@ -68,13 +68,13 @@ export function ProblemSampleList({
       {value.map((sample, index) => (
         <section
           key={index}
-          className="grid gap-[var(--ds-space-4)] border-b border-[var(--ds-border-soft)] pb-[var(--ds-space-6)] last:border-b-0"
+          className="border-border-soft grid gap-4 border-b pb-6 last:border-b-0"
         >
-          <div className="flex flex-wrap items-center justify-between gap-[var(--ds-space-2)]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <Heading level={3} size="lg">
               样例 {index + 1}
             </Heading>
-            <div className="flex flex-wrap gap-[var(--ds-space-1)]">
+            <div className="flex flex-wrap gap-1">
               <Button
                 size="sm"
                 variant="ghost"
@@ -119,7 +119,7 @@ export function ProblemSampleList({
               </Button>
             </div>
           </div>
-          <div className="grid gap-[var(--ds-space-4)] lg:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <FormField
               label={`样例 ${index + 1} 输入`}
               required
@@ -173,7 +173,7 @@ export function ProblemSampleList({
           添加样例
         </Button>
         {value.length >= 100 ? (
-          <Text className="mt-[var(--ds-space-2)]" size="sm" tone="muted">
+          <Text className="mt-2" size="sm" tone="muted">
             最多添加 100 组样例。
           </Text>
         ) : null}

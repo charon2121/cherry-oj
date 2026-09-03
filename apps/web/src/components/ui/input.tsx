@@ -14,7 +14,7 @@ function Input({ className, type, ...props }: ComponentProps<'input'>) {
       data-slot="input"
       className={cn(
         controlClasses,
-        'file:text-foreground file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-[length:var(--ds-text-sm)] file:font-[var(--ds-weight-body)]',
+        'file:text-foreground file:font-body file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm',
         className,
       )}
       {...props}

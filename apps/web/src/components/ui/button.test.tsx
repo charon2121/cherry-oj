@@ -67,9 +67,9 @@ describe('Button', () => {
     );
 
     expect(screen.getByRole('button')).toHaveClass(
-      'disabled:border-[var(--ds-border)]!',
-      'disabled:bg-[var(--ds-surface-translucent)]!',
-      'disabled:text-[var(--ds-fg-disabled)]!',
+      'disabled:border-border!',
+      'disabled:bg-surface-translucent!',
+      'disabled:text-fg-disabled!',
     );
   });
 });

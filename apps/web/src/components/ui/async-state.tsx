@@ -53,7 +53,7 @@ const stateAppearances: Record<AsyncStateVariant, AsyncStateAppearance> = {
   error: {
     icon: CircleAlert,
     iconClassName: 'text-danger',
-    surfaceClassName: 'border-[var(--ds-danger-border)] bg-danger-soft text-danger',
+    surfaceClassName: 'border-danger-border bg-danger-soft text-danger',
   },
   unauthorized: {
     icon: LockKeyhole,

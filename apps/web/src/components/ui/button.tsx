@@ -5,28 +5,28 @@ import { LoaderCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const secondaryButtonClasses =
-  'bg-[var(--ds-surface-translucent-hover)] text-[var(--ds-fg-2)] hover:bg-[var(--ds-surface-translucent-selected)] active:bg-[var(--ds-surface-translucent)] aria-pressed:bg-[var(--ds-surface-translucent-selected)]';
+  'bg-surface-translucent-hover text-fg-2 hover:bg-surface-translucent-selected active:bg-surface-translucent aria-pressed:bg-surface-translucent-selected';
 
 const buttonVariants = cva(
-  'relative inline-flex max-w-full shrink-0 cursor-pointer items-center justify-center gap-[var(--ds-space-2)] rounded-[var(--ds-radius-sm)] border border-transparent font-display leading-[var(--ds-leading-tight)] font-[var(--ds-weight-body)] transition-[background-color,color,border-color] duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-[var(--ds-border)]! disabled:bg-[var(--ds-surface-translucent)]! disabled:text-[var(--ds-fg-disabled)]! motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+  'relative inline-flex max-w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border border-transparent font-display leading-tight font-body transition-[background-color,color,border-color] duration-fast ease-standard select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border! disabled:bg-surface-translucent! disabled:text-fg-disabled! motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
   {
     variants: {
       variant: {
         primary:
-          'bg-primary text-primary-foreground hover:bg-[var(--ds-brand-surface-hover)] active:bg-[var(--ds-brand-surface-active)] aria-pressed:bg-[var(--ds-brand-surface-active)] disabled:bg-secondary disabled:text-[var(--ds-fg-disabled)]',
+          'bg-primary text-primary-foreground hover:bg-brand-surface-hover active:bg-brand-surface-active aria-pressed:bg-brand-surface-active disabled:bg-secondary disabled:text-fg-disabled',
         secondary: secondaryButtonClasses,
         ghost:
-          'border-[var(--ds-border-solid)] bg-[var(--ds-surface-translucent)] text-[var(--ds-fg-ghost)] hover:bg-[var(--ds-surface-translucent-selected)] active:bg-[var(--ds-surface-translucent)] aria-pressed:bg-[var(--ds-surface-translucent-selected)] aria-pressed:text-foreground',
+          'border-border-solid bg-surface-translucent text-fg-ghost hover:bg-surface-translucent-selected active:bg-surface-translucent aria-pressed:bg-surface-translucent-selected aria-pressed:text-foreground',
         subtle: secondaryButtonClasses,
         toolbar:
-          'rounded-[var(--ds-radius-micro)] border-[var(--ds-border-soft)] bg-[var(--ds-surface-translucent-selected)] text-[var(--ds-fg-meta)] shadow-[var(--ds-elevation-subtle)] hover:bg-[var(--ds-surface-hover)] hover:text-[var(--ds-fg-2)] active:bg-[var(--ds-surface-translucent-selected)] aria-pressed:text-foreground',
+          'rounded-micro border-border-soft bg-surface-translucent-selected text-fg-meta shadow-subtle hover:bg-surface-hover hover:text-fg-2 active:bg-surface-translucent-selected aria-pressed:text-foreground',
         danger:
-          'bg-destructive text-destructive-foreground hover:bg-[var(--ds-danger-foreground)] active:bg-[var(--ds-danger-solid)] aria-pressed:outline-2 aria-pressed:outline-offset-[-2px] aria-pressed:outline-[var(--ds-danger-on-solid)]',
+          'bg-destructive text-destructive-foreground hover:bg-danger active:bg-danger-solid aria-pressed:outline-2 aria-pressed:outline-offset-[-2px] aria-pressed:outline-danger-on-solid',
       },
       size: {
-        sm: 'h-6 px-[var(--ds-space-1x)] text-[length:var(--ds-text-xs)]',
-        md: 'min-h-8 px-[var(--ds-space-4)] py-[var(--ds-space-2)] text-[length:var(--ds-text-sm)]',
-        lg: 'min-h-10 px-[var(--ds-space-5)] py-[var(--ds-space-2x)] text-[length:var(--ds-text-15)]',
+        sm: 'h-6 px-1x text-xs',
+        md: 'min-h-8 px-4 py-2 text-sm',
+        lg: 'min-h-10 px-5 py-2x text-15',
       },
     },
     defaultVariants: {
@@ -68,7 +68,7 @@ function Button({
     >
       <span
         className={cn(
-          'inline-flex min-w-0 items-center justify-center gap-[var(--ds-space-2)] whitespace-normal',
+          'inline-flex min-w-0 items-center justify-center gap-2 whitespace-normal',
           loading && 'invisible',
         )}
         aria-hidden={loading || undefined}
