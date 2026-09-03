@@ -2,7 +2,7 @@
 id: "IMPROVEMENT-003"
 type: "improvement"
 title: "建立页面构图层并修复前景色层级"
-status: "review"
+status: "approved"
 work: "WORK-036"
 owners: ["claude/root"]
 depends_on: ["WORK-035"]
@@ -158,3 +158,4 @@ DataList、Toolbar、页面模板，既有组件改为消费 alias）、`apps/we
 ## 变更记录
 
 - 2026-09-03：状态变更：draft → review。原因：已完成问题定义、基线数据、14 条 REQ 与 12 条 AC，等待用户审核
+- 2026-09-03：意图闸通过：review → approved。原因：意图闸通过，开始工作

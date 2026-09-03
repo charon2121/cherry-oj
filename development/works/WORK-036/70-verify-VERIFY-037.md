@@ -81,7 +81,30 @@ scripts/work link VERIFY-037 --relation verifies --to IMPROVEMENT-003#AC-001
 
 ## 遗留问题
 
-预期会留下、且**不应在本次修复**的项：
+### 已定位的既有 E2E flaky（不由本次引入，也不在本次范围）
+
+`e2e/smoke.spec.ts:376` 断言登出后 URL 恰好是 `/login`，实测约 1/3 概率得到
+`/login?returnTo=%2F`：
+
+```
+Error: expect(page).toHaveURL(expected) failed
+  Expected: "http://127.0.0.1:4173/login"
+  Received: "http://127.0.0.1:4173/login?returnTo=%2F"
+```
+
+测试先 `await expect.poll(() => logoutCalls).toBe(2)`，两次登出请求之间存在竞态：
+哪个重定向最后落地决定了 URL 上有没有 `returnTo`。10 次运行中复现 3 次，与主题 token 改动无关。
+
+**这同时更正 VERIFY-036 的一处误判。** 在 WORK-035 期间我把同一现象记成"未能复现的 E2E 计数
+异常（29 passed 而非 30）"，并推测与 preview server 复用有关。实际是**有一个测试失败了**，
+当时用 `tail -2` 截取输出，恰好把 `1 failed` 那一行截掉，只看到 `29 passed`。
+教训是：`tail` 截断的输出不能当作完整结论，尤其在断言"全部通过"时。
+
+WORK-035 的结论本身不受影响（单一真源与门禁强度的证据独立于此），因此不改动已签署的 VERIFY-036，
+在此更正记录。修复该 flaky 需要判断产品行为——登出后是否应该携带 `returnTo`——
+属于独立的问题修复工作，不在 WORK-036 范围内。
+
+### 其余预期留下、且**不应在本次修复**的项：
 
 - 其余页面尚未迁移到新模板，仓库处于新旧两种列表写法并存的过渡状态，需后续工作承接；
 - `components.manifest.json` 中 `editor-workspace`、`submission-lifecycle`、`verdict`

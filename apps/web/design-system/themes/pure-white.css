@@ -23,9 +23,9 @@
   /* Foreground */
   --ds-fg: #191a1b;
   --ds-fg-2: #34343a;
-  --ds-fg-muted: #62666d;
-  --ds-fg-meta: #676b73;
-  --ds-fg-disabled: #676b73;
+  --ds-fg-muted: #55595f;
+  --ds-fg-meta: #6b7079;
+  --ds-fg-disabled: #9aa0a8;
   --ds-fg-ghost: #34343a;
 
   /* Decorative and necessary boundaries */

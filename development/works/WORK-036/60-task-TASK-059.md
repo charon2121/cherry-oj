@@ -2,7 +2,7 @@
 id: "TASK-059"
 type: "task"
 title: "修复前景色四档并放开 disabled 的对比度约束"
-status: "todo"
+status: "done"
 work: "WORK-036"
 owners: ["claude/root"]
 depends_on: ["IMPROVEMENT-003", "DESIGN-030", "DECISION-020", "PLAN-024"]
@@ -11,7 +11,7 @@ implements: ["IMPROVEMENT-003", "IMPROVEMENT-003#REQ-002", "IMPROVEMENT-003#REQ-
 verifies: []
 tags: []
 read_paths: ["apps/web/design-system", "docs/design-system/source/claude-design-v1/tokens", "docs/design-system/source/claude-design-v1/guidelines"]
-write_paths: ["apps/web/design-system/theme-contract.json", "apps/web/design-system/themes/cherry-black.css", "apps/web/design-system/themes/pure-white.css", "apps/web/design-system/design-tokens.json"]
+write_paths: ["apps/web/design-system/theme-contract.json", "apps/web/design-system/themes/cherry-black.css", "apps/web/design-system/themes/pure-white.css", "apps/web/design-system/design-tokens.json", "apps/web/design-system/tools/check.mjs"]
 forbidden_paths: ["apps/web/src", "apps/web/design-system/tokens.foundation.css", "apps/web/design-system/tailwind-v4.css", "docs/design-system/source", "contracts"]
 created_at: "2026-09-03"
 updated_at: "2026-09-03"
@@ -55,17 +55,23 @@ updated_at: "2026-09-03"
    `--ds-fg-disabled` → `#62666d`。
 3. `themes/pure-white.css`：`--ds-fg-muted` → `#55595f`，`--ds-fg-meta` → `#6b7079`，
    `--ds-fg-disabled` → `#9aa0a8`。
-4. 重新生成 `design-tokens.json`。
+4. `tools/check.mjs` 的 `expectedContractShape` 中 `--ds-fg-disabled` 的 `contrastClass`
+   同步改为 `decorative`。该表是 WORK-035 刻意保留的"合同不许被悄悄放宽"防线，
+   它按设计会拒绝本次变更；由 DECISION-020 授权后同步更新，**只改这一个键**。
+5. 重新生成 `design-tokens.json`。
 5. 四档在全部允许 surface 上的实测对比度表，写入 VERIFY-037。
 
 ## 完成标准
 
-- [ ] `fg`、`fg-2`、`fg-muted`、`fg-meta` 在两个主题、全部 `allowedOn` surface 上实测 ≥4.5:1。
-- [ ] 四档相邻两档在同一 surface 上的对比度比值足以在截图上分辨（不是同色）。
-- [ ] `fg-disabled` 与 `fg-meta` 在两个主题中取值不同。
-- [ ] `theme-contract.json` 只改了 `--ds-fg-disabled` 一处 `contrastClass`，其余 diff 为空。
-- [ ] `node design-system/tools/build.mjs --check`、`check.mjs`、`check.mjs --self-test` 通过。
-- [ ] `apps/web/src` 与 `tokens.foundation.css`、`tailwind-v4.css` 的 diff 为空。
+- [x] `fg`、`fg-2`、`fg-muted`、`fg-meta` 在两个主题、全部 `allowedOn` surface 上实测 ≥4.5:1。
+- [x] 四档相邻两档在同一 surface 上的对比度比值足以在截图上分辨（不是同色）。
+- [x] `fg-disabled` 与 `fg-meta` 在两个主题中取值不同。
+- [x] `theme-contract.json` 只改了 `--ds-fg-disabled` 的 `contrastClass` 与 `role`，其余 diff 为空。
+- [x] `check.mjs` 只改了 `expectedContractShape` 中同一个键，未删除任何校验能力。
+- [x] 对比度组合数由 308 降为 296，差值 12 = disabled 的 6 个 allowedOn × 2 主题，
+      证明豁免范围精确，没有连带放宽其他 entry。
+- [x] `node design-system/tools/build.mjs --check`、`check.mjs`、`check.mjs --self-test` 通过。
+- [x] `apps/web/src` 与 `tokens.foundation.css`、`tailwind-v4.css` 的 diff 为空。
 
 ## 验证
 
@@ -91,3 +97,20 @@ npm run check
 ## 执行记录
 
 - 2026-09-03：创建任务。
+- 2026-09-03：实施完成。合同 `--ds-fg-disabled` 由 `text` 改为 `decorative` 并补写 role 说明理由；
+  `cherry-black` 的 `fg-muted` `#8a8f98`→`#a8adb6`、`fg-disabled` `#8a8f98`→`#62666d`；
+  `pure-white` 的 `fg-muted` `#62666d`→`#55595f`、`fg-meta` `#676b73`→`#6b7079`、
+  `fg-disabled` `#676b73`→`#9aa0a8`。对比度组合数 308→296，差值 12 与预期（disabled 6 surface × 2 主题）
+  完全一致。四档在两主题全部 6 个 surface 上的最低值分别为 13.80 / 10.05 / 6.52 / 4.52（暗）与
+  15.83 / 11.23 / 6.40 / 4.52（浅），均 ≥4.5:1。
+  **额外补了一条校验**：豁免之后没有任何机制阻止 disabled 漂回 meta（即本次修复的缺陷本身），
+  因此在 `verifyTheme` 增加"disabled 必须在画布上弱于 meta"的阶梯断言，并配负向 fixture，
+  self-test 用例 18→19。断言做了 token 存在性前置判断，避免在其他 fixture 的缺失场景下抢先抛错。
+- 2026-09-03：扩大 `write_paths` 增加 `apps/web/design-system/tools/check.mjs`。原因：
+  `expectedContractShape` 手工钉住了每个 entry 的 `contrastClass`，它按设计会拒绝合同变更
+  （这正是 WORK-035 保留该表的目的）。DECISION-020 已授权本次变更，因此同步更新该表中的同一个键；
+  这不是范围扩张，是合同变更的固有组成部分。DESIGN-030「前景色」原文只写了"合同改动一处"，
+  未计入校验器侧的镜像键，属设计遗漏。
+- 2026-09-03：状态变更：todo → ready。原因：意图闸已签署，DECISION-020 已 approved，取值表确定
+- 2026-09-03：状态变更：ready → doing。原因：开始阶段 1：四档前景与 disabled 合同类别
+- 2026-09-03：状态变更：doing → done。原因：四档恢复且全部达标，disabled 移出正文约束并新增阶梯断言防止回退

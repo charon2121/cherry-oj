@@ -2,7 +2,7 @@
 id: "DESIGN-030"
 type: "design"
 title: "建立页面构图层并修复前景色层级"
-status: "review"
+status: "checked"
 work: "WORK-036"
 owners: ["claude/root"]
 depends_on: ["IMPROVEMENT-003", "DECISION-020"]
@@ -178,3 +178,4 @@ updated_at: "2026-09-03"
 ## 变更记录
 
 - 2026-09-03：状态变更：draft → review。原因：技术方案与四个备选已写完
+- 2026-09-03：结构与内容校验通过，由工具置为 checked。

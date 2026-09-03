@@ -144,9 +144,9 @@
     {
       "name": "--ds-fg-disabled",
       "type": "color",
-      "role": "Disabled text without opacity",
+      "role": "Disabled text without opacity. WCAG 2.2 SC 1.4.3 exempts text in inactive user interface components; holding this entry to the 4.5:1 text threshold is what previously forced fg-muted, fg-meta and fg-disabled onto one value and made unavailable controls indistinguishable from ordinary metadata. It must stay visibly weaker than --ds-fg-meta, and why a control is disabled must be stated in readable text nearby (design-system.md 7.1), never implied by this color alone.",
       "allowedOn": ["--ds-canvas", "--ds-panel", "--ds-surface", "--ds-surface-subtle", "--ds-surface-raised", "--ds-surface-hover"],
-      "contrastClass": "text",
+      "contrastClass": "decorative",
       "required": true
     },
     {

@@ -2,7 +2,7 @@
 id: "DECISION-020"
 type: "decision"
 title: "确定前景色四档合同、Tailwind alias 词汇表与样板页范围"
-status: "review"
+status: "approved"
 work: "WORK-036"
 owners: ["claude/root"]
 depends_on: ["IMPROVEMENT-003"]
@@ -147,3 +147,4 @@ updated_at: "2026-09-03"
 ## 变更记录
 
 - 2026-09-03：状态变更：draft → review。原因：三项决定的候选方案、建议与理由已写完，等待用户在意图闸确认
+- 2026-09-03：意图闸通过：review → approved。原因：意图闸通过，开始工作

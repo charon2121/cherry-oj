@@ -16,7 +16,7 @@
     "stage": "definition",
     "label": "改进说明与目标指标",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "IMPROVEMENT-003"
@@ -24,13 +24,13 @@
     "checks": [
       {
         "name": "definition",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "意图闸签署时确认：意图闸通过，开始工作"
       },
       {
         "name": "scope",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "意图闸签署时确认：意图闸通过，开始工作"
       }
     ],
     "source": "profile:improvement",
@@ -40,7 +40,7 @@
     "stage": "design",
     "label": "技术方案",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "DESIGN-030"
@@ -53,7 +53,7 @@
     "stage": "decision",
     "label": "技术决策",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "DECISION-020"

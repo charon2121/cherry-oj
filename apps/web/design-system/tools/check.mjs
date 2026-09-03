@@ -99,9 +99,16 @@ function createExpectedContractShape() {
   ]) {
     define(name, "color", "none");
   }
-  for (const name of ["--ds-fg", "--ds-fg-2", "--ds-fg-muted", "--ds-fg-meta", "--ds-fg-disabled"]) {
+  for (const name of ["--ds-fg", "--ds-fg-2", "--ds-fg-muted", "--ds-fg-meta"]) {
     define(name, "color", "text", neutralSurfaces);
   }
+  // Disabled text is deliberately NOT held to the 4.5:1 text threshold (WORK-036 / DECISION-020).
+  // WCAG 2.2 SC 1.4.3 exempts text in inactive user interface components, and requiring a disabled
+  // label to be as legible as live text is what previously collapsed fg-muted, fg-meta and
+  // fg-disabled onto one grey — erasing the difference between "extra information" and
+  // "unavailable". The contract still requires it to read weaker than --ds-fg-meta, and
+  // design-system.md 7.1 still requires the reason a control is disabled to be stated in text.
+  define("--ds-fg-disabled", "color", "decorative", neutralSurfaces);
   define("--ds-fg-ghost", "color", "text", neutralSurfaces);
   define("--ds-border-soft", "color", "decorative", neutralSurfaces);
   define("--ds-border", "color", "decorative", neutralSurfaces);
@@ -491,6 +498,25 @@ function verifyTheme(theme, contract, css, selectorBlock) {
   // design-tokens.json snapshot, which build.mjs regenerates from these same files; editing a
   // value makes `build.mjs --check` (and verifyGeneratedOutputs below) report a stale output.
   // A hand-copied table here would be a second, unverifiable transcription of the same values.
+  // --ds-fg-disabled is exempt from the 4.5:1 text threshold, so nothing else would notice if it
+  // drifted back onto --ds-fg-meta. That collapse is exactly the defect WORK-036 fixed: when
+  // "unavailable" and "extra information" share a grey, a disabled control stops looking disabled.
+  // Assert the ladder instead of the threshold — disabled must read measurably weaker than meta.
+  // Only run once the ladder is actually present: missing or malformed tokens are already
+  // reported above, and resolving them here would throw before those errors are shown.
+  const ladderNames = ["--ds-fg-disabled", "--ds-fg-meta", "--ds-canvas"];
+  if (ladderNames.every((name) => name in tokens)) {
+    const [disabledColor, metaColor, canvasColor] = ladderNames.map((name) => parseResolvedColor(name, tokens));
+    const disabledRatio = contrastRatio(disabledColor, canvasColor);
+    const metaRatio = contrastRatio(metaColor, canvasColor);
+    if (disabledRatio >= metaRatio) {
+      fail(
+        `${theme.id} --ds-fg-disabled must read weaker than --ds-fg-meta on the canvas ` +
+          `(disabled ${disabledRatio.toFixed(2)}:1 vs meta ${metaRatio.toFixed(2)}:1)`
+      );
+    }
+  }
+
   for (const status of statuses) {
     const border = tokens[`--ds-${status}-border`];
     if (border !== `var(--ds-${status}-foreground)`) {
@@ -877,6 +903,21 @@ async function runSelfTest() {
     );
 
     await expectFailure(
+      "disabled collapsed onto meta",
+      async () => {
+        const themePath = path.join(fixturePackageDir, "themes/cherry-black.css");
+        const themeCss = await readFile(themePath, "utf8");
+        const meta = themeCss.match(/--ds-fg-meta:\s*([^;]+);/)?.[1]?.trim();
+        const disabled = themeCss.match(/--ds-fg-disabled:\s*([^;]+);/)?.[1]?.trim();
+        if (!meta || !disabled) throw new Error("cherry-black fixture does not declare the fg ladder");
+        // The pre-WORK-036 defect: disabled silently drifts back onto the metadata grey.
+        await writeFile(themePath, themeCss.replace(`--ds-fg-disabled: ${disabled};`, `--ds-fg-disabled: ${meta};`), "utf8");
+        await runFixtureBuild();
+      },
+      "must read weaker than --ds-fg-meta"
+    );
+
+    await expectFailure(
       "retired Cherry palette",
       async () => {
         const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
@@ -1089,7 +1130,7 @@ async function runSelfTest() {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 
-  console.log("design-system self-test: 18 negative fixtures rejected and clean fixture restored");
+  console.log("design-system self-test: 19 negative fixtures rejected and clean fixture restored");
 }
 
 const argumentsList = process.argv.slice(2);
