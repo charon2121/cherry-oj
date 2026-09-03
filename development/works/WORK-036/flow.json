@@ -1,0 +1,182 @@
+[
+  {
+    "stage": "clarify",
+    "label": "需求澄清",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-036"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "definition",
+    "label": "改进说明与目标指标",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "IMPROVEMENT-003"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pending",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "pending",
+        "note": ""
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-030"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-020"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-024"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pending",
+        "note": ""
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "实施任务",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-059",
+      "TASK-060",
+      "TASK-061",
+      "TASK-062",
+      "TASK-063"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "实施",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-059",
+      "TASK-060",
+      "TASK-061",
+      "TASK-062",
+      "TASK-063"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pending",
+        "note": ""
+      },
+      {
+        "name": "independent-review",
+        "result": "pending",
+        "note": ""
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "验证",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-037"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pending",
+        "note": ""
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "pending",
+        "note": ""
+      },
+      {
+        "name": "accessibility",
+        "result": "pending",
+        "note": ""
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-028"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]
