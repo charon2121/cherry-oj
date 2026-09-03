@@ -2,7 +2,7 @@
 id: "WORK-035"
 type: "work"
 title: "收敛设计系统为单一真源"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["claude/root"]
 risk: "medium"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["change", "design", "plan", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -51,8 +51,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发计划 | ✔ 完成 | 必需 | PLAN-023 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-056 `done`、TASK-057 `done`、TASK-058 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-056 `done`、TASK-057 `done`、TASK-058 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-036 `review` | 用可复现的证据确认要求逐条满足 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-036 `approved` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -68,3 +68,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-03：检查项 impact-analysis 记录结论：通过。原因：改动范围限于设计系统两棵树与三份入口文档；apps/web/src、后端、contracts、数据库未触及；三处边界扩大均在动手前记录理由
 - 2026-09-03：检查项 automated-tests 记录结论：通过。原因：check 32 文件 116 测试、build、storybook:build、e2e 30/30、docs_test 347 文档、work check 280 文档、source-lock 全部通过
 - 2026-09-03：流程阶段 复核：ready → done。原因：复核确认：三个 TASK 均在 write_paths 内，三条不变条件（主题值文件、apps/web、WORK-034）diff 为空，三处边界扩大均有事前记录
+- 2026-09-03：验收闸：passed。原因：WORK-035 通过验证
+- 2026-09-03：根据文档、任务与验证事实刷新状态：implemented → verified。

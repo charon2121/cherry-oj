@@ -2,7 +2,7 @@
 id: "VERIFY-036"
 type: "verify"
 title: "收敛设计系统为单一真源"
-status: "review"
+status: "approved"
 work: "WORK-035"
 owners: ["claude/root"]
 depends_on: ["TASK-056", "TASK-057", "TASK-058"]
@@ -214,3 +214,4 @@ node docs/design-system/tools/source-lock.mjs --check → source snapshot lock i
 - 2026-09-03：状态变更：draft → review。原因：阶段 1-3 全部完成，10 条 AC 均已记录实际命令与结果
 - 2026-09-03：状态变更：review → draft。原因：退回以便在进入 review 时一并记录验证结论
 - 2026-09-03：状态变更：draft → review。原因：10 条 AC 全部有实际命令与输出支撑，结论为 pass；approved 由用户在验收闸签署
+- 2026-09-03：验收闸通过：review → approved。原因：WORK-035 通过验证
