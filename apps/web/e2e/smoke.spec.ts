@@ -76,7 +76,11 @@ test('opens an anonymous application shell without protected-content flash', asy
 
   await expect(page.getByRole('navigation', { name: '主导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: '登录' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '题库' })).toBeVisible();
+  await expect(
+    page
+      .getByRole('navigation', { name: '主导航' })
+      .getByRole('link', { name: '题库', exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('link', { name: '提交记录' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /账号菜单/ })).toHaveCount(0);
   await expect(page.getByRole('link', { name: '用户管理' })).toHaveCount(0);
@@ -102,7 +106,7 @@ test('opens an anonymous application shell without protected-content flash', asy
     };
   });
   expect(userShellSurfaces.footerBackground).toBe(userShellSurfaces.mainBackground);
-  expect(userShellSurfaces.footerBorderTopWidth).toBe('0px');
+  expect(userShellSurfaces.footerBorderTopWidth).toBe('1px');
   expect(userShellSurfaces.footerBoxShadow).toBe('none');
   expect(
     Math.abs(userShellSurfaces.footerBottom - userShellSurfaces.viewportHeight),
@@ -207,7 +211,7 @@ test('keeps empty login submission in native validation without sending credenti
   expect(loginCalls).toBe(0);
 });
 
-test('renders the same empty admin dashboard at both requested routes', async ({ page }) => {
+test('renders the same task-first admin dashboard at both requested routes', async ({ page }) => {
   const admin = account({ username: 'root-admin', role: 'ADMIN' });
   const requestedApiPaths: string[] = [];
   page.on('request', (request) => {
@@ -225,6 +229,8 @@ test('renders the same empty admin dashboard at both requested routes', async ({
       'page',
     );
     await expect(page.getByRole('navigation', { name: '管理侧栏导航' })).toBeVisible();
+    await expect(page.getByRole('link', { name: /管理用户账号/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /管理题目/ })).toBeVisible();
     await expect(page.getByRole('contentinfo')).toHaveCount(0);
     const headerLinkDecorations = await page
       .locator('header a')
@@ -240,12 +246,18 @@ test('renders the same empty admin dashboard at both requested routes', async ({
       if (shell === null) throw new Error('Admin shell root is missing.');
       return {
         contentBottom: contentRegion.getBoundingClientRect().bottom,
+        headerHeight: document.querySelector('header')?.getBoundingClientRect().height,
+        sidebarWidth: document
+          .querySelector<HTMLElement>('[data-slot="sidebar"]')
+          ?.getBoundingClientRect().width,
         shellBottom: shell.getBoundingClientRect().bottom,
         templateRows: getComputedStyle(shell).gridTemplateRows.split(' ').length,
         viewportHeight: window.innerHeight,
       };
     });
-    expect(adminShellGeometry.templateRows).toBe(2);
+    expect(adminShellGeometry.templateRows).toBe(1);
+    expect(adminShellGeometry.headerHeight).toBe(56);
+    expect(adminShellGeometry.sidebarWidth).toBe(220);
     expect(
       Math.abs(adminShellGeometry.contentBottom - adminShellGeometry.viewportHeight),
     ).toBeLessThanOrEqual(1);
@@ -294,15 +306,15 @@ test('keeps the desktop admin sidebar fixed and scrolls only the main content', 
     const header = document.querySelector('header');
     const main = document.querySelector<HTMLElement>('#admin-main');
     const section = main?.querySelector<HTMLElement>('[data-slot="section"]');
-    const firstForm = section?.querySelector<HTMLElement>('form');
+    const firstPanel = section?.querySelector<HTMLElement>('[data-slot="panel"]');
     const sidebar = document.querySelector<HTMLElement>('[data-slot="sidebar"]');
     if (
       header === null ||
       main === null ||
       section === null ||
       section === undefined ||
-      firstForm === null ||
-      firstForm === undefined ||
+      firstPanel === null ||
+      firstPanel === undefined ||
       sidebar === null
     )
       throw new Error('Admin layout regions are missing.');
@@ -310,7 +322,7 @@ test('keeps the desktop admin sidebar fixed and scrolls only the main content', 
     main.scrollTop = 240;
     return {
       firstContentInset:
-        firstForm.getBoundingClientRect().top + main.scrollTop - main.getBoundingClientRect().top,
+        firstPanel.getBoundingClientRect().top + main.scrollTop - main.getBoundingClientRect().top,
       mainClientHeight: main.clientHeight,
       mainScrollHeight: main.scrollHeight,
       mainScrollTop: main.scrollTop,
@@ -508,7 +520,7 @@ test('lets an admin manage users and reveals a temporary password only once', as
   await page.goto('/admin/users?page=1');
   await expect(page.locator('h1', { hasText: '用户账号' })).toHaveClass(/sr-only/);
   await expect(page.getByRole('contentinfo')).toHaveCount(0);
-  await expect(page.getByText('○ 已停用')).toBeVisible();
+  await expect(page.getByText('已停用', { exact: true })).toBeVisible();
   await expect(page.getByLabel('新用户用户名')).toBeInViewport();
   const navigationTrigger = page.getByRole('button', { name: '打开管理导航' });
   await navigationTrigger.click();

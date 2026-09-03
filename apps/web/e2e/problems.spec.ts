@@ -121,6 +121,13 @@ test('invalid cursor is rendered as an error instead of an empty library', async
 
 test('an admin creates a draft and restores the complete version workbench', async ({ page }) => {
   let adminListRequestUrl: string | undefined;
+  let savedTitle: string | undefined;
+  let savedStatement: string | undefined;
+  let saveRequestCount = 0;
+  let releaseFirstSave: () => void = () => {};
+  const firstSaveResponse = new Promise<void>((resolve) => {
+    releaseFirstSave = resolve;
+  });
   const timestamp = '2026-08-30T01:00:00Z';
   const versionSummary = {
     id: versionId,
@@ -142,7 +149,7 @@ test('an admin creates a draft and restores the complete version workbench', asy
     updatedAt: timestamp,
     rowVersion: 0,
   };
-  const version = {
+  let version = {
     id: versionId,
     problemId,
     versionNo: 1,
@@ -156,7 +163,7 @@ test('an admin creates a draft and restores the complete version workbench', asy
     hintMarkdown: null,
     difficulty: 'EASY',
     tags: ['数组'],
-    samples: [{ ordinal: 1, input: '1 2', output: '3', explanationMarkdown: null }],
+    samples: [],
     allowedLanguages: [{ id: 'cpp', displayName: 'C++', starterCode: 'int main() {}' }],
     testDataVersion: null,
     changeSummary: null,
@@ -203,11 +210,38 @@ test('an admin creates a draft and restores the complete version workbench', asy
     }),
   );
   await page.route(`**/api/admin/problems/${problemId}`, (route) => success(route, problem));
-  await page.route(`**/api/admin/problems/${problemId}/versions/${versionId}`, (route) =>
-    success(route, version),
-  );
+  await page.route(`**/api/admin/problems/${problemId}/versions/${versionId}`, async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as {
+        title: string;
+        statementMarkdown: string;
+      };
+      savedTitle = body.title;
+      savedStatement = body.statementMarkdown;
+      saveRequestCount += 1;
+      if (saveRequestCount === 1) await firstSaveResponse;
+      version = { ...version, title: body.title, rowVersion: version.rowVersion + 1 };
+    }
+    await success(route, version);
+  });
   await page.route(`**/api/admin/problems/${problemId}/test-data`, (route) =>
     success(route, { items: [] }),
+  );
+  await page.route(
+    `**/api/admin/problems/${problemId}/versions/${versionId}/publish-check`,
+    (route) =>
+      success(route, {
+        ready: false,
+        environmentId: null,
+        checks: [
+          { code: 'CONTENT', passed: true, message: '题面完整' },
+          { code: 'SAMPLES', passed: true, message: '样例完整' },
+          { code: 'LANGUAGE', passed: true, message: '语言配置完整' },
+          { code: 'TEST_DATA', passed: false, message: '尚未绑定测试数据' },
+          { code: 'DEPLOYMENT', passed: false, message: '尚未部署测试数据' },
+          { code: 'CALIBRATION', passed: false, message: '尚未校准' },
+        ],
+      }),
   );
 
   await page.goto('/admin/problems?page=1&q=&status=ALL');
@@ -218,22 +252,74 @@ test('an admin creates a draft and restores the complete version workbench', asy
   expect(adminListUrl.searchParams.get('status')).toBeNull();
   expect(adminListUrl.searchParams.get('page')).toBe('1');
   expect(adminListUrl.searchParams.get('size')).toBe('20');
+  await page.getByRole('button', { name: '新建题目' }).click();
+  await expect(page.getByRole('dialog', { name: '新建题目草稿' })).toBeVisible();
+  await page.getByLabel('题目标题').fill('两数之和');
   await page.getByLabel('题目标识').fill('two-sum');
-  await page.getByLabel('标题').fill('两数之和');
-  await page.getByRole('combobox', { name: '难度' }).click();
+  await page.getByRole('combobox', { name: '初始难度' }).click();
   await page.getByRole('option', { name: '简单' }).click();
-  await page.getByRole('button', { name: '新建' }).click();
+  await page.getByRole('button', { name: '创建草稿' }).click();
 
   await expect(page).toHaveURL(
-    new RegExp(`/admin/problems/${problemId}/versions/${versionId}(?:\\?|$)`),
+    new RegExp(`/admin/problems/${problemId}/versions/${versionId}(?:\\?.*)?$`),
   );
-  await expect(page.getByRole('heading', { name: '题面与样例' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '测试数据' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '部署与参考程序校准' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: '发布与版本' })).toBeVisible();
-  await expect(page.locator('.monaco-editor').first()).toBeVisible();
+  await expect(page.getByRole('region', { name: '基本信息编辑' })).toBeVisible();
+  await expect(page.getByText('没有未保存修改')).toBeVisible();
+
+  await page.getByLabel('题目标题').fill('两数之和（已更新）');
+  await expect(page.getByText('有未保存内容')).toBeVisible();
+  await page.keyboard.press('Control+s');
+  await expect.poll(() => savedTitle).toBe('两数之和（已更新）');
+  await page.getByLabel('题目标题').fill('两数之和（保存期间继续编辑）');
+  releaseFirstSave();
+  await expect(page.getByLabel('题目标题')).toHaveValue('两数之和（保存期间继续编辑）');
+  await expect(page.getByText('有未保存内容')).toBeVisible();
+  await page.keyboard.press('Control+s');
+  await expect.poll(() => savedTitle).toBe('两数之和（保存期间继续编辑）');
+  await expect(page.getByText(/已保存/)).toBeVisible();
+
+  await page.getByLabel('题目标题').fill('两数之和（跨步骤保留）');
+  await page.getByRole('button', { name: /2\. 题面/ }).click();
+  await expect(page).toHaveURL(/step=statement/);
+  await expect(page.getByRole('region', { name: '题面编辑' })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '题目正文 Markdown 编辑器' })).toBeVisible();
+  await expect(page.locator('.cm-editor').first()).toBeVisible();
+  await expect(page.locator('.monaco-editor')).toHaveCount(0);
+  await page.getByRole('button', { name: /1\. 基本信息/ }).click();
+  await expect(page.getByLabel('题目标题')).toHaveValue('两数之和（跨步骤保留）');
+  await page.getByRole('button', { name: /2\. 题面/ }).click();
+  const statementEditor = page.getByRole('textbox', { name: '题目正文 Markdown 编辑器' });
+  await statementEditor.press('End');
+  await statementEditor.pressSequentially('\n补充中文段落');
+  await expect(page.getByText('有未保存内容')).toBeVisible();
+  await statementEditor.press('Control+s');
+  await expect.poll(() => savedStatement).toContain('补充中文段落');
+  await expect(page.getByText(/已保存/)).toBeVisible();
+
+  const adminMain = page.locator('#admin-main');
+  const beforeStepChange = await adminMain.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    return {
+      scrollTop: element.scrollTop,
+      scrollRange: element.scrollHeight - element.clientHeight,
+    };
+  });
+  expect(beforeStepChange.scrollRange).toBeGreaterThan(200);
+  expect(beforeStepChange.scrollTop).toBeGreaterThan(200);
+
+  await page.getByRole('button', { name: /3\. 样例/ }).click();
+  await expect(page).toHaveURL(/step=samples/);
+  await expect(page.getByText('还没有样例')).toBeVisible();
+  const stepOffset = await page.getByRole('region', { name: '样例编辑' }).evaluate((element) => {
+    const main = document.querySelector<HTMLElement>('#admin-main');
+    if (!main) throw new Error('admin main region is missing');
+    return element.getBoundingClientRect().top - main.getBoundingClientRect().top;
+  });
+  expect(stepOffset).toBeGreaterThanOrEqual(76);
+  expect(stepOffset).toBeLessThanOrEqual(84);
 
   await page.setViewportSize({ width: 320, height: 720 });
+  await expect(page.getByRole('combobox', { name: '当前步骤' })).toContainText('样例');
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);

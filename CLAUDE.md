@@ -66,16 +66,16 @@ cherry-oj/
 **本文只保留每次会话都必须遵守的部分。** 展开的规范放在 [`docs/engineering/`](./docs/engineering/README.md)，
 按需读——不相关的规范不该占用每次对话的上下文。
 
-| 你要做什么 | 先读 |
-|---|---|
-| 写 Go（judge / sandbox） | [`docs/engineering/go.md`](./docs/engineering/go.md) |
-| 写 Java（`apps/server`） | [`docs/engineering/java.md`](./docs/engineering/java.md) + [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md) |
-| 写 TypeScript | [`docs/engineering/typescript.md`](./docs/engineering/typescript.md) + [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
-| 动任何 Web UI、组件、样式或主题 | 上一行，**外加** [`docs/design-system.md`](./docs/design-system.md) |
-| 命名、错误、资源、依赖方向、测试的通用约定 | [`docs/engineering/conventions.md`](./docs/engineering/conventions.md) |
-| 提交、hooks、CI 细节 | [`docs/engineering/git-workflow.md`](./docs/engineering/git-workflow.md) |
-| 开发流程、工作项、两道闸 | [`development/README.md`](./development/README.md) |
-| 各模块当前成熟度 | [`docs/engineering/README.md`](./docs/engineering/README.md) |
+| 你要做什么                                 | 先读                                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| 写 Go（judge / sandbox）                   | [`docs/engineering/go.md`](./docs/engineering/go.md)                                                                      |
+| 写 Java（`apps/server`）                   | [`docs/engineering/java.md`](./docs/engineering/java.md) + [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md)       |
+| 写 TypeScript                              | [`docs/engineering/typescript.md`](./docs/engineering/typescript.md) + [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
+| 动任何 Web UI、组件、样式或主题            | 上一行，**外加** [`docs/design-system.md`](./docs/design-system.md)；按其权威顺序对照冻结来源，不执行来源 demo            |
+| 命名、错误、资源、依赖方向、测试的通用约定 | [`docs/engineering/conventions.md`](./docs/engineering/conventions.md)                                                    |
+| 提交、hooks、CI 细节                       | [`docs/engineering/git-workflow.md`](./docs/engineering/git-workflow.md)                                                  |
+| 开发流程、工作项、两道闸                   | [`development/README.md`](./development/README.md)                                                                        |
+| 各模块当前成熟度                           | [`docs/engineering/README.md`](./docs/engineering/README.md)                                                              |
 
 这些不是「有空看看」。写 Go 之前没读 `go.md`，大概率会踩进那里已经记录过的坑。
 

@@ -1,0 +1,23 @@
+/* Spacing — Cherry OJ. 8px base with optical micro-steps (7px, 11px, 19px, 22px). */
+:root {
+  --space-px: 1px;
+  --space-1:  4px;
+  --space-1x: 7px;   /* optical micro-adjust */
+  --space-2:  8px;
+  --space-2x: 11px;  /* optical micro-adjust */
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-4x: 19px;  /* optical micro-adjust */
+  --space-5:  20px;
+  --space-5x: 22px;  /* optical micro-adjust */
+  --space-6:  24px;
+  --space-7:  28px;
+  --space-8:  32px;
+  --space-9:  35px;
+  --space-12: 48px;
+
+  /* Section rhythm */
+  --section-y-desktop: 80px;
+  --section-y-tablet:  48px;
+  --section-y-phone:   32px;
+}

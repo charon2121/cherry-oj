@@ -67,8 +67,8 @@ describe('Button', () => {
     );
 
     expect(screen.getByRole('button')).toHaveClass(
-      'disabled:border-border!',
-      'disabled:bg-secondary!',
+      'disabled:border-[var(--ds-border)]!',
+      'disabled:bg-[var(--ds-surface-translucent)]!',
       'disabled:text-[var(--ds-fg-disabled)]!',
     );
   });

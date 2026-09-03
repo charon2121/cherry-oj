@@ -1,0 +1,7 @@
+/* Motion — Cherry OJ. Short, linear-out easing; opacity and colour only. */
+:root {
+  --motion-fast: 150ms; /* @kind other */
+  --motion-base: 200ms; /* @kind other */
+  --motion-slow: 320ms; /* @kind other */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+}

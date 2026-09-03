@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 // 官方只有 default / destructive 两个变体，也没有 OJ 需要的五类状态语义与
 // aria-live 控制——那部分由同目录的 InlineNotice 组合本文件的子组件实现。
 const alertVariants = cva(
-  'group/alert relative grid w-full min-w-0 gap-0.5 rounded-md border px-3 py-2.5 text-left text-[length:var(--ds-text-sm)] has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*=size-])]:size-4',
+  'group/alert relative grid w-full min-w-0 gap-0.5 rounded-md border px-3 py-2.5 text-left text-[length:var(--ds-text-sm)] has-data-[slot=alert-action]:pr-18 has-[>svg]:grid-cols-[auto_1fr] has-[>svg]:gap-x-2 *:[svg]:row-span-2 *:[svg]:self-start *:[svg]:text-current *:[svg:not([class*=size-])]:size-4',
   {
     variants: {
       variant: {

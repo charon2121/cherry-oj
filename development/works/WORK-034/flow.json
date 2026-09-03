@@ -1,0 +1,195 @@
+[
+  {
+    "stage": "clarify",
+    "label": "需求澄清",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-034"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "definition",
+    "label": "改进说明与目标指标",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "IMPROVEMENT-002"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "已将目标修订为下载版主导的一套新设计系统，并明确保留暗色、浅色、主题切换、偏好及双主题验收。"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "TASK-052 至 TASK-055 已覆盖双主题 Foundation、组件、运行时、Shell 和全路由，后端、API、数据与 WORK-033 业务合同仍不变。"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-028"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-019"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-022"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "PLAN-022 保留主题偏好数据，按可编译批次回退旧双主题设计系统，不回退 WORK-033 业务功能。"
+      },
+      {
+        "name": "release",
+        "result": "pass",
+        "note": "PLAN-022 定义原子交付一套新设计系统，其中暗色与浅色是正式主题，不提供旧新系统混搭。"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "实施任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-052",
+      "TASK-053",
+      "TASK-054",
+      "TASK-055"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "实施",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-052",
+      "TASK-053",
+      "TASK-054",
+      "TASK-055"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "全站消费者、主题运行时、页面与业务不变边界逐项核对；未修改后端、contracts、数据库或业务 API"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "用户在本地验收页面完成独立视觉与功能复核，明确确认验收通过并授权签署 WORK-034"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-035"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "Web 32 文件/116 项、Chromium 30 项、Server Maven 133 项及 Judge Engine 全包测试通过"
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "pass",
+        "note": "Web、Gateway/User/Problem/Submission/Judging 与 Judge Engine 在本地完整回归通过"
+      },
+      {
+        "name": "accessibility",
+        "result": "pass",
+        "note": "键盘焦点、语义名称、320px、forced-colors、reduced-motion 与对比度门禁通过；真实读屏器保留人工验收"
+      },
+      {
+        "name": "compatibility",
+        "result": "pass",
+        "note": "双主题首帧/持久化/刷新、桌面与 320px、生产 build/Storybook/Chromium 均通过"
+      },
+      {
+        "name": "performance",
+        "result": "pass",
+        "note": "CSS gzip 16.03 kB；工作台 757.24/256.14 kB，较 WORK-033 基线约增加 0.4%，未新增动画库"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-027"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]

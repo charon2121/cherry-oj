@@ -46,7 +46,7 @@ function FieldLegend({
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        'mb-1.5 font-[var(--ds-weight-medium)] data-[variant=label]:text-[length:var(--ds-text-sm)] data-[variant=legend]:text-[length:var(--ds-text-base)]',
+        'mb-1.5 font-[var(--ds-weight-body)] data-[variant=label]:text-[length:var(--ds-text-sm)] data-[variant=legend]:text-[length:var(--ds-text-base)]',
         className,
       )}
       {...props}
@@ -111,7 +111,7 @@ function FieldTitle({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="field-label"
       className={cn(
-        'flex w-fit items-center gap-2 text-[length:var(--ds-text-sm)] font-[var(--ds-weight-medium)] group-data-[disabled=true]/field:text-[var(--ds-fg-disabled)]',
+        'flex w-fit items-center gap-2 text-[length:var(--ds-text-sm)] font-[var(--ds-weight-body)] group-data-[disabled=true]/field:text-[var(--ds-fg-disabled)]',
         className,
       )}
       {...props}

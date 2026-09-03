@@ -9,16 +9,20 @@ type IconButtonProps = Omit<
   'aria-label' | 'children' | 'loading' | 'loadingLabel' | 'size' | 'variant'
 > &
   Readonly<{
+    active?: boolean;
     children: ReactNode;
     label: string;
-    size?: 'sm' | 'md';
+    shape?: 'circle' | 'square';
+    size?: 'sm' | 'md' | 'lg';
     variant?: 'secondary' | 'ghost' | 'danger';
   }>;
 
 function IconButton({
+  active = false,
   children,
   className,
   label,
+  shape = 'circle',
   size = 'md',
   title,
   variant = 'ghost',
@@ -30,7 +34,15 @@ function IconButton({
       title={title ?? label}
       variant={variant}
       size={size}
-      className={cn(size === 'sm' ? 'size-8 min-h-0 p-0' : 'size-10 min-h-0 p-0', className)}
+      aria-pressed={active || undefined}
+      className={cn(
+        'hover:text-foreground aria-pressed:text-foreground min-h-0 border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] p-0 text-[var(--ds-fg-2)] hover:bg-[var(--ds-surface-translucent-selected)] aria-pressed:bg-[var(--ds-surface-hover)]',
+        size === 'sm' && 'size-6',
+        size === 'md' && 'size-7',
+        size === 'lg' && 'size-8',
+        shape === 'circle' ? 'rounded-[var(--ds-radius-circle)]' : 'rounded-[var(--ds-radius-sm)]',
+        className,
+      )}
       {...props}
     >
       {children}

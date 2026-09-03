@@ -37,3 +37,5 @@
 | WORK-030 | 修复后台题目列表间歇性 502 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-030/00-work.md) |
 | WORK-031 | 统一页面任务优先布局并移除状态占位 | 产品功能 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-031/00-work.md) |
 | WORK-032 | 修复 WORK-031 遗留的 CI 测试断言 | 问题修复 | 验证通过 | 低 | 多个模块 | codex/root | [00-work.md](./works/WORK-032/00-work.md) |
+| WORK-033 | 重设计后台题目创建与编辑体验 | 工程改进 | 实现完成 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-033/00-work.md) |
+| WORK-034 | 基于下载版重建 Web 设计系统并保留浅色主题 | 工程改进 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-034/00-work.md) |

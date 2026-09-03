@@ -9,7 +9,7 @@ function Sidebar({ className, ...props }: ComponentProps<'aside'>) {
     <aside
       data-slot="sidebar"
       className={cn(
-        'border-sidebar-border bg-sidebar text-sidebar-foreground flex min-h-0 flex-col border-r',
+        'text-sidebar-foreground flex min-h-0 w-[var(--ds-sidebar-width)] flex-col border-r border-[var(--ds-border-soft)] bg-[var(--ds-panel)]',
         className,
       )}
       {...props}
@@ -21,7 +21,7 @@ function SidebarContent({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="sidebar-content"
-      className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3', className)}
+      className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2', className)}
       {...props}
     />
   );
@@ -63,7 +63,7 @@ function SidebarMenuItem({ className, ...props }: ComponentProps<'li'>) {
 }
 
 const menuItemClasses =
-  'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-sidebar-ring flex min-h-10 w-full min-w-0 items-center gap-2 rounded-sm px-3 py-2 text-left text-sm font-[var(--ds-weight-body)] transition-colors duration-[var(--ds-motion-fast)] focus-visible:outline-2 focus-visible:outline-offset-2 data-[active]:bg-sidebar-accent data-[active]:text-sidebar-accent-foreground data-[active]:font-[var(--ds-weight-heading)] motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
+  'flex min-h-8 w-full min-w-0 items-center gap-2 rounded-[var(--ds-radius-xs)] px-2 py-1 text-left text-[length:var(--ds-text-cap)] font-[var(--ds-weight-body)] text-[var(--ds-fg-2)] transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-translucent-hover)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[active]:bg-[var(--ds-surface-translucent-selected)] data-[active]:font-[var(--ds-weight-heading)] data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 type SidebarMenuButtonProps = useRender.ComponentProps<'button'> &
   ComponentProps<'button'> &

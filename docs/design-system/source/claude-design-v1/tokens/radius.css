@@ -1,0 +1,13 @@
+/* Radius — Cherry OJ. Unchanged from source. */
+:root {
+  --radius-micro: 2px;   /* inline badges, toolbar buttons */
+  --radius-xs:    4px;   /* small containers, list items */
+  --radius-sm:    6px;   /* buttons, inputs */
+  --radius-md:    8px;   /* cards, dropdowns */
+  --radius-lg:    12px;  /* panels, featured cards */
+  --radius-xl:    22px;  /* large panels */
+  --radius-pill:  9999px;
+  --radius-circle: 50%;
+
+  --radius-image-top: 12px 12px 0 0;
+}

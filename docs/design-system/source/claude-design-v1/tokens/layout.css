@@ -1,0 +1,16 @@
+/* Layout — Cherry OJ. */
+:root {
+  --container-max:            1200px;
+  --container-gutter-desktop: 24px;
+  --container-gutter-tablet:  16px;
+  --container-gutter-phone:   12px;
+
+  --bp-mobile-sm: 600px;
+  --bp-mobile:    640px;
+  --bp-tablet:    768px;
+  --bp-desktop-sm:1024px;
+  --bp-desktop:   1280px;
+
+  --sidebar-width: 220px;
+  --header-height: 56px;
+}

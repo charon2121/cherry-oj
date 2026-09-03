@@ -40,7 +40,7 @@ describe('Card and Panel', () => {
     );
 
     const header = screen.getByText('P1042').closest('[data-slot="card-header"]');
-    expect(header).toHaveClass('has-data-[slot=card-action]:grid-cols-[1fr_auto]');
+    expect(header).toHaveClass('has-data-[slot=card-action]:grid-cols-[minmax(0,1fr)_auto]');
     expect(
       screen.getByRole('button', { name: '收藏' }).closest('[data-slot="card-action"]'),
     ).toHaveClass('col-start-2');

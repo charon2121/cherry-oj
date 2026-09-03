@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -118,10 +118,11 @@ function AdminNavigationGroupItem({ group, onNavigate, pathname }: AdminNavigati
         >
           <Icon aria-hidden="true" />
           <span>{group.label}</span>
-          <ChevronRight
-            aria-hidden="true"
-            className="ml-auto transition-transform duration-[var(--ds-motion-fast)] group-data-[panel-open]/admin-navigation:rotate-90 motion-reduce:transition-none"
-          />
+          {expanded ? (
+            <ChevronDown aria-hidden="true" className="ml-auto" />
+          ) : (
+            <ChevronRight aria-hidden="true" className="ml-auto" />
+          )}
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub>

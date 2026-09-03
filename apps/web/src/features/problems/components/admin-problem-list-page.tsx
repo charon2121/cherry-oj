@@ -1,8 +1,7 @@
-import { useForm } from '@tanstack/react-form';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table';
-import { Plus, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
@@ -14,22 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section } from '@/components/ui/layout';
 import { SelectField } from '@/components/ui/select';
 import { Heading, Text } from '@/components/ui/typography';
-import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
+import type { AdminProblem } from '@/generated/api';
 
 import { createProblem, listAdminProblems, problemKeys } from '../api/problems-api';
+import { AdminProblemCreateDialog } from './admin-problem-create-dialog';
 
 export type AdminProblemSearch = { page: number; q: string; status: 'ALL' | 'ACTIVE' | 'ARCHIVED' };
 
 const features = tableFeatures({});
-const createDefaults: { slug: string; title: string; difficulty: ProblemDifficulty } = {
-  slug: '',
-  title: '',
-  difficulty: 'UNRATED',
-};
-function toDifficulty(value: string): ProblemDifficulty {
-  if (value === 'EASY' || value === 'MEDIUM' || value === 'HARD') return value;
-  return 'UNRATED';
-}
 const columnHelper = createColumnHelper<typeof features, AdminProblem>();
 const columns = columnHelper.columns([
   columnHelper.accessor('slug', { header: '标识' }),
@@ -95,17 +86,6 @@ export function AdminProblemListPage({
       }
     },
   });
-  const form = useForm({
-    defaultValues: createDefaults,
-    onSubmit: async ({ value }) => {
-      await create.mutateAsync({
-        ...value,
-        codeMode: 'ACM',
-        languageId: 'cpp',
-      });
-      form.reset();
-    },
-  });
   const data = useMemo(() => problems.data?.items ?? [], [problems.data?.items]);
   const table = useTable({ features, columns, data });
 
@@ -115,106 +95,52 @@ export function AdminProblemListPage({
         <Heading level={1} className="sr-only">
           题目管理
         </Heading>
-        <Panel>
-          <Heading level={2} size="lg">
-            新建题目草稿
-          </Heading>
+        <Panel className="p-[var(--ds-space-4)]">
           <form
-            className="mt-4 grid gap-3 md:grid-cols-[minmax(10rem,1fr)_minmax(14rem,2fr)_10rem_auto]"
+            className="grid gap-[var(--ds-space-3)] sm:grid-cols-[minmax(12rem,1fr)_10rem_auto_auto]"
             onSubmit={(event) => {
               event.preventDefault();
-              void form.handleSubmit();
+              const formData = new FormData(event.currentTarget);
+              const queryValue = formData.get('q');
+              navigate({
+                ...search,
+                page: 1,
+                q: typeof queryValue === 'string' ? queryValue.trim() : '',
+              });
             }}
           >
-            <form.Field name="slug">
-              {(field) => (
-                <FormField label="题目标识" required description="小写字母、数字与连字符">
-                  <Input
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    minLength={3}
-                    maxLength={80}
-                    pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="title">
-              {(field) => (
-                <FormField label="标题" required>
-                  <Input
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    maxLength={160}
-                  />
-                </FormField>
-              )}
-            </form.Field>
-            <form.Field name="difficulty">
-              {(field) => (
-                <SelectField
-                  label="难度"
-                  value={field.state.value}
-                  onValueChange={(value) => field.handleChange(toDifficulty(value))}
-                  items={[
-                    { value: 'UNRATED', label: '未评级' },
-                    { value: 'EASY', label: '简单' },
-                    { value: 'MEDIUM', label: '中等' },
-                    { value: 'HARD', label: '困难' },
-                  ]}
-                />
-              )}
-            </form.Field>
-            <Button className="self-end" type="submit" loading={create.isPending}>
-              <Plus aria-hidden="true" />
-              新建
+            <FormField label="搜索题目">
+              <Input name="q" defaultValue={search.q} />
+            </FormField>
+            <SelectField
+              label="状态"
+              value={search.status}
+              onValueChange={(value) =>
+                navigate({ ...search, page: 1, status: value as AdminProblemSearch['status'] })
+              }
+              items={[
+                { value: 'ALL', label: '全部' },
+                { value: 'ACTIVE', label: '进行中' },
+                { value: 'ARCHIVED', label: '已归档' },
+              ]}
+            />
+            <Button className="self-end" variant="secondary" type="submit">
+              查询
             </Button>
+            <div className="self-end sm:justify-self-end">
+              <AdminProblemCreateDialog
+                creating={create.isPending}
+                onCreate={async (value) => {
+                  await create.mutateAsync({ ...value, codeMode: 'ACM', languageId: 'cpp' });
+                }}
+              />
+            </div>
           </form>
-          {create.isError ? (
-            <Text className="text-danger mt-3" role="alert">
-              创建失败，请检查标识是否重复后重试。
-            </Text>
-          ) : null}
         </Panel>
 
-        <form
-          className="mt-6 grid gap-3 sm:grid-cols-[minmax(12rem,1fr)_10rem_auto]"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            const queryValue = formData.get('q');
-            navigate({
-              ...search,
-              page: 1,
-              q: typeof queryValue === 'string' ? queryValue.trim() : '',
-            });
-          }}
-        >
-          <FormField label="搜索题目">
-            <Input name="q" defaultValue={search.q} />
-          </FormField>
-          <SelectField
-            label="状态"
-            value={search.status}
-            onValueChange={(value) =>
-              navigate({ ...search, page: 1, status: value as AdminProblemSearch['status'] })
-            }
-            items={[
-              { value: 'ALL', label: '全部' },
-              { value: 'ACTIVE', label: '进行中' },
-              { value: 'ARCHIVED', label: '已归档' },
-            ]}
-          />
-          <Button className="self-end" variant="secondary" type="submit">
-            查询
-          </Button>
-        </form>
-
-        <Panel className="mt-4 overflow-x-auto p-0">
+        <Panel className="mt-[var(--ds-space-4)] overflow-x-auto p-0">
           {problems.isPending ? (
-            <div className="p-6">
+            <div className="p-[var(--ds-space-6)]">
               <AsyncState
                 variant="loading"
                 size="inline"
@@ -226,7 +152,7 @@ export function AdminProblemListPage({
             </div>
           ) : null}
           {problems.isError ? (
-            <div className="p-6">
+            <div className="p-[var(--ds-space-6)]">
               <AsyncState
                 variant="error"
                 size="inline"
@@ -243,23 +169,29 @@ export function AdminProblemListPage({
             </div>
           ) : null}
           {problems.data ? (
-            <table className="w-full min-w-4xl text-left text-sm">
-              <thead className="bg-surface-subtle text-muted-foreground">
+            <table className="w-full min-w-4xl text-left text-[length:var(--ds-text-sm)]">
+              <thead className="bg-[var(--ds-surface-translucent)] text-[var(--ds-fg-meta)]">
                 {table.getHeaderGroups().map((group) => (
                   <tr key={group.id}>
                     {group.headers.map((header) => (
-                      <th key={header.id} className="px-4 py-3 font-medium">
+                      <th
+                        key={header.id}
+                        className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]"
+                      >
                         {header.isPlaceholder ? null : <table.FlexRender header={header} />}
                       </th>
                     ))}
                   </tr>
                 ))}
               </thead>
-              <tbody className="divide-border divide-y">
+              <tbody className="divide-y divide-[var(--ds-border-soft)]">
                 {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id}>
+                  <tr
+                    key={row.id}
+                    className="transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-translucent-hover)] motion-reduce:transition-none"
+                  >
                     {row.getAllCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
+                      <td key={cell.id} className="px-[var(--ds-space-4)] py-[var(--ds-space-3)]">
                         <table.FlexRender cell={cell} />
                       </td>
                     ))}
@@ -267,7 +199,10 @@ export function AdminProblemListPage({
                 ))}
                 {data.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={5}>
+                    <td
+                      className="px-[var(--ds-space-4)] py-[var(--ds-space-8)] text-center"
+                      colSpan={5}
+                    >
                       没有符合条件的题目。
                     </td>
                   </tr>
@@ -277,7 +212,7 @@ export function AdminProblemListPage({
           ) : null}
         </Panel>
         {problems.data ? (
-          <nav aria-label="题目管理分页" className="mt-4">
+          <nav aria-label="题目管理分页" className="mt-[var(--ds-space-4)]">
             <Cluster justify="between" gap={3}>
               <Text size="sm" tone="muted">
                 第 {problems.data.pagination.page} /{' '}

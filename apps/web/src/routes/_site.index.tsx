@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { ArrowRight, BookOpen, LayoutDashboard } from 'lucide-react';
 
+import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { InlineNotice } from '@/components/ui/inline-notice';
-import { Container, Section } from '@/components/ui/layout';
+import { Container, Section, Stack } from '@/components/ui/layout';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 
@@ -18,11 +20,67 @@ export function HomePage() {
         <Heading level={1} className="sr-only">
           Cherry OJ 首页
         </Heading>
-        {session.data?.authenticated && session.data.user.passwordChangeRequired ? (
-          <InlineNotice variant="warning" title="首次登录需要修改密码">
-            完成修改前，受保护功能暂不可用。
-          </InlineNotice>
-        ) : null}
+        <Stack gap={6}>
+          {session.data?.authenticated && session.data.user.passwordChangeRequired ? (
+            <InlineNotice variant="warning" title="首次登录需要修改密码">
+              完成修改前，受保护功能暂不可用。
+            </InlineNotice>
+          ) : null}
+
+          <div className="grid gap-[var(--ds-space-4)] lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+            <Link
+              to="/problems"
+              search={{ sort: 'UPDATED_DESC', size: 20 }}
+              className="focus-visible:outline-ring rounded-[var(--ds-radius-lg)] no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              <Card interactive elevated padding="lg" className="h-full min-h-56 justify-center">
+                <CardHeader>
+                  <BookOpen
+                    aria-hidden="true"
+                    className="size-5 text-[var(--ds-brand-foreground)]"
+                  />
+                  <CardTitle className="text-[length:var(--ds-text-xl)] font-[var(--ds-weight-regular)]">
+                    {session.data?.authenticated ? '继续进入题库' : '浏览公开题库'}
+                  </CardTitle>
+                  <CardDescription className="max-w-xl text-[length:var(--ds-text-15)]">
+                    查找题目，打开详情后编写并提交你的解答。
+                  </CardDescription>
+                  <CardAction>
+                    <ArrowRight aria-hidden="true" className="size-5 text-[var(--ds-fg-meta)]" />
+                  </CardAction>
+                </CardHeader>
+              </Card>
+            </Link>
+
+            {session.data?.authenticated && session.data.user.role === 'ADMIN' ? (
+              <Link
+                to="/admin"
+                className="focus-visible:outline-ring rounded-[var(--ds-radius-lg)] no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                <Card interactive padding="lg" className="h-full min-h-56 justify-center">
+                  <CardHeader>
+                    <LayoutDashboard
+                      aria-hidden="true"
+                      className="size-5 text-[var(--ds-brand-foreground)]"
+                    />
+                    <CardTitle>进入管理中心</CardTitle>
+                    <CardDescription>管理账号与题目内容。</CardDescription>
+                    <CardAction>
+                      <ArrowRight aria-hidden="true" className="size-4 text-[var(--ds-fg-meta)]" />
+                    </CardAction>
+                  </CardHeader>
+                </Card>
+              </Link>
+            ) : (
+              <Card padding="lg" className="min-h-56 justify-center">
+                <CardHeader>
+                  <CardTitle>清晰的判题反馈</CardTitle>
+                  <CardDescription>提交后查看运行状态、耗时与最终判定。</CardDescription>
+                </CardHeader>
+              </Card>
+            )}
+          </div>
+        </Stack>
       </Section>
     </Container>
   );

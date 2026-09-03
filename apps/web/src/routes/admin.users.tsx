@@ -96,36 +96,42 @@ function AdminUsersPage() {
         <Heading level={1} className="sr-only">
           用户账号
         </Heading>
-        <form
-          className="grid w-full items-end gap-2 sm:w-auto sm:max-w-xl sm:grid-cols-[minmax(12rem,1fr)_auto]"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!create.isPending) create.mutate({ username: newUsername });
-          }}
-        >
-          <FormField label="新用户用户名" required>
-            <Input
-              id="new-username"
-              minLength={3}
-              maxLength={64}
-              pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
-              value={newUsername}
-              onChange={(event) => setNewUsername(event.target.value)}
-              placeholder="新用户用户名"
-            />
-          </FormField>
-          <Button type="submit" size="md" loading={create.isPending} loadingLabel="创建中…">
-            <UserPlus aria-hidden="true" />
-            创建用户
-          </Button>
-        </form>
+        <Panel className="p-[var(--ds-space-4)]">
+          <form
+            className="grid w-full items-end gap-[var(--ds-space-2)] sm:w-auto sm:max-w-xl sm:grid-cols-[minmax(12rem,1fr)_auto]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!create.isPending) create.mutate({ username: newUsername });
+            }}
+          >
+            <FormField label="新用户用户名" required>
+              <Input
+                id="new-username"
+                minLength={3}
+                maxLength={64}
+                pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,63}"
+                value={newUsername}
+                onChange={(event) => setNewUsername(event.target.value)}
+                placeholder="新用户用户名"
+              />
+            </FormField>
+            <Button type="submit" size="md" loading={create.isPending} loadingLabel="创建中…">
+              <UserPlus aria-hidden="true" />
+              创建用户
+            </Button>
+          </form>
+        </Panel>
 
-        <ErrorNotice message={mutationError ? authErrorMessage(mutationError) : undefined} />
+        {mutationError ? (
+          <div className="mt-[var(--ds-space-6)]">
+            <ErrorNotice message={authErrorMessage(mutationError)} />
+          </div>
+        ) : null}
         {temporaryPassword !== undefined ? (
           <Panel
             role="dialog"
             aria-labelledby="temporary-password-title"
-            className="bg-warning-soft text-warning mt-6 border-[var(--ds-warning-border)]"
+            className="bg-warning-soft text-warning mt-[var(--ds-space-6)] border-[var(--ds-warning-border)]"
           >
             <Cluster gap={3} justify="between" className="items-center">
               <Stack gap={2}>
@@ -135,7 +141,7 @@ function AdminUsersPage() {
                 <Text size="sm" tone="primary" className="text-warning">
                   请立即安全交给用户。关闭后无法再次查看。
                 </Text>
-                <CodeText className="bg-surface text-foreground inline-block max-w-full rounded-sm px-2 py-1 wrap-anywhere select-all">
+                <CodeText className="text-foreground inline-block max-w-full rounded-[var(--ds-radius-xs)] border border-[var(--ds-border-soft)] bg-[var(--ds-surface-recessed)] px-[var(--ds-space-2)] py-[var(--ds-space-1)] wrap-anywhere select-all">
                   {temporaryPassword}
                 </CodeText>
               </Stack>
@@ -166,9 +172,9 @@ function AdminUsersPage() {
           </Panel>
         ) : null}
 
-        <Panel className="mt-6 overflow-x-auto p-0">
+        <Panel className="mt-[var(--ds-space-6)] overflow-x-auto p-0">
           {users.isPending ? (
-            <div className="p-6">
+            <div className="p-[var(--ds-space-6)]">
               <AsyncState
                 variant="loading"
                 size="inline"
@@ -180,28 +186,42 @@ function AdminUsersPage() {
             </div>
           ) : null}
           {users.isError ? (
-            <div className="p-6">
+            <div className="p-[var(--ds-space-6)]">
               <ErrorNotice message={authErrorMessage(users.error)} />
-              <Button variant="secondary" className="mt-3" onClick={() => void users.refetch()}>
+              <Button
+                variant="secondary"
+                className="mt-[var(--ds-space-3)]"
+                onClick={() => void users.refetch()}
+              >
                 重试
               </Button>
             </div>
           ) : null}
           {users.data ? (
-            <table className="w-full min-w-3xl text-left text-sm">
-              <thead className="bg-surface-subtle text-muted-foreground">
+            <table className="w-full min-w-3xl text-left text-[length:var(--ds-text-sm)]">
+              <thead className="bg-[var(--ds-surface-translucent)] text-[var(--ds-fg-meta)]">
                 <tr>
-                  <th className="px-4 py-3 font-medium">用户名</th>
-                  <th className="px-4 py-3 font-medium">角色</th>
-                  <th className="px-4 py-3 font-medium">状态</th>
-                  <th className="px-4 py-3 font-medium">首次改密</th>
-                  <th className="px-4 py-3 text-right font-medium">操作</th>
+                  <th className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]">
+                    用户名
+                  </th>
+                  <th className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]">
+                    角色
+                  </th>
+                  <th className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]">
+                    状态
+                  </th>
+                  <th className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]">
+                    首次改密
+                  </th>
+                  <th className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] text-right font-[var(--ds-weight-body)]">
+                    操作
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-border divide-y">
+              <tbody className="divide-y divide-[var(--ds-border-soft)]">
                 {users.data.items.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8">
+                    <td colSpan={5} className="px-[var(--ds-space-4)] py-[var(--ds-space-8)]">
                       <AsyncState
                         variant="empty"
                         size="inline"
@@ -214,14 +234,21 @@ function AdminUsersPage() {
                   </tr>
                 ) : null}
                 {users.data.items.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-4 py-3 font-medium">{user.username}</td>
-                    <td className="px-4 py-3">{user.role}</td>
-                    <td className="px-4 py-3">
+                  <tr
+                    key={user.id}
+                    className="transition-colors duration-[var(--ds-motion-fast)] hover:bg-[var(--ds-surface-translucent-hover)] motion-reduce:transition-none"
+                  >
+                    <td className="px-[var(--ds-space-4)] py-[var(--ds-space-3)] font-[var(--ds-weight-body)]">
+                      {user.username}
+                    </td>
+                    <td className="px-[var(--ds-space-4)] py-[var(--ds-space-3)]">{user.role}</td>
+                    <td className="px-[var(--ds-space-4)] py-[var(--ds-space-3)]">
                       <StatusBadge status={user.status} />
                     </td>
-                    <td className="px-4 py-3">{user.passwordChangeRequired ? '需要' : '否'}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-[var(--ds-space-4)] py-[var(--ds-space-3)]">
+                      {user.passwordChangeRequired ? '需要' : '否'}
+                    </td>
+                    <td className="px-[var(--ds-space-4)] py-[var(--ds-space-3)]">
                       <Cluster gap={2} justify="end">
                         <Button
                           size="sm"
@@ -270,7 +297,7 @@ function AdminUsersPage() {
           ) : null}
         </Panel>
         {users.data ? (
-          <nav aria-label="用户分页" className="mt-4">
+          <nav aria-label="用户分页" className="mt-[var(--ds-space-4)]">
             <Cluster gap={3} justify="between">
               <Text as="span" size="sm" tone="secondary">
                 第 {users.data.pagination.page} / {Math.max(1, users.data.pagination.totalPages)}{' '}
@@ -302,8 +329,8 @@ function AdminUsersPage() {
 
 function StatusBadge({ status }: { status: 'ACTIVE' | 'DISABLED' }) {
   return status === 'ACTIVE' ? (
-    <Badge variant="success">● 正常</Badge>
+    <Badge variant="success">正常</Badge>
   ) : (
-    <Badge variant="danger">○ 已停用</Badge>
+    <Badge variant="danger">已停用</Badge>
   );
 }

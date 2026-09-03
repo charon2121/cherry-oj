@@ -1,0 +1,55 @@
+/* Typography — Cherry OJ. Unchanged from source. Inter Variable with
+ * font-feature-settings "cv01","ss03" everywhere; weight 510 is the signature. */
+:root {
+  --font-display: "Inter Variable", "Inter", "SF Pro Display", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-body:    "Inter Variable", "Inter", "SF Pro Display", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono:    "Berkeley Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  --font-features: "cv01", "ss03";
+
+  /* Weights */
+  --weight-light:    300;
+  --weight-regular:  400;
+  --weight-medium:   510;  /* signature between-weight */
+  --weight-semibold: 590;  /* maximum — never 700 */
+
+  /* Size scale */
+  --text-tiny:  10px;
+  --text-micro: 11px;
+  --text-xs:    12px;
+  --text-cap:   13px;
+  --text-sm:    14px;
+  --text-15:    15px;
+  --text-base:  16px;
+  --text-17:    17px;
+  --text-lg:    18px;
+  --text-xl:    24px;
+  --text-2xl:   32px;
+  --text-3xl:   48px;
+  --text-4xl:   64px;
+  --text-5xl:   72px;
+
+  /* Leading */
+  --leading-tight:   1.00;
+  --leading-h1:      1.13;
+  --leading-h2:      1.33;
+  --leading-label:   1.40;
+  --leading-body:    1.50;
+  --leading-relaxed: 1.60;
+
+  /* Tracking — normalised from the source's px values */
+  --tracking-display-xl: -0.022em;  /* -1.584px @ 72px */
+  --tracking-display-lg: -0.022em;  /* -1.408px @ 64px */
+  --tracking-display:    -0.022em;  /* -1.056px @ 48px */
+  --tracking-h1:         -0.022em;  /* -0.704px @ 32px */
+  --tracking-h2:         -0.012em;  /* -0.288px @ 24px */
+  --tracking-h3:         -0.012em;  /* -0.240px @ 20px */
+  --tracking-body:       -0.009em;  /* -0.165px @ 18px / 15px */
+  --tracking-caption:    -0.010em;  /* -0.130px @ 13px */
+  --tracking-eyebrow:    0.08em;    /* uppercase overline */
+
+  /* Semantic aliases */
+  --type-display: var(--weight-medium) var(--text-5xl) / var(--leading-tight) var(--font-display);
+  --type-body:    var(--weight-regular) var(--text-base) / var(--leading-body) var(--font-body);
+  --type-ui:      var(--weight-medium) var(--text-sm) / var(--leading-body) var(--font-display);
+  --type-mono:    var(--weight-regular) var(--text-sm) / var(--leading-body) var(--font-mono);
+}

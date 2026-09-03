@@ -26,13 +26,13 @@ function SiteAppShell({ children }: SiteAppShellProps) {
     <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_1fr_auto]">
       <a
         href="#site-main"
-        className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 -translate-y-20 rounded-sm border px-3 py-2 text-sm focus-visible:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 h-px w-px overflow-hidden rounded-[var(--ds-radius-sm)] border whitespace-nowrap [clip:rect(0,0,0,0)] focus-visible:h-auto focus-visible:w-auto focus-visible:overflow-visible focus-visible:px-[var(--ds-space-3)] focus-visible:py-[var(--ds-space-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:[clip:auto]"
       >
         跳到主要内容
       </a>
-      <header className="bg-background sticky top-0 z-40">
-        <Container>
-          <div className="flex min-h-16 min-w-0 flex-nowrap items-center gap-1 py-2 sm:gap-3">
+      <header className="sticky top-0 z-40 h-[var(--ds-header-height)] border-b border-[var(--ds-border-soft)] bg-[var(--ds-panel)]">
+        <div className="h-full px-[var(--ds-container-gutter-phone)] sm:px-[var(--ds-container-gutter-tablet)] lg:px-[var(--ds-container-gutter-desktop)]">
+          <div className="mx-auto flex h-full max-w-[var(--ds-container-max)] min-w-0 flex-nowrap items-center gap-[var(--ds-space-2)] sm:gap-[var(--ds-space-6)]">
             <AppBrand />
             <SitePrimaryNavigation />
             <Button
@@ -51,18 +51,18 @@ function SiteAppShell({ children }: SiteAppShellProps) {
             <ThemeSwitcher className="ml-auto" />
             <AccountMenu className="ml-0" showAdminEntry />
           </div>
-        </Container>
+        </div>
       </header>
 
       <main id="site-main" tabIndex={-1} className="min-h-0 min-w-0 outline-none">
         {children ?? <Outlet />}
       </main>
 
-      <footer>
+      <footer className="border-t border-[var(--ds-border-soft)]">
         <Container>
-          <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-2 text-sm">
+          <div className="flex min-h-12 flex-wrap items-center justify-between gap-[var(--ds-space-2)] py-[var(--ds-space-2)] text-[length:var(--ds-text-sm)]">
             <span className="font-display font-[var(--ds-weight-body)]">Cherry OJ</span>
-            <span className="text-muted-foreground">Focused Workspace</span>
+            <span className="text-[var(--ds-fg-meta)]">Focused Workspace</span>
           </div>
         </Container>
       </footer>

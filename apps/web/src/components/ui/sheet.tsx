@@ -56,10 +56,8 @@ function SheetContent({
           data-slot="sheet-content"
           data-side={side}
           className={cn(
-            'border-border-strong bg-sidebar text-sidebar-foreground pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--ds-space-8)))] flex-col border-r shadow-[var(--ds-elevation-raised)] transition-transform duration-[var(--ds-motion-base)] ease-[var(--ds-ease-standard)] outline-none motion-reduce:transition-none',
-            side === 'left'
-              ? 'left-0 data-[ending-style]:-translate-x-full data-[starting-style]:-translate-x-full'
-              : 'right-0 border-r-0 border-l data-[ending-style]:translate-x-full data-[starting-style]:translate-x-full',
+            'text-sidebar-foreground pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--ds-space-8)))] flex-col border-r border-[var(--ds-border)] bg-[var(--ds-panel)] shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            side === 'left' ? 'left-0' : 'right-0 border-r-0 border-l',
             className,
           )}
           {...props}

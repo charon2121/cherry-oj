@@ -17,7 +17,6 @@ export function ErrorNotice({ message }: ErrorNoticeProps) {
 
   return (
     <InlineNotice
-      className="mt-4"
       live="assertive"
       tabIndex={-1}
       title={<span ref={contentRef}>{message}</span>}

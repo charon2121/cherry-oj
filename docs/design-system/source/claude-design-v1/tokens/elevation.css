@@ -1,0 +1,21 @@
+/* Elevation — Cherry OJ. On dark surfaces depth comes from luminance stepping
+ * and semi-transparent white borders, not from drop shadows. */
+:root {
+  --elev-flat:   none;
+  --elev-subtle: rgba(0, 0, 0, 0.03) 0px 1.2px 0px 0px;
+  --elev-ring:   0 0 0 1px var(--border);
+  --elev-inset:  rgba(0, 0, 0, 0.2) 0px 0px 12px 0px inset;
+  --elev-raised:
+    rgba(0, 0, 0, 0.4) 0px 2px 4px,
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  --elev-dialog:
+    rgba(0, 0, 0, 0) 0px 8px 2px,
+    rgba(0, 0, 0, 0.01) 0px 5px 2px,
+    rgba(0, 0, 0, 0.04) 0px 3px 2px,
+    rgba(0, 0, 0, 0.07) 0px 1px 1px,
+    rgba(0, 0, 0, 0.08) 0px 0px 1px;
+
+  --focus-ring:
+    0 0 0 2px color-mix(in oklab, var(--accent), transparent 30%),
+    0 4px 12px rgba(0, 0, 0, 0.1);
+}

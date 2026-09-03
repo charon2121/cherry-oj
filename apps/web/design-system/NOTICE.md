@@ -1,21 +1,22 @@
 <!--
-Modified for Cherry OJ on 2026-08-28.
-This notice identifies the source snapshot and the Web-owned Cherry OJ changes.
+Modified for Cherry OJ on 2026-09-03.
+This notice records the frozen visual source, its upstream fixture, and the
+production changes made in the Web-owned package.
 -->
 
 # Attribution and modification notice
 
-Parts of this package are derived from the `design-systems/linear-app` fixture in the OpenDesign repository. That
-repository describes the fixture as curated bundled material. It is not official Linear source code, and this Cherry OJ
-package is not affiliated with or endorsed by Linear.
+Cherry OJ Web Design System 2.0 productionizes the user-approved Claude Design export named
+`Cherry OJ Design System`. The complete 99-file source is retained only in the repository documentation tree; its
+deterministic root SHA-256 is
+`68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d`. This Web package records that digest but
+does not load the snapshot at build or runtime.
 
-The source material is licensed under Apache License 2.0. A verbatim license copy is provided in
-[`LICENSE.open-design`](./LICENSE.open-design). The license permits modification and redistribution subject to its
-terms; modified files in this package carry a prominent Cherry OJ modification notice.
+The export states that its neutral visual foundation was derived from the `design-systems/linear-app` fixture in the
+OpenDesign repository. That curated fixture is not official Linear source code, and Cherry OJ is not affiliated with or
+endorsed by Linear. Its Apache License 2.0 text is distributed as [`LICENSE.open-design`](./LICENSE.open-design).
 
-## Fixed source snapshot
-
-The implementation was prepared on 2026-08-27 from these source snapshot files:
+## Upstream fixture snapshot retained for the license chain
 
 | Source file | SHA-256 |
 |---|---|
@@ -23,18 +24,21 @@ The implementation was prepared on 2026-08-27 from these source snapshot files:
 | `design-systems/linear-app/DESIGN.md` | `4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7` |
 | repository `LICENSE` | `9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da` |
 
-This Web package does not load files from that snapshot or from repository documentation at build or runtime.
+## Cherry OJ production changes
 
-## Cherry OJ modifications
+- Replaced the previous Web visual contract with the Claude Design spacing, typography, radius, layout, surface and
+  Cherry colour recipes while retaining the `--ds-*` production namespace.
+- Preserved `cherry-black` as the exact-source default and rebuilt `pure-white` as a complete light counterpart sharing
+  component structure and every non-colour token.
+- Mapped solid Cherry hover/pressed states to darker colours from the source family so white action text stays readable;
+  retained the source bright Cherry values for dark-theme links, focus and accents.
+- Replaced prototype-only inline styles, random ids, mouse state, SVG paths and remote fonts with semantic React/Base UI,
+  `useId`, Lucide React, local Inter Variable and local JetBrains Mono Variable.
+- Retained CodeMirror for structured long content and the existing route, auth, permission, API and business contracts.
+- Kept deterministic theme generation, contract/contrast checks, source scanning and reduced-motion behavior.
+- Moved the executable frontend assets into this Web-owned package; repository documentation is not a build dependency.
 
-- Renamed public tokens into the `--ds-*` namespace and separated shared metrics from theme-dependent semantics.
-- Preserved the fixture's dark structure as `cherry-black` while replacing active purple with Cherry brand semantics.
-- Added accessibility corrections for metadata, focus, necessary borders, Cherry interactions, and OJ statuses.
-- Added the complete `pure-white` theme as a Cherry OJ extension.
-- Added a versioned theme contract, manifest-driven generation, a theme-neutral Tailwind/shadcn adapter, and
-  deterministic Web-local verification.
-- Added Chinese system-font fallbacks; no upstream logo, trademark, product copy, or font file is bundled.
-- Moved the executable frontend assets into this Web-owned package on 2026-08-28 so human documentation is not a
-  build dependency.
-
-“Linear” is used only to identify the design inspiration and source fixture. Apache-2.0 does not grant trademark rights.
+No Linear logo, trademark, product copy, screenshot, Berkeley Mono file or other proprietary asset is distributed.
+“Linear” is used only to identify the upstream design inspiration and fixture; Apache-2.0 does not grant trademark rights.
+Inter Variable and JetBrains Mono Variable copyright notices and OFL-1.1 terms are distributed as
+[`LICENSE.fonts`](./LICENSE.fonts).

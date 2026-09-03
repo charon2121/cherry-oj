@@ -6,14 +6,14 @@ export const themeRegistry = [
     label: 'Cherry Black',
     colorScheme: 'dark',
     file: 'themes/cherry-black.css',
-    version: 1,
+    version: 2,
   },
   {
     id: 'pure-white',
     label: 'Pure White',
     colorScheme: 'light',
     file: 'themes/pure-white.css',
-    version: 1,
+    version: 2,
   },
 ] as const;
 

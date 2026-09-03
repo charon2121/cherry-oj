@@ -1,0 +1,27 @@
+<!-- @dsCard group="Components" viewport="700x200" name="Layout" subtitle="Container column and Stack gap steps" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--bg);color:var(--fg-2);font-family:var(--font-body);font-feature-settings:var(--font-features);-webkit-font-smoothing:antialiased}a{color:var(--text-link)}a:hover{color:var(--text-link-hover)}#root{padding:18px 24px;display:flex;flex-direction:column;gap:14px}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.lbl{font-size:10px;font-weight:510;color:var(--meta);text-transform:uppercase;letter-spacing:.07em;width:62px;flex:none}#root{padding:0}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { Container, Stack, Card, Text, Eyebrow } = window.CherryOJDesignSystem_51433c;
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <Container as="section" style={{paddingBlock:20}}>
+    <Stack gap={4}>
+      <Eyebrow>Container · 1200px max, 24px gutters</Eyebrow>
+      <Stack direction="row" gap={3}>
+        <Card style={{flex:1}} padding="sm"><Text size="sm" tone="muted">gap 12</Text></Card>
+        <Card style={{flex:1}} padding="sm"><Text size="sm" tone="muted">gap 12</Text></Card>
+        <Card style={{flex:1}} padding="sm"><Text size="sm" tone="muted">gap 12</Text></Card>
+      </Stack>
+      <Stack direction="row" gap={1}>
+        {[1,2,3,4,5,6].map(n => <Card key={n} padding="sm" style={{flex:1}}><Text size="xs" tone="meta">gap 4</Text></Card>)}
+      </Stack>
+    </Stack>
+  </Container>
+);
+</script></body></html>

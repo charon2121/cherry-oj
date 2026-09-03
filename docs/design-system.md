@@ -1,43 +1,53 @@
 # Cherry OJ Web 设计系统
 
 > **状态：已确认的长期规范。** 本文与 [`design-system/`](./design-system/) 共同定义 Cherry OJ
-> 后续 Web 组件、业务组件和页面的视觉与交互合同。方案源自
-> [WORK-015 / DECISION-011](../development/works/WORK-015/40-decision-DECISION-011.md)，但不是 Linear
-> 官方设计系统；来源、许可与 Cherry 修改见 [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
+> 后续 Web 组件、业务组件和页面的视觉与交互合同。当前 2.0 系统由
+> [WORK-034 / DECISION-019](../development/works/WORK-034/40-decision-DECISION-019.md) 确认，以用户认可的
+> Claude Design 下载版为直接视觉来源，同时保留正式浅色主题。它不是 Linear 官方设计系统；来源、许可、
+> 冻结摘要与生产适配见 [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
 
 ## 1. 权威关系
 
 设计意图与 Web 可执行资产分层持有，依赖方向不能倒置：
 
-1. 本文规定设计原则、消费规则、组件合同和例外流程，`docs/design-system/` 保存供人阅读、评审与维护
-   设计说明的参考资产；
-2. [`theme-contract.json`](./design-system/theme-contract.json)、Foundation、主题 CSS、生成快照和 HTML
-   帮助人检查说明自身是否完整，但不是 Web 安装、开发、检查或构建的输入；
-3. `apps/web/design-system/` 是 Web 的可执行真源，持有运行所需的 Foundation、主题、manifest、合同、
+1. 本文规定设计原则、消费规则、组件合同和例外流程；
+2. [`design-system/source/claude-design-v1/`](./design-system/source/claude-design-v1/) 是用户认可下载版的
+   原样来源证据，[`source-lock.json`](./design-system/source-lock.json) 锁定其 99 文件、239831 bytes、
+   相对路径与逐文件摘要；来源定义视觉和构图，不授权直接复制原型实现；
+3. `docs/design-system/` 的合同、Foundation、主题 CSS、生成快照和 HTML 帮助人检查中文生产解释是否完整，
+   但不是 Web 安装、开发、检查或构建的输入；
+4. `apps/web/design-system/` 是 Web 的可执行真源，持有运行所需的 Foundation、主题、manifest、合同、
    Tailwind adapter、生成器、校验器、来源与许可证；
-4. 普通 Web CI 不比较、复制或链接代码树与文档树。只有真正修改设计系统时，才在同一 WORK/TASK 中
+5. 普通 Web CI 不比较、复制或链接代码树与文档树。只有真正修改设计系统时，才在同一 WORK/TASK 中
    同步两侧，并分别通过代码检查与文档参考检查；
-5. 截图、Storybook、HTML 示例和业务页面都是评审或消费结果，不能反向定义设计合同。
+6. Storybook 和业务页面用于验证生产实现；来源 snapshot 用于视觉对照。preview HTML 只检查 Foundation
+   与主题，任何一方都不能反向改变已批准的业务、路由、权限或 API 合同。
 
 因此删除 `docs/design-system/` 不得影响 Web 的 `npm ci`、开发服务器、检查、生产构建、Storybook 或
 E2E。文档包自身的入口、生成和校验命令见 [`design-system/README.md`](./design-system/README.md)。
 
-**视觉参考只有一个入口：Storybook**（`cd apps/web && npm run storybook`）。它渲染
-`apps/web/src/components/ui/` 下的真实组件，覆盖两个主题并挂有 a11y addon。此前的手写 HTML 参考页
-已删除——静态 HTML 无法引用 React 组件，只能手抄 class，因此必然与真实组件漂移；两个评审入口里更差
-的那个不该占着「视觉参考」的名分。
+组件生产参考入口是 Storybook（`cd apps/web && npm run storybook`），它渲染真实组件并覆盖两个主题和
+a11y；来源视觉入口是冻结 snapshot 的 specimen 与 app UI kit。实现验收必须在相同 viewport/state 下对照
+来源与生产截图，不能只看 token 是否通过校验。静态 preview 不承担 React 组件参考职责。
 
 ## 2. 设计方向
 
-Cherry OJ 沿用 Linear fixture 的 Focused Workspace 结构：低噪声层级、紧凑但可读的信息密度、精确对齐、
-克制的圆角与动效，以及用明度和细边界组织内容。它服务于“读题—编码—提交—诊断”这一长时间专注流程，
-不复制 Linear 的商标、Logo、产品文案或营销页面。
+Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑或纯白画布、冷灰层级、紧凑但
+可读的信息密度、精确对齐、细 hairline、克制圆角和几乎不打扰的状态变化。它服务于“读题—编码—提交—
+诊断”这一长时间专注流程，不复制来源 demo 的营销功能、Linear 商标、Logo 或产品文案。
 
 所有界面遵守以下原则：
 
-- 导航退后，当前任务获得主要对比度；普通分组优先用间距、对齐和分隔线，不使用 Card 布局。
-- Foundation 沿用 Inter Variable、中文系统字体回退、400/510/590 字重、4px 间距节奏、6/8/12px
-  圆角与 150/200ms 动效。Berkeley Mono 只在用户环境已合法安装时优先，不随包分发。
+- 导航退后，当前任务获得主要对比度；普通分组优先用间距、对齐、透明 surface 和分隔线，不把每个分组
+  都做成不透明大 Card。
+- Foundation 使用本地 Inter Variable、中文系统字体回退、本地 JetBrains Mono，并保留已合法安装的
+  Berkeley Mono 为第一首选；工作字重为 400/510/590，禁止 700。
+- 间距以 8px 为基础，7/11/19/22px 只用于来源明确的光学校准；圆角完整覆盖 2/4/6/8/12/22px、pill
+  和 circle；桌面应用 chrome 固定为 220px sidebar 与 56px header。
+- 只允许 opacity、color、background-color 使用 150/200/320ms 与标准 easing；禁止 transform、bounce、
+  spring、parallax 和装饰性入场动画，reduced-motion 下时长归零。
+- 不使用 gradient、photo、illustration、texture、noise、pattern 或 backdrop blur；空间由留白/留黑、明度
+  台阶和 hairline 建立，不靠大面积装饰。
 - 品牌、危险和 OJ 状态是不同语义。Cherry 品牌色可以表示主操作和品牌链接，不能代替 destructive。
 - 页面由稳定的 shell、列表、工作台和详情模板组合；真实业务差异进入内容区，不重新发明视觉语言。
 
@@ -45,10 +55,10 @@ Cherry OJ 沿用 Linear fixture 的 Focused Workspace 结构：低噪声层级�
 
 ### 3.1 已登记主题
 
-| Theme ID | Color scheme | 定位 |
-|---|---|---|
-| `cherry-black` | dark | 默认主题；完整保留 Linear-derived 黑色结构，仅做已批准的 Cherry 品牌、OJ 语义和可访问性修正 |
-| `pure-white` | light | Cherry 设计的完整浅色扩展；主画布和抬升面使用 `#ffffff`，以冷灰建立面板、输入和 hover 层级 |
+| Theme ID       | Color scheme | 定位                                                                              |
+| -------------- | ------------ | --------------------------------------------------------------------------------- |
+| `cherry-black` | dark         | 默认主题；精确承接 Claude Design 下载版暗色视觉，在生产可访问性边界内适配交互状态 |
+| `pure-white`   | light        | 同一系统的正式浅色主题；结构与非颜色 token 完全同构，以冷灰/白重新建立层级        |
 
 主题选择只由 `<html data-theme="…">` 表达。缺失、空值、`cherry-black` 和未知 theme id 都回退到
 `:root` 的 `cherry-black`；`pure-white` 必须显式选择。默认不跟随操作系统。
@@ -83,6 +93,10 @@ Foundation token 与主题 token 分层：字体、字号、间距、圆角、�
 selection、overlay、status 与 elevation 由每个主题完整实现。Token 统一使用 `--ds-*`；本文档包说明这些
 语义，Web 实际解析和校验 `apps/web/design-system/` 中的实现。
 
+下载版核心组件明确依赖三档透明 surface（2% rest、4% hover、5% selected）、ghost 实线边界、tertiary
+分隔线和 subtle/inset/dialog elevation。它们分别映射为 `surface-translucent*`、`border-solid`、
+`line-tertiary` 与 `elevation-subtle/inset/dialog`，必须由两个主题完整实现，不能在组件里重新写 rgba 或 shadow。
+
 组件和页面必须：
 
 - 只消费代码侧设计系统提供的语义 token 或稳定 Tailwind alias；本文档中的
@@ -103,8 +117,9 @@ Tailwind/shadcn 只做一次 theme-neutral 映射：
 ## 5. 品牌、危险与 OJ 状态
 
 品牌角色拆为 `brand-surface`、hover/active、`on-brand`、`brand-foreground`、`brand-soft` 和
-`on-brand-soft`。实心 CTA 使用 Cherry `#de1c4e`；暗色上的品牌文字/focus 使用较亮的 Cherry 值，
-pure-white 上使用可达对比的深 Cherry 值。暗色亮粉不得被直接搬到白底正文、必要图标或焦点。
+`on-brand-soft`。实心 CTA 使用来源 Cherry `#d2042d`；为确保白字在全部按钮状态可读，hover/active 使用同色
+族更深的 `#a80324` / `#7d0219`。暗色品牌文字/focus 使用 `#ff4d67`，hover 可到 `#ff7088`；pure-white
+文字、链接和 focus 使用可达对比的深 Cherry。暗色亮粉不得直接搬到白底正文或必要图标。
 
 `success`、`warning`、`danger`、`info`、`special` 每类状态都完整实现：
 
@@ -143,6 +158,38 @@ default、hover、pressed、focus-visible、disabled 和 loading；disabled 不�
 视觉参考见 Storybook（`cd apps/web && npm run storybook`）与 [`preview/`](./design-system/preview/)；
 它们用于评审，不是 token 或组件行为的真源。
 
+WORK-034 的来源核心配方为 Button、IconButton、Pill、Input、SearchInput、Textarea、Container、Stack、
+NavBar、Badge、Card、Eyebrow、Heading 与 Text。生产实现保留其 anatomy、精确密度、surface、圆角和状态层级，
+同时把原型中的 clickable span、随机 id、鼠标状态、inline style 与手写 SVG 转换成原生语义、`useId`、CSS
+状态、共享 class 与 Lucide。Dialog、Popover、Sheet、Sidebar、Select、Notice 和 TextEditor 属于 Cherry OJ
+扩展，但必须使用同一套视觉语法；浮层使用 `elevation-dialog`，普通内容 Card 不默认抬升。
+
+### 6.1 长内容与编辑器选择
+
+多行输入不能只按“后台页面”或“看起来像文本”选择组件。先判断内容是否短、是否有结构/语法，以及用户
+是否需要搜索、行号、稳定撤销和大段编辑：
+
+- `Input` 只承载单行值；`Textarea` 只用于短而简单的多行纯文本，例如备注、拒绝原因或几行补充说明。
+  不把它用于题面、长 Markdown、长样例、代码或预计需要持续滚动编辑的内容。
+- 长 Markdown、长纯文本和后台代码使用项目统一的 `TextEditor`/`MarkdownEditor`。当前基线采用
+  CodeMirror 6；项目维护 React 适配、Cherry 主题、有限扩展与可访问性合同，不 fork、复制或自行维护
+  上游编辑器内核。
+- Monaco 是否使用取决于任务复杂度，不简单等同于“前台可以、后台不可以”。只有用户端代码工作台需要
+  IDE 级补全、诊断、命令和大文件能力时才优先评估 Monaco；后台基础 Markdown/C++ 录入默认 CodeMirror。
+  某个后台功能确实需要完整 IDE 能力时必须在对应 DESIGN 中说明收益、移动端边界和 bundle 代价。
+- JSON、CSV、逗号分隔文本等序列化格式不是普通运营人员的默认表单。可重复业务对象必须用结构化字段、
+  列表或卡片编辑，序号和序列化由系统生成；原始格式只可作为明确的高级导入/导出能力。
+
+编辑器必须完整实现 Field 合同：可见 label、required、description、error、唯一可访问名称、focus-visible、
+disabled/read-only/loading 和错误关联。多个编辑器不能都叫“Editor content”。编辑器默认不得形成 Tab 键
+陷阱，中文输入法组合期间不得触发值回写、保存或校验打断输入；两个主题、320px、200% 缩放、
+forced-colors 和 reduced-motion 都必须验收。
+
+编辑器主题只消费 `--ds-*` 语义 token 和生成主题 registry 提供的 color scheme，不写 raw color、主题 id
+分支或第三套编辑器主题真源。Markdown 预览继续把内容视为不可信输入并净化，不能因为编辑器提供高亮就
+放开原始 HTML。长编辑器应使用有界默认高度和“展开编辑”，避免随全文无限增高；窄屏使用编辑/预览切换，
+不能把分屏硬压成两列。
+
 ## 7. 页面结构、间距与滚动
 
 页面进入后应直接呈现当前任务，不在真实操作组件之前重复展示“栏目眉题 + 页面标题 + 页面描述”式介绍区：
@@ -165,6 +212,30 @@ Shell 导航底部到页面第一个可见主内容的垂直距离统一为 `--d
 管理端桌面布局使用视口内滚动：顶部导航和左侧菜单保持原位，只有中间主内容区产生纵向滚动。左侧菜单自身
 内容超出可用高度时可在菜单内部滚动。手机端继续使用 Sheet 承载管理导航，页面维持浏览器文档滚动，不能把
 桌面侧栏的滚动模型套到移动端。
+
+### 7.1 长任务工作台
+
+需要数分钟以上才能完成、包含三个及以上依赖阶段的工作，不能把后端字段和接口按实现顺序铺成一个超长
+表单。页面应按使用者目标建立步骤或可定位章节，并持续表达：当前对象、当前步骤、已完成内容、未保存
+内容、下一步和阻塞原因。步骤导航是方向提示，不得用前端完成度冒充服务端最终就绪状态。
+
+以下模式禁止作为长任务的默认实现：
+
+- 把“创建新对象”和“管理已有对象”两个主任务长期并排或上下堆在同一首屏；短创建流程使用明确入口和
+  Dialog/专页，列表首屏仍服务于查找与管理。
+- 只有页面顶部一个保存按钮，滚动后既看不到操作也看不到保存状态；长工作台必须让保存入口和“未保存、
+  保存中、已保存、失败/冲突”状态持续可达，并在离开时保护真实未保存内容。
+- 直到页面底部才告诉用户发布/提交缺什么；就绪摘要应在导航或上下文栏持续可见，最终检查项能定位到
+  对应步骤。
+- 让用户靠点击禁用按钮猜测依赖；禁用控件旁必须有持久、可读的原因，tooltip 不能是唯一解释。
+- 把 ns、bytes、hash、ordinal、内部状态码等系统事实作为默认主输入/主文案；界面使用人的单位和语言，
+  精确底层值放技术详情，并在请求边界无损换算。
+- 把保存、发布、可见性切换、创建修订、归档和删除放在同一操作组；普通编辑、生命周期和危险操作必须
+  分层，危险操作使用项目 Dialog 明确对象、影响、可逆性和结果不明时的恢复方式。
+
+分步工作台仍需保证未显示步骤的表单状态不会因卸载丢失；当前步骤应进入可验证的 URL 状态，刷新、前进
+后退和直接访问能恢复。是否自动保存必须结合并发版本、敏感内容和服务端契约决定，不能把“现代”当作
+理由：若采用明确保存，应提供快捷键、持续状态和离开保护；若采用自动保存，应提供队列、冲突和失败恢复。
 
 ## 8. 可访问性与响应式
 
@@ -191,14 +262,15 @@ Shell 导航底部到页面第一个可见主内容的垂直距离统一为 `--d
 
 ## 10. 当前实现边界
 
-Web 已接入默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color scheme、首屏防闪、
-主题运行时、共享组件以及双主题 Storybook/Playwright。可执行资产与内部合同位于
+Web 的 2.0 Foundation 已登记默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color
+scheme、首屏防闪和主题偏好合同。可执行资产与内部合同位于
 `apps/web/design-system/`；Web 的 install/check/dev/build/Storybook/E2E 不读取本目录，移除本文档包
 不会改变前端行为或质量门禁。`contracts/web-api.openapi.json` 的 OpenAPI 生成检查仍是 Web 明确保留的
 monorepo 契约依赖，不属于设计文档依赖。
 
-当前生产导航仍没有用户可见主题切换器。运行时支持主题不等于产品已经交付选择入口；新增入口必须另建
-产品 TASK，并完成文案、偏好与用户链路验收。
+共享 UI 与 Storybook 已迁移到 14 个来源核心配方及同语法生产扩展。ThemeSwitcher、真实 Shell 和页面的
+2.0 迁移由 WORK-034 后续 TASK 分阶段完成；最终交付前不得发布旧页面与新组件的混搭状态。切换入口只在
+这两个正式主题间工作，沿用同一偏好 key 和无闪烁首屏流程，不新增“旧系统/新系统”开关。
 
 ## 11. 评审清单
 

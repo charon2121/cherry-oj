@@ -1,0 +1,82 @@
+/* Colors — Cherry OJ
+ * Inherited wholesale from the source package's achromatic dark system.
+ * The ONLY change: the indigo-violet accent family (#5e6ad2 / #7170ff / #828fff)
+ * is replaced by the cherry family below. Greys, surfaces, borders and status
+ * greens are untouched. */
+:root {
+  /* ─── Surfaces ─────────────────────────────────────────────────── */
+  --bg:              #08090a;   /* marketing black — hero canvas */
+  --bg-deep:         #010102;   /* deepest canvas */
+  --surface-panel:   #0f1011;   /* sidebars, panels */
+  --surface:         #191a1b;   /* elevated surface — cards, dropdowns */
+  --surface-2:       #28282c;   /* hover / lightest dark surface */
+  --surface-warm:    var(--surface);
+
+  /* Translucent surface ladder — elevation by luminance, not shadow */
+  --surface-alpha-1: rgba(255, 255, 255, 0.02);
+  --surface-alpha-2: rgba(255, 255, 255, 0.04);
+  --surface-alpha-3: rgba(255, 255, 255, 0.05);
+
+  /* ─── Foreground ───────────────────────────────────────────────── */
+  --fg:      #f7f8f8;   /* primary — never pure white */
+  --fg-2:    #d0d6e0;   /* silver-grey body text */
+  --muted:   #8a8f98;   /* tertiary — placeholders, metadata */
+  --meta:    #62666d;   /* quaternary — timestamps, disabled */
+  --fg-ghost: #e2e4e7;  /* ghost-button label */
+
+  /* ─── Cherry accent (replaces indigo-violet) ───────────────────── */
+  --cherry-700:  #7d0219;
+  --cherry-600:  #a80324;   /* pressed */
+  --cherry-500:  #d2042d;   /* brand cherry — CTA backgrounds */
+  --cherry-400:  #ff4d67;   /* interactive — links, active states */
+  --cherry-300:  #ff7088;   /* hover on accent elements */
+  --cherry-muted: #ad7a85;  /* muted cherry — security / de-emphasised chrome */
+
+  --accent:        var(--cherry-500);
+  --accent-on:     #ffffff;
+  --accent-bright: var(--cherry-400);
+  --accent-hover:  var(--cherry-300);
+  --accent-active: var(--cherry-600);
+  --accent-tint:   rgba(210, 4, 45, 0.12);
+
+  /* ─── Status ───────────────────────────────────────────────────── */
+  --success:  #27a644;
+  --emerald:  #10b981;
+  --warn:     #eab308;
+  --danger:   #dc2626;
+
+  /* ─── Borders & lines ──────────────────────────────────────────── */
+  --border:        rgba(255, 255, 255, 0.08);  /* standard */
+  --border-soft:   rgba(255, 255, 255, 0.05);  /* subtle, the default divider */
+  --border-solid:  #23252a;
+  --border-solid-2:#34343a;
+  --border-solid-3:#3e3e44;
+  --line-tint:     #141516;
+  --line-tertiary: #18191a;
+  --border-ghost:  rgb(36, 40, 44);            /* ghost button border */
+
+  /* ─── Overlay ──────────────────────────────────────────────────── */
+  --overlay: rgba(0, 0, 0, 0.85);
+
+  /* ─── Light-mode neutrals (light contexts only) ────────────────── */
+  --light-bg:        #f7f8f8;
+  --light-surface:   #f3f4f5;
+  --light-surface-2: #f5f6f7;
+  --light-border:    #d0d6e0;
+  --light-border-2:  #e6e6e6;
+  --white:           #ffffff;
+
+  /* ─── Semantic aliases ─────────────────────────────────────────── */
+  --text-heading:     var(--fg);
+  --text-body:        var(--fg-2);
+  --text-muted:       var(--muted);
+  --text-meta:        var(--meta);
+  --text-link:        var(--accent-bright);
+  --text-link-hover:  var(--accent-hover);
+  --surface-card:     var(--surface-alpha-1);
+  --surface-card-hover: var(--surface-alpha-2);
+  --surface-sidebar:  var(--surface-panel);
+  --border-card:      var(--border);
+  --status-dot-active: var(--success);
+  --status-dot-todo:   var(--accent);
+}

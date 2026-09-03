@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { FormField } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Container, Section, Stack } from '@/components/ui/layout';
-import { Heading, Text } from '@/components/ui/typography';
+import { Eyebrow, Heading, Text } from '@/components/ui/typography';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
 import { PasswordField } from '@/features/auth/components/password-field';
 
@@ -21,11 +21,11 @@ function WorkspaceWordmark() {
     <div
       aria-hidden="true"
       data-testid="login-workspace-art"
-      className="relative hidden h-full min-h-0 min-w-0 lg:block"
+      className="relative hidden h-full min-h-0 min-w-0 border-l border-[var(--ds-border-soft)] lg:block"
     >
       <img
         alt=""
-        className="absolute top-0 left-[calc(var(--ds-space-12)+var(--ds-space-12))] h-full w-auto max-w-[calc(100%-var(--ds-space-8))] object-contain object-left-top mix-blend-difference"
+        className="absolute top-0 left-[calc(var(--ds-space-12)+var(--ds-space-12))] h-full w-auto max-w-[calc(100%-var(--ds-space-8))] object-contain object-left-top opacity-90 mix-blend-difference"
         src="/login-workspace-art.png"
       />
     </div>
@@ -45,32 +45,26 @@ function LoginPageView({
     <Container className="h-0 min-h-full">
       <Section className="box-border grid h-full min-h-0 pb-0">
         <div className="grid h-full min-h-0 items-start gap-[var(--ds-space-12)] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-          <div className="w-full max-w-xl justify-self-center lg:justify-self-start">
+          <div className="w-full max-w-xl justify-self-center lg:justify-self-start lg:pt-[var(--ds-space-12)]">
             <Stack gap={8}>
               <Stack gap={3}>
-                <Text size="sm" tone="muted">
-                  安全登录
-                </Text>
+                <Eyebrow tone="accent">安全登录</Eyebrow>
                 <Heading level={1} size="3xl">
                   登录 Cherry OJ
                 </Heading>
-                <span
-                  className="border-primary w-[var(--ds-space-6)] border-t-2"
-                  aria-hidden="true"
-                />
-                <Text size="sm" tone="muted">
+                <Text size="md" tone="muted" className="max-w-md">
                   账号由管理员开通，密码不会保存在浏览器中。
                 </Text>
               </Stack>
 
               <form
-                className="pt-[var(--ds-space-2)]"
+                className="border-t border-[var(--ds-border-soft)] pt-[var(--ds-space-6)]"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!pending) onSubmit();
                 }}
               >
-                <Stack gap={8}>
+                <Stack gap={6}>
                   <FormField label="用户名" required>
                     <Input
                       id="username"

@@ -9,15 +9,34 @@ import { cn } from '@/lib/utils';
 //   - 官方 `cn-font-heading` 是其自带字体工具类，本仓库字体由 foundation token 提供。
 function Card({
   className,
+  elevated = false,
+  interactive = false,
+  padding,
+  radius = 'md',
   size = 'default',
   ...props
-}: ComponentProps<'div'> & { size?: 'default' | 'sm' }) {
+}: ComponentProps<'div'> & {
+  elevated?: boolean;
+  interactive?: boolean;
+  padding?: 'sm' | 'md' | 'lg';
+  radius?: 'md' | 'lg' | 'xl';
+  size?: 'default' | 'sm';
+}) {
+  const resolvedPadding = padding ?? (size === 'sm' ? 'sm' : 'md');
   return (
     <div
       data-slot="card"
       data-size={size}
       className={cn(
-        'group/card border-border bg-card text-card-foreground flex min-w-0 flex-col gap-(--card-spacing) overflow-hidden rounded-md border py-(--card-spacing) text-sm [--card-spacing:--spacing(5)] has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-md *:[img:last-child]:rounded-b-md',
+        'group/card text-card-foreground flex min-w-0 flex-col overflow-hidden border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] transition-colors duration-[var(--ds-motion-base)] ease-[var(--ds-ease-standard)] motion-reduce:transition-none',
+        resolvedPadding === 'sm' && 'gap-[var(--ds-space-4)] p-[var(--ds-space-4)]',
+        resolvedPadding === 'md' && 'gap-[var(--ds-space-6)] p-[var(--ds-space-6)]',
+        resolvedPadding === 'lg' && 'gap-[var(--ds-space-8)] p-[var(--ds-space-8)]',
+        radius === 'md' && 'rounded-[var(--ds-radius-md)]',
+        radius === 'lg' && 'rounded-[var(--ds-radius-lg)]',
+        radius === 'xl' && 'rounded-[var(--ds-radius-xl)]',
+        interactive && 'hover:bg-[var(--ds-surface-translucent-hover)]',
+        elevated && 'shadow-[var(--ds-elevation-raised)]',
         className,
       )}
       {...props}
@@ -30,7 +49,7 @@ function CardHeader({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-header"
       className={cn(
-        'group/card-header grid auto-rows-min items-start gap-1 rounded-t-md px-(--card-spacing) has-data-[slot=card-action]:grid-cols-[1fr_auto] has-data-[slot=card-description]:grid-rows-[auto_auto] [.border-b]:pb-(--card-spacing)',
+        'group/card-header grid min-w-0 auto-rows-min items-start gap-[var(--ds-space-1)] has-data-[slot=card-action]:grid-cols-[minmax(0,1fr)_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]',
         className,
       )}
       {...props}
@@ -43,7 +62,7 @@ function CardTitle({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-title"
       className={cn(
-        'text-[length:var(--ds-text-base)] leading-[var(--ds-leading-snug)] font-[var(--ds-weight-heading)] group-data-[size=sm]/card:text-[length:var(--ds-text-sm)]',
+        'font-display text-[length:var(--ds-text-base)] leading-[var(--ds-leading-h2)] font-[var(--ds-weight-heading)] tracking-[var(--ds-tracking-heading)] group-data-[size=sm]/card:text-[length:var(--ds-text-sm)]',
         className,
       )}
       {...props}
@@ -72,9 +91,7 @@ function CardAction({ className, ...props }: ComponentProps<'div'>) {
 }
 
 function CardContent({ className, ...props }: ComponentProps<'div'>) {
-  return (
-    <div data-slot="card-content" className={cn('px-(--card-spacing)', className)} {...props} />
-  );
+  return <div data-slot="card-content" className={cn('min-w-0', className)} {...props} />;
 }
 
 function CardFooter({ className, ...props }: ComponentProps<'div'>) {
@@ -82,7 +99,7 @@ function CardFooter({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-footer"
       className={cn(
-        'border-border bg-surface-subtle flex items-center rounded-b-md border-t p-(--card-spacing)',
+        'flex min-w-0 flex-wrap items-center gap-[var(--ds-space-2)] border-t border-[var(--ds-border)] pt-[var(--ds-space-4)]',
         className,
       )}
       {...props}
@@ -96,7 +113,10 @@ function Panel({ className, ...props }: ComponentProps<'section'>) {
   return (
     <section
       data-slot="panel"
-      className={cn('border-border min-w-0 rounded-md border bg-[var(--ds-panel)] p-5', className)}
+      className={cn(
+        'min-w-0 rounded-[var(--ds-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-[var(--ds-space-5)]',
+        className,
+      )}
       {...props}
     />
   );

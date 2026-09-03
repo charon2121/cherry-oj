@@ -42,14 +42,20 @@ const neutralSurfaces = [
 const statuses = ["success", "warning", "danger", "info", "special"];
 const requiredNames = [
   ...neutralSurfaces,
+  "--ds-surface-translucent",
+  "--ds-surface-translucent-hover",
+  "--ds-surface-translucent-selected",
   "--ds-fg",
   "--ds-fg-2",
   "--ds-fg-muted",
   "--ds-fg-meta",
   "--ds-fg-disabled",
+  "--ds-fg-ghost",
   "--ds-border-soft",
   "--ds-border",
+  "--ds-border-solid",
   "--ds-border-strong",
+  "--ds-line-tertiary",
   "--ds-brand-surface",
   "--ds-brand-surface-hover",
   "--ds-brand-surface-active",
@@ -72,7 +78,10 @@ const requiredNames = [
   ]),
   "--ds-overlay",
   "--ds-elevation-flat",
+  "--ds-elevation-subtle",
   "--ds-elevation-ring",
+  "--ds-elevation-inset",
+  "--ds-elevation-dialog",
   "--ds-elevation-raised"
 ];
 
@@ -83,12 +92,22 @@ function createExpectedContractShape() {
   };
 
   for (const name of neutralSurfaces) define(name, "color", "none", [], true);
+  for (const name of [
+    "--ds-surface-translucent",
+    "--ds-surface-translucent-hover",
+    "--ds-surface-translucent-selected"
+  ]) {
+    define(name, "color", "none");
+  }
   for (const name of ["--ds-fg", "--ds-fg-2", "--ds-fg-muted", "--ds-fg-meta", "--ds-fg-disabled"]) {
     define(name, "color", "text", neutralSurfaces);
   }
+  define("--ds-fg-ghost", "color", "text", neutralSurfaces);
   define("--ds-border-soft", "color", "decorative", neutralSurfaces);
   define("--ds-border", "color", "decorative", neutralSurfaces);
+  define("--ds-border-solid", "color", "decorative", neutralSurfaces);
   define("--ds-border-strong", "color", "nonText", neutralSurfaces);
+  define("--ds-line-tertiary", "color", "decorative", neutralSurfaces);
 
   const brandSurfaces = ["--ds-brand-surface", "--ds-brand-surface-hover", "--ds-brand-surface-active"];
   for (const name of brandSurfaces) define(name, "color", "none", [], true);
@@ -114,13 +133,19 @@ function createExpectedContractShape() {
 
   define("--ds-overlay", "color", "none");
   define("--ds-elevation-flat", "shadow", "none");
+  define("--ds-elevation-subtle", "shadow", "none");
   define("--ds-elevation-ring", "shadow", "none");
+  define("--ds-elevation-inset", "shadow", "none");
+  define("--ds-elevation-dialog", "shadow", "none");
   define("--ds-elevation-raised", "shadow", "none");
   return shape;
 }
 
 const expectedContractShape = createExpectedContractShape();
 const fixedSourceProvenance = {
+  designSource: "Claude Design export: Cherry OJ Design System",
+  designSourceRootSha256: "68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d",
+  designSourceFileCount: 99,
   sourceTokensSha256: "9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e",
   sourceDesignSha256: "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
   sourceLicenseSha256: "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da"
@@ -128,15 +153,22 @@ const fixedSourceProvenance = {
 const expectedFoundationTokens = {
   "--ds-font-display": '"Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif',
   "--ds-font-body": '"Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif',
-  "--ds-font-mono": '"Berkeley Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+  "--ds-font-mono": '"Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace',
   "--ds-font-features": '"cv01", "ss03"',
+  "--ds-weight-light": "300",
   "--ds-weight-regular": "400",
   "--ds-weight-body": "510",
   "--ds-weight-heading": "590",
+  "--ds-text-tiny": "10px",
+  "--ds-text-micro": "11px",
   "--ds-text-xs": "12px",
+  "--ds-text-cap": "13px",
   "--ds-text-sm": "14px",
+  "--ds-text-15": "15px",
   "--ds-text-base": "16px",
+  "--ds-text-17": "17px",
   "--ds-text-lg": "18px",
+  "--ds-text-h3": "20px",
   "--ds-text-xl": "24px",
   "--ds-text-2xl": "32px",
   "--ds-text-3xl": "48px",
@@ -145,31 +177,58 @@ const expectedFoundationTokens = {
   "--ds-leading-body": "1.5",
   "--ds-leading-tight": "1",
   "--ds-leading-heading": "1.13",
+  "--ds-leading-h2": "1.33",
+  "--ds-leading-label": "1.4",
+  "--ds-leading-relaxed": "1.6",
   "--ds-tracking-display": "-0.022em",
+  "--ds-tracking-heading": "-0.012em",
+  "--ds-tracking-body": "-0.009em",
+  "--ds-tracking-caption": "-0.01em",
+  "--ds-tracking-eyebrow": "0.08em",
+  "--ds-space-px": "1px",
   "--ds-space-1": "4px",
+  "--ds-space-1x": "7px",
   "--ds-space-2": "8px",
+  "--ds-space-2x": "11px",
   "--ds-space-3": "12px",
   "--ds-space-4": "16px",
+  "--ds-space-4x": "19px",
   "--ds-space-5": "20px",
+  "--ds-space-5x": "22px",
   "--ds-space-6": "24px",
+  "--ds-space-7": "28px",
   "--ds-space-8": "32px",
+  "--ds-space-9": "35px",
   "--ds-space-12": "48px",
   "--ds-section-y-desktop": "80px",
   "--ds-section-y-tablet": "48px",
   "--ds-section-y-phone": "32px",
+  "--ds-radius-micro": "2px",
+  "--ds-radius-xs": "4px",
   "--ds-radius-sm": "6px",
   "--ds-radius-md": "8px",
   "--ds-radius-lg": "12px",
+  "--ds-radius-xl": "22px",
   "--ds-radius-pill": "9999px",
+  "--ds-radius-circle": "50%",
+  "--ds-radius-image-top": "12px 12px 0 0",
   "--ds-focus-width": "2px",
   "--ds-focus-offset": "2px",
   "--ds-motion-fast": "150ms",
   "--ds-motion-base": "200ms",
+  "--ds-motion-slow": "320ms",
   "--ds-ease-standard": "cubic-bezier(0.2, 0, 0, 1)",
   "--ds-container-max": "1200px",
   "--ds-container-gutter-desktop": "24px",
   "--ds-container-gutter-tablet": "16px",
-  "--ds-container-gutter-phone": "12px"
+  "--ds-container-gutter-phone": "12px",
+  "--ds-breakpoint-mobile-sm": "600px",
+  "--ds-breakpoint-mobile": "640px",
+  "--ds-breakpoint-tablet": "768px",
+  "--ds-breakpoint-desktop-sm": "1024px",
+  "--ds-breakpoint-desktop": "1280px",
+  "--ds-sidebar-width": "220px",
+  "--ds-header-height": "56px"
 };
 
 const exactThemeValues = {
@@ -189,22 +248,28 @@ const exactThemeValues = {
     "--ds-surface-subtle": "#141516",
     "--ds-surface-raised": "#191a1b",
     "--ds-surface-hover": "#28282c",
+    "--ds-surface-translucent": "rgba(255, 255, 255, 0.02)",
+    "--ds-surface-translucent-hover": "rgba(255, 255, 255, 0.04)",
+    "--ds-surface-translucent-selected": "rgba(255, 255, 255, 0.05)",
     "--ds-fg": "#f7f8f8",
     "--ds-fg-2": "#d0d6e0",
     "--ds-fg-muted": "#8a8f98",
     "--ds-fg-meta": "#8a8f98",
     "--ds-fg-disabled": "#8a8f98",
+    "--ds-fg-ghost": "#e2e4e7",
     "--ds-border-soft": "rgba(255, 255, 255, 0.05)",
     "--ds-border": "rgba(255, 255, 255, 0.08)",
+    "--ds-border-solid": "#23252a",
     "--ds-border-strong": "#80848d",
-    "--ds-brand-surface": "#de1c4e",
-    "--ds-brand-surface-hover": "#dd2c53",
-    "--ds-brand-surface-active": "#c01242",
+    "--ds-line-tertiary": "#18191a",
+    "--ds-brand-surface": "#d2042d",
+    "--ds-brand-surface-hover": "#a80324",
+    "--ds-brand-surface-active": "#7d0219",
     "--ds-on-brand": "#ffffff",
-    "--ds-brand-foreground": "#f9667a",
-    "--ds-brand-foreground-hover": "#ff8494",
+    "--ds-brand-foreground": "#ff4d67",
+    "--ds-brand-foreground-hover": "#ff7088",
     "--ds-brand-soft": "#32141d",
-    "--ds-on-brand-soft": "#f9667a",
+    "--ds-on-brand-soft": "#ff4d67",
     "--ds-link": "var(--ds-brand-foreground)",
     "--ds-link-hover": "var(--ds-brand-foreground-hover)",
     "--ds-focus": "var(--ds-brand-foreground)",
@@ -237,7 +302,10 @@ const exactThemeValues = {
     "--ds-special-on-solid": "#ffffff",
     "--ds-overlay": "rgba(0, 0, 0, 0.85)",
     "--ds-elevation-flat": "none",
+    "--ds-elevation-subtle": "rgba(0, 0, 0, 0.03) 0 1.2px 0 0",
     "--ds-elevation-ring": "0 0 0 1px var(--ds-border)",
+    "--ds-elevation-inset": "rgba(0, 0, 0, 0.2) 0 0 12px 0 inset",
+    "--ds-elevation-dialog": "rgba(0, 0, 0, 0) 0 8px 2px, rgba(0, 0, 0, 0.01) 0 5px 2px, rgba(0, 0, 0, 0.04) 0 3px 2px, rgba(0, 0, 0, 0.07) 0 1px 1px, rgba(0, 0, 0, 0.08) 0 0 1px",
     "--ds-elevation-raised": "rgba(0, 0, 0, 0.4) 0 2px 4px, 0 0 0 1px rgba(255, 255, 255, 0.05)"
   },
   "pure-white": {
@@ -247,22 +315,28 @@ const exactThemeValues = {
     "--ds-surface-subtle": "#f5f6f7",
     "--ds-surface-raised": "#ffffff",
     "--ds-surface-hover": "#f3f4f5",
+    "--ds-surface-translucent": "rgba(8, 9, 10, 0.02)",
+    "--ds-surface-translucent-hover": "rgba(8, 9, 10, 0.04)",
+    "--ds-surface-translucent-selected": "rgba(8, 9, 10, 0.05)",
     "--ds-fg": "#191a1b",
     "--ds-fg-2": "#34343a",
     "--ds-fg-muted": "#62666d",
     "--ds-fg-meta": "#676b73",
     "--ds-fg-disabled": "#676b73",
+    "--ds-fg-ghost": "#34343a",
     "--ds-border-soft": "#e6e6e6",
     "--ds-border": "#d0d6e0",
+    "--ds-border-solid": "#d0d6e0",
     "--ds-border-strong": "#80848d",
-    "--ds-brand-surface": "#de1c4e",
-    "--ds-brand-surface-hover": "#d7194b",
-    "--ds-brand-surface-active": "#c01242",
+    "--ds-line-tertiary": "#e6e6e6",
+    "--ds-brand-surface": "#d2042d",
+    "--ds-brand-surface-hover": "#a80324",
+    "--ds-brand-surface-active": "#7d0219",
     "--ds-on-brand": "#ffffff",
-    "--ds-brand-foreground": "#c01242",
-    "--ds-brand-foreground-hover": "#a70f38",
+    "--ds-brand-foreground": "#a80324",
+    "--ds-brand-foreground-hover": "#7d0219",
     "--ds-brand-soft": "#fce7ed",
-    "--ds-on-brand-soft": "#c01242",
+    "--ds-on-brand-soft": "#a80324",
     "--ds-link": "var(--ds-brand-foreground)",
     "--ds-link-hover": "var(--ds-brand-foreground-hover)",
     "--ds-focus": "var(--ds-brand-foreground)",
@@ -295,7 +369,10 @@ const exactThemeValues = {
     "--ds-special-on-solid": "#ffffff",
     "--ds-overlay": "rgba(8, 9, 10, 0.56)",
     "--ds-elevation-flat": "none",
+    "--ds-elevation-subtle": "rgba(8, 9, 10, 0.04) 0 1.2px 0 0",
     "--ds-elevation-ring": "0 0 0 1px var(--ds-border)",
+    "--ds-elevation-inset": "rgba(8, 9, 10, 0.06) 0 0 12px 0 inset",
+    "--ds-elevation-dialog": "rgba(8, 9, 10, 0.04) 0 8px 2px, rgba(8, 9, 10, 0.05) 0 5px 2px, rgba(8, 9, 10, 0.07) 0 3px 2px, rgba(8, 9, 10, 0.1) 0 1px 1px, rgba(8, 9, 10, 0.12) 0 0 1px",
     "--ds-elevation-raised": "0 1px 2px rgba(8, 9, 10, 0.08), 0 8px 24px rgba(8, 9, 10, 0.08), 0 0 0 1px rgba(8, 9, 10, 0.08)"
   }
 };
@@ -306,16 +383,16 @@ const expectedThemeDefinitions = [
     label: "Cherry Black",
     colorScheme: "dark",
     file: "themes/cherry-black.css",
-    version: 1,
-    provenance: "Linear-derived black structure, modified for Cherry OJ"
+    version: 2,
+    provenance: "Frozen Claude Design Cherry OJ export, productionized for the Web runtime"
   },
   {
     id: "pure-white",
     label: "Pure White",
     colorScheme: "light",
     file: "themes/pure-white.css",
-    version: 1,
-    provenance: "Cherry OJ light extension based on the shared Linear-derived structure"
+    version: 2,
+    provenance: "Cherry OJ light counterpart preserving the Claude Design semantic structure"
   }
 ];
 
@@ -331,6 +408,7 @@ const expectedPackageFiles = [
   "manifest.json",
   "README.md",
   "LICENSE.open-design",
+  "LICENSE.fonts",
   "NOTICE.md",
   "tokens.foundation.css",
   "theme-contract.json",
@@ -745,7 +823,7 @@ async function verifyPackage(packageManifest, themeManifest) {
   if (!packageManifest.provenance || !packageManifest.modified) fail("manifest.json must contain provenance and modified metadata");
   if (packageManifest.schemaVersion !== 1) fail("manifest.json schemaVersion must be 1");
   if (packageManifest.name !== "cherry-oj-web-design-system") fail("manifest.json name must identify the Web package");
-  if (packageManifest.version !== "1.0.0") fail("manifest.json version must be 1.0.0");
+  if (packageManifest.version !== "2.0.0") fail("manifest.json version must be 2.0.0");
   if (!Array.isArray(packageManifest.files)) {
     fail("manifest.json files must be an array");
     return;
@@ -810,7 +888,7 @@ async function verifyPackage(packageManifest, themeManifest) {
       continue;
     }
     if (/\/Users\/charon\/Downloads|~\/Downloads/.test(content)) fail(`${relativePath} depends on the local Downloads path`);
-    if (relativePath === "LICENSE.open-design") continue;
+    if (relativePath === "LICENSE.open-design" || relativePath === "LICENSE.fonts") continue;
     const extension = path.extname(relativePath);
     if ([".css", ".html", ".md", ".mjs"].includes(extension) && !content.includes("Modified for Cherry OJ")) {
       fail(`${relativePath} lacks its prominent Modified for Cherry OJ notice`);
@@ -843,13 +921,26 @@ async function verifyPackage(packageManifest, themeManifest) {
     if (!notice.includes(requiredText)) fail(`NOTICE.md is missing required provenance text: ${requiredText}`);
   }
 
+  const fontLicense = await readText("LICENSE.fonts");
+  for (const requiredText of [
+    "Copyright 2016 The Inter Project Authors",
+    "Copyright 2020 The JetBrains Mono Project Authors",
+    "SIL OPEN FONT LICENSE Version 1.1"
+  ]) {
+    if (!fontLicense.includes(requiredText)) fail(`LICENSE.fonts is missing required text: ${requiredText}`);
+  }
+
   const distributedLicense = await readDistributionFile("LICENSE.open-design");
+  const distributedFontLicense = await readDistributionFile("LICENSE.fonts");
   const distributedNotice = await readDistributionFile("NOTICE.md");
   if (distributedLicense !== license.toString("utf8")) {
     fail("public/legal/LICENSE.open-design differs from the package license");
   }
   if (distributedNotice !== notice) {
     fail("public/legal/NOTICE.md differs from the package notice");
+  }
+  if (distributedFontLicense !== fontLicense) {
+    fail("public/legal/LICENSE.fonts differs from the package font license");
   }
 }
 
@@ -913,6 +1004,9 @@ async function run() {
     if (/#5e6ad2|#828fff|#4752c4|#7170ff|#7a7fad/i.test(css)) {
       fail(`${theme.id} contains a Linear purple value`);
     }
+    if (/#de1c4e|#dd2c53|#d7194b|#c01242|#f9667a|#ff8494|#a70f38/i.test(css)) {
+      fail(`${theme.id} contains a retired pre-WORK-034 Cherry value`);
+    }
   }
 
   const foundation = await readText("tokens.foundation.css");
@@ -928,8 +1022,12 @@ async function run() {
   }
   const reducedMotion = foundation.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? "";
   const reducedTokens = parseCustomProperties(reducedMotion);
-  if (reducedTokens["--ds-motion-fast"] !== "0ms" || reducedTokens["--ds-motion-base"] !== "0ms") {
-    fail("reduced-motion must set both Foundation durations to 0ms");
+  if (
+    reducedTokens["--ds-motion-fast"] !== "0ms" ||
+    reducedTokens["--ds-motion-base"] !== "0ms" ||
+    reducedTokens["--ds-motion-slow"] !== "0ms"
+  ) {
+    fail("reduced-motion must set every Foundation duration to 0ms");
   }
   verifyAdapter(await readText("tailwind-v4.css"));
   await verifyGeneratedOutputs();
@@ -1018,6 +1116,16 @@ async function runSelfTest() {
         await writeFile(themePath, content.replace("--ds-canvas: #ffffff;", "--ds-canvas: #fefefe;"), "utf8");
       },
       "changed: expected #ffffff, received #fefefe"
+    );
+
+    await expectFailure(
+      "retired Cherry palette",
+      async () => {
+        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
+        const content = await readFile(themePath, "utf8");
+        await writeFile(themePath, content.replace("--ds-brand-surface: #d2042d;", "--ds-brand-surface: #de1c4e;"), "utf8");
+      },
+      "contains a retired pre-WORK-034 Cherry value"
     );
 
     await expectFailure(
@@ -1213,7 +1321,7 @@ async function runSelfTest() {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 
-  console.log("design-system self-test: 17 negative fixtures rejected and clean fixture restored");
+  console.log("design-system self-test: 18 negative fixtures rejected and clean fixture restored");
 }
 
 const argumentsList = process.argv.slice(2);

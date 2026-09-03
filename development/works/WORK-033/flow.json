@@ -1,0 +1,170 @@
+[
+  {
+    "stage": "clarify",
+    "label": "需求澄清",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-033"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "definition",
+    "label": "改进说明与目标指标",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "IMPROVEMENT-001"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "IMPROVEMENT-001 已以十二项需求和验收标准定义用户目标、可观察行为与失败边界"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "范围限定为 Web 管理端及文档，明确禁止后端、OpenAPI、数据、主题合同和公开题库改动"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-026",
+      "DESIGN-027"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-018"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-021"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "PLAN-021 已定义整体验证失败回退和编辑器/步骤壳层分组回退，且无数据迁移"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "实施任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-051"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "实施",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-051"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "影响仅限 TASK-051 允许的 Web 依赖、UI、题目组件、路由、E2E 与文档；API、后端、数据和主题合同未变"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "代码冻结后独立复核关闭保存并发覆盖、dirty 误报、参考源码状态与上传取消四项风险，无剩余阻断 finding"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-034"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "npm run check 通过 112 项测试，生产/Storybook 构建通过，Chromium 30 项 E2E 全绿"
+      },
+      {
+        "name": "accessibility",
+        "result": "pass",
+        "note": "业务化 aria 名称与错误关联、Tab 退出、键盘 Dialog、320px、双主题、forced-colors、reduced-motion 和 200% 等效回归通过"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-026"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]

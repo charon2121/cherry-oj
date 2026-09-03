@@ -5,14 +5,14 @@
 
 ## 动手之前
 
-| 你要做什么 | 先读 |
-|---|---|
-| 任何事 | [`CLAUDE.md`](./CLAUDE.md)：项目边界、仓库结构、跨语言铁律、协作协议 |
-| 开发、修复、重构 | [`development/README.md`](./development/README.md)，并运行 `scripts/work overview` |
-| 承接某个任务 | `scripts/work context TASK-xxx`，它给出上游依据与代码读写边界 |
-| 了解某个工作的全貌 | `scripts/work board WORK-xxx` |
-| 写 Go / Java / TypeScript | [`docs/engineering/README.md`](./docs/engineering/README.md) 的索引表 |
-| 动任何 Web UI、组件、样式或主题 | [`docs/design-system.md`](./docs/design-system.md) |
+| 你要做什么                      | 先读                                                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 任何事                          | [`CLAUDE.md`](./CLAUDE.md)：项目边界、仓库结构、跨语言铁律、协作协议                                           |
+| 开发、修复、重构                | [`development/README.md`](./development/README.md)，并运行 `scripts/work overview`                             |
+| 承接某个任务                    | `scripts/work context TASK-xxx`，它给出上游依据与代码读写边界                                                  |
+| 了解某个工作的全貌              | `scripts/work board WORK-xxx`                                                                                  |
+| 写 Go / Java / TypeScript       | [`docs/engineering/README.md`](./docs/engineering/README.md) 的索引表                                          |
+| 动任何 Web UI、组件、样式或主题 | [`docs/design-system.md`](./docs/design-system.md)；按其中权威顺序对照冻结来源，禁止把来源 demo 直接当生产代码 |
 
 ## 三条硬禁止
 

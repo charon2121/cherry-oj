@@ -8,6 +8,14 @@ import {
 } from './admin-navigation-model';
 
 describe('admin navigation model', () => {
+  it('keeps the agreed Dashboard, account, problems order', () => {
+    expect(adminNavigationEntries.map((entry) => entry.label)).toEqual([
+      'Dashboard',
+      '账号管理',
+      '题目管理',
+    ]);
+  });
+
   it('treats both dashboard routes as the same active destination', () => {
     const dashboard = adminNavigationEntries.find((entry) => entry.id === 'dashboard');
     if (!dashboard || isAdminNavigationGroup(dashboard)) throw new Error('Dashboard is missing.');

@@ -27,7 +27,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        'border-border-strong bg-input-background text-foreground data-placeholder:text-muted-foreground hover:bg-accent focus-visible:border-ring focus-visible:outline-ring disabled:border-border-strong disabled:bg-secondary flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-[length:var(--ds-text-sm)] transition-colors outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)] data-[size=default]:min-h-10 data-[size=sm]:min-h-8 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'text-foreground data-placeholder:text-muted-foreground focus-visible:outline-ring flex w-full min-w-0 items-center justify-between gap-1.5 rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-surface-translucent)] py-2 pr-2 pl-3 text-left text-[length:var(--ds-text-sm)] transition-[background-color,border-color] duration-[var(--ds-motion-fast)] outline-none select-none hover:bg-[var(--ds-surface-translucent-hover)] focus-visible:border-[var(--ds-brand-surface)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed disabled:border-[var(--ds-border)] disabled:bg-[var(--ds-surface-translucent)] disabled:text-[var(--ds-fg-disabled)] aria-invalid:border-[var(--ds-danger-border)] data-[size=default]:min-h-10 data-[size=sm]:min-h-8 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}
@@ -68,7 +68,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'border-border bg-popover text-popover-foreground data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-[var(--ds-elevation-raised)] duration-[var(--ds-motion-fast)] data-[align-trigger=true]:animate-none',
+            'text-foreground relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-1 shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             className,
           )}
           {...props}
@@ -97,7 +97,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        'focus:bg-accent focus:text-accent-foreground relative flex w-full cursor-default items-center gap-1.5 rounded-sm py-1.5 pr-8 pl-2 text-[length:var(--ds-text-sm)] outline-hidden select-none data-disabled:pointer-events-none data-disabled:text-[var(--ds-fg-disabled)] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'focus:text-foreground relative flex w-full cursor-default items-center gap-1.5 rounded-[var(--ds-radius-xs)] py-1.5 pr-8 pl-2 text-[length:var(--ds-text-sm)] outline-hidden select-none focus:bg-[var(--ds-surface-translucent-selected)] data-disabled:pointer-events-none data-disabled:text-[var(--ds-fg-disabled)] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}
@@ -173,6 +173,7 @@ export {
 function SelectField({
   className,
   description,
+  disabled = false,
   items,
   label,
   placeholder,
@@ -181,6 +182,7 @@ function SelectField({
 }: {
   className?: string;
   description?: ReactNode;
+  disabled?: boolean;
   items: ReadonlyArray<{ value: string; label: string }>;
   label: ReactNode;
   placeholder?: string;
@@ -196,6 +198,7 @@ function SelectField({
       <FieldLabel htmlFor={triggerId}>{label}</FieldLabel>
       {/* items 必须交给 Root：否则 SelectValue 只能显示原始 value（例如显示 EASY 而不是「简单」）。 */}
       <Select
+        disabled={disabled}
         items={items}
         value={value}
         onValueChange={(next) => onValueChange(String(next ?? ''))}

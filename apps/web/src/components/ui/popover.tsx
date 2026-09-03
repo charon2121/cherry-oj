@@ -54,7 +54,7 @@ function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            'border-border-strong bg-surface-raised text-foreground focus-visible:outline-ring relative grid max-h-[var(--available-height)] max-w-full origin-[var(--transform-origin)] gap-3 overflow-x-hidden overflow-y-auto rounded-md border p-4 break-words shadow-[var(--ds-elevation-raised)] transition-[scale,opacity] duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground focus-visible:outline-ring relative grid max-h-[var(--available-height)] max-w-full gap-3 overflow-x-hidden overflow-y-auto rounded-[var(--ds-radius-sm)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-4 break-words shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             popoverSizeClasses[size],
             className,
           )}

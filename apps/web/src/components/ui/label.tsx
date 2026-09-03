@@ -11,7 +11,7 @@ function Label({ className, ...props }: ComponentProps<'label'>) {
     <label
       data-slot="label"
       className={cn(
-        'flex items-center gap-2 text-[length:var(--ds-text-sm)] leading-none font-[var(--ds-weight-medium)] select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:text-[var(--ds-fg-disabled)] peer-disabled:cursor-not-allowed peer-disabled:text-[var(--ds-fg-disabled)]',
+        'flex items-center gap-2 text-[length:var(--ds-text-sm)] leading-none font-[var(--ds-weight-body)] select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:text-[var(--ds-fg-disabled)] peer-disabled:cursor-not-allowed peer-disabled:text-[var(--ds-fg-disabled)]',
         className,
       )}
       {...props}

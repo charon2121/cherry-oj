@@ -3,6 +3,7 @@
 import '../src/styles/globals.css';
 
 import type { Preview } from '@storybook/tanstack-react';
+import { createElement } from 'react';
 
 import { defaultThemeId, themeRegistry } from '../src/generated/design-system/themes.js';
 import { applyTheme, resolveTheme } from '../src/lib/theme/theme-runtime.js';
@@ -18,7 +19,11 @@ const preview: Preview = {
       };
       applyTheme(canvasElement.ownerDocument.documentElement, themeId);
 
-      return Story();
+      return createElement(
+        'div',
+        { className: 'text-foreground min-h-screen bg-[var(--ds-canvas)]' },
+        createElement(Story),
+      );
     },
   ],
   initialGlobals: {
@@ -38,6 +43,7 @@ const preview: Preview = {
     },
   },
   parameters: {
+    layout: 'fullscreen',
     a11y: {
       test: 'error',
     },

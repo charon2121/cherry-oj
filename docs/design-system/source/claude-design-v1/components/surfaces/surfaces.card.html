@@ -1,0 +1,22 @@
+<!-- @dsCard group="Components" viewport="700x230" name="Surfaces" subtitle="Card padding and radius steps, elevated card, Badge tones" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{margin:0;background:var(--bg);color:var(--fg-2);font-family:var(--font-body);font-feature-settings:var(--font-features);-webkit-font-smoothing:antialiased}a{color:var(--text-link)}a:hover{color:var(--text-link-hover)}#root{padding:18px 24px;display:flex;flex-direction:column;gap:14px}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.lbl{font-size:10px;font-weight:510;color:var(--meta);text-transform:uppercase;letter-spacing:.07em;width:62px;flex:none}</style>
+</head><body><div id="root"></div>
+<script type="text/babel">
+const { Card, Badge, Heading, Text, Stack } = window.CherryOJDesignSystem_51433c;
+ReactDOM.createRoot(document.getElementById('root')).render(<>
+  <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}>
+    <Card interactive><Stack gap={2}><Heading level={5}>Dark-first</Heading><Text size="sm" tone="muted">0.02 fill, hairline border, 8px radius.</Text></Stack></Card>
+    <Card radius="lg" padding="lg" interactive><Stack gap={2}><Heading level={5}>Panel</Heading><Text size="sm" tone="muted">12px radius, 32px padding.</Text></Stack></Card>
+    <Card elevated radius="lg"><Stack gap={2}><Heading level={5}>Elevated</Heading><Text size="sm" tone="muted">Floating surfaces only.</Text></Stack></Card>
+  </div>
+  <div className="row"><span className="lbl">Badge</span>
+    <Badge>v2.4.0</Badge><Badge tone="accent">New</Badge><Badge tone="success">Accepted</Badge><Badge tone="warn">Rejudging</Badge>
+  </div>
+</>);
+</script></body></html>

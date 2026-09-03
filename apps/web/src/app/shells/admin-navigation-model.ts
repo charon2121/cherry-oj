@@ -19,13 +19,6 @@ type AdminNavigationEntry = AdminNavigationGroup | AdminNavigationLeaf;
 
 const adminNavigationEntries: readonly AdminNavigationEntry[] = [
   {
-    activePaths: ['/admin/problems'],
-    icon: BookOpen,
-    id: 'problems',
-    label: '题目管理',
-    to: '/admin/problems',
-  },
-  {
     activePaths: ['/admin', '/admin/dashborad'],
     icon: LayoutDashboard,
     id: 'dashboard',
@@ -44,6 +37,13 @@ const adminNavigationEntries: readonly AdminNavigationEntry[] = [
     icon: Users,
     id: 'account',
     label: '账号管理',
+  },
+  {
+    activePaths: ['/admin/problems'],
+    icon: BookOpen,
+    id: 'problems',
+    label: '题目管理',
+    to: '/admin/problems',
   },
 ];
 

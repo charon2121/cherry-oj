@@ -4,7 +4,8 @@
 
 开发或评审任何 Web UI、组件、样式或主题前，必须先读 [`docs/design-system.md`](../design-system.md)
 及其 [`docs/design-system/README.md`](../design-system/README.md)，理解设计意图、组件合同与评审规则；
-不要在本文件复制 token 值。Web 的可执行设计系统真源位于 `apps/web/design-system/`，安装、开发、检查、
+不要在本文件复制 token 值。WORK-034 的冻结 Claude Design 来源只用于视觉与构图对照，生产实现方法仍以
+本规范和项目组件边界为准，禁止导入或执行来源 demo。Web 的可执行设计系统真源位于 `apps/web/design-system/`，安装、开发、检查、
 构建、Storybook 与 E2E 均只消费代码侧资产，不读取设计说明目录。删除 `docs/design-system/` 不得影响
 Web；普通 CI 也不做两棵目录间的漂移比较、复制或符号链接。只有真正修改设计系统时，才在同一
 WORK/TASK 中同时更新代码与设计说明，并分别验证两侧。
@@ -15,7 +16,9 @@ WORK/TASK 中同时更新代码与设计说明，并分别验证两侧。
 - 路由：TanStack Router；分页、筛选、关键字等可分享状态放类型安全的 search params。
 - 服务端状态：TanStack Query；请求、缓存、失效、Mutation 和判题结果轮询都归它。
 - 业务组件：TanStack Table、TanStack Form + Zod；TanStack Virtual 只在长列表确有需要时引入。
-- UI：Tailwind CSS + shadcn/ui + Lucide React；代码编辑用 Monaco Editor。
+- UI：Tailwind CSS + shadcn/ui + Lucide React；后台长 Markdown/代码录入使用 CodeMirror 6 和项目
+  `TextEditor` 薄适配。Monaco 只在用户端代码工作台需要 IDE 级能力时另行评估，不能作为所有长文本的
+  默认组件。
 - 题面：react-markdown + remark-gfm + rehype-sanitize，默认不执行原始 HTML。
 - HTTP：原生 `fetch` 的项目级薄封装，不引入 Axios；前端只调用 Gateway `/api`，不直接调内部服务、
   judge 或 sandbox。公共 client 校验 ApiSuccess / ApiProblem 和 request ID，将失败区分为

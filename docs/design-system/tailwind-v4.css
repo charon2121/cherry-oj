@@ -1,8 +1,8 @@
 /*
- * Modified for Cherry OJ on 2026-08-27.
- * Derived from the OpenDesign linear-app Tailwind v4 adapter.
- * Changes: one theme-neutral semantic bridge for shadcn and project utilities;
- * brand, neutral accent, focus, and danger are deliberately separate.
+ * Modified for Cherry OJ on 2026-09-03.
+ * Production adapter reference for the frozen Claude Design Cherry OJ source.
+ * Changes: one dual-theme semantic bridge for shadcn and project utilities;
+ * Cherry brand, neutral accent, focus, and danger remain separate.
  * See NOTICE.md and LICENSE.open-design in this directory.
  */
 

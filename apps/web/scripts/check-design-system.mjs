@@ -151,6 +151,33 @@ function createRules(themeIds) {
       pattern: /\bcolor-mix\s*\(/gi,
     },
     {
+      id: 'inline-style-object',
+      message: '禁止把设计配方写入 React inline style；请使用共享组件与 semantic token。',
+      pattern: /\bstyle\s*=\s*\{\s*\{/g,
+    },
+    {
+      id: 'inline-svg',
+      message: '禁止手写内联 SVG；请使用项目登记的图标组件。',
+      pattern: /<svg\b/gi,
+    },
+    {
+      id: 'random-dom-id',
+      message: '禁止用随机值生成 DOM id；React 组件应使用 useId。',
+      pattern: /\b(?:Math\.random|crypto\.randomUUID)\s*\(/g,
+    },
+    {
+      id: 'mouse-only-visual-state',
+      message: '禁止用鼠标事件维护视觉状态；请使用 CSS 状态与键盘可达 primitive。',
+      pattern: /\bonMouse(?:Enter|Leave|Down|Up)\s*=/g,
+    },
+    {
+      id: 'forbidden-transform-motion',
+      message:
+        '禁止 transform/scale/translate 动效；下载版只允许 opacity、color 与 background 动效。',
+      pattern:
+        /(?:transition-(?:transform|\[scale[^\]]*\])|(?:data-[^\s"'`<>]*:)?(?:scale|translate|rotate)-[^\s"'`<>]+)/g,
+    },
+    {
       id: 'state-opacity-utility',
       message: 'disabled/placeholder 不得通过 Tailwind opacity 或 alpha modifier 降低可读性。',
       pattern:
@@ -465,6 +492,26 @@ async function runSelfTest(rules) {
       'dynamic-color-mix',
       '.fixture { color: color-mix(in srgb, currentColor 50%, transparent); }\n',
       '.css',
+    ],
+    [
+      'React inline style object',
+      'inline-style-object',
+      'export const fixture = <div style={{ color: "inherit" }} />;\n',
+      '.tsx',
+    ],
+    ['inline SVG', 'inline-svg', 'export const fixture = <svg aria-hidden="true" />;\n', '.tsx'],
+    ['random DOM id', 'random-dom-id', 'export const id = Math.random().toString(36);\n', '.ts'],
+    [
+      'mouse-only visual state',
+      'mouse-only-visual-state',
+      'export const fixture = <button onMouseEnter={() => undefined} />;\n',
+      '.tsx',
+    ],
+    [
+      'transform motion utility',
+      'forbidden-transform-motion',
+      "export const motion = 'transition-transform data-[starting-style]:translate-x-full';\n",
+      '.ts',
     ],
     [
       'disabled Tailwind opacity',

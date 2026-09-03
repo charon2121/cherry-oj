@@ -51,10 +51,15 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 负责 ADMIN 题目管理表的列定义、行模型和语义表格渲染。它是 headless table，分页与筛选仍归 Router 和
 服务端 API，视觉样式继续使用本地设计系统。
 
-### `@monaco-editor/react` 与 `monaco-editor`
+### `codemirror`、`@codemirror/*` 与 `@lezer/highlight`
 
-为 C++ 起始代码和参考程序提供可访问的代码编辑区域。React 适配层管理编辑器生命周期，Monaco 本体随
-生产构建打包并通过 `loader.config` 本地加载，不依赖运行时 CDN。参考源码不得写入 Query、URL 或 storage。
+为后台长 Markdown、C++ 起始代码和参考程序提供搜索、撤销、行号、语法高亮与可访问的编辑区域。
+项目直接使用 CodeMirror 6 官方模块，并维护一层很薄的 React 受控适配和语义 token 主题；不 fork
+编辑器内核，也不依赖第三方 React wrapper 或运行时 CDN。参考源码不得写入 Query、URL 或 storage。
+
+`@codemirror/state` 管编辑状态与可重配置扩展，`@codemirror/view` 管浏览器视图，`language`、
+`lang-markdown`、`lang-cpp` 和 `@lezer/highlight` 只提供当前实际使用的语言能力。Monaco 暂不进入后台
+产物；未来用户端代码工作台确实需要 IDE 级补全、诊断或多文件能力时再单独评估。
 
 ### `react-markdown`、`remark-gfm` 与 `rehype-sanitize`
 
@@ -78,10 +83,11 @@ Base UI 是当前唯一的交互 primitive 基线。设计系统不要求 Radix�
 
 提供 React 图标组件。它用于表达搜索、关闭、状态提示等辅助语义；重要结论不能只靠图标或颜色传达。
 
-### `@fontsource-variable/inter`
+### `@fontsource-variable/inter` 与 `@fontsource-variable/jetbrains-mono`
 
 把设计系统规定的 Inter Variable 作为 npm 资源随静态站构建，避免运行时依赖外部字体 CDN。中文和
-等宽字体仍使用本地设计系统 Foundation 规定的回退链，仓库不复制未获授权的字体文件。
+等宽编辑内容使用同样随构建分发的 JetBrains Mono Variable；Berkeley Mono 仍只是用户设备已合法安装时
+优先命中的可选字体。仓库不复制未获授权的字体文件，也不从 Google Fonts 或其它 CDN 加载字体。
 
 ## 样式与组件拼装
 
@@ -99,7 +105,7 @@ Base UI 是当前唯一的交互 primitive 基线。设计系统不要求 Radix�
 
 ### Web 本地设计系统代码包
 
-`design-system/` 是 Web 的可执行设计系统真源，持有 Foundation、主题源码、主题合同、manifest、
+`design-system/` 是 Web 的可执行设计系统真源，持有从已冻结 Claude Design 产物生产化重建的 Foundation、主题源码、主题合同、manifest、
 `tokens.css`、Tailwind/shadcn adapter、本地 build/check、来源说明和许可证。`src/styles/globals.css`
 只导入这个 Web 根目录内的 `tokens.css` 与 `tailwind-v4.css`。
 

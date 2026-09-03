@@ -1,96 +1,82 @@
 <!--
-Modified for Cherry OJ on 2026-08-27.
-Scope: replaces the OpenDesign Linear fixture's single dark reference with a
-Cherry-branded, dual-theme, extensible design-system package and OJ examples.
+Modified for Cherry OJ on 2026-09-03.
+This package freezes the accepted Claude Design source and documents its
+production dual-theme interpretation for Cherry OJ.
 -->
 
 # Cherry OJ 设计系统说明包
 
-这里是 Cherry OJ Web 视觉合同的设计说明与评审参考。它保留 OpenDesign `linear-app` fixture 的紧凑
-排版、冷灰层级、克制圆角和短动效，以 Cherry 品牌色替换紫色，并补齐 OJ 状态、pure-white 浅色主题与
-可扩展主题合同。
+本目录保存 WORK-034 新设计系统的人类可读依据：下载版 Claude Design 完整快照、来源锁、双主题参考
+token、组件合同和检查页。它用于审阅和追溯，不是 Web 的安装或运行依赖；真正被前端构建消费的代码真源
+位于 `apps/web/design-system/`。
 
-权威使用规则在 [`../design-system.md`](../design-system.md)。本目录用于帮助人阅读、讨论和检查设计，
-不是 Web 的安装、开发、检查、构建、Storybook 或 E2E 输入。Web 的可执行设计系统真源位于
-`apps/web/design-system/`；移除本目录不会影响前端。
+## 权威顺序
 
-## 从哪里开始
+1. [`../design-system.md`](../design-system.md) 定义生产设计原则、组件/页面规则和例外流程；
+2. [`source/claude-design-v1/`](./source/claude-design-v1/) 是用户认可下载版的原样视觉证据，
+   [`source-lock.json`](./source-lock.json) 锁定其 99 文件、239831 bytes 和逐文件 SHA-256；
+3. 本目录的 Foundation、主题、合同、manifest 和 preview 是对来源的中文生产解释；
+4. `apps/web/design-system/` 是 Web 可执行真源；真实 React 组件和 Storybook 是最终消费结果；
+5. 来源里的 JSX/HTML/bundle 是原型证据，不可覆盖 TypeScript、语义 HTML、Base UI、可访问性和业务合同。
 
-1. 阅读 [`../design-system.md`](../design-system.md)，确认语义、可访问性和组件约束。
-2. Web 实现只加载 `apps/web/design-system/tokens.css` 与代码侧 Tailwind adapter；组件只消费
-   `--ds-*` semantic token，不从本目录 import 或复制文件。
-3. 组件与交互在 Storybook 中检查（`cd apps/web && npm run storybook`），它渲染的是真实组件；
-   主题、颜色、字体和间距在 [`preview/`](./preview/themes.html) 中检查。
-4. 只有真正修改设计系统时，才在同一 WORK/TASK 中同时更新 `apps/web/design-system/` 和本目录；
-   两侧分别验证，不建立普通 CI 的 drift、copy 或 symlink。
-5. 更新本说明包后，从仓库根目录运行 `node docs/design-system/tools/build.mjs`，再运行
-   `node docs/design-system/tools/check.mjs`。这两条命令只检查文档参考，不被任何 Web 命令调用。
+## 暗色与浅色
+
+来源只直接定义暗色。生产系统保留两个正式主题：
+
+- `cherry-black` 精确对齐来源的 surface、文字层级、Cherry 色族、光学间距、排版、圆角和密度；
+- `pure-white` 不是机械反相，也不是旧系统残留。它复用同一语义结构与全部非颜色 token，只为浅色画布
+  重新标定 surface、foreground、border、status 和 elevation；
+- 两主题共享组件 DOM、variant、spacing、typography、radius、layout 和 motion；任何页面主题分支都属于
+  合同违规。
 
 ## 文件角色
 
-| 文件 | 文档包中的角色 | 是否手改 |
+| 文件 | 角色 | 是否手改 |
 |---|---|---|
-| `tokens.foundation.css` | 字体、字号、间距、圆角、布局与动效的设计参考 | 是 |
-| `theme-contract.json` | 每个主题的 semantic key、类型、允许组合与对比门槛 | 是，不保存颜色值 |
-| `themes.manifest.json` | 参考主题登记、默认主题、色彩模式和版本 | 是 |
-| `themes/*.css` | 每个参考主题的完整 semantic 映射 | 是 |
-| `tokens.css` | 由文档 manifest 生成的参考 CSS 入口 | 否，禁止手改 |
-| `design-tokens.json` | 由 Foundation、合同和主题生成的机器参考快照 | 否，禁止手改 |
+| `source/claude-design-v1/**` | 冻结来源证据 | 否 |
+| `source-lock.json` | 来源路径、大小与摘要锁 | 由工具生成 |
+| `tokens.foundation.css` | 共享字体、字号、间距、圆角、布局与动效 | 是 |
+| `theme-contract.json` | 主题 semantic key、允许组合与对比门槛 | 是，不保存主题值 |
+| `themes.manifest.json` | 双主题登记、默认值、来源与版本 | 是 |
+| `themes/*.css` | 两主题完整 semantic 映射 | 是 |
+| `tokens.css` / `design-tokens.json` | 稳定 CSS 与机器参考快照 | 由工具生成 |
 | `tailwind-v4.css` | Tailwind/shadcn 语义映射参考 | 是，不保存主题值 |
-| `components.manifest.json` | 组件 anatomy、状态、键盘行为与 token 引用 | 是 |
-| `preview/*.html` | 双主题的主题、颜色、字体与间距检查页 | 由工具维护或人工评审 |
-| `manifest.json` | 文档包入口与各文件角色 | 是 |
+| `components.manifest.json` | 组件 anatomy、状态、键盘与 token 合同 | 是 |
+| `preview/*.html` | 主题、颜色、字体和间距的参考检查页 | 是 |
+| `manifest.json` | 说明包入口、来源和完整文件登记 | 是 |
 
-本目录内部仍以 Foundation、合同和 manifest 登记的主题 CSS 保持说明一致；不要从 HTML、截图、机器
-快照或 Tailwind alias 反推设计值。对 Web 而言，实际解析、生成和校验的值一律来自代码侧本地包。
+## 生产化原则
 
-## 主题选择
+- 视觉值与构图应匹配来源；实现继续使用 React 19、TypeScript、Base UI、Lucide、Tailwind 和现有业务层；
+- 不复制远程字体、CDN、inline style、随机 id、鼠标模拟状态、内联 SVG path 或 demo 导航；
+- Inter Variable 与 JetBrains Mono 由 Web npm 依赖本地打包；Berkeley Mono 只作为用户设备上的可选首选；
+- 原型里白字对亮 Cherry hover、opacity disabled 等不满足生产对比的配方，以同色族可访问映射替代；
+- 三档透明 surface、ghost solid border、tertiary line 与 subtle/inset/dialog elevation 已进入双主题合同，
+  组件不得重新写来源 rgba 或 shadow；
+- 14 个核心配方由真实 TypeScript 组件和 `Foundation/Source recipes` Storybook specimen 承担，浅色主题
+  使用相同 anatomy、密度和状态层级；
+- 长 Markdown/代码继续使用 CodeMirror，不把下载包的 `Textarea` 样例误当成长内容编辑器；
+- 状态、危险动作和 verdict 必须有文字/图标/形状，不可只靠颜色。
 
-- 默认主题是 `cherry-black`；缺失、空值或未知 `data-theme` 都回退到默认黑色。
-- 浅色主题是 `pure-white`；真正的白色用于画布和抬升面，冷灰用于面板、输入和 hover 层级。
-- `data-theme` 只放在 `<html>`。组件、页面、CVA variant 和 Tailwind utility 不得判断主题 id。
-- 本目录只说明主题合同与选择行为，不提供 Web 的 localStorage、首屏防闪或运行时。对应实现与测试均在
-  `apps/web` 内完成。
+## 维护与检查
 
-`preview/` 下的静态页会从 `themes.manifest.json` 动态建立主题选择器，因此 HTML 不枚举主题 id。
-请从仓库根目录启动任意静态服务器后浏览，例如 `python3 -m http.server`，再打开
-`/docs/design-system/preview/themes.html`。直接用 `file://` 打开时浏览器可能拒绝读取 manifest；
-页面仍按默认主题显示，但主题选择器会保持禁用。
+真正修改设计系统时，在同一 WORK/TASK 内同步代码树和文档树；普通 CI 不做跨树 copy、drift 或 symlink。
+从仓库根目录运行：
 
-组件本身不在本目录检查——手写 HTML 无法引用 React 组件，只能手抄 class，必然与真实组件漂移。
-组件的视觉参考由 Storybook 承担。
+```bash
+node docs/design-system/tools/source-lock.mjs --check
+node docs/design-system/tools/build.mjs
+node docs/design-system/tools/build.mjs --check
+node docs/design-system/tools/check.mjs
+node docs/design-system/tools/check.mjs --self-test
+```
 
-## 新增主题
-
-新增主题是完整实现合同，而不是覆盖几个颜色变量：
-
-1. 先建立或关联设计系统 WORK/TASK，并把代码侧本地包与本目录同时纳入范围。
-2. 在代码侧新建完整主题并登记 manifest；每个 surface/soft/solid 必须不透明，alias 必须可解析。
-3. 同步本目录的主题 CSS、`themes.manifest.json`、合同与参考页面，不依赖自动复制或符号链接。
-4. 分别运行 Web 本地 build/check 与本目录 build/check，确认 required key、允许 surface 的全组合对比、
-   派生文件和未知主题回退。
-5. 在 Storybook、E2E、组件参考与 preview 中做桌面、320px、键盘、长中文和 reduced-motion 检查。
-
-新增主题不需要修改组件、`components.manifest.json`、Tailwind adapter 或聚合入口。若需要删改 semantic
-key、改变默认主题或改变组件默认行为，必须先更新上游 DECISION，而不是伪装成兼容扩展。
-
-## 组件约束
-
-- 组件只使用 semantic token；禁止 raw hex/OKLCH、主题 selector 和依赖背景的透明 soft surface。
-- 品牌 CTA 使用 `brand-surface` / `on-brand`；普通链接使用 `link`；中性 hover 使用 `surface-hover`。
-- destructive 永远使用 danger，不复用 Cherry 品牌色。所有 verdict 同时显示 code、名称和稳定文本结构。
-- 正文链接常驻下划线；状态与图表不能只靠颜色；必要控件边界、图标和 focus 至少达到 3:1。
-- 原生交互优先：按钮、链接、表单、`details` 和 `dialog` 必须键盘可用；只在 `:focus-visible` 显示
-  清晰焦点环。disabled 不响应，loading 保持尺寸并提供可读状态。
-- 图标使用项目依赖的 Lucide React；图标是辅助信息时 `aria-hidden="true"`，图标按钮必须有可访问名称。
+组件视觉只在 Storybook 和产品页面验收；`preview/` 只帮助核对 Foundation/主题，不手抄 React 组件。
 
 ## 来源与许可
 
-基础参考来自本地 OpenDesign `linear-app` bundled fixture，并按 Apache-2.0 修改；它不是 Linear 官方设计
-系统或源码。完整许可见 [`LICENSE.open-design`](./LICENSE.open-design)，固定来源、校验值和修改清单见
-[`NOTICE.md`](./NOTICE.md)。Web 代码侧同时保存并分发自身所需的许可证与 NOTICE，不能依赖本目录作为
-唯一合规副本。本包不包含 Linear 商标、Logo、产品文案或字体文件。
-
-参考 HTML 中出现的 Lucide 图标路径来自项目已安装的 `lucide-react` 1.33.0；许可包含 ISC 与
-Feather-derived MIT 条款，见 [`LICENSE.lucide`](./LICENSE.lucide)。产品实现应直接使用依赖，而不是
-复制 SVG 路径。
+Claude Design 下载版根摘要为
+`68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d`。它声明自己的基础来自 OpenDesign
+`linear-app` fixture；该 fixture 以 Apache-2.0 提供，并非 Linear 官方源码。完整来源链、固定摘要和生产
+适配见 [`NOTICE.md`](./NOTICE.md)，许可原文见 [`LICENSE.open-design`](./LICENSE.open-design)。Lucide
+参考图标许可见 [`LICENSE.lucide`](./LICENSE.lucide)。

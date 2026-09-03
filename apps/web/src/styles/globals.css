@@ -2,6 +2,7 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 @import '../../design-system/tokens.css';
 @import '../../design-system/tailwind-v4.css';
 

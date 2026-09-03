@@ -1,10 +1,8 @@
 /*
- * Modified for Cherry OJ on 2026-08-27.
- * Derived from the OpenDesign linear-app fixture dark tokens.
- * Changes: namespaced semantic contract, Cherry brand mapping, opaque OJ
- * status surfaces, accessible metadata/control colors, and explicit fallback.
- * Source tokens.css SHA-256:
- * 9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e
+ * Modified for Cherry OJ on 2026-09-03.
+ * Rebuilt from the frozen Claude Design Cherry OJ export used by WORK-034.
+ * Changes: namespaced semantic contract, accessible Cherry interaction
+ * mapping, opaque OJ status surfaces, and explicit default fallback.
  * See ../NOTICE.md and ../LICENSE.open-design.
  */
 
@@ -30,6 +28,9 @@
   --ds-surface-subtle: #141516;
   --ds-surface-raised: #191a1b;
   --ds-surface-hover: #28282c;
+  --ds-surface-translucent: rgba(255, 255, 255, 0.02);
+  --ds-surface-translucent-hover: rgba(255, 255, 255, 0.04);
+  --ds-surface-translucent-selected: rgba(255, 255, 255, 0.05);
 
   /* Foreground */
   --ds-fg: #f7f8f8;
@@ -37,21 +38,24 @@
   --ds-fg-muted: #8a8f98;
   --ds-fg-meta: #8a8f98;
   --ds-fg-disabled: #8a8f98;
+  --ds-fg-ghost: #e2e4e7;
 
   /* Decorative and necessary boundaries */
   --ds-border-soft: rgba(255, 255, 255, 0.05);
   --ds-border: rgba(255, 255, 255, 0.08);
+  --ds-border-solid: #23252a;
   --ds-border-strong: #80848d;
+  --ds-line-tertiary: #18191a;
 
   /* Cherry brand and interaction */
-  --ds-brand-surface: #de1c4e;
-  --ds-brand-surface-hover: #dd2c53;
-  --ds-brand-surface-active: #c01242;
+  --ds-brand-surface: #d2042d;
+  --ds-brand-surface-hover: #a80324;
+  --ds-brand-surface-active: #7d0219;
   --ds-on-brand: #ffffff;
-  --ds-brand-foreground: #f9667a;
-  --ds-brand-foreground-hover: #ff8494;
+  --ds-brand-foreground: #ff4d67;
+  --ds-brand-foreground-hover: #ff7088;
   --ds-brand-soft: #32141d;
-  --ds-on-brand-soft: #f9667a;
+  --ds-on-brand-soft: #ff4d67;
   --ds-link: var(--ds-brand-foreground);
   --ds-link-hover: var(--ds-brand-foreground-hover);
   --ds-focus: var(--ds-brand-foreground);
@@ -92,6 +96,9 @@
   /* System and elevation */
   --ds-overlay: rgba(0, 0, 0, 0.85);
   --ds-elevation-flat: none;
+  --ds-elevation-subtle: rgba(0, 0, 0, 0.03) 0 1.2px 0 0;
   --ds-elevation-ring: 0 0 0 1px var(--ds-border);
+  --ds-elevation-inset: rgba(0, 0, 0, 0.2) 0 0 12px 0 inset;
+  --ds-elevation-dialog: rgba(0, 0, 0, 0) 0 8px 2px, rgba(0, 0, 0, 0.01) 0 5px 2px, rgba(0, 0, 0, 0.04) 0 3px 2px, rgba(0, 0, 0, 0.07) 0 1px 1px, rgba(0, 0, 0, 0.08) 0 0 1px;
   --ds-elevation-raised: rgba(0, 0, 0, 0.4) 0 2px 4px, 0 0 0 1px rgba(255, 255, 255, 0.05);
 }

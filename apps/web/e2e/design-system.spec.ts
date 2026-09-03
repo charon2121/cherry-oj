@@ -349,7 +349,7 @@ test('disabled button colors win when a control is also pressed', async ({ page 
   await page.goto('/');
 
   const disabledClasses =
-    'disabled:border-border! disabled:bg-secondary! disabled:text-[var(--ds-fg-disabled)]!';
+    'disabled:border-[var(--ds-border)]! disabled:bg-[var(--ds-surface-translucent)]! disabled:text-[var(--ds-fg-disabled)]!';
   const variantClasses = [
     {
       variant: 'primary',
@@ -359,17 +359,17 @@ test('disabled button colors win when a control is also pressed', async ({ page 
     {
       variant: 'secondary',
       className:
-        'border border-border-strong bg-secondary text-secondary-foreground aria-pressed:border-ring aria-pressed:bg-accent',
+        'border border-transparent bg-[var(--ds-surface-translucent-hover)] text-[var(--ds-fg-2)] aria-pressed:bg-[var(--ds-surface-translucent-selected)]',
     },
     {
       variant: 'ghost',
       className:
-        'border border-transparent bg-transparent text-[var(--ds-fg-2)] aria-pressed:bg-accent aria-pressed:text-foreground',
+        'border border-[var(--ds-border-solid)] bg-[var(--ds-surface-translucent)] text-[var(--ds-fg-ghost)] aria-pressed:bg-[var(--ds-surface-translucent-selected)] aria-pressed:text-foreground',
     },
     {
       variant: 'danger',
       className:
-        'border border-transparent bg-destructive text-destructive-foreground aria-pressed:border-[var(--ds-danger-on-solid)]',
+        'border border-transparent bg-destructive text-destructive-foreground aria-pressed:outline-[var(--ds-danger-on-solid)]',
     },
   ].map(({ className, variant }) => ({ variant, className: `${className} ${disabledClasses}` }));
   const snapshots = await page.evaluate((classesByVariant) => {
@@ -433,7 +433,7 @@ for (const theme of themeRegistry) {
       };
     });
     expect(shellSurfaces.footerBackground).toBe(shellSurfaces.mainBackground);
-    expect(shellSurfaces.footerBorderTopWidth).toBe('0px');
+    expect(shellSurfaces.footerBorderTopWidth).toBe('1px');
     expect(shellSurfaces.footerBoxShadow).toBe('none');
 
     await page.goto('/login');

@@ -3,6 +3,9 @@
   "provenance": {
     "source": "OpenDesign curated bundled fixture: design-systems/linear-app",
     "officialLinearSource": false,
+    "designSource": "Claude Design export: Cherry OJ Design System",
+    "designSourceRootSha256": "68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d",
+    "designSourceFileCount": 99,
     "sourceTokensSha256": "9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e",
     "sourceDesignSha256": "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
     "sourceLicenseSha256": "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da",
@@ -11,8 +14,8 @@
   },
   "modified": {
     "for": "Cherry OJ",
-    "date": "2026-08-27",
-    "summary": "Defines a complete semantic contract for cherry-black, pure-white, and future themes."
+    "date": "2026-09-03",
+    "summary": "Defines one complete semantic contract shared by the source-faithful cherry-black theme and the retained pure-white theme."
   },
   "contrastThresholds": {
     "text": 4.5,
@@ -83,6 +86,30 @@
       "opaque": true
     },
     {
+      "name": "--ds-surface-translucent",
+      "type": "color",
+      "role": "Source-faithful two-percent translucent control surface",
+      "allowedOn": [],
+      "contrastClass": "none",
+      "required": true
+    },
+    {
+      "name": "--ds-surface-translucent-hover",
+      "type": "color",
+      "role": "Source-faithful four-percent translucent hover surface",
+      "allowedOn": [],
+      "contrastClass": "none",
+      "required": true
+    },
+    {
+      "name": "--ds-surface-translucent-selected",
+      "type": "color",
+      "role": "Source-faithful five-percent translucent selected surface",
+      "allowedOn": [],
+      "contrastClass": "none",
+      "required": true
+    },
+    {
       "name": "--ds-fg",
       "type": "color",
       "role": "Primary text",
@@ -123,6 +150,14 @@
       "required": true
     },
     {
+      "name": "--ds-fg-ghost",
+      "type": "color",
+      "role": "Foreground for translucent ghost controls",
+      "allowedOn": ["--ds-canvas", "--ds-panel", "--ds-surface", "--ds-surface-subtle", "--ds-surface-raised", "--ds-surface-hover"],
+      "contrastClass": "text",
+      "required": true
+    },
+    {
       "name": "--ds-border-soft",
       "type": "color",
       "role": "Decorative subtle divider only",
@@ -139,11 +174,27 @@
       "required": true
     },
     {
+      "name": "--ds-border-solid",
+      "type": "color",
+      "role": "Source-faithful solid border for ghost controls",
+      "allowedOn": ["--ds-canvas", "--ds-panel", "--ds-surface", "--ds-surface-subtle", "--ds-surface-raised", "--ds-surface-hover"],
+      "contrastClass": "decorative",
+      "required": true
+    },
+    {
       "name": "--ds-border-strong",
       "type": "color",
       "role": "Necessary control and graphic boundary",
       "allowedOn": ["--ds-canvas", "--ds-panel", "--ds-surface", "--ds-surface-subtle", "--ds-surface-raised", "--ds-surface-hover"],
       "contrastClass": "nonText",
+      "required": true
+    },
+    {
+      "name": "--ds-line-tertiary",
+      "type": "color",
+      "role": "Source-faithful tertiary row separator",
+      "allowedOn": ["--ds-canvas", "--ds-panel", "--ds-surface", "--ds-surface-subtle", "--ds-surface-raised", "--ds-surface-hover"],
+      "contrastClass": "decorative",
       "required": true
     },
     {
@@ -482,9 +533,33 @@
       "required": true
     },
     {
+      "name": "--ds-elevation-subtle",
+      "type": "shadow",
+      "role": "Source-faithful low toolbar elevation",
+      "allowedOn": [],
+      "contrastClass": "none",
+      "required": true
+    },
+    {
       "name": "--ds-elevation-ring",
       "type": "shadow",
       "role": "One-pixel structural ring",
+      "allowedOn": [],
+      "contrastClass": "none",
+      "required": true
+    },
+    {
+      "name": "--ds-elevation-inset",
+      "type": "shadow",
+      "role": "Source-faithful recessed media elevation",
+      "allowedOn": [],
+      "contrastClass": "none",
+      "required": true
+    },
+    {
+      "name": "--ds-elevation-dialog",
+      "type": "shadow",
+      "role": "Source-faithful layered dialog elevation",
       "allowedOn": [],
       "contrastClass": "none",
       "required": true

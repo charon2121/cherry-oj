@@ -1,0 +1,27 @@
+/* Fonts — Cherry OJ
+ *
+ * The source package shipped no font binaries. Two faces are declared here
+ * against `assets/fonts/`; drop the licensed files at those paths and they load
+ * automatically. Until then each token's fallback stack renders (Inter and
+ * JetBrains Mono from the Google Fonts import below).
+ *
+ *   assets/fonts/InterVariable.woff2      → "Inter Variable"
+ *   assets/fonts/BerkeleyMono-Regular.woff2 → "Berkeley Mono"
+ */
+@import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@font-face {
+  font-family: "Inter Variable";
+  src: url("../assets/fonts/InterVariable.woff2") format("woff2-variations");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Berkeley Mono";
+  src: url("../assets/fonts/BerkeleyMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

@@ -72,7 +72,7 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            'border-border-strong bg-surface-raised text-foreground focus-visible:outline-ring pointer-events-auto relative grid max-h-[calc(100dvh-var(--ds-space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-lg border p-5 break-words shadow-[var(--ds-elevation-raised)] transition-[scale,opacity] duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
+            'text-foreground focus-visible:outline-ring pointer-events-auto relative grid max-h-[calc(100dvh-var(--ds-space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-[var(--ds-radius-lg)] border border-[var(--ds-border)] bg-[var(--ds-panel)] p-5 break-words shadow-[var(--ds-elevation-dialog)] transition-opacity duration-[var(--ds-motion-fast)] ease-[var(--ds-ease-standard)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
             dialogSizeClasses[size],
             className,
           )}

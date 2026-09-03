@@ -1,8 +1,8 @@
 /*
- * Modified for Cherry OJ on 2026-08-27.
- * Cherry-designed light extension of the OpenDesign linear-app structure.
- * Changes: complete pure-white semantic mapping with accessible Cherry brand
- * and OJ status colors; this is not an upstream Linear theme.
+ * Modified for Cherry OJ on 2026-09-03.
+ * Light counterpart to the frozen Claude Design Cherry OJ export.
+ * Changes: preserves the same semantic hierarchy and optical scale while
+ * recalibrating surfaces, foregrounds, and status colors for a light canvas.
  * See ../NOTICE.md and ../LICENSE.open-design.
  */
 
@@ -16,6 +16,9 @@
   --ds-surface-subtle: #f5f6f7;
   --ds-surface-raised: #ffffff;
   --ds-surface-hover: #f3f4f5;
+  --ds-surface-translucent: rgba(8, 9, 10, 0.02);
+  --ds-surface-translucent-hover: rgba(8, 9, 10, 0.04);
+  --ds-surface-translucent-selected: rgba(8, 9, 10, 0.05);
 
   /* Foreground */
   --ds-fg: #191a1b;
@@ -23,21 +26,24 @@
   --ds-fg-muted: #62666d;
   --ds-fg-meta: #676b73;
   --ds-fg-disabled: #676b73;
+  --ds-fg-ghost: #34343a;
 
   /* Decorative and necessary boundaries */
   --ds-border-soft: #e6e6e6;
   --ds-border: #d0d6e0;
+  --ds-border-solid: #d0d6e0;
   --ds-border-strong: #80848d;
+  --ds-line-tertiary: #e6e6e6;
 
   /* Cherry brand and interaction */
-  --ds-brand-surface: #de1c4e;
-  --ds-brand-surface-hover: #d7194b;
-  --ds-brand-surface-active: #c01242;
+  --ds-brand-surface: #d2042d;
+  --ds-brand-surface-hover: #a80324;
+  --ds-brand-surface-active: #7d0219;
   --ds-on-brand: #ffffff;
-  --ds-brand-foreground: #c01242;
-  --ds-brand-foreground-hover: #a70f38;
+  --ds-brand-foreground: #a80324;
+  --ds-brand-foreground-hover: #7d0219;
   --ds-brand-soft: #fce7ed;
-  --ds-on-brand-soft: #c01242;
+  --ds-on-brand-soft: #a80324;
   --ds-link: var(--ds-brand-foreground);
   --ds-link-hover: var(--ds-brand-foreground-hover);
   --ds-focus: var(--ds-brand-foreground);
@@ -78,6 +84,9 @@
   /* System and elevation */
   --ds-overlay: rgba(8, 9, 10, 0.56);
   --ds-elevation-flat: none;
+  --ds-elevation-subtle: rgba(8, 9, 10, 0.04) 0 1.2px 0 0;
   --ds-elevation-ring: 0 0 0 1px var(--ds-border);
+  --ds-elevation-inset: rgba(8, 9, 10, 0.06) 0 0 12px 0 inset;
+  --ds-elevation-dialog: rgba(8, 9, 10, 0.04) 0 8px 2px, rgba(8, 9, 10, 0.05) 0 5px 2px, rgba(8, 9, 10, 0.07) 0 3px 2px, rgba(8, 9, 10, 0.1) 0 1px 1px, rgba(8, 9, 10, 0.12) 0 0 1px;
   --ds-elevation-raised: 0 1px 2px rgba(8, 9, 10, 0.08), 0 8px 24px rgba(8, 9, 10, 0.08), 0 0 0 1px rgba(8, 9, 10, 0.08);
 }

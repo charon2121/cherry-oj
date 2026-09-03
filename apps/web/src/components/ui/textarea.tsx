@@ -9,7 +9,7 @@ function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
   return (
     <textarea
       data-slot="textarea"
-      className={cn(controlClasses, 'flex field-sizing-content min-h-16', className)}
+      className={cn(controlClasses, 'flex field-sizing-content min-h-24 resize-y', className)}
       {...props}
     />
   );

@@ -1,0 +1,39 @@
+<!-- @dsCard group="Judge app" viewport="1280x760" name="Problem workspace" subtitle="Sidebar, problem list, problem + submit view, command palette" -->
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cherry OJ — judge app</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>*{box-sizing:border-box}html,body,#root{margin:0;height:100%}body{background:var(--bg);color:var(--fg-2);font-family:var(--font-body);font-feature-settings:var(--font-features);-webkit-font-smoothing:antialiased;overflow:hidden}a{color:var(--text-link);text-decoration:none}a:hover{color:var(--text-link-hover)}</style>
+</head><body><div id="root"></div>
+<script type="text/babel" src="AppIcons.jsx"></script>
+<script type="text/babel" src="Sidebar.jsx"></script>
+<script type="text/babel" src="ProblemList.jsx"></script>
+<script type="text/babel" src="ProblemView.jsx"></script>
+<script type="text/babel" src="CommandPalette.jsx"></script>
+<script type="text/babel">
+function App() {
+  const [view, setView] = React.useState('problems');
+  const [open, setOpen] = React.useState(null);
+  const [palette, setPalette] = React.useState(false);
+  React.useEffect(() => {
+    const h = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette(true); } };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+  return (
+    <div style={{display:'flex',height:'100%'}}>
+      <Sidebar view={view} onNavigate={(v) => { setView(v); setOpen(null); }} />
+      <main style={{flex:1,minWidth:0}}>
+        {open
+          ? <ProblemView problem={open} onBack={() => setOpen(null)} />
+          : <ProblemList onOpen={setOpen} onPalette={() => setPalette(true)} />}
+      </main>
+      <CommandPalette open={palette} onClose={() => setPalette(false)} />
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script></body></html>
