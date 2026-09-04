@@ -12,37 +12,45 @@
   --ds-font-body: "Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
   --ds-font-mono: "Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --ds-font-features: "cv01", "ss03";
-  --ds-weight-light: 300;
+  /* 只有两档字重。参照的整份设计系统里只出现 400 和 500——层级由颜色承担，不由字重承担。
+   * 保留四个键名是为了不改调用处；light 与 regular 都落到 400，body 与 heading 落到 500。 */
+  --ds-weight-light: 400;
   --ds-weight-regular: 400;
-  --ds-weight-body: 510;
-  --ds-weight-heading: 590;
+  --ds-weight-body: 500;
+  --ds-weight-heading: 500;
 
-  --ds-text-tiny: 10px;
+  /* UI 区间对齐参照的 11/12/13/15/18/20/22/24。最大的变化是 --ds-text-sm 由 14px 降到 13px：
+   * 它是界面主力字号，参照的行文字、导航、按钮全是 13px。display 区间（3xl 起）保留给
+   * 登录页这类营销面，参照的应用界面里不出现。 */
+  --ds-text-tiny: 11px;
   --ds-text-micro: 11px;
   --ds-text-xs: 12px;
-  --ds-text-cap: 13px;
-  --ds-text-sm: 14px;
+  --ds-text-cap: 12px;
+  --ds-text-sm: 13px;
   --ds-text-15: 15px;
-  --ds-text-base: 16px;
-  --ds-text-17: 17px;
+  --ds-text-base: 15px;
+  --ds-text-17: 18px;
   --ds-text-lg: 18px;
   --ds-text-h3: 20px;
-  --ds-text-xl: 24px;
-  --ds-text-2xl: 32px;
+  --ds-text-xl: 22px;
+  --ds-text-2xl: 24px;
   --ds-text-3xl: 48px;
   --ds-text-display-lg: 64px;
   --ds-text-4xl: 72px;
 
   --ds-leading-body: 1.5;
   --ds-leading-tight: 1;
-  --ds-leading-heading: 1.13;
-  --ds-leading-h2: 1.33;
-  --ds-leading-label: 1.4;
+  --ds-leading-heading: 1.2;
+  --ds-leading-h2: 1.2;
+  --ds-leading-label: 1.25;
   --ds-leading-relaxed: 1.6;
-  --ds-tracking-display: -0.022em;
-  --ds-tracking-heading: -0.012em;
-  --ds-tracking-body: -0.009em;
-  --ds-tracking-caption: -0.01em;
+  /* 字距全部归零。此前全局的负 tracking 来自旧来源包，参照的设计系统里每一档都是 0；
+   * 在 13px 这种小字号上收紧字距会让文字发糊，是"看起来廉价"的一个隐性来源。
+   * eyebrow 保留正字距，它是大写小标签的排版需要。 */
+  --ds-tracking-display: 0em;
+  --ds-tracking-heading: 0em;
+  --ds-tracking-body: 0em;
+  --ds-tracking-caption: 0em;
   --ds-tracking-eyebrow: 0.08em;
 
   /* Spacing */
@@ -67,17 +75,25 @@
   --ds-section-y-phone: 32px;
 
   /* Shape and focus geometry */
-  --ds-radius-micro: 2px;
+  /* 参照以 3/4px 为主：按钮、输入、导航项、下拉全是 4px，只有对话框到 8-12px。
+   * 大圆角是"消费级应用"的语言，密集工具界面用小圆角。 */
+  --ds-radius-micro: 3px;
   --ds-radius-xs: 4px;
-  --ds-radius-sm: 6px;
-  --ds-radius-md: 8px;
-  --ds-radius-lg: 12px;
-  --ds-radius-xl: 22px;
+  --ds-radius-sm: 4px;
+  --ds-radius-md: 6px;
+  --ds-radius-lg: 8px;
+  --ds-radius-xl: 12px;
   --ds-radius-pill: 9999px;
   --ds-radius-circle: 50%;
   --ds-radius-image-top: 12px 12px 0 0;
   --ds-focus-width: 2px;
   --ds-focus-offset: 2px;
+
+  /* Overlay material.
+   * 浮层是整套系统里唯一允许"厚重"的地方：它真的浮在上面，"有一层"本身就是要传达的信息，
+   * 所以模糊和大柔阴影在这里是内容而不是装饰。非浮层的东西不该有阴影。 */
+  --ds-overlay-blur: 24px;
+  --ds-overlay-blur-strong: 40px;
 
   /* Motion */
   --ds-motion-fast: 150ms;
