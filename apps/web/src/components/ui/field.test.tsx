@@ -107,13 +107,22 @@ describe('SelectField', () => {
     expect(screen.getByRole('combobox', { name: '难度' })).toHaveTextContent('简单');
   });
 
-  it('keeps a visible focus outline so keyboard users can see the control', () => {
-    // controlClasses 里的 outline-none 会让 focus-visible:outline-2 永远画不出来；
-    // 必须同时给出 outline-solid。这条也是 E2E 在 forced-colors 下发现的。
+  it('shows focus by recolouring its own border, not by adding a ring', () => {
+    // 焦点是 1px 贴边变色（design-system.md §7.2 B）：状态变化只改颜色，不加东西——
+    // 加东西会改变占位并推挤相邻元素，而对齐是这套系统唯一的结构手段。
+    render(<SelectField label="难度" value="" onValueChange={() => {}} items={[]} />);
+
+    const trigger = screen.getByRole('combobox', { name: '难度' });
+    expect(trigger.className).toContain('focus-visible:border-ring');
+    expect(trigger.className).not.toContain('focus-visible:outline-2');
+  });
+
+  it('falls back to an outline under forced colors, where border colour is overridden', () => {
+    // forced-colors 下颜色由系统接管，border-color 表达不出焦点；outline 会取系统色。
     render(<SelectField label="难度" value="" onValueChange={() => {}} items={[]} />);
 
     expect(screen.getByRole('combobox', { name: '难度' }).className).toContain(
-      'focus-visible:outline-solid',
+      'focus-visible:forced-colors:outline-1',
     );
   });
 

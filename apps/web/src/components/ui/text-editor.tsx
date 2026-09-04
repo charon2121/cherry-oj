@@ -224,7 +224,7 @@ function TextEditor({
       data-disabled={disabled ? '' : undefined}
       data-invalid={ariaInvalid === true || ariaInvalid === 'true' ? '' : undefined}
       className={cn(
-        'focus-within:outline-ring border-border bg-surface-translucent focus-within:border-brand-surface data-disabled:border-border data-disabled:bg-surface-translucent data-invalid:border-danger-border overflow-hidden rounded-sm border focus-within:outline-2 focus-within:outline-offset-2',
+        'focus-within:outline-ring border-border bg-surface-translucent focus-within:border-brand-surface data-disabled:border-border data-disabled:bg-surface-translucent data-invalid:border-danger-border overflow-hidden rounded-sm border focus-within:outline-1 focus-within:outline-offset-0',
         className,
       )}
     />

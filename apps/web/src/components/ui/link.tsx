@@ -5,7 +5,7 @@ import { type ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 const linkVariants = cva(
-  'max-w-full cursor-pointer break-words underline decoration-current underline-offset-[0.18em] transition-colors duration-fast focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+  'max-w-full cursor-pointer break-words underline decoration-current underline-offset-[0.18em] transition-colors duration-fast focus-visible:rounded-sm focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring',
   {
     variants: {
       variant: {

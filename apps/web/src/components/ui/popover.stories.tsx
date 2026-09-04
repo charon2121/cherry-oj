@@ -83,7 +83,7 @@ export const WithFocusableContent: Story = {
           <PopoverDescription>当前提交使用 Go 1.25 与固定的 Linux 执行环境。</PopoverDescription>
         </PopoverHeader>
         <a
-          className="focus-visible:outline-ring text-link hover:text-link-hover underline decoration-1 underline-offset-[0.18em] focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="focus-visible:outline-ring text-link hover:text-link-hover underline decoration-1 underline-offset-[0.18em] focus-visible:outline-1 focus-visible:outline-offset-0"
           href="#environment-details"
         >
           查看完整环境与标定详情

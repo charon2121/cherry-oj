@@ -58,7 +58,7 @@ export function ProblemTagInput({
   return (
     <div
       className={cn(
-        'focus-within:outline-ring border-border bg-surface-translucent py-1x focus-within:border-brand-surface flex min-h-10 flex-wrap items-center gap-2 rounded-sm border px-2 focus-within:outline-2 focus-within:outline-offset-2',
+        'focus-within:outline-ring border-border bg-surface-translucent py-1x focus-within:border-brand-surface flex min-h-10 flex-wrap items-center gap-2 rounded-sm border px-2 focus-within:outline-1 focus-within:outline-offset-0',
         ariaInvalid && 'border-danger-border',
       )}
     >
@@ -70,7 +70,7 @@ export function ProblemTagInput({
           {tag}
           <button
             type="button"
-            className="focus-visible:outline-ring duration-fast hover:bg-surface-hover inline-flex size-6 items-center justify-center rounded-xs transition-colors focus-visible:outline-2 motion-reduce:transition-none"
+            className="focus-visible:outline-ring duration-fast hover:bg-surface-hover inline-flex size-6 items-center justify-center rounded-xs transition-colors focus-visible:outline-1 motion-reduce:transition-none"
             aria-label={`删除标签 ${tag}`}
             disabled={disabled}
             onClick={() => onChange(value.filter((item) => item !== tag))}

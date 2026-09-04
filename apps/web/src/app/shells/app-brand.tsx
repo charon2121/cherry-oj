@@ -20,7 +20,7 @@ function BrandName({ showMark = false }: Readonly<{ showMark?: boolean }>) {
 
 function AppBrand({ className, destination = 'site' }: AppBrandProps) {
   const classes = cn(
-    'text-foreground visited:text-foreground focus-visible:outline-ring inline-flex min-h-8 min-w-0 shrink-0 items-center gap-2 rounded-xs font-display font-heading tracking-heading no-underline transition-colors duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+    'text-foreground visited:text-foreground focus-visible:outline-ring inline-flex min-h-8 min-w-0 shrink-0 items-center gap-2 rounded-xs font-display font-heading tracking-heading no-underline transition-colors duration-fast focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none',
     destination === 'admin' ? 'px-1 text-sm' : 'text-base',
     className,
   );

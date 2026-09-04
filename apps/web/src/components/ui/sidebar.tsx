@@ -60,7 +60,7 @@ function SidebarMenuItem({ className, ...props }: ComponentProps<'li'>) {
 }
 
 const menuItemClasses =
-  'flex min-h-8 w-full min-w-0 items-center gap-2 rounded-xs px-2 py-1 text-left text-cap font-body text-fg-2 transition-colors duration-fast hover:bg-surface-translucent-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring data-[active]:bg-surface-translucent-selected data-[active]:font-heading data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
+  'flex min-h-8 w-full min-w-0 items-center gap-2 rounded-xs px-2 py-1 text-left text-cap font-body text-fg-2 transition-colors duration-fast hover:bg-surface-translucent-hover hover:text-foreground focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring data-[active]:bg-surface-translucent-selected data-[active]:font-heading data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 type SidebarMenuButtonProps = useRender.ComponentProps<'button'> &
   ComponentProps<'button'> &

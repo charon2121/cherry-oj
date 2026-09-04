@@ -21,7 +21,7 @@ function Pill({
   ...props
 }: PillProps) {
   const classes = cn(
-    'inline-flex min-h-[24px] max-w-full items-center gap-1x rounded-full border border-border-solid px-[10px] font-display text-xs leading-[1.8] font-body text-fg-2 transition-colors duration-fast ease-standard focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none',
+    'inline-flex min-h-[24px] max-w-full items-center gap-1x rounded-full border border-border-solid px-[10px] font-display text-xs leading-[1.8] font-body text-fg-2 transition-colors duration-fast ease-standard focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring motion-reduce:transition-none',
     dot ? 'pl-2' : 'pl-1',
     selected && 'bg-surface-translucent-selected text-foreground',
     onClick && !selected && 'cursor-pointer hover:bg-surface-translucent',

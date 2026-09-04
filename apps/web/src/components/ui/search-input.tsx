@@ -21,7 +21,7 @@ function SearchInput({
     <label
       data-slot="search-input"
       className={cn(
-        'focus-within:outline-ring border-border bg-surface-translucent duration-fast ease-standard focus-within:border-brand-surface flex min-h-8 min-w-0 items-center gap-2 rounded-sm border px-2 py-1 transition-[background-color,border-color] focus-within:outline-2 focus-within:outline-offset-2 motion-reduce:transition-none',
+        'border-border bg-surface-translucent duration-fast ease-standard focus-within:border-ring flex min-h-8 min-w-0 items-center gap-2 rounded-sm border px-2 py-1 transition-[background-color,border-color] motion-reduce:transition-none focus-within:forced-colors:outline-1 focus-within:forced-colors:outline-solid',
         containerClassName,
       )}
     >

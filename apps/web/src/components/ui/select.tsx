@@ -27,7 +27,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        'text-foreground data-placeholder:text-muted-foreground focus-visible:outline-ring border-border bg-surface-translucent duration-fast hover:bg-surface-translucent-hover focus-visible:border-brand-surface disabled:border-border disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:border-danger-border flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-sm transition-[background-color,border-color] outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid disabled:cursor-not-allowed data-[size=default]:min-h-10 data-[size=sm]:min-h-8 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'text-foreground data-placeholder:text-muted-foreground border-border bg-surface-translucent duration-fast hover:bg-surface-translucent-hover focus-visible:border-ring disabled:border-border disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:border-danger-border flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-sm transition-[background-color,border-color] outline-none select-none disabled:cursor-not-allowed data-[size=default]:min-h-10 data-[size=sm]:min-h-8 motion-reduce:transition-none focus-visible:forced-colors:outline-1 focus-visible:forced-colors:outline-offset-0 focus-visible:forced-colors:outline-solid [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}
@@ -68,7 +68,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'text-foreground border-border bg-panel shadow-dialog duration-fast ease-standard relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-sm border p-1 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground border-border bg-panel/85 shadow-dialog backdrop-blur-overlay duration-fast ease-standard relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-sm border p-1 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             className,
           )}
           {...props}
@@ -176,6 +176,7 @@ function SelectField({
   disabled = false,
   items,
   label,
+  labelPlacement = 'stacked',
   placeholder,
   value,
   onValueChange,
@@ -184,7 +185,13 @@ function SelectField({
   description?: ReactNode;
   disabled?: boolean;
   items: ReadonlyArray<{ value: string; label: string }>;
-  label: ReactNode;
+  label: string;
+  /**
+   * `stacked` 是表单里的形态：标签竖排在控件上方。
+   * `hidden` 是工具条里的形态：标签只进无障碍树，控件收缩成一个 toolbar 控件——
+   * 四个带竖排标签的下拉会让工具条变成一张录入表单，那是后台管理页面的语言。
+   */
+  labelPlacement?: 'stacked' | 'hidden';
   placeholder?: string;
   value: string;
   onValueChange: (value: string) => void;
@@ -192,10 +199,15 @@ function SelectField({
   const generatedId = useId();
   const triggerId = `select-${generatedId}`;
   const descriptionId = `${triggerId}-description`;
+  const compact = labelPlacement === 'hidden';
 
   return (
-    <Field className={className}>
-      <FieldLabel htmlFor={triggerId}>{label}</FieldLabel>
+    // 紧凑形态下 Field 不能占满一行：它是 flex 列容器，子元素默认拉伸，
+    // 四个下拉会各占一整行，比带标签的表单更糟。
+    <Field className={cn(compact && 'w-auto gap-0', className)}>
+      <FieldLabel htmlFor={triggerId} className={compact ? 'sr-only' : undefined}>
+        {label}
+      </FieldLabel>
       {/* items 必须交给 Root：否则 SelectValue 只能显示原始 value（例如显示 EASY 而不是「简单」）。 */}
       <Select
         disabled={disabled}
@@ -205,6 +217,9 @@ function SelectField({
       >
         <SelectTrigger
           id={triggerId}
+          size={compact ? 'sm' : 'default'}
+          aria-label={compact ? label : undefined}
+          className={compact ? 'text-fg-2 text-cap w-auto min-w-0 gap-1 py-1 pr-1 pl-2' : undefined}
           {...(description === undefined ? {} : { 'aria-describedby': descriptionId })}
         >
           <SelectValue placeholder={placeholder} />

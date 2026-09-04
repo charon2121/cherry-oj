@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 //   2. 焦点用 2px outline + offset，不用官方的透明光晕 ring（§7）；
 //   3. 尺寸放宽为 min-h-6 + 可换行，官方的 h-5 + whitespace-nowrap 会裁切长中文（§7）。
 const badgeVariants = cva(
-  'group/badge inline-flex min-h-[17px] w-fit max-w-full shrink-0 items-center justify-center gap-1 rounded-micro border border-transparent px-2 py-px font-display text-tiny leading-[1.5] font-body tracking-[0.02em] whitespace-normal break-words transition-[color,background-color,border-color] duration-fast focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:border-danger-border motion-reduce:transition-none [&>svg]:pointer-events-none [&>svg]:size-3 [&>svg]:shrink-0',
+  'group/badge inline-flex min-h-[17px] w-fit max-w-full shrink-0 items-center justify-center gap-1 rounded-micro border border-transparent px-2 py-px font-display text-tiny leading-[1.5] font-body tracking-[0.02em] whitespace-normal break-words transition-[color,background-color,border-color] duration-fast focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring aria-invalid:border-danger-border motion-reduce:transition-none [&>svg]:pointer-events-none [&>svg]:size-3 [&>svg]:shrink-0',
   {
     variants: {
       variant: {

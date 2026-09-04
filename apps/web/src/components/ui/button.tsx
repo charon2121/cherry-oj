@@ -8,7 +8,7 @@ const secondaryButtonClasses =
   'bg-surface-translucent-hover text-fg-2 hover:bg-surface-translucent-selected active:bg-surface-translucent aria-pressed:bg-surface-translucent-selected';
 
 const buttonVariants = cva(
-  'relative inline-flex max-w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border border-transparent font-display leading-tight font-body transition-[background-color,color,border-color] duration-fast ease-standard select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border! disabled:bg-surface-translucent! disabled:text-fg-disabled! motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+  'relative inline-flex max-w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border border-transparent font-display leading-tight font-body transition-[background-color,color,border-color] duration-fast ease-standard select-none focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border! disabled:bg-surface-translucent! disabled:text-fg-disabled! motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
   {
     variants: {
       variant: {

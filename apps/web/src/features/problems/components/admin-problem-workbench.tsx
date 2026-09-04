@@ -1403,7 +1403,7 @@ function WorkbenchNavigation({
                 type="button"
                 aria-current={current === item.id ? 'step' : undefined}
                 className={cn(
-                  'focus-visible:outline-ring hover:text-foreground text-fg-2 duration-fast hover:bg-surface-translucent-hover flex min-h-8 w-full items-center gap-2 rounded-xs border border-transparent px-2 py-1 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+                  'focus-visible:outline-ring hover:text-foreground text-fg-2 duration-fast hover:bg-surface-translucent-hover flex min-h-8 w-full items-center gap-2 rounded-xs border border-transparent px-2 py-1 text-left transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none',
                   current === item.id && 'text-foreground bg-surface-translucent-selected',
                 )}
                 onClick={() => onChange(item.id)}

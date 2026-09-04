@@ -16,7 +16,7 @@ function AdminDashboardPage() {
           <Link
             to="/admin/users"
             search={{ page: 1 }}
-            className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-1 focus-visible:outline-offset-0"
           >
             <Card interactive className="h-full">
               <CardHeader>
@@ -32,7 +32,7 @@ function AdminDashboardPage() {
           <Link
             to="/admin/problems"
             search={{ page: 1, q: '', status: 'ALL' }}
-            className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-1 focus-visible:outline-offset-0"
           >
             <Card interactive className="h-full">
               <CardHeader>

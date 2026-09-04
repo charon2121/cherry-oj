@@ -42,7 +42,7 @@ function NavBar({
               key={link.href}
               href={link.href}
               aria-current={link.active ? 'page' : undefined}
-              className="font-display hover:text-foreground focus-visible:outline-ring aria-[current=page]:text-foreground rounded-micro text-cap font-body text-fg-2 duration-fast shrink-0 no-underline transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+              className="font-display hover:text-foreground focus-visible:outline-ring aria-[current=page]:text-foreground rounded-micro text-cap font-body text-fg-2 duration-fast shrink-0 no-underline transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none"
             >
               {link.label}
             </a>

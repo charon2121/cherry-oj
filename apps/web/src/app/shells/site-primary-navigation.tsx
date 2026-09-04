@@ -37,7 +37,7 @@ function SitePrimaryNavigation({
                 : 'text-foreground',
           }}
           className={cn(
-            'font-display focus-visible:outline-ring hover:text-foreground text-cap font-body text-fg-2 duration-fast rounded-xs no-underline transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none',
+            'font-display focus-visible:outline-ring hover:text-foreground text-cap font-body text-fg-2 duration-fast rounded-xs no-underline transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none',
             variant === 'mobile' &&
               'hover:bg-surface-translucent-hover flex min-h-8 w-full items-center px-2 py-1',
           )}

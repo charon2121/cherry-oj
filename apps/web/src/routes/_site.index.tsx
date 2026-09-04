@@ -31,7 +31,7 @@ export function HomePage() {
             <Link
               to="/problems"
               search={{ sort: 'UPDATED_DESC', size: 20 }}
-              className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-1 focus-visible:outline-offset-0"
             >
               <Card interactive elevated padding="lg" className="h-full min-h-56 justify-center">
                 <CardHeader>
@@ -52,7 +52,7 @@ export function HomePage() {
             {session.data?.authenticated && session.data.user.role === 'ADMIN' ? (
               <Link
                 to="/admin"
-                className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="focus-visible:outline-ring rounded-lg no-underline focus-visible:outline-1 focus-visible:outline-offset-0"
               >
                 <Card interactive padding="lg" className="h-full min-h-56 justify-center">
                   <CardHeader>
