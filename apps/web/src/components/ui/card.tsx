@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 //   - 官方 `cn-font-heading` 是其自带字体工具类，本仓库字体由 foundation token 提供。
 function Card({
   className,
+  bordered = false,
   elevated = false,
   interactive = false,
   padding,
@@ -16,6 +17,7 @@ function Card({
   size = 'default',
   ...props
 }: ComponentProps<'div'> & {
+  bordered?: boolean;
   elevated?: boolean;
   interactive?: boolean;
   padding?: 'sm' | 'md' | 'lg';
@@ -28,7 +30,10 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        'group/card text-card-foreground border-border bg-surface-translucent duration-base ease-standard flex min-w-0 flex-col overflow-hidden border transition-colors motion-reduce:transition-none',
+        'group/card text-card-foreground duration-base ease-standard flex min-w-0 flex-col overflow-hidden transition-colors motion-reduce:transition-none',
+        // 默认不画框、不铺面。分组用间距和对齐表达——每一个框都是一次"我懒得用对齐解决"。
+        // 需要边界时显式 bordered，需要抬升时显式 elevated，两者都应当罕见。
+        bordered && 'border-border bg-surface-translucent border',
         resolvedPadding === 'sm' && 'gap-4 p-4',
         resolvedPadding === 'md' && 'gap-6 p-6',
         resolvedPadding === 'lg' && 'gap-8 p-8',
@@ -109,11 +114,20 @@ function CardFooter({ className, ...props }: ComponentProps<'div'>) {
 
 // Panel 是 Cherry OJ 自有概念，官方 registry 没有对应组件：design-system.md §2 要求普通分组
 // 优先用间距、对齐和分隔线，而不是 Card 的抬升面。它是仓库里实际在用的容器（14 处）。
-function Panel({ className, ...props }: ComponentProps<'section'>) {
+function Panel({
+  bordered = false,
+  className,
+  ...props
+}: ComponentProps<'section'> & { bordered?: boolean }) {
   return (
     <section
       data-slot="panel"
-      className={cn('border-border bg-panel min-w-0 rounded-lg border p-5', className)}
+      className={cn(
+        // Panel 是"一段内容"，不是"一个盒子"：默认只有内边距，没有框也没有底色。
+        'min-w-0 py-5',
+        bordered && 'border-border bg-panel rounded-lg border px-5',
+        className,
+      )}
       {...props}
     />
   );
