@@ -92,7 +92,8 @@
       "TASK-060",
       "TASK-061",
       "TASK-062",
-      "TASK-063"
+      "TASK-063",
+      "TASK-064"
     ],
     "checks": [],
     "source": "profile:improvement",
@@ -102,14 +103,15 @@
     "stage": "development",
     "label": "实施",
     "requirement": "required",
-    "status": "done",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "TASK-059",
       "TASK-060",
       "TASK-061",
       "TASK-062",
-      "TASK-063"
+      "TASK-063",
+      "TASK-064"
     ],
     "checks": [],
     "source": "profile:improvement",
