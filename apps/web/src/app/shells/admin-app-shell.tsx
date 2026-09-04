@@ -14,6 +14,7 @@ import {
 import { Sidebar } from '@/components/ui/sidebar';
 
 import { AccountMenu } from './account-menu';
+import { AdminBreadcrumbs } from './admin-breadcrumbs';
 import { AdminNavigation } from './admin-navigation';
 import { AppBrand } from './app-brand';
 import { ThemeSwitcher } from './theme-switcher';
@@ -31,7 +32,7 @@ function AdminAppShell() {
       </a>
 
       <Sidebar aria-label="管理导航" className="hidden md:flex">
-        <div className="h-header border-border-soft flex shrink-0 items-center border-b px-3">
+        <div className="h-header flex shrink-0 items-center px-3">
           <AppBrand destination="admin" />
         </div>
         <nav aria-label="管理侧栏导航" className="contents">
@@ -59,9 +60,7 @@ function AdminAppShell() {
               <div className="md:hidden">
                 <AppBrand destination="admin" />
               </div>
-              <span className="font-display text-cap font-body text-fg-2 max-md:hidden">
-                管理中心
-              </span>
+              <AdminBreadcrumbs className="max-md:hidden" />
               <ThemeSwitcher className="ml-auto" />
               <AccountMenu className="ml-0" showSiteEntry />
             </div>
