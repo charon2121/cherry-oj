@@ -3,28 +3,32 @@
 > **状态：已确认的长期规范。** 本文与 [`design-system/`](./design-system/) 共同定义 Cherry OJ
 > 后续 Web 组件、业务组件和页面的视觉与交互合同。
 >
-> **系统的来历要说准确。** 现有 token 结构、主题合同、Tailwind adapter 与校验器由 WORK-015 在
-> 2026-08-28 建立；用户认可的 Claude Design 下载版在 2026-09-03 由
-> [WORK-034 / DECISION-019](../development/works/WORK-034/40-decision-DECISION-019.md) 引入，冻结为
-> 只读来源，并据此完成了数值适配。因此下载版是**视觉依据**，不是这套架构的来源——把两者说反，
-> 后续工作会误判改动该以谁为准。构图层（页面语法、密集列表、工作台模板）尚未从来源迁移到生产，
-> 这是已知缺口，不是已完成事实。
+> **系统的来历要说准确，因为说错过。** token 结构、主题合同、Tailwind adapter 与校验器由
+> WORK-015 在 2026-08-28 建立；Claude Design 下载版 2026-09-03 引入并冻结，颜色与光学间距派生自它；
+> 排版刻度、浮层材质与本文 §7.2 的结构原则来自 2026-09-04 对一份外部 Figma 参照的实测，
+> 数值记录在 [`design-system/measurements.md`](./design-system/measurements.md)。
 >
-> 它不是 Linear 官方设计系统；来源、许可、冻结摘要与生产适配见
-> [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
+> **那个冻结下载版不是设计依据。** 它是二手还原，其 readme 断言过两条被实测推翻的规则——
+> blur 从不使用、焦点用 2px outline——两条都曾被写进本文并已废除。它现在只承担许可、来源与
+> 组件追溯，见 [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
+>
+> 本系统不是 Linear 官方设计系统，也不隶属于它。
 
 ## 1. 权威关系
 
 只有三层，每层回答一个不同的问题，依赖方向不能倒置：
 
-1. **凭什么是这样** —— [`design-system/source/claude-design-v1/`](./design-system/source/claude-design-v1/)
-   是用户认可下载版的原样来源证据，[`source-lock.json`](./design-system/source-lock.json) 锁定其
-   99 文件、239831 bytes、相对路径与逐文件摘要。来源定义视觉和构图，不授权直接复制原型实现。
-2. **应该怎么用** —— 本文规定设计原则、消费规则、组件合同和例外流程；
-   [`components.manifest.json`](./design-system/components.manifest.json) 保存逐组件合同，其中每条
-   `sourceRefs` 指回上一层的具体依据。
+1. **凭什么是这样** —— [`design-system/measurements.md`](./design-system/measurements.md)
+   记录参照的实测数值：骨架尺寸、排版刻度、行内构造、对齐方式、控件描边、浮层材质。
+   它只记事实不记规则，因此可以被复查、也可以被新的实测推翻。
+2. **应该怎么用** —— 本文规定结构原则（§7.2）、构图合同（§7.3）、消费规则、组件合同和例外流程；
+   [`components.manifest.json`](./design-system/components.manifest.json) 保存逐组件合同。
 3. **实际是什么** —— `apps/web/design-system/` 是唯一可执行真源，持有全部 Foundation、主题、
    manifest、合同、Tailwind adapter、生成器与校验器。
+
+[`design-system/source/claude-design-v1/`](./design-system/source/claude-design-v1/) **不在这条链上**。
+它是许可与来源证据：颜色与光学间距派生自它，`source-lock.json` 锁定其 99 文件与逐文件摘要，
+`components.manifest.json` 的 `sourceRefs` 指向它做组件追溯。**不要把它当设计依据。**
 
 **设计值只有一处手写定义**，在 `apps/web/design-system/` 的 `tokens.foundation.css` 与 `themes/*.css`。
 其余出现该值的地方必须是生成物（`tokens.css`、`design-tokens.json`）或冻结来源。文档不复述具体值——
@@ -36,8 +40,8 @@
 [`design-system/README.md`](./design-system/README.md)。
 
 组件生产参考入口是 Storybook（`cd apps/web && npm run storybook`），它渲染真实组件并覆盖两个主题和
-a11y；来源视觉入口是冻结 snapshot 的 specimen 与 app UI kit。实现验收必须在相同 viewport/state 下对照
-来源与生产截图，不能只看 token 是否通过校验。
+a11y。实现验收对照 §7.2 的九条原则与 §7.3 的构图合同**在截图上逐条判定**，不能只看 token 是否
+通过校验——四轮返工里，每一轮的 token 校验都是通过的。
 
 ## 2. 设计方向
 

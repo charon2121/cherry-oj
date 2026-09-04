@@ -16,13 +16,19 @@ WORK-035 之前，本目录还存放着与代码树字节相同的 token、主�
 
 ## 权威顺序
 
-1. [`source/claude-design-v1/`](./source/claude-design-v1/) 是用户认可下载版的原样视觉证据，
-   [`source-lock.json`](./source-lock.json) 锁定其 99 文件、239831 bytes 和逐文件 SHA-256；
-2. [`../design-system.md`](../design-system.md) 定义生产设计原则、组件/页面规则和例外流程；
+1. [`../design-system.md`](../design-system.md) 定义结构原则、构图合同、组件/页面规则和例外流程。
+   **它是唯一的设计权威。**
+2. [`measurements.md`](./measurements.md) 记录规则背后的实测数值。规则引用它，它不引用规则。
 3. `apps/web/design-system/` 是 Web 可执行真源，持有全部 token、主题、合同、adapter 与校验器；
    真实 React 组件和 Storybook 是最终消费结果。
 
-来源里的 JSX/HTML/bundle 是原型证据，不可覆盖 TypeScript、语义 HTML、Base UI、可访问性和业务合同。
+[`source/claude-design-v1/`](./source/claude-design-v1/) **不在这条链上**。它是许可与来源证据：
+颜色与光学间距派生自它，`source-lock.json` 锁定其 99 文件、239831 bytes 与逐文件 SHA-256，
+`components.manifest.json` 的 `sourceRefs` 指向它做组件追溯。
+
+**不要把它当设计依据。** 它是二手还原，其 readme 断言过两条被实测推翻的规则
+（blur 从不使用、焦点用 2px outline），两条都曾被写进本仓库规范并已废除。
+里面的 JSX/HTML/bundle 是原型证据，不可覆盖 TypeScript、语义 HTML、Base UI、可访问性和业务合同。
 
 ## 暗色与浅色
 

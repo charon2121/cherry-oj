@@ -6,8 +6,26 @@ the production interpretation maintained by Cherry OJ.
 
 # Attribution and modification notice
 
-WORK-034 uses the user-provided Claude Design export `Cherry OJ Design System` as its direct visual source. The export is
-stored byte-for-byte under [`source/claude-design-v1/`](./source/claude-design-v1/) and locked by
+## Two derivation chains, not one
+
+Cherry OJ's current design system derives from **two** sources, and conflating them is what produced four rounds of rework.
+State them separately:
+
+1. **The frozen Claude Design export** (below) is where the colour palette, the optical spacing steps and the component
+   inventory come from. It is retained here as licence and provenance evidence.
+2. **Measured values from an external Figma reference** are where the type scale, weights, letter-spacing, radius,
+   overlay material and the composition principles come from. That file is not in this repository; the numbers taken
+   from it are recorded in [`measurements.md`](./measurements.md), which is their only record here.
+
+The frozen export is **no longer the composition authority**. It is a second-hand recreation, and its own readme asserted
+two rules that measurement later disproved — that blur is never used, and that focus is a 2px outline. Both were written
+into this repository's specification and both have been withdrawn. Treat the export as evidence of what we derived from,
+not as instruction on how to build.
+
+## The frozen Claude Design export
+
+The user-provided Claude Design export `Cherry OJ Design System` is stored byte-for-byte under
+[`source/claude-design-v1/`](./source/claude-design-v1/) and locked by
 [`source-lock.json`](./source-lock.json): 99 files, 239831 bytes, root SHA-256
 `68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d`. The lock includes every relative path,
 byte length and SHA-256 and rejects symlinks or path escape.
