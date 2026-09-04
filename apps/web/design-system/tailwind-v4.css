@@ -296,6 +296,9 @@
   --duration-slow: var(--ds-motion-slow);
   --ease-standard: var(--ds-ease-standard);
 
+  --blur-overlay: var(--ds-overlay-blur);
+  --blur-overlay-strong: var(--ds-overlay-blur-strong);
+
   --shadow-subtle: var(--ds-elevation-subtle);
   --shadow-inset: var(--ds-elevation-inset);
   --shadow-dialog: var(--ds-elevation-dialog);

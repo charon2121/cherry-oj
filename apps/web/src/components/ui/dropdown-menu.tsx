@@ -42,7 +42,7 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            'text-foreground border-border bg-panel shadow-dialog duration-fast ease-standard min-w-56 overflow-x-hidden overflow-y-auto rounded-sm border p-1 transition-opacity outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground border-border bg-panel/85 shadow-dialog backdrop-blur-overlay duration-fast ease-standard min-w-56 overflow-x-hidden overflow-y-auto rounded-sm border p-1 transition-opacity outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             className,
           )}
           {...props}
@@ -71,7 +71,7 @@ function DropdownMenuLabel({
 type DropdownMenuItemVariant = 'default' | 'danger';
 
 const dropdownMenuItemClasses =
-  'text-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:outline-ring relative flex min-h-9 cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-body outline-none select-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] data-[disabled]:pointer-events-none data-[disabled]:cursor-not-allowed data-[disabled]:text-fg-disabled [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
+  'text-foreground data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus-visible:outline-ring relative flex min-h-9 cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-body outline-none select-none focus-visible:outline-1 focus-visible:outline-offset-[-1px] data-[disabled]:pointer-events-none data-[disabled]:cursor-not-allowed data-[disabled]:text-fg-disabled [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 type DropdownMenuItemProps = Omit<MenuPrimitive.Item.Props, 'className'> &
   ClassNameProp &
