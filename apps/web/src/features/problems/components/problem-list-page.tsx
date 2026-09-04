@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { AsyncState } from '@/components/ui/async-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DataList, type DataListColumn, dataListRowLinkClasses } from '@/components/ui/data-list';
+import { DataList, dataListRowLinkClasses } from '@/components/ui/data-list';
 import { ListPageTemplate } from '@/components/ui/page-templates';
 import { SearchInput } from '@/components/ui/search-input';
 import { SelectField } from '@/components/ui/select';
@@ -16,18 +16,11 @@ import type { ProblemSummary } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 
 import { listProblems, problemKeys, type ProblemSearch } from '../api/problems-api';
+import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
 
 type Props = {
   search: ProblemSearch;
   navigate: (search: ProblemSearch) => void;
-};
-
-// 难度是有序量：用颜色区分快，但不能只有颜色——文字始终保留（design-system.md §5）。
-const difficultyTone: Record<string, string> = {
-  EASY: 'text-success',
-  MEDIUM: 'text-warning',
-  HARD: 'text-danger',
-  UNRATED: 'text-fg-meta',
 };
 
 export function ProblemListPage({ search, navigate }: Props) {
@@ -61,69 +54,38 @@ export function ProblemListPage({ search, navigate }: Props) {
     navigate({ sort: 'UPDATED_DESC', size: search.size });
   };
 
-  const columns: DataListColumn<ProblemSummary>[] = [
-    {
-      id: 'slug',
-      header: '标识',
-      width: '13rem',
-      mono: true,
-      priority: 'secondary',
-      cell: (problem) => `${problem.slug} · v${problem.versionNo}`,
-    },
-    {
-      id: 'title',
-      header: '题目',
-      cell: (problem) => (
-        <Link
-          to="/problems/$slug"
-          params={{ slug: problem.slug }}
-          search={{}}
-          className={dataListRowLinkClasses}
-        >
-          {problem.title}
-        </Link>
-      ),
-    },
-    {
-      id: 'tags',
-      header: '标签',
-      width: '14rem',
-      priority: 'secondary',
-      cell: (problem) => (
-        <span className="flex flex-wrap items-center gap-1">
-          {problem.tags.map((tag) => (
-            <Badge key={tag}>{tag}</Badge>
-          ))}
-        </span>
-      ),
-    },
-    {
-      id: 'difficulty',
-      header: '难度',
-      width: '5rem',
-      cell: (problem) => (
-        <span className={difficultyTone[problem.difficulty] ?? 'text-fg-meta'}>
-          {difficultyLabel(problem.difficulty)}
-        </span>
-      ),
-    },
-    {
-      id: 'codeMode',
-      header: '模式',
-      width: '5rem',
-      priority: 'secondary',
-      cell: (problem) => problem.codeMode,
-    },
-    {
-      id: 'languages',
-      header: '语言',
-      width: '8rem',
-      align: 'end',
-      priority: 'secondary',
-      cell: (problem) =>
-        problem.allowedLanguages.map((language) => language.displayName).join(' / '),
-    },
-  ];
+  // 一行两簇：左簇是难度图标 + 标识 + 标题（标题吃掉剩余宽度），右簇是标签与语言。
+  // 模式（ACM/CORE）和版本号从列表里拿掉——它们是筛选维度和技术细节，不是扫视时要看的东西。
+  const renderRow = (problem: ProblemSummary) => ({
+    leading: <DifficultyIcon difficulty={problem.difficulty} />,
+    id: problem.slug,
+    title: (
+      <Link
+        to="/problems/$slug"
+        params={{ slug: problem.slug }}
+        search={{}}
+        className={dataListRowLinkClasses}
+      >
+        {problem.title}
+      </Link>
+    ),
+    trailing: (
+      <>
+        {problem.tags.slice(0, 2).map((tag) => (
+          <Badge key={tag}>{tag}</Badge>
+        ))}
+        <span>{problem.allowedLanguages.map((language) => language.displayName).join(' / ')}</span>
+      </>
+    ),
+    meta: (
+      <>
+        <span>{difficultyLabel(problem.difficulty)}</span>
+        {problem.tags.slice(0, 1).map((tag) => (
+          <span key={tag}>{tag}</span>
+        ))}
+      </>
+    ),
+  });
 
   // 工具条第一行放标题、计数与关键词搜索；第二行放其余筛选。除关键词与标签需要
   // 敲完再提交（回车即生效，没有"筛选"按钮）外，下拉一律选中即生效。
@@ -168,7 +130,7 @@ export function ProblemListPage({ search, navigate }: Props) {
       filters={
         <>
           <SelectField
-            className="w-40"
+            labelPlacement="hidden"
             label="难度"
             value={search.difficulty ?? ''}
             onValueChange={(value) =>
@@ -187,7 +149,7 @@ export function ProblemListPage({ search, navigate }: Props) {
             ]}
           />
           <SelectField
-            className="w-40"
+            labelPlacement="hidden"
             label="语言"
             value={search.language ?? ''}
             onValueChange={(value) =>
@@ -199,7 +161,7 @@ export function ProblemListPage({ search, navigate }: Props) {
             ]}
           />
           <SelectField
-            className="w-40"
+            labelPlacement="hidden"
             label="模式"
             value={search.codeMode ?? ''}
             onValueChange={(value) =>
@@ -216,7 +178,7 @@ export function ProblemListPage({ search, navigate }: Props) {
             ]}
           />
           <SelectField
-            className="w-40"
+            labelPlacement="hidden"
             label="排序"
             value={search.sort}
             onValueChange={(value) =>
@@ -331,22 +293,14 @@ export function ProblemListPage({ search, navigate }: Props) {
       {result.data === undefined ? null : (
         <DataList
           caption="题库"
-          columns={columns}
           rows={result.data.items}
           rowKey={(problem) => problem.problemId}
+          renderRow={renderRow}
           rowInteractive
           aria-busy={result.isFetching || undefined}
         />
       )}
     </ListPageTemplate>
-  );
-}
-
-function difficultyLabel(value: string) {
-  return (
-    ({ UNRATED: '未评级', EASY: '简单', MEDIUM: '中等', HARD: '困难' } as Record<string, string>)[
-      value
-    ] ?? value
   );
 }
 

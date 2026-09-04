@@ -22,10 +22,22 @@ describe('page templates', () => {
     expect(screen.queryByText('不应出现的列表')).not.toBeInTheDocument();
   });
 
-  it('owns the first-content spacing so pages do not set their own top padding', () => {
-    const { container } = render(<ListPageTemplate title="题库">内容</ListPageTemplate>);
+  it('owns the first-content spacing in contained pages so they do not set their own padding', () => {
+    const { container } = render(
+      <ListPageTemplate title="题库" width="contained">
+        内容
+      </ListPageTemplate>,
+    );
 
     expect(container.querySelector('[data-slot="section"]')).toHaveClass('pt-6');
+  });
+
+  it('lets a list page bleed to the edges instead of sitting in a centred card', () => {
+    // 列表页默认铺满：把列表装进居中的圆角卡片是后台管理页面的语言，不是工作区的。
+    const { container } = render(<ListPageTemplate title="题库">内容</ListPageTemplate>);
+
+    expect(container.querySelector('[data-slot="list-page"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="container"]')).not.toBeInTheDocument();
   });
 
   it('keeps the workbench status bar reachable after scrolling', () => {

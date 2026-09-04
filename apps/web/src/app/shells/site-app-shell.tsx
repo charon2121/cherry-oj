@@ -3,7 +3,6 @@ import { Menu } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Container } from '@/components/ui/layout';
 import {
   Sheet,
   SheetContent,
@@ -26,13 +25,13 @@ function SiteAppShell({ children }: SiteAppShellProps) {
     <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_1fr_auto]">
       <a
         href="#site-main"
-        className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 h-px w-px overflow-hidden rounded-sm border whitespace-nowrap [clip:rect(0,0,0,0)] focus-visible:h-auto focus-visible:w-auto focus-visible:overflow-visible focus-visible:px-3 focus-visible:py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:[clip:auto]"
+        className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 h-px w-px overflow-hidden rounded-sm border whitespace-nowrap [clip:rect(0,0,0,0)] focus-visible:h-auto focus-visible:w-auto focus-visible:overflow-visible focus-visible:px-3 focus-visible:py-2 focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:[clip:auto]"
       >
         跳到主要内容
       </a>
       <header className="h-header border-border-soft bg-panel sticky top-0 z-40 border-b">
         <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop h-full">
-          <div className="max-w-page mx-auto flex h-full min-w-0 flex-nowrap items-center gap-2 sm:gap-6">
+          <div className="flex h-full min-w-0 flex-nowrap items-center gap-2 sm:gap-6">
             <AppBrand />
             <SitePrimaryNavigation />
             <Button
@@ -59,12 +58,12 @@ function SiteAppShell({ children }: SiteAppShellProps) {
       </main>
 
       <footer className="border-border-soft border-t">
-        <Container>
+        <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop">
           <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <span className="font-display font-body">Cherry OJ</span>
             <span className="text-fg-meta">Focused Workspace</span>
           </div>
-        </Container>
+        </div>
       </footer>
 
       <Sheet open={navigationOpen} onOpenChange={setNavigationOpen}>

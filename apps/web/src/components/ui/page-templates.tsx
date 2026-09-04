@@ -65,6 +65,12 @@ type ListPageTemplateProps = BasePageProps &
     toolbar?: ReactNode;
     /** 分页 / 游标导航，固定在列表下方。 */
     pagination?: ReactNode;
+    /**
+     * `bleed`（默认）让列表铺满主内容区、不套外框——应用工作区的列表页用这个。
+     * `contained` 把内容收进 1200px 居中容器，适合阅读型页面。
+     * 把一个列表装进居中的圆角卡片是后台管理页面的语言，不是工作区的。
+     */
+    width?: 'contained' | 'bleed';
   }>;
 
 // 列表页 = 工具条 + 数据列表 + 分页。这是构图合同里最硬的一条：不用卡片网格代替列表。
@@ -77,27 +83,39 @@ function ListPageTemplate({
   titleAction,
   titleVisible = false,
   toolbar,
+  width = 'bleed',
 }: ListPageTemplateProps) {
+  const gutters = 'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop';
+  const body = (
+    <>
+      <PageTitle title={title} visible={titleVisible} action={titleAction} />
+      {toolbar}
+      {state === undefined ? (
+        <>
+          {children}
+          {pagination === undefined ? null : (
+            <div className={cn(width === 'bleed' && gutters, 'py-4')}>{pagination}</div>
+          )}
+        </>
+      ) : (
+        <div className={cn(width === 'bleed' && gutters)}>{state}</div>
+      )}
+    </>
+  );
+
+  // 铺满：不套 Container 也不套 Section 的上下留白。列表的上边界就是工具条，
+  // 它贴着主内容区顶部，左右贴着边缘。把列表装进居中的圆角卡片是后台管理页面的语言。
+  if (width === 'bleed') {
+    return (
+      <div data-slot="list-page" className={cn('min-w-0', className)}>
+        {body}
+      </div>
+    );
+  }
+
   return (
     <Container className={className}>
-      <Section>
-        <PageTitle title={title} visible={titleVisible} action={titleAction} />
-        {toolbar === undefined ? null : (
-          <div className="border-border overflow-hidden rounded-t-lg border border-b-0">
-            {toolbar}
-          </div>
-        )}
-        {state ?? (
-          <>
-            <div
-              className={cn(toolbar !== undefined && '[&>[data-slot=data-list]]:rounded-t-none')}
-            >
-              {children}
-            </div>
-            {pagination === undefined ? null : <div className="mt-4">{pagination}</div>}
-          </>
-        )}
-      </Section>
+      <Section>{body}</Section>
     </Container>
   );
 }

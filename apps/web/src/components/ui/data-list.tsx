@@ -2,61 +2,61 @@ import { type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from './table';
-
-// DataList 是第 3 层业务组件，构图依据是冻结来源的 ui_kits/app/ProblemList.jsx。
-// 它要解决的正是"材料合规、页面风格不合规"里最显眼的一条：来源的列表是**对齐的列**，
-// 而此前每个页面自己用 flex-wrap 拼行，列宽随内容浮动，跨行对不齐。
+// DataList 是应用工作区的密集列表，构图依据是 Linear Design System (Community) Figma 文件里
+// App Screens / Issues 的实测值：行 44px、左右两簇、簇内 gap 9px、行间 1px hairline。
 //
-// 三个不可协商的构图属性：
-//   1. 列宽由列定义声明并跨行共享 —— 列边缘在截图上能连成竖线；
-//   2. 行间只有 1px hairline，没有卡片间距、没有卡片网格；
-//   3. 状态用形状（8px 圆点 / 2px 圆角方块）而不是只靠颜色。
+// 它此前是一个 <table> + 列定义。那是**错误的抽象**：表格会把剩余宽度均分给各列，于是六个字段
+// 摊满整行，中间全是空隙——去掉表头也去不掉表格感，因为表格感来自列均分。参照的一行只有两簇：
 //
-// 窄屏不横向裁切也不横向滚动：次要列在断点以下从表格里隐藏，改为在主列下方折成一行
-// metadata。关键列（状态、标识、主标题）任何宽度下都在。
+//   [图标] [标识] [标题 ─────────────────────────────────]        [尾部元信息]
+//   └──────── 左簇，gap 9px，标题吃掉剩余宽度 ────────┘        └── 右簇，贴右 ──┘
+//
+// 三条不可协商：
+//   1. 标题是全行最亮的东西（--ds-fg），其余一律降到 --ds-fg-meta。参照把标识和标题设成同样的
+//      13px/400，只靠颜色分层级——层级由颜色承担，不由字号或字重承担。
+//   2. 中间的空白是有意的，不是没排满。不要往里塞列。
+//   3. 颜色按屏计量，不按行计量。每行一处饱和色，六行就是六处，密集列表会立刻显廉价。
+//
+// 需要真正的数据表（管理端批量操作、可排序列头）时用 ./table 的 Table 原语，不要把列头加回这里。
 
 type DataListStatus = 'done' | 'partial' | 'none';
 
-type DataListColumn<Row> = Readonly<{
-  id: string;
-  header: string;
-  /** 固定列宽（如 '7rem'）。省略即为自适应主列；一个列表应当只有一个自适应列。 */
-  width?: string;
-  align?: 'start' | 'end';
-  /** secondary 列在窄屏折进主列下方的 metadata 行，不横向裁切。 */
-  priority?: 'primary' | 'secondary';
-  /** 度量值与标识用 mono：来源要求 ID、耗时、内存、通过率等一律等宽。 */
-  mono?: boolean;
-  cell: (row: Row) => ReactNode;
+type DataListItem = Readonly<{
+  /** 行首 16px 图标位：难度、状态、优先级这类有序量放这里，用形状而不是彩色文字承载。 */
+  leading?: ReactNode;
+  /** 标识。mono、最弱一档灰。 */
+  id?: ReactNode;
+  /** 标题。全行最亮，吃掉所有剩余宽度。 */
+  title: ReactNode;
+  /** 右簇。贴右聚拢，内容之间 gap 8px；放不下就先去掉，不要挤压标题。 */
+  trailing?: ReactNode;
+  /** 窄屏折行区：右簇在断点以下隐藏，内容改到这里显示在标题下方。 */
+  meta?: ReactNode;
+}>;
+
+type DataListGroup<Row> = Readonly<{
+  key: string;
+  /** 分组带的标签，例如「未开始」。 */
+  label: ReactNode;
+  /** 分组计数。参照把它放在标签右侧，用更弱一档灰。 */
+  count?: ReactNode;
+  icon?: ReactNode;
+  rows: readonly Row[];
 }>;
 
 type DataListProps<Row> = Readonly<{
-  /** 可访问名称。视觉上可隐藏，但每个列表都必须有。 */
   caption: string;
-  captionVisible?: boolean;
   className?: string;
-  columns: readonly DataListColumn<Row>[];
-  rows: readonly Row[];
+  rows?: readonly Row[];
+  /** 分组渲染。给出时代替 rows，每组前渲染一条 36px 的分组带。 */
+  groups?: readonly DataListGroup<Row>[];
   rowKey: (row: Row) => string;
-  /** 整行是否可点击。为 true 时行成为定位上下文，主列里带 dataListRowLinkClasses 的链接铺满整行。 */
+  renderRow: (row: Row) => DataListItem;
   rowInteractive?: boolean;
-  rowStatus?: (row: Row) => DataListStatus;
-  rowStatusLabel?: (row: Row) => string;
   'aria-busy'?: boolean | undefined;
 }>;
 
 const statusShape: Record<DataListStatus, string> = {
-  // 已完成用实心圆点，进行中用同尺寸空心，未开始用 2px 圆角方块——来源的 issue 行配方。
-  // 形状本身携带信息，因此色盲用户不依赖颜色也能区分。
   done: 'rounded-circle bg-success',
   partial: 'rounded-circle border border-warning bg-transparent',
   none: 'rounded-[2px] bg-border-strong',
@@ -71,124 +71,96 @@ function DataListStatusDot({ status, label }: { status: DataListStatus; label: s
   );
 }
 
-function DataList<Row>({
-  caption,
-  captionVisible = false,
-  className,
-  columns,
-  rows,
-  rowKey,
-  rowInteractive = false,
-  rowStatus,
-  rowStatusLabel,
-  'aria-busy': ariaBusy,
-}: DataListProps<Row>) {
-  const secondary = columns.filter((column) => column.priority === 'secondary');
-  // 折行区只挂在第一个主列下方。挂在每个主列上会让被隐藏的列在窄屏重复出现多份。
-  const foldTargetId = columns.find((column) => column.priority !== 'secondary')?.id;
-  const hasStatus = rowStatus !== undefined;
+const gutters = 'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop';
 
+function DataListRow({ item, interactive }: { item: DataListItem; interactive: boolean }) {
   return (
-    <div
-      data-slot="data-list"
-      className={cn('border-border overflow-hidden rounded-lg border', className)}
+    <li
+      data-slot="data-list-row"
+      className={cn(
+        'border-line hover:bg-surface-translucent-hover duration-fast ease-standard flex min-h-11 min-w-0 items-center gap-3 border-b transition-colors last:border-b-0 motion-reduce:transition-none',
+        gutters,
+        interactive && 'relative',
+      )}
     >
-      {/* table-fixed 不是样式偏好：默认的 table-layout: auto 会让声明的列宽变成"建议"，
-          内容一长就撑开，列边缘跨行对不齐——构图合同里最硬的那一条就落空了。 */}
-      <Table aria-busy={ariaBusy} className="table-fixed">
-        <TableCaption className={cn('mt-0 px-4 py-2', !captionVisible && 'sr-only')}>
-          {caption}
-        </TableCaption>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            {hasStatus ? <TableHead className="w-8 pr-0">状态</TableHead> : null}
-            {columns.map((column) => (
-              <TableHead
-                key={column.id}
-                style={column.width === undefined ? undefined : { width: column.width }}
-                className={cn(
-                  column.align === 'end' && 'text-right',
-                  // 次要列在窄屏整列隐藏，内容改由主列下方的 metadata 行承担。
-                  column.priority === 'secondary' && 'hidden md:table-cell',
-                )}
-              >
-                {column.header}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const cells = (
-              <>
-                {hasStatus ? (
-                  <TableCell className="w-8 pr-0">
-                    <DataListStatusDot
-                      status={rowStatus(row)}
-                      label={rowStatusLabel?.(row) ?? rowStatus(row)}
-                    />
-                  </TableCell>
-                ) : null}
-                {columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    style={column.width === undefined ? undefined : { width: column.width }}
-                    className={cn(
-                      // 度量值与标识固定一行：折行会让行高随内容跳动，密集列表随之散架。
-                      column.mono && 'truncate font-mono',
-                      column.align === 'end' && 'text-right',
-                      column.priority === 'secondary' && 'hidden md:table-cell',
-                      column.priority !== 'secondary' && 'min-w-0',
-                    )}
-                  >
-                    {column.cell(row)}
-                    {/* 窄屏把被隐藏的次要列折到第一个主列下方，不裁切也不横向滚动。 */}
-                    {column.id === foldTargetId && secondary.length > 0 ? (
-                      <span className="text-fg-meta text-cap mt-1 flex flex-wrap items-center gap-2 md:hidden">
-                        {secondary.map((hidden) => (
-                          <span
-                            key={hidden.id}
-                            className={cn('min-w-0', hidden.mono && 'font-mono')}
-                          >
-                            {hidden.cell(row)}
-                          </span>
-                        ))}
-                      </span>
-                    ) : null}
-                  </TableCell>
-                ))}
-              </>
-            );
-
-            return (
-              <TableRow
-                key={rowKey(row)}
-                data-slot="data-list-row"
-                // 整行可点击不能靠 div + onClick，也不能把 <a> 塞进 <tr> 与 <td> 之间（非法 HTML）。
-                // 行做定位上下文，主列里的真实链接用 ::after 铺满整行：一个链接、键盘可达、
-                // 语义正确，同时整行都是命中区。
-                className={cn(rowInteractive && 'relative')}
-              >
-                {cells}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {item.leading === undefined ? null : (
+          <span className="flex size-4 shrink-0 items-center justify-center">{item.leading}</span>
+        )}
+        {item.id === undefined ? null : (
+          <span className="text-fg-meta shrink-0 truncate font-mono text-sm">{item.id}</span>
+        )}
+        <span className="text-foreground min-w-0 flex-1 truncate text-sm">{item.title}</span>
+        {/* 折行区只在右簇被隐藏的断点以下出现，否则同一份信息会在桌面重复两次。 */}
+        {item.meta === undefined ? null : (
+          <span className="text-fg-meta text-cap flex shrink-0 items-center gap-2 md:hidden">
+            {item.meta}
+          </span>
+        )}
+      </div>
+      {item.trailing === undefined ? null : (
+        <div className="text-fg-meta text-cap hidden shrink-0 items-center gap-2 md:flex">
+          {item.trailing}
+        </div>
+      )}
+    </li>
   );
 }
 
-// 调用方把它加在主列的链接上。链接本身仍是普通链接，只是命中区借 ::after 扩展到整行——
-// 这样"整行可点击"不需要 div + onClick，也不需要把 <a> 塞进 <tr> 与 <td> 之间（非法 HTML）。
-// 行标题用前景色、hover 提亮，**不用品牌色**。来源把 Cherry 限制在主按钮、focus、活动态和
-// 正文链接上；一屏几十行标题全是品牌色就成了"大面积色块"，正是它明确禁止的。
+function DataList<Row>({
+  caption,
+  className,
+  rows,
+  groups,
+  rowKey,
+  renderRow,
+  rowInteractive = false,
+  'aria-busy': ariaBusy,
+}: DataListProps<Row>) {
+  const body = (list: readonly Row[]) =>
+    list.map((row) => (
+      <DataListRow key={rowKey(row)} item={renderRow(row)} interactive={rowInteractive} />
+    ));
+
+  return (
+    <section
+      data-slot="data-list"
+      aria-label={caption}
+      aria-busy={ariaBusy}
+      className={cn('min-w-0', className)}
+    >
+      {groups === undefined ? (
+        <ul className="border-line min-w-0 border-t">{body(rows ?? [])}</ul>
+      ) : (
+        groups.map((group) => (
+          <div key={group.key} className="min-w-0">
+            {/* 分组带：36px，底色比画布亮一档。参照用明度分段，不用标题文字分段。 */}
+            <div
+              className={cn('bg-surface flex min-h-9 min-w-0 items-center gap-2 text-sm', gutters)}
+            >
+              {group.icon}
+              <span className="text-foreground font-body">{group.label}</span>
+              {group.count === undefined ? null : (
+                <span className="text-fg-meta">{group.count}</span>
+              )}
+            </div>
+            <ul className="min-w-0">{body(group.rows)}</ul>
+          </div>
+        ))
+      )}
+    </section>
+  );
+}
+
+// 加在标题链接上：链接本身是普通链接，命中区借 ::after 扩展到整行。
+// 标题用 --ds-fg（最亮），不是品牌色也不是 fg-2——它是全行的视觉锚点。
 const dataListRowLinkClasses =
-  'text-fg-2 hover:text-foreground focus-visible:outline-ring rounded-xs no-underline transition-colors duration-fast ease-standard after:absolute after:inset-0 after:content-[""] focus-visible:outline-2 focus-visible:outline-offset-[-2px] motion-reduce:transition-none';
+  'text-foreground focus-visible:outline-ring rounded-xs no-underline after:absolute after:inset-0 after:content-[""] focus-visible:outline-1 focus-visible:outline-offset-[-1px]';
 
 export {
   DataList,
-  type DataListColumn,
+  type DataListGroup,
+  type DataListItem,
   type DataListProps,
   dataListRowLinkClasses,
   type DataListStatus,
