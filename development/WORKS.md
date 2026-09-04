@@ -40,4 +40,4 @@
 | WORK-033 | 重设计后台题目创建与编辑体验 | 工程改进 | 实现完成 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-033/00-work.md) |
 | WORK-034 | 基于下载版重建 Web 设计系统并保留浅色主题 | 工程改进 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-034/00-work.md) |
 | WORK-035 | 收敛设计系统为单一真源 | 整理维护 | 验证通过 | 中 | 多个模块 | claude/root | [00-work.md](./works/WORK-035/00-work.md) |
-| WORK-036 | 建立页面构图层并修复前景色层级 | 工程改进 | 待确认 | 高 | 整个系统 | claude/root | [00-work.md](./works/WORK-036/00-work.md) |
+| WORK-036 | 建立页面构图层并修复前景色层级 | 工程改进 | 实现完成 | 高 | 整个系统 | claude/root | [00-work.md](./works/WORK-036/00-work.md) |

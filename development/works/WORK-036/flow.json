@@ -66,7 +66,7 @@
     "stage": "plan",
     "label": "开发计划",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "PLAN-024"
@@ -74,8 +74,8 @@
     "checks": [
       {
         "name": "rollback",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "每阶段一个提交，均可独立编译并独立 revert；全部改动已推送 main，无数据或外部状态需回滚"
       }
     ],
     "source": "overlay:risk-impact",
@@ -103,7 +103,7 @@
     "stage": "development",
     "label": "实施",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-059",
@@ -121,14 +121,14 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
+    "status": "doing",
+    "status_source": "manual",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "五个 TASK 均在各自 write_paths 内，三处边界扩大事前记录；后端、contracts、数据库未触及"
       },
       {
         "name": "independent-review",
@@ -143,7 +143,7 @@
     "stage": "verification",
     "label": "验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-037"
