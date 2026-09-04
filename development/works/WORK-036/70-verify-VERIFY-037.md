@@ -2,7 +2,7 @@
 id: "VERIFY-037"
 type: "verify"
 title: "建立页面构图层并修复前景色层级"
-status: "review"
+status: "approved"
 work: "WORK-036"
 owners: ["claude/root"]
 depends_on: ["TASK-059"]
@@ -198,3 +198,4 @@ WORK-035 的结论本身不受影响（单一真源与门禁强度的证据独�
 ## 变更记录
 
 - 2026-09-04：状态变更：draft → review。原因：12 条 AC 中 11 条完全达成，AC-007 部分达成并说明原因；approved 由用户在验收闸签署
+- 2026-09-04：验收闸通过：review → approved。原因：通过验收

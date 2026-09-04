@@ -121,8 +121,8 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "doing",
-    "status_source": "manual",
+    "status": "done",
+    "status_source": "derived",
     "artifacts": [],
     "checks": [
       {
@@ -132,8 +132,8 @@
       },
       {
         "name": "independent-review",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "文档断言逐条回核代码（18 条），三处边界扩大事前记录，五个 TASK 均在 write_paths 内"
       }
     ],
     "source": "profile:improvement",
@@ -143,7 +143,7 @@
     "stage": "verification",
     "label": "验证",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-037"
@@ -151,18 +151,18 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "check 36 文件 136 测试、build、storybook:build、e2e 30/30、docs_test 362 文档、work check 293 文档全部通过"
       },
       {
         "name": "cross-module-regression",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "后端、contracts、生成 API 客户端与数据库未触及；题库 E2E 断言未改即通过，证明业务行为与 URL 参数不变"
       },
       {
         "name": "accessibility",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "四档前景两主题全部允许 surface ≥4.5:1；fg-disabled 按 WCAG 2.2 SC 1.4.3 豁免并加阶梯断言；焦点 1px 变色保留 forced-colors outline 回退，AA 满足、AAA 有意放弃；E2E 覆盖键盘、320px、forced-colors、reduced-motion"
       }
     ],
     "source": "profile:improvement",
@@ -172,7 +172,7 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "MEMORY-028"
