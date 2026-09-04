@@ -53,6 +53,13 @@ type DataListProps<Row> = Readonly<{
   rowKey: (row: Row) => string;
   renderRow: (row: Row) => DataListItem;
   rowInteractive?: boolean;
+  /**
+   * `spread`（默认）把 trailing 推到行的右边缘，适合标题本身很长、能撑满宽度的内容。
+   * `packed` 给标题一个固定宽度，其后的字段因此在各行落在同一个 x 上——**短标题必须用这个**。
+   * 两端对齐会空出整行的一大半（那不是"留白是内容"，是没排好）；而完全紧贴又会让后续字段
+   * 随标题长短参差，比空白更伤扫视。固定标题宽度是这两者之间唯一站得住的解。
+   */
+  align?: 'spread' | 'packed';
   'aria-busy'?: boolean | undefined;
 }>;
 
@@ -73,7 +80,15 @@ function DataListStatusDot({ status, label }: { status: DataListStatus; label: s
 
 const gutters = 'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop';
 
-function DataListRow({ item, interactive }: { item: DataListItem; interactive: boolean }) {
+function DataListRow({
+  item,
+  interactive,
+  align,
+}: {
+  item: DataListItem;
+  interactive: boolean;
+  align: 'spread' | 'packed';
+}) {
   return (
     <li
       data-slot="data-list-row"
@@ -83,14 +98,24 @@ function DataListRow({ item, interactive }: { item: DataListItem; interactive: b
         interactive && 'relative',
       )}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className={cn('flex min-w-0 items-center gap-2', align === 'spread' && 'flex-1')}>
         {item.leading === undefined ? null : (
           <span className="flex size-4 shrink-0 items-center justify-center">{item.leading}</span>
         )}
         {item.id === undefined ? null : (
           <span className="text-fg-meta shrink-0 truncate font-mono text-sm">{item.id}</span>
         )}
-        <span className="text-foreground min-w-0 flex-1 truncate text-sm">{item.title}</span>
+        <span
+          className={cn(
+            'text-foreground min-w-0 truncate text-sm',
+            align === 'spread' && 'flex-1',
+            // 确定宽度，不是 w-full：packed 下父容器是 shrink-to-fit，百分比宽度会解析回
+            // 内容宽度，后续字段就又参差了。窄屏靠 shrink 收缩。
+            align === 'packed' && 'w-88 shrink',
+          )}
+        >
+          {item.title}
+        </span>
         {/* 折行区只在右簇被隐藏的断点以下出现，否则同一份信息会在桌面重复两次。 */}
         {item.meta === undefined ? null : (
           <span className="text-fg-meta text-cap flex shrink-0 items-center gap-2 md:hidden">
@@ -115,11 +140,17 @@ function DataList<Row>({
   rowKey,
   renderRow,
   rowInteractive = false,
+  align = 'spread',
   'aria-busy': ariaBusy,
 }: DataListProps<Row>) {
   const body = (list: readonly Row[]) =>
     list.map((row) => (
-      <DataListRow key={rowKey(row)} item={renderRow(row)} interactive={rowInteractive} />
+      <DataListRow
+        key={rowKey(row)}
+        item={renderRow(row)}
+        interactive={rowInteractive}
+        align={align}
+      />
     ));
 
   return (

@@ -68,9 +68,11 @@ type ListPageTemplateProps = BasePageProps &
     /**
      * `bleed`（默认）让列表铺满主内容区、不套外框——应用工作区的列表页用这个。
      * `contained` 把内容收进 1200px 居中容器，适合阅读型页面。
-     * 把一个列表装进居中的圆角卡片是后台管理页面的语言，不是工作区的。
+     * `column` 收到约 1024px 并居中，**没有框也没有底色**——它服务于"每行只有几个短字段"
+     * 的列表：这类内容在 1440px 下会空掉整行的一大半，那不是留白是没排好。
+     * 收窄不等于装进卡片：判据是有没有边框和底色，不是有没有居中。
      */
-    width?: 'contained' | 'bleed';
+    width?: 'contained' | 'bleed' | 'column';
   }>;
 
 // 列表页 = 工具条 + 数据列表 + 分页。这是构图合同里最硬的一条：不用卡片网格代替列表。
@@ -86,6 +88,7 @@ function ListPageTemplate({
   width = 'bleed',
 }: ListPageTemplateProps) {
   const gutters = 'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop';
+  const bleedGutters = width === 'bleed' || width === 'column';
   const body = (
     <>
       <PageTitle title={title} visible={titleVisible} action={titleAction} />
@@ -94,20 +97,31 @@ function ListPageTemplate({
         <>
           {children}
           {pagination === undefined ? null : (
-            <div className={cn(width === 'bleed' && gutters, 'py-4')}>{pagination}</div>
+            <div className={cn(bleedGutters && gutters, 'py-4')}>{pagination}</div>
           )}
         </>
       ) : (
-        <div className={cn(width === 'bleed' && gutters)}>{state}</div>
+        <div className={cn(bleedGutters && gutters)}>{state}</div>
       )}
     </>
   );
 
   // 铺满：不套 Container 也不套 Section 的上下留白。列表的上边界就是工具条，
-  // 它贴着主内容区顶部，左右贴着边缘。把列表装进居中的圆角卡片是后台管理页面的语言。
+  // 它贴着主内容区顶部，左右贴着边缘。
   if (width === 'bleed') {
     return (
       <div data-slot="list-page" className={cn('min-w-0', className)}>
+        {body}
+      </div>
+    );
+  }
+
+  if (width === 'column') {
+    return (
+      <div
+        data-slot="list-page"
+        className={cn('mx-auto max-w-[64rem] min-w-0 pt-6 pb-8', className)}
+      >
         {body}
       </div>
     );

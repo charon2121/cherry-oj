@@ -54,11 +54,10 @@ export function ProblemListPage({ search, navigate }: Props) {
     navigate({ sort: 'UPDATED_DESC', size: search.size });
   };
 
-  // 一行两簇：左簇是难度图标 + 标识 + 标题（标题吃掉剩余宽度），右簇是标签与语言。
-  // 模式（ACM/CORE）和版本号从列表里拿掉——它们是筛选维度和技术细节，不是扫视时要看的东西。
+  // 一行的信息按重要性从左往右贴着排，不推到两端：题目名 5–10 个字，把元信息推到右边缘
+  // 会空出整行的一大半。slug 不进列表——用户按题目名找题，不按 slug。
   const renderRow = (problem: ProblemSummary) => ({
     leading: <DifficultyIcon difficulty={problem.difficulty} />,
-    id: problem.slug,
     title: (
       <Link
         to="/problems/$slug"
@@ -71,10 +70,15 @@ export function ProblemListPage({ search, navigate }: Props) {
     ),
     trailing: (
       <>
-        {problem.tags.slice(0, 2).map((tag) => (
-          <Badge key={tag}>{tag}</Badge>
-        ))}
-        <span>{problem.allowedLanguages.map((language) => language.displayName).join(' / ')}</span>
+        <span className="w-10 shrink-0">{difficultyLabel(problem.difficulty)}</span>
+        <span className="flex w-52 shrink-0 flex-wrap items-center gap-1">
+          {problem.tags.slice(0, 2).map((tag) => (
+            <Badge key={tag}>{tag}</Badge>
+          ))}
+        </span>
+        <span className="w-16 shrink-0">
+          {problem.allowedLanguages.map((language) => language.displayName).join(' / ')}
+        </span>
       </>
     ),
     meta: (
@@ -248,6 +252,7 @@ export function ProblemListPage({ search, navigate }: Props) {
   return (
     <ListPageTemplate
       title="题库"
+      width="column"
       toolbar={toolbar}
       state={pageState}
       pagination={
@@ -297,6 +302,7 @@ export function ProblemListPage({ search, navigate }: Props) {
           rowKey={(problem) => problem.problemId}
           renderRow={renderRow}
           rowInteractive
+          align="packed"
           aria-busy={result.isFetching || undefined}
         />
       )}
