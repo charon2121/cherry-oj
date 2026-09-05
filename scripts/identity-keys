@@ -1,0 +1,234 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: scripts/identity-keys init|prepare|activate|retire|status [directory] | probe <directory> problem-service=<url> submission-service=<url> judging-service=<url> | fingerprint <public.pem>" >&2
+  exit 2
+}
+
+fingerprint() {
+  openssl pkey -pubin -in "$1" -outform DER 2>/dev/null \
+    | openssl dgst -sha256 -binary \
+    | openssl base64 -A \
+    | tr '+/' '-_' \
+    | tr -d '='
+}
+
+command_name="${1:-}"
+case "$command_name" in
+  init)
+    key_dir="${2:-apps/server/data/identity-keys}"
+    private_key="$key_dir/active-private.pem"
+    public_key="$key_dir/active-public.pem"
+    if [[ -e "$private_key" || -e "$public_key" ]]; then
+      echo "refusing to overwrite an existing identity key in $key_dir" >&2
+      exit 1
+    fi
+    mkdir -p "$key_dir"
+    chmod 700 "$key_dir"
+    temp_private="$(mktemp "$key_dir/.private.XXXXXX")"
+    temp_public="$(mktemp "$key_dir/.public.XXXXXX")"
+    cleanup() { rm -f "$temp_private" "$temp_public"; }
+    trap cleanup EXIT
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$temp_private" 2>/dev/null
+    openssl pkey -in "$temp_private" -pubout -out "$temp_public" 2>/dev/null
+    chmod 600 "$temp_private"
+    chmod 644 "$temp_public"
+    mv "$temp_private" "$private_key"
+    mv "$temp_public" "$public_key"
+    trap - EXIT
+    active_kid="rsa-$(fingerprint "$public_key")"
+    state_temp="$key_dir/.rotation.state.temporary"
+    {
+      echo "stage=active"
+      echo "active_kid=$active_kid"
+      echo "previous_kid="
+      echo "next_kid="
+      echo "prepared_at_epoch="
+      echo "activated_at_epoch=$(date +%s)"
+    } > "$state_temp"
+    chmod 600 "$state_temp"
+    mv "$state_temp" "$key_dir/rotation.state"
+    echo "initialized persistent identity key: $active_kid"
+    ;;
+  prepare)
+    key_dir="${2:-apps/server/data/identity-keys}"
+    state="$key_dir/rotation.state"
+    [[ -f "$state" && -f "$key_dir/active-private.pem" && -f "$key_dir/active-public.pem" ]] || {
+      echo "identity key ring is not initialized" >&2; exit 1;
+    }
+    stage="$(sed -n 's/^stage=//p' "$state")"
+    [[ "$stage" == "active" || "$stage" == "retired" ]] || {
+      echo "prepare requires active or retired stage" >&2; exit 1;
+    }
+    [[ ! -e "$key_dir/next-private.pem" && ! -e "$key_dir/next-public.pem" ]] || {
+      echo "refusing to overwrite an existing prepared key" >&2; exit 1;
+    }
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out "$key_dir/next-private.pem" 2>/dev/null
+    openssl pkey -in "$key_dir/next-private.pem" -pubout -out "$key_dir/next-public.pem" 2>/dev/null
+    chmod 600 "$key_dir/next-private.pem"
+    chmod 644 "$key_dir/next-public.pem"
+    rm -f "$key_dir/probes.confirmed"
+    active_kid="rsa-$(fingerprint "$key_dir/active-public.pem")"
+    next_kid="rsa-$(fingerprint "$key_dir/next-public.pem")"
+    {
+      echo "stage=prepared"
+      echo "active_kid=$active_kid"
+      echo "previous_kid="
+      echo "next_kid=$next_kid"
+      echo "prepared_at_epoch=$(date +%s)"
+      echo "activated_at_epoch="
+    } > "$state.next"
+    chmod 600 "$state.next"
+    mv "$state.next" "$state"
+    echo "prepared $next_kid; publish next-public.pem as verification-only and probe every resource before activate"
+    ;;
+  probe)
+    [[ $# -eq 5 ]] || usage
+    key_dir="$2"
+    shift 2
+    state="$key_dir/rotation.state"
+    [[ "$(sed -n 's/^stage=//p' "$state" 2>/dev/null)" == "prepared" ]] || {
+      echo "probe requires prepared stage" >&2; exit 1;
+    }
+    next_kid="$(sed -n 's/^next_kid=//p' "$state")"
+    required_verifiers=(problem-service submission-service judging-service)
+    seen_names="|"
+    seen_urls="|"
+    resource_count=0
+    for target in "$@"; do
+      [[ "$target" == *=* ]] || {
+        echo "readiness target must use service-name=http(s)://... format" >&2; exit 1;
+      }
+      verifier_name="${target%%=*}"
+      readiness_url="${target#*=}"
+      case "$verifier_name" in
+        problem-service|submission-service|judging-service) ;;
+        *) echo "unexpected identity verifier: $verifier_name" >&2; exit 1 ;;
+      esac
+      case "$seen_names" in
+        *"|$verifier_name|"*) echo "duplicate identity verifier: $verifier_name" >&2; exit 1 ;;
+      esac
+      case "$readiness_url" in
+        http://*/actuator/health/readiness|https://*/actuator/health/readiness) ;;
+        *) echo "readiness URL must end with /actuator/health/readiness: $verifier_name" >&2; exit 1 ;;
+      esac
+      case "$seen_urls" in
+        *"|$readiness_url|"*) echo "duplicate readiness URL: $readiness_url" >&2; exit 1 ;;
+      esac
+      readiness_body="$(curl --fail --silent --show-error --max-time 5 "$readiness_url")" || {
+        echo "readiness probe failed: $verifier_name" >&2; exit 1;
+      }
+      compact_body="$(printf '%s' "$readiness_body" | tr -d '[:space:]')"
+      [[ "$compact_body" == '{"status":"UP"'* ]] || {
+        echo "readiness probe is not UP: $verifier_name" >&2; exit 1;
+      }
+      printf '%s' "$readiness_body" | grep -Fq "$next_kid" || {
+        echo "readiness has not published $next_kid: $verifier_name" >&2; exit 1;
+      }
+      seen_names="$seen_names$verifier_name|"
+      seen_urls="$seen_urls$readiness_url|"
+      resource_count=$((resource_count + 1))
+    done
+    for required_verifier in "${required_verifiers[@]}"; do
+      case "$seen_names" in
+        *"|$required_verifier|"*) ;;
+        *) echo "missing required identity verifier: $required_verifier" >&2; exit 1 ;;
+      esac
+    done
+    {
+      echo "next_kid=$next_kid"
+      echo "resource_count=$resource_count"
+      echo "verifiers=problem-service,submission-service,judging-service"
+      echo "confirmed_at_epoch=$(date +%s)"
+    } > "$key_dir/probes.confirmed.next"
+    chmod 600 "$key_dir/probes.confirmed.next"
+    mv "$key_dir/probes.confirmed.next" "$key_dir/probes.confirmed"
+    echo "confirmed $next_kid on $resource_count resource readiness endpoints"
+    ;;
+  activate)
+    key_dir="${2:-apps/server/data/identity-keys}"
+    state="$key_dir/rotation.state"
+    [[ "$(sed -n 's/^stage=//p' "$state" 2>/dev/null)" == "prepared" ]] || {
+      echo "activate requires prepared stage" >&2; exit 1;
+    }
+    [[ -f "$key_dir/next-private.pem" && -f "$key_dir/next-public.pem" ]] || {
+      echo "prepared key material is incomplete" >&2; exit 1;
+    }
+    old_kid="rsa-$(fingerprint "$key_dir/active-public.pem")"
+    new_kid="rsa-$(fingerprint "$key_dir/next-public.pem")"
+    [[ -f "$key_dir/probes.confirmed" ]] || {
+      echo "activate requires a successful probe confirmation for $new_kid" >&2; exit 1;
+    }
+    confirmed_kid="$(sed -n 's/^next_kid=//p' "$key_dir/probes.confirmed")"
+    confirmed_count="$(sed -n 's/^resource_count=//p' "$key_dir/probes.confirmed")"
+    confirmed_verifiers="$(sed -n 's/^verifiers=//p' "$key_dir/probes.confirmed")"
+    [[ "$confirmed_count" =~ ^[0-9]+$ ]] || {
+      echo "probe confirmation is malformed" >&2; exit 1;
+    }
+    [[ "$confirmed_kid" == "$new_kid"
+        && "$confirmed_count" -eq 3
+        && "$confirmed_verifiers" == "problem-service,submission-service,judging-service" ]] || {
+      echo "activate requires a successful probe confirmation for $new_kid" >&2; exit 1;
+    }
+    previous_private="$key_dir/previous-private-$old_kid.pem"
+    previous_public="$key_dir/previous-public-$old_kid.pem"
+    [[ ! -e "$previous_private" && ! -e "$previous_public" ]] || {
+      echo "refusing to overwrite an existing rollback key" >&2; exit 1;
+    }
+    mv "$key_dir/active-private.pem" "$previous_private"
+    mv "$key_dir/active-public.pem" "$previous_public"
+    mv "$key_dir/next-private.pem" "$key_dir/active-private.pem"
+    mv "$key_dir/next-public.pem" "$key_dir/active-public.pem"
+    chmod 600 "$previous_private" "$key_dir/active-private.pem"
+    chmod 644 "$previous_public" "$key_dir/active-public.pem"
+    {
+      echo "stage=activated"
+      echo "active_kid=$new_kid"
+      echo "previous_kid=$old_kid"
+      echo "next_kid="
+      echo "prepared_at_epoch=$(sed -n 's/^prepared_at_epoch=//p' "$state")"
+      echo "activated_at_epoch=$(date +%s)"
+    } > "$state.next"
+    chmod 600 "$state.next"
+    mv "$state.next" "$state"
+    mv "$key_dir/probes.confirmed" "$key_dir/probes-$new_kid.confirmed"
+    echo "activated $new_kid; keep previous-public-$old_kid.pem published for at least 7530 seconds"
+    ;;
+  retire)
+    key_dir="${2:-apps/server/data/identity-keys}"
+    state="$key_dir/rotation.state"
+    [[ "$(sed -n 's/^stage=//p' "$state" 2>/dev/null)" == "activated" ]] || {
+      echo "retire requires activated stage" >&2; exit 1;
+    }
+    activated_at="$(sed -n 's/^activated_at_epoch=//p' "$state")"
+    elapsed="$(( $(date +%s) - activated_at ))"
+    [[ "$elapsed" -ge 7530 ]] || {
+      echo "refusing early retire: wait $((7530 - elapsed)) more seconds" >&2; exit 1;
+    }
+    active_kid="$(sed -n 's/^active_kid=//p' "$state")"
+    previous_kid="$(sed -n 's/^previous_kid=//p' "$state")"
+    {
+      echo "stage=retired"
+      echo "active_kid=$active_kid"
+      echo "previous_kid=$previous_kid"
+      echo "next_kid="
+      echo "prepared_at_epoch="
+      echo "activated_at_epoch=$activated_at"
+    } > "$state.next"
+    chmod 600 "$state.next"
+    mv "$state.next" "$state"
+    echo "retired $previous_kid from publication; rollback private/public files remain preserved"
+    ;;
+  status)
+    key_dir="${2:-apps/server/data/identity-keys}"
+    state="$key_dir/rotation.state"
+    [[ -f "$state" ]] || { echo "identity key ring is not initialized" >&2; exit 1; }
+    sed -n -e '/^stage=/p' -e '/^active_kid=/p' -e '/^previous_kid=/p' -e '/^next_kid=/p' "$state"
+    ;;
+  fingerprint)
+    [[ $# -eq 2 ]] || usage
+    echo "rsa-$(fingerprint "$2")"
+    ;;
+  *) usage ;;
+esac

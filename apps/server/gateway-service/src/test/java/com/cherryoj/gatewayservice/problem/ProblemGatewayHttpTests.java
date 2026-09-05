@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cherryoj.gatewayservice.api.ApiProblemHandler;
 import com.cherryoj.gatewayservice.api.RequestIdWebFilter;
+import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -40,7 +41,8 @@ class ProblemGatewayHttpTests {
 					.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 					.body(body.get()).build());
 		});
-		ProblemServiceClient client = new ProblemServiceClient(upstream, properties);
+		ProblemServiceClient client = new ProblemServiceClient(
+				upstream, properties, new InternalRequestFactory());
 		browser = WebTestClient.bindToController(new ProblemsController(client))
 				.controllerAdvice(new ApiProblemHandler())
 				.webFilter(new RequestIdWebFilter())
@@ -102,7 +104,8 @@ class ProblemGatewayHttpTests {
 				URI.create("http://problem-service.test"),
 				Duration.ofMillis(20), Duration.ofSeconds(1), 1_048_576);
 		ProblemServiceClient slow = new ProblemServiceClient(
-				WebClient.builder().exchangeFunction(request -> Mono.never()), properties);
+				WebClient.builder().exchangeFunction(request -> Mono.never()), properties,
+				new InternalRequestFactory());
 		WebTestClient timeoutBrowser = WebTestClient.bindToController(new ProblemsController(slow))
 				.controllerAdvice(new ApiProblemHandler()).webFilter(new RequestIdWebFilter()).build();
 

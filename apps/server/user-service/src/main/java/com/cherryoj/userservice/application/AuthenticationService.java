@@ -104,7 +104,6 @@ public class AuthenticationService {
 
         accounts.recordLoginSuccess(account.id(), now);
         String grant = grants.generate();
-        LocalDateTime idleExpiresAt = now.plus(properties.sessionIdleTimeout());
         LocalDateTime absoluteExpiresAt = now.plus(properties.sessionAbsoluteTimeout());
         sessions.insert(
                 uuidV7.next().toString(),
@@ -112,7 +111,6 @@ public class AuthenticationService {
                 grants.digest(grant),
                 account.sessionVersion(),
                 now,
-                idleExpiresAt,
                 absoluteExpiresAt);
         TokenValue token = tokens.issue(account);
         audit.record(account.id(), account.id(), "LOGIN_SUCCEEDED");
@@ -121,11 +119,9 @@ public class AuthenticationService {
                 grant,
                 token.value(),
                 token.expiresAt(),
-                idleExpiresAt,
                 absoluteExpiresAt,
-                properties.sessionIdleTimeoutSeconds(),
                 properties.sessionAbsoluteTimeoutSeconds(),
-                properties.refreshIdleOnActivity());
+                properties.sessionLifetimePolicy());
     }
 
     @Transactional
@@ -135,48 +131,29 @@ public class AuthenticationService {
         if (grant == null) {
             throw new AuthenticationFailedException();
         }
-        LocalDateTime idleExpiresAt = now.plus(properties.sessionIdleTimeout());
-        boolean refreshIdle = properties.refreshIdleOnActivity();
-        if (sessions.touch(grant.sessionId(), now, idleExpiresAt, refreshIdle, grant.rowVersion()) != 1) {
+        if (sessions.markUsed(grant.sessionId(), now, grant.rowVersion()) != 1) {
             throw new IdentityConflictException("SESSION_CONFLICT", "登录状态发生并发变化，请重试");
         }
         TokenValue token = tokens.issue(grant);
-        LocalDateTime effectiveIdleExpiry = refreshIdle
-                ? earlier(idleExpiresAt, grant.absoluteExpiresAt())
-                : grant.idleExpiresAt();
         return new TokenExchangeResult(
                 UserView.from(grant),
                 token.value(),
                 token.expiresAt(),
-                effectiveIdleExpiry,
                 grant.absoluteExpiresAt(),
-                properties.sessionIdleTimeoutSeconds(),
                 properties.sessionAbsoluteTimeoutSeconds(),
-                properties.refreshIdleOnActivity());
+                properties.sessionLifetimePolicy());
     }
 
-    @Transactional
-    public SessionTouchResult touch(String loginGrant) {
+    public SessionTouchResult validate(String loginGrant) {
         LocalDateTime now = now();
-        LoginGrant grant = sessions.findActiveByGrantHashForUpdate(grants.digest(loginGrant), now);
+        LoginGrant grant = sessions.findActiveByGrantHash(grants.digest(loginGrant), now);
         if (grant == null) {
             throw new AuthenticationFailedException();
         }
-        LocalDateTime requestedIdleExpiry = now.plus(properties.sessionIdleTimeout());
-        boolean refreshIdle = properties.refreshIdleOnActivity();
-        if (sessions.touch(
-                        grant.sessionId(), now, requestedIdleExpiry, refreshIdle, grant.rowVersion())
-                != 1) {
-            throw new IdentityConflictException("SESSION_CONFLICT", "登录状态发生并发变化，请重试");
-        }
         return new SessionTouchResult(
-                refreshIdle
-                        ? earlier(requestedIdleExpiry, grant.absoluteExpiresAt())
-                        : grant.idleExpiresAt(),
                 grant.absoluteExpiresAt(),
-                properties.sessionIdleTimeoutSeconds(),
                 properties.sessionAbsoluteTimeoutSeconds(),
-                properties.refreshIdleOnActivity());
+                properties.sessionLifetimePolicy());
     }
 
     @Transactional
@@ -203,9 +180,5 @@ public class AuthenticationService {
 
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
-    }
-
-    private static LocalDateTime earlier(LocalDateTime first, LocalDateTime second) {
-        return first.isBefore(second) ? first : second;
     }
 }

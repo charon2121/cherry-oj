@@ -93,8 +93,9 @@ final class AuthController {
 		return exchange.getSession().flatMap(session ->
 				authentication.current(session, requestId, true)
 						.flatMap(state -> userService.changePassword(
-								state.accessToken(), request.currentPassword(), request.newPassword(), requestId)
-								.onErrorMap(error -> GatewayAuthenticationService.mapUpstream(error, false)))
+								new DelegatedIdentity(state.accessToken(), state.accessTokenExpiresAt(), requestId),
+								request.currentPassword(), request.newPassword())
+								.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId)))
 						.then(authentication.invalidate(session))
 						.thenReturn(ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build()));
 	}

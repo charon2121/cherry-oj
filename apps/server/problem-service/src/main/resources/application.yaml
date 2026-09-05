@@ -41,7 +41,11 @@ cherry:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"
     jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/.well-known/jwks.json}"
+    metadata-uri: "${CHERRY_IDENTITY_METADATA_URI:http://127.0.0.1:8081/internal/identity/metadata}"
+    access-token-ttl: 2h
     clock-skew: 30s
+    connect-timeout: 2s
+    read-timeout: 2s
 
 server:
   port: 8082
@@ -71,6 +75,10 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,identityVerifierHealth
+          show-details: always
 
 logging:
   file:

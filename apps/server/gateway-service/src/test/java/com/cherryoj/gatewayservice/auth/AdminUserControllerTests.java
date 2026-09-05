@@ -4,9 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,7 +13,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -29,74 +28,38 @@ class AdminUserControllerTests {
 	private static final Instant NOW = Instant.parse("2026-09-02T00:00:00Z");
 
 	@Test
-	void listsUsersWithoutRecoveryWhenDelegatedTokenIsAccepted() {
+	void validatesOnceAndHandsOneImmutableIdentityToTheClient() {
 		GatewayAuthenticationService authentication = mock(GatewayAuthenticationService.class);
 		UserServiceClient userService = mock(UserServiceClient.class);
 		MockServerWebExchange exchange = exchange();
 		WebSession session = exchange.getSession().block();
-		AuthSessionState state = state("old-access-token");
-		when(authentication.current(eq(session), anyString(), eq(true))).thenReturn(Mono.just(state));
-		when(userService.listUsers(
-				eq("old-access-token"), eq(1), eq(20), anyString()))
+		when(authentication.current(eq(session), anyString(), eq(true)))
+				.thenReturn(Mono.just(state("delegated-access-token")));
+		when(userService.listUsers(org.mockito.ArgumentMatchers.any(DelegatedIdentity.class), eq(1), eq(20)))
 				.thenReturn(Mono.just(userPage()));
 
 		var response = new AdminUserController(authentication, userService)
 				.list(1, 20, exchange).block();
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(response.getBody().data().items()).hasSize(1);
-		verify(authentication, never())
-				.recoverRejectedAccessToken(session, state, response.getBody().meta().requestId());
+		ArgumentCaptor<DelegatedIdentity> identity = ArgumentCaptor.forClass(DelegatedIdentity.class);
+		verify(userService).listUsers(identity.capture(), eq(1), eq(20));
+		assertThat(identity.getValue().accessToken()).isEqualTo("delegated-access-token");
+		assertThat(identity.getValue().requestId()).isEqualTo(response.getBody().meta().requestId());
+		verify(authentication, times(1)).current(eq(session), anyString(), eq(true));
 	}
 
 	@Test
-	void exchangesRejectedDelegatedTokenAndRetriesListOnce() {
+	void resourceTokenRejectionBecomes503WithoutExchangeOrReplay() {
 		GatewayAuthenticationService authentication = mock(GatewayAuthenticationService.class);
 		UserServiceClient userService = mock(UserServiceClient.class);
 		MockServerWebExchange exchange = exchange();
 		WebSession session = exchange.getSession().block();
-		AuthSessionState oldState = state("old-access-token");
-		AuthSessionState freshState = state("fresh-access-token");
-		when(authentication.current(eq(session), anyString(), eq(true))).thenReturn(Mono.just(oldState));
-		when(authentication.recoverRejectedAccessToken(eq(session), eq(oldState), anyString()))
-				.thenReturn(Mono.just(freshState));
-		when(userService.listUsers(
-				eq("old-access-token"), eq(1), eq(20), anyString()))
-				.thenReturn(Mono.error(unauthorized()));
-		when(userService.listUsers(
-				eq("fresh-access-token"), eq(1), eq(20), anyString()))
-				.thenReturn(Mono.just(userPage()));
-
-		var response = new AdminUserController(authentication, userService)
-				.list(1, 20, exchange).block();
-
-		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		assertThat(response.getBody().data().items()).hasSize(1);
-		InOrder order = inOrder(userService, authentication);
-		order.verify(userService).listUsers("old-access-token", 1, 20, response.getBody().meta().requestId());
-		order.verify(authentication)
-				.recoverRejectedAccessToken(session, oldState, response.getBody().meta().requestId());
-		order.verify(userService).listUsers(
-				"fresh-access-token", 1, 20, response.getBody().meta().requestId());
-	}
-
-	@Test
-	void mapsSecondDelegatedTokenRejectionToServiceUnavailableWithoutLooping() {
-		GatewayAuthenticationService authentication = mock(GatewayAuthenticationService.class);
-		UserServiceClient userService = mock(UserServiceClient.class);
-		MockServerWebExchange exchange = exchange();
-		WebSession session = exchange.getSession().block();
-		AuthSessionState oldState = state("old-access-token");
-		AuthSessionState freshState = state("fresh-access-token");
-		when(authentication.current(eq(session), anyString(), eq(true))).thenReturn(Mono.just(oldState));
-		when(authentication.recoverRejectedAccessToken(eq(session), eq(oldState), anyString()))
-				.thenReturn(Mono.just(freshState));
-		when(userService.listUsers(
-				eq("old-access-token"), eq(1), eq(20), anyString()))
-				.thenReturn(Mono.error(unauthorized()));
-		when(userService.listUsers(
-				eq("fresh-access-token"), eq(1), eq(20), anyString()))
-				.thenReturn(Mono.error(unauthorized()));
+		when(authentication.current(eq(session), anyString(), eq(true)))
+				.thenReturn(Mono.just(state("delegated-access-token")));
+		when(userService.listUsers(org.mockito.ArgumentMatchers.any(DelegatedIdentity.class), eq(1), eq(20)))
+				.thenReturn(Mono.error(new UserServiceClientException(
+						HttpStatus.UNAUTHORIZED, "INVALID_TOKEN")));
 
 		assertThatThrownBy(() -> new AdminUserController(authentication, userService)
 				.list(1, 20, exchange).block())
@@ -104,31 +67,9 @@ class AdminUserControllerTests {
 					assertThat(error.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
 					assertThat(error.code()).isEqualTo("SERVICE_UNAVAILABLE");
 				});
-		verify(authentication).recoverRejectedAccessToken(
-				eq(session), eq(oldState), anyString());
-	}
-
-	@Test
-	void preservesConfirmedGrantFailureFromRecovery() {
-		GatewayAuthenticationService authentication = mock(GatewayAuthenticationService.class);
-		UserServiceClient userService = mock(UserServiceClient.class);
-		MockServerWebExchange exchange = exchange();
-		WebSession session = exchange.getSession().block();
-		AuthSessionState state = state("old-access-token");
-		when(authentication.current(eq(session), anyString(), eq(true))).thenReturn(Mono.just(state));
-		when(authentication.recoverRejectedAccessToken(eq(session), eq(state), anyString()))
-				.thenReturn(Mono.error(new ApiProblemException(
-						HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "未认证", "请先完成登录认证。")));
-		when(userService.listUsers(
-				eq("old-access-token"), eq(1), eq(20), anyString()))
-				.thenReturn(Mono.error(unauthorized()));
-
-		assertThatThrownBy(() -> new AdminUserController(authentication, userService)
-				.list(1, 20, exchange).block())
-				.isInstanceOfSatisfying(ApiProblemException.class, error -> {
-					assertThat(error.status()).isEqualTo(HttpStatus.UNAUTHORIZED);
-					assertThat(error.code()).isEqualTo("UNAUTHENTICATED");
-				});
+		verify(userService, times(1)).listUsers(
+				org.mockito.ArgumentMatchers.any(DelegatedIdentity.class), eq(1), eq(20));
+		verify(authentication, times(1)).current(eq(session), anyString(), eq(true));
 	}
 
 	private static MockServerWebExchange exchange() {
@@ -138,8 +79,8 @@ class AdminUserControllerTests {
 
 	private static AuthSessionState state(String accessToken) {
 		return new AuthSessionState(
-				user().publicView(), "grant-value", accessToken, NOW.plusSeconds(120),
-				NOW.plusSeconds(1_800), NOW.plusSeconds(43_200));
+				user().publicView(), "grant-value", accessToken, NOW.plusSeconds(7_200),
+				NOW.plus(java.time.Duration.ofDays(30)));
 	}
 
 	private static UserServiceClient.UserPage userPage() {
@@ -151,9 +92,5 @@ class AdminUserControllerTests {
 		return new UserServiceClient.InternalUser(
 				"019c8e42-7f70-7000-8000-000000000001", "admin01", "ADMIN", "ACTIVE",
 				false, created, created, 0);
-	}
-
-	private static UserServiceClientException unauthorized() {
-		return new UserServiceClientException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN");
 	}
 }

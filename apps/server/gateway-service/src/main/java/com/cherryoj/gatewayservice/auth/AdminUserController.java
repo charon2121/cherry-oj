@@ -11,7 +11,6 @@ import jakarta.validation.constraints.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,12 +53,9 @@ public class AdminUserController {
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
 			ServerWebExchange exchange) {
 		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.readWithRecovery(
-				exchange,
-				requestId,
-				token -> userService.listUsers(token, page, size, requestId),
-				AdminUserController::isUnauthorized,
-				error -> GatewayAuthenticationService.mapUpstream(error, false))
+		return adminAccess.delegatedIdentity(exchange, requestId)
+				.flatMap(identity -> userService.listUsers(identity, page, size))
+				.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
 				.map(result -> ResponseEntity.ok()
 								.cacheControl(CacheControl.noStore())
 								.body(ApiSuccess.of(
@@ -75,9 +71,9 @@ public class AdminUserController {
 			@Valid @RequestBody CreateUserRequest request,
 			ServerWebExchange exchange) {
 		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.accessToken(exchange, requestId).flatMap(token ->
-				userService.createUser(token, request.username(), requestId)
-						.onErrorMap(error -> GatewayAuthenticationService.mapUpstream(error, false))
+		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(identity ->
+				userService.createUser(identity, request.username())
+						.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
 						.map(created -> ResponseEntity
 								.created(URI.create("/api/admin/users/" + created.user().id()))
 								.cacheControl(CacheControl.noStore())
@@ -91,10 +87,10 @@ public class AdminUserController {
 			@Valid @RequestBody UpdateUserStatusRequest request,
 			ServerWebExchange exchange) {
 		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.accessToken(exchange, requestId).flatMap(token ->
+		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(identity ->
 				userService.updateStatus(
-						token, userId, request.status(), request.rowVersion(), requestId)
-						.onErrorMap(error -> GatewayAuthenticationService.mapUpstream(error, false))
+						identity, userId, request.status(), request.rowVersion())
+						.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
 						.map(user -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
 								.body(ApiSuccess.of(user.publicView(), requestId))));
 	}
@@ -105,17 +101,12 @@ public class AdminUserController {
 			@Valid @RequestBody ResetUserPasswordRequest request,
 			ServerWebExchange exchange) {
 		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.accessToken(exchange, requestId).flatMap(token ->
-				userService.resetPassword(token, userId, request.rowVersion(), requestId)
-						.onErrorMap(error -> GatewayAuthenticationService.mapUpstream(error, false))
+		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(identity ->
+				userService.resetPassword(identity, userId, request.rowVersion())
+						.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
 						.map(created -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
 								.body(ApiSuccess.of(
 										new ResetUserPasswordData(created.temporaryPassword()), requestId))));
-	}
-
-	private static boolean isUnauthorized(Throwable error) {
-		return error instanceof UserServiceClientException upstream
-				&& upstream.status().value() == HttpStatus.UNAUTHORIZED.value();
 	}
 
 	record UserListData(List<UserAccountData> items) {

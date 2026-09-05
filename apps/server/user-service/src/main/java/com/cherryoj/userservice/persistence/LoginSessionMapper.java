@@ -14,18 +14,19 @@ public interface LoginSessionMapper {
             @Param("grantHash") byte[] grantHash,
             @Param("sessionVersion") long sessionVersion,
             @Param("now") LocalDateTime now,
-            @Param("idleExpiresAt") LocalDateTime idleExpiresAt,
             @Param("absoluteExpiresAt") LocalDateTime absoluteExpiresAt);
+
+    LoginGrant findActiveByGrantHash(
+            @Param("grantHash") byte[] grantHash,
+            @Param("now") LocalDateTime now);
 
     LoginGrant findActiveByGrantHashForUpdate(
             @Param("grantHash") byte[] grantHash,
             @Param("now") LocalDateTime now);
 
-    int touch(
+    int markUsed(
             @Param("id") String id,
             @Param("now") LocalDateTime now,
-            @Param("idleExpiresAt") LocalDateTime idleExpiresAt,
-            @Param("refreshIdle") boolean refreshIdle,
             @Param("expectedRowVersion") long expectedRowVersion);
 
     int revokeCurrent(

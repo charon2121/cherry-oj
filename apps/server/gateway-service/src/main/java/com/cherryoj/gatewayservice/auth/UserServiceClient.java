@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -16,81 +15,77 @@ final class UserServiceClient {
 
 	private final WebClient client;
 	private final GatewayAuthProperties properties;
+	private final InternalRequestFactory requests;
 
-	UserServiceClient(WebClient.Builder builder, GatewayAuthProperties properties) {
+	UserServiceClient(
+			WebClient.Builder builder,
+			GatewayAuthProperties properties,
+			InternalRequestFactory requests) {
 		this.client = builder.baseUrl(properties.userServiceBaseUrl().toString()).build();
 		this.properties = properties;
+		this.requests = requests;
 	}
 
 	Mono<AuthenticationResult> authenticate(String username, String password, String requestId) {
-		return response(client.post()
-				.uri("/internal/auth/authenticate")
-				.header("X-Request-Id", requestId)
+		return response(requests.request(client.post()
+				.uri("/internal/auth/authenticate"), requestId)
 				.bodyValue(new LoginRequest(username, password)), AuthenticationResult.class);
 	}
 
 	Mono<TokenExchangeResult> exchange(String loginGrant, String requestId) {
-		return response(client.post()
-				.uri("/internal/auth/token")
-				.header("X-Request-Id", requestId)
+		return response(requests.request(client.post()
+				.uri("/internal/auth/token"), requestId)
 				.bodyValue(new LoginGrantRequest(loginGrant)), TokenExchangeResult.class);
 	}
 
-	Mono<SessionTouchResult> touch(String loginGrant, String requestId) {
-		return response(client.post()
-				.uri("/internal/auth/touch")
-				.header("X-Request-Id", requestId)
-				.bodyValue(new LoginGrantRequest(loginGrant)), SessionTouchResult.class);
+	Mono<SessionValidationResult> validate(String loginGrant, String requestId) {
+		return response(requests.request(client.post()
+				.uri("/internal/auth/validate"), requestId)
+				.bodyValue(new LoginGrantRequest(loginGrant)), SessionValidationResult.class);
 	}
 
 	Mono<Void> revoke(String loginGrant, String requestId) {
-		return noContent(client.post()
-				.uri("/internal/auth/revoke")
-				.header("X-Request-Id", requestId)
+		return noContent(requests.request(client.post()
+				.uri("/internal/auth/revoke"), requestId)
 				.bodyValue(new LoginGrantRequest(loginGrant)));
 	}
 
 	Mono<Void> changePassword(
-			String accessToken, String currentPassword, String newPassword, String requestId) {
-		return noContent(client.post()
-				.uri("/internal/users/me/password")
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-				.header("X-Request-Id", requestId)
+			DelegatedIdentity identity, String currentPassword, String newPassword) {
+		return noContent(requests.authenticated(client.post()
+				.uri("/internal/users/me/password"), identity)
 				.bodyValue(new ChangePasswordRequest(currentPassword, newPassword)));
 	}
 
-	Mono<UserPage> listUsers(String accessToken, int page, int size, String requestId) {
-		return response(client.get()
+	Mono<UserPage> listUsers(DelegatedIdentity identity, int page, int size) {
+		return response(requests.authenticated(client.get()
 				.uri(builder -> builder.path("/internal/admin/users")
-						.queryParam("page", page).queryParam("size", size).build())
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-				.header("X-Request-Id", requestId), UserPage.class);
+						.queryParam("page", page).queryParam("size", size).build()), identity), UserPage.class);
 	}
 
-	Mono<CreatedUser> createUser(String accessToken, String username, String requestId) {
-		return response(client.post()
-				.uri("/internal/admin/users")
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-				.header("X-Request-Id", requestId)
+	Mono<CreatedUser> createUser(DelegatedIdentity identity, String username) {
+		return response(requests.authenticated(client.post()
+				.uri("/internal/admin/users"), identity)
 				.bodyValue(new CreateUserRequest(username)), CreatedUser.class);
 	}
 
 	Mono<InternalUser> updateStatus(
-			String accessToken, String userId, String status, long rowVersion, String requestId) {
-		return response(client.patch()
-				.uri("/internal/admin/users/{userId}/status", userId)
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-				.header("X-Request-Id", requestId)
+			DelegatedIdentity identity, String userId, String status, long rowVersion) {
+		return response(requests.authenticated(client.patch()
+				.uri("/internal/admin/users/{userId}/status", userId), identity)
 				.bodyValue(new UpdateStatusRequest(status, rowVersion)), InternalUser.class);
 	}
 
 	Mono<CreatedUser> resetPassword(
-			String accessToken, String userId, long rowVersion, String requestId) {
-		return response(client.post()
-				.uri("/internal/admin/users/{userId}/password-reset", userId)
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-				.header("X-Request-Id", requestId)
+			DelegatedIdentity identity, String userId, long rowVersion) {
+		return response(requests.authenticated(client.post()
+				.uri("/internal/admin/users/{userId}/password-reset", userId), identity)
 				.bodyValue(new ResetPasswordRequest(rowVersion)), CreatedUser.class);
+	}
+
+	Mono<IdentityMetadata> identityMetadata(String requestId) {
+		return response(requests.request(client.get()
+				.uri("/internal/identity/metadata"), requestId), IdentityMetadata.class);
 	}
 
 	private <T> Mono<T> response(WebClient.RequestHeadersSpec<?> request, Class<T> type) {
@@ -162,35 +157,33 @@ final class UserServiceClient {
 			String loginGrant,
 			String accessToken,
 			Instant accessTokenExpiresAt,
-			LocalDateTime sessionIdleExpiresAt,
 			LocalDateTime sessionAbsoluteExpiresAt,
-			long sessionIdleTimeoutSeconds,
 			long sessionAbsoluteTimeoutSeconds,
-			boolean sessionRefreshIdleOnActivity) {
+			String sessionLifetimePolicy) {
 	}
 
 	record TokenExchangeResult(
 			InternalUser user,
 			String accessToken,
 			Instant accessTokenExpiresAt,
-			LocalDateTime sessionIdleExpiresAt,
 			LocalDateTime sessionAbsoluteExpiresAt,
-			long sessionIdleTimeoutSeconds,
 			long sessionAbsoluteTimeoutSeconds,
-			boolean sessionRefreshIdleOnActivity) {
+			String sessionLifetimePolicy) {
 	}
 
-	record SessionTouchResult(
-			LocalDateTime sessionIdleExpiresAt,
+	record SessionValidationResult(
 			LocalDateTime sessionAbsoluteExpiresAt,
-			long sessionIdleTimeoutSeconds,
 			long sessionAbsoluteTimeoutSeconds,
-			boolean sessionRefreshIdleOnActivity) {
+			String sessionLifetimePolicy) {
 	}
 
 	record CreatedUser(InternalUser user, String temporaryPassword) {
 	}
 
 	record UserPage(List<InternalUser> items, int page, int size, long totalElements, int totalPages) {
+	}
+
+	record IdentityMetadata(String activeKid, List<String> publishedKids, String algorithm,
+			long accessTokenTtlSeconds, String generation) {
 	}
 }

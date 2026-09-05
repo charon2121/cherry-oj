@@ -21,7 +21,6 @@ class JavaServiceConfigurationDefaultsTests {
     private static final Set<String> OPTIONAL_EMPTY_DEFAULTS = Set.of("CHERRY_REDIS_PASSWORD");
     private static final Set<String> PRODUCTION_REQUIRED = Set.of(
             "user-service/application.yaml:CHERRY_USER_DB_PASSWORD",
-            "user-service/application.yaml:CHERRY_AUTH_KEY_ID",
             "user-service/application.yaml:CHERRY_AUTH_PRIVATE_KEY_LOCATION",
             "user-service/application.yaml:CHERRY_AUTH_PUBLIC_KEY_LOCATION",
             "problem-service/application.yaml:CHERRY_PROBLEM_DB_PASSWORD",

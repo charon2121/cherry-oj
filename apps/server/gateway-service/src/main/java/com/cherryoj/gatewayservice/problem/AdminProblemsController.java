@@ -2,6 +2,7 @@ package com.cherryoj.gatewayservice.problem;
 
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import jakarta.validation.Valid;
@@ -13,12 +14,14 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.codec.multipart.FilePartEvent;
+import org.springframework.http.codec.multipart.PartEvent;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,14 +32,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 
 import com.cherryoj.gatewayservice.api.ApiRequestContext;
+import com.cherryoj.gatewayservice.api.ApiProblemException;
 import com.cherryoj.gatewayservice.api.ApiSuccess;
 import com.cherryoj.gatewayservice.api.PagePagination;
 import com.cherryoj.gatewayservice.auth.AdminGatewayAccess;
+import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -67,8 +71,8 @@ public class AdminProblemsController {
 			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return adminRead(exchange, requestId, token -> problemService
-				.listAdmin(token, q, status, page, size, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.listAdmin(identity, q, status, page, size))
 				.map(result -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
 						.body(ApiSuccess.of(new ProblemDtos.AdminProblemListData(result.items()), requestId,
 								new PagePagination(result.page(), result.size(),
@@ -79,7 +83,7 @@ public class AdminProblemsController {
 	Mono<ResponseEntity<ApiSuccess<ProblemDtos.AdminProblem>>> create(
 			@Valid @RequestBody CreateProblemRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService.createProblem(token, request, requestId))
+		return admin(exchange, requestId, identity -> problemService.createProblem(identity, request))
 				.map(problem -> ResponseEntity.created(URI.create("/api/admin/problems/" + problem.id()))
 						.cacheControl(CacheControl.noStore()).body(ApiSuccess.of(problem, requestId)));
 	}
@@ -88,8 +92,8 @@ public class AdminProblemsController {
 	Mono<ResponseEntity<ApiSuccess<ProblemDtos.AdminProblem>>> get(
 			@PathVariable @Pattern(regexp = UUID) String problemId, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return adminRead(exchange, requestId,
-				token -> problemService.getProblem(token, problemId, requestId))
+		return admin(exchange, requestId,
+				identity -> problemService.getProblem(identity, problemId))
 				.map(problem -> ok(problem, requestId));
 	}
 
@@ -99,7 +103,7 @@ public class AdminProblemsController {
 			@Valid @RequestBody UpdateProblemRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.updateProblem(token, problemId, request, requestId))
+				identity -> problemService.updateProblem(identity, problemId, request))
 				.map(problem -> ok(problem, requestId));
 	}
 
@@ -109,7 +113,7 @@ public class AdminProblemsController {
 			@Valid @RequestBody RowVersionRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.archiveProblem(token, problemId, request, requestId))
+				identity -> problemService.archiveProblem(identity, problemId, request))
 				.map(problem -> ok(problem, requestId));
 	}
 
@@ -119,7 +123,7 @@ public class AdminProblemsController {
 			@Valid @RequestBody CreateRevisionRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.createRevision(token, problemId, request, requestId))
+				identity -> problemService.createRevision(identity, problemId, request))
 				.map(version -> ResponseEntity.created(URI.create(
 						"/api/admin/problems/" + problemId + "/versions/" + version.id()))
 						.cacheControl(CacheControl.noStore()).body(ApiSuccess.of(version, requestId)));
@@ -131,8 +135,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return adminRead(exchange, requestId, token -> problemService
-				.getVersion(token, problemId, problemVersionId, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.getVersion(identity, problemId, problemVersionId))
 				.map(version -> ok(version, requestId));
 	}
 
@@ -142,8 +146,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			@Valid @RequestBody UpdateVersionRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
-				.updateVersion(token, problemId, problemVersionId, request, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.updateVersion(identity, problemId, problemVersionId, request))
 				.map(version -> ok(version, requestId));
 	}
 
@@ -153,8 +157,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			@RequestParam @Min(0) long rowVersion, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
-				.deleteVersion(token, problemId, problemVersionId, rowVersion, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.deleteVersion(identity, problemId, problemVersionId, rowVersion))
 				.thenReturn(ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build());
 	}
 
@@ -164,8 +168,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return adminRead(exchange, requestId,
-				token -> problemService.preview(token, problemId, problemVersionId, requestId))
+		return admin(exchange, requestId,
+				identity -> problemService.preview(identity, problemId, problemVersionId))
 				.map(detail -> ok(detail, requestId));
 	}
 
@@ -173,18 +177,18 @@ public class AdminProblemsController {
 	Mono<ResponseEntity<ApiSuccess<ProblemDtos.TestDataVersionListData>>> listTestData(
 			@PathVariable @Pattern(regexp = UUID) String problemId, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return adminRead(exchange, requestId,
-				token -> problemService.listTestData(token, problemId, requestId))
+		return admin(exchange, requestId,
+				identity -> problemService.listTestData(identity, problemId))
 				.map(items -> ok(new ProblemDtos.TestDataVersionListData(items), requestId));
 	}
 
 	@PostMapping(path = "/{problemId}/test-data", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	Mono<ResponseEntity<ApiSuccess<ProblemDtos.TestDataVersion>>> uploadTestData(
 			@PathVariable @Pattern(regexp = UUID) String problemId,
-			@RequestPart("file") FilePart file, ServerWebExchange exchange) {
+			@RequestBody Flux<PartEvent> parts, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.uploadTestData(token, problemId, file, requestId))
+				identity -> problemService.uploadTestData(identity, problemId, zipContent(parts)))
 				.map(testData -> ResponseEntity.created(URI.create(
 						"/api/admin/problems/" + problemId + "/test-data/" + testData.id()))
 						.cacheControl(CacheControl.noStore()).body(ApiSuccess.of(testData, requestId)));
@@ -196,8 +200,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String testDataVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
-				.downloadTestData(token, problemId, testDataVersionId, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.downloadTestData(identity, problemId, testDataVersionId))
 				.map(download -> {
 					ResponseEntity.BodyBuilder response = ResponseEntity.ok()
 							.contentType(APPLICATION_ZIP).cacheControl(CacheControl.noStore())
@@ -216,8 +220,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			@Valid @RequestBody BindTestDataRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return admin(exchange, requestId, token -> problemService
-				.bindTestData(token, problemId, problemVersionId, request, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.bindTestData(identity, problemId, problemVersionId, request))
 				.map(version -> ok(version, requestId));
 	}
 
@@ -228,7 +232,7 @@ public class AdminProblemsController {
 			@Valid @RequestBody DeployTestDataRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.deploy(token, problemId, problemVersionId, request, requestId))
+				identity -> problemService.deploy(identity, problemId, problemVersionId, request))
 				.map(deployment -> ok(deployment, requestId));
 	}
 
@@ -239,7 +243,7 @@ public class AdminProblemsController {
 			@Valid @RequestBody CalibrateProblemRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.calibrate(token, problemId, problemVersionId, request, requestId))
+				identity -> problemService.calibrate(identity, problemId, problemVersionId, request))
 				.map(calibration -> ok(calibration, requestId));
 	}
 
@@ -249,8 +253,8 @@ public class AdminProblemsController {
 			@PathVariable @Pattern(regexp = UUID) String problemVersionId,
 			ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
-		return adminRead(exchange, requestId, token -> problemService
-				.publishCheck(token, problemId, problemVersionId, requestId))
+		return admin(exchange, requestId, identity -> problemService
+				.publishCheck(identity, problemId, problemVersionId))
 				.map(check -> ok(check, requestId));
 	}
 
@@ -261,33 +265,53 @@ public class AdminProblemsController {
 			@Valid @RequestBody RowVersionRequest request, ServerWebExchange exchange) {
 		String requestId = requestId(exchange);
 		return admin(exchange, requestId,
-				token -> problemService.publish(token, problemId, problemVersionId, request, requestId))
+				identity -> problemService.publish(identity, problemId, problemVersionId, request))
 				.map(version -> ok(version, requestId));
 	}
 
 	private <T> Mono<T> admin(
-			ServerWebExchange exchange, String requestId, Function<String, Mono<T>> action) {
-		return adminAccess.accessToken(exchange, requestId).flatMap(action)
-				.onErrorMap(error -> ProblemApiErrors.map(error, false));
-	}
-
-	private <T> Mono<T> adminRead(
-			ServerWebExchange exchange, String requestId, Function<String, Mono<T>> action) {
-		return adminAccess.readWithRecovery(
-				exchange,
-				requestId,
-				action,
-				AdminProblemsController::isUnauthorized,
-				error -> ProblemApiErrors.map(error, false));
-	}
-
-	private static boolean isUnauthorized(Throwable error) {
-		return error instanceof ProblemServiceClientException upstream
-				&& upstream.status().value() == HttpStatus.UNAUTHORIZED.value();
+			ServerWebExchange exchange, String requestId, Function<DelegatedIdentity, Mono<T>> action) {
+		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(action)
+				.onErrorMap(error -> ProblemApiErrors.map(error, false, requestId));
 	}
 
 	private static String requestId(ServerWebExchange exchange) {
 		return ApiRequestContext.requestId(exchange);
+	}
+
+	private static Flux<DataBuffer> zipContent(Flux<PartEvent> parts) {
+		return Flux.defer(() -> {
+			AtomicBoolean completed = new AtomicBoolean();
+			return parts.switchOnFirst((signal, stream) -> {
+				if (!signal.hasValue() || !(signal.get() instanceof FilePartEvent first)
+						|| !"file".equals(first.name())) {
+					if (signal.hasValue()) {
+						DataBufferUtils.release(signal.get().content());
+					}
+					return Flux.error(invalidMultipart());
+				}
+				return stream.<DataBuffer>handle((part, sink) -> {
+					if (completed.get() || !(part instanceof FilePartEvent)
+							|| !"file".equals(part.name())) {
+						DataBufferUtils.release(part.content());
+						sink.error(invalidMultipart());
+						return;
+					}
+					sink.next(part.content());
+					if (part.isLast()) {
+						completed.set(true);
+					}
+				}).concatWith(Flux.defer(() -> completed.get()
+						? Flux.empty()
+						: Flux.error(invalidMultipart())));
+			});
+		});
+	}
+
+	private static ApiProblemException invalidMultipart() {
+		return new ApiProblemException(
+				HttpStatus.BAD_REQUEST,
+				"MALFORMED_REQUEST", "请求格式错误", "multipart 必须且只能包含一个 file 文件部分。");
 	}
 
 	private static <T> ResponseEntity<ApiSuccess<T>> ok(T body, String requestId) {

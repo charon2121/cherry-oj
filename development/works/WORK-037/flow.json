@@ -1,0 +1,187 @@
+[
+  {
+    "stage": "definition",
+    "label": "问题说明、复现与预期",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "ISSUE-009"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认实施系统级身份架构重构：JWT 2 小时、提前 5 分钟续签、取消 idle、absolute 固定 30 天，并保留每请求 grant validate"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认实施系统级身份架构重构：JWT 2 小时、提前 5 分钟续签、取消 idle、absolute 固定 30 天，并保留每请求 grant validate"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "原因与修复方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-031"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-021"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-025"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "密钥轮换保留 previous key 且不自动删除，数据库迁移为兼容性变更，原会话 absolute deadline 保留，可按 TOOLCHAIN 回退"
+      },
+      {
+        "name": "release",
+        "result": "pass",
+        "note": "TOOLCHAIN 已明确 init、prepare、三服务 probe、activate、等待与 retire 的发布顺序和阻断条件"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "修复任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-065",
+      "TASK-066",
+      "TASK-067",
+      "TASK-068"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-065",
+      "TASK-066",
+      "TASK-067",
+      "TASK-068"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "已覆盖 Gateway、user-service、三个资源服务、共享验证模块、Redis、MySQL、ZIP 上传与运维轮换路径"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "已完成两轮独立复核；正确性问题已处理，超出负责人确认可信内网模型的加固项已明确记录为不实施"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-038"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "./mvnw clean verify 通过：137 个测试成功、0 失败，仅 1 个 Linux 专用测试按平台跳过"
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "pass",
+        "note": "8 个 reactor 模块全量通过，包含真实 Redis、MySQL 8.4/Flyway、JWKS 与 Gateway multipart ZIP 集成场景"
+      },
+      {
+        "name": "compatibility",
+        "result": "pass",
+        "note": "公开 API 未变，保留 legacy public key 兼容入口和既有会话 absolute deadline，idle 字段以可空迁移兼容"
+      },
+      {
+        "name": "observability",
+        "result": "pass",
+        "note": "保留 requestId 与错误分类，readiness 暴露已发布 kid，不记录或暴露私钥及 bearer"
+      },
+      {
+        "name": "reliability",
+        "result": "pass",
+        "note": "持久 key ring、轮换重叠窗口、统一 verifier、单飞续签与 ZIP 单次流式传输均有测试覆盖"
+      },
+      {
+        "name": "security",
+        "result": "pass",
+        "note": "在负责人确认的可信内网威胁模型内，保留 RS256 校验、声明约束、CSRF、HttpOnly、grant validate 与即时撤销"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-029"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]

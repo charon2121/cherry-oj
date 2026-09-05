@@ -8,6 +8,5 @@ record AuthSessionState(
 		String loginGrant,
 		String accessToken,
 		Instant accessTokenExpiresAt,
-		Instant idleExpiresAt,
 		Instant absoluteExpiresAt) implements Serializable {
 }

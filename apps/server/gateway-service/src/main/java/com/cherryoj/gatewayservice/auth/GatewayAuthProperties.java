@@ -10,41 +10,35 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record GatewayAuthProperties(
 		URI userServiceBaseUrl,
 		Duration userServiceTimeout,
-		long sessionIdleTimeoutSeconds,
+		String sessionLifetimePolicy,
 		long sessionAbsoluteTimeoutSeconds,
-		String sessionRefreshIdleOnActivity,
-		Duration tokenRefreshSkew,
+		Duration accessTokenTtl,
+		Duration tokenRefreshAhead,
 		List<String> trustedOrigins,
 		int loginRateLimitPerMinute) {
 
 	public GatewayAuthProperties {
-		if (userServiceBaseUrl == null || userServiceBaseUrl.getHost() == null) {
-			throw new IllegalArgumentException("cherry.gateway.user-service-base-url must be an absolute URI");
-		}
+		validateIdentityServiceUri(userServiceBaseUrl);
 		if (userServiceTimeout == null || userServiceTimeout.isNegative() || userServiceTimeout.isZero()
 				|| userServiceTimeout.compareTo(Duration.ofSeconds(30)) > 0) {
 			throw new IllegalArgumentException("cherry.gateway.user-service-timeout must be within (0, 30s]");
 		}
-		if (sessionIdleTimeoutSeconds < 300 || sessionIdleTimeoutSeconds > 7_200) {
+		if (!"fixed-absolute".equals(sessionLifetimePolicy)) {
 			throw new IllegalArgumentException(
-					"cherry.gateway.session-idle-timeout-seconds must be within [300, 7200]");
+					"cherry.gateway.session-lifetime-policy must be fixed-absolute");
 		}
-		if (sessionAbsoluteTimeoutSeconds < 3_600 || sessionAbsoluteTimeoutSeconds > 604_800) {
+		if (sessionAbsoluteTimeoutSeconds < 86_400 || sessionAbsoluteTimeoutSeconds > 7_776_000) {
 			throw new IllegalArgumentException(
-					"cherry.gateway.session-absolute-timeout-seconds must be within [3600, 604800]");
+					"cherry.gateway.session-absolute-timeout-seconds must be within [86400, 7776000]");
 		}
-		if (sessionIdleTimeoutSeconds > sessionAbsoluteTimeoutSeconds) {
+		if (accessTokenTtl == null || accessTokenTtl.compareTo(Duration.ofMinutes(1)) < 0
+				|| accessTokenTtl.compareTo(Duration.ofHours(24)) > 0) {
+			throw new IllegalArgumentException("cherry.gateway.access-token-ttl must be within [1m, 24h]");
+		}
+		if (tokenRefreshAhead == null || tokenRefreshAhead.isNegative()
+				|| tokenRefreshAhead.isZero() || tokenRefreshAhead.compareTo(accessTokenTtl) >= 0) {
 			throw new IllegalArgumentException(
-					"cherry.gateway.session-idle-timeout-seconds must not exceed session-absolute-timeout-seconds");
-		}
-		if (!"true".equals(sessionRefreshIdleOnActivity)
-				&& !"false".equals(sessionRefreshIdleOnActivity)) {
-			throw new IllegalArgumentException(
-					"cherry.gateway.session-refresh-idle-on-activity must be true or false");
-		}
-		if (tokenRefreshSkew == null || tokenRefreshSkew.isNegative()
-				|| tokenRefreshSkew.compareTo(Duration.ofSeconds(60)) > 0) {
-			throw new IllegalArgumentException("cherry.gateway.token-refresh-skew must be within [0, 60s]");
+					"cherry.gateway.token-refresh-ahead must be within (0, access-token-ttl)");
 		}
 		trustedOrigins = trustedOrigins == null ? List.of() : List.copyOf(trustedOrigins);
 		if (trustedOrigins.stream().anyMatch(origin -> origin == null || origin.isBlank() || origin.contains("*"))) {
@@ -55,15 +49,17 @@ public record GatewayAuthProperties(
 		}
 	}
 
-	Duration sessionIdleTimeout() {
-		return Duration.ofSeconds(sessionIdleTimeoutSeconds);
+	private static void validateIdentityServiceUri(URI value) {
+		if (value == null || !value.isAbsolute() || value.getHost() == null) {
+			throw new IllegalArgumentException("cherry.gateway.user-service-base-url must be an absolute URI");
+		}
+		if (!"https".equalsIgnoreCase(value.getScheme())
+				&& !"http".equalsIgnoreCase(value.getScheme())) {
+			throw new IllegalArgumentException("cherry.gateway.user-service-base-url must use HTTP or HTTPS");
+		}
 	}
 
 	Duration sessionAbsoluteTimeout() {
 		return Duration.ofSeconds(sessionAbsoluteTimeoutSeconds);
-	}
-
-	boolean refreshIdleOnActivity() {
-		return Boolean.parseBoolean(sessionRefreshIdleOnActivity);
 	}
 }

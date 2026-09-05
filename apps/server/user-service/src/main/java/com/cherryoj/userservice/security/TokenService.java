@@ -20,11 +20,13 @@ import org.springframework.stereotype.Service;
 public class TokenService {
 
     private final JwtEncoder encoder;
+    private final SigningKeys keys;
     private final AuthProperties properties;
     private final Clock clock;
 
-    public TokenService(JwtEncoder encoder, AuthProperties properties, Clock clock) {
+    public TokenService(JwtEncoder encoder, SigningKeys keys, AuthProperties properties, Clock clock) {
         this.encoder = encoder;
+        this.keys = keys;
         this.properties = properties;
         this.clock = clock;
     }
@@ -52,7 +54,7 @@ public class TokenService {
                 .claim("pwd", passwordChangeRequired)
                 .build();
         JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)
-                .keyId(properties.keyId())
+                .keyId(keys.activeKid())
                 .type("JWT")
                 .build();
         String value = encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();

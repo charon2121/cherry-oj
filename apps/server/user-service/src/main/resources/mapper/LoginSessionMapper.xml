@@ -13,7 +13,6 @@
             <arg column="user_created_at" javaType="java.time.LocalDateTime"/>
             <arg column="user_updated_at" javaType="java.time.LocalDateTime"/>
             <arg column="user_row_version" javaType="_long"/>
-            <arg column="idle_expires_at" javaType="java.time.LocalDateTime"/>
             <arg column="absolute_expires_at" javaType="java.time.LocalDateTime"/>
             <arg column="row_version" javaType="_long"/>
         </constructor>
@@ -37,7 +36,7 @@
             #{sessionVersion},
             #{now},
             #{now},
-            #{idleExpiresAt},
+            NULL,
             #{absoluteExpiresAt},
             0
         )
@@ -54,27 +53,43 @@
                account.created_at AS user_created_at,
                account.updated_at AS user_updated_at,
                account.row_version AS user_row_version,
-               login_session.idle_expires_at,
                login_session.absolute_expires_at,
                login_session.row_version
         FROM user_login_session AS login_session
         JOIN user_account AS account ON account.id = login_session.user_id
         WHERE login_session.grant_hash = #{grantHash}
           AND login_session.revoked_at IS NULL
-          AND login_session.idle_expires_at > #{now}
           AND login_session.absolute_expires_at > #{now}
           AND login_session.session_version = account.session_version
           AND account.status = 'ACTIVE'
         FOR UPDATE
     </select>
 
-    <update id="touch">
+    <select id="findActiveByGrantHash" resultMap="loginGrant">
+        SELECT BIN_TO_UUID(login_session.id) AS session_id,
+               BIN_TO_UUID(account.id) AS user_id,
+               account.username,
+               account.role,
+               account.status,
+               account.password_change_required,
+               account.session_version,
+               account.created_at AS user_created_at,
+               account.updated_at AS user_updated_at,
+               account.row_version AS user_row_version,
+               login_session.absolute_expires_at,
+               login_session.row_version
+        FROM user_login_session AS login_session
+        JOIN user_account AS account ON account.id = login_session.user_id
+        WHERE login_session.grant_hash = #{grantHash}
+          AND login_session.revoked_at IS NULL
+          AND login_session.absolute_expires_at > #{now}
+          AND login_session.session_version = account.session_version
+          AND account.status = 'ACTIVE'
+    </select>
+
+    <update id="markUsed">
         UPDATE user_login_session
         SET last_used_at = #{now},
-            idle_expires_at = CASE
-                WHEN #{refreshIdle} THEN LEAST(#{idleExpiresAt}, absolute_expires_at)
-                ELSE idle_expires_at
-            END,
             row_version = row_version + 1
         WHERE id = UUID_TO_BIN(#{id})
           AND revoked_at IS NULL

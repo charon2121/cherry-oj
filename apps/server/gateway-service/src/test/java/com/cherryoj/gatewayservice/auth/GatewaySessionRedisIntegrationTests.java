@@ -2,13 +2,18 @@ package com.cherryoj.gatewayservice.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -16,16 +21,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.session.Session;
 import org.springframework.session.data.redis.ReactiveRedisSessionRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -43,6 +51,8 @@ class GatewaySessionRedisIntegrationTests {
 	private static final AtomicInteger AUTHENTICATE_CALLS = new AtomicInteger();
 	private static final AtomicInteger TOKEN_EXCHANGE_CALLS = new AtomicInteger();
 	private static final AtomicInteger ADMIN_USER_CALLS = new AtomicInteger();
+	private static final AtomicInteger TEST_DATA_UPLOAD_CALLS = new AtomicInteger();
+	private static final AtomicReference<String> TEST_DATA_AUTHORIZATION = new AtomicReference<>();
 	private static volatile LocalDateTime sessionAbsoluteExpiresAt;
 	private static final DisposableServer USER_SERVICE = startUserService();
 
@@ -71,10 +81,10 @@ class GatewaySessionRedisIntegrationTests {
 							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 							.sendString(Mono.just(authenticationJson())).then());
 				})
-				.post("/internal/auth/touch", (request, response) -> request.receive().aggregate()
+				.post("/internal/auth/validate", (request, response) -> request.receive().aggregate()
 						.then(response.status(HttpStatus.OK.value())
 								.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-								.sendString(Mono.just(touchJson())).then()))
+								.sendString(Mono.just(validateJson())).then()))
 				.post("/internal/auth/token", (request, response) -> {
 					TOKEN_EXCHANGE_CALLS.incrementAndGet();
 					return request.receive().aggregate().then(response.status(HttpStatus.OK.value())
@@ -95,6 +105,13 @@ class GatewaySessionRedisIntegrationTests {
 							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 							.sendString(Mono.just("{\"code\":\"INVALID_TOKEN\",\"message\":\"\"}"))
 							.then();
+				})
+				.post("/internal/admin/problems/{problemId}/test-data", (request, response) -> {
+					TEST_DATA_UPLOAD_CALLS.incrementAndGet();
+					TEST_DATA_AUTHORIZATION.set(request.requestHeaders().get(HttpHeaders.AUTHORIZATION));
+					return request.receive().aggregate().then(response.status(HttpStatus.CREATED.value())
+							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+							.sendString(Mono.just(testDataJson())).then());
 				}))
 				.bindNow();
 	}
@@ -109,6 +126,8 @@ class GatewaySessionRedisIntegrationTests {
 		registry.add("spring.data.redis.host", REDIS::getHost);
 		registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 		registry.add("cherry.gateway.user-service-base-url", () ->
+				"http://127.0.0.1:" + USER_SERVICE.port());
+		registry.add("cherry.gateway.problem-service.base-url", () ->
 				"http://127.0.0.1:" + USER_SERVICE.port());
 	}
 
@@ -183,7 +202,7 @@ class GatewaySessionRedisIntegrationTests {
 	}
 
 	@Test
-	void rejectedDelegatedTokenIsExchangedOnceAndAdminListRecoversWithoutLogout() {
+	void rejectedResourceTokenIsNotReplayedAndDoesNotClearTheValidatedSession() {
 		WebTestClient client = WebTestClient.bindToServer()
 				.baseUrl("http://127.0.0.1:" + port).build();
 		int exchangesBefore = TOKEN_EXCHANGE_CALLS.get();
@@ -202,13 +221,12 @@ class GatewaySessionRedisIntegrationTests {
 		client.get().uri("/api/admin/users?page=1&size=20")
 				.cookie("CHERRY_SESSION", authenticatedCookie.getValue())
 				.exchange()
-				.expectStatus().isOk()
+				.expectStatus().isEqualTo(503)
 				.expectBody()
-				.jsonPath("$.data.items[0].username").isEqualTo("admin01")
-				.jsonPath("$.meta.pagination.totalElements").isEqualTo(1);
+				.jsonPath("$.code").isEqualTo("SERVICE_UNAVAILABLE");
 
-		assertThat(TOKEN_EXCHANGE_CALLS.get() - exchangesBefore).isEqualTo(1);
-		assertThat(ADMIN_USER_CALLS.get() - adminCallsBefore).isEqualTo(2);
+		assertThat(TOKEN_EXCHANGE_CALLS.get() - exchangesBefore).isZero();
+		assertThat(ADMIN_USER_CALLS.get() - adminCallsBefore).isEqualTo(1);
 		client.get().uri("/api/auth/session")
 				.cookie("CHERRY_SESSION", authenticatedCookie.getValue())
 				.exchange()
@@ -218,11 +236,46 @@ class GatewaySessionRedisIntegrationTests {
 	}
 
 	@Test
-	void redisSessionRepositoryUsesConfiguredIdleSeconds() {
+	void redisSessionRepositoryUsesFixedAbsoluteLifetimeAsItsOnlyTtl() {
 		Session session = sessions.createSession().cast(Session.class).block();
 		assertThat(session).isNotNull();
 		assertThat(session.getMaxInactiveInterval())
-				.isEqualTo(java.time.Duration.ofSeconds(1_800));
+				.isEqualTo(java.time.Duration.ofDays(30));
+	}
+
+	@Test
+	void validZipStreamsThroughGatewayExactlyOnce() throws IOException {
+		WebTestClient client = WebTestClient.bindToServer()
+				.baseUrl("http://127.0.0.1:" + port).build();
+		int uploadsBefore = TEST_DATA_UPLOAD_CALLS.get();
+		EntityExchangeResult<byte[]> csrf = client.get().uri("/api/auth/csrf")
+				.exchange().expectStatus().isOk().expectBody().returnResult();
+		ResponseCookie anonymousCookie = csrf.getResponseCookies().getFirst("CHERRY_SESSION");
+		EntityExchangeResult<byte[]> login = client.post().uri("/api/auth/login")
+				.cookie("CHERRY_SESSION", anonymousCookie.getValue())
+				.header("X-CSRF-Token", token(csrf))
+				.contentType(MediaType.APPLICATION_JSON)
+				.bodyValue("{\"username\":\"admin01\",\"password\":\"correct-password\"}")
+				.exchange().expectStatus().isOk().expectBody().returnResult();
+		ResponseCookie authenticatedCookie = login.getResponseCookies().getFirst("CHERRY_SESSION");
+		MultipartBodyBuilder multipart = new MultipartBodyBuilder();
+		multipart.part("file", new ByteArrayResource(zipBytes()) {
+			@Override
+			public String getFilename() {
+				return "test-data.zip";
+			}
+		}).contentType(MediaType.parseMediaType("application/zip"));
+
+		client.post().uri("/api/admin/problems/019c8e42-7f70-7000-8000-000000000101/test-data")
+				.cookie("CHERRY_SESSION", authenticatedCookie.getValue())
+				.header("X-CSRF-Token", token(csrf))
+				.body(BodyInserters.fromMultipartData(multipart.build()))
+				.exchange().expectStatus().isCreated()
+				.expectBody().jsonPath("$.data.id")
+				.isEqualTo("019c8e42-7f70-7000-8000-000000000103");
+
+		assertThat(TEST_DATA_UPLOAD_CALLS.get() - uploadsBefore).isEqualTo(1);
+		assertThat(TEST_DATA_AUTHORIZATION).hasValue("Bearer internal-jwt-canary");
 	}
 
 	private static String token(EntityExchangeResult<byte[]> response) {
@@ -239,12 +292,12 @@ class GatewaySessionRedisIntegrationTests {
 		assertThat(cookie.getSameSite()).isEqualToIgnoringCase("Lax");
 		assertThat(cookie.getPath()).isEqualTo("/api");
 		assertThat(cookie.getDomain()).isNull();
+		assertThat(cookie.getMaxAge()).isNegative();
 	}
 
 	private static String authenticationJson() {
 		Instant started = Instant.now();
-		LocalDateTime idleExpiresAt = LocalDateTime.ofInstant(started.plusSeconds(1_800), ZoneOffset.UTC);
-		sessionAbsoluteExpiresAt = LocalDateTime.ofInstant(started.plusSeconds(43_200), ZoneOffset.UTC);
+		sessionAbsoluteExpiresAt = LocalDateTime.ofInstant(started.plusSeconds(2_592_000), ZoneOffset.UTC);
 		return """
 				{
 				  "user": {
@@ -260,34 +313,26 @@ class GatewaySessionRedisIntegrationTests {
 				  "loginGrant": "login-grant-canary",
 				  "accessToken": "internal-jwt-canary",
 				  "accessTokenExpiresAt": "%s",
-				  "sessionIdleExpiresAt": "%s",
 				  "sessionAbsoluteExpiresAt": "%s",
-				  "sessionIdleTimeoutSeconds": 1800,
-				  "sessionAbsoluteTimeoutSeconds": 43200,
-				  "sessionRefreshIdleOnActivity": true
+				  "sessionAbsoluteTimeoutSeconds": 2592000,
+				  "sessionLifetimePolicy": "fixed-absolute"
 				}
 				""".formatted(
-					started.plusSeconds(120), idleExpiresAt, sessionAbsoluteExpiresAt);
+					started.plusSeconds(7_200), sessionAbsoluteExpiresAt);
 	}
 
-	private static String touchJson() {
-		LocalDateTime idleExpiresAt = LocalDateTime.ofInstant(
-				Instant.now().plusSeconds(1_800), ZoneOffset.UTC);
+	private static String validateJson() {
 		return """
 				{
-				  "sessionIdleExpiresAt": "%s",
 				  "sessionAbsoluteExpiresAt": "%s",
-				  "sessionIdleTimeoutSeconds": 1800,
-				  "sessionAbsoluteTimeoutSeconds": 43200,
-				  "sessionRefreshIdleOnActivity": true
+				  "sessionAbsoluteTimeoutSeconds": 2592000,
+				  "sessionLifetimePolicy": "fixed-absolute"
 				}
-				""".formatted(idleExpiresAt, sessionAbsoluteExpiresAt);
+				""".formatted(sessionAbsoluteExpiresAt);
 	}
 
 	private static String tokenExchangeJson() {
 		Instant exchanged = Instant.now();
-		LocalDateTime idleExpiresAt = LocalDateTime.ofInstant(
-				exchanged.plusSeconds(1_800), ZoneOffset.UTC);
 		return """
 				{
 				  "user": {
@@ -302,14 +347,12 @@ class GatewaySessionRedisIntegrationTests {
 				  },
 				  "accessToken": "fresh-internal-jwt-canary",
 				  "accessTokenExpiresAt": "%s",
-				  "sessionIdleExpiresAt": "%s",
 				  "sessionAbsoluteExpiresAt": "%s",
-				  "sessionIdleTimeoutSeconds": 1800,
-				  "sessionAbsoluteTimeoutSeconds": 43200,
-				  "sessionRefreshIdleOnActivity": true
+				  "sessionAbsoluteTimeoutSeconds": 2592000,
+				  "sessionLifetimePolicy": "fixed-absolute"
 				}
 				""".formatted(
-					exchanged.plusSeconds(120), idleExpiresAt, sessionAbsoluteExpiresAt);
+					exchanged.plusSeconds(7_200), sessionAbsoluteExpiresAt);
 	}
 
 	private static String userPageJson() {
@@ -330,6 +373,29 @@ class GatewaySessionRedisIntegrationTests {
 				  "totalElements": 1,
 				  "totalPages": 1
 				}
+				""";
+	}
+
+	private static byte[] zipBytes() throws IOException {
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+			zip.putNextEntry(new ZipEntry("1.in"));
+			zip.write("1 2\n".getBytes(StandardCharsets.UTF_8));
+			zip.closeEntry();
+			zip.putNextEntry(new ZipEntry("1.out"));
+			zip.write("3\n".getBytes(StandardCharsets.UTF_8));
+			zip.closeEntry();
+		}
+		return bytes.toByteArray();
+	}
+
+	private static String testDataJson() {
+		return """
+				{"id":"019c8e42-7f70-7000-8000-000000000103",
+				 "problemId":"019c8e42-7f70-7000-8000-000000000101","status":"READY",
+				 "sourceType":"MANUAL_UPLOAD","contentSha256":null,"caseCount":2,
+				 "totalBytes":6,"manifest":null,"createdAt":"2026-09-05T00:00:00",
+				 "readyAt":"2026-09-05T00:00:00","errorMessage":null}
 				""";
 	}
 }

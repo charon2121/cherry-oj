@@ -3,6 +3,8 @@ package com.cherryoj.gatewayservice.problem;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.codec.DecodingException;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.HttpStatus;
@@ -11,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 import com.cherryoj.gatewayservice.api.ApiProblemException;
 
 final class ProblemApiErrors {
+	private static final Logger LOGGER = LoggerFactory.getLogger(ProblemApiErrors.class);
 
 	private static final Set<String> SAFE_CLIENT_CODES = Set.of(
 			"VALIDATION_FAILED", "MALFORMED_REQUEST", "INVALID_QUERY", "INVALID_CURSOR",
@@ -24,6 +27,10 @@ final class ProblemApiErrors {
 	}
 
 	static ApiProblemException map(Throwable error, boolean publicApi) {
+		return map(error, publicApi, null);
+	}
+
+	static ApiProblemException map(Throwable error, boolean publicApi, String requestId) {
 		if (error instanceof ApiProblemException problem) {
 			return problem;
 		}
@@ -41,11 +48,18 @@ final class ProblemApiErrors {
 			if (status >= 500) {
 				return status == 504 ? gatewayTimeout() : unavailable();
 			}
+			if (status == 401) {
+				logIdentityViolation(requestId, upstream.code());
+				return identityUnavailable();
+			}
+			if (status == 403) {
+				return client(HttpStatus.FORBIDDEN, "FORBIDDEN");
+			}
 			if (publicApi && status == 404) {
 				return "PROBLEM_NOT_FOUND".equals(upstream.code())
 						? client(HttpStatus.NOT_FOUND, "PROBLEM_NOT_FOUND") : badGateway();
 			}
-			if (status == 401 || status == 403 || !SAFE_CLIENT_CODES.contains(upstream.code())) {
+			if (!SAFE_CLIENT_CODES.contains(upstream.code())) {
 				return badGateway();
 			}
 			HttpStatus clientStatus = HttpStatus.resolve(status);
@@ -55,9 +69,19 @@ final class ProblemApiErrors {
 		return badGateway();
 	}
 
+	private static void logIdentityViolation(String requestId, String upstreamCode) {
+		LOGGER.atWarn()
+				.addKeyValue("event", "identity_trust_violation")
+				.addKeyValue("upstream_service", "problem-service")
+				.addKeyValue("request_id", requestId == null ? "unavailable" : requestId)
+				.addKeyValue("upstream_code", upstreamCode)
+				.log("Resource service rejected a prevalidated delegated identity");
+	}
+
 	private static ApiProblemException client(HttpStatus status, String code) {
 		return new ApiProblemException(status, code, switch (status) {
 			case BAD_REQUEST -> "请求格式错误";
+			case FORBIDDEN -> "无权访问";
 			case NOT_FOUND -> "资源不存在";
 			case CONFLICT -> "资源状态冲突";
 			case CONTENT_TOO_LARGE -> "请求体过大";
@@ -65,6 +89,7 @@ final class ProblemApiErrors {
 			case UNPROCESSABLE_CONTENT -> "请求参数校验失败";
 			default -> "请求失败";
 		}, switch (status) {
+			case FORBIDDEN -> "当前身份无权执行此操作。";
 			case NOT_FOUND -> "请求的资源不存在。";
 			case CONFLICT -> "资源当前状态不允许此操作。";
 			case CONTENT_TOO_LARGE -> "请求体超过允许大小。";
@@ -77,6 +102,11 @@ final class ProblemApiErrors {
 	private static ApiProblemException unavailable() {
 		return new ApiProblemException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
 				"服务暂不可用", "服务暂时不可用，请稍后重试。");
+	}
+
+	private static ApiProblemException identityUnavailable() {
+		return new ApiProblemException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE",
+				"服务暂不可用", "身份信任状态暂时不一致，请稍后重试。");
 	}
 
 	private static ApiProblemException gatewayTimeout() {

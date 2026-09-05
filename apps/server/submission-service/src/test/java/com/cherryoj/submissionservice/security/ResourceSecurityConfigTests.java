@@ -10,6 +10,8 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 
+import com.cherryoj.identitysecurity.IdentityVerifierConfiguration;
+import com.cherryoj.identitysecurity.IdentityVerifierProperties;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
@@ -36,11 +38,14 @@ class ResourceSecurityConfigTests {
 		});
 		jwks.start();
 		try {
-			IdentityProperties properties = new IdentityProperties(
+			IdentityVerifierProperties properties = new IdentityVerifierProperties(
 					"cherry-oj-user-service", "cherry-oj-internal",
 					java.net.URI.create("http://127.0.0.1:" + jwks.getAddress().getPort() + "/jwks"),
-					Duration.ofSeconds(30));
-			var decoder = new ResourceSecurityConfig().jwtDecoder(properties);
+					java.net.URI.create("http://127.0.0.1:" + jwks.getAddress().getPort() + "/metadata"),
+					Duration.ofHours(2),
+					Duration.ofSeconds(30), Duration.ofSeconds(2), Duration.ofSeconds(2));
+			var configuration = new IdentityVerifierConfiguration();
+			var decoder = configuration.identityJwtDecoder(properties, configuration.identityVerifierHealth(properties));
 			assertThat(decoder.decode(token(key, "cherry-oj-internal")).getSubject())
 					.isEqualTo("019c8e42-7f70-7000-8000-000000000001");
 			assertThatThrownBy(() -> decoder.decode(token(key, "wrong-audience")))

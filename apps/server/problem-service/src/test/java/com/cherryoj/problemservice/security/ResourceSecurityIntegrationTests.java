@@ -47,6 +47,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -78,8 +79,7 @@ class ResourceSecurityIntegrationTests {
 	private static final HttpServer JWKS = startJwksServer();
 
 	private final MockMvc mockMvc;
-	private final ResourceSecurityConfig configuration;
-	private final IdentityProperties properties;
+	private final JwtDecoder decoder;
 
 	@MockitoBean
 	PublicProblemService publicProblems;
@@ -96,17 +96,17 @@ class ResourceSecurityIntegrationTests {
 	@Autowired
 	ResourceSecurityIntegrationTests(
 			WebApplicationContext context,
-			ResourceSecurityConfig configuration,
-			IdentityProperties properties) {
+			JwtDecoder decoder) {
 		this.mockMvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
-		this.configuration = configuration;
-		this.properties = properties;
+		this.decoder = decoder;
 	}
 
 	@DynamicPropertySource
 	static void identityProperties(DynamicPropertyRegistry registry) {
 		registry.add("cherry.identity.jwks-uri", () ->
 				"http://127.0.0.1:" + JWKS.getAddress().getPort() + "/jwks");
+		registry.add("cherry.identity.metadata-uri", () ->
+				"http://127.0.0.1:" + JWKS.getAddress().getPort() + "/metadata");
 	}
 
 	@AfterAll
@@ -199,7 +199,6 @@ class ResourceSecurityIntegrationTests {
 	@Test
 	@Order(2)
 	void rejectsInvalidIssuerAudienceTimeRoleAndKid() {
-		var decoder = configuration.jwtDecoder(properties);
 		decoder.decode(token(KEY, "USER", Map.of()));
 		assertThatThrownBy(() -> decoder.decode(token(KEY, "USER", Map.of("iss", "wrong"))))
 				.isInstanceOf(JwtException.class);
@@ -224,7 +223,6 @@ class ResourceSecurityIntegrationTests {
 	@Order(3)
 	void refreshesRotatedJwksOnceForConcurrentValidTokens() throws Exception {
 		PUBLISHED_KEYS.set(new JWKSet(KEY.toPublicJWK()));
-		var decoder = configuration.jwtDecoder(properties);
 		decoder.decode(token(KEY, "ADMIN", Map.of()));
 		int requestsBeforeRotation = JWKS_REQUESTS.get();
 		PUBLISHED_KEYS.set(new JWKSet(ROTATED_KEY.toPublicJWK()));
@@ -260,7 +258,6 @@ class ResourceSecurityIntegrationTests {
 	void cachedKnownKeyContinuesAfterJwksOutageAndUnknownKeyFailsClosed() throws Exception {
 		PUBLISHED_KEYS.set(new JWKSet(List.of(
 				ROTATED_KEY.toPublicJWK(), KEY.toPublicJWK())));
-		var decoder = configuration.jwtDecoder(properties);
 		decoder.decode(token(KEY, "USER", Map.of()));
 		JWKS.stop(0);
 		decoder.decode(token(KEY, "USER", Map.of()));

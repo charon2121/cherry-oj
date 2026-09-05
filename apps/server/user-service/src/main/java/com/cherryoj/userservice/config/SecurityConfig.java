@@ -29,9 +29,10 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/actuator/info",
                                 "/.well-known/jwks.json",
+                                "/internal/identity/metadata",
                                 "/internal/auth/authenticate",
                                 "/internal/auth/token",
-                                "/internal/auth/touch",
+                                "/internal/auth/validate",
                                 "/internal/auth/revoke")
                         .permitAll()
                         .anyRequest().authenticated())

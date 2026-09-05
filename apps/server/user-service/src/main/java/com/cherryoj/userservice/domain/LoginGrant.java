@@ -13,7 +13,6 @@ public record LoginGrant(
         LocalDateTime userCreatedAt,
         LocalDateTime userUpdatedAt,
         long userRowVersion,
-        LocalDateTime idleExpiresAt,
         LocalDateTime absoluteExpiresAt,
         long rowVersion) {
 }

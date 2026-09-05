@@ -5,17 +5,18 @@ import java.util.concurrent.TimeoutException;
 
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.MultipartBodyBuilder;
-import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.codec.multipart.FilePartEvent;
+import org.springframework.http.codec.multipart.PartEvent;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
+
+import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
+import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -29,19 +30,24 @@ final class ProblemServiceClient {
 
 	private final WebClient client;
 	private final ProblemServiceProperties properties;
+	private final InternalRequestFactory requests;
 
-	ProblemServiceClient(WebClient.Builder builder, ProblemServiceProperties properties) {
+	ProblemServiceClient(
+			WebClient.Builder builder,
+			ProblemServiceProperties properties,
+			InternalRequestFactory requests) {
 		this.client = builder.clone()
 				.baseUrl(properties.baseUrl().toString())
 				.codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(properties.maxJsonBytes()))
 				.build();
 		this.properties = properties;
+		this.requests = requests;
 	}
 
 	Mono<ProblemDtos.ProblemList> listPublic(
 			String q, String difficulty, List<String> tags, String codeMode, String language,
 			String sort, String cursor, int size, String requestId) {
-		return json(client.get().uri(builder -> {
+		return json(requests.request(client.get().uri(builder -> {
 			builder.path("/internal/public/problems");
 			query(builder, "q", q);
 			query(builder, "difficulty", difficulty);
@@ -53,104 +59,108 @@ final class ProblemServiceClient {
 			query(builder, "sort", sort);
 			query(builder, "cursor", cursor);
 			return builder.queryParam("size", size).build();
-		}).header("X-Request-Id", requestId), ProblemDtos.ProblemList.class);
+		}), requestId), ProblemDtos.ProblemList.class);
 	}
 
 	Mono<ProblemDtos.ProblemDetail> getPublic(String slug, String requestId) {
-		return json(client.get().uri("/internal/public/problems/{slug}", slug)
-				.header("X-Request-Id", requestId), ProblemDtos.ProblemDetail.class);
+		return json(requests.request(client.get().uri("/internal/public/problems/{slug}", slug), requestId),
+				ProblemDtos.ProblemDetail.class);
 	}
 
 	Mono<ProblemDtos.AdminProblemPage> listAdmin(
-			String token, String q, String status, int page, int size, String requestId) {
-		return json(admin(client.get().uri(builder -> {
+			DelegatedIdentity identity, String q, String status, int page, int size) {
+		return json(requests.authenticated(client.get().uri(builder -> {
 			builder.path("/internal/admin/problems");
 			query(builder, "q", q);
 			query(builder, "status", status);
 			return builder.queryParam("page", page).queryParam("size", size).build();
-		}), token, requestId), ProblemDtos.AdminProblemPage.class);
+		}), identity), ProblemDtos.AdminProblemPage.class);
 	}
 
 	Mono<ProblemDtos.AdminProblem> createProblem(
-			String token, Object body, String requestId) {
-		return json(admin(client.post().uri("/internal/admin/problems"), token, requestId)
+			DelegatedIdentity identity, Object body) {
+		return json(requests.authenticated(client.post().uri("/internal/admin/problems"), identity)
 				.bodyValue(body), ProblemDtos.AdminProblem.class);
 	}
 
-	Mono<ProblemDtos.AdminProblem> getProblem(String token, String problemId, String requestId) {
-		return json(admin(client.get().uri("/internal/admin/problems/{problemId}", problemId),
-				token, requestId), ProblemDtos.AdminProblem.class);
+	Mono<ProblemDtos.AdminProblem> getProblem(DelegatedIdentity identity, String problemId) {
+		return json(requests.authenticated(
+				client.get().uri("/internal/admin/problems/{problemId}", problemId), identity),
+				ProblemDtos.AdminProblem.class);
 	}
 
 	Mono<ProblemDtos.AdminProblem> updateProblem(
-			String token, String problemId, Object body, String requestId) {
-		return json(admin(client.patch().uri("/internal/admin/problems/{problemId}", problemId),
-				token, requestId).bodyValue(body), ProblemDtos.AdminProblem.class);
+			DelegatedIdentity identity, String problemId, Object body) {
+		return json(requests.authenticated(
+				client.patch().uri("/internal/admin/problems/{problemId}", problemId), identity)
+				.bodyValue(body), ProblemDtos.AdminProblem.class);
 	}
 
 	Mono<ProblemDtos.AdminProblem> archiveProblem(
-			String token, String problemId, Object body, String requestId) {
-		return json(admin(client.post().uri("/internal/admin/problems/{problemId}/archive", problemId),
-				token, requestId).bodyValue(body), ProblemDtos.AdminProblem.class);
+			DelegatedIdentity identity, String problemId, Object body) {
+		return json(requests.authenticated(
+				client.post().uri("/internal/admin/problems/{problemId}/archive", problemId), identity)
+				.bodyValue(body), ProblemDtos.AdminProblem.class);
 	}
 
 	Mono<ProblemDtos.AdminProblemVersion> createRevision(
-			String token, String problemId, Object body, String requestId) {
-		return json(admin(client.post().uri("/internal/admin/problems/{problemId}/versions", problemId),
-				token, requestId).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
+			DelegatedIdentity identity, String problemId, Object body) {
+		return json(requests.authenticated(
+				client.post().uri("/internal/admin/problems/{problemId}/versions", problemId), identity)
+				.bodyValue(body), ProblemDtos.AdminProblemVersion.class);
 	}
 
 	Mono<ProblemDtos.AdminProblemVersion> getVersion(
-			String token, String problemId, String versionId, String requestId) {
-		return json(admin(client.get().uri(
+			DelegatedIdentity identity, String problemId, String versionId) {
+		return json(requests.authenticated(client.get().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}", problemId, versionId),
-				token, requestId), ProblemDtos.AdminProblemVersion.class);
+				identity), ProblemDtos.AdminProblemVersion.class);
 	}
 
 	Mono<ProblemDtos.AdminProblemVersion> updateVersion(
-			String token, String problemId, String versionId, Object body, String requestId) {
-		return json(admin(client.patch().uri(
+			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+		return json(requests.authenticated(client.patch().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}", problemId, versionId),
-				token, requestId).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
+				identity).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
 	}
 
 	Mono<Void> deleteVersion(
-			String token, String problemId, String versionId, long rowVersion, String requestId) {
-		return noContent(admin(client.delete().uri(builder -> builder
+			DelegatedIdentity identity, String problemId, String versionId, long rowVersion) {
+		return noContent(requests.authenticated(client.delete().uri(builder -> builder
 				.path("/internal/admin/problems/{problemId}/versions/{versionId}")
-				.queryParam("rowVersion", rowVersion).build(problemId, versionId)), token, requestId));
+				.queryParam("rowVersion", rowVersion).build(problemId, versionId)), identity));
 	}
 
 	Mono<ProblemDtos.ProblemDetail> preview(
-			String token, String problemId, String versionId, String requestId) {
-		return json(admin(client.get().uri(
+			DelegatedIdentity identity, String problemId, String versionId) {
+		return json(requests.authenticated(client.get().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}/preview", problemId, versionId),
-				token, requestId), ProblemDtos.ProblemDetail.class);
+				identity), ProblemDtos.ProblemDetail.class);
 	}
 
 	Mono<List<ProblemDtos.TestDataVersion>> listTestData(
-			String token, String problemId, String requestId) {
-		return json(admin(client.get().uri("/internal/admin/problems/{problemId}/test-data", problemId),
-				token, requestId), TEST_DATA_LIST);
+			DelegatedIdentity identity, String problemId) {
+		return json(requests.authenticated(
+				client.get().uri("/internal/admin/problems/{problemId}/test-data", problemId), identity),
+				TEST_DATA_LIST);
 	}
 
 	Mono<ProblemDtos.TestDataVersion> uploadTestData(
-			String token, String problemId, FilePart file, String requestId) {
-		MultipartBodyBuilder multipart = new MultipartBodyBuilder();
-		multipart.asyncPart("file", file.content(), DataBuffer.class)
-				.filename("test-data.zip").contentType(APPLICATION_ZIP);
-		return streamingJson(admin(client.post().uri(
-				"/internal/admin/problems/{problemId}/test-data", problemId), token, requestId)
+			DelegatedIdentity identity, String problemId, Flux<DataBuffer> content) {
+		Flux<PartEvent> parts = FilePartEvent.create(
+				"file", "test-data.zip", APPLICATION_ZIP, content).cast(PartEvent.class);
+		return streamingJson(requests.authenticated(client.post().uri(
+				"/internal/admin/problems/{problemId}/test-data", problemId), identity)
 				.contentType(MediaType.MULTIPART_FORM_DATA)
-				.body(BodyInserters.fromMultipartData(multipart.build())),
+				.body(parts, PartEvent.class),
 				ProblemDtos.TestDataVersion.class);
 	}
 
 	Mono<Download> downloadTestData(
-			String token, String problemId, String testDataVersionId, String requestId) {
-		return admin(client.get().uri(
+			DelegatedIdentity identity, String problemId, String testDataVersionId) {
+		return requests.authenticated(client.get().uri(
 				"/internal/admin/problems/{problemId}/test-data/{testDataVersionId}/download",
-				problemId, testDataVersionId), token, requestId)
+				problemId, testDataVersionId), identity)
 				.accept(APPLICATION_ZIP)
 				.retrieve()
 				.onStatus(status -> !status.is2xxSuccessful(), this::downloadError)
@@ -160,38 +170,38 @@ final class ProblemServiceClient {
 	}
 
 	Mono<ProblemDtos.AdminProblemVersion> bindTestData(
-			String token, String problemId, String versionId, Object body, String requestId) {
-		return json(admin(client.put().uri(
+			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+		return json(requests.authenticated(client.put().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}/test-data", problemId, versionId),
-				token, requestId).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
+				identity).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
 	}
 
 	Mono<ProblemDtos.TestDataDeployment> deploy(
-			String token, String problemId, String versionId, Object body, String requestId) {
-		return streamingJson(admin(client.post().uri(
+			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+		return streamingJson(requests.authenticated(client.post().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}/deployment", problemId, versionId),
-				token, requestId).bodyValue(body), ProblemDtos.TestDataDeployment.class);
+				identity).bodyValue(body), ProblemDtos.TestDataDeployment.class);
 	}
 
 	Mono<ProblemDtos.LanguageCalibration> calibrate(
-			String token, String problemId, String versionId, Object body, String requestId) {
-		return streamingJson(admin(client.post().uri(
+			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+		return streamingJson(requests.authenticated(client.post().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}/calibration", problemId, versionId),
-				token, requestId).bodyValue(body), ProblemDtos.LanguageCalibration.class);
+				identity).bodyValue(body), ProblemDtos.LanguageCalibration.class);
 	}
 
 	Mono<ProblemDtos.PublishCheck> publishCheck(
-			String token, String problemId, String versionId, String requestId) {
-		return json(admin(client.get().uri(
+			DelegatedIdentity identity, String problemId, String versionId) {
+		return json(requests.authenticated(client.get().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}/publish-check", problemId, versionId),
-				token, requestId), ProblemDtos.PublishCheck.class);
+				identity), ProblemDtos.PublishCheck.class);
 	}
 
 	Mono<ProblemDtos.AdminProblemVersion> publish(
-			String token, String problemId, String versionId, Object body, String requestId) {
-		return streamingJson(admin(client.post().uri(
+			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+		return streamingJson(requests.authenticated(client.post().uri(
 				"/internal/admin/problems/{problemId}/versions/{versionId}/publish", problemId, versionId),
-				token, requestId).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
+				identity).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
 	}
 
 	private <T> Mono<T> json(WebClient.RequestHeadersSpec<?> request, Class<T> type) {
@@ -251,18 +261,6 @@ final class ProblemServiceClient {
 				.defaultIfEmpty(new InternalError("UPSTREAM_ERROR"))
 				.flatMap(error -> Mono.error(
 						new ProblemServiceClientException(status, safeCode(error.code()))));
-	}
-
-	private static WebClient.RequestHeadersSpec<?> admin(
-			WebClient.RequestHeadersSpec<?> request, String token, String requestId) {
-		return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-				.header("X-Request-Id", requestId);
-	}
-
-	private static WebClient.RequestBodySpec admin(
-			WebClient.RequestBodySpec request, String token, String requestId) {
-		return request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-				.header("X-Request-Id", requestId);
 	}
 
 	private static void query(UriBuilder builder, String name, String value) {

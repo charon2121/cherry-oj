@@ -33,7 +33,11 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest(properties = {"cherry.auth.mode=test", "spring.main.web-application-type=none"})
+@SpringBootTest(properties = {
+        "cherry.auth.mode=test",
+        "spring.main.web-application-type=none",
+        "management.endpoint.health.validate-group-membership=false"
+})
 @Testcontainers(disabledWithoutDocker = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class UserPersistenceIntegrationTests {
@@ -138,31 +142,23 @@ class UserPersistenceIntegrationTests {
 
     @Test
     @Order(3)
-    void mysqlTouchConditionallyRefreshesIdleDeadline() {
+    void mysqlValidationIgnoresLegacyIdleAndNeverExtendsAbsoluteDeadline() {
         var created = users.createUser(null, "SessionLearner");
         String rawGrant = grants.generate();
         byte[] digest = grants.digest(rawGrant);
         LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
                 .truncatedTo(ChronoUnit.MICROS);
-        LocalDateTime initialIdle = now.plusSeconds(600);
-        LocalDateTime absolute = now.plusSeconds(3_600);
+        LocalDateTime absolute = now.plusDays(30);
         sessions.insert(
                 uuidV7.next().toString(), created.user().id(), digest, 0,
-                now, initialIdle, absolute);
+                now, absolute);
 
-        var initial = sessions.findActiveByGrantHashForUpdate(digest, now.plusSeconds(1));
-        LocalDateTime refreshedIdle = now.plusSeconds(1_801);
-        assertThat(sessions.touch(
-                initial.sessionId(), now.plusSeconds(1), refreshedIdle, true, initial.rowVersion()))
+        var initial = sessions.findActiveByGrantHash(digest, now.plusMinutes(31));
+        assertThat(initial).isNotNull();
+        assertThat(sessions.markUsed(initial.sessionId(), now.plusMinutes(31), initial.rowVersion()))
                 .isEqualTo(1);
-        var refreshed = sessions.findActiveByGrantHashForUpdate(digest, now.plusSeconds(2));
-        assertThat(refreshed.idleExpiresAt()).isEqualTo(refreshedIdle);
-
-        assertThat(sessions.touch(
-                refreshed.sessionId(), now.plusSeconds(2), now.plusSeconds(2_000), false,
-                refreshed.rowVersion())).isEqualTo(1);
-        var fixed = sessions.findActiveByGrantHashForUpdate(digest, now.plusSeconds(3));
-        assertThat(fixed.idleExpiresAt()).isEqualTo(refreshedIdle);
+        var fixed = sessions.findActiveByGrantHash(digest, now.plusDays(29));
         assertThat(fixed.absoluteExpiresAt()).isEqualTo(absolute);
+        assertThat(sessions.findActiveByGrantHash(digest, absolute)).isNull();
     }
 }

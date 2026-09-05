@@ -28,7 +28,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 class TokenServiceTests {
 
     @Test
-    void issuesOnlyTheApprovedClaimsWithTwoMinuteLifetime() throws Exception {
+    void issuesOnlyTheApprovedClaimsWithTwoHourLifetime() throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
         generator.initialize(2048);
         var pair = generator.generateKeyPair();
@@ -47,12 +47,13 @@ class TokenServiceTests {
                 "unused",
                 "unused",
                 Map.of(),
-                Duration.ofSeconds(120),
+                Duration.ofHours(2),
                 Duration.ofSeconds(30),
-                1_800,
-                43_200,
-                "true");
-        var service = new TokenService(encoder, properties, Clock.fixed(instant, ZoneOffset.UTC));
+                "fixed-absolute",
+                2_592_000);
+        var keys = new SigningKeys(rsa, new JWKSet(rsa.toPublicJWK()),
+                (RSAPublicKey) pair.getPublic(), (RSAPrivateKey) pair.getPrivate());
+        var service = new TokenService(encoder, keys, properties, Clock.fixed(instant, ZoneOffset.UTC));
         LocalDateTime now = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
         var account = new UserAccount(
                 "019c8e42-7f70-7000-8000-000000000001",
@@ -80,7 +81,7 @@ class TokenServiceTests {
         assertThat(decoded.getClaimAsStringList("roles")).containsExactly("USER");
         assertThat(decoded.<Long>getClaim("sv")).isEqualTo(7);
         assertThat(decoded.getClaimAsBoolean("pwd")).isTrue();
-        assertThat(token.expiresAt()).isEqualTo(instant.plusSeconds(120));
+        assertThat(token.expiresAt()).isEqualTo(instant.plus(Duration.ofHours(2)));
         assertThat(decoded.getHeaders().get("kid")).isEqualTo("test-key");
         assertThat(decoded.getClaims()).doesNotContainKeys("username", "password", "loginGrant");
     }

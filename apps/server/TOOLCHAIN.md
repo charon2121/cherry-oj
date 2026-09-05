@@ -123,12 +123,33 @@ fixture 幂等返回，任何差异仍拒绝启动。
 MySQL/Redis 后可以直接执行 `spring-boot:run`。空 Redis 密码表示本地无鉴权，judging 环境预置字段在
 功能关闭时允许为空，`${LOG_FILE}` 由 Spring 日志系统在运行时提供；这些都不是缺失的环境变量。
 
-user-service 默认使用进程内随机生成的临时 RSA 密钥。它只服务单进程本地联调，不落盘，重启即更换。
-显式提供 `CHERRY_AUTH_KEY_ID`、`CHERRY_AUTH_PRIVATE_KEY_LOCATION` 和
-`CHERRY_AUTH_PUBLIC_KEY_LOCATION` 后仍按原逻辑读取 PEM，并支持上一把公开密钥。
+user-service 默认读取 `apps/server/data/identity-keys` 中的持久 RSA 密钥。首次本地运行前从仓库根执行
+`scripts/identity-keys init`；命令使用 3072 位 RSA、原子落盘、拒绝覆盖，并将私钥目录和文件限制为仅
+owner 可访问。普通重启只重新读取同一把 key，`kid` 由规范化公钥的 SHA-256 指纹生成，不再由配置命名。
+`scripts/identity-keys prepare` 后，user-service 会从 `rotation.state` 自动把 next 公钥加入 JWKS；重启
+user-service 后必须用下面的具名命令同时探测三个资源服务，全部 readiness 都为 `UP` 且都已经
+看到 next kid，`activate` 才允许切 signer：
 
-`prod` 或 `production` profile 是部署安全边界：三个数据库密码和 user-service 的三项当前密钥配置
+```bash
+scripts/identity-keys probe <目录> \
+  problem-service=http://problem-service:8082/actuator/health/readiness \
+  submission-service=http://submission-service:8083/actuator/health/readiness \
+  judging-service=http://judging-service:8084/actuator/health/readiness
+```
+
+内部服务位于可信网络时可使用 HTTP；部署已经提供内部 TLS 时也可使用 HTTPS。新增任何使用共享 verifier 的
+资源服务时，必须同时把服务名加入该脚本的 required verifier 清单和轮换演练，不能只部署依赖而漏掉轮换门禁。旧公私钥会
+作为可回退 key 保留，JWKS 自动维持 K1+K2；`retire` 至少等待
+2 小时 JWT、30 秒时钟偏差和 5 分钟缓存窗口后才停止发布 K1，不删除回退 key material。
+生产环境继续通过 `CHERRY_AUTH_PRIVATE_KEY_LOCATION` 与 `CHERRY_AUTH_PUBLIC_KEY_LOCATION` 挂载只读 Secret；
+旧 `CHERRY_AUTH_KEY_ID` 在一个兼容周期内可读取但会被忽略并记录弃用告警；兼容期额外公钥继续按 Spring
+Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验。
+
+`prod` 或 `production` profile 提供生产安全默认值：Gateway Session Cookie 默认启用 `Secure`，必要时仍可由
+明确的高优先级部署配置覆盖；
+三个数据库密码和 user-service 的三项当前密钥配置
 没有默认值，必须由部署 Secret 注入；user-service 代码也拒绝 `generated:local` 和默认本地 `kid`。
+身份/JWKS/metadata 及服务间调用均接受 HTTP 或 HTTPS，以适配可信内网和已有反向代理；
 本地数据库默认口令是公开开发约定，不具备 Secret 属性，不得用于共享、测试或生产环境。
 
 ## 五个服务共有的依赖

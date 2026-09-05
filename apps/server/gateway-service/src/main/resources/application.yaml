@@ -4,7 +4,6 @@ spring:
   webflux:
     multipart:
       max-in-memory-size: 1MB
-      max-disk-usage-per-part: "${CHERRY_TEST_DATA_MAX_ARCHIVE_SIZE:100MB}"
       max-headers-size: 16KB
       max-parts: 1
   autoconfigure:
@@ -30,10 +29,10 @@ cherry:
   gateway:
     user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:8081}"
     user-service-timeout: 5s
-    session-idle-timeout-seconds: "${CHERRY_AUTH_SESSION_IDLE_TIMEOUT_SECONDS:1800}"
-    session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:43200}"
-    session-refresh-idle-on-activity: "${CHERRY_AUTH_SESSION_REFRESH_IDLE_ON_ACTIVITY:true}"
-    token-refresh-skew: 15s
+    session-lifetime-policy: fixed-absolute
+    session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
+    access-token-ttl: 2h
+    token-refresh-ahead: 5m
     trusted-origins:
       - "${CHERRY_WEB_ORIGIN:http://localhost:5173}"
     login-rate-limit-per-minute: 10
@@ -69,6 +68,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,gatewayIdentity
 
 logging:
   file:
@@ -94,3 +96,15 @@ logging:
       file-name-pattern: "${LOG_FILE}.%d{yyyy-MM-dd,UTC}.%i.gz"
       max-file-size: 10MB
       max-history: 30
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "prod | production"
+
+server:
+  reactive:
+    session:
+      cookie:
+        secure: true

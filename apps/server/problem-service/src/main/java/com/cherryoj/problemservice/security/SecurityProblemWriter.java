@@ -1,5 +1,8 @@
 package com.cherryoj.problemservice.security;
 
+import com.cherryoj.identitysecurity.IdentityFailureClassifier;
+import com.cherryoj.identitysecurity.IdentityFailureReason;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
@@ -25,12 +28,13 @@ final class SecurityProblemWriter implements AuthenticationEntryPoint, AccessDen
 	public void commence(
 			HttpServletRequest request, HttpServletResponse response, AuthenticationException error)
 			throws IOException {
-		if (keyServiceUnavailable(error)) {
-			log(request, "identity_key_unavailable", 503);
+		IdentityFailureReason reason = IdentityFailureClassifier.classify(request, error);
+		if (reason == IdentityFailureReason.KEY_SERVICE_UNAVAILABLE) {
+			log(request, "identity_authentication_failed", reason, 503);
 			write(response, 503, "IDENTITY_KEY_UNAVAILABLE", "身份密钥暂不可用");
 			return;
 		}
-		log(request, "invalid_access_token", 401);
+		log(request, "identity_authentication_failed", reason, 401);
 		write(response, 401, "INVALID_ACCESS_TOKEN", "访问令牌无效");
 	}
 
@@ -38,33 +42,22 @@ final class SecurityProblemWriter implements AuthenticationEntryPoint, AccessDen
 	public void handle(
 			HttpServletRequest request, HttpServletResponse response, AccessDeniedException error)
 			throws IOException {
-		log(request, "access_denied", 403);
+		log(request, "access_denied", null, 403);
 		write(response, 403, "FORBIDDEN", "当前身份无权执行此操作");
 	}
 
-	private static void log(HttpServletRequest request, String event, int status) {
+	private static void log(HttpServletRequest request, String event, IdentityFailureReason reason, int status) {
 		String requestId = request.getHeader(REQUEST_ID_HEADER);
 		var log = LOGGER.atWarn()
 				.addKeyValue("event", event)
 				.addKeyValue("http_status", status);
+		if (reason != null) {
+			log = log.addKeyValue("identity_failure", reason.name().toLowerCase());
+		}
 		if (requestId != null && requestId.matches("^req_[0-9a-f]{32}$")) {
 			log = log.addKeyValue("request_id", requestId);
 		}
 		log.log("Resource security rejected request");
-	}
-
-	private static boolean keyServiceUnavailable(Throwable error) {
-		for (Throwable current = error; current != null; current = current.getCause()) {
-			String name = current.getClass().getName();
-			String message = current.getMessage();
-			if (name.contains("ResourceAccessException") || name.contains("RemoteKeySourceException")
-					|| name.contains("JwtDecoderInitializationException")
-					|| message != null && (message.contains("retrieve the remote JWK set")
-							|| message.contains("Couldn't retrieve remote JWK set"))) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private static void write(HttpServletResponse response, int status, String code, String message)

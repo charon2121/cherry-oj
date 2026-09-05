@@ -8,9 +8,7 @@ public record AuthenticationResult(
         String loginGrant,
         String accessToken,
         Instant accessTokenExpiresAt,
-        LocalDateTime sessionIdleExpiresAt,
         LocalDateTime sessionAbsoluteExpiresAt,
-        long sessionIdleTimeoutSeconds,
         long sessionAbsoluteTimeoutSeconds,
-        boolean sessionRefreshIdleOnActivity) {
+        String sessionLifetimePolicy) {
 }

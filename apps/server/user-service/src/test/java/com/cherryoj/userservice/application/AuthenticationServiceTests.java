@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,6 +28,7 @@ import com.cherryoj.userservice.persistence.UserAccountMapper;
 import com.cherryoj.userservice.security.LoginGrantCodec;
 import com.cherryoj.userservice.security.PasswordService;
 import com.cherryoj.userservice.security.TokenService;
+import com.cherryoj.userservice.security.TokenValue;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -36,7 +38,7 @@ class AuthenticationServiceTests {
     private static final Instant NOW = Instant.parse("2026-08-26T12:00:00Z");
 
     @Test
-    void failedPasswordCommitsBackoffBeforeReturningTheGenericFailure() {
+    void failedPasswordCommitsBackoffBeforeReturningGenericFailure() {
         UserAccountMapper accounts = mock(UserAccountMapper.class);
         PasswordService passwords = mock(PasswordService.class);
         AuditService audit = mock(AuditService.class);
@@ -45,139 +47,89 @@ class AuthenticationServiceTests {
         when(transactionManager.getTransaction(any())).thenReturn(transaction);
         when(accounts.findByNormalizedUsernameForUpdate("learner01")).thenReturn(account());
         when(passwords.matches("wrong-password", "stored-hash")).thenReturn(false);
-        AuthenticationService service = new AuthenticationService(
-                accounts,
-                mock(LoginSessionMapper.class),
-                new UsernamePolicy(),
-                passwords,
-                mock(LoginGrantCodec.class),
-                mock(TokenService.class),
-                audit,
-                mock(UuidV7.class),
-                properties(),
-                Clock.fixed(NOW, ZoneOffset.UTC),
-                transactionManager);
+        AuthenticationService service = service(
+                accounts, mock(LoginSessionMapper.class), passwords, mock(LoginGrantCodec.class),
+                mock(TokenService.class), audit, transactionManager);
 
         assertThatThrownBy(() -> service.authenticate("Learner01", "wrong-password"))
                 .isInstanceOf(AuthenticationFailedException.class);
 
-        LocalDateTime now = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
+        LocalDateTime now = localNow();
         verify(accounts).recordLoginFailure(account().id(), now, now.plusMinutes(15));
-        verify(audit).record(null, account().id(), "LOGIN_FAILED");
         verify(transactionManager).commit(transaction);
     }
 
     @Test
-    void touchRefreshesIdleDeadlineWhenEnabled() {
+    void validateIsReadOnlyAndReturnsUnchangedAbsoluteDeadline() {
         LoginSessionMapper sessions = mock(LoginSessionMapper.class);
         LoginGrantCodec grants = mock(LoginGrantCodec.class);
         byte[] digest = {1, 2, 3};
-        LocalDateTime now = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
-        LoginGrant grant = loginGrant(now.plusSeconds(600));
+        LoginGrant grant = loginGrant();
         when(grants.digest("grant-value")).thenReturn(digest);
-        when(sessions.findActiveByGrantHashForUpdate(digest, now)).thenReturn(grant);
-        when(sessions.touch(grant.sessionId(), now, now.plusSeconds(1_800), true, grant.rowVersion()))
-                .thenReturn(1);
+        when(sessions.findActiveByGrantHash(digest, localNow())).thenReturn(grant);
 
-        SessionTouchResult result = service(sessions, grants, properties(true)).touch("grant-value");
+        SessionTouchResult result = service(sessions, grants, mock(TokenService.class)).validate("grant-value");
 
-        assertThat(result.sessionIdleExpiresAt()).isEqualTo(now.plusSeconds(1_800));
         assertThat(result.sessionAbsoluteExpiresAt()).isEqualTo(grant.absoluteExpiresAt());
-        assertThat(result.sessionRefreshIdleOnActivity()).isTrue();
-        verify(sessions).touch(
-                grant.sessionId(), now, now.plusSeconds(1_800), true, grant.rowVersion());
+        assertThat(result.sessionLifetimePolicy()).isEqualTo("fixed-absolute");
+        verify(sessions, never()).markUsed(any(), any(), any(Long.class));
     }
 
     @Test
-    void touchKeepsOriginalIdleDeadlineWhenRefreshIsDisabled() {
+    void exchangeRecordsUsageButNeverExtendsAbsoluteDeadline() {
         LoginSessionMapper sessions = mock(LoginSessionMapper.class);
         LoginGrantCodec grants = mock(LoginGrantCodec.class);
+        TokenService tokens = mock(TokenService.class);
         byte[] digest = {1, 2, 3};
-        LocalDateTime now = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
-        LoginGrant grant = loginGrant(now.plusSeconds(600));
+        LoginGrant grant = loginGrant();
         when(grants.digest("grant-value")).thenReturn(digest);
-        when(sessions.findActiveByGrantHashForUpdate(digest, now)).thenReturn(grant);
-        when(sessions.touch(grant.sessionId(), now, now.plusSeconds(1_800), false, grant.rowVersion()))
-                .thenReturn(1);
+        when(sessions.findActiveByGrantHashForUpdate(digest, localNow())).thenReturn(grant);
+        when(sessions.markUsed(grant.sessionId(), localNow(), grant.rowVersion())).thenReturn(1);
+        when(tokens.issue(grant)).thenReturn(new TokenValue("token", NOW.plus(Duration.ofHours(2))));
 
-        SessionTouchResult result = service(sessions, grants, properties(false)).touch("grant-value");
+        TokenExchangeResult result = service(sessions, grants, tokens).exchange("grant-value");
 
-        assertThat(result.sessionIdleExpiresAt()).isEqualTo(grant.idleExpiresAt());
-        assertThat(result.sessionRefreshIdleOnActivity()).isFalse();
-        verify(sessions).touch(
-                grant.sessionId(), now, now.plusSeconds(1_800), false, grant.rowVersion());
-    }
-
-    private static UserAccount account() {
-        LocalDateTime timestamp = LocalDateTime.ofInstant(NOW.minusSeconds(60), ZoneOffset.UTC);
-        return new UserAccount(
-                "019c8e42-7f70-7000-8000-000000000001",
-                "Learner01",
-                "learner01",
-                "stored-hash",
-                UserRole.USER,
-                UserStatus.ACTIVE,
-                false,
-                0,
-                null,
-                null,
-                0,
-                timestamp,
-                timestamp,
-                0);
+        assertThat(result.sessionAbsoluteExpiresAt()).isEqualTo(grant.absoluteExpiresAt());
+        verify(sessions).markUsed(grant.sessionId(), localNow(), grant.rowVersion());
     }
 
     private static AuthenticationService service(
-            LoginSessionMapper sessions, LoginGrantCodec grants, AuthProperties properties) {
-        return new AuthenticationService(
-                mock(UserAccountMapper.class),
-                sessions,
-                new UsernamePolicy(),
-                mock(PasswordService.class),
-                grants,
-                mock(TokenService.class),
-                mock(AuditService.class),
-                mock(UuidV7.class),
-                properties,
-                Clock.fixed(NOW, ZoneOffset.UTC),
-                mock(PlatformTransactionManager.class));
+            LoginSessionMapper sessions, LoginGrantCodec grants, TokenService tokens) {
+        return service(mock(UserAccountMapper.class), sessions, mock(PasswordService.class), grants,
+                tokens, mock(AuditService.class), mock(PlatformTransactionManager.class));
     }
 
-    private static LoginGrant loginGrant(LocalDateTime idleExpiresAt) {
-        LocalDateTime now = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
+    private static AuthenticationService service(
+            UserAccountMapper accounts, LoginSessionMapper sessions, PasswordService passwords,
+            LoginGrantCodec grants, TokenService tokens, AuditService audit,
+            PlatformTransactionManager transactionManager) {
+        return new AuthenticationService(accounts, sessions, new UsernamePolicy(), passwords, grants,
+                tokens, audit, mock(UuidV7.class), properties(), Clock.fixed(NOW, ZoneOffset.UTC),
+                transactionManager);
+    }
+
+    private static LoginGrant loginGrant() {
         return new LoginGrant(
-                "019c8e42-7f70-7000-8000-000000000002",
-                account().id(),
-                account().username(),
-                account().role(),
-                account().status(),
-                account().passwordChangeRequired(),
-                account().sessionVersion(),
-                account().createdAt(),
-                account().updatedAt(),
-                account().rowVersion(),
-                idleExpiresAt,
-                now.plusSeconds(3_600),
-                4);
+                "019c8e42-7f70-7000-8000-000000000002", account().id(), account().username(),
+                account().role(), account().status(), account().passwordChangeRequired(),
+                account().sessionVersion(), account().createdAt(), account().updatedAt(),
+                account().rowVersion(), localNow().plus(Duration.ofDays(30)), 4);
+    }
+
+    private static UserAccount account() {
+        LocalDateTime timestamp = localNow().minusSeconds(60);
+        return new UserAccount(
+                "019c8e42-7f70-7000-8000-000000000001", "Learner01", "learner01", "stored-hash",
+                UserRole.USER, UserStatus.ACTIVE, false, 0, null, null, 0, timestamp, timestamp, 0);
     }
 
     private static AuthProperties properties() {
-        return properties(true);
+        return new AuthProperties(
+                "server", "cherry-oj-user-service", "cherry-oj-internal", "test-key", "unused", "unused",
+                Map.of(), Duration.ofHours(2), Duration.ofSeconds(30), "fixed-absolute", 2_592_000);
     }
 
-    private static AuthProperties properties(boolean refreshIdle) {
-        return new AuthProperties(
-                "server",
-                "cherry-oj-user-service",
-                "cherry-oj-internal",
-                "test-key",
-                "unused",
-                "unused",
-                Map.of(),
-                Duration.ofSeconds(120),
-                Duration.ofSeconds(30),
-                1_800,
-                43_200,
-                Boolean.toString(refreshIdle));
+    private static LocalDateTime localNow() {
+        return LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
     }
 }

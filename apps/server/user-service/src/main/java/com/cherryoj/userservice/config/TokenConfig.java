@@ -1,6 +1,7 @@
 package com.cherryoj.userservice.config;
 
 import com.cherryoj.userservice.security.SigningKeys;
+import com.cherryoj.identitysecurity.PublicKeyFingerprint;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -8,13 +9,20 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.GeneralSecurityException;
-import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPrivateCrtKey;
 import java.security.interfaces.RSAPublicKey;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -46,59 +54,26 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 @ConditionalOnProperty(prefix = "cherry.auth", name = "mode", havingValue = "server", matchIfMissing = true)
 public class TokenConfig {
 
-    static final String GENERATED_LOCAL_KEY_LOCATION = "generated:local";
-    static final String LOCAL_KEY_ID = "local-ephemeral";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(TokenConfig.class);
 
     @Bean
     SigningKeys signingKeys(
             AuthProperties properties,
             ResourceLoader resourceLoader,
-            Environment environment) throws IOException, GeneralSecurityException {
+            Environment environment) throws IOException {
         validate(properties);
         boolean production = isProduction(environment);
-        if (production && (LOCAL_KEY_ID.equals(properties.keyId())
-                || unresolvedPlaceholder(properties.keyId())
-                || unresolvedPlaceholder(properties.privateKeyLocation())
+        if (production && (unresolvedPlaceholder(properties.privateKeyLocation())
                 || unresolvedPlaceholder(properties.publicKeyLocation()))) {
             throw new IllegalStateException(
-                    "Production requires explicit cherry.auth key-id, private-key-location and public-key-location");
-        }
-        boolean generatedPrivate = GENERATED_LOCAL_KEY_LOCATION.equals(properties.privateKeyLocation());
-        boolean generatedPublic = GENERATED_LOCAL_KEY_LOCATION.equals(properties.publicKeyLocation());
-        if (generatedPrivate != generatedPublic) {
-            throw new IllegalStateException(
-                    "cherry.auth.private-key-location and cherry.auth.public-key-location must both use "
-                            + GENERATED_LOCAL_KEY_LOCATION + " or both reference PEM resources");
-        }
-        if (generatedPrivate) {
-            if (production) {
-                throw new IllegalStateException(
-                        "Production requires explicit cherry.auth key-id, private-key-location and public-key-location");
-            }
-            if (!properties.previousPublicKeys().isEmpty()) {
-                throw new IllegalStateException(
-                        "cherry.auth.previous-public-keys cannot be used with a generated local signing key");
-            }
-            LOGGER.warn("Using an ephemeral local RSA signing key; issued tokens become invalid after restart");
-            return generatedSigningKeys(properties.keyId());
+                    "Production requires explicit cherry.auth private-key-location and public-key-location");
         }
         return resourceSigningKeys(properties, resourceLoader);
     }
 
-    private static SigningKeys generatedSigningKeys(String keyId) throws GeneralSecurityException {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        var pair = generator.generateKeyPair();
-        RSAPublicKey publicKey = (RSAPublicKey) pair.getPublic();
-        RSAPrivateKey privateKey = (RSAPrivateKey) pair.getPrivate();
-        RSAKey current = rsaKey(keyId, publicKey, privateKey);
-        return new SigningKeys(current, new JWKSet(current.toPublicJWK()), publicKey, privateKey);
-    }
-
     private static SigningKeys resourceSigningKeys(AuthProperties properties, ResourceLoader resourceLoader)
             throws IOException {
+        validatePrivateKeyFile(resourceLoader, properties.privateKeyLocation());
         RSAPrivateKey privateKey;
         RSAPublicKey publicKey;
         try (InputStream stream = resource(resourceLoader, properties.privateKeyLocation()).getInputStream()) {
@@ -107,20 +82,216 @@ public class TokenConfig {
         try (InputStream stream = resource(resourceLoader, properties.publicKeyLocation()).getInputStream()) {
             publicKey = RsaKeyConverters.x509().convert(stream);
         }
-        RSAKey current = rsaKey(properties.keyId(), publicKey, privateKey);
+        validateKeyPair(publicKey, privateKey);
+        String activeKid = PublicKeyFingerprint.kid(publicKey);
+        if (properties.keyId() != null && !properties.keyId().isBlank()
+                && !properties.keyId().equals(activeKid)) {
+            LOGGER.warn("Configured cherry.auth.key-id is deprecated and ignored; kid is derived from public key content");
+        }
+        RSAKey current = rsaKey(activeKid, publicKey, privateKey);
         List<JWK> publicKeys = new ArrayList<>();
         publicKeys.add(current.toPublicJWK());
-        for (var entry : properties.previousPublicKeys().entrySet()) {
-            try (InputStream stream = resource(resourceLoader, entry.getValue()).getInputStream()) {
-                RSAPublicKey previous = RsaKeyConverters.x509().convert(stream);
-                publicKeys.add(new RSAKey.Builder(previous)
-                        .keyID(entry.getKey())
-                        .algorithm(com.nimbusds.jose.JWSAlgorithm.RS256)
-                        .build());
-            }
+        Set<String> fingerprints = new HashSet<>();
+        fingerprints.add(activeKid);
+		for (RSAPublicKey published : managedVerificationKeys(
+				resourceLoader, properties, activeKid)) {
+			addVerificationKey(publicKeys, fingerprints, published);
         }
+        for (var entry : properties.previousPublicKeys().entrySet()) {
+			try (InputStream stream = resource(resourceLoader, entry.getValue()).getInputStream()) {
+				addVerificationKey(publicKeys, fingerprints,
+						RsaKeyConverters.x509().convert(stream));
+			}
+        }
+        publicKeys.sort(Comparator.comparing(JWK::getKeyID));
         return new SigningKeys(current, new JWKSet(publicKeys), publicKey, privateKey);
     }
+
+	private static List<RSAPublicKey> managedVerificationKeys(
+			ResourceLoader loader, AuthProperties properties, String activeKid) throws IOException {
+		if (!properties.privateKeyLocation().startsWith("file:")
+				|| !properties.publicKeyLocation().startsWith("file:")) {
+			return List.of();
+		}
+		Path privatePath = securePath(loader, properties.privateKeyLocation());
+		Path publicPath = securePath(loader, properties.publicKeyLocation());
+		if (!privatePath.getParent().equals(publicPath.getParent())) {
+			throw new IllegalStateException("identity active private and public keys must share one key ring directory");
+		}
+		Path directory = publicPath.getParent();
+		validateDirectoryPermissions(directory);
+		Path statePath = directory.resolve("rotation.state");
+		if (!Files.exists(statePath, LinkOption.NOFOLLOW_LINKS)) {
+			LOGGER.warn("Identity key ring has no rotation.state; using one-cycle legacy active-key mode");
+			return List.of();
+		}
+		validateOwnerOnlyFile(statePath, "identity rotation state");
+		RotationState state = readRotationState(statePath);
+		if (!activeKid.equals(state.activeKid())) {
+			throw new IllegalStateException("identity rotation state does not match the active public key");
+		}
+		return switch (state.stage()) {
+			case "active", "retired" -> List.of();
+			case "prepared" -> {
+				RSAPublicKey next = loadManagedPublicKey(
+						directory.resolve("next-public.pem"), state.nextKid(), "prepared");
+				validatePreparedPrivateKey(directory.resolve("next-private.pem"), next);
+				yield List.of(next);
+			}
+			case "activated" -> List.of(loadManagedPublicKey(
+					directory.resolve("previous-public-" + state.previousKid() + ".pem"),
+					state.previousKid(), "previous"));
+			default -> throw new IllegalStateException("identity rotation state has an invalid stage");
+		};
+	}
+
+	private static RotationState readRotationState(Path path) throws IOException {
+		Map<String, String> values = new LinkedHashMap<>();
+		for (String line : Files.readAllLines(path)) {
+			int separator = line.indexOf('=');
+			if (separator <= 0 || values.putIfAbsent(
+					line.substring(0, separator), line.substring(separator + 1)) != null) {
+				throw new IllegalStateException("identity rotation state is malformed");
+			}
+		}
+		String stage = values.get("stage");
+		String activeKid = requiredKid(values.get("active_kid"), "active");
+		String previousKid = optionalKid(values.get("previous_kid"), "previous");
+		String nextKid = optionalKid(values.get("next_kid"), "next");
+		if ("prepared".equals(stage) && nextKid == null) {
+			throw new IllegalStateException("prepared identity rotation is missing next kid");
+		}
+		if ("activated".equals(stage) && previousKid == null) {
+			throw new IllegalStateException("activated identity rotation is missing previous kid");
+		}
+		return new RotationState(stage, activeKid, previousKid, nextKid);
+	}
+
+	private static String requiredKid(String value, String name) {
+		String kid = optionalKid(value, name);
+		if (kid == null) {
+			throw new IllegalStateException("identity rotation state is missing " + name + " kid");
+		}
+		return kid;
+	}
+
+	private static String optionalKid(String value, String name) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		if (!value.matches("^rsa-[A-Za-z0-9_-]{43}$")) {
+			throw new IllegalStateException("identity rotation state has an invalid " + name + " kid");
+		}
+		return value;
+	}
+
+	private static RSAPublicKey loadManagedPublicKey(Path path, String expectedKid, String role)
+			throws IOException {
+		validateRegularFile(path, "identity " + role + " public key");
+		RSAPublicKey key;
+		try (InputStream stream = Files.newInputStream(path)) {
+			key = RsaKeyConverters.x509().convert(stream);
+		}
+		validatePublicKey(key);
+		if (!PublicKeyFingerprint.kid(key).equals(expectedKid)) {
+			throw new IllegalStateException("identity " + role + " public key does not match rotation state");
+		}
+		return key;
+	}
+
+	private static void validatePreparedPrivateKey(Path path, RSAPublicKey publicKey) throws IOException {
+		validateOwnerOnlyFile(path, "identity prepared private key");
+		RSAPrivateKey privateKey;
+		try (InputStream stream = Files.newInputStream(path)) {
+			privateKey = RsaKeyConverters.pkcs8().convert(stream);
+		}
+		validateKeyPair(publicKey, privateKey);
+	}
+
+	private static void addVerificationKey(
+			List<JWK> publicKeys, Set<String> fingerprints, RSAPublicKey key) {
+		validatePublicKey(key);
+		String kid = PublicKeyFingerprint.kid(key);
+		if (!fingerprints.add(kid)) {
+			throw new IllegalStateException("identity key ring contains a duplicate public key");
+		}
+		publicKeys.add(new RSAKey.Builder(key)
+				.keyID(kid)
+				.algorithm(com.nimbusds.jose.JWSAlgorithm.RS256)
+				.build());
+	}
+
+    private static void validateKeyPair(RSAPublicKey publicKey, RSAPrivateKey privateKey) {
+        validatePublicKey(publicKey);
+        if (!publicKey.getModulus().equals(privateKey.getModulus())) {
+            throw new IllegalStateException("identity signing private/public key pair does not match");
+        }
+        if (privateKey instanceof RSAPrivateCrtKey crt
+                && !publicKey.getPublicExponent().equals(crt.getPublicExponent())) {
+            throw new IllegalStateException("identity signing private/public key pair does not match");
+        }
+    }
+
+    private static void validatePublicKey(RSAPublicKey publicKey) {
+		if (publicKey.getModulus().bitLength() < 3_072) {
+			throw new IllegalStateException("identity RSA keys must be at least 3072 bits");
+        }
+    }
+
+    private static void validatePrivateKeyFile(ResourceLoader loader, String location) throws IOException {
+        if (!location.startsWith("file:")) {
+            return;
+        }
+		Path path = securePath(loader, location);
+		validateOwnerOnlyFile(path, "identity private key");
+	}
+
+	private static Path securePath(ResourceLoader loader, String location) throws IOException {
+		Path path = resource(loader, location).getFile().toPath().toAbsolutePath().normalize();
+		validateRegularFile(path, "identity key material");
+		return path;
+	}
+
+	private static void validateRegularFile(Path path, String description) throws IOException {
+		if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+			throw new IllegalStateException(description + " must be a regular file");
+		}
+	}
+
+	private static void validateOwnerOnlyFile(Path path, String description) throws IOException {
+		validateRegularFile(path, description);
+        try {
+            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path);
+            if (permissions.contains(PosixFilePermission.GROUP_READ)
+                    || permissions.contains(PosixFilePermission.GROUP_WRITE)
+                    || permissions.contains(PosixFilePermission.GROUP_EXECUTE)
+                    || permissions.contains(PosixFilePermission.OTHERS_READ)
+                    || permissions.contains(PosixFilePermission.OTHERS_WRITE)
+                    || permissions.contains(PosixFilePermission.OTHERS_EXECUTE)) {
+				throw new IllegalStateException(description + " permissions must be owner-only");
+            }
+        } catch (UnsupportedOperationException ignored) {
+            // Non-POSIX stores rely on the deployment Secret mount ACL.
+		}
+	}
+
+	private static void validateDirectoryPermissions(Path directory) throws IOException {
+		if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(directory)) {
+			throw new IllegalStateException("identity key ring directory must be a real directory");
+		}
+		try {
+			Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(directory);
+			if (permissions.contains(PosixFilePermission.GROUP_WRITE)
+					|| permissions.contains(PosixFilePermission.OTHERS_WRITE)) {
+				throw new IllegalStateException("identity key ring directory must not be group/world writable");
+			}
+		} catch (UnsupportedOperationException ignored) {
+			// Non-POSIX stores rely on the deployment Secret mount ACL.
+		}
+	}
+
+	private record RotationState(String stage, String activeKid, String previousKid, String nextKid) {
+	}
 
     private static RSAKey rsaKey(String keyId, RSAPublicKey publicKey, RSAPrivateKey privateKey) {
         return new RSAKey.Builder(publicKey)
@@ -195,10 +366,9 @@ public class TokenConfig {
     private static void validate(AuthProperties properties) {
         requireText(properties.issuer(), "issuer");
         requireText(properties.audience(), "audience");
-        requireText(properties.keyId(), "key-id");
         requireText(properties.privateKeyLocation(), "private-key-location");
         requireText(properties.publicKeyLocation(), "public-key-location");
-        requireDuration(properties.accessTokenTtl(), Duration.ofSeconds(30), Duration.ofMinutes(5), "access-token-ttl");
+        requireDuration(properties.accessTokenTtl(), Duration.ofMinutes(5), Duration.ofHours(24), "access-token-ttl");
         requireDuration(properties.clockSkew(), Duration.ZERO, Duration.ofSeconds(60), "clock-skew");
     }
 

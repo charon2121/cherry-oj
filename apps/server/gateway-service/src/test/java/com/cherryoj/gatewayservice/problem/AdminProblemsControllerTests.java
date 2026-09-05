@@ -2,82 +2,65 @@ package com.cherryoj.gatewayservice.problem;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
-import java.util.function.Function;
-import java.util.function.Predicate;
 
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
 import com.cherryoj.gatewayservice.auth.AdminGatewayAccess;
+import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
 
 import reactor.core.publisher.Mono;
 
 class AdminProblemsControllerTests {
 
 	@Test
-	void listUsesRecoverableReadAndClassifiesOnlyProblemServiceUnauthorized() {
+	void readUsesExactlyOneDelegatedIdentityAndNeverOwnsRecovery() {
 		AdminGatewayAccess adminAccess = mock(AdminGatewayAccess.class);
 		ProblemServiceClient problemService = mock(ProblemServiceClient.class);
 		MockServerWebExchange exchange = exchange();
 		String requestId = requestId(exchange);
-		when(problemService.listAdmin("delegated-token", null, null, 1, 20, requestId))
-				.thenReturn(Mono.just(page()));
-		when(adminAccess.readWithRecovery(
-				eq(exchange), eq(requestId), any(), any(), any()))
-				.thenAnswer(invocation -> {
-					Function<String, Mono<?>> action = invocation.getArgument(2);
-					return action.apply("delegated-token");
-				});
+		DelegatedIdentity identity = identity(requestId);
+		when(adminAccess.delegatedIdentity(exchange, requestId)).thenReturn(Mono.just(identity));
+		when(problemService.listAdmin(identity, null, null, 1, 20)).thenReturn(Mono.just(page()));
 
 		var response = new AdminProblemsController(adminAccess, problemService)
 				.list(null, null, 1, 20, exchange).block();
 
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<Predicate<Throwable>> rejected =
-				ArgumentCaptor.forClass(Predicate.class);
-		@SuppressWarnings("unchecked")
-		ArgumentCaptor<Function<Throwable, ApiProblemException>> mapper =
-				ArgumentCaptor.forClass(Function.class);
-		verify(adminAccess).readWithRecovery(
-				eq(exchange), eq(requestId), any(), rejected.capture(), mapper.capture());
-		assertThat(rejected.getValue().test(problemError(HttpStatus.UNAUTHORIZED))).isTrue();
-		assertThat(rejected.getValue().test(problemError(HttpStatus.FORBIDDEN))).isFalse();
-		assertThat(mapper.getValue().apply(problemError(HttpStatus.FORBIDDEN)).status())
-				.isEqualTo(HttpStatus.BAD_GATEWAY);
+		verify(adminAccess, times(1)).delegatedIdentity(exchange, requestId);
+		verify(problemService, times(1)).listAdmin(identity, null, null, 1, 20);
 	}
 
 	@Test
-	void createUsesSingleAccessTokenAndDoesNotEnterReadRecovery() {
+	void resource401Becomes503AndActionIsNotReplayed() {
 		AdminGatewayAccess adminAccess = mock(AdminGatewayAccess.class);
 		ProblemServiceClient problemService = mock(ProblemServiceClient.class);
 		MockServerWebExchange exchange = exchange();
 		String requestId = requestId(exchange);
+		DelegatedIdentity identity = identity(requestId);
 		var request = new AdminProblemsController.CreateProblemRequest(
 				"a-plus-b", "A+B", "EASY", "ACM", "cpp");
-		when(adminAccess.accessToken(exchange, requestId)).thenReturn(Mono.just("delegated-token"));
-		when(problemService.createProblem("delegated-token", request, requestId))
+		when(adminAccess.delegatedIdentity(exchange, requestId)).thenReturn(Mono.just(identity));
+		when(problemService.createProblem(identity, request))
 				.thenReturn(Mono.error(problemError(HttpStatus.UNAUTHORIZED)));
 
 		assertThatThrownBy(() -> new AdminProblemsController(adminAccess, problemService)
 				.create(request, exchange).block())
-				.isInstanceOfSatisfying(ApiProblemException.class,
-						error -> assertThat(error.status()).isEqualTo(HttpStatus.BAD_GATEWAY));
-		verify(adminAccess, never()).readWithRecovery(
-				any(), anyString(), any(), any(), any());
+				.isInstanceOfSatisfying(ApiProblemException.class, error -> {
+					assertThat(error.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+					assertThat(error.code()).isEqualTo("SERVICE_UNAVAILABLE");
+				});
+		verify(problemService, times(1)).createProblem(identity, request);
 	}
 
 	private static MockServerWebExchange exchange() {
@@ -87,6 +70,10 @@ class AdminProblemsControllerTests {
 
 	private static String requestId(MockServerWebExchange exchange) {
 		return com.cherryoj.gatewayservice.api.ApiRequestContext.requestId(exchange);
+	}
+
+	private static DelegatedIdentity identity(String requestId) {
+		return new DelegatedIdentity("delegated-token", Instant.now().plusSeconds(300), requestId);
 	}
 
 	private static ProblemDtos.AdminProblemPage page() {

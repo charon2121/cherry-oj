@@ -10,31 +10,22 @@ import org.junit.jupiter.api.Test;
 class AuthPropertiesTests {
 
     @Test
-    void convertsValidatedSecondsAndStrictBoolean() {
-        AuthProperties properties = properties(7_200, 86_400, "false");
-
-        assertThat(properties.sessionIdleTimeout()).isEqualTo(Duration.ofSeconds(7_200));
-        assertThat(properties.sessionAbsoluteTimeout()).isEqualTo(Duration.ofSeconds(86_400));
-        assertThat(properties.refreshIdleOnActivity()).isFalse();
+    void convertsFixedAbsoluteLifetime() {
+        AuthProperties properties = properties("fixed-absolute", 2_592_000);
+        assertThat(properties.sessionAbsoluteTimeout()).isEqualTo(Duration.ofDays(30));
     }
 
     @Test
-    void rejectsNonBooleanAndInvalidDeadlineOrder() {
-        assertThatThrownBy(() -> properties(1_800, 43_200, "1"))
+    void rejectsUnknownPolicyAndInvalidLifetime() {
+        assertThatThrownBy(() -> properties("sliding-idle", 2_592_000))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("session-refresh-idle-on-activity");
-        assertThatThrownBy(() -> properties(7_200, 3_600, "true"))
+                .hasMessageContaining("fixed-absolute");
+        assertThatThrownBy(() -> properties("fixed-absolute", 86_399))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("must not exceed");
-        assertThatThrownBy(() -> properties(7_201, 43_200, "true"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("[300, 7200]");
-        assertThatThrownBy(() -> properties(1_800, 3_599, "true"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("[3600, 604800]");
+                .hasMessageContaining("[86400, 7776000]");
     }
 
-    private static AuthProperties properties(long idle, long absolute, String refresh) {
+    private static AuthProperties properties(String policy, long absolute) {
         return new AuthProperties(
                 "server",
                 "cherry-oj-user-service",
@@ -44,9 +35,6 @@ class AuthPropertiesTests {
                 "unused",
                 Map.of(),
                 Duration.ofSeconds(120),
-                Duration.ofSeconds(30),
-                idle,
-                absolute,
-                refresh);
+                Duration.ofSeconds(30), policy, absolute);
     }
 }

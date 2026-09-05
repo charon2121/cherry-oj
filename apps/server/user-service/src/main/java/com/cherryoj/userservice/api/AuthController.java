@@ -37,9 +37,9 @@ public class AuthController {
         return authentication.exchange(request.loginGrant());
     }
 
-    @PostMapping("/auth/touch")
-    SessionTouchResult touch(@Valid @RequestBody LoginGrantRequest request) {
-        return authentication.touch(request.loginGrant());
+    @PostMapping("/auth/validate")
+    SessionTouchResult validate(@Valid @RequestBody LoginGrantRequest request) {
+        return authentication.validate(request.loginGrant());
     }
 
     @PostMapping("/auth/revoke")

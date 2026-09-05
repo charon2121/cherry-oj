@@ -47,9 +47,11 @@ class SecurityProblemWriterTests {
 
 			assertThat(events.list).extracting(SecurityProblemWriterTests::fields)
 					.containsExactly(
-							Map.of("event", "invalid_access_token", "http_status", 401,
+							Map.of("event", "identity_authentication_failed", "http_status", 401,
+									"identity_failure", "missing_bearer",
 									"request_id", "req_0123456789abcdef0123456789abcdef"),
-							Map.of("event", "identity_key_unavailable", "http_status", 503,
+							Map.of("event", "identity_authentication_failed", "http_status", 503,
+									"identity_failure", "key_service_unavailable",
 									"request_id", "req_0123456789abcdef0123456789abcdef"),
 							Map.of("event", "access_denied", "http_status", 403,
 									"request_id", "req_0123456789abcdef0123456789abcdef"));

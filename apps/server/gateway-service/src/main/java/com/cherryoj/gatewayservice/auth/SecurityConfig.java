@@ -24,7 +24,7 @@ class SecurityConfig {
 	@Bean
 	ReactiveSessionRepositoryCustomizer<ReactiveRedisSessionRepository> sessionRepositoryCustomizer(
 			GatewayAuthProperties properties) {
-		return repository -> repository.setDefaultMaxInactiveInterval(properties.sessionIdleTimeout());
+		return repository -> repository.setDefaultMaxInactiveInterval(properties.sessionAbsoluteTimeout());
 	}
 
 	@Bean

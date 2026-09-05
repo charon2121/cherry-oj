@@ -17,14 +17,12 @@ cherry:
   auth:
     issuer: "${CHERRY_AUTH_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_AUTH_AUDIENCE:cherry-oj-internal}"
-    key-id: "${CHERRY_AUTH_KEY_ID:local-ephemeral}"
-    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:generated:local}"
-    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:generated:local}"
-    access-token-ttl: 120s
+    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:file:./data/identity-keys/active-private.pem}"
+    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:file:./data/identity-keys/active-public.pem}"
+    access-token-ttl: 2h
     clock-skew: 30s
-    session-idle-timeout-seconds: "${CHERRY_AUTH_SESSION_IDLE_TIMEOUT_SECONDS:1800}"
-    session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:43200}"
-    session-refresh-idle-on-activity: "${CHERRY_AUTH_SESSION_REFRESH_IDLE_ON_ACTIVITY:true}"
+    session-lifetime-policy: fixed-absolute
+    session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
 
 server:
   port: 8081
@@ -54,6 +52,9 @@ management:
     health:
       probes:
         enabled: true
+      group:
+        readiness:
+          include: readinessState,identitySigningKey
 
 logging:
   file:
@@ -89,6 +90,5 @@ spring:
 
 cherry:
   auth:
-    key-id: "${CHERRY_AUTH_KEY_ID}"
     private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION}"
     public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION}"

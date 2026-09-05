@@ -61,6 +61,8 @@ class AdminJudgingSecurityIntegrationTests {
     static void properties(DynamicPropertyRegistry registry) {
         registry.add("cherry.identity.jwks-uri",
                 () -> "http://127.0.0.1:" + JWKS.getAddress().getPort() + "/jwks");
+        registry.add("cherry.identity.metadata-uri",
+                () -> "http://127.0.0.1:" + JWKS.getAddress().getPort() + "/metadata");
     }
 
     @AfterAll static void stop() { JWKS.stop(0); }
