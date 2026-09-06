@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -42,6 +43,8 @@ import org.springframework.stereotype.Component;
 @Component
 public final class FileTestDataDeploymentStore implements TestDataDeploymentStore {
     private static final Pattern FILE = Pattern.compile("^([A-Za-z0-9][A-Za-z0-9._-]{0,127})\\.(in|out)$");
+    private static final Pattern WRAPPER_NAME = Pattern.compile(
+            "^[\\p{L}\\p{N}][\\p{L}\\p{N} ._-]{0,127}$");
     private static final Set<PosixFilePermission> DIRECTORY_PERMISSIONS = Set.of(
             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE);
     private static final Set<PosixFilePermission> FILE_PERMISSIONS = Set.of(PosixFilePermission.OWNER_READ);
@@ -148,24 +151,54 @@ public final class FileTestDataDeploymentStore implements TestDataDeploymentStor
                 throw invalid("DEPLOYMENT_INVALID_MANIFEST");
             }
         }
+        Set<String> physicalNames = new HashSet<>();
         Set<String> seen = new HashSet<>();
         Set<String> pairs = new HashSet<>();
+        Set<String> directoryMarkers = new HashSet<>();
+        Set<String> metadataPrefixes = new HashSet<>();
         long total = 0;
         int count = 0;
+        String wrapper = null;
+        boolean logicalRootSelected = false;
         try (ZipFile archive = ZipFile.builder().setPath(zip).setCharset(StandardCharsets.UTF_8).get()) {
             Enumeration<ZipArchiveEntry> entries = archive.getEntries();
             while (entries.hasMoreElements()) {
                 ZipArchiveEntry entry = entries.nextElement();
                 if (++count > properties.maxFiles()) throw tooLarge("DEPLOYMENT_TOO_MANY_FILES");
                 String name = entry.getName();
-                Matcher matcher = FILE.matcher(name == null ? "" : name);
-                if (!matcher.matches() || !seen.add(name) || !regular(entry) || !archive.canReadEntryData(entry)) {
+                if (!isSafeEntryPath(name) || !physicalNames.add(name)) {
                     throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
                 }
-                ManifestFile expectedFile = expected.get(name);
+                MetadataPath metadata = metadataPath(name);
+                if (metadata != null) {
+                    if ((!entry.isDirectory() && (!regular(entry) || !archive.canReadEntryData(entry)))
+                            || entry.isUnixSymlink()) {
+                        throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
+                    }
+                    if (metadata.wrapper() != null) metadataPrefixes.add(metadata.wrapper());
+                    continue;
+                }
+                if (entry.isDirectory()) {
+                    if (entry.isUnixSymlink()) throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
+                    directoryMarkers.add(trimTrailingSlash(name));
+                    continue;
+                }
+                CasePath casePath = casePath(name);
+                if (casePath == null || !regular(entry) || !archive.canReadEntryData(entry)) {
+                    throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
+                }
+                if (!logicalRootSelected) {
+                    wrapper = casePath.wrapper();
+                    logicalRootSelected = true;
+                }
+                else if (!Objects.equals(wrapper, casePath.wrapper())) {
+                    throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
+                }
+                if (!seen.add(casePath.logicalName())) throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
+                ManifestFile expectedFile = expected.get(casePath.logicalName());
                 if (expectedFile == null) throw invalid("DEPLOYMENT_MANIFEST_MISMATCH");
                 if (entry.getSize() > properties.maxEntryBytes()) throw tooLarge("DEPLOYMENT_ENTRY_TOO_LARGE");
-                Path output = extracted.resolve(name).normalize();
+                Path output = extracted.resolve(casePath.logicalName()).normalize();
                 ensureChild(output, extracted);
                 EntryDigest actual;
                 try (InputStream input = archive.getInputStream(entry); var file = outputs.open(output)) {
@@ -182,13 +215,19 @@ public final class FileTestDataDeploymentStore implements TestDataDeploymentStor
                         || (double) actual.size() / compressed > properties.maxCompressionRatio())) {
                     throw tooLarge("DEPLOYMENT_COMPRESSION_RATIO_EXCEEDED");
                 }
-                pairs.add(matcher.group(1));
+                pairs.add(casePath.caseName());
             }
         }
         catch (DeploymentException error) { throw error; }
         catch (ArithmeticException error) { throw tooLarge("DEPLOYMENT_EXPANDED_SIZE_EXCEEDED"); }
         catch (IOException | RuntimeException error) {
             throw new DeploymentException(Kind.INVALID, "DEPLOYMENT_INVALID_ZIP", error);
+        }
+        String selectedWrapper = wrapper;
+        if (directoryMarkers.stream().anyMatch(directory -> !Objects.equals(directory, selectedWrapper))
+                || metadataPrefixes.stream()
+                        .anyMatch(prefix -> !prefix.isEmpty() && !Objects.equals(prefix, selectedWrapper))) {
+            throw invalid("DEPLOYMENT_INVALID_ZIP_ENTRY");
         }
         if (!seen.equals(expected.keySet()) || total != manifest.totalBytes()
                 || pairs.size() != manifest.caseCount() || seen.size() != pairs.size() * 2) {
@@ -260,6 +299,48 @@ public final class FileTestDataDeploymentStore implements TestDataDeploymentStor
         return mode == 0 || (mode & UnixStat.FILE_TYPE_FLAG) == UnixStat.FILE_FLAG;
     }
 
+    private static boolean isSafeEntryPath(String name) {
+        if (name == null || name.isBlank() || name.length() > 512 || name.startsWith("/")
+                || name.indexOf('\\') >= 0 || name.indexOf('\0') >= 0) {
+            return false;
+        }
+        String candidate = trimTrailingSlash(name);
+        if (candidate.isEmpty()) return false;
+        for (String component : candidate.split("/", -1)) {
+            if (component.isEmpty() || component.equals(".") || component.equals("..")
+                    || component.chars().anyMatch(Character::isISOControl)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static MetadataPath metadataPath(String name) {
+        String candidate = trimTrailingSlash(name);
+        if (candidate.equals("__MACOSX") || candidate.startsWith("__MACOSX/")) {
+            return new MetadataPath(null);
+        }
+        int slash = candidate.indexOf('/');
+        if (slash >= 0 && candidate.indexOf('/', slash + 1) >= 0) return null;
+        String leaf = slash < 0 ? candidate : candidate.substring(slash + 1);
+        if (!leaf.equals(".DS_Store") && !leaf.startsWith("._")) return null;
+        return new MetadataPath(slash < 0 ? "" : candidate.substring(0, slash));
+    }
+
+    private static CasePath casePath(String name) {
+        int slash = name.indexOf('/');
+        if (slash >= 0 && name.indexOf('/', slash + 1) >= 0) return null;
+        String wrapper = slash < 0 ? null : name.substring(0, slash);
+        String logicalName = slash < 0 ? name : name.substring(slash + 1);
+        if (wrapper != null && !WRAPPER_NAME.matcher(wrapper).matches()) return null;
+        Matcher matcher = FILE.matcher(logicalName);
+        return matcher.matches() ? new CasePath(wrapper, logicalName, matcher.group(1)) : null;
+    }
+
+    private static String trimTrailingSlash(String name) {
+        return name.endsWith("/") ? name.substring(0, name.length() - 1) : name;
+    }
+
     private static void createPrivateDirectory(Path path) throws IOException {
         Files.createDirectories(path);
         setOwnerOnly(path, true);
@@ -321,6 +402,8 @@ public final class FileTestDataDeploymentStore implements TestDataDeploymentStor
         return new DeploymentException(Kind.TOO_LARGE, code);
     }
     private record EntryDigest(long size, String sha256) {}
+    private record MetadataPath(String wrapper) {}
+    private record CasePath(String wrapper, String logicalName, String caseName) {}
 
     @FunctionalInterface
     interface OutputStreamFactory {

@@ -63,6 +63,33 @@ class FileTestDataDeploymentStoreTests {
     }
 
     @Test
+    void deploysSingleWrapperAndFinderMetadataAsFlatLogicalCases() throws Exception {
+        Path root = temporary.resolve("finder");
+        var store = store(root);
+        Map<String, byte[]> logicalFiles = new LinkedHashMap<>();
+        logicalFiles.put("test1.in", bytes("1 2\n"));
+        logicalFiles.put("test1.out", bytes("3\n"));
+        Map<String, byte[]> physicalEntries = new LinkedHashMap<>();
+        physicalEntries.put("testin/", new byte[0]);
+        physicalEntries.put("testin/.DS_Store", bytes("finder metadata"));
+        physicalEntries.put("__MACOSX/testin/._.DS_Store", bytes("apple double"));
+        physicalEntries.put("testin/._test1.in", bytes("apple double"));
+        physicalEntries.put("testin/test1.in", logicalFiles.get("test1.in"));
+        physicalEntries.put("testin/test1.out", logicalFiles.get("test1.out"));
+        byte[] zip = zip(physicalEntries);
+        String id = UUID.randomUUID().toString();
+
+        store.deploy(id, sha(zip), manifest(logicalFiles), new ByteArrayInputStream(zip));
+
+        try (var installed = Files.list(root.resolve(id))) {
+            assertThat(installed.map(path -> path.getFileName().toString()))
+                    .containsExactlyInAnyOrder("test1.in", "test1.out");
+        }
+        assertThat(Files.readString(root.resolve(id + "/test1.in"))).isEqualTo("1 2\n");
+        assertThat(Files.readString(root.resolve(id + "/test1.out"))).isEqualTo("3\n");
+    }
+
+    @Test
     void rejectsHashManifestPathSymlinkAndBrokenUtf8WithoutPartialDirectory() throws Exception {
         var store = store(temporary.resolve("unsafe"));
         Map<String, byte[]> valid = validFiles();
@@ -86,6 +113,39 @@ class FileTestDataDeploymentStoreTests {
         Map<String, byte[]> invalidUtf8Files = Map.of("1.in", new byte[] {(byte) 0xc3, 0x28}, "1.out", bytes("1"));
         byte[] invalidUtf8 = zip(invalidUtf8Files);
         assertFailure(store, invalidUtf8, sha(invalidUtf8), manifest(invalidUtf8Files));
+
+        Map<String, byte[]> twoCases = Map.of(
+                "1.in", bytes("1"), "1.out", bytes("1"),
+                "2.in", bytes("2"), "2.out", bytes("2"));
+        byte[] multipleWrappers = zip(Map.of(
+                "first/1.in", bytes("1"), "first/1.out", bytes("1"),
+                "second/2.in", bytes("2"), "second/2.out", bytes("2")));
+        assertFailure(store, multipleWrappers, sha(multipleWrappers), manifest(twoCases));
+
+        byte[] unknownHiddenFile = zip(Map.of(
+                "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
+                "wrapped/.Spotlight-V100", bytes("metadata")));
+        assertFailure(store, unknownHiddenFile, sha(unknownHiddenFile),
+                manifest(Map.of("1.in", bytes("1"), "1.out", bytes("1"))));
+    }
+
+    @Test
+    void ignoredMetadataStillCountsTowardEntryLimit() throws Exception {
+        Path root = temporary.resolve("metadata-limit");
+        var defaults = properties(root);
+        var limited = new JudgingProperties(root, defaults.maxArchiveBytes(), defaults.maxExpandedBytes(),
+                defaults.maxEntryBytes(), 2, defaults.maxCompressionRatio(), defaults.judgeTimeout(),
+                defaults.staleAge(), defaults.recoveryEnabled(), defaults.provision());
+        var store = new FileTestDataDeploymentStore(limited);
+        store.initialize();
+        Map<String, byte[]> logical = Map.of("1.in", bytes("1"), "1.out", bytes("1"));
+        byte[] zip = zip(Map.of(
+                "1.in", bytes("1"), "1.out", bytes("1"), ".DS_Store", bytes("metadata")));
+
+        assertThatThrownBy(() -> store.deploy(
+                UUID.randomUUID().toString(), sha(zip), manifest(logical), new ByteArrayInputStream(zip)))
+                .isInstanceOfSatisfying(TestDataDeploymentStore.DeploymentException.class,
+                        error -> assertThat(error.kind()).isEqualTo(TestDataDeploymentStore.Kind.TOO_LARGE));
     }
 
     @Test

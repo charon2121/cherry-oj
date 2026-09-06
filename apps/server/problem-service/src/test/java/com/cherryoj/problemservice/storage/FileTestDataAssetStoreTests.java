@@ -57,6 +57,30 @@ class FileTestDataAssetStoreTests {
     }
 
     @Test
+    void acceptsSingleWrapperAndFinderMetadataWithoutChangingOriginalArchive() throws Exception {
+        FileTestDataAssetStore store = store(temporary.resolve("finder"), 100);
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("testin/", new byte[0]);
+        entries.put("testin/.DS_Store", bytes("finder metadata"));
+        entries.put("__MACOSX/testin/._.DS_Store", bytes("apple double"));
+        entries.put("testin/._test1.in", bytes("apple double"));
+        entries.put("testin/test1.out", bytes("3\n"));
+        entries.put("testin/test1.in", bytes("1 2\n"));
+        byte[] archive = zip(entries);
+
+        var staged = store.stage(UUID.randomUUID().toString(), new ByteArrayInputStream(archive));
+
+        assertThat(staged.caseCount()).isOne();
+        assertThat(staged.totalBytes()).isEqualTo(6);
+        assertThat(staged.manifest().files()).extracting(file -> file.name())
+                .containsExactly("test1.in", "test1.out");
+        store.seal(staged);
+        try (var opened = store.open(staged.storageRef())) {
+            assertThat(opened.stream().readAllBytes()).isEqualTo(archive);
+        }
+    }
+
+    @Test
     void rejectsUnsafeEntriesBrokenUtf8MissingPairsAndCorruptZipWithoutResidue() throws Exception {
         FileTestDataAssetStore store = store(temporary.resolve("unsafe"), 100);
         Map<String, byte[]> archives = new LinkedHashMap<>();
@@ -68,6 +92,20 @@ class FileTestDataAssetStoreTests {
         archives.put("duplicate", zipEntries("1.in", "1.in", "1.out"));
         archives.put("invalid-utf8", zip(Map.of("1.in", new byte[] {(byte) 0xc3, 0x28}, "1.out", bytes("1"))));
         archives.put("corrupt", new byte[] {1, 2, 3, 4});
+        archives.put("multiple-wrappers", zip(Map.of(
+                "first/1.in", bytes("1"), "first/1.out", bytes("1"),
+                "second/2.in", bytes("2"), "second/2.out", bytes("2"))));
+        archives.put("mixed-roots", zip(Map.of(
+                "1.in", bytes("1"), "1.out", bytes("1"),
+                "wrapped/2.in", bytes("2"), "wrapped/2.out", bytes("2"))));
+        archives.put("nested-cases", zip(Map.of(
+                "wrapped/cases/1.in", bytes("1"), "wrapped/cases/1.out", bytes("1"))));
+        archives.put("unknown-hidden-file", zip(Map.of(
+                "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
+                "wrapped/.Spotlight-V100", bytes("metadata"))));
+        archives.put("metadata-from-other-root", zip(Map.of(
+                "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
+                "other/.DS_Store", bytes("metadata"))));
 
         for (var candidate : archives.entrySet()) {
             String id = UUID.randomUUID().toString();
@@ -100,6 +138,18 @@ class FileTestDataAssetStoreTests {
         byte[] tooMany = zip(Map.of("1.in", bytes("1"), "1.out", bytes("1"), "2.in", bytes("2")));
         assertThatThrownBy(() -> store.stage(UUID.randomUUID().toString(), new ByteArrayInputStream(tooMany)))
                 .isInstanceOf(AssetException.class);
+
+        byte[] metadataCounts = zip(Map.of(
+                "1.in", bytes("1"), "1.out", bytes("1"), ".DS_Store", bytes("metadata")));
+        var entryLimitProperties = new TestDataStorageProperties(
+                root.resolve("entry-limit"), DataSize.ofMegabytes(1), DataSize.ofMegabytes(1),
+                DataSize.ofKilobytes(512), 2, 100, Duration.ofHours(1));
+        var entryLimitStore = new FileTestDataAssetStore(entryLimitProperties, CLOCK);
+        entryLimitStore.initialize();
+        assertThatThrownBy(() -> entryLimitStore.stage(
+                UUID.randomUUID().toString(), new ByteArrayInputStream(metadataCounts)))
+                .isInstanceOfSatisfying(AssetException.class,
+                        error -> assertThat(error.getMessage()).isEqualTo("TEST_DATA_TOO_MANY_FILES"));
     }
 
     @Test

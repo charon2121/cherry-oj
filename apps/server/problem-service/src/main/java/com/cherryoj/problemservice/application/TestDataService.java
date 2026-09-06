@@ -235,9 +235,20 @@ public class TestDataService {
             case PAYLOAD_TOO_LARGE -> new ProblemApiException(
                     HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
             case INVALID_ARCHIVE -> new ProblemApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TEST_DATA_ARCHIVE", "测试数据 ZIP 格式无效。");
+                    HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TEST_DATA_ARCHIVE", invalidArchiveDetail(error));
             case NOT_FOUND, STORAGE_UNAVAILABLE -> new ProblemApiException(
                     HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据资产暂时不可用。");
+        };
+    }
+
+    private static String invalidArchiveDetail(AssetException error) {
+        return switch (error.getMessage()) {
+            case "TEST_DATA_INVALID_ZIP" -> "无法读取该 ZIP，请确认文件没有损坏后重试。";
+            case "TEST_DATA_INVALID_ZIP_ENTRY" ->
+                    "ZIP 只支持根目录或一个外层文件夹中的成对 .in/.out 文件，请移除其他目录和文件后重试。";
+            case "TEST_DATA_CASE_PAIR_REQUIRED" -> "每个测试点都必须同时包含同名的 .in 和 .out 文件。";
+            case "TEST_DATA_FILE_NOT_UTF8" -> "测试数据文件必须使用 UTF-8 文本编码。";
+            default -> "测试数据 ZIP 格式无效。";
         };
     }
 

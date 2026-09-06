@@ -358,7 +358,7 @@
       "post": {
         "operationId": "uploadTestDataVersion",
         "summary": "上传不可变测试数据 ZIP",
-        "description": "ZIP 根目录只允许成对的 <case>.in/.out UTF-8 普通文件。网关和下游按配置限额流式处理；超限返回 413 PAYLOAD_TOO_LARGE。",
+        "description": "ZIP 的逻辑根只允许成对的 <case>.in/.out UTF-8 普通文件；文件可直接位于根目录或统一位于一个外层文件夹。已知 macOS 元数据（.DS_Store、__MACOSX、._*）会被忽略且不进入 manifest。网关和下游按配置限额流式处理；超限返回 413 PAYLOAD_TOO_LARGE。",
         "security": [{ "cookieAuth": [] }],
         "parameters": [{ "$ref": "#/components/parameters/ProblemId" }, { "$ref": "#/components/parameters/CsrfToken" }],
         "requestBody": {

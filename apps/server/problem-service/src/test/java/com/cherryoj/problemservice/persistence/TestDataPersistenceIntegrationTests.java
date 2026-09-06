@@ -127,7 +127,11 @@ class TestDataPersistenceIntegrationTests {
 
         assertThatThrownBy(() -> testData.upload(first.id(), multipart(orphan), ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class,
-                        error -> assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE"));
+                        error -> {
+                            assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
+                            assertThat(error.getMessage())
+                                    .isEqualTo("每个测试点都必须同时包含同名的 .in 和 .out 文件。");
+                        });
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM test_data_version
                 WHERE problem_id = UUID_TO_BIN(?) AND status = 'FAILED' AND error_message = 'TEST_DATA_CASE_PAIR_REQUIRED'

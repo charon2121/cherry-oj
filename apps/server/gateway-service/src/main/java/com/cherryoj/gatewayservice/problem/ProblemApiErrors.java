@@ -64,7 +64,7 @@ final class ProblemApiErrors {
 			}
 			HttpStatus clientStatus = HttpStatus.resolve(status);
 			return clientStatus != null && clientStatus.is4xxClientError()
-					? client(clientStatus, upstream.code()) : badGateway();
+					? client(clientStatus, upstream.code(), upstream.detail()) : badGateway();
 		}
 		return badGateway();
 	}
@@ -79,6 +79,10 @@ final class ProblemApiErrors {
 	}
 
 	private static ApiProblemException client(HttpStatus status, String code) {
+		return client(status, code, null);
+	}
+
+	private static ApiProblemException client(HttpStatus status, String code, String upstreamDetail) {
 		return new ApiProblemException(status, code, switch (status) {
 			case BAD_REQUEST -> "请求格式错误";
 			case FORBIDDEN -> "无权访问";
@@ -88,7 +92,7 @@ final class ProblemApiErrors {
 			case UNSUPPORTED_MEDIA_TYPE -> "媒体类型不受支持";
 			case UNPROCESSABLE_CONTENT -> "请求参数校验失败";
 			default -> "请求失败";
-		}, switch (status) {
+		}, upstreamDetail != null ? upstreamDetail : switch (status) {
 			case FORBIDDEN -> "当前身份无权执行此操作。";
 			case NOT_FOUND -> "请求的资源不存在。";
 			case CONFLICT -> "资源当前状态不允许此操作。";

@@ -239,7 +239,7 @@ final class ProblemServiceClient {
 				.onErrorReturn(new InternalError("UPSTREAM_ERROR"))
 				.defaultIfEmpty(new InternalError("UPSTREAM_ERROR"))
 				.map(error -> new ProblemServiceClientException(
-						response.statusCode(), safeCode(error.code())));
+						response.statusCode(), safeCode(error.code()), safeDetail(error.detail())));
 	}
 
 	private Download download(ResponseEntity<Flux<DataBuffer>> entity, String testDataVersionId) {
@@ -260,7 +260,8 @@ final class ProblemServiceClient {
 		return body.onErrorReturn(new InternalError("UPSTREAM_ERROR"))
 				.defaultIfEmpty(new InternalError("UPSTREAM_ERROR"))
 				.flatMap(error -> Mono.error(
-						new ProblemServiceClientException(status, safeCode(error.code()))));
+						new ProblemServiceClientException(
+								status, safeCode(error.code()), safeDetail(error.detail()))));
 	}
 
 	private static void query(UriBuilder builder, String name, String value) {
@@ -273,9 +274,22 @@ final class ProblemServiceClient {
 		return code != null && code.matches("^[A-Z][A-Z0-9_]{0,63}$") ? code : "UPSTREAM_ERROR";
 	}
 
+	private static String safeDetail(String detail) {
+		if (detail == null) return null;
+		String candidate = detail.strip();
+		if (candidate.isEmpty() || candidate.length() > 512
+				|| candidate.chars().anyMatch(Character::isISOControl)) {
+			return null;
+		}
+		return candidate;
+	}
+
 	record Download(Long contentLength, String filename, Flux<DataBuffer> body) {
 	}
 
-	private record InternalError(String code) {
+	private record InternalError(String code, String detail) {
+		private InternalError(String code) {
+			this(code, null);
+		}
 	}
 }

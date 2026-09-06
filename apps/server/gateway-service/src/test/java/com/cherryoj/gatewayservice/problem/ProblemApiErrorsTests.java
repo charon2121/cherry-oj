@@ -23,4 +23,20 @@ class ProblemApiErrorsTests {
 		assertThat(conflict.status()).isEqualTo(HttpStatus.CONFLICT);
 		assertThat(conflict.code()).isEqualTo("ROW_VERSION_CONFLICT");
 	}
+
+	@Test
+	void preservesVettedBusinessDetailButNeverLeaksUnknownUpstreamErrors() {
+		var archive = ProblemApiErrors.map(new ProblemServiceClientException(
+				HttpStatus.UNPROCESSABLE_ENTITY,
+				"INVALID_TEST_DATA_ARCHIVE",
+				"每个测试点都必须同时包含同名的 .in 和 .out 文件。"), false);
+		var unknown = ProblemApiErrors.map(new ProblemServiceClientException(
+				HttpStatus.UNPROCESSABLE_ENTITY, "INTERNAL_STORAGE_FAILURE", "secret storage path"), false);
+
+		assertThat(archive.status().value()).isEqualTo(422);
+		assertThat(archive.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
+		assertThat(archive.getMessage()).isEqualTo("每个测试点都必须同时包含同名的 .in 和 .out 文件。");
+		assertThat(unknown.status()).isEqualTo(HttpStatus.BAD_GATEWAY);
+		assertThat(unknown.getMessage()).doesNotContain("secret storage path");
+	}
 }

@@ -1,6 +1,7 @@
 package com.cherryoj.gatewayservice.problem;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -111,6 +112,37 @@ class ProblemServiceStreamingTests {
 				});
 		assertThat(first).hasValue("zip-first");
 		assertThat(cancelled).isTrue();
+	}
+
+	@Test
+	void upstreamClientErrorKeepsOnlyBoundedControlFreeDetail() {
+		WebClient.Builder safeUpstream = WebClient.builder().exchangeFunction(request -> Mono.just(
+				ClientResponse.create(HttpStatus.UNPROCESSABLE_ENTITY)
+						.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+						.body("{\"code\":\"INVALID_TEST_DATA_ARCHIVE\","
+								+ "\"detail\":\"每个测试点都必须同时包含同名的 .in 和 .out 文件。\"}")
+						.build()));
+		ProblemServiceClient safe = new ProblemServiceClient(
+				safeUpstream, properties(), new InternalRequestFactory());
+
+		assertThatThrownBy(() -> safe.listTestData(
+				identity("delegated-jwt"), "019c8e42-7f70-7000-8000-000000000101").block())
+				.isInstanceOfSatisfying(ProblemServiceClientException.class,
+						error -> assertThat(error.detail())
+								.isEqualTo("每个测试点都必须同时包含同名的 .in 和 .out 文件。"));
+
+		WebClient.Builder unsafeUpstream = WebClient.builder().exchangeFunction(request -> Mono.just(
+				ClientResponse.create(HttpStatus.UNPROCESSABLE_ENTITY)
+						.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)
+						.body("{\"code\":\"INVALID_TEST_DATA_ARCHIVE\",\"detail\":\"line one\\nline two\"}")
+						.build()));
+		ProblemServiceClient unsafe = new ProblemServiceClient(
+				unsafeUpstream, properties(), new InternalRequestFactory());
+
+		assertThatThrownBy(() -> unsafe.listTestData(
+				identity("delegated-jwt"), "019c8e42-7f70-7000-8000-000000000101").block())
+				.isInstanceOfSatisfying(ProblemServiceClientException.class,
+						error -> assertThat(error.detail()).isNull());
 	}
 
 	private static ProblemServiceProperties properties() {

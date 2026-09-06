@@ -30,6 +30,7 @@ import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -44,6 +45,8 @@ public final class FileTestDataAssetStore implements TestDataAssetStore {
 
     private static final Pattern FILE_NAME = Pattern.compile(
             "^([A-Za-z0-9][A-Za-z0-9._-]{0,127})\\.(in|out)$");
+    private static final Pattern WRAPPER_NAME = Pattern.compile(
+            "^[\\p{L}\\p{N}][\\p{L}\\p{N} ._-]{0,127}$");
     private static final Pattern STORAGE_REF = Pattern.compile("^assets/([0-9a-f-]{36})\\.zip$");
     private static final Set<PosixFilePermission> DIRECTORY_PERMISSIONS = Set.of(
             PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE);
@@ -187,18 +190,51 @@ public final class FileTestDataAssetStore implements TestDataAssetStore {
     private Validation validateArchive(Path path) throws AssetException {
         List<ManifestFile> files = new ArrayList<>();
         Map<String, Set<String>> pairs = new HashMap<>();
-        Set<String> names = new HashSet<>();
+        Set<String> physicalNames = new HashSet<>();
+        Set<String> logicalNames = new HashSet<>();
+        Set<String> directoryMarkers = new HashSet<>();
+        Set<String> metadataPrefixes = new HashSet<>();
         long totalBytes = 0;
+        int entryCount = 0;
+        String wrapper = null;
+        boolean logicalRootSelected = false;
         try (ZipFile archive = ZipFile.builder().setPath(path).setCharset(StandardCharsets.UTF_8).get()) {
             Enumeration<ZipArchiveEntry> entries = archive.getEntries();
             while (entries.hasMoreElements()) {
                 ZipArchiveEntry entry = entries.nextElement();
-                if (files.size() >= properties.maxFiles()) {
+                if (++entryCount > properties.maxFiles()) {
                     throw invalid("TEST_DATA_TOO_MANY_FILES");
                 }
                 String name = entry.getName();
-                Matcher matcher = FILE_NAME.matcher(name == null ? "" : name);
-                if (!matcher.matches() || !names.add(name) || !isRegularFile(entry) || !archive.canReadEntryData(entry)) {
+                if (!isSafeEntryPath(name) || !physicalNames.add(name)) {
+                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                }
+                MetadataPath metadata = metadataPath(name);
+                if (metadata != null) {
+                    if ((!entry.isDirectory() && (!isRegularFile(entry) || !archive.canReadEntryData(entry)))
+                            || entry.isUnixSymlink()) {
+                        throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                    }
+                    if (metadata.wrapper() != null) metadataPrefixes.add(metadata.wrapper());
+                    continue;
+                }
+                if (entry.isDirectory()) {
+                    if (entry.isUnixSymlink()) throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                    directoryMarkers.add(trimTrailingSlash(name));
+                    continue;
+                }
+                CasePath casePath = casePath(name);
+                if (casePath == null || !isRegularFile(entry) || !archive.canReadEntryData(entry)) {
+                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                }
+                if (!logicalRootSelected) {
+                    wrapper = casePath.wrapper();
+                    logicalRootSelected = true;
+                }
+                else if (!Objects.equals(wrapper, casePath.wrapper())) {
+                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                }
+                if (!logicalNames.add(casePath.logicalName())) {
                     throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
                 }
                 if (entry.getSize() > properties.maxEntrySize().toBytes()) {
@@ -214,8 +250,8 @@ public final class FileTestDataAssetStore implements TestDataAssetStore {
                         || (double) digest.size() / compressed > properties.maxCompressionRatio())) {
                     throw tooLarge("TEST_DATA_COMPRESSION_RATIO_EXCEEDED");
                 }
-                files.add(new ManifestFile(name, digest.size(), digest.sha256()));
-                pairs.computeIfAbsent(matcher.group(1), ignored -> new HashSet<>()).add(matcher.group(2));
+                files.add(new ManifestFile(casePath.logicalName(), digest.size(), digest.sha256()));
+                pairs.computeIfAbsent(casePath.caseName(), ignored -> new HashSet<>()).add(casePath.extension());
             }
         }
         catch (AssetException error) {
@@ -227,7 +263,14 @@ public final class FileTestDataAssetStore implements TestDataAssetStore {
         catch (IOException | RuntimeException error) {
             throw new AssetException(Kind.INVALID_ARCHIVE, "TEST_DATA_INVALID_ZIP", error);
         }
-        if (files.isEmpty() || pairs.values().stream().anyMatch(extensions -> !extensions.equals(Set.of("in", "out")))) {
+        String selectedWrapper = wrapper;
+        if (files.isEmpty()
+                || directoryMarkers.stream().anyMatch(directory -> !Objects.equals(directory, selectedWrapper))
+                || metadataPrefixes.stream()
+                        .anyMatch(prefix -> !prefix.isEmpty() && !Objects.equals(prefix, selectedWrapper))) {
+            throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+        }
+        if (pairs.values().stream().anyMatch(extensions -> !extensions.equals(Set.of("in", "out")))) {
             throw invalid("TEST_DATA_CASE_PAIR_REQUIRED");
         }
         files.sort(Comparator.comparing(ManifestFile::name));
@@ -283,6 +326,50 @@ public final class FileTestDataAssetStore implements TestDataAssetStore {
         if (entry.isDirectory() || entry.isUnixSymlink()) return false;
         int mode = entry.getUnixMode();
         return mode == 0 || (mode & UnixStat.FILE_TYPE_FLAG) == UnixStat.FILE_FLAG;
+    }
+
+    private static boolean isSafeEntryPath(String name) {
+        if (name == null || name.isBlank() || name.length() > 512 || name.startsWith("/")
+                || name.indexOf('\\') >= 0 || name.indexOf('\0') >= 0) {
+            return false;
+        }
+        String candidate = trimTrailingSlash(name);
+        if (candidate.isEmpty()) return false;
+        for (String component : candidate.split("/", -1)) {
+            if (component.isEmpty() || component.equals(".") || component.equals("..")
+                    || component.chars().anyMatch(Character::isISOControl)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static MetadataPath metadataPath(String name) {
+        String candidate = trimTrailingSlash(name);
+        if (candidate.equals("__MACOSX") || candidate.startsWith("__MACOSX/")) {
+            return new MetadataPath(null);
+        }
+        int slash = candidate.indexOf('/');
+        if (slash >= 0 && candidate.indexOf('/', slash + 1) >= 0) return null;
+        String leaf = slash < 0 ? candidate : candidate.substring(slash + 1);
+        if (!leaf.equals(".DS_Store") && !leaf.startsWith("._")) return null;
+        return new MetadataPath(slash < 0 ? "" : candidate.substring(0, slash));
+    }
+
+    private static CasePath casePath(String name) {
+        int slash = name.indexOf('/');
+        if (slash >= 0 && name.indexOf('/', slash + 1) >= 0) return null;
+        String wrapper = slash < 0 ? null : name.substring(0, slash);
+        String logicalName = slash < 0 ? name : name.substring(slash + 1);
+        if (wrapper != null && !WRAPPER_NAME.matcher(wrapper).matches()) return null;
+        Matcher matcher = FILE_NAME.matcher(logicalName);
+        return matcher.matches()
+                ? new CasePath(wrapper, logicalName, matcher.group(1), matcher.group(2))
+                : null;
+    }
+
+    private static String trimTrailingSlash(String name) {
+        return name.endsWith("/") ? name.substring(0, name.length() - 1) : name;
     }
 
     private static long copyLimited(InputStream input, java.io.OutputStream output, MessageDigest digest, long limit)
@@ -388,5 +475,11 @@ public final class FileTestDataAssetStore implements TestDataAssetStore {
     }
 
     private record EntryDigest(long size, String sha256) {
+    }
+
+    private record MetadataPath(String wrapper) {
+    }
+
+    private record CasePath(String wrapper, String logicalName, String caseName, String extension) {
     }
 }
