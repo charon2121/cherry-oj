@@ -436,9 +436,17 @@ Worker 记录 STALE 或直接丢弃，不能发布完成事件。
 
 ### 5.8 judging-service 表
 
+WORK-040 将环境、节点与数据可用性分开：`judge_node` 以稳定 nodeId 归属一个不可变环境，
+已接受会话由 `judge_node_session` 留存，拒绝旧进程抢回身份；在线状态由 lease_expires_at 派生；`test_data_node_deployment` 保存版本、节点、摘要与进程 sessionId。
+节点重启保留历史回执但撤销 available，实际安装重新确认后才能调度。旧环境级 deployment 不自动
+变成节点回执；既有 calibration 与 JudgeInput 保留原值。
+
+
 ```text
 judge_environment
 judge_environment_language
+judge_node
+test_data_node_deployment
 test_data_deployment
 language_calibration
 judge_task

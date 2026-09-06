@@ -722,3 +722,18 @@ server                    judge                      sandbox
 | 本地 `tutorial/` | 怎么搭建、按 M0→M2 分阶段实现与验收；该目录不进入 Git |
 
 先读设计建立地图；动手时只打开 `tutorial/` 对应阶段。
+
+## WORK-040 节点生命周期与数据交付
+
+节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 使用稳定 nodeId 和进程 sessionId
+先经 sandbox /run、/version 探测实际环境，并将两端二进制、资源配额、工具链和 Judge 策略计入指纹。
+随后向 judging-service 注册真实环境能力，后台心跳失败时重试且不关闭健康入口；控制面租约过期后停止
+部署和路由。安装接口通过独立共享 token 保护，使用有界 multipart 流、摘要和 manifest 二次校验、
+节点私有目录和原子 rename。数据回执绑定 nodeId、环境指纹、sessionId、版本、hash 与文件数。
+重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
+
+本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路，
+只 REGISTERED 新指纹，不能静默替换 ACTIVE。显式回退使用 `legacy-local` 与
+`compose.legacy.yaml`，保留 migration、历史校准和 JudgeInput；具体参数见 `apps/server/README.md`。
+
+改变环境时使用新 nodeId 与新的 `JUDGE_TESTDATA_VOLUME`，保留旧卷供回退。sandbox 独立升级后须重启 Judge 重新探测。

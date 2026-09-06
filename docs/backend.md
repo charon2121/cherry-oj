@@ -340,3 +340,15 @@ JudgeTask 状态；基础设施重试耗尽时，对用户映射为 `Done + SE`�
 - Redis 除 Gateway Session 之外的缓存范围与失效策略。
 
 这些选型需要单独形成 ADR；在有真实需求和容量数据之前，不进入核心链路。
+
+## WORK-040 节点生命周期与数据交付
+
+节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 使用稳定 nodeId 和进程 sessionId
+向 judging-service 注册真实环境能力，后台心跳失败时重试且不关闭健康入口；控制面租约过期后停止
+部署和路由。安装接口通过独立共享 token 保护，使用有界 multipart 流、摘要和 manifest 二次校验、
+节点私有目录和原子 rename。数据回执绑定 nodeId、环境指纹、sessionId、版本、hash 与文件数。
+重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
+
+本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路，
+只 REGISTERED 新指纹，不能静默替换 ACTIVE。显式回退使用 `legacy-local` 与
+`compose.legacy.yaml`，保留 migration、历史校准和 JudgeInput；具体参数见 `apps/server/README.md`。

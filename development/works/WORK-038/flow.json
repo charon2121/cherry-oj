@@ -1,0 +1,127 @@
+[
+  {
+    "stage": "definition",
+    "label": "问题说明、复现与预期",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "ISSUE-010"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认兼容单外层目录和 macOS 元数据，并改进 ZIP 校验错误提示"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认兼容单外层目录和 macOS 元数据，并改进 ZIP 校验错误提示"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "原因与修复方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-032"
+    ],
+    "checks": [],
+    "source": "overlay:fix-complexity",
+    "reason": "复杂修复需要独立确认原因与修复方案"
+  },
+  {
+    "stage": "tasks",
+    "label": "修复任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-069"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-069"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "manual",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "影响仅覆盖 OpenAPI、problem 上传校验、judging 部署校验与 Gateway 错误映射；无数据库、Web、身份或 judge-engine 变更"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-039"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "三个模块定向测试通过，后端 clean verify 共 142 项测试、0 failure、0 error、1 个 Linux 专用测试按平台跳过"
+      },
+      {
+        "name": "compatibility",
+        "result": "pass",
+        "note": "既有平面 ZIP、READY 数据、manifest DTO、成功响应和原包下载语义不变，只兼容新增单外层目录形态"
+      },
+      {
+        "name": "reliability",
+        "result": "pass",
+        "note": "problem 与 judging 使用同一归一化规则和等价 Finder fixture，上传原包、逻辑 manifest、部署目录形成一致事实链"
+      },
+      {
+        "name": "security",
+        "result": "pass",
+        "note": "只忽略明确 macOS 元数据且不读取不解压；全部 entry 计数，路径、软链接、歧义结构、UTF-8 和大小限制继续验证"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  }
+]

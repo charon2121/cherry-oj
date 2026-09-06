@@ -1,0 +1,182 @@
+[
+  {
+    "stage": "definition",
+    "label": "问题说明、复现与预期",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "ISSUE-012"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认采用判题节点自注册、心跳和节点侧测试数据安装的系统级重构方案"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认采用判题节点自注册、心跳和节点侧测试数据安装的系统级重构方案"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "原因与修复方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-034"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-022"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-026"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "真实切回 legacy-local 和只读挂载后 C++ AC，原节点回执及标定不变，再恢复 node-remote 和原环境通过"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "修复任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-071",
+      "TASK-072",
+      "TASK-073",
+      "TASK-074"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-071",
+      "TASK-072",
+      "TASK-073",
+      "TASK-074"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "TASK 边界已核对；仅新增 V2 和节点协议，保留 WORK-038/039 及 V1/已发布快照/JudgeInput，细节见 VERIFY-041"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "用户授权的只读 review_work040 最终复核通过，六项发现均修复关闭，无剩余确定问题"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-041"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "最终 Java clean verify 150/150 无跳过；Go race/vet；Web 136 项单测、31 项浏览器测试全部通过"
+      },
+      {
+        "name": "cross-module-regression",
+        "result": "pass",
+        "note": "真实五 Java 服务、MySQL/Redis、Go Judge/sandbox、Web 链路通过上传/部署/校准、停机恢复、迁移回滚"
+      },
+      {
+        "name": "compatibility",
+        "result": "pass",
+        "note": "已填充 V1 经 Flyway V2 逐字段不变；真实 legacy 回滚及新环境新修订通过，已发布快照不变，ZIP/JWT 回归通过"
+      },
+      {
+        "name": "observability",
+        "result": "pass",
+        "note": "保存公开 requestId、节点元数据与逐节点回执证据；日志覆盖注册/恢复/安装/固定失败码，不输出控制令牌或源码"
+      },
+      {
+        "name": "reliability",
+        "result": "pass",
+        "note": "精确租约边界、旧会话 fencing、条件回执撤销、原子安装清理、重启幂等、整体超时和真实切换 guard 均通过"
+      },
+      {
+        "name": "security",
+        "result": "pass",
+        "note": "独立控制令牌 401/合法 200、路径/ZIP/UTF-8/资源上限、严格回执字段和固定错误体通过；生产令牌必填"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-030"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]

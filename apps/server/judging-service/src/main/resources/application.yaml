@@ -23,6 +23,10 @@ cherry:
     connect-timeout: 2s
     read-timeout: 2s
   judging:
+    node:
+      control-token: "${CHERRY_JUDGE_CONTROL_TOKEN:local-judge-control-token}"
+      lease-duration: "${CHERRY_JUDGE_NODE_LEASE_DURATION:35s}"
+      deployment-mode: "${CHERRY_JUDGE_DEPLOYMENT_MODE:node-remote}"
     testdata-root: "${CHERRY_JUDGE_TESTDATA_ROOT:./data/judge-testdata}"
     max-archive-bytes: 104857600
     max-expanded-bytes: 1073741824
@@ -114,3 +118,8 @@ spring:
       on-profile: "prod | production"
   datasource:
     password: "${CHERRY_JUDGING_DB_PASSWORD}"
+
+cherry:
+  judging:
+    node:
+      control-token: "${CHERRY_JUDGE_CONTROL_TOKEN}"

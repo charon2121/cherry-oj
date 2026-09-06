@@ -80,9 +80,10 @@ type OutputConfig struct {
 }
 
 type JudgeConfig struct {
-	HTTPAddr       string   `yaml:"httpAddr"`
-	SandboxURL     string   `yaml:"sandboxURL"`
-	SandboxTimeout Duration `yaml:"sandboxTimeout"`
+	Node           NodeConfig `yaml:"node"`
+	HTTPAddr       string     `yaml:"httpAddr"`
+	SandboxURL     string     `yaml:"sandboxURL"`
+	SandboxTimeout Duration   `yaml:"sandboxTimeout"`
 	// EnvironmentFingerprint：实际部署环境的不可变标识，随每个 JudgeResult 返回。
 	// judging-service 用它核对任务是否被路由到了 JudgeInput 冻结的环境。
 	EnvironmentFingerprint string `yaml:"environmentFingerprint"`
@@ -155,6 +156,7 @@ func Default() Config {
 			},
 		},
 		Judge: JudgeConfig{
+			Node:                   defaultNode(),
 			HTTPAddr:               "127.0.0.1:5051",
 			SandboxURL:             "http://127.0.0.1:5050",
 			SandboxTimeout:         Duration(60 * time.Second),
@@ -239,6 +241,9 @@ func (c Config) Validate() error {
 	}
 
 	j := c.Judge
+	if err := j.Node.Validate(); err != nil {
+		return err
+	}
 	if j.HTTPAddr == "" {
 		return fmt.Errorf("judge.httpAddr 不能为空")
 	}

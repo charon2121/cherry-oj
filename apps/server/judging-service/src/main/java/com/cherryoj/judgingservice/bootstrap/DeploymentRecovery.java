@@ -10,6 +10,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "cherry.judging.node.deployment-mode", havingValue = "legacy-local", matchIfMissing = false)
 @Order(Ordered.LOWEST_PRECEDENCE)
 public final class DeploymentRecovery implements ApplicationRunner {
     private final JudgingProperties properties;

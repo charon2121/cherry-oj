@@ -872,6 +872,7 @@ submission-service 和 judging-service 各自创建同名 Outbox/Inbox 表；它
 ```text
 judge_environment
   ├─ judge_environment_language
+  ├─ judge_node → test_data_node_deployment
   ├─ test_data_deployment
   ├─ language_calibration
   └─ judge_attempt
@@ -1677,3 +1678,14 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来环境或�
 
 不得跳过 migration/约束测试直接靠 Java 内存模型模拟数据库；也不得把本文 DDL 复制成一个所有服务共享
 的 schema。物理表一旦进入 Flyway 并被部署，后续演进必须追加 migration，而不是回改 V1。
+
+### WORK-040 节点注册增量
+
+V2 migration 仅新增 `judge_node_registry_lock`、`judge_node`、`judge_node_session` 和 `test_data_node_deployment`。
+注册事务锁住单行 registry lock，保证空库并发注册只创建一个 ACTIVE 环境。节点以 node_id 为主键、
+环境外键不可变，以 `(judge_environment_id, lease_expires_at, node_id)` 索引查询在线节点。
+安装回执以 `(test_data_version_id, node_id)` 唯一，摘要不可变，记录 session_id、file_count、
+available、deployed_at 和 row_version；会话变化撤销可用性，历史行不删除。
+`judge_node_session` 保留已接受的会话，防止旧进程重新注册抢回身份。安装拒绝按 row_version 条件撤销旧回执，
+旧请求失败不能覆盖较新的成功结果。查询 READY 同时匹配当前会话和租约。
+DDL 以 judging-service 的 `V2__create_judge_node_registry.sql` 为执行依据；不修改 V1 或回滚 schema。

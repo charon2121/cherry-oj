@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cherry-oj/contracts/judge-node.schema.json",
+  "title": "Judge Node control protocol v1",
+  "description": "Private shared Bearer control token. POST /internal/judge-nodes/v1/register and /heartbeat accept Registration/Heartbeat and return Lease. POST /internal/judge-node/v1/install accepts multipart/form-data: metadata (Install JSON, first, <= 1 MiB), archive (ZIP, second); returns Receipt. No redirects. Session UUID changes on process start; registration invalidates availability of historical receipts on session change, requiring actual reinstallation before routing. Errors contain only fixed code/detail. Node identity and fingerprint are immutable; endpoints are absolute HTTP(S) origins without credentials, query, fragment or path.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Registration"
+    },
+    {
+      "$ref": "#/$defs/Heartbeat"
+    },
+    {
+      "$ref": "#/$defs/Lease"
+    },
+    {
+      "$ref": "#/$defs/Install"
+    },
+    {
+      "$ref": "#/$defs/Receipt"
+    },
+    {
+      "$ref": "#/$defs/Error"
+    }
+  ],
+  "$defs": {
+    "Language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languageId",
+        "toolchainVersion",
+        "languageConfigDigest"
+      ],
+      "properties": {
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "toolchainVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "languageConfigDigest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "Manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caseCount",
+        "totalBytes",
+        "files"
+      ],
+      "properties": {
+        "caseCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "totalBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "sizeBytes",
+              "sha256"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.(in|out)$"
+              },
+              "sizeBytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "Registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId",
+        "environmentFingerprint",
+        "sessionId",
+        "endpoint",
+        "architecture",
+        "cpuModel",
+        "osVersion",
+        "kernelVersion",
+        "judgeVersion",
+        "sandboxVersion",
+        "configDigest",
+        "languages"
+      ],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
+        },
+        "environmentFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "endpoint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "cpuModel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "osVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kernelVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "judgeVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "sandboxVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "configDigest": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "languages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/Language"
+          }
+        }
+      },
+      "examples": [
+        {
+          "nodeId": "judge-local-1",
+          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
+          "sessionId": "019c8e42-7f70-7000-8000-000000000001",
+          "endpoint": "http://127.0.0.1:5051",
+          "architecture": "amd64",
+          "cpuModel": "local",
+          "osVersion": "linux",
+          "kernelVersion": "local",
+          "judgeVersion": "v2",
+          "sandboxVersion": "v2",
+          "configDigest": "local",
+          "languages": [
+            {
+              "languageId": "cpp",
+              "toolchainVersion": "g++",
+              "languageConfigDigest": "cpp-v1"
+            }
+          ]
+        }
+      ]
+    },
+    "Heartbeat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId",
+        "environmentFingerprint",
+        "sessionId"
+      ],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
+        },
+        "environmentFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+      },
+      "examples": [
+        {
+          "nodeId": "judge-local-1",
+          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
+          "sessionId": "019c8e42-7f70-7000-8000-000000000001"
+        }
+      ]
+    },
+    "Lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId",
+        "environmentId",
+        "leaseDurationNs"
+      ],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
+        },
+        "environmentId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "leaseDurationNs": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "examples": [
+        {
+          "nodeId": "judge-local-1",
+          "environmentId": "019c8e42-7f70-7000-8000-000000000001",
+          "leaseDurationNs": 35000000000
+        }
+      ]
+    },
+    "Install": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId",
+        "environmentFingerprint",
+        "sessionId",
+        "testDataVersionId",
+        "expectedSha256",
+        "manifest"
+      ],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
+        },
+        "environmentFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "testDataVersionId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "expectedSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "manifest": {
+          "$ref": "#/$defs/Manifest"
+        }
+      },
+      "examples": [
+        {
+          "nodeId": "judge-local-1",
+          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
+          "sessionId": "019c8e42-7f70-7000-8000-000000000001",
+          "testDataVersionId": "019c8e42-7f70-7000-8000-000000000002",
+          "expectedSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "manifest": {
+            "caseCount": 1,
+            "totalBytes": 2,
+            "files": [
+              {
+                "name": "1.in",
+                "sizeBytes": 1,
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              },
+              {
+                "name": "1.out",
+                "sizeBytes": 1,
+                "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "Receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId",
+        "environmentFingerprint",
+        "sessionId",
+        "testDataVersionId",
+        "sha256",
+        "fileCount"
+      ],
+      "properties": {
+        "nodeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
+        },
+        "environmentFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "testDataVersionId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "fileCount": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2000
+        }
+      },
+      "examples": [
+        {
+          "nodeId": "judge-local-1",
+          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
+          "sessionId": "019c8e42-7f70-7000-8000-000000000001",
+          "testDataVersionId": "019c8e42-7f70-7000-8000-000000000002",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "fileCount": 2
+        }
+      ]
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "detail"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}

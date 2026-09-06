@@ -44,7 +44,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest
+@SpringBootTest(properties="cherry.judging.node.deployment-mode=legacy-local")
 @ActiveProfiles("dev")
 @Testcontainers(disabledWithoutDocker = true)
 class JudgingReadinessIntegrationTests {

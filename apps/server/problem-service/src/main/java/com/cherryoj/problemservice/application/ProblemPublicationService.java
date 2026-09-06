@@ -163,6 +163,11 @@ public class ProblemPublicationService {
         JudgingDtos.Readiness remote = judging.readiness(
                 versionId, data.id(), data.contentSha256(), "cpp", delegatedJwt, traceparent);
         mergeRemoteLanguage(checks, remote);
+        // 旧部署模式没有节点检查；节点模式必须把在线事实保留到管理工作台。
+        if (remote.checks() != null && remote.checks().stream().anyMatch(c -> "ONLINE_JUDGE_NODE".equals(c.code()))) {
+            checks.add(remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE,
+                    "当前没有在线判题节点，请启动节点并等待注册。"));
+        }
         checks.add(remoteCheck(remote, "DEPLOYMENT", PublishCheckCode.DEPLOYMENT, "当前环境缺少 READY 部署。"));
         checks.add(remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION, "当前环境缺少 VALID 校准。"));
         return result(remote.environmentId(), checks);
@@ -389,7 +394,11 @@ public class ProblemPublicationService {
     }
 
     private static PublishCheck result(String environmentId, List<PublishCheckItem> checks) {
-        if (checks.size() != 6) throw new IllegalStateException("Publish check must contain exactly six checks");
+        var codes = checks.stream().map(PublishCheckItem::code).collect(java.util.stream.Collectors.toSet());
+        var required = java.util.EnumSet.allOf(PublishCheckCode.class);
+        required.remove(PublishCheckCode.ONLINE_JUDGE_NODE);
+        if (codes.size() != checks.size() || !codes.containsAll(required))
+            throw new IllegalStateException("Publish check must contain each base check exactly once");
         return new PublishCheck(
                 environmentId != null && checks.stream().allMatch(PublishCheckItem::passed),
                 environmentId,

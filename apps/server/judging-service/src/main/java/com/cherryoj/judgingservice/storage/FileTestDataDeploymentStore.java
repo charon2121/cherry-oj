@@ -41,6 +41,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "cherry.judging.node.deployment-mode", havingValue = "legacy-local", matchIfMissing = false)
 public final class FileTestDataDeploymentStore implements TestDataDeploymentStore {
     private static final Pattern FILE = Pattern.compile("^([A-Za-z0-9][A-Za-z0-9._-]{0,127})\\.(in|out)$");
     private static final Pattern WRAPPER_NAME = Pattern.compile(

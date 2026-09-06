@@ -1,0 +1,10 @@
+# 显式回退：与 compose.yaml 一起使用，不删除节点数据卷或数据库增量表。
+services:
+  judge:
+    environment:
+      CHERRY_OJ_JUDGE_NODE_ENABLED: "false"
+    volumes:
+      - type: bind
+        source: ${TESTDATA_PATH:?legacy-local requires the original Java testdata directory}
+        target: /srv/cherry-oj/testdata
+        read_only: true

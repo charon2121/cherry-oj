@@ -186,7 +186,7 @@ public final class AdminProblemDtos {
 
     public enum JudgeVerdict { AC, WA, TLE, MLE, RE, CE, SE }
 
-    public enum PublishCheckCode { CONTENT, SAMPLES, LANGUAGE, TEST_DATA, DEPLOYMENT, CALIBRATION }
+    public enum PublishCheckCode { CONTENT, SAMPLES, LANGUAGE, TEST_DATA, DEPLOYMENT, CALIBRATION, ONLINE_JUDGE_NODE }
 
     public static final String UUID_PATTERN =
             "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";

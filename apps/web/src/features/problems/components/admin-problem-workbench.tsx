@@ -486,6 +486,7 @@ function WorkbenchEditor({
   const check = useQuery({
     queryKey: problemKeys.publishCheck(problem.id, version.id),
     queryFn: ({ signal }) => getPublishCheck(problem.id, version.id, signal),
+    refetchInterval: 10_000,
     retry: false,
   });
 
@@ -530,6 +531,9 @@ function WorkbenchEditor({
   const boundTestData = version.testDataVersion?.id === selectedTestDataId;
   const deploymentReady = check.data?.checks.some(
     (item) => item.code === 'DEPLOYMENT' && item.passed,
+  );
+  const nodeUnavailable = check.data?.checks.find(
+    (item) => ['ONLINE_JUDGE_NODE', 'ACTIVE_ENVIRONMENT'].includes(item.code) && !item.passed,
   );
   const calibrationReady = check.data?.checks.some(
     (item) => item.code === 'CALIBRATION' && item.passed,
@@ -1036,7 +1040,10 @@ function WorkbenchEditor({
                   variant="secondary"
                   loading={deploy.isPending}
                   disabled={
-                    !canUseTestActions || !boundTestData || selectedTestData?.status !== 'READY'
+                    !canUseTestActions ||
+                    !boundTestData ||
+                    selectedTestData?.status !== 'READY' ||
+                    !!nodeUnavailable
                   }
                   onClick={() => deploy.mutate()}
                 >
@@ -1047,7 +1054,12 @@ function WorkbenchEditor({
                     先选择一份可用数据并用于当前版本。
                   </Text>
                 ) : null}
-                {deploy.data ? (
+                {nodeUnavailable ? (
+                  <Text className="mt-2" size="sm" tone="muted" role="status">
+                    {nodeUnavailable.message}
+                  </Text>
+                ) : null}
+                {deploy.data && !nodeUnavailable ? (
                   <Text className="mt-3" role="status">
                     {deploy.data.environmentName}：
                     {deploy.data.status === 'READY' ? '部署可用' : deploy.data.status}
@@ -1514,7 +1526,12 @@ function publishCheckStep(code: string): ProblemWorkbenchStep {
   if (code === 'CONTENT') return 'statement';
   if (code === 'SAMPLES') return 'samples';
   if (code === 'LANGUAGE') return 'starter-code';
-  if (code === 'TEST_DATA' || code === 'DEPLOYMENT' || code === 'CALIBRATION') {
+  if (
+    code === 'TEST_DATA' ||
+    code === 'DEPLOYMENT' ||
+    code === 'CALIBRATION' ||
+    code === 'ONLINE_JUDGE_NODE'
+  ) {
     return 'test-and-calibrate';
   }
   return 'publish';

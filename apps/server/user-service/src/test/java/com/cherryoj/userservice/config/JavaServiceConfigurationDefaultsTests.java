@@ -24,7 +24,8 @@ class JavaServiceConfigurationDefaultsTests {
             "user-service/application.yaml:CHERRY_AUTH_PRIVATE_KEY_LOCATION",
             "user-service/application.yaml:CHERRY_AUTH_PUBLIC_KEY_LOCATION",
             "problem-service/application.yaml:CHERRY_PROBLEM_DB_PASSWORD",
-            "judging-service/application.yaml:CHERRY_JUDGING_DB_PASSWORD");
+            "judging-service/application.yaml:CHERRY_JUDGING_DB_PASSWORD",
+            "judging-service/application.yaml:CHERRY_JUDGE_CONTROL_TOKEN");
     private static final Set<String> JAVA_SERVICES = Set.of(
             "gateway-service",
             "user-service",

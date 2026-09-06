@@ -3,7 +3,7 @@
   "info": {
     "title": "Cherry OJ Web API",
     "version": "0.2.0",
-    "description": "浏览器与 Gateway 之间的公开 REST 契约。请求使用 endpoint DTO，普通 JSON 成功响应使用 ApiSuccess，失败响应使用 RFC 9457 Problem Details。"
+    "description": "浏览器与 Gateway 之间的公开 REST 契约。请求使用 endpoint DTO，普通 JSON 成功响应使用 ApiSuccess，失败响应使用 RFC 9457 Problem Details。 管理部署接口的 503 可返回固定节点错误：NO_ONLINE_JUDGE_NODE, JUDGE_NODE_UNREACHABLE, JUDGE_NODE_DATA_REJECTED, JUDGE_NODE_RECEIPT_MISMATCH。详情由固定文案生成，不透传节点正文；readiness checks 的 ONLINE_JUDGE_NODE 表示 ACTIVE 环境存在在线节点，DEPLOYMENT 仅在该在线节点持有匹配摘要回执时通过。"
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "paths": {
@@ -1540,7 +1540,7 @@
         "additionalProperties": false,
         "required": ["code", "passed", "message"],
         "properties": {
-          "code": { "type": "string", "enum": ["CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "DEPLOYMENT", "CALIBRATION"] },
+          "code": { "type": "string", "enum": ["CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "DEPLOYMENT", "CALIBRATION", "ONLINE_JUDGE_NODE"] },
           "passed": { "type": "boolean" },
           "message": { "type": "string", "minLength": 1, "maxLength": 1024 }
         }
@@ -1552,7 +1552,7 @@
         "properties": {
           "ready": { "type": "boolean" },
           "environmentId": { "type": ["string", "null"], "format": "uuid" },
-          "checks": { "type": "array", "minItems": 6, "maxItems": 6, "items": { "$ref": "#/components/schemas/PublishCheckItem" } }
+          "checks": { "type": "array", "minItems": 6, "maxItems": 7, "items": { "$ref": "#/components/schemas/PublishCheckItem" } }
         }
       },
       "PublishCheckSuccess": {

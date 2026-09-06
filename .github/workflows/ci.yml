@@ -144,8 +144,12 @@ jobs:
   # Dockerfile 产出两个镜像，Compose 再验证它们确实能通过私网协作完成一次判题。
   # 这条同时钉住：运行时工具链、非 root / 只读文件系统、测试数据挂载和端口拓扑。
   containers:
-    name: judge + sandbox（Docker Compose）
+    name: judge + sandbox（legacy 回退）
     runs-on: ubuntu-latest
+    env:
+      # 纯 Go smoke 不启动 Java 控制面；显式覆盖 legacy 回退，节点链路见 node-e2e.py。
+      COMPOSE_FILE: compose.yaml:compose.legacy.yaml
+      TESTDATA_PATH: ${{ github.workspace }}/apps/judge-engine/internal/judge/testcase/testdata
     steps:
       - uses: actions/checkout@v7
 

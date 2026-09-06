@@ -39,4 +39,15 @@ class ProblemApiErrorsTests {
 		assertThat(unknown.status()).isEqualTo(HttpStatus.BAD_GATEWAY);
 		assertThat(unknown.getMessage()).doesNotContain("secret storage path");
 	}
+    @Test
+    void nodeFailuresAreActionableOnlyForAdminsAndUseFixedDetails() {
+        for (String code : java.util.List.of("NO_ONLINE_JUDGE_NODE", "JUDGE_NODE_UNREACHABLE",
+                "JUDGE_NODE_DATA_REJECTED", "JUDGE_NODE_RECEIPT_MISMATCH")) {
+            var upstream = new ProblemServiceClientException(HttpStatus.SERVICE_UNAVAILABLE, code, "private token path");
+            var admin = ProblemApiErrors.map(upstream, false);
+            assertThat(admin.code()).isEqualTo(code);
+            assertThat(admin.getMessage()).doesNotContain("private", "token", "path");
+            assertThat(ProblemApiErrors.map(upstream, true).code()).isEqualTo("SERVICE_UNAVAILABLE");
+        }
+    }
 }

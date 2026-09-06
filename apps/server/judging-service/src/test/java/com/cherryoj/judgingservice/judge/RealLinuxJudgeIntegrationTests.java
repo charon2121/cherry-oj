@@ -42,7 +42,7 @@ class RealLinuxJudgeIntegrationTests {
 
     private static JudgeGateway.JudgeRequest request(String source) {
         return new JudgeGateway.JudgeRequest(UUID.randomUUID().toString(), "a-plus-b",
-                "a-plus-b-v1", "a-plus-b", "cpp", source,
+                "a-plus-b-v1", System.getenv().getOrDefault("CHERRY_REAL_JUDGE_TEST_DATA_VERSION_ID", "a-plus-b"), "cpp", source,
                 new JudgeGateway.Limits(1_000_000_000L, 268_435_456L, null), "submit");
     }
 }

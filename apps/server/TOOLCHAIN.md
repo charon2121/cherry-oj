@@ -100,22 +100,24 @@ judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J、Commons 
 Testcontainers MySQL。它只连接 `cherry_oj_judging`，V1 migration 创建环境、启用语言、测试数据部署、
 语言校准和审计五类事实；不读取 problem-service 数据库。
 
-测试数据由受 ADMIN JWT 保护的内部接口以 manifest 和 ZIP 流传入。服务在
-`CHERRY_JUDGE_TESTDATA_ROOT` 下核对摘要、文件清单、测例对、安全限额与 UTF-8，然后通过同文件系统原子
-rename 生成 Go Judge 使用的 `<testDataVersionId>/` 目录。校准通过环境表的 `endpoint_ref` 调用现有
-Go Judge `/judge`，源码只存在于当次请求内，数据库和审计仅保存源码摘要及有界结果摘要。
-部署根、临时目录使用 0700，测例使用 0400；生产部署必须让 judging-service 与只读挂载该目录的 judge
-使用同一受控 Unix UID（Compose 为 10001），不能靠放宽为全局可读来解决权限问题。启动恢复只扫描
-受控根下一层、只清理超过 stale-age 且没有 READY 回执的 UUID 目录与临时目录。
+测试数据由受 ADMIN JWT 保护的接口以 manifest 与 ZIP 流传入。节点模式通过独立 control token
+向 ACTIVE 环境中的 ONLINE Judge 传输，Go 在私有目录二次校验并原子安装；控制面核对节点、指纹、
+会话、版本、hash 与文件数后才记录逐节点回执。校准和 ExecutionProfile 选择持有对应数据的在线节点。
+Java 不创建 Judge 数据目录，也不要求共享 Unix UID 或挂载路径。
 
-生产 profile 不创建默认环境。首次环境使用显式启动参数
-`--cherry.judging.provision.enabled=true` 并完整提供 `cherry.judging.provision.*` 字段；若已有 ACTIVE
-环境会拒绝执行，且该命令不承担环境切换。`dev` profile 只对 ID、指纹、路由与语言完全相同的本地 C++
-fixture 幂等返回，任何差异仍拒绝启动。
+V2 migration 追加节点、租约与逐节点部署表，不删除 V1 环境、部署或校准。节点上线自行注册：空库
+首次环境成为 ACTIVE，其他指纹只 REGISTERED，不自动切换已有环境。默认心跳 10 秒、租约 35 秒；
+节点重启保留旧回执但撤销可用性，通过再次部署幂等检查本地文件后恢复。参数分别为
+`JUDGE_HEARTBEAT_INTERVAL` 和 `CHERRY_JUDGE_NODE_LEASE_DURATION`。
 
-测试使用临时 MySQL 8.4 验证真实 CHECK、外键、JSON、UUID 与索引计划。开发 profile 的 A+B 是应用启动
-后的幂等 seed，不在 migration 或生产 profile 中。生产环境通过 `CHERRY_JUDGING_DB_URL`、
-`CHERRY_JUDGING_DB_USERNAME` 和 `CHERRY_JUDGING_DB_PASSWORD` 提供最小权限连接。
+`CHERRY_JUDGE_DEPLOYMENT_MODE=legacy-local` 是显式回退路径，保留旧文件安装和启动恢复能力。
+仅回退模式可以显式启用 `cherry.judging.provision.*`；普通节点模式不运行 dev fixture。
+回退时使用 `compose.legacy.yaml` 和原 `TESTDATA_PATH`，不删除节点卷或回滚 V2 migration。
+
+控制 token 通过 `CHERRY_JUDGE_CONTROL_TOKEN` 配给两端，本地默认值仅用于本机开发；生产必须显式
+提供 token 和数据库连接，节点 advertise URL 必须能被 Java 访问。测试用临时 MySQL 8.4 验证
+约束、并发注册、租约边界、迁移和回执；真实五服务 Compose 回归入口为
+`apps/server/judging-service/scripts/node-e2e.py`。
 
 ## 本地启动默认与生产配置边界
 

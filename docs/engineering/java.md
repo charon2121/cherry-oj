@@ -21,7 +21,7 @@
 - 服务间 DTO 分别照着 `problem-judge-snapshot`、`execution-profile`、`judge-input`、`judge-events`
   schema 写；与 Go judge 之间的 DTO 照着 `judge.schema.json` 写。字段名、单位、可选性都以 schema
   为准，并用 schema 示例做契约对齐测试。
-- Go judge 的 `environmentFingerprint` 来自部署配置并出现在所有结果中；不能从请求回显。
+- Go judge 的 `environmentFingerprint` 在节点模式下由实际 sandbox 元数据与 Judge 策略计算，legacy 模式来自部署配置；出现在所有结果中，不能从请求回显。
 - 时间 ns、内存 bytes，字段名自带单位——不要在 Java 侧改成 `timeoutMs` 之类。
 - 「结果入不入库」是 submission-service 的决定，不要试图让 judge 关心。
 - 题目元信息真源在 problem-service；环境相关绝对限制真源在 judging-service；判题时解析并冻结到

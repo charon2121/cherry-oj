@@ -476,7 +476,7 @@ export type LanguageCalibrationSuccess = {
 };
 
 export type PublishCheckItem = {
-    code: 'CONTENT' | 'SAMPLES' | 'LANGUAGE' | 'TEST_DATA' | 'DEPLOYMENT' | 'CALIBRATION';
+    code: 'CONTENT' | 'SAMPLES' | 'LANGUAGE' | 'TEST_DATA' | 'DEPLOYMENT' | 'CALIBRATION' | 'ONLINE_JUDGE_NODE';
     passed: boolean;
     message: string;
 };
@@ -484,14 +484,7 @@ export type PublishCheckItem = {
 export type PublishCheck = {
     ready: boolean;
     environmentId: string | null;
-    checks: [
-        PublishCheckItem,
-        PublishCheckItem,
-        PublishCheckItem,
-        PublishCheckItem,
-        PublishCheckItem,
-        PublishCheckItem
-    ];
+    checks: Array<PublishCheckItem>;
 };
 
 export type PublishCheckSuccess = {

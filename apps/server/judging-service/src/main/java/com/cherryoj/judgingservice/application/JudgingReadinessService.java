@@ -41,6 +41,9 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class JudgingReadinessService {
     private static final int MAX_SAFE_ERROR = 128;
+    private final com.cherryoj.judgingservice.config.JudgeNodeProperties nodeProperties;
+    private final com.cherryoj.judgingservice.persistence.JudgeNodeRepository nodes;
+    private final NodeDeploymentService nodeDeployments;
     private final JudgingRepository repository;
     private final TestDataDeploymentStore store;
     private final JudgeGateway judge;
@@ -51,11 +54,15 @@ public class JudgingReadinessService {
     private final ReentrantLock[] deploymentLocks = java.util.stream.IntStream.range(0, 64)
             .mapToObj(ignored -> new ReentrantLock()).toArray(ReentrantLock[]::new);
 
-    public JudgingReadinessService(JudgingRepository repository, TestDataDeploymentStore store,
+    public JudgingReadinessService(JudgingRepository repository, org.springframework.beans.factory.ObjectProvider<TestDataDeploymentStore> store,
                                    JudgeGateway judge, UuidV7 ids, Clock clock, ObjectMapper json,
-                                   PlatformTransactionManager transactionManager) {
+                                   PlatformTransactionManager transactionManager,
+                                   com.cherryoj.judgingservice.config.JudgeNodeProperties nodeProperties,
+                                   com.cherryoj.judgingservice.persistence.JudgeNodeRepository nodes,
+                                   NodeDeploymentService nodeDeployments) {
         this.repository = repository;
-        this.store = store;
+        this.store = store.getIfAvailable();
+        this.nodeProperties = nodeProperties; this.nodes = nodes; this.nodeDeployments = nodeDeployments;
         this.judge = judge;
         this.ids = ids;
         this.clock = clock;
@@ -65,6 +72,7 @@ public class JudgingReadinessService {
 
     public Deployment deploy(DeploymentMetadata metadata, InputStream archive,
                              String actorId, String traceId) {
+        if (nodeProperties.remote()) return nodeDeployments.deploy(metadata, archive, traceId);
         ReentrantLock lock = deploymentLocks[(metadata.testDataVersionId().hashCode() & Integer.MAX_VALUE)
                 % deploymentLocks.length];
         lock.lock();
@@ -219,6 +227,11 @@ public class JudgingReadinessService {
                         "testDataVersionId", request.testDataVersionId(), "environmentId", environment.id(),
                         "languageId", request.languageId(), "cpuNs", request.cpuNs(),
                         "memoryBytes", request.memoryBytes()));
+        if (nodeProperties.remote()) {
+            var node = nodes.ready(environment.id(), request.testDataVersionId(), request.expectedSha256(), now());
+            if (node == null) throw NodeDeploymentService.noOnline();
+            environment = new EnvironmentRow(environment.id(), environment.name(), environment.fingerprint(), node.endpoint());
+        }
         return new CalibrationStart(id, environment);
     }
 
@@ -270,6 +283,12 @@ public class JudgingReadinessService {
         boolean deployed = deployment != null && "READY".equals(deployment.status())
                 && expectedSha256.equals(deployment.expectedSha256())
                 && expectedSha256.equals(deployment.deployedSha256());
+        var readyNode = environment == null ? null : nodes.ready(environment.id(), testDataVersionId, expectedSha256, now());
+        if (nodeProperties.remote()) {
+            boolean online = environment != null && !nodes.online(environment.id(), now()).isEmpty();
+            checks.add(check("ONLINE_JUDGE_NODE", online, online ? "在线判题节点可用。" : "当前没有在线判题节点，请启动节点并等待注册。"));
+            deployed = readyNode != null;
+        }
         checks.add(check("DEPLOYMENT", deployed,
                 deployed ? "测试数据已按预期摘要部署。" : "测试数据尚未 READY 或摘要不匹配。"));
         CalibrationRow calibration = environment == null ? null
@@ -279,7 +298,7 @@ public class JudgingReadinessService {
                 calibrated ? "当前环境存在 VALID 校准。" : "当前环境缺少 VALID 校准。"));
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
         ExecutionProfile profile = ready ? new ExecutionProfile(environment.id(), environment.fingerprint(),
-                environment.endpointRef(), calibration.id(), calibration.cpuNs(), calibration.memoryBytes(),
+                (nodeProperties.remote() ? readyNode.endpoint() : environment.endpointRef()), calibration.id(), calibration.cpuNs(), calibration.memoryBytes(),
                 calibration.clockNs()) : null;
         return new Readiness(ready, environment == null ? null : environment.id(), checks, profile);
     }
@@ -288,6 +307,12 @@ public class JudgingReadinessService {
                                               String testDataVersionId, String expectedSha) {
         if (!repository.languageEnabled(environment.id(), languageId)) {
             throw conflict("LANGUAGE_NOT_ENABLED", "语言未在当前 ACTIVE 环境启用。");
+        }
+        if (nodeProperties.remote()) {
+            if (nodes.online(environment.id(), now()).isEmpty()) throw NodeDeploymentService.noOnline();
+            if (nodes.ready(environment.id(), testDataVersionId, expectedSha, now()) == null)
+                throw conflict("DEPLOYMENT_NOT_READY", "在线节点尚未安装匹配的测试数据，请先部署。");
+            return;
         }
         DeploymentRow deployment = repository.findDeployment(testDataVersionId, environment.id(), true);
         if (deployment == null || !"READY".equals(deployment.status())

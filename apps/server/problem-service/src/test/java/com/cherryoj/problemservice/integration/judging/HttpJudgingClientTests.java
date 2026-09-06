@@ -82,6 +82,24 @@ class HttpJudgingClientTests {
                 });
     }
 
+    @Test
+    void nodeErrorsPreserveOnlyAllowlistedCodesAndFixedDetails() throws Exception {
+        var code = new AtomicReference<>("NO_ONLINE_JUDGE_NODE");
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/internal/admin/readiness", exchange -> respond(exchange, 503,
+                "{\"code\":\"" + code.get() + "\",\"detail\":\"private token path\"}"));
+        server.start();
+        for (String value : List.of("NO_ONLINE_JUDGE_NODE", "JUDGE_NODE_UNREACHABLE",
+                "JUDGE_NODE_DATA_REJECTED", "JUDGE_NODE_RECEIPT_MISMATCH", "UNKNOWN")) {
+            code.set(value);
+            assertThatThrownBy(() -> client(Duration.ofSeconds(2)).readiness("problem", "data", "hash", "cpp", "jwt", null))
+                    .isInstanceOfSatisfying(ProblemApiException.class, error -> {
+                        assertThat(error.code()).isEqualTo(value.equals("UNKNOWN") ? "JUDGING_UNAVAILABLE" : value);
+                        assertThat(error.getMessage()).doesNotContain("private", "token", "path");
+                    });
+        }
+    }
+
     private HttpJudgingClient client(Duration timeout) {
         return new HttpJudgingClient(new JudgingClientProperties(
                 URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(1), timeout),

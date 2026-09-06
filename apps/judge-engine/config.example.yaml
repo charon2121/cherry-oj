@@ -96,3 +96,18 @@ judge:
     cpuNs: 10000000000 # 10s
     memoryBytes: 1073741824 # 1 GiB
     clockNs: 20000000000 # 20s
+
+  # 节点模式由 Compose 启用；生产必须提供共享 token；实际环境元数据由 sandbox 探测。
+  node:
+    enabled: false
+    id: judge-local-1
+    controlPlaneURL: http://127.0.0.1:8084
+    advertiseURL: http://127.0.0.1:5051
+    controlToken: ""
+    heartbeatInterval: 10s
+    requestTimeout: 5s
+    maxArchiveBytes: 104857600
+    maxExpandedBytes: 1073741824
+    maxEntryBytes: 67108864
+    maxFiles: 2000
+    maxCompressionRatio: 100

@@ -45,7 +45,18 @@ final class ProblemApiErrors {
 		}
 		if (error instanceof ProblemServiceClientException upstream) {
 			int status = upstream.status().value();
-			if (status >= 500) {
+			if (!publicApi && status == 503) {
+                String detail = switch (upstream.code()) {
+                    case "NO_ONLINE_JUDGE_NODE" -> "当前没有在线判题节点，请启动节点并等待注册后重试。";
+                    case "JUDGE_NODE_UNREACHABLE" -> "判题节点暂时无法连接，请等待节点恢复后重试。";
+                    case "JUDGE_NODE_DATA_REJECTED" -> "判题节点拒绝测试数据，请检查数据包后重新部署。";
+                    case "JUDGE_NODE_RECEIPT_MISMATCH" -> "判题节点返回的数据回执不匹配，请重新部署或联系管理员。";
+                    default -> null;
+                };
+                if (detail != null) return new ApiProblemException(HttpStatus.SERVICE_UNAVAILABLE,
+                        upstream.code(), "判题节点暂不可用", detail);
+            }
+            if (status >= 500) {
 				return status == 504 ? gatewayTimeout() : unavailable();
 			}
 			if (status == 401) {

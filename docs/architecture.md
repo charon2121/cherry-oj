@@ -140,7 +140,8 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
 唯一写入：
 
 - JudgeEnvironment、JudgeEnvironmentLanguage。
-- TestDataDeployment。
+- JudgeNode 与 TestDataNodeDeployment：真实节点租约与逐节点安装回执。
+- TestDataDeployment：旧本地部署兼容事实。
 - LanguageCalibration。
 - JudgeTask、JudgeAttempt、租约和重试状态。
 - Outbox / Inbox 与执行侧审计。
@@ -151,7 +152,11 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
   testDataContentSha256 + languageId`，从当前 ACTIVE 环境解析出环境、部署回执、有效标定和绝对限制。
 - 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput、调用指定环境的 Go judge。
 - 自定义测试内部接口：接收已经准备好的完整源码和文本 cases，同步调用 Go judge 的 trial 模式。
-- 环境注册、测试数据部署、标定和环境切换能力。
+- 节点自注册/心跳、节点侧测试数据安装、标定和环境切换能力。
+
+节点控制协议以 `contracts/judge-node.schema.json` 为准。首次真实注册在空库创建 ACTIVE 环境，
+不同指纹仅 REGISTERED。同 nodeId 的指纹不可变；进程 sessionId 改变时历史回执保留但不可用，
+必须经节点幂等安装重新校验。租约过期只停止路由，不删除节点、环境或历史事实。
 
 judging-service 不读取 problem-service 或 submission-service 数据库；需要的内容来自版本化 HTTP
 响应或 Kafka 事件。

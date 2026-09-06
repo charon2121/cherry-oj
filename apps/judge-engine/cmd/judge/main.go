@@ -16,6 +16,7 @@ import (
 	"cherry-oj/judge-engine/internal/judge/api"
 	"cherry-oj/judge-engine/internal/judge/client"
 	"cherry-oj/judge-engine/internal/judge/flow"
+	"cherry-oj/judge-engine/internal/judge/node"
 	enginelog "cherry-oj/judge-engine/internal/logging"
 	"cherry-oj/judge-engine/internal/tracecontext"
 )
@@ -57,18 +58,44 @@ func run() int {
 	}()
 	slog.SetDefault(logger)
 
+	if cfg.Judge.Node.Enabled {
+		probeCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		cfg.Judge, err = node.ProbeEnvironment(probeCtx, cfg.Judge)
+		cancel()
+		if err != nil {
+			logger.Error("judge.node.environment.probe.failed")
+			return 1
+		}
+	}
 	sandboxClient := client.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std())
 	service := &judgeService{
 		sandbox: sandboxClient,
 		config:  cfg.Judge,
 	}
+	handler := api.New(service).Handler()
+	var judgeNode *node.Node
+	if cfg.Judge.Node.Enabled {
+		judgeNode, err = node.New(cfg.Judge, logger)
+		if err != nil {
+			logger.Error("judge.node.init.failed")
+			return 1
+		}
+		defer judgeNode.Close()
+		service.config.EnvironmentFingerprint = judgeNode.Registration().EnvironmentFingerprint
+		handler = judgeNode.Handler(handler)
+	}
 	srv := &http.Server{
 		Addr:    cfg.Judge.HTTPAddr,
-		Handler: tracecontext.Middleware(logger, api.New(service).Handler()),
+		Handler: tracecontext.Middleware(logger, handler),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if judgeNode != nil {
+		done := make(chan struct{})
+		go func() { defer close(done); judgeNode.Run(ctx) }()
+		defer func() { stop(); <-done }()
+	}
 
 	serveErr := make(chan error, 1)
 	go func() {

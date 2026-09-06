@@ -147,3 +147,44 @@ Maven 版本、BOM 或构建插件属于技术审核范围；只有它们改变�
 这是当前骨架的预期状态：Gateway 已能启动，但尚未配置业务路由。路由应随对应业务任务实现和验收，不能把健康检查当成接口完成证据。
 
 全仓架构与服务边界以 [`CLAUDE.md`](../../CLAUDE.md) 为准，跨语言请求结构以 [`contracts/`](../../contracts/) 为唯一真源。
+
+## 判题节点与测试数据
+
+本地先启动 MySQL/Redis 和五个 Java 服务，再从仓库根运行 `docker compose up -d --build`。
+Judge 自动注册并续租，首次空 judging 数据库自动建立 ACTIVE 环境。两端使用相同的
+`CHERRY_JUDGE_CONTROL_TOKEN`；本地默认值为 `local-judge-control-token`，生产必须覆盖。
+Compose 的 `judge-testdata` 是节点私有持久卷，无需 `TESTDATA_PATH` 或 `dev` profile seed。
+修改 Java 端口时设置 `JUDGE_CONTROL_PLANE_URL`；修改 Judge 映射端口时同步 `JUDGE_ADVERTISE_URL`。
+Judge 经 sandbox 的限时探测获取实际 CPU、内核、系统、编译器、资源配额与二进制摘要，计算环境指纹。
+探测失败会拒绝节点启动；Judge 自身二进制摘要同样纳入指纹。升级 sandbox 时必须同步重启 Judge 重新探测。
+改变实际运行环境需要使用新 `JUDGE_NODE_ID`，并为它设置新的 `JUDGE_TESTDATA_VOLUME`，例如
+`JUDGE_NODE_ID=judge-v2 JUDGE_TESTDATA_VOLUME=cherry-judge-v2 docker compose up -d --build`。
+旧身份和旧安装回执不能用于另一环境；保留旧卷用于回退，不覆盖旧目录，回退时恢复原节点 ID 与卷名。
+
+既有数据库先升级 V2 并显式保留 `legacy-local`；历史环境、部署与标定都不改写。
+已有其他指纹的 ACTIVE 环境不会自动替换，新节点只会 REGISTERED。准备迁移时，先记录旧/新环境 ID，
+确认允许新环境暂时因尚未部署/校准而不可用，然后生成可审阅的切换 SQL：
+
+```bash
+python3 apps/server/judging-service/scripts/switch-environment.py OLD_UUID NEW_UUID > /tmp/switch-judge.sql
+# 审阅目标 ID 后，在 judging 数据库用 mysql 批处理执行；不要使用 --force。
+mysql --defaults-extra-file=/安全路径/mysql.cnf cherry_oj_judging < /tmp/switch-judge.sql
+```
+
+脚本本身只生成 SQL。事务会校验原 ACTIVE、目标 REGISTERED/RETIRED 和在线租约，并与注册/回执共用锁；
+不满足时整段回滚。切换后启用 `node-remote`，重新部署并对新环境校准，不能复制旧标定。
+校准遵循现有版本状态机：只有 DRAFT 可开始验证；已 READY_FOR_REVIEW 的版本应在旧环境完成发布，
+已发布版本则创建复用测试数据的新草稿修订，再在新环境校准。旧发布版本与旧环境标定保持不变。
+回退时把 OLD/NEW 对调并加 `--legacy-target`，再恢复下述 legacy 配置；历史标定仍属于原环境。
+
+工作台每 10 秒刷新发布检查。节点离线后，部署按钮显示原因并禁用；节点恢复后可以重新部署，
+节点检查已有目录的 hash/manifest 后返回回执，无需重新上传 ZIP。
+
+回退：设置 `CHERRY_JUDGE_DEPLOYMENT_MODE=legacy-local`，配置原 Java 测试数据目录，并执行
+`TESTDATA_PATH=/绝对路径 docker compose -f compose.yaml -f compose.legacy.yaml up -d`。
+回退保留 V2 表与节点卷，不删除旧资产；旧目录权限仍需允许 Judge 的 UID 10001 读取。
+
+隔离端到端验证：先运行 Maven package 和 `docker compose build judge`，再运行
+`python3 apps/server/judging-service/scripts/node-e2e.py`。脚本建立独立 MySQL/Redis、五服务、
+Compose 项目与卷，从 Finder ZIP 上传、绑定、部署到 C++ 校准，并验证节点停止/恢复。
+结束只清理本次创建的资源，证据保存在打印的临时目录。

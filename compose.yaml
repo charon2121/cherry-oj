@@ -49,6 +49,8 @@ services:
         max-file: "3"
 
   judge:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     image: cherry-oj-judge:local
     build:
       context: ./apps/judge-engine
@@ -74,16 +76,19 @@ services:
       CHERRY_OJ_JUDGE_TESTDATA_ROOT: /srv/cherry-oj/testdata
       CHERRY_OJ_JUDGE_STRICT_WHITESPACE: ${JUDGE_STRICT_WHITESPACE:-false}
       CHERRY_OJ_JUDGE_REVEAL_EXPECTED: ${JUDGE_REVEAL_EXPECTED:-false}
+      CHERRY_OJ_JUDGE_NODE_ENABLED: "true"
+      CHERRY_OJ_JUDGE_NODE_ID: ${JUDGE_NODE_ID:-judge-local-1}
+      CHERRY_OJ_JUDGE_NODE_CONTROL_PLANE_URL: ${JUDGE_CONTROL_PLANE_URL:-http://host.docker.internal:8084}
+      CHERRY_OJ_JUDGE_NODE_ADVERTISE_URL: ${JUDGE_ADVERTISE_URL:-http://127.0.0.1:5051}
+      CHERRY_OJ_JUDGE_NODE_CONTROL_TOKEN: ${CHERRY_JUDGE_CONTROL_TOKEN:-local-judge-control-token}
+      CHERRY_OJ_JUDGE_NODE_HEARTBEAT_INTERVAL: ${JUDGE_HEARTBEAT_INTERVAL:-10s}
     ports:
       # MVP 先只开放给本机 server / curl；生产部署应移除端口映射并接入后端私网。
       - "${JUDGE_BIND_ADDRESS:-127.0.0.1}:${JUDGE_PORT:-5051}:5051"
     volumes:
       - engine-logs:/var/log/cherry-oj
-      # 默认挂测试 fixture 方便 smoke test；部署题库时用 TESTDATA_PATH 覆盖宿主机路径。
-      - type: bind
-        source: ${TESTDATA_PATH:-./apps/judge-engine/internal/judge/testcase/testdata}
-        target: /srv/cherry-oj/testdata
-        read_only: true
+      # 节点拥有数据；Java 通过受保护的安装 API 交付 ZIP，不共享宿主机路径。
+      - judge-testdata:/srv/cherry-oj/testdata
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777
     cpus: ${JUDGE_CPUS:-1.0}
@@ -114,3 +119,5 @@ networks:
 
 volumes:
   engine-logs:
+  judge-testdata:
+    name: ${JUDGE_TESTDATA_VOLUME:-${COMPOSE_PROJECT_NAME}_judge-testdata}

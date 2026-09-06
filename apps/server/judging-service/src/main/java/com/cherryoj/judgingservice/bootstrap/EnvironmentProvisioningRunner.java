@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "cherry.judging.node.deployment-mode", havingValue = "legacy-local", matchIfMissing = false)
 @ConditionalOnProperty(prefix = "cherry.judging.provision", name = "enabled", havingValue = "true")
 public final class EnvironmentProvisioningRunner implements ApplicationRunner {
     private static final Pattern LANGUAGE = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");

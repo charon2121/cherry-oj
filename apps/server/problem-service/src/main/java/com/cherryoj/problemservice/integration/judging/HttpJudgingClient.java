@@ -106,7 +106,7 @@ public final class HttpJudgingClient implements JudgingClient {
             try (InputStream body = response.body()) {
                 byte[] bytes = body.readNBytes(MAX_RESPONSE_BYTES + 1);
                 if (bytes.length > MAX_RESPONSE_BYTES) throw downstream("JUDGING_INVALID_RESPONSE", "判题服务响应超限。");
-                if (response.statusCode() < 200 || response.statusCode() >= 300) throw status(response.statusCode());
+                if (response.statusCode() < 200 || response.statusCode() >= 300) throw status(response.statusCode(), bytes);
                 try {
                     return json.readValue(bytes, responseType);
                 }
@@ -148,7 +148,20 @@ public final class HttpJudgingClient implements JudgingClient {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private static ProblemApiException status(int status) {
+    private ProblemApiException status(int status, byte[] body) {
+        if (status == 503) {
+            try {
+                String code = json.readTree(body).path("code").asText();
+                String detail = switch (code) {
+                    case "NO_ONLINE_JUDGE_NODE" -> "当前没有在线判题节点，请启动节点并等待注册后重试。";
+                    case "JUDGE_NODE_UNREACHABLE" -> "判题节点暂时无法连接，请等待节点恢复后重试。";
+                    case "JUDGE_NODE_DATA_REJECTED" -> "判题节点拒绝测试数据，请检查数据包后重新部署。";
+                    case "JUDGE_NODE_RECEIPT_MISMATCH" -> "判题节点返回的数据回执不匹配，请重新部署或联系管理员。";
+                    default -> null;
+                };
+                if (detail != null) return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, code, detail);
+            } catch (RuntimeException ignored) { /* 未知或非法正文始终收敛。 */ }
+        }
         if (status == 409) return new ProblemApiException(HttpStatus.CONFLICT, "JUDGING_STATE_CONFLICT", "判题资源状态冲突。");
         if (status == 413) return new ProblemApiException(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过判题服务限额。");
         if (status == 422 || status == 400) return new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "JUDGING_VALIDATION_FAILED", "判题服务拒绝了请求数据。");

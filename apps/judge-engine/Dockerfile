@@ -25,7 +25,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 cherry \
     && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin cherry \
-    && install -d -o cherry -g cherry -m 0750 /var/log/cherry-oj
+    && install -d -o cherry -g cherry -m 0750 /var/log/cherry-oj \
+    && install -d -o cherry -g cherry -m 0700 /srv/cherry-oj/testdata
 
 COPY --from=judge-build /out/judge /usr/local/bin/judge
 
