@@ -1,12 +1,15 @@
 package com.cherryoj.identitysecurity;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -17,9 +20,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtAudienceValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
-import org.springframework.security.oauth2.jwt.JwtIssuedAtValidator;
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.MappedJwtClaimSetConverter;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
@@ -46,13 +49,11 @@ public class IdentityVerifierConfiguration {
 				.jwsAlgorithm(SignatureAlgorithm.RS256)
 				.restOperations(new RestTemplate(requestFactory))
 				.build();
+		delegate.setClaimSetConverter(identityClaimsConverter());
 		JwtTimestampValidator timestamp = new JwtTimestampValidator(properties.clockSkew());
 		timestamp.setAllowEmptyExpiryClaim(false);
-		JwtIssuedAtValidator issuedAt = new JwtIssuedAtValidator(true);
-		issuedAt.setClockSkew(properties.clockSkew());
 		delegate.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
 				timestamp,
-				issuedAt,
 				new JwtIssuerValidator(properties.issuer()),
 				new JwtAudienceValidator(properties.audience()),
 				requiredClaims()));
@@ -72,6 +73,19 @@ public class IdentityVerifierConfiguration {
 		};
 	}
 
+	private static Converter<Map<String, Object>, Map<String, Object>> identityClaimsConverter() {
+		Converter<Map<String, Object>, Map<String, Object>> defaults =
+				MappedJwtClaimSetConverter.withDefaults(Map.of());
+		return claims -> {
+			boolean issuedAtPresent = claims.get("iat") != null;
+			Map<String, Object> converted = new LinkedHashMap<>(defaults.convert(claims));
+			if (!issuedAtPresent) {
+				converted.remove("iat");
+			}
+			return converted;
+		};
+	}
+
 	@Bean
 	public JwtAuthenticationConverter identityJwtAuthenticationConverter() {
 		JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
@@ -84,7 +98,8 @@ public class IdentityVerifierConfiguration {
 	}
 
 	private static OAuth2TokenValidator<Jwt> requiredClaims() {
-		return jwt -> validSubject(jwt.getSubject())
+		return jwt -> jwt.getIssuedAt() != null
+				&& validSubject(jwt.getSubject())
 				&& validRoles(jwt.getClaimAsStringList("roles"))
 				&& jwt.getClaim("sv") instanceof Number
 				&& jwt.getClaim("pwd") instanceof Boolean passwordChangeRequired
