@@ -2,7 +2,7 @@
 id: "MEMORY-002"
 type: "memory"
 title: "交付 C++ ACM 答题闭环"
-status: "review"
+status: "checked"
 work: "WORK-002"
 owners: ["product/owner"]
 depends_on: ["VERIFY-002"]
@@ -54,3 +54,7 @@ updated_at: "2026-09-07"
 - 本轮隔离验收发现既有 user-service 的 JwtIssuedAtValidator 把签发时间限制为当前时间前后 30 秒，与 2 小时 token 有效期冲突。
   创建测试账号放在前置准备阶段；没有修改账号服务业务。后续应单独修复并补“已签发超过 30 秒仍在有效期”的回归。
   本轮提交服务的用户 JWT 验证使用 identity-security-support，不采用该错误的最大令牌年龄检查。
+
+## 变更记录
+
+- 2026-09-07：结构与内容校验通过，由工具置为 checked。

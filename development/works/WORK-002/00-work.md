@@ -2,7 +2,7 @@
 id: "WORK-002"
 type: "work"
 title: "交付 C++ ACM 答题闭环"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["product/owner"]
 risk: "high"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["feature", "experience", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "cross-module-regression", "accessibility", "data", "security"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: true
@@ -35,7 +35,7 @@ work_type: "product"
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|
-| 需求澄清 | ✔ 完成 | 必需 | WORK-002 `implemented` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 需求澄清 | ✔ 完成 | 必需 | WORK-002 `verified` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
 | 功能定义 | ✔ 完成 | 必需 | FEATURE-001 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 体验设计 | ✔ 完成 | 必需 | EXPERIENCE-001 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-002 `checked` | 确定技术方案、边界与取舍 |
@@ -43,9 +43,9 @@ work_type: "product"
 | 开发计划 | ✔ 完成 | 必需 | PLAN-002 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-002 `done`、TASK-076 `done`、TASK-077 `done`、TASK-078 `done`、TASK-079 `done`、TASK-080 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-002 `done`、TASK-076 `done`、TASK-077 `done`、TASK-078 `done`、TASK-079 `done`、TASK-080 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 验证 | ▶ 进行中 | 必需 | VERIFY-002 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-002 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 验证 | ✔ 完成 | 必需 | VERIFY-002 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-002 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -84,3 +84,5 @@ work_type: "product"
 - 2026-09-07：检查项 security 记录结论：通过。原因：服务身份隔离、本人可见、管理员无特权、账号切换前置条件、隐藏输出与诊断及死信脱敏验证通过
 - 2026-09-07：根据文档、任务与验证事实刷新状态：todo → implemented。
 - 2026-09-07：流程阶段 复核：doing → done。原因：所有复核检查已记录通过；独立审查末轮无阻塞，影响分析和范围证据完备
+- 2026-09-07：验收闸：passed。原因：已完成隔离环境及本地开发环境手工验收，确认正式提交与判题闭环通过
+- 2026-09-07：根据文档、任务与验证事实刷新状态：implemented → verified。

@@ -2,7 +2,7 @@
 id: "VERIFY-002"
 type: "verify"
 title: "交付 C++ ACM 答题闭环"
-status: "review"
+status: "approved"
 work: "WORK-002"
 owners: ["product/owner"]
 depends_on: ["TASK-002", "TASK-076", "TASK-077", "TASK-078", "TASK-079", "TASK-080"]
@@ -74,7 +74,7 @@ FEATURE-001 本轮十项 AC 和六个任务。执行已签署意图闸的六任�
 
 ## 结论
 
-技术验证 result=pass，VERIFY 保持 review。负责人已反馈手工测试可以提交并授权 commit/push；验收闸尚未通过命令签署，保留原状态。
+技术验证 result=pass；负责人完成隔离及本地开发环境手测，并已通过命令签署验收闸，VERIFY 为 approved。
 
 ## 实施阶段证据（持续补充）
 
@@ -182,7 +182,8 @@ FEATURE-001 本轮十项 AC 和六个任务。执行已签署意图闸的六任�
 int main() {
     long long a, b;
     std::cin >> a >> b;
-    std::cout << a + b << "\n";
+    std::cout << a + b << "
+";
 }
 ```
 
@@ -229,3 +230,6 @@ touch /var/folders/_m/62m76bs510j0640qx9q9bfmh0000gn/T/cherry-work002-w7ma1cqw/s
 
 2026-09-07，负责人反馈“我手工测试了，确实可以提交”，并明确要求提交本轮工作、推送远程 main。
 该反馈按实际范围记录，不推断负责人逐项执行了全部故障场景，也不代为执行验收闸命令。
+- 2026-09-07：验收闸通过：review → approved。原因：已完成隔离环境及本地开发环境手工验收，确认正式提交与判题闭环通过
+
+- 2026-09-07：负责人已签署验收闸并授权提交推送。开发环境使用独立 Kafka 和 IDEA 本地服务配置；数据库密码保留在本地运行配置，源码维持环境变量注入。运行数据 ZIP 不纳入版本控制。
