@@ -43,11 +43,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtAudienceValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtIssuedAtValidator;
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.jwt.MappedJwtClaimSetConverter;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 
 @Configuration(proxyBeanMethods = false)
@@ -320,13 +320,20 @@ public class TokenConfig {
                 .withJwkSource(new ImmutableJWKSet<SecurityContext>(keys.publicJwkSet()))
                 .jwsAlgorithm(SignatureAlgorithm.RS256)
                 .build();
+        var defaults = MappedJwtClaimSetConverter.withDefaults(Map.of());
+        decoder.setClaimSetConverter(claims -> {
+            boolean issuedAtPresent = claims.get("iat") != null;
+            var converted = new java.util.LinkedHashMap<>(defaults.convert(claims));
+            // Default conversion may synthesize iat; require it in the signed claims instead.
+            if (!issuedAtPresent) {
+                converted.remove("iat");
+            }
+            return converted;
+        });
         JwtTimestampValidator timestamp = new JwtTimestampValidator(properties.clockSkew());
         timestamp.setAllowEmptyExpiryClaim(false);
-        JwtIssuedAtValidator issuedAt = new JwtIssuedAtValidator(true);
-        issuedAt.setClockSkew(properties.clockSkew());
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
                 timestamp,
-                issuedAt,
                 new JwtIssuerValidator(properties.issuer()),
                 new JwtAudienceValidator(properties.audience()),
                 requiredClaims()));
@@ -336,7 +343,9 @@ public class TokenConfig {
     private static OAuth2TokenValidator<Jwt> requiredClaims() {
         OAuth2Error invalid = new OAuth2Error(
                 "invalid_token", "Required identity claims are invalid", null);
-        return jwt -> validSubject(jwt.getSubject())
+        // iat records issuance, not a maximum age bounded by clock skew; exp controls lifetime.
+        return jwt -> jwt.getIssuedAt() != null
+                        && validSubject(jwt.getSubject())
                         && validRoles(jwt.getClaimAsStringList("roles"))
                         && jwt.getClaim("sv") instanceof Number
                         && jwt.getClaim("pwd") instanceof Boolean
