@@ -32,6 +32,7 @@ class SubmissionPersistenceTests {
         registry.add("spring.datasource.password",MYSQL::getPassword);
     }
     @Autowired SubmissionMapper store;
+    @Autowired SubmissionService readService;
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager manager;
@@ -103,6 +104,44 @@ class SubmissionPersistenceTests {
         var view=service.get(user,id);
         assertEquals("DONE",view.status()); assertEquals("WA",view.verdict()); assertEquals(1,view.passedCount());
         assertFalse(json.writeValueAsString(view).contains("source"));
+    }
+    @Test void historyIsOwnerAndProblemScopedStableAndNeverIncludesSource() {
+        String first=service.create(user,UUID.randomUUID().toString(),request("// first original\nint main() {} ")).view().id();
+        String second=service.create(user,UUID.randomUUID().toString(),request("// second original")).view().id();
+        String otherUser=UUID.randomUUID().toString();
+        service.create(otherUser,UUID.randomUUID().toString(),request("// another account"));
+        String otherProblem=UUID.randomUUID().toString();
+        String foreignProblemId=UUID.randomUUID().toString();
+        var foreignView=new View(foreignProblemId,otherProblem,version.toString(),1,"Another title","cpp","PENDING",
+                Instant.now(),null,null,null,null,null,null,null,null);
+        store.put(foreignProblemId,user,otherProblem,json.writeValueAsString(foreignView),"// another problem",java.time.LocalDateTime.now());
+        jdbc.update("UPDATE submission SET created_at='2026-09-07 00:00:00' WHERE id IN (?,?)",first,second);
+        var expected=java.util.stream.Stream.of(first,second).sorted(Comparator.reverseOrder()).toList();
+        var page=readService.history(user,problem.toString(),1,1,null);
+        assertEquals(2,page.totalElements()); assertEquals(2,page.totalPages());
+        assertEquals(expected.get(0),page.items().getFirst().id());
+        assertEquals(expected.get(1),readService.history(user,problem.toString(),2,1,null).items().getFirst().id());
+        assertTrue(readService.history(user,problem.toString(),3,1,null).items().isEmpty());
+        assertFalse(json.writeValueAsString(page).contains("original"));
+        assertEquals(0,readService.history(user,problem.toString(),1,20,"AC").totalElements());
+        lifecycle.apply(first,event(first,UUID.randomUUID().toString(),"JudgeCompleted",1,
+                Map.of("verdict","AC","environmentFingerprint","fingerprint","passedCount",3,"executedCount",3,"totalCount",3)));
+        assertEquals(first,readService.history(user,problem.toString(),1,20,"AC").items().getFirst().id());
+        reset(prerequisites); // History remains available without querying today's problem publication.
+        assertEquals("// first original\nint main() {} ",readService.source(user,first).source());
+        assertEquals(version.toString(),readService.source(user,first).problemVersionId());
+        assertFalse(readService.source(user,first).toString().contains("original"));
+        assertEquals(readService.source(user,first).source(),service.input(first).completeSource());
+        var denied=assertThrows(SubmissionException.class,() -> readService.source(otherUser,first));
+        var missing=assertThrows(SubmissionException.class,() -> readService.source(otherUser,UUID.randomUUID().toString()));
+        assertEquals(denied.getMessage(),missing.getMessage());
+        assertTrue(readService.history(UUID.randomUUID().toString(),problem.toString(),1,20,null).items().isEmpty());
+        assertThrows(SubmissionException.class,() -> readService.history(user,problem.toString(),0,20,null));
+        assertThrows(SubmissionException.class,() -> readService.history(user,problem.toString(),1,101,null));
+        assertThrows(SubmissionException.class,() -> readService.history(user,problem.toString(),1,20,"anything"));
+        verifyNoInteractions(prerequisites);
+        var plan=jdbc.queryForList("EXPLAIN SELECT read_model FROM submission WHERE user_id=? AND problem_id=? ORDER BY created_at DESC,id DESC LIMIT 20",user,problem.toString());
+        assertTrue(plan.getFirst().get("possible_keys").toString().contains("submission_owner"));
     }
     String event(String id,String task,String type,int attempt,Map<String,Object> result) {
         var payload=new LinkedHashMap<String,Object>(Map.of("submissionId",id,"taskId",task,"attemptNo",attempt));

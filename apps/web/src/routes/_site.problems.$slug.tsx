@@ -1,10 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { z } from 'zod';
 
 import { ProblemDetailPage } from '@/features/problems/components/problem-detail-page';
+import { historySearchSchema } from '@/features/submissions/submission-history-api';
 
 export const Route = createFileRoute('/_site/problems/$slug')({
-  validateSearch: z.object({ submissionId: z.string().uuid().optional().catch(undefined) }),
+  validateSearch: historySearchSchema,
   component: ProblemRoute,
 });
 

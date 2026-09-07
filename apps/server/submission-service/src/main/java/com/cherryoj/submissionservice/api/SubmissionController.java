@@ -18,6 +18,18 @@ public class SubmissionController {
         var result=service.create(CurrentIdentity.from(identity).userId(),key.toString(),body);
         return ResponseEntity.status(result.fresh()?201:200).header("Cache-Control","no-store").body(result.view());
     }
+    @GetMapping("/api/submissions")
+    public ResponseEntity<SubmissionDtos.HistoryPage> history(@RequestParam UUID problemId,
+            @RequestParam(defaultValue="1") int page, @RequestParam(defaultValue="20") int size,
+            @RequestParam(required=false) String verdict, JwtAuthenticationToken identity) {
+        return ResponseEntity.ok().header("Cache-Control","no-store")
+                .body(service.history(CurrentIdentity.from(identity).userId(),problemId.toString(),page,size,verdict));
+    }
+    @GetMapping("/api/submissions/{id}/source")
+    public ResponseEntity<SubmissionDtos.Source> source(@PathVariable UUID id, JwtAuthenticationToken identity) {
+        return ResponseEntity.ok().header("Cache-Control","no-store")
+                .body(service.source(CurrentIdentity.from(identity).userId(),id.toString()));
+    }
     @GetMapping("/api/submissions/{id}")
     public ResponseEntity<SubmissionDtos.View> get(@PathVariable UUID id, JwtAuthenticationToken identity) {
         return ResponseEntity.ok().header("Cache-Control","no-store").body(service.get(CurrentIdentity.from(identity).userId(),id.toString()));

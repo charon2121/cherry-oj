@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Play, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -15,7 +15,7 @@ import {
 } from './submission-recovery';
 import { createSubmission, findSubmission, getSubmission } from './submissions-api';
 
-const labels = {
+export const labels = {
   AC: '通过',
   WA: '答案错误',
   PE: '格式错误',
@@ -38,6 +38,7 @@ export function SubmissionPanel({
   source: string;
   disabled: boolean;
 }) {
+  const queryClient = useQueryClient();
   const navigate = useNavigate({ from: '/problems/$slug' });
   const search = useSearch({ from: '/_site/problems/$slug' });
   const storageKey = recoveryKey(userId, problem.problemId);
@@ -68,12 +69,18 @@ export function SubmissionPanel({
     retry: false,
     onSuccess: (value, original) => {
       if (!alive.current) return;
+      void queryClient.invalidateQueries({
+        queryKey: ['submission-history', userId, problem.problemId],
+      });
       try {
         save({ ...original, submissionId: value.id });
       } catch {
         setNotice('已受理。恢复记录未保存到本机，请保留当前页面链接。');
       }
-      void navigate({ search: { submissionId: value.id }, replace: true });
+      void navigate({
+        search: (previous) => ({ ...previous, submissionId: value.id }),
+        replace: true,
+      });
     },
     onError: (error) => {
       if (!alive.current) return;
@@ -125,7 +132,10 @@ export function SubmissionPanel({
   const shown = result.data;
   useEffect(() => {
     if (!shown || search.submissionId === shown.id) return;
-    void navigate({ search: { submissionId: shown.id }, replace: true });
+    void navigate({
+      search: (previous) => ({ ...previous, submissionId: shown.id }),
+      replace: true,
+    });
   }, [shown, search.submissionId, navigate]);
   function save(value: SubmissionRecovery) {
     // Persist the original payload before sending: retries must never read the edited source.
@@ -155,7 +165,10 @@ export function SubmissionPanel({
       return;
     }
     setNotice('');
-    void navigate({ search: {}, replace: true });
+    void navigate({
+      search: (previous) => ({ ...previous, submissionId: undefined }),
+      replace: true,
+    });
     submit.mutate(next);
   }
   const queryError =
@@ -228,7 +241,7 @@ export function SubmissionPanel({
   );
 }
 
-function SubmissionResult({ value }: { value: SubmissionData }) {
+export function SubmissionResult({ value }: { value: SubmissionData }) {
   return (
     <section aria-label="本次提交结果" className="space-y-2">
       <p className="text-foreground">

@@ -20,7 +20,8 @@ final class SubmissionServiceClient {
     private final InternalRequestFactory requests;
     SubmissionServiceClient(WebClient.Builder builder,InternalRequestFactory requests,
             @Value("${cherry.gateway.submission-service-url:http://127.0.0.1:8083}") String url) {
-        this.client=builder.clone().baseUrl(url).codecs(c -> c.defaultCodecs().maxInMemorySize(65536)).build();
+        // A page can contain 100 diagnostics of 8 KiB, up to six JSON bytes per escaped character.
+        this.client=builder.clone().baseUrl(url).codecs(c -> c.defaultCodecs().maxInMemorySize(8 * 1024 * 1024)).build();
         this.requests=requests;
     }
     Mono<ResponseEntity<SubmissionController.View>> create(DelegatedIdentity identity,UUID key,SubmissionController.Create body) {
@@ -36,6 +37,36 @@ final class SubmissionServiceClient {
         return requests.authenticated(client.get().uri(path),identity).exchangeToMono(response -> {
             if(response.statusCode().value()!=200) return failure(response);
             return response.bodyToMono(SubmissionController.View.class).map(SubmissionServiceClient::validate);
+        }).switchIfEmpty(Mono.error(unavailable())).timeout(Duration.ofSeconds(10)).onErrorMap(SubmissionServiceClient::map);
+    }
+    Mono<SubmissionController.HistoryPage> history(DelegatedIdentity identity,UUID problemId,int page,int size,String verdict) {
+        var request=client.get().uri(builder -> {
+            builder.path("/api/submissions").queryParam("problemId",problemId).queryParam("page",page).queryParam("size",size);
+            if(verdict!=null) builder.queryParam("verdict",verdict);
+            return builder.build();
+        });
+        return requests.authenticated(request,identity).exchangeToMono(response -> {
+            if(response.statusCode().value()!=200) return failure(response);
+            return response.bodyToMono(SubmissionController.HistoryPage.class).map(result -> {
+                if(result.items()==null || result.items().size()>size || result.page()!=page || result.size()!=size
+                        || result.totalElements()<0 || result.totalPages()<0) throw unavailable();
+                result.items().forEach(view -> {
+                    validate(view);
+                    if(!problemId.equals(view.problemId())) throw unavailable();
+                });
+                return result;
+            });
+        }).switchIfEmpty(Mono.error(unavailable())).timeout(Duration.ofSeconds(10)).onErrorMap(SubmissionServiceClient::map);
+    }
+    Mono<SubmissionController.Source> source(DelegatedIdentity identity,UUID id) {
+        return requests.authenticated(client.get().uri("/api/submissions/{id}/source",id),identity).exchangeToMono(response -> {
+            if(response.statusCode().value()!=200) return failure(response);
+            return response.bodyToMono(SubmissionController.Source.class).map(source -> {
+                if(!id.equals(source.submissionId()) || source.problemId()==null || source.problemVersionId()==null
+                        || !"cpp".equals(source.languageId()) || source.source()==null
+                        || source.source().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>262144) throw unavailable();
+                return source;
+            });
         }).switchIfEmpty(Mono.error(unavailable())).timeout(Duration.ofSeconds(10)).onErrorMap(SubmissionServiceClient::map);
     }
     private static SubmissionController.View validate(SubmissionController.View view) {

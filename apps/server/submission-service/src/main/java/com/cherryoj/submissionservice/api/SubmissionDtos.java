@@ -32,5 +32,10 @@ public final class SubmissionDtos {
                         Limits effectiveLimits, Instant createdAt, String testDataContentSha256, int totalCount, long executionBudgetNs) {
         @Override public String toString() { return "Input[submissionId=" + submissionId + ", source=<redacted>]"; }
     }
+    public record HistoryPage(java.util.List<View> items, int page, int size, long totalElements, int totalPages) {}
+    public record Source(String submissionId, String problemId, String problemVersionId,
+                         String languageId, String source) {
+        @Override public String toString() { return "Source[submissionId=" + submissionId + ", source=<redacted>]"; }
+    }
     public record Created(View view, boolean fresh) {}
 }

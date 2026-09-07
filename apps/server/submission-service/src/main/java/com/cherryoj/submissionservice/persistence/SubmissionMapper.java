@@ -7,6 +7,19 @@ import java.util.List;
 @Mapper
 public interface SubmissionMapper {
     record Row(String id, String userId, String status, String readModel, String taskId, int attemptNo, long rowVersion) {}
+    record SourceRow(String id, String problemId, String readModel, String source) {
+        @Override public String toString() { return "SourceRow[id=" + id + ", source=<redacted>]"; }
+    }
+    // Query only the owner's selected problem; source is never projected into a history page.
+    String HISTORY_WHERE = " FROM submission WHERE user_id=#{user} AND problem_id=#{problem} "
+            + "AND (#{verdict} IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(read_model,'$.verdict'))=#{verdict}) ";
+    @Select("SELECT read_model" + HISTORY_WHERE + "ORDER BY created_at DESC,id DESC LIMIT #{size} OFFSET #{offset}")
+    List<String> history(@Param("user") String user, @Param("problem") String problem,
+                         @Param("verdict") String verdict, @Param("size") int size, @Param("offset") long offset);
+    @Select("SELECT COUNT(*)" + HISTORY_WHERE)
+    long historyCount(@Param("user") String user, @Param("problem") String problem, @Param("verdict") String verdict);
+    @Select("SELECT id,problem_id,read_model,source FROM submission WHERE id=#{id} AND user_id=#{user}")
+    SourceRow source(@Param("user") String user, @Param("id") String id);
     record RequestRow(String requestDigest, String submissionId) {}
     record Outbox(String eventId, String messageKey, String payload, String traceParent) {}
     @Select("SELECT id,user_id,status,read_model,task_id,attempt_no,row_version FROM submission WHERE id=#{id}")

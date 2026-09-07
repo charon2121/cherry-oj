@@ -47,3 +47,4 @@
 | WORK-040 | 重构判题节点注册与测试数据交付 | 问题修复 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-040/00-work.md) |
 | WORK-041 | 建立题目阅读与 Monaco 编码工作台 | 产品功能 | 验证通过 | 中 | 局部 | codex/root | [00-work.md](./works/WORK-041/00-work.md) |
 | WORK-042 | 修复后台用户列表拒绝尚未过期的身份令牌 | 问题修复 | 验证通过 | 高 | 局部 | codex/root | [00-work.md](./works/WORK-042/00-work.md) |
+| WORK-043 | 题目内提交记录与代码回看 | 产品功能 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-043/00-work.md) |

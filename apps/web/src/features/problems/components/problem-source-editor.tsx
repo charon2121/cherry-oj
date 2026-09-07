@@ -1,6 +1,6 @@
 import { useBlocker } from '@tanstack/react-router';
 import { Download, RotateCcw } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, type Ref, useEffect, useImperativeHandle, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { TextEditor } from '@/components/ui/text-editor';
+import type { HistoryLoad } from '@/features/submissions/submission-history-panel';
 
 import { useCodeDraft } from '../hooks/use-code-draft';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
@@ -60,7 +61,11 @@ export function SourceEditor({
   );
 }
 
+export type HistoryEditorHandle = { requestLoad: (value: HistoryLoad) => void };
+
 type DraftEditorProps = {
+  historyRef?: Ref<HistoryEditorHandle>;
+
   userId: string;
   problemId: string;
   problemVersionId: string;
@@ -75,9 +80,28 @@ export function DraftEditor({
   readOnly,
   onUnsavedChange,
   renderSubmission,
+  historyRef,
   ...identity
 }: DraftEditorProps) {
   const draft = useCodeDraft(identity);
+  const [pendingLoad, setPendingLoad] = useState<{ value: HistoryLoad; original: string } | null>(
+    null,
+  );
+  useImperativeHandle(historyRef, () => ({
+    requestLoad(value) {
+      if (
+        readOnly ||
+        value.userId !== identity.userId ||
+        value.source.problemId !== identity.problemId ||
+        value.source.languageId !== identity.languageId
+      )
+        return;
+      setPendingLoad({ value, original: draft.value });
+    },
+  }));
+  if (readOnly && pendingLoad) setPendingLoad(null);
+  const loadChanged =
+    pendingLoad !== null && (pendingLoad.original !== draft.value || draft.status === 'conflict');
   const [resetOpen, setResetOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
   const blocker = useBlocker({
@@ -133,6 +157,51 @@ export function DraftEditor({
         ) : null}
       </div>
       {renderSubmission?.(draft.value)}
+      <Dialog
+        open={pendingLoad !== null && !readOnly}
+        onOpenChange={(open) => {
+          if (!open) setPendingLoad(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>载入历史代码？</DialogTitle>
+            <DialogDescription>
+              将使用提交 v{pendingLoad?.value.versionNo}{' '}
+              的代码替换右侧当前草稿。需要保留时，请先取消并复制或下载。
+              {pendingLoad?.value.source.problemVersionId !== identity.problemVersionId
+                ? ' 历史提交与当前题目版本不同；新提交将按当前版本判题。'
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {loadChanged ? (
+            <p role="alert" className="text-fg-2 text-sm">
+              草稿已变化或存在多标签冲突，请取消、处理后重新载入。
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setPendingLoad(null)}>
+              取消
+            </Button>
+            <Button
+              disabled={readOnly || loadChanged}
+              onClick={() => {
+                if (
+                  !pendingLoad ||
+                  readOnly ||
+                  loadChanged ||
+                  pendingLoad.value.userId !== identity.userId
+                )
+                  return;
+                draft.setValue(pendingLoad.value.source.source);
+                setPendingLoad(null);
+              }}
+            >
+              确认载入
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
         <DialogContent>
           <DialogHeader>

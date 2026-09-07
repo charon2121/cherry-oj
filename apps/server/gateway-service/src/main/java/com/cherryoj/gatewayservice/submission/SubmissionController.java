@@ -29,6 +29,30 @@ public final class SubmissionController {
                         .location(URI.create("/api/submissions/"+result.getBody().id()))
                         .body(ApiSuccess.of(result.getBody(),requestId)));
     }
+    @GetMapping("/api/submissions")
+    Mono<ResponseEntity<ApiSuccess<java.util.List<View>>>> history(@RequestParam UUID problemId,
+            @RequestParam(defaultValue="1") int page, @RequestParam(defaultValue="20") int size,
+            @RequestParam(required=false) String verdict,
+            @RequestHeader("X-Expected-User-Id") UUID expectedUserId, ServerWebExchange exchange) {
+        if (page < 1 || size < 1 || size > 100 || (verdict != null
+                && !java.util.Set.of("AC","WA","PE","CE","RE","TLE","MLE","OLE","SE").contains(verdict))) {
+            return Mono.error(new ApiProblemException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "INVALID_HISTORY_QUERY","查询条件不合法","请检查提交记录查询条件。"));
+        }
+        String requestId=ApiRequestContext.requestId(exchange);
+        return access.identity(exchange,requestId,expectedUserId)
+                .flatMap(identity -> client.history(identity,problemId,page,size,verdict))
+                .map(result -> ResponseEntity.ok().header("Cache-Control","no-store")
+                        .body(ApiSuccess.of(result.items(),requestId,
+                                new PagePagination(result.page(),result.size(),result.totalElements(),result.totalPages()))));
+    }
+    @GetMapping("/api/submissions/{id}/source")
+    Mono<ResponseEntity<ApiSuccess<Source>>> source(@PathVariable UUID id,
+            @RequestHeader("X-Expected-User-Id") UUID expectedUserId, ServerWebExchange exchange) {
+        String requestId=ApiRequestContext.requestId(exchange);
+        return access.identity(exchange,requestId,expectedUserId).flatMap(identity -> client.source(identity,id))
+                .map(source -> ResponseEntity.ok().header("Cache-Control","no-store").body(ApiSuccess.of(source,requestId)));
+    }
     @GetMapping("/api/submissions/{id}")
     Mono<ResponseEntity<ApiSuccess<View>>> get(@PathVariable UUID id,ServerWebExchange exchange) {
         return read("/api/submissions/"+id,exchange);
@@ -41,6 +65,10 @@ public final class SubmissionController {
         String requestId=ApiRequestContext.requestId(exchange);
         return access.identity(exchange,requestId).flatMap(identity -> client.read(identity,path))
                 .map(view -> ResponseEntity.ok().header("Cache-Control","no-store").body(ApiSuccess.of(view,requestId)));
+    }
+    public record HistoryPage(java.util.List<View> items,int page,int size,long totalElements,int totalPages) {}
+    public record Source(UUID submissionId,UUID problemId,UUID problemVersionId,String languageId,String source) {
+        @Override public String toString() { return "Source[submissionId="+submissionId+", source=<redacted>]"; }
     }
     public record Create(@NotNull UUID problemId,@NotNull UUID expectedProblemVersionId,
             @NotBlank @Pattern(regexp="cpp") String languageId,@NotBlank @Size(max=262144) String source) {

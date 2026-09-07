@@ -8,6 +8,102 @@
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "paths": {
   "/api/submissions": {
+    "get": {
+  "operationId": "listProblemSubmissions",
+  "security": [
+    {
+      "cookieAuth": []
+    }
+  ],
+  "parameters": [
+    {
+      "name": "X-Expected-User-Id",
+      "in": "header",
+      "required": true,
+      "description": "编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。",
+      "schema": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    {
+      "name": "problemId",
+      "in": "query",
+      "required": true,
+      "schema": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 2147483647,
+        "default": 1
+      }
+    },
+    {
+      "name": "size",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20
+      }
+    },
+    {
+      "name": "verdict",
+      "in": "query",
+      "required": false,
+      "schema": {
+        "type": "string",
+        "enum": [
+          "AC",
+          "WA",
+          "PE",
+          "CE",
+          "RE",
+          "TLE",
+          "MLE",
+          "OLE",
+          "SE"
+        ]
+      }
+    }
+  ],
+  "responses": {
+    "200": {
+      "description": "仅当前账号的提交；恢复操作不创建新记录。",
+      "headers": {
+        "X-Request-Id": {
+          "$ref": "#/components/headers/XRequestId"
+        },
+        "Cache-Control": {
+          "schema": {
+            "type": "string",
+            "const": "no-store"
+          }
+        }
+      },
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/SubmissionListSuccess"
+          }
+        }
+      }
+    },
+    "default": {
+      "$ref": "#/components/responses/ApiProblemResponse"
+    }
+  }
+},
     "post": {
       "operationId": "createSubmission",
       "security": [
@@ -89,6 +185,63 @@
       }
     }
   },
+  "/api/submissions/{id}/source": {
+  "get": {
+    "operationId": "getSubmissionSource",
+    "security": [
+      {
+        "cookieAuth": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "name": "X-Expected-User-Id",
+        "in": "header",
+        "required": true,
+        "description": "编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "仅当前账号的提交；恢复操作不创建新记录。",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SubmissionSourceSuccess"
+            }
+          }
+        }
+      },
+      "default": {
+        "$ref": "#/components/responses/ApiProblemResponse"
+      }
+    }
+  }
+},
   "/api/submissions/{id}": {
     "get": {
       "operationId": "getSubmission",
@@ -919,6 +1072,89 @@
       }
     },
     "schemas": {
+"SubmissionSourceData": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "submissionId",
+    "problemId",
+    "problemVersionId",
+    "languageId",
+    "source"
+  ],
+  "properties": {
+    "submissionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "problemId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "problemVersionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "languageId": {
+      "type": "string",
+      "const": "cpp"
+    },
+    "source": {
+      "type": "string",
+      "maxLength": 262144,
+      "description": "本人提交时的原始代码，UTF-8 不超过 256 KiB；不含内部送判数据。"
+    }
+  }
+},"SubmissionSourceSuccess": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "meta"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/SubmissionSourceData"
+    },
+    "meta": {
+      "$ref": "#/components/schemas/ApiMeta"
+    }
+  }
+},"SubmissionListSuccess": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "meta"
+  ],
+  "properties": {
+    "data": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/components/schemas/SubmissionData"
+      }
+    },
+    "meta": {
+      "allOf": [
+        {
+          "$ref": "#/components/schemas/ApiMeta"
+        },
+        {
+          "type": "object",
+          "required": [
+            "pagination"
+          ],
+          "properties": {
+            "pagination": {
+              "$ref": "#/components/schemas/PagePagination"
+            }
+          }
+        }
+      ]
+    }
+  }
+},
   "CreateSubmissionRequest": {
     "type": "object",
     "additionalProperties": false,

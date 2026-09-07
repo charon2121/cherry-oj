@@ -4,6 +4,29 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type SubmissionSourceData = {
+    submissionId: string;
+    problemId: string;
+    problemVersionId: string;
+    languageId: 'cpp';
+    /**
+     * 本人提交时的原始代码，UTF-8 不超过 256 KiB；不含内部送判数据。
+     */
+    source: string;
+};
+
+export type SubmissionSourceSuccess = {
+    data: SubmissionSourceData;
+    meta: ApiMeta;
+};
+
+export type SubmissionListSuccess = {
+    data: Array<SubmissionData>;
+    meta: ApiMeta & {
+        pagination: PagePagination;
+    };
+};
+
 export type CreateSubmissionRequest = {
     problemId: string;
     expectedProblemVersionId: string;
@@ -592,6 +615,42 @@ export type CursorPageSize = number;
  */
 export type RowVersion = number;
 
+export type ListProblemSubmissionsData = {
+    body?: never;
+    headers: {
+        /**
+         * 编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。
+         */
+        'X-Expected-User-Id': string;
+    };
+    path?: never;
+    query: {
+        problemId: string;
+        page?: number;
+        size?: number;
+        verdict?: 'AC' | 'WA' | 'PE' | 'CE' | 'RE' | 'TLE' | 'MLE' | 'OLE' | 'SE';
+    };
+    url: '/api/submissions';
+};
+
+export type ListProblemSubmissionsErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListProblemSubmissionsError = ListProblemSubmissionsErrors[keyof ListProblemSubmissionsErrors];
+
+export type ListProblemSubmissionsResponses = {
+    /**
+     * 仅当前账号的提交；恢复操作不创建新记录。
+     */
+    200: SubmissionListSuccess;
+};
+
+export type ListProblemSubmissionsResponse = ListProblemSubmissionsResponses[keyof ListProblemSubmissionsResponses];
+
 export type CreateSubmissionData = {
     body: CreateSubmissionRequest;
     headers: {
@@ -628,6 +687,39 @@ export type CreateSubmissionResponses = {
 };
 
 export type CreateSubmissionResponse = CreateSubmissionResponses[keyof CreateSubmissionResponses];
+
+export type GetSubmissionSourceData = {
+    body?: never;
+    headers: {
+        /**
+         * 编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。
+         */
+        'X-Expected-User-Id': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/submissions/{id}/source';
+};
+
+export type GetSubmissionSourceErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetSubmissionSourceError = GetSubmissionSourceErrors[keyof GetSubmissionSourceErrors];
+
+export type GetSubmissionSourceResponses = {
+    /**
+     * 仅当前账号的提交；恢复操作不创建新记录。
+     */
+    200: SubmissionSourceSuccess;
+};
+
+export type GetSubmissionSourceResponse = GetSubmissionSourceResponses[keyof GetSubmissionSourceResponses];
 
 export type GetSubmissionData = {
     body?: never;

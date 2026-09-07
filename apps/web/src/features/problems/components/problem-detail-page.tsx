@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, BookOpen, Code2, Play } from 'lucide-react';
-import { useState } from 'react';
+import { type Ref, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
+import { SubmissionHistoryPanel } from '@/features/submissions/submission-history-panel';
 import { SubmissionPanel } from '@/features/submissions/submission-panel';
 import type { ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
@@ -26,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { problemQuery } from '../api/problems-api';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
-import { DraftEditor, SourceEditor } from './problem-source-editor';
+import { DraftEditor, type HistoryEditorHandle, SourceEditor } from './problem-source-editor';
 import { SafeMarkdown } from './safe-markdown';
 import { SourceCopyButton } from './source-copy-button';
 
@@ -74,16 +75,31 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
       </Container>
     );
   }
-  return <ProblemWorkbench key={problem.data.problemId} latest={problem.data} />;
+  return (
+    <ProblemWorkbench
+      key={problem.data.problemId}
+      latest={problem.data}
+      unavailable={problem.isError}
+    />
+  );
 }
 
-function ProblemWorkbench({ latest }: { latest: ProblemDetail }) {
+function ProblemWorkbench({
+  latest,
+  unavailable,
+}: {
+  latest: ProblemDetail;
+  unavailable: boolean;
+}) {
   // 后台刷新只通知新版本；必须由用户切换，避免换掉正在编辑的题面和草稿身份。
   const [data, setData] = useState(latest);
   const [pane, setPane] = useState('statement');
   const [unsaved, setUnsaved] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
   const wide = useWorkbenchMedia('(min-width: 1024px)');
+  const historyEditor = useRef<HistoryEditorHandle>(null);
+  const historySearch = useSearch({ from: '/_site/problems/$slug' });
+  const navigate = useNavigate({ from: '/problems/$slug' });
   const newerVersion = data.problemVersionId !== latest.problemVersionId;
   return (
     <WorkbenchPageTemplate
@@ -153,7 +169,43 @@ function ProblemWorkbench({ latest }: { latest: ProblemDetail }) {
             tabIndex={0}
             className="overflow-y-auto overscroll-contain"
           >
-            <ProblemStatement data={data} />
+            <Tabs
+              value={historySearch.tab ?? 'statement'}
+              onValueChange={(value) => {
+                void navigate({
+                  search: (previous) => ({
+                    ...previous,
+                    tab: value === 'submissions' ? 'submissions' : 'statement',
+                  }),
+                  replace: true,
+                });
+              }}
+            >
+              <TabsList aria-label="题目内容">
+                <TabsTrigger value="statement">题目描述</TabsTrigger>
+                <TabsTrigger value="submissions">提交记录</TabsTrigger>
+              </TabsList>
+              <TabsContent value="statement">
+                <>
+                  {unavailable ? (
+                    <p role="alert" className="text-fg-muted p-4">
+                      题目状态暂时无法确认，请刷新页面。历史代码仍可复制。
+                    </p>
+                  ) : (
+                    <ProblemStatement data={data} />
+                  )}
+                </>
+              </TabsContent>
+              <TabsContent value="submissions">
+                <SubmissionHistoryPanel
+                  problem={data}
+                  canLoad={!newerVersion && !unavailable}
+                  onLoad={(value) => {
+                    if (!newerVersion && !unavailable) historyEditor.current?.requestLoad(value);
+                  }}
+                />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
           <TabsContent
             keepMounted
@@ -168,7 +220,13 @@ function ProblemWorkbench({ latest }: { latest: ProblemDetail }) {
               !wide && pane !== 'code' ? 'hidden' : 'flex flex-col',
             )}
           >
-            <ProblemCode key={data.problemVersionId} data={data} onUnsavedChange={setUnsaved} />
+            <ProblemCode
+              key={data.problemVersionId}
+              data={data}
+              onUnsavedChange={setUnsaved}
+              historyRef={historyEditor}
+              unavailable={unavailable}
+            />
           </TabsContent>
         </div>
       </Tabs>
@@ -284,9 +342,13 @@ function ProblemStatement({ data }: { data: ProblemDetail }) {
 function ProblemCode({
   data,
   onUnsavedChange,
+  historyRef,
+  unavailable,
 }: {
   data: ProblemDetail;
   onUnsavedChange: (unsaved: boolean) => void;
+  historyRef: Ref<HistoryEditorHandle>;
+  unavailable: boolean;
 }) {
   const session = useQuery({ ...sessionQueryOptions(), refetchInterval: 15_000 });
   const language =
@@ -349,14 +411,15 @@ function ProblemCode({
           problemVersionId={data.problemVersionId}
           languageId={language.id}
           starterCode={language.starterCode}
-          readOnly={session.isError}
+          readOnly={session.isError || unavailable}
           onUnsavedChange={onUnsavedChange}
+          historyRef={historyRef}
           renderSubmission={(source) => (
             <SubmissionPanel
               userId={user.id}
               problem={data}
               source={source}
-              disabled={session.isError}
+              disabled={session.isError || unavailable}
             />
           )}
         />

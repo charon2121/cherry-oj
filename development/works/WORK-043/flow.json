@@ -1,0 +1,186 @@
+[
+  {
+    "stage": "clarify",
+    "label": "需求澄清",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-043"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "definition",
+    "label": "功能定义",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "FEATURE-011"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认题目内 Tabs 提交记录与代码回看方案，允许执行"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认题目内 Tabs 提交记录与代码回看方案，允许执行"
+      }
+    ],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "experience",
+    "label": "体验设计",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "EXPERIENCE-019"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-037"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-024"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-029"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "增量读取接口与题目内 Tab 可独立撤回，无数据迁移，保留现有提交及草稿格式"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "开发任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-082",
+      "TASK-083",
+      "TASK-084"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-082",
+      "TASK-083",
+      "TASK-084"
+    ],
+    "checks": [],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "差异限契约、提交服务、网关及题目工作台；无迁移，原提交恢复链路回归通过，见 VERIFY-044"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "用户独立实际验收报告旧进程 405，重启后确认无其他问题并亲自签署验收闸，见 VERIFY-044 人工复核记录"
+      }
+    ],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-044"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "后端相关测试、168 项 Web 单测、17 项原工作台与7项历史浏览器回归及构建通过，见 VERIFY-044"
+      },
+      {
+        "name": "privacy",
+        "result": "pass",
+        "note": "本人题目查询、越权统一拒绝、独立 no-store 原始源码、账号切换迟到响应保护与日志边界已验证，见 VERIFY-044"
+      }
+    ],
+    "source": "profile:product",
+    "reason": "product 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "ready",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-033"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]

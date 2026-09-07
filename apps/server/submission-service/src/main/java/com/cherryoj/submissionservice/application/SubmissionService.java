@@ -88,6 +88,24 @@ public class SubmissionService {
         var request=store.request(user,key); if (request==null) throw missing();
         return get(user,request.submissionId());
     }
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
+    public HistoryPage history(String user, String problemId, int page, int size, String verdict) {
+        if (page < 1 || size < 1 || size > 100 || (verdict != null
+                && !java.util.Set.of("AC","WA","PE","CE","RE","TLE","MLE","OLE","SE").contains(verdict))) {
+            throw problem(HttpStatus.BAD_REQUEST,"INVALID_HISTORY_QUERY","提交记录查询条件不合法。");
+        }
+        long total = store.historyCount(user, problemId, verdict);
+        var items = store.history(user, problemId, verdict, size, ((long) page - 1) * size)
+                .stream().map(model -> json.readValue(model, View.class)).toList();
+        return new HistoryPage(items, page, size, total, (int) Math.min(Integer.MAX_VALUE, (total + size - 1) / size));
+    }
+    public Source source(String user, String id) {
+        var row = store.source(user, id);
+        if (row == null) throw missing();
+        var view = json.readValue(row.readModel(), View.class);
+        return new Source(row.id(), row.problemId(), view.problemVersionId(), view.languageId(), row.source());
+    }
     public Input input(String id) {
         String value=store.input(id); if (value==null) throw missing();
         return json.readValue(value,Input.class);
