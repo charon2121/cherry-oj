@@ -18,7 +18,12 @@ class JavaServiceConfigurationDefaultsTests {
             Pattern.compile("\\$\\{(CHERRY_[A-Z0-9_]+)(?::([^}]*))?}");
     private static final Pattern PRODUCTION_PROFILE =
             Pattern.compile("(?m)^\\s*on-profile:\\s*[\"']?(?:prod\\s*\\|\\s*production|production\\s*\\|\\s*prod)[\"']?\\s*$");
-    private static final Set<String> OPTIONAL_EMPTY_DEFAULTS = Set.of("CHERRY_REDIS_PASSWORD");
+    private static final Set<String> INTENTIONALLY_EMPTY_DEFAULTS = Set.of(
+            "CHERRY_REDIS_PASSWORD",
+            // Formal submission is opt-in; no shared credential or database password is built in.
+            "CHERRY_SUBMISSION_DB_PASSWORD", "CHERRY_SUBMISSION_PROBLEM_TOKEN",
+            "CHERRY_SUBMISSION_JUDGING_TOKEN", "CHERRY_SUBMISSION_JUDGING_TOKENS",
+            "CHERRY_JUDGING_SUBMISSION_TOKEN", "CHERRY_JUDGING_SUBMISSION_TOKENS");
     private static final Set<String> PRODUCTION_REQUIRED = Set.of(
             "user-service/application.yaml:CHERRY_USER_DB_PASSWORD",
             "user-service/application.yaml:CHERRY_AUTH_PRIVATE_KEY_LOCATION",
@@ -75,7 +80,7 @@ class JavaServiceConfigurationDefaultsTests {
                             invalid.add(key + " has no default outside a production-only document");
                         }
                     } else if (defaultValue.isEmpty()) {
-                        if (!OPTIONAL_EMPTY_DEFAULTS.contains(variable)) {
+                        if (!INTENTIONALLY_EMPTY_DEFAULTS.contains(variable)) {
                             invalid.add(key + " has an unclassified empty default");
                         }
                     } else if (!production) {

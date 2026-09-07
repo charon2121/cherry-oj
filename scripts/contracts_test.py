@@ -53,6 +53,7 @@ class ContractsTest(unittest.TestCase):
             "run.schema.json",
             "verdict.json",
             "web-api.openapi.json",
+            "submission-internal.openapi.json",
         }
         self.assertEqual({path.name for path in CONTRACTS.glob("*.json")}, expected)
 
@@ -154,6 +155,25 @@ class ContractsTest(unittest.TestCase):
             value = example["traceId"]
             self.assertEqual(len(value), 32)
             self.assertTrue(all(char in "0123456789abcdef" for char in value))
+
+    def test_formal_results_cannot_carry_hidden_output(self) -> None:
+        definitions = load("judge-events.schema.json")["definitions"]
+        self.assertEqual(definitions["JudgeCompleted"]["properties"]["result"]["$ref"],
+                         "#/definitions/SafeJudgeResult")
+        for schema in (definitions["SafeJudgeResult"],
+                       load("web-api.openapi.json")["components"]["schemas"]["SubmissionData"]):
+            self.assertIs(schema["additionalProperties"], False)
+            for forbidden in ("source", "completeSource", "output", "diff", "caseResults", "stdout", "stderr"):
+                self.assertNotIn(forbidden, schema["properties"])
+
+    def test_submission_creation_and_recovery_contract(self) -> None:
+        document = load("web-api.openapi.json")
+        request = document["components"]["schemas"]["CreateSubmissionRequest"]
+        self.assertNotIn("userId", request["properties"])
+        self.assertEqual(request["properties"]["source"]["x-max-utf8-bytes"], 262144)
+        self.assertIn("expectedProblemVersionId", request["required"])
+        self.assertEqual(set(document["paths"]["/api/submission-requests/{key}"]), {"get"})
+        self.assertTrue({"200", "201"}.issubset(document["paths"]["/api/submissions"]["post"]["responses"]))
 
     def test_http_contracts_keep_tracking_context_out_of_bodies(self) -> None:
         for name, request_definition in (

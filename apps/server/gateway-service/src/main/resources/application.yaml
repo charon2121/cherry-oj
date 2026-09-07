@@ -1,6 +1,9 @@
 spring:
   application:
     name: gateway-service
+  http:
+    codecs:
+      max-in-memory-size: 2MB
   webflux:
     multipart:
       max-in-memory-size: 1MB
@@ -27,6 +30,7 @@ server:
 
 cherry:
   gateway:
+    submission-service-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:8083}"
     user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:8081}"
     user-service-timeout: 5s
     session-lifetime-policy: fixed-absolute

@@ -6,7 +6,7 @@
 | 编号 | 工作内容 | 类型 | 状态 | 风险 | 影响面 | 负责人 | 详细说明 |
 |---|---|---|---|---|---|---|---|
 | WORK-001 | 重建统一开发文档系统 | 整理维护 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-001/00-work.md) |
-| WORK-002 | 交付 C++ ACM 答题闭环 | 产品功能 | 待确认 | 中 | 整个系统 | product/owner | [00-work.md](./works/WORK-002/00-work.md) |
+| WORK-002 | 交付 C++ ACM 答题闭环 | 产品功能 | 实现完成 | 高 | 整个系统 | product/owner | [00-work.md](./works/WORK-002/00-work.md) |
 | WORK-003 | 按工作项聚合开发文档 | 整理维护 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-003/00-work.md) |
 | WORK-004 | 按类型与风险编排开发流程 | 整理维护 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-004/00-work.md) |
 | WORK-005 | 修复开发文档 CI 的 clean checkout 链接校验 | 问题修复 | 验证通过 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-005/00-work.md) |

@@ -1,6 +1,6 @@
 import { useBlocker } from '@tanstack/react-router';
 import { Download, RotateCcw } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
@@ -68,9 +68,15 @@ type DraftEditorProps = {
   starterCode: string;
   readOnly: boolean;
   onUnsavedChange?: (unsaved: boolean) => void;
+  renderSubmission?: (source: string) => ReactNode;
 };
 
-export function DraftEditor({ readOnly, onUnsavedChange, ...identity }: DraftEditorProps) {
+export function DraftEditor({
+  readOnly,
+  onUnsavedChange,
+  renderSubmission,
+  ...identity
+}: DraftEditorProps) {
   const draft = useCodeDraft(identity);
   const [resetOpen, setResetOpen] = useState(false);
   const [conflictOpen, setConflictOpen] = useState(false);
@@ -126,6 +132,7 @@ export function DraftEditor({ readOnly, onUnsavedChange, ...identity }: DraftEdi
           </Button>
         ) : null}
       </div>
+      {renderSubmission?.(draft.value)}
       <Dialog open={resetOpen} onOpenChange={setResetOpen}>
         <DialogContent>
           <DialogHeader>

@@ -179,8 +179,8 @@ Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验�
 ## 当前明确还没有的工具
 
 数据库与资源服务器能力只按服务职责引入：user-service、problem-service 和 judging-service 已拥有各自
-MySQL 持久化/Flyway 与 Spring Security，submission-service 仍没有数据库工具。整个 reactor 尚未引入
-Kafka、服务注册或可观测性后端。这不是遗漏说明，而是当前实施阶段的真实边界。
+MySQL 持久化/Flyway 与 Spring Security，submission-service 在 WORK-002 中新增 MyBatis + MySQL/Flyway 与 Kafka，用于冻结输入、幂等请求、Outbox/Inbox 和结果查询。
+Kafka 依赖只进入正式消息链所在模块；未引入新的服务注册或可观测性后端。这不是遗漏说明，而是当前实施阶段的真实边界。
 
 当任务需要这些能力时，应单独说明：由哪个服务拥有、解决哪个业务问题、失败策略是什么、怎样测试，以及是否改变跨服务契约。不要因为架构路线图提过某项技术，就提前把依赖装进所有模块。
 
@@ -215,3 +215,17 @@ Kafka、服务注册或可观测性后端。这不是遗漏说明，而是当前
 4. 记录配置入口、运行时权限、故障方式和可观测信号。
 5. 为业务行为补测试，从 `apps/server` 运行 `./mvnw clean verify`。
 6. 同步更新本说明；涉及跨语言 DTO 时，同时核对 `contracts/`，不能在 Java 侧另造字段。
+
+## WORK-002 提交服务新增配置
+
+submission-service 使用 `spring-boot-starter-kafka` 与 MyBatis 4.0.1，版本由已有 Spring Boot BOM/既有 MyBatis 版本决定；
+Flyway 按同仓服务显式初始化，新增迁移不清理既有数据。Testcontainers MySQL/Kafka 仅用于测试。
+
+`CHERRY_SUBMISSION_ACCEPTING` 与 `CHERRY_SUBMISSION_MESSAGING_ENABLED` 默认 false：先配置独立数据库、Kafka、
+两条快照调用凭据和 JudgeInput 读取凭据，再启用消息处理和新受理；关闭新受理仍允许本人查询和幂等恢复。
+服务凭据无默认值，不复用用户 JWT 或节点 control token；只在指定内部端点验证。
+
+数据库通过 `CHERRY_SUBMISSION_DB_URL/USERNAME/PASSWORD` 注入，Kafka 使用 `CHERRY_KAFKA_BOOTSTRAP_SERVERS`，
+两个 topic 可由 `CHERRY_JUDGE_REQUESTS_TOPIC` 与 `CHERRY_JUDGE_LIFECYCLE_TOPIC` 隔离。
+Outbox 失败保留并重试；Inbox 与结果原子更新。非法 lifecycle 仅将 topic/partition/offset 的安全定位信息写入 DLT，
+不转发原始不可信正文。数据库临时失败不采用默认有限重试后丢弃。

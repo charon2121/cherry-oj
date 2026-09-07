@@ -59,7 +59,7 @@ class SecurityConfig {
 		configuration.setAllowedMethods(List.of(
 				HttpMethod.GET.name(), HttpMethod.POST.name(), HttpMethod.PUT.name(), HttpMethod.PATCH.name(),
 				HttpMethod.DELETE.name(), HttpMethod.OPTIONS.name()));
-		configuration.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, "X-CSRF-Token", "X-Request-Id"));
+		configuration.setAllowedHeaders(List.of(HttpHeaders.CONTENT_TYPE, "X-CSRF-Token", "X-Request-Id", "Idempotency-Key", "X-Expected-User-Id"));
 		configuration.setExposedHeaders(List.of(
 				"X-Request-Id", HttpHeaders.LOCATION, HttpHeaders.CONTENT_DISPOSITION,
 				HttpHeaders.CONTENT_LENGTH, HttpHeaders.CACHE_CONTROL));

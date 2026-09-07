@@ -4,6 +4,40 @@ export type ClientOptions = {
     baseUrl: `${string}://${string}` | (string & {});
 };
 
+export type CreateSubmissionRequest = {
+    problemId: string;
+    expectedProblemVersionId: string;
+    languageId: 'cpp';
+    /**
+     * 完整 ACM 程序；服务端另校验 UTF-8 字节上限。
+     */
+    source: string;
+};
+
+export type SubmissionData = {
+    id: string;
+    problemId: string;
+    problemVersionId: string;
+    problemVersionNo: number;
+    problemTitle: string;
+    languageId: 'cpp';
+    status: 'PENDING' | 'JUDGING' | 'DONE';
+    createdAt: string;
+    verdict?: 'AC' | 'WA' | 'PE' | 'TLE' | 'MLE' | 'OLE' | 'RE' | 'CE' | 'SE';
+    cpuNs?: number;
+    memoryBytes?: number;
+    passedCount?: number;
+    executedCount?: number;
+    totalCount?: number;
+    message?: string;
+    finishedAt?: string;
+};
+
+export type SubmissionSuccess = {
+    data: SubmissionData;
+    meta: ApiMeta;
+};
+
 /**
  * Gateway 生成的 opaque public request ID，不等同于 session、trace 或幂等键。
  */
@@ -557,6 +591,97 @@ export type CursorPageSize = number;
  * 乐观锁版本；过期值返回 409 ROW_VERSION_CONFLICT。
  */
 export type RowVersion = number;
+
+export type CreateSubmissionData = {
+    body: CreateSubmissionRequest;
+    headers: {
+        /**
+         * 编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。
+         */
+        'X-Expected-User-Id': string;
+        'X-CSRF-Token': string;
+        'Idempotency-Key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/submissions';
+};
+
+export type CreateSubmissionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CreateSubmissionError = CreateSubmissionErrors[keyof CreateSubmissionErrors];
+
+export type CreateSubmissionResponses = {
+    /**
+     * 仅当前账号的提交；恢复操作不创建新记录。
+     */
+    200: SubmissionSuccess;
+    /**
+     * 首次受理；同键同内容返回 200，同键不同内容或版本过期返回 409。
+     */
+    201: SubmissionSuccess;
+};
+
+export type CreateSubmissionResponse = CreateSubmissionResponses[keyof CreateSubmissionResponses];
+
+export type GetSubmissionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/submissions/{id}';
+};
+
+export type GetSubmissionErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetSubmissionError = GetSubmissionErrors[keyof GetSubmissionErrors];
+
+export type GetSubmissionResponses = {
+    /**
+     * 仅当前账号的提交；恢复操作不创建新记录。
+     */
+    200: SubmissionSuccess;
+};
+
+export type GetSubmissionResponse = GetSubmissionResponses[keyof GetSubmissionResponses];
+
+export type GetSubmissionRequestData = {
+    body?: never;
+    path: {
+        key: string;
+    };
+    query?: never;
+    url: '/api/submission-requests/{key}';
+};
+
+export type GetSubmissionRequestErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetSubmissionRequestError = GetSubmissionRequestErrors[keyof GetSubmissionRequestErrors];
+
+export type GetSubmissionRequestResponses = {
+    /**
+     * 仅当前账号的提交；恢复操作不创建新记录。
+     */
+    200: SubmissionSuccess;
+};
+
+export type GetSubmissionRequestResponse = GetSubmissionRequestResponses[keyof GetSubmissionRequestResponses];
 
 export type ListProblemsData = {
     body?: never;

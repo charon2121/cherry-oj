@@ -7,6 +7,182 @@
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "paths": {
+  "/api/submissions": {
+    "post": {
+      "operationId": "createSubmission",
+      "security": [
+        {
+          "cookieAuth": []
+        }
+      ],
+      "parameters": [
+        {"name":"X-Expected-User-Id","in":"header","required":true,"description":"编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。","schema":{"type":"string","format":"uuid"}},
+        {
+          "$ref": "#/components/parameters/CsrfToken"
+        },
+        {
+          "name": "Idempotency-Key",
+          "in": "header",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "仅当前账号的提交；恢复操作不创建新记录。",
+          "headers": {
+            "X-Request-Id": {
+              "$ref": "#/components/headers/XRequestId"
+            },
+            "Cache-Control": {
+              "schema": {
+                "type": "string",
+                "const": "no-store"
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionSuccess"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/ApiProblemResponse"
+        },
+        "201": {
+          "description": "首次受理；同键同内容返回 200，同键不同内容或版本过期返回 409。",
+          "headers": {
+            "X-Request-Id": {
+              "$ref": "#/components/headers/XRequestId"
+            },
+            "Cache-Control": {
+              "schema": {
+                "type": "string",
+                "const": "no-store"
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionSuccess"
+              }
+            }
+          }
+        }
+      },
+      "requestBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CreateSubmissionRequest"
+            }
+          }
+        }
+      }
+    }
+  },
+  "/api/submissions/{id}": {
+    "get": {
+      "operationId": "getSubmission",
+      "security": [
+        {
+          "cookieAuth": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "仅当前账号的提交；恢复操作不创建新记录。",
+          "headers": {
+            "X-Request-Id": {
+              "$ref": "#/components/headers/XRequestId"
+            },
+            "Cache-Control": {
+              "schema": {
+                "type": "string",
+                "const": "no-store"
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionSuccess"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/ApiProblemResponse"
+        }
+      }
+    }
+  },
+  "/api/submission-requests/{key}": {
+    "get": {
+      "operationId": "getSubmissionRequest",
+      "security": [
+        {
+          "cookieAuth": []
+        }
+      ],
+      "parameters": [
+        {
+          "name": "key",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "responses": {
+        "200": {
+          "description": "仅当前账号的提交；恢复操作不创建新记录。",
+          "headers": {
+            "X-Request-Id": {
+              "$ref": "#/components/headers/XRequestId"
+            },
+            "Cache-Control": {
+              "schema": {
+                "type": "string",
+                "const": "no-store"
+              }
+            }
+          },
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionSuccess"
+              }
+            }
+          }
+        },
+        "default": {
+          "$ref": "#/components/responses/ApiProblemResponse"
+        }
+      }
+    }
+  },
     "/api/problems": {
       "get": {
         "operationId": "listProblems",
@@ -743,6 +919,149 @@
       }
     },
     "schemas": {
+  "CreateSubmissionRequest": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "problemId",
+      "expectedProblemVersionId",
+      "languageId",
+      "source"
+    ],
+    "properties": {
+      "problemId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "expectedProblemVersionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "languageId": {
+        "type": "string",
+        "const": "cpp"
+      },
+      "source": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 262144,
+        "x-max-utf8-bytes": 262144,
+        "description": "完整 ACM 程序；服务端另校验 UTF-8 字节上限。"
+      }
+    }
+  },
+  "SubmissionData": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "problemId",
+      "problemVersionId",
+      "problemVersionNo",
+      "problemTitle",
+      "languageId",
+      "status",
+      "createdAt"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "problemId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "problemVersionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "problemVersionNo": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "problemTitle": {
+        "type": "string"
+      },
+      "languageId": {
+        "type": "string",
+        "const": "cpp"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "JUDGING",
+          "DONE"
+        ]
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "AC",
+          "WA",
+          "PE",
+          "TLE",
+          "MLE",
+          "OLE",
+          "RE",
+          "CE",
+          "SE"
+        ]
+      },
+      "cpuNs": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "memoryBytes": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "passedCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "executedCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "totalCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "message": {
+        "type": "string",
+        "maxLength": 8192
+      },
+      "finishedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    }
+  },
+  "SubmissionSuccess": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "data",
+      "meta"
+    ],
+    "properties": {
+      "data": {
+        "$ref": "#/components/schemas/SubmissionData"
+      },
+      "meta": {
+        "$ref": "#/components/schemas/ApiMeta"
+      }
+    }
+  },
       "RequestId": {
         "type": "string",
         "pattern": "^req_[A-Za-z0-9_-]{16,64}$",

@@ -53,6 +53,7 @@ export type ApiRequestOptions = {
   signal?: AbortSignal;
   csrfToken?: string;
   idempotencyKey?: string;
+  expectedUserId?: string;
 };
 
 function errorOptions(response: Response): Pick<ApiErrorOptions, 'status'> {
@@ -162,6 +163,9 @@ async function send(path: ApiPath, options: ApiRequestOptions) {
     headers.set('Idempotency-Key', options.idempotencyKey);
   }
 
+  if (options.expectedUserId !== undefined) {
+    headers.set('X-Expected-User-Id', options.expectedUserId);
+  }
   try {
     return await fetch(path, {
       credentials: 'include',

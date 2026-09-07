@@ -1,0 +1,165 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Submission internal API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/internal/submission/problem-snapshot": {
+      "post": {
+        "operationId": "problem_snapshot",
+        "x-caller": "submission-service",
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "内部快照；no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "problem-judge-snapshot.schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或错误服务凭据"
+          },
+          "404": {
+            "description": "快照或记录不可用"
+          },
+          "503": {
+            "description": "依赖暂时不可用"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveProblemRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/submission/execution-profile": {
+      "post": {
+        "operationId": "execution_profile",
+        "x-caller": "submission-service",
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "内部快照；no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "execution-profile.schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或错误服务凭据"
+          },
+          "404": {
+            "description": "快照或记录不可用"
+          },
+          "503": {
+            "description": "依赖暂时不可用"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "execution-profile.schema.json#/definitions/ResolveExecutionProfileRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/judging/judge-inputs/{id}": {
+      "get": {
+        "operationId": "getJudgeInput",
+        "x-caller": "judging-service",
+        "security": [
+          {
+            "serviceToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "内部快照；no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "judge-input.schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "缺少或错误服务凭据"
+          },
+          "404": {
+            "description": "快照或记录不可用"
+          },
+          "503": {
+            "description": "依赖暂时不可用"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "每调用链独立环境凭据；不接受用户 JWT 或节点 control token。"
+      }
+    },
+    "schemas": {
+      "ResolveProblemRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "problemId",
+          "languageId"
+        ],
+        "properties": {
+          "problemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "languageId": {
+            "type": "string",
+            "const": "cpp"
+          }
+        }
+      }
+    }
+  }
+}

@@ -58,6 +58,8 @@ const fullyAllowedFiles = new Set(['scripts/check-design-system.mjs']);
 // Exceptions are rule-specific and exact-path only. There is intentionally no wildcard for SVGs
 // or tests; a future legitimate fixture must name both its file and the one rule it exercises.
 const ruleAllowlist = new Map([
+  // Submission idempotency keys are protocol UUIDs, never React/DOM identities.
+  ['random-dom-id', new Set(['src/features/submissions/submission-recovery.ts'])],
   [
     'literal-theme-id',
     new Set([

@@ -16,13 +16,43 @@
     "effectiveLimits"
   ],
   "properties": {
-    "problemVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "testDataVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "languageId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
-    "judgeEnvironmentId": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "environmentFingerprint": { "type": "string", "minLength": 1, "maxLength": 256 },
-    "languageCalibrationId": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "effectiveLimits": { "$ref": "judge.schema.json#/definitions/JudgeLimits" }
+    "problemVersionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "testDataVersionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "languageId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$"
+    },
+    "judgeEnvironmentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "environmentFingerprint": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "languageCalibrationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "effectiveLimits": {
+      "$ref": "judge.schema.json#/definitions/JudgeLimits"
+    },
+    "executionBudgetNs": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "完整调用的传输预算 ns；由配置与测例数计算，不能改变判题限制。"
+    }
   },
   "definitions": {
     "ResolveExecutionProfileRequest": {
@@ -35,10 +65,29 @@
         "languageId"
       ],
       "properties": {
-        "problemVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "testDataVersionId": { "type": "string", "minLength": 1, "maxLength": 128 },
-        "testDataContentSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "languageId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" }
+        "problemVersionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "testDataVersionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "testDataContentSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "totalCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        }
       },
       "examples": [
         {

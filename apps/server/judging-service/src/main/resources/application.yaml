@@ -1,6 +1,24 @@
 spring:
   application:
     name: judging-service
+  kafka:
+    bootstrap-servers: "${CHERRY_KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.request.size: 1048576
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+    consumer:
+      group-id: "${CHERRY_JUDGING_CONSUMER_GROUP:judging-requests-v1}"
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+    listener:
+      ack-mode: record
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   datasource:
@@ -13,6 +31,21 @@ spring:
       max-request-size: 102MB
 
 cherry:
+  service-calls:
+    submission-judging-tokens: "${CHERRY_SUBMISSION_JUDGING_TOKENS:}"
+  formal:
+    enabled: "${CHERRY_FORMAL_JUDGING_ENABLED:false}"
+    requests-topic: "${CHERRY_JUDGE_REQUESTS_TOPIC:judge.requests.v1}"
+    lifecycle-topic: "${CHERRY_JUDGE_LIFECYCLE_TOPIC:judge.lifecycle.v1}"
+    submission-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:8083}"
+    submission-token: "${CHERRY_JUDGING_SUBMISSION_TOKEN:}"
+    parallelism: 2
+    max-attempts: 3
+    lease-duration: 30s
+    deadline: 10m
+    compile-budget: 30s
+    wall-ratio: 10
+    case-overhead: 1s
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"

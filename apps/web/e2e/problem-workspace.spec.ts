@@ -127,7 +127,7 @@ async function refocusAfterStaleTime(page: Page, nextTime: number) {
 }
 
 for (const role of ['USER', 'ADMIN'] as const) {
-  test(`${role} can edit, restore an empty draft, and never execute code`, async ({ page }) => {
+  test(`${role} can edit and restore drafts without automatically submitting`, async ({ page }) => {
     const requests: string[] = [];
     page.on('request', (request) => requests.push(request.url()));
     await mockProblem(page);
@@ -139,8 +139,8 @@ for (const role of ['USER', 'ADMIN'] as const) {
     await expectCode(page, starterCode);
     await expect(page.getByRole('link', { name: /登录后.*(答题|编写)/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '运行', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: '提交', exact: true })).toBeDisabled();
-    await expect(page.getByText(/^运行与提交暂未开放。/)).toBeVisible();
+    await expect(page.getByRole('button', { name: '提交', exact: true })).toBeEnabled();
+    await expect(page.getByText(/^自定义运行暂未开放。/)).toBeVisible();
 
     const source = 'int answer = 42;';
     await replaceCode(page, source);
@@ -154,7 +154,7 @@ for (const role of ['USER', 'ADMIN'] as const) {
 
     await pressEditorShortcut(page, 'Enter');
     await editor(page).press('F5');
-    await expect(page.getByText(/^运行与提交暂未开放。/)).toBeVisible();
+    await expect(page.getByText(/^自定义运行暂未开放。/)).toBeVisible();
     expect(
       requests.filter((url) => /\/(?:run|submissions?|judge|sandbox|blobs)(?:[/?]|$)/.test(url)),
     ).toEqual([]);
@@ -264,7 +264,7 @@ test('theme, search, undo and narrow-pane switching preserve the same code', asy
     .toBeLessThanOrEqual(1);
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await expect(editor(page)).toBeVisible();
-  await expect(page.getByText(/^运行与提交暂未开放。/)).toBeVisible();
+  await expect(page.getByText(/^自定义运行暂未开放。/)).toBeVisible();
 });
 
 test('a touch phone uses the lightweight editor and keeps its draft between panes', async ({
@@ -516,7 +516,7 @@ test('a 200-percent equivalent desktop viewport keeps editing and lower controls
       ratio: 1,
     });
     await expect(page.getByText('已保存到本机', { exact: true })).toBeInViewport({ ratio: 1 });
-    await expect(page.getByText(/^运行与提交暂未开放。/)).toBeInViewport({ ratio: 1 });
+    await expect(page.getByText(/^自定义运行暂未开放。/)).toBeInViewport({ ratio: 1 });
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
       .toBeLessThanOrEqual(1);
@@ -524,4 +524,175 @@ test('a 200-percent equivalent desktop viewport keeps editing and lower controls
   } finally {
     await context.close();
   }
+});
+
+const submissionId = '01a079c1-c530-7962-a5ad-f09adb0a0261';
+function submission(status: 'PENDING' | 'DONE' = 'DONE') {
+  return {
+    id: submissionId,
+    problemId,
+    problemVersionId: versionId,
+    problemVersionNo: 1,
+    problemTitle: '求和练习',
+    languageId: 'cpp',
+    status,
+    createdAt: '2026-09-07T01:00:00Z',
+    ...(status === 'DONE'
+      ? {
+          verdict: 'WA',
+          cpuNs: 1230000,
+          memoryBytes: 1024,
+          passedCount: 1,
+          executedCount: 2,
+          totalCount: 3,
+        }
+      : {}),
+  };
+}
+async function missingSubmission(route: Route) {
+  await route.fulfill({
+    status: 404,
+    contentType: 'application/problem+json',
+    headers: { 'X-Request-Id': requestId },
+    body: JSON.stringify({
+      type: 'about:blank',
+      title: '提交不存在',
+      status: 404,
+      code: 'SUBMISSION_NOT_FOUND',
+      meta: { requestId },
+    }),
+  });
+}
+async function submissionSetup(page: Page) {
+  await mockProblem(page);
+  await page.route('**/api/auth/session', (route) => success(route, session()));
+  await page.route('**/api/auth/csrf', (route) =>
+    success(route, { token: 'test-csrf-token-long-enough', headerName: 'X-CSRF-Token' }),
+  );
+  await page.route('**/api/submission-requests/*', missingSubmission);
+}
+
+test('formal submission freezes code, restores a result on refresh, and stops at DONE', async ({
+  page,
+}) => {
+  await submissionSetup(page);
+  const posts: { key: string | undefined; body: unknown }[] = [];
+  let reads = 0;
+  await page.route('**/api/submissions', async (route) => {
+    posts.push({
+      key: route.request().headers()['idempotency-key'],
+      body: route.request().postDataJSON() as unknown,
+    });
+    await route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      headers: { 'X-Request-Id': requestId, Location: `/api/submissions/${submissionId}` },
+      body: JSON.stringify({ data: submission('PENDING'), meta: { requestId } }),
+    });
+  });
+  await page.route(`**/api/submissions/${submissionId}`, (route) => {
+    reads++;
+    return success(route, submission());
+  });
+  await page.goto('/problems/workspace-sum');
+  await replaceCode(page, 'int answer = 42;');
+  await page.getByRole('button', { name: '提交', exact: true }).click();
+  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`submissionId=${submissionId}`));
+  expect(posts).toHaveLength(1);
+  expect(posts[0]?.body).toEqual({
+    problemId,
+    expectedProblemVersionId: versionId,
+    languageId: 'cpp',
+    source: 'int answer = 42;',
+  });
+  await replaceCode(page, 'int answer = 99;');
+  await expectSaved(page, 'int answer = 99;');
+  await page.reload();
+  await expect(page.getByText('通过 1 / 3', { exact: true })).toBeVisible();
+  await expectCode(page, 'int answer = 99;');
+  expect(posts).toHaveLength(1);
+  const doneReads = reads;
+  await page.waitForTimeout(2400);
+  expect(reads).toBe(doneReads);
+  for (let theme = 0; theme < 2; theme++) {
+    const scheme = await page.locator('html').getAttribute('data-color-scheme');
+    await page.screenshot({ path: `/tmp/work002-visual/result-${scheme}.png` });
+    await page.getByRole('button', { name: /^切换到/ }).click();
+  }
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.getByRole('tab', { name: '代码', exact: true }).click();
+  await page.getByRole('region', { name: '本次提交结果' }).scrollIntoViewIfNeeded();
+  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+    .toBeLessThanOrEqual(1);
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await page.screenshot({ path: '/tmp/work002-visual/result-narrow-forced.png' });
+});
+
+test('a lost response survives a published version change and retries the original code and key', async ({
+  page,
+}) => {
+  await submissionSetup(page);
+  const posts: { key: string | undefined; body: unknown }[] = [];
+  await page.route('**/api/submissions', async (route) => {
+    posts.push({
+      key: route.request().headers()['idempotency-key'],
+      body: route.request().postDataJSON() as unknown,
+    });
+    if (posts.length === 1) return route.abort('failed');
+    return success(route, submission());
+  });
+  await page.route(`**/api/submissions/${submissionId}`, (route) => success(route, submission()));
+  await page.goto('/problems/workspace-sum');
+  await replaceCode(page, 'int original = 1;');
+  await page.getByRole('button', { name: '提交', exact: true }).click();
+  await expect(page.getByRole('button', { name: '用原代码重试同一次提交' })).toBeEnabled();
+  await replaceCode(page, 'int edited = 2;');
+  await expectSaved(page, 'int edited = 2;');
+  await page.route('**/api/problems/workspace-sum', (route) =>
+    success(route, problem(nextVersionId, 2)),
+  );
+  await page.reload();
+  await expect(page.getByRole('button', { name: '用原代码重试同一次提交' })).toBeEnabled();
+  expect(posts).toHaveLength(1);
+  await page.getByRole('button', { name: '用原代码重试同一次提交' }).click();
+  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  expect(posts).toHaveLength(2);
+  expect(posts[1]).toEqual(posts[0]);
+  await expectCode(page, starterCode);
+});
+
+test('CSRF refresh keeps the editor owner precondition after another tab switches account', async ({
+  page,
+}) => {
+  await submissionSetup(page);
+  let posts = 0;
+  await page.route('**/api/submissions', async (route) => {
+    posts++;
+    expect(route.request().headers()['x-expected-user-id']).toBe(userId);
+    const csrf = posts === 1;
+    await route.fulfill({
+      status: csrf ? 403 : 409,
+      contentType: 'application/problem+json',
+      headers: { 'X-Request-Id': requestId },
+      body: JSON.stringify({
+        type: 'about:blank',
+        status: csrf ? 403 : 409,
+        code: csrf ? 'CSRF_REJECTED' : 'SESSION_CHANGED',
+        title: csrf ? 'CSRF 已过期' : '登录账号已切换',
+        detail: csrf ? '请刷新 CSRF' : '当前登录账号与编辑器所属账号不同。',
+        meta: { requestId },
+      }),
+    });
+  });
+  await page.goto('/problems/workspace-sum');
+  await expectCode(page, starterCode);
+  // The server session now belongs to B while this editor still displays A's buffer.
+  await page.route('**/api/auth/session', (route) => success(route, session('USER', secondUserId)));
+  await page.getByRole('button', { name: '提交', exact: true }).click();
+  await expect(page.getByText(/当前登录账号与编辑器所属账号不同。/)).toBeVisible();
+  expect(posts).toBe(2);
+  await expect(page).not.toHaveURL(/submissionId=/);
 });

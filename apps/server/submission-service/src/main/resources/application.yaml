@@ -1,10 +1,48 @@
 spring:
   application:
     name: submission-service
+  datasource:
+    url: "${CHERRY_SUBMISSION_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_submission?serverTimezone=UTC}"
+    username: "${CHERRY_SUBMISSION_DB_USERNAME:cherry_oj_submission}"
+    password: "${CHERRY_SUBMISSION_DB_PASSWORD:}"
+  kafka:
+    bootstrap-servers: "${CHERRY_KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        max.request.size: 1048576
+        max.block.ms: 5000
+        delivery.timeout.ms: 15000
+        request.timeout.ms: 5000
+    consumer:
+      group-id: "${CHERRY_SUBMISSION_CONSUMER_GROUP:submission-lifecycle-v1}"
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+    listener:
+      ack-mode: record
   autoconfigure:
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
 
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    arg-name-based-constructor-auto-mapping: true
+
 cherry:
+  submission:
+    messaging-enabled: "${CHERRY_SUBMISSION_MESSAGING_ENABLED:false}"
+    accepting: "${CHERRY_SUBMISSION_ACCEPTING:false}"
+    requests-topic: "${CHERRY_JUDGE_REQUESTS_TOPIC:judge.requests.v1}"
+    lifecycle-topic: "${CHERRY_JUDGE_LIFECYCLE_TOPIC:judge.lifecycle.v1}"
+    problem-url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:8082}"
+    judging-url: "${CHERRY_JUDGING_SERVICE_URL:http://127.0.0.1:8084}"
+    problem-token: "${CHERRY_SUBMISSION_PROBLEM_TOKEN:}"
+    judging-token: "${CHERRY_SUBMISSION_JUDGING_TOKEN:}"
+  service-calls:
+    judging-submission-tokens: "${CHERRY_JUDGING_SUBMISSION_TOKENS:}"
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"

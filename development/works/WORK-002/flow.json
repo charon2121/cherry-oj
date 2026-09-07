@@ -3,7 +3,7 @@
     "stage": "clarify",
     "label": "需求澄清",
     "requirement": "required",
-    "status": "blocked",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "WORK-002"
@@ -16,7 +16,7 @@
     "stage": "definition",
     "label": "功能定义",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "FEATURE-001"
@@ -24,13 +24,13 @@
     "checks": [
       {
         "name": "definition",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "按已签署的正式提交MVP定义实现，运行和完整历史保留后续范围"
       },
       {
         "name": "scope",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "六个任务边界及先行扩展均记录PLAN；未修改现有运行数据或部署现有环境"
       }
     ],
     "source": "profile:product",
@@ -40,7 +40,7 @@
     "stage": "experience",
     "label": "体验设计",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "EXPERIENCE-001"
@@ -53,7 +53,7 @@
     "stage": "design",
     "label": "技术方案",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "DESIGN-002"
@@ -66,7 +66,7 @@
     "stage": "decision",
     "label": "技术决策",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "DECISION-002"
@@ -79,12 +79,18 @@
     "stage": "plan",
     "label": "开发计划",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "PLAN-002"
     ],
-    "checks": [],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "隔离栈实测关闭新受理保留查询与原键重放，恢复后真实AC；未删表或清队列"
+      }
+    ],
     "source": "overlay:risk-impact",
     "reason": "高风险或系统级影响必须有显式实施计划"
   },
@@ -92,10 +98,15 @@
     "stage": "tasks",
     "label": "开发任务",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "TASK-002"
+      "TASK-002",
+      "TASK-076",
+      "TASK-077",
+      "TASK-078",
+      "TASK-079",
+      "TASK-080"
     ],
     "checks": [],
     "source": "profile:product",
@@ -105,10 +116,15 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "TASK-002"
+      "TASK-002",
+      "TASK-076",
+      "TASK-077",
+      "TASK-078",
+      "TASK-079",
+      "TASK-080"
     ],
     "checks": [],
     "source": "profile:product",
@@ -118,14 +134,19 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
+    "status": "done",
+    "status_source": "manual",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "核对契约、五服务调用、Kafka、Web与配置默认值，新增迁移和凭据默认关闭，证据见VERIFY"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "授权只读审查多轮完成，发现问题已修复并复查，末轮无阻塞"
       }
     ],
     "source": "profile:product",
@@ -135,7 +156,7 @@
     "stage": "verification",
     "label": "验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-002"
@@ -143,28 +164,28 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "Java169通过1条件跳过且真实栈覆盖，Web165通过及17E2E，契约11通过"
       },
       {
         "name": "cross-module-regression",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "真实MySQLRedisKafka及五Java服务至LinuxJudge和sandbox验证ACWACETLESE及恢复，浏览器ACCE通过"
       },
       {
         "name": "accessibility",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "工作台键盘、320px、200%等效视口、双主题、强制颜色与状态播报测试通过并检查截图"
       },
       {
         "name": "data",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "并发幂等、事务回滚、冻结版本校准环境、乱序与旧租约迟到均由真实MySQL/Kafka验证"
       },
       {
         "name": "security",
-        "result": "unrecorded",
-        "note": ""
+        "result": "pass",
+        "note": "服务身份隔离、本人可见、管理员无特权、账号切换前置条件、隐藏输出与诊断及死信脱敏验证通过"
       }
     ],
     "source": "profile:product",
@@ -174,7 +195,7 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "MEMORY-002"

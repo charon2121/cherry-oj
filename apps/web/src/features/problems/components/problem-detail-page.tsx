@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, BookOpen, Code2, Play, Upload } from 'lucide-react';
+import { ArrowLeft, BookOpen, Code2, Play } from 'lucide-react';
 import { useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
@@ -18,6 +18,7 @@ import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
+import { SubmissionPanel } from '@/features/submissions/submission-panel';
 import type { ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
@@ -350,25 +351,29 @@ function ProblemCode({
           starterCode={language.starterCode}
           readOnly={session.isError}
           onUnsavedChange={onUnsavedChange}
+          renderSubmission={(source) => (
+            <SubmissionPanel
+              userId={user.id}
+              problem={data}
+              source={source}
+              disabled={session.isError}
+            />
+          )}
         />
       ) : (
         <SourceEditor value={language?.starterCode ?? ''} onChange={() => undefined} readOnly />
       )}
-      <div className="border-border-soft bg-panel shrink-0 space-y-2 border-t px-4 py-3">
-        <div className="flex flex-wrap items-center justify-end gap-2">
+      {!editableIdentity ? (
+        <div className="border-border-soft bg-panel shrink-0 space-y-2 border-t px-4 py-3">
           <Button size="sm" variant="secondary" disabled aria-describedby="judging-unavailable">
             <Play aria-hidden="true" />
             运行
           </Button>
-          <Button size="sm" disabled aria-describedby="judging-unavailable">
-            <Upload aria-hidden="true" />
-            提交
-          </Button>
+          <p id="judging-unavailable" className="text-fg-muted text-xs">
+            自定义运行暂未开放。登录并选择支持的题目后可正式提交。
+          </p>
         </div>
-        <p id="judging-unavailable" className="text-fg-muted text-xs">
-          运行与提交暂未开放。当前可读题、编写代码和保存本机草稿。
-        </p>
-      </div>
+      ) : null}
     </>
   );
 }

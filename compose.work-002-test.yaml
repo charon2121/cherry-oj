@@ -1,0 +1,33 @@
+# Only scripts/work-002-e2e.py supplies these mandatory isolated ports/credentials.
+# Java processes use the same allocated loopback ports and a private temporary directory.
+include:
+  - path: compose.yaml
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${WORK002_DB_PASSWORD:?isolated runner required}
+    ports:
+      - "127.0.0.1:${WORK002_MYSQL_PORT:?}:3306"
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:${WORK002_REDIS_PORT:?}:6379"
+  kafka:
+    image: apache/kafka-native:3.8.0
+    ports:
+      - "127.0.0.1:${WORK002_KAFKA_PORT:?}:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:${WORK002_KAFKA_PORT:?}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
