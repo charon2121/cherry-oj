@@ -17,8 +17,8 @@ WORK/TASK 中同时更新代码与设计说明，并分别验证两侧。
 - 服务端状态：TanStack Query；请求、缓存、失效、Mutation 和判题结果轮询都归它。
 - 业务组件：TanStack Table、TanStack Form + Zod；TanStack Virtual 只在长列表确有需要时引入。
 - UI：Tailwind CSS + shadcn/ui + Lucide React；后台长 Markdown/代码录入使用 CodeMirror 6 和项目
-  `TextEditor` 薄适配。Monaco 只在用户端代码工作台需要 IDE 级能力时另行评估，不能作为所有长文本的
-  默认组件。
+  `TextEditor` 薄适配。WORK-041 用户端题目编码区使用本地异步 Monaco `CodeEditor`，触控手机
+  回退 `TextEditor`；Monaco 不作为其他长文本的默认组件。
 - 题面：react-markdown + remark-gfm + rehype-sanitize，默认不执行原始 HTML。
 - HTTP：原生 `fetch` 的项目级薄封装，不引入 Axios；前端只调用 Gateway `/api`，不直接调内部服务、
   judge 或 sandbox。公共 client 校验 ApiSuccess / ApiProblem 和 request ID，将失败区分为

@@ -189,9 +189,12 @@ NavBar、Badge、Card、Eyebrow、Heading 与 Text。生产实现保留其 anato
 - 长 Markdown、长纯文本和后台代码使用项目统一的 `TextEditor`/`MarkdownEditor`。当前基线采用
   CodeMirror 6；项目维护 React 适配、Cherry 主题、有限扩展与可访问性合同，不 fork、复制或自行维护
   上游编辑器内核。
-- Monaco 是否使用取决于任务复杂度，不简单等同于“前台可以、后台不可以”。只有用户端代码工作台需要
-  IDE 级补全、诊断、命令和大文件能力时才优先评估 Monaco；后台基础 Markdown/C++ 录入默认 CodeMirror。
-  某个后台功能确实需要完整 IDE 能力时必须在对应 DESIGN 中说明收益、移动端边界和 bundle 代价。
+- WORK-041 按用户指定在题目编码区采用 `CodeEditor`（Monaco 0.56，本地异步 ESM/C++/worker），
+  手机触控端回退 CodeMirror `TextEditor size="fill"`。后台基础 Markdown/C++ 录入仍使用 CodeMirror。
+  新增 Monaco 使用点须在 DESIGN 中说明收益、移动端边界和 bundle 代价，不扩散为普通长文本组件。
+- 用户答题页面使用 `WorkbenchPageTemplate variant="coding"`，在有限视口内左右等宽并独立滚动；
+  窄屏以基于 shadcn base-nova / Base UI 的 Tabs 切换题目和代码，隐藏区域保持挂载但不可聚焦。
+  默认 `form` 工作台保持原布局。题目详情 shell 填满视口并隐藏页脚，题库/登录页保留正常页脚。
 - JSON、CSV、逗号分隔文本等序列化格式不是普通运营人员的默认表单。可重复业务对象必须用结构化字段、
   列表或卡片编辑，序号和序列化由系统生成；原始格式只可作为明确的高级导入/导出能力。
 

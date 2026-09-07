@@ -58,8 +58,16 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 编辑器内核，也不依赖第三方 React wrapper 或运行时 CDN。参考源码不得写入 Query、URL 或 storage。
 
 `@codemirror/state` 管编辑状态与可重配置扩展，`@codemirror/view` 管浏览器视图，`language`、
-`lang-markdown`、`lang-cpp` 和 `@lezer/highlight` 只提供当前实际使用的语言能力。Monaco 暂不进入后台
-产物；未来用户端代码工作台确实需要 IDE 级补全、诊断或多文件能力时再单独评估。
+`lang-markdown`、`lang-cpp` 和 `@lezer/highlight` 只提供当前实际使用的语言能力。手机触控端的题目编码区
+也复用 `TextEditor size="fill"`；后台不加载 Monaco。
+
+### `monaco-editor`
+
+WORK-041 在用户明确要求后引入精确锁定的 0.56.0，为用户端题目工作台提供 C++ 高亮、行号、查找、
+缩进和撤销。`components/ui/code-editor*` 薄适配使用本地 ESM 子入口、C++ grammar 与 Vite worker，
+运行时异步加载，不使用 CDN、全语言入口或语言服务器；主题数值由语义 token 解析。
+业务组件持有代码与草稿身份，适配负责释放 editor/model/观察器。Tab 默认移出，手机改用 CodeMirror。
+新增依赖会产生独立 runtime、CSS、字体与 worker 资源；体积和请求隔离证据记录于 VERIFY-042。
 
 ### `react-markdown`、`remark-gfm` 与 `rehype-sanitize`
 

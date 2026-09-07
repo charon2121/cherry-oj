@@ -775,26 +775,26 @@
       "category": "oj-workflow",
       "anatomy": [
         "problem-context",
-        "language-control",
+        "language-context",
         "editor",
-        "run-action",
-        "submit-action",
-        "result-panel"
+        "local-draft-status",
+        "unavailable-run-submit"
       ],
       "sizes": [
         "desktop-split",
-        "phone-stacked"
+        "phone-tabs"
       ],
       "variants": [
-        "practice",
-        "contest"
+        "practice"
       ],
       "states": [
+        "loading",
+        "read-only",
         "editing",
-        "running",
-        "submitting",
-        "result",
-        "error"
+        "saved",
+        "save-error",
+        "conflict",
+        "editor-error"
       ],
       "tokenReferences": [
         "--ds-canvas",
@@ -809,17 +809,20 @@
         "--ds-focus"
       ],
       "keyboard": [
-        "Editor has a labeled region",
-        "Language selector precedes editor",
-        "Run and submit remain reachable after editor"
+        "Tab leaves the editor; Ctrl/Cmd+] indents; Ctrl/Cmd+F searches",
+        "Narrow-screen tabs use arrow keys and preserve mounted editors",
+        "Hidden mobile panels are inert; desktop panels are independent regions"
       ],
       "constraints": [
-        "Do not infer verdict from editor decoration",
-        "At phone width panels stack in source order"
+        "WORK-041: run and submit are disabled with a readable explanation",
+        "Desktop CodeEditor uses locally bundled async Monaco; mobile touch uses TextEditor",
+        "Parent owns source identity; dispose editor/model on identity change; theme changes preserve undo",
+        "Drafts are per account/problem/version/language and remain in this browser"
       ],
       "sourceRefs": [
         "source/claude-design-v1/ui_kits/app/ProblemView.jsx"
-      ]
+      ],
+      "implementation": "apps/web/src/features/problems/components/problem-detail-page.tsx"
     },
     {
       "id": "submission-lifecycle",
@@ -915,6 +918,45 @@
       "sourceRefs": [
         "source/claude-design-v1/guidelines/colors-status.card.html"
       ]
+    },
+    {
+      "id": "tabs",
+      "category": "navigation",
+      "anatomy": [
+        "root",
+        "list",
+        "trigger",
+        "content"
+      ],
+      "sizes": [
+        "default"
+      ],
+      "variants": [
+        "line"
+      ],
+      "states": [
+        "active",
+        "inactive",
+        "focus-visible",
+        "disabled"
+      ],
+      "tokenReferences": [
+        "--ds-fg",
+        "--ds-fg-muted",
+        "--ds-focus",
+        "--ds-border-soft"
+      ],
+      "keyboard": [
+        "Base UI arrow-key navigation and panel associations",
+        "Keep mounted inactive panels hidden and inert"
+      ],
+      "constraints": [
+        "Structure follows shadcn base-nova tabs registry (HTTP 200 checked 2026-09-07)",
+        "Use semantic token classes; no focus shadow or size change"
+      ],
+      "sourceRefs": [],
+      "implementation": "apps/web/src/components/ui/tabs.tsx",
+      "officialRegistry": "https://ui.shadcn.com/r/styles/base-nova/tabs.json"
     }
   ]
 }

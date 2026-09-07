@@ -45,3 +45,4 @@
 | WORK-038 | 兼容常见测试数据 ZIP 并返回可操作校验错误 | 问题修复 | 实现完成 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-038/00-work.md) |
 | WORK-039 | 修复 JWT 签发 30 秒后被资源服务误拒绝 | 问题修复 | 实现完成 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-039/00-work.md) |
 | WORK-040 | 重构判题节点注册与测试数据交付 | 问题修复 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-040/00-work.md) |
+| WORK-041 | 建立题目阅读与 Monaco 编码工作台 | 产品功能 | 验证通过 | 中 | 局部 | codex/root | [00-work.md](./works/WORK-041/00-work.md) |

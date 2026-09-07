@@ -11,9 +11,10 @@ import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 type TextEditorLanguage = 'plain' | 'markdown' | 'cpp';
-type TextEditorSize = 'compact' | 'default' | 'code';
+type TextEditorSize = 'compact' | 'default' | 'code' | 'fill';
 
 const editorHeights: Record<TextEditorSize, string> = {
+  fill: '100%',
   compact: '12rem',
   default: '24rem',
   code: '22rem',
@@ -131,6 +132,8 @@ function TextEditor({
   const changeRef = useRef(onChange);
   const blurRef = useRef(onBlur);
   const applyingExternalValue = useRef(false);
+  const composingRef = useRef(false);
+  const lastReportedValueRef = useRef(value);
   const settings = useRef(new Compartment());
   const { colorScheme } = useTheme();
 
@@ -142,6 +145,30 @@ function TextEditor({
   useEffect(() => {
     if (!hostRef.current) return;
 
+    let compositionFrame: number | undefined;
+    const notifyChange = (view: EditorView) => {
+      const source = view.state.doc.toString();
+      if (source === lastReportedValueRef.current) return;
+      lastReportedValueRef.current = source;
+      changeRef.current(source);
+    };
+    const beginComposition = () => {
+      composingRef.current = true;
+      if (compositionFrame !== undefined) window.cancelAnimationFrame(compositionFrame);
+      compositionFrame = undefined;
+    };
+    const finishComposition = () => {
+      if (compositionFrame !== undefined) window.cancelAnimationFrame(compositionFrame);
+      // CodeMirror flushes the final DOM mutation after compositionend (on the next
+      // animation frame on Android). Report after that flush, not the last candidate.
+      compositionFrame = window.requestAnimationFrame(() => {
+        compositionFrame = undefined;
+        const view = viewRef.current;
+        if (!view || view.compositionStarted) return;
+        composingRef.current = false;
+        notifyChange(view);
+      });
+    };
     const view = new EditorView({
       parent: hostRef.current,
       doc: initialValueRef.current,
@@ -151,11 +178,24 @@ function TextEditor({
         syntaxTheme,
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged && !applyingExternalValue.current) {
-            changeRef.current(update.state.doc.toString());
+          if (
+            update.docChanged &&
+            !applyingExternalValue.current &&
+            !composingRef.current &&
+            !update.view.compositionStarted
+          ) {
+            notifyChange(update.view);
           }
         }),
         EditorView.domEventHandlers({
+          compositionstart() {
+            beginComposition();
+            return false;
+          },
+          compositionend() {
+            finishComposition();
+            return false;
+          },
           blur() {
             blurRef.current?.();
             return false;
@@ -165,7 +205,17 @@ function TextEditor({
       ],
     });
     viewRef.current = view;
+    // New Android browsers can deliver IME events to the standard EditContext
+    // instead of the content element. Observe that native EventTarget as well.
+    const nativeContext: unknown = Reflect.get(view.contentDOM, 'editContext');
+    const editContext = nativeContext instanceof EventTarget ? nativeContext : null;
+    editContext?.addEventListener('compositionstart', beginComposition);
+    editContext?.addEventListener('compositionend', finishComposition);
     return () => {
+      if (compositionFrame !== undefined) window.cancelAnimationFrame(compositionFrame);
+      editContext?.removeEventListener('compositionstart', beginComposition);
+      editContext?.removeEventListener('compositionend', finishComposition);
+      composingRef.current = false;
       view.destroy();
       viewRef.current = undefined;
     };
@@ -209,12 +259,16 @@ function TextEditor({
 
   useEffect(() => {
     const view = viewRef.current;
-    if (!view) return;
+    if (!view || composingRef.current || view.compositionStarted) return;
     const currentValue = view.state.doc.toString();
     if (currentValue === value) return;
     applyingExternalValue.current = true;
-    view.dispatch({ changes: { from: 0, to: currentValue.length, insert: value } });
-    applyingExternalValue.current = false;
+    try {
+      view.dispatch({ changes: { from: 0, to: currentValue.length, insert: value } });
+      lastReportedValueRef.current = value;
+    } finally {
+      applyingExternalValue.current = false;
+    }
   }, [value]);
 
   return (

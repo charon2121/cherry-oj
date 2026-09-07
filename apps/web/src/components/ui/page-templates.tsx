@@ -172,6 +172,8 @@ function DetailPageTemplate({
 
 type WorkbenchPageTemplateProps = BasePageProps &
   Readonly<{
+    /** 编码工作台填满 shell 提供的高度；既有表单工作台保留默认间距。 */
+    variant?: 'form' | 'coding';
     /** 步骤导航或章节定位。它是方向提示，不得冒充服务端就绪状态（design-system.md §7.1）。 */
     navigation?: ReactNode;
     /** 保存入口与"未保存 / 保存中 / 已保存 / 失败"状态，滚动后必须持续可达。 */
@@ -189,7 +191,22 @@ function WorkbenchPageTemplate({
   title,
   titleAction,
   titleVisible = true,
+  variant = 'form',
 }: WorkbenchPageTemplateProps) {
+  if (variant === 'coding') {
+    return (
+      <div
+        data-slot="coding-workbench"
+        className={cn('flex h-full min-h-0 min-w-0 flex-col', className)}
+      >
+        <PageTitle title={title} visible={titleVisible} action={titleAction} />
+        {statusBar === undefined ? null : (
+          <div className="border-border-soft bg-panel shrink-0 border-b px-4 py-2">{statusBar}</div>
+        )}
+        <div className="min-h-0 min-w-0 flex-1">{state ?? children}</div>
+      </div>
+    );
+  }
   return (
     <Container className={className} width="wide">
       <Section>

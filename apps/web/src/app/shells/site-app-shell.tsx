@@ -1,4 +1,4 @@
-import { Outlet } from '@tanstack/react-router';
+import { Outlet, useRouterState } from '@tanstack/react-router';
 import { Menu } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 import { AccountMenu } from './account-menu';
 import { AppBrand } from './app-brand';
@@ -20,9 +21,19 @@ type SiteAppShellProps = Readonly<{ children?: ReactNode }>;
 
 function SiteAppShell({ children }: SiteAppShellProps) {
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const coding = useRouterState({
+    select: (state) => /^\/problems\/[^/]+\/?$/.test(state.location.pathname),
+  });
 
   return (
-    <div className="bg-background text-foreground grid min-h-svh grid-rows-[auto_1fr_auto]">
+    <div
+      className={cn(
+        'bg-background text-foreground grid',
+        coding
+          ? 'h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden'
+          : 'min-h-svh grid-rows-[auto_1fr_auto]',
+      )}
+    >
       <a
         href="#site-main"
         className="bg-surface-raised text-foreground focus-visible:outline-ring border-border-strong fixed top-2 left-2 z-60 h-px w-px overflow-hidden rounded-sm border whitespace-nowrap [clip:rect(0,0,0,0)] focus-visible:h-auto focus-visible:w-auto focus-visible:overflow-visible focus-visible:px-3 focus-visible:py-2 focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:[clip:auto]"
@@ -57,7 +68,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
         {children ?? <Outlet />}
       </main>
 
-      <footer className="border-border-soft border-t">
+      <footer hidden={coding} className="border-border-soft border-t">
         <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop">
           <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <span className="font-display font-body">Cherry OJ</span>
