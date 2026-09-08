@@ -2,7 +2,7 @@
 id: "WORK-039"
 type: "work"
 title: "修复 JWT 签发 30 秒后被资源服务误拒绝"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "medium"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["issue", "design", "task", "verify"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "reliability"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: true
 user_visible: false
 created_at: "2026-09-06"
-updated_at: "2026-09-06"
+updated_at: "2026-09-09"
 work_type: "fix"
 ---
 
@@ -50,8 +50,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 原因与修复方案 | ✔ 完成 | 必需 | DESIGN-033 `checked` | 确定技术方案、边界与取舍 |
 | 修复任务 | ✔ 完成 | 必需 | TASK-070 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-070 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ▶ 进行中（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-040 `review` | 用可复现的证据确认要求逐条满足 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-040 `approved` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -67,3 +67,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-06：检查项 automated-tests 记录结论：通过。原因：共享时间边界测试、三资源服务安全回归以及 8 模块 clean verify 共 143 项测试通过
 - 2026-09-06：检查项 reliability 记录结论：通过。原因：消除 30 秒隐形寿命且保留 exp/nbf 硬截止、必需 claims 与 JWKS 失败分类；重启资源服务即可生效
 - 2026-09-06：根据文档、任务与验证事实刷新状态：todo → implemented。
+- 2026-09-09：验收闸：passed。原因：确认 JWT 签发 30 秒后被误拒绝的问题修复完成
+- 2026-09-09：根据文档、任务与验证事实刷新状态：implemented → verified。

@@ -539,6 +539,9 @@ function WorkbenchEditor({
     (item) => item.code === 'CALIBRATION' && item.passed,
   );
   const canUseTestActions = editable && !isDirty;
+  // 重部署恢复当前节点的数据回执，不修改已发布题目的内容或绑定关系。
+  const canDeployTestData =
+    problem.status === 'ACTIVE' && (editable || version.status === 'PUBLISHED') && !isDirty;
 
   const derivedStepStatuses = useMemo<Record<ProblemWorkbenchStep, StepStatus>>(
     () => ({
@@ -1040,7 +1043,7 @@ function WorkbenchEditor({
                   variant="secondary"
                   loading={deploy.isPending}
                   disabled={
-                    !canUseTestActions ||
+                    !canDeployTestData ||
                     !boundTestData ||
                     selectedTestData?.status !== 'READY' ||
                     !!nodeUnavailable

@@ -24,9 +24,10 @@ public class SubmissionExecutionProfileController {
         var profile = readiness.executionProfile();
         if (!readiness.ready() || profile == null) throw unavailable();
         long budget;
-        try { budget=budgets.executionBudget(profile.cpuNs(),profile.clockNs(),request.totalCount()).toNanos(); }
+        try { budget=budgets.executionBudget(profile.cpuNs(),profile.clockNs(),"trial".equals(request.purpose())?1:request.totalCount()).toNanos(); }
         catch(ArithmeticException invalid) { throw unavailable(); }
-        if(budget>=budgets.deadline().toNanos()) throw unavailable();
+        if("trial".equals(request.purpose()) && budget>java.time.Duration.ofSeconds(45).toNanos()) throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY,"RUN_LIMIT_UNSUPPORTED","此题目的执行预算超过自测期限。");
+        if(!"trial".equals(request.purpose()) && budget>=budgets.deadline().toNanos()) throw unavailable();
         return new Profile(request.problemVersionId(), request.testDataVersionId(), request.languageId(),
                 profile.environmentId(), profile.environmentFingerprint(), profile.calibrationId(),
                 new Limits(profile.cpuNs(), profile.memoryBytes(), profile.clockNs()),budget);
@@ -37,7 +38,9 @@ public class SubmissionExecutionProfileController {
     public record Request(@NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String problemVersionId,
                           @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String testDataVersionId,
                           @NotBlank @Pattern(regexp = JudgingDtos.SHA_PATTERN) String testDataContentSha256,
-                          @NotBlank @Pattern(regexp = "cpp") String languageId, @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(1000) int totalCount) {}
+                          @NotBlank @Pattern(regexp = "cpp") String languageId, @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(1000) int totalCount, @Pattern(regexp="formal|trial") String purpose) {
+        public Request(String p,String t,String h,String l,int n){this(p,t,h,l,n,null);}
+    }
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     public record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
     public record Profile(String problemVersionId, String testDataVersionId, String languageId,

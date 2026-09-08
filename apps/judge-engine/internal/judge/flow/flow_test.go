@@ -582,3 +582,34 @@ func deletedRefs(deleted []deletion) []string {
 	}
 	return refs
 }
+
+func TestTrialPreservesSuccessfulStderr(t *testing.T) {
+	sb := &fakeSandbox{runs: []runReply{{result: contract.RunResult{Status: contract.StatusOK, Stderr: "debug\n", Stdout: "answer\n"}}}}
+	result := flow.Judge(context.Background(), sb, judgeConfig(), trialRequest("python", contract.CaseSpec{Input: ""}))
+	if result.Verdict != contract.VerdictRAN || len(result.CaseResults) != 1 {
+		t.Fatalf("unexpected result: %s", result.Verdict)
+	}
+	c := result.CaseResults[0]
+	if c.Stderr == nil || c.Stderr.Excerpt != "debug\n" || c.Output == nil || c.Output.Excerpt != "answer\n" {
+		t.Fatal("trial lost independent output streams")
+	}
+}
+
+func TestEmptyTrialInputSurvivesSandboxWireEncoding(t *testing.T) {
+	sb := &fakeSandbox{runs: []runReply{{result: contract.RunResult{Status: contract.StatusOK}}}}
+	result := flow.Judge(context.Background(), sb, judgeConfig(), trialRequest("python", contract.CaseSpec{Input: ""}))
+	if result.Verdict != contract.VerdictRAN {
+		t.Fatal(result.Verdict)
+	}
+	wire, err := json.Marshal(sb.calls[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded contract.RunSpec
+	if err := json.Unmarshal(wire, &decoded); err != nil {
+		t.Fatalf("sandbox rejects empty stdin: %v", err)
+	}
+	if decoded.Stdin != nil {
+		t.Fatal("empty input must use EOF, not an empty file source object")
+	}
+}

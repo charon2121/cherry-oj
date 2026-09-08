@@ -2,7 +2,7 @@
 id: "VERIFY-039"
 type: "verify"
 title: "兼容常见测试数据 ZIP 并返回可操作校验错误"
-status: "review"
+status: "approved"
 work: "WORK-038"
 owners: ["codex/root"]
 depends_on: ["TASK-069"]
@@ -12,7 +12,7 @@ verifies: ["ISSUE-010#AC-001", "ISSUE-010#AC-002", "ISSUE-010#AC-003", "ISSUE-01
 tags: []
 result: "pass"
 created_at: "2026-09-05"
-updated_at: "2026-09-05"
+updated_at: "2026-09-09"
 ---
 
 # VERIFY-039：兼容常见测试数据 ZIP 并返回可操作校验错误
@@ -78,3 +78,4 @@ updated_at: "2026-09-05"
 ## 变更记录
 
 - 2026-09-05：状态变更：draft → review。原因：定向测试与 8 模块 clean verify 全部通过，验证证据和剩余边界已记录，提交负责人验收
+- 2026-09-09：验收闸通过：review → approved。原因：确认测试数据 ZIP 兼容与校验错误提示修复完成

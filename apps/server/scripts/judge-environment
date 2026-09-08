@@ -1,0 +1,17 @@
+#!/bin/sh
+# 运维操作参数不会成为服务启动要求；数据库配置复用 judging-service。
+set -eu
+server_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+jar_path="$server_dir/judging-service/target/judging-service-0.0.1-SNAPSHOT.jar"
+if [ ! -f "$jar_path" ]; then
+  echo 'Build first: cd apps/server && ./mvnw -pl judging-service -am package -DskipTests' >&2
+  exit 1
+fi
+operation_dir=$(mktemp -d)
+trap 'rm -rf "$operation_dir"' EXIT HUP INT TERM
+unzip -q "$jar_path" 'BOOT-INF/*' -d "$operation_dir"
+cd "$server_dir"
+java_bin=java
+if [ -n "${JAVA_HOME:-}" ]; then java_bin="$JAVA_HOME/bin/java"; fi
+"$java_bin" -cp "$server_dir/judging-service/src/main/resources:$operation_dir/BOOT-INF/classes:$operation_dir/BOOT-INF/lib/*" \
+  com.cherryoj.judgingservice.operations.EnvironmentCommand "$@"

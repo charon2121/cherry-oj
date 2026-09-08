@@ -1,0 +1,115 @@
+[
+  {
+    "stage": "definition",
+    "label": "改动说明与边界",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "CHANGE-011"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：同意统一启动入口与本地配置迁移，允许实施"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：同意统一启动入口与本地配置迁移，允许实施"
+      }
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:fast",
+    "reason": "低风险、局部、可回退工作采用快速流程"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "overlay:fast",
+    "reason": "低风险、局部、可回退工作采用快速流程"
+  },
+  {
+    "stage": "tasks",
+    "label": "开发任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-090"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-090"
+    ],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "manual",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "blocked",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-046"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "已有配置加载与产物检查通过，最终联调证据见 VERIFY-048"
+      }
+    ],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:maintenance",
+    "reason": "maintenance 基础流程"
+  }
+]

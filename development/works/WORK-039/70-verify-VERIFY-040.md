@@ -2,7 +2,7 @@
 id: "VERIFY-040"
 type: "verify"
 title: "修复 JWT 签发 30 秒后被资源服务误拒绝"
-status: "review"
+status: "approved"
 work: "WORK-039"
 owners: ["codex/root"]
 depends_on: ["TASK-070"]
@@ -12,7 +12,7 @@ verifies: ["ISSUE-011#AC-001", "ISSUE-011#AC-002", "ISSUE-011#AC-003", "ISSUE-01
 tags: []
 result: "pass"
 created_at: "2026-09-06"
-updated_at: "2026-09-06"
+updated_at: "2026-09-09"
 ---
 
 # VERIFY-040：修复 JWT 签发 30 秒后被资源服务误拒绝
@@ -71,3 +71,4 @@ claims 校验；既定 2 小时 JWT、提前 5 分钟换新、30 天 fixed-absol
 ## 变更记录
 
 - 2026-09-06：状态变更：draft → review。原因：共享定向测试、三资源服务安全回归与 143 项后端聚合测试通过，代码边界和时间配置保持不变
+- 2026-09-09：验收闸通过：review → approved。原因：确认 JWT 签发 30 秒后被误拒绝的问题修复完成

@@ -7,7 +7,68 @@
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "paths": {
-  "/api/submissions": {
+  "/api/custom-runs": {
+  "post": {
+    "operationId": "createCustomRun",
+    "security": [
+      {
+        "cookieAuth": []
+      }
+    ],
+    "parameters": [
+      {
+        "name": "X-Expected-User-Id",
+        "in": "header",
+        "required": true,
+        "description": "编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "$ref": "#/components/parameters/CsrfToken"
+      }
+    ],
+    "responses": {
+      "200": {
+        "description": "自定义运行结果，不校验答案、不创建正式提交。",
+        "headers": {
+          "X-Request-Id": {
+            "$ref": "#/components/headers/XRequestId"
+          },
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CustomRunSuccess"
+            }
+          }
+        }
+      },
+      "default": {
+        "$ref": "#/components/responses/ApiProblemResponse"
+      }
+    },
+    "requestBody": {
+      "required": true,
+      "content": {
+        "application/json": {
+          "schema": {
+            "$ref": "#/components/schemas/CustomRunRequest"
+          }
+        }
+      }
+    }
+  }
+},
+    "/api/submissions": {
     "get": {
   "operationId": "listProblemSubmissions",
   "security": [
@@ -1282,7 +1343,166 @@
       }
     }
   },
-  "SubmissionSuccess": {
+  "CustomRunRequest": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "problemId",
+    "expectedProblemVersionId",
+    "languageId",
+    "source",
+    "inputText"
+  ],
+  "properties": {
+    "problemId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "expectedProblemVersionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "languageId": {
+      "type": "string",
+      "const": "cpp"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 262144,
+      "description": "非空，UTF-8最多256KiB"
+    },
+    "inputText": {
+      "type": "string",
+      "maxLength": 65536,
+      "description": "UTF-8最多64KiB，空串合法，不trim"
+    }
+  }
+},
+"CustomRunOutput": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "text",
+    "capturedBytes",
+    "truncated"
+  ],
+  "properties": {
+    "text": {
+      "type": "string",
+      "maxLength": 16384
+    },
+    "capturedBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+},
+"CustomRunLimits": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cpuNs",
+    "memoryBytes",
+    "clockNs"
+  ],
+  "properties": {
+    "cpuNs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "memoryBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "clockNs": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+},
+"CustomRunData": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "problemId",
+    "problemVersionId",
+    "problemVersionNo",
+    "languageId",
+    "status",
+    "effectiveLimits"
+  ],
+  "properties": {
+    "problemId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "problemVersionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "problemVersionNo": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "languageId": {
+      "type": "string",
+      "const": "cpp"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "COMPLETED",
+        "COMPILE_ERROR",
+        "RUNTIME_ERROR",
+        "TIME_LIMIT_EXCEEDED",
+        "MEMORY_LIMIT_EXCEEDED",
+        "OUTPUT_LIMIT_EXCEEDED"
+      ]
+    },
+    "cpuNs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "memoryBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stdout": {
+      "$ref": "#/components/schemas/CustomRunOutput"
+    },
+    "stderr": {
+      "$ref": "#/components/schemas/CustomRunOutput"
+    },
+    "compileDiagnostic": {
+      "type": "string",
+      "maxLength": 8192
+    },
+    "effectiveLimits": {
+      "$ref": "#/components/schemas/CustomRunLimits"
+    }
+  }
+},
+"CustomRunSuccess": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "data",
+    "meta"
+  ],
+  "properties": {
+    "data": {
+      "$ref": "#/components/schemas/CustomRunData"
+    },
+    "meta": {
+      "$ref": "#/components/schemas/ApiMeta"
+    }
+  }
+},
+      "SubmissionSuccess": {
     "type": "object",
     "additionalProperties": false,
     "required": [

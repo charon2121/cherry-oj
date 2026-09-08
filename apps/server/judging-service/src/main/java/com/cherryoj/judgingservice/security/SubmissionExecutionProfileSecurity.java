@@ -17,7 +17,7 @@ class SubmissionExecutionProfileSecurity {
     @Bean @Order(-10)
     SecurityFilterChain submissionExecutionProfileChain(HttpSecurity http,
             @Value("${cherry.service-calls.submission-judging-tokens:}") String tokens) throws Exception {
-        http.securityMatcher("/internal/submission/execution-profile")
+        http.securityMatcher("/internal/submission/execution-profile", "/internal/submission/trials")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         // 未配置新功能时关闭内部端点，不影响既有题目/节点业务启动。

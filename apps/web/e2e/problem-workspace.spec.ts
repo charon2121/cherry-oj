@@ -138,9 +138,9 @@ for (const role of ['USER', 'ADMIN'] as const) {
     await expect(editor(page)).toBeEditable();
     await expectCode(page, starterCode);
     await expect(page.getByRole('link', { name: /登录后.*(答题|编写)/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '运行', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: '运行', exact: true })).toBeEnabled();
     await expect(page.getByRole('button', { name: '提交', exact: true })).toBeEnabled();
-    await expect(page.getByText(/^自定义运行暂未开放。/)).toBeVisible();
+    await expect(page.locator('#custom-run-help')).toBeVisible();
 
     const source = 'int answer = 42;';
     await replaceCode(page, source);
@@ -154,7 +154,7 @@ for (const role of ['USER', 'ADMIN'] as const) {
 
     await pressEditorShortcut(page, 'Enter');
     await editor(page).press('F5');
-    await expect(page.getByText(/^自定义运行暂未开放。/)).toBeVisible();
+    await expect(page.locator('#custom-run-help')).toBeVisible();
     expect(
       requests.filter((url) => /\/(?:run|submissions?|judge|sandbox|blobs)(?:[/?]|$)/.test(url)),
     ).toEqual([]);
@@ -264,7 +264,7 @@ test('theme, search, undo and narrow-pane switching preserve the same code', asy
     .toBeLessThanOrEqual(1);
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await expect(editor(page)).toBeVisible();
-  await expect(page.getByText(/^自定义运行暂未开放。/)).toBeVisible();
+  await expect(page.locator('#custom-run-help')).toBeVisible();
 });
 
 test('a touch phone uses the lightweight editor and keeps its draft between panes', async ({
@@ -282,17 +282,17 @@ test('a touch phone uses the lightweight editor and keeps its draft between pane
     const page = await context.newPage();
     await page.goto('/problems/workspace-sum');
     await page.getByRole('tab', { name: '代码', exact: true }).click();
-    await expect(page.locator('.cm-editor')).toBeVisible();
+    await expect(page.locator('.cm-editor').filter({ has: editor(page) })).toBeVisible();
     await expect(page.locator('.monaco-editor')).toHaveCount(0);
     const source = 'int mobileAnswer = 3;';
     await replaceCode(page, source);
     await expectSaved(page, source);
     await page.getByRole('tab', { name: '题目', exact: true }).click();
     await page.getByRole('tab', { name: '代码', exact: true }).click();
-    await expect(page.locator('.cm-content')).toHaveText(source);
+    await expect(editor(page)).toHaveText(source);
     await page.reload();
     await page.getByRole('tab', { name: '代码', exact: true }).click();
-    await expect(page.locator('.cm-content')).toHaveText(source);
+    await expect(editor(page)).toHaveText(source);
   } finally {
     await context.close();
   }
@@ -516,7 +516,7 @@ test('a 200-percent equivalent desktop viewport keeps editing and lower controls
       ratio: 1,
     });
     await expect(page.getByText('已保存到本机', { exact: true })).toBeInViewport({ ratio: 1 });
-    await expect(page.getByText(/^自定义运行暂未开放。/)).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('#custom-run-help')).toBeInViewport({ ratio: 1 });
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
       .toBeLessThanOrEqual(1);

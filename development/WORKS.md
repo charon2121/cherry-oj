@@ -42,9 +42,13 @@
 | WORK-035 | 收敛设计系统为单一真源 | 整理维护 | 验证通过 | 中 | 多个模块 | claude/root | [00-work.md](./works/WORK-035/00-work.md) |
 | WORK-036 | 建立页面构图层并修复前景色层级 | 工程改进 | 验证通过 | 高 | 整个系统 | claude/root | [00-work.md](./works/WORK-036/00-work.md) |
 | WORK-037 | 重建内部身份信任链并消除管理请求 502 | 问题修复 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-037/00-work.md) |
-| WORK-038 | 兼容常见测试数据 ZIP 并返回可操作校验错误 | 问题修复 | 实现完成 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-038/00-work.md) |
-| WORK-039 | 修复 JWT 签发 30 秒后被资源服务误拒绝 | 问题修复 | 实现完成 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-039/00-work.md) |
+| WORK-038 | 兼容常见测试数据 ZIP 并返回可操作校验错误 | 问题修复 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-038/00-work.md) |
+| WORK-039 | 修复 JWT 签发 30 秒后被资源服务误拒绝 | 问题修复 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-039/00-work.md) |
 | WORK-040 | 重构判题节点注册与测试数据交付 | 问题修复 | 验证通过 | 高 | 整个系统 | codex/root | [00-work.md](./works/WORK-040/00-work.md) |
 | WORK-041 | 建立题目阅读与 Monaco 编码工作台 | 产品功能 | 验证通过 | 中 | 局部 | codex/root | [00-work.md](./works/WORK-041/00-work.md) |
 | WORK-042 | 修复后台用户列表拒绝尚未过期的身份令牌 | 问题修复 | 验证通过 | 高 | 局部 | codex/root | [00-work.md](./works/WORK-042/00-work.md) |
 | WORK-043 | 题目内提交记录与代码回看 | 产品功能 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-043/00-work.md) |
+| WORK-044 | 题目内自定义输入运行 | 产品功能 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-044/00-work.md) |
+| WORK-045 | 统一本地judging服务启动入口 | 整理维护 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-045/00-work.md) |
+| WORK-046 | 统一服务配置与环境启动管理 | 整理维护 | 实现完成 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-046/00-work.md) |
+| WORK-047 | 恢复自定义运行并移除运行冷却 | 问题修复 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-047/00-work.md) |

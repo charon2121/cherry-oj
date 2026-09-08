@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Play, Upload } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import type { ProblemDetail, SubmissionData } from '@/generated/api';
@@ -32,11 +32,17 @@ export function SubmissionPanel({
   problem,
   source,
   disabled,
+  runControl,
+  renderResults,
+  onSubmissionStart,
 }: {
   userId: string;
   problem: ProblemDetail;
   source: string;
   disabled: boolean;
+  runControl?: ReactNode;
+  renderResults?: (results: ReactNode) => ReactNode;
+  onSubmissionStart?: () => void;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: '/problems/$slug' });
@@ -169,6 +175,7 @@ export function SubmissionPanel({
       search: (previous) => ({ ...previous, submissionId: undefined }),
       replace: true,
     });
+    onSubmissionStart?.();
     submit.mutate(next);
   }
   const queryError =
@@ -179,26 +186,8 @@ export function SubmissionPanel({
       : result.error instanceof Error
         ? result.error.message
         : null;
-  return (
-    <div className="border-border-soft bg-panel shrink-0 space-y-3 border-t px-4 py-3">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button size="sm" variant="secondary" disabled aria-describedby="run-unavailable">
-          <Play aria-hidden="true" />
-          运行
-        </Button>
-        <Button
-          size="sm"
-          disabled={disabled || busy || unknown || invalidSource || Boolean(initial.error)}
-          onClick={() => send()}
-          aria-describedby="submission-notice"
-        >
-          <Upload aria-hidden="true" />
-          {submit.isPending ? '正在提交…' : '提交'}
-        </Button>
-      </div>
-      <p id="run-unavailable" className="text-fg-muted text-xs">
-        自定义运行暂未开放。
-      </p>
+  const results = (
+    <>
       <div
         id="submission-notice"
         className="text-fg-2 space-y-2 text-xs"
@@ -237,6 +226,33 @@ export function SubmissionPanel({
           ) : null}
         </div>
       ) : null}
+    </>
+  );
+  return (
+    <div className="border-border-soft bg-panel max-h-1/2 shrink-0 space-y-3 overflow-y-auto border-t px-4 py-3">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {runControl ?? (
+          <Button size="sm" variant="secondary" disabled aria-describedby="run-unavailable">
+            <Play aria-hidden="true" />
+            运行
+          </Button>
+        )}
+        <Button
+          size="sm"
+          disabled={disabled || busy || unknown || invalidSource || Boolean(initial.error)}
+          onClick={() => send()}
+          aria-describedby="submission-notice"
+        >
+          <Upload aria-hidden="true" />
+          {submit.isPending ? '正在提交…' : '提交'}
+        </Button>
+      </div>
+      {!runControl ? (
+        <p id="run-unavailable" className="text-fg-muted text-xs">
+          自定义运行暂未开放。
+        </p>
+      ) : null}
+      {renderResults ? renderResults(results) : results}
     </div>
   );
 }

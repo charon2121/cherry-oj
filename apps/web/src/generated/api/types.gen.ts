@@ -56,6 +56,51 @@ export type SubmissionData = {
     finishedAt?: string;
 };
 
+export type CustomRunRequest = {
+    problemId: string;
+    expectedProblemVersionId: string;
+    languageId: 'cpp';
+    /**
+     * 非空，UTF-8最多256KiB
+     */
+    source: string;
+    /**
+     * UTF-8最多64KiB，空串合法，不trim
+     */
+    inputText: string;
+};
+
+export type CustomRunOutput = {
+    text: string;
+    capturedBytes: number;
+    truncated: boolean;
+};
+
+export type CustomRunLimits = {
+    cpuNs: number;
+    memoryBytes: number;
+    clockNs: number;
+};
+
+export type CustomRunData = {
+    problemId: string;
+    problemVersionId: string;
+    problemVersionNo: number;
+    languageId: 'cpp';
+    status: 'COMPLETED' | 'COMPILE_ERROR' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'OUTPUT_LIMIT_EXCEEDED';
+    cpuNs?: number;
+    memoryBytes?: number;
+    stdout?: CustomRunOutput;
+    stderr?: CustomRunOutput;
+    compileDiagnostic?: string;
+    effectiveLimits: CustomRunLimits;
+};
+
+export type CustomRunSuccess = {
+    data: CustomRunData;
+    meta: ApiMeta;
+};
+
 export type SubmissionSuccess = {
     data: SubmissionData;
     meta: ApiMeta;
@@ -614,6 +659,38 @@ export type CursorPageSize = number;
  * 乐观锁版本；过期值返回 409 ROW_VERSION_CONFLICT。
  */
 export type RowVersion = number;
+
+export type CreateCustomRunData = {
+    body: CustomRunRequest;
+    headers: {
+        /**
+         * 编辑器所属账号的一致性前置条件；Gateway 与已验证会话比较，此值不参与授权。
+         */
+        'X-Expected-User-Id': string;
+        'X-CSRF-Token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/custom-runs';
+};
+
+export type CreateCustomRunErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type CreateCustomRunError = CreateCustomRunErrors[keyof CreateCustomRunErrors];
+
+export type CreateCustomRunResponses = {
+    /**
+     * 自定义运行结果，不校验答案、不创建正式提交。
+     */
+    200: CustomRunSuccess;
+};
+
+export type CreateCustomRunResponse = CreateCustomRunResponses[keyof CreateCustomRunResponses];
 
 export type ListProblemSubmissionsData = {
     body?: never;

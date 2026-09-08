@@ -86,7 +86,7 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract
 
 	result = contract.JudgeResult{Verdict: contract.VerdictAC}
 	for i, tc := range cases {
-		caseResult := runCase(ctx, sb, cfg, req.Limits, clock, lang, sourceRef, executableRef, i+1, tc)
+		caseResult := runCase(ctx, sb, cfg, req.Limits, clock, lang, sourceRef, executableRef, i+1, tc, req.Mode == contract.ModeTrial)
 		result.CaseResults = append(result.CaseResults, caseResult)
 		result.CPUNs = max(result.CPUNs, caseResult.CPUNs)
 		result.MemoryBytes = max(result.MemoryBytes, caseResult.MemoryBytes)
@@ -178,6 +178,7 @@ func runCase(
 	executableRef string,
 	idx int,
 	tc testcase.TestCase,
+	trial bool,
 ) contract.CaseResult {
 	stdin, cleanup, err := stdinFor(ctx, sb, tc.Input, cfg.InlineThresholdBytes)
 	if err != nil {
@@ -211,7 +212,11 @@ func runCase(
 			Message: fmt.Sprintf("run sandbox command: %v", runErr),
 		}
 	}
-	return evalCase(idx, tc, run, cfg)
+	result := evalCase(idx, tc, run, cfg)
+	if trial {
+		result.Stderr = makeOutput(run.Stderr, cfg.OutputExcerptBytes)
+	}
+	return result
 }
 
 func runInputs(lang language.Language, sourceRef, executableRef string) map[string]contract.FileSource {
@@ -241,6 +246,10 @@ func stdinFor(
 		body, err := io.ReadAll(rc)
 		if err != nil {
 			return nil, func() {}, err
+		}
+		// 空文本经 omitempty 会变成非法的 {}；省略 stdin 让执行器直接读到 EOF。
+		if len(body) == 0 {
+			return nil, func() {}, nil
 		}
 		return &contract.FileSource{Text: string(body)}, func() {}, nil
 	}

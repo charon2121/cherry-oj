@@ -16,10 +16,11 @@ import {
 import { Container, Section } from '@/components/ui/layout';
 import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TextEditor } from '@/components/ui/text-editor';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
+import { CustomRunWorkbench } from '@/features/custom-runs/custom-run-workbench';
 import { SubmissionHistoryPanel } from '@/features/submissions/submission-history-panel';
-import { SubmissionPanel } from '@/features/submissions/submission-panel';
 import type { ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
@@ -415,7 +416,7 @@ function ProblemCode({
           onUnsavedChange={onUnsavedChange}
           historyRef={historyRef}
           renderSubmission={(source) => (
-            <SubmissionPanel
+            <CustomRunWorkbench
               userId={user.id}
               problem={data}
               source={source}
@@ -432,8 +433,16 @@ function ProblemCode({
             <Play aria-hidden="true" />
             运行
           </Button>
+          <TextEditor
+            value=""
+            onChange={() => undefined}
+            readOnly
+            language="plain"
+            size="compact"
+            aria-label="自定义输入数据"
+          />
           <p id="judging-unavailable" className="text-fg-muted text-xs">
-            自定义运行暂未开放。登录并选择支持的题目后可正式提交。
+            登录并选择支持的题目后，可自定义运行和正式提交。
           </p>
         </div>
       ) : null}

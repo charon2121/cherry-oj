@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/custom-run-internal.schema.json",
+  "title": "Custom run internal",
+  "description": "submission-service→judging-service POST /internal/submission/trials，服务凭据认证。正文禁止日志，无重试。deadlineEpochMs为传输期限，非程序资源度量。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "problemId",
+    "problemVersionId",
+    "testDataVersionId",
+    "testDataContentSha256",
+    "languageId",
+    "source",
+    "inputText",
+    "deadlineEpochMs"
+  ],
+  "properties": {
+    "problemId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "problemVersionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "testDataVersionId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "testDataContentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "languageId": {
+      "type": "string",
+      "const": "cpp"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 262144,
+      "description": "非空，UTF-8最多256KiB"
+    },
+    "inputText": {
+      "type": "string",
+      "maxLength": 65536,
+      "description": "UTF-8最多64KiB，空串合法，不trim"
+    },
+    "deadlineEpochMs": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "definitions": {
+    "Response": {
+      "type": "object",
+      "required": [
+        "status",
+        "effectiveLimits"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "COMPILE_ERROR",
+            "RUNTIME_ERROR",
+            "TIME_LIMIT_EXCEEDED",
+            "MEMORY_LIMIT_EXCEEDED",
+            "OUTPUT_LIMIT_EXCEEDED"
+          ]
+        },
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stdout": {
+          "$ref": "web-api.openapi.json#/components/schemas/CustomRunOutput"
+        },
+        "stderr": {
+          "$ref": "web-api.openapi.json#/components/schemas/CustomRunOutput"
+        },
+        "compileDiagnostic": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "effectiveLimits": {
+          "$ref": "web-api.openapi.json#/components/schemas/CustomRunLimits"
+        }
+      }
+    }
+  }
+}

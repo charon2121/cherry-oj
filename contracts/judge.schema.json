@@ -7,7 +7,10 @@
   "x-transport-context": {
     "carrier": "http-headers",
     "propagation": "w3c-trace-context",
-    "headers": ["traceparent", "tracestate"],
+    "headers": [
+      "traceparent",
+      "tracestate"
+    ],
     "baggage": false,
     "requestIdHeader": "X-Request-Id",
     "description": "Trace 上下文只通过 HTTP header 传播，不进入 JudgeRequest/JudgeResult。X-Request-Id 仅关联同一次同步 HTTP 调用，不承担 Trace、身份、幂等或业务主键语义。"
@@ -16,12 +19,18 @@
     "JudgeMode": {
       "type": "string",
       "description": "submit=按 testDataVersionId 从磁盘加载正式测例；trial=使用请求内 cases。它只决定测例来源，不决定结果是否入库。",
-      "enum": ["submit", "trial"]
+      "enum": [
+        "submit",
+        "trial"
+      ]
     },
     "Output": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["excerpt", "bytes"],
+      "required": [
+        "excerpt",
+        "bytes"
+      ],
       "description": "用户程序的受控输出摘要。不得包含隐藏输入或标准答案。",
       "properties": {
         "excerpt": {
@@ -48,7 +57,9 @@
     "Diff": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["line"],
+      "required": [
+        "line"
+      ],
       "description": "WA 时第一处差异。want 是否返回由 judge.revealExpected 决定。",
       "properties": {
         "line": {
@@ -69,7 +80,9 @@
     "CaseSpec": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["input"],
+      "required": [
+        "input"
+      ],
       "description": "trial 的一个文本测试点。expected 缺省表示只运行、不比对。",
       "properties": {
         "input": {
@@ -87,7 +100,10 @@
     "JudgeLimits": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["cpuNs", "memoryBytes"],
+      "required": [
+        "cpuNs",
+        "memoryBytes"
+      ],
       "description": "本次判题已解析并冻结的环境相关绝对限制。judge 不计算语言倍率。",
       "properties": {
         "cpuNs": {
@@ -162,7 +178,9 @@
         "cases": {
           "type": "array",
           "maxItems": 1000,
-          "items": { "$ref": "#/definitions/CaseSpec" },
+          "items": {
+            "$ref": "#/definitions/CaseSpec"
+          },
           "description": "mode=trial 时使用；mode=submit 时忽略"
         }
       },
@@ -184,7 +202,10 @@
     "CaseResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["idx", "verdict"],
+      "required": [
+        "idx",
+        "verdict"
+      ],
       "properties": {
         "idx": {
           "type": "integer",
@@ -214,13 +235,20 @@
         },
         "diff": {
           "$ref": "#/definitions/Diff"
+        },
+        "stderr": {
+          "$ref": "#/definitions/Output",
+          "description": "仅 trial 的标准错误摘要，包括正常退出；submit 不填。"
         }
       }
     },
     "JudgeResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["verdict", "environmentFingerprint"],
+      "required": [
+        "verdict",
+        "environmentFingerprint"
+      ],
       "description": "Go judge 的结果。environmentFingerprint 来自 judge 部署配置，不从请求回显。",
       "properties": {
         "verdict": {

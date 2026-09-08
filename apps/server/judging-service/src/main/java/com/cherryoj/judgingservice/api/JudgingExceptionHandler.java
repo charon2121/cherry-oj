@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
-@RestControllerAdvice(basePackages = "com.cherryoj.judgingservice.api")
+@RestControllerAdvice(basePackages = {"com.cherryoj.judgingservice.api", "com.cherryoj.judgingservice.trial"})
 public class JudgingExceptionHandler {
     @ExceptionHandler(JudgingApiException.class)
     ResponseEntity<Map<String, Object>> problem(JudgingApiException error) {

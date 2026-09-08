@@ -87,6 +87,15 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 1000
+        },
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "formal",
+            "trial"
+          ],
+          "default": "formal",
+          "description": "trial 使用单 case 预算，不改变有效运行限制。"
         }
       },
       "examples": [

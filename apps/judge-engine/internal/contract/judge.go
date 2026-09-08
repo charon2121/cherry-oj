@@ -103,6 +103,7 @@ type CaseResult struct {
 	MemoryBytes int64   `json:"memoryBytes,omitempty"`
 	Message     string  `json:"message,omitempty"`
 	Output      *Output `json:"output,omitempty"` // 非 AC 时带回
+	Stderr      *Output `json:"stderr,omitempty"` // trial only
 	Diff        *Diff   `json:"diff,omitempty"`   // 仅 WA 时
 }
 

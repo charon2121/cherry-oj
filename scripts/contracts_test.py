@@ -44,6 +44,7 @@ class ContractsTest(unittest.TestCase):
     def test_expected_contracts_exist(self) -> None:
         expected = {
             "judge.schema.json",
+            "custom-run-internal.schema.json",
             "judge-node.schema.json",
             "submission.json",
             "problem-judge-snapshot.schema.json",
