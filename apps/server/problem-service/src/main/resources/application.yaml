@@ -1,10 +1,14 @@
+# 通用配置；本地复制 application-local.example.yaml 后直接运行主类。
+# 容器显式设置 SPRING_PROFILES_ACTIVE=dev/test/prod，通过环境变量覆盖。
 spring:
+  profiles:
+    default: local
   application:
     name: problem-service
   datasource:
     url: "${CHERRY_PROBLEM_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_problem}"
     username: "${CHERRY_PROBLEM_DB_USERNAME:cherry_oj_problem}"
-    password: "${CHERRY_PROBLEM_DB_PASSWORD:K_9sF7pR2xQ8bT4vZ6n}"
+    password: "${CHERRY_PROBLEM_DB_PASSWORD}"
   flyway:
     enabled: true
   servlet:
@@ -20,6 +24,9 @@ mybatis:
     map-underscore-to-camel-case: true
 
 cherry:
+  service-calls:
+    # 与 submission-service 的 CHERRY_SUBMISSION_PROBLEM_TOKEN 配对。
+    submission-problem-tokens: "${CHERRY_SERVICE_CALLS_SUBMISSION_PROBLEM_TOKENS:}"
   problem:
     test-data:
       root: "${CHERRY_TEST_DATA_ROOT:./data/problem-testdata}"

@@ -22,6 +22,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 import static org.mockito.Mockito.when;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {"cherry.judging.recovery-enabled=false", "cherry.judging.provision.enabled=false"})
 @Testcontainers(disabledWithoutDocker = true)
 class JudgeNodeRegistryIntegrationTests {
@@ -55,10 +56,10 @@ class JudgeNodeRegistryIntegrationTests {
         assertThat(denied.getStatus()).isEqualTo(401);
         assertThat(json.readTree(denied.getContentAsString()).size()).isEqualTo(2);
         var valid = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/internal/judge-nodes/v1/register")
-                .header("Authorization", "Bearer local-judge-control-token").contentType("application/json").content(body)).andReturn().getResponse();
+                .header("Authorization", "Bearer test-only-node-control-token").contentType("application/json").content(body)).andReturn().getResponse();
         assertThat(valid.getStatus()).isEqualTo(200);
         var invalid = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/internal/judge-nodes/v1/register")
-                .header("Authorization", "Bearer local-judge-control-token").contentType("application/json").content("{}"))
+                .header("Authorization", "Bearer test-only-node-control-token").contentType("application/json").content("{}"))
                 .andReturn().getResponse();
         assertThat(invalid.getStatus()).isEqualTo(400);
         assertThat(json.readTree(invalid.getContentAsString()).size()).isEqualTo(2);

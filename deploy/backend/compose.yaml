@@ -1,0 +1,135 @@
+# Five backend services; external MySQL/Redis/Kafka and existing judge nodes are prerequisites.
+services:
+  gateway-service:
+    build:
+      context: "../../apps/server"
+      args:
+        SERVICE: "gateway-service"
+    image: "cherry-oj-gateway:${BACKEND_TAG:-local}"
+    environment:
+      SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
+      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
+      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
+      CHERRY_LOG_PATH: "/app/logs"
+      CHERRY_USER_SERVICE_URL: "http://user-service:8081"
+      CHERRY_PROBLEM_SERVICE_URL: "http://problem-service:8082"
+      CHERRY_SUBMISSION_SERVICE_URL: "http://submission-service:8083"
+      CHERRY_REDIS_HOST: "${REDIS_HOST:?set Redis host}"
+      CHERRY_REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      CHERRY_REDIS_PORT: "${REDIS_PORT:-6379}"
+      CHERRY_CUSTOM_RUN_ENABLED: "${CUSTOM_RUN_ENABLED:-false}"
+      CHERRY_WEB_ORIGIN: "${WEB_ORIGIN:?set browser origin}"
+      CHERRY_SESSION_SECURE: "${SESSION_SECURE:-false}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "gateway-logs:/app/logs"
+      - "gateway-data:/app/data"
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+  user-service:
+    build:
+      context: "../../apps/server"
+      args:
+        SERVICE: "user-service"
+    image: "cherry-oj-user:${BACKEND_TAG:-local}"
+    environment:
+      SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
+      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
+      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
+      CHERRY_LOG_PATH: "/app/logs"
+      CHERRY_USER_DB_URL: "${USER_DB_URL:?set isolated database URL}"
+      CHERRY_USER_DB_USERNAME: "${USER_DB_USERNAME:?set database user}"
+      CHERRY_USER_DB_PASSWORD: "${USER_DB_PASSWORD:?set database password}"
+      CHERRY_AUTH_PRIVATE_KEY_LOCATION: "file:/run/identity/active-private.pem"
+      CHERRY_AUTH_PUBLIC_KEY_LOCATION: "file:/run/identity/active-public.pem"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "user-logs:/app/logs"
+      - "user-data:/app/data"
+      - "${IDENTITY_KEYS_DIR:?set key directory}:/run/identity:ro"
+  problem-service:
+    build:
+      context: "../../apps/server"
+      args:
+        SERVICE: "problem-service"
+    image: "cherry-oj-problem:${BACKEND_TAG:-local}"
+    environment:
+      SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
+      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
+      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
+      CHERRY_LOG_PATH: "/app/logs"
+      CHERRY_PROBLEM_DB_URL: "${PROBLEM_DB_URL:?set isolated database URL}"
+      CHERRY_PROBLEM_DB_USERNAME: "${PROBLEM_DB_USERNAME:?set database user}"
+      CHERRY_PROBLEM_DB_PASSWORD: "${PROBLEM_DB_PASSWORD:?set database password}"
+      CHERRY_SERVICE_CALLS_SUBMISSION_PROBLEM_TOKENS: "${SUBMISSION_PROBLEM_TOKEN:?set shared token}"
+      CHERRY_JUDGING_BASE_URL: "http://judging-service:8084"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "problem-logs:/app/logs"
+      - "problem-data:/app/data"
+  submission-service:
+    build:
+      context: "../../apps/server"
+      args:
+        SERVICE: "submission-service"
+    image: "cherry-oj-submission:${BACKEND_TAG:-local}"
+    environment:
+      SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
+      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
+      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
+      CHERRY_LOG_PATH: "/app/logs"
+      CHERRY_SUBMISSION_DB_URL: "${SUBMISSION_DB_URL:?set isolated database URL}"
+      CHERRY_SUBMISSION_DB_USERNAME: "${SUBMISSION_DB_USERNAME:?set database user}"
+      CHERRY_SUBMISSION_DB_PASSWORD: "${SUBMISSION_DB_PASSWORD:?set database password}"
+      CHERRY_KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:?set Kafka address}"
+      CHERRY_SUBMISSION_PROBLEM_TOKEN: "${SUBMISSION_PROBLEM_TOKEN:?set shared token}"
+      CHERRY_SUBMISSION_JUDGING_TOKEN: "${SUBMISSION_JUDGING_TOKEN:?set shared token}"
+      CHERRY_JUDGING_SUBMISSION_TOKENS: "${JUDGING_SUBMISSION_TOKEN:?set shared token}"
+      CHERRY_PROBLEM_SERVICE_URL: "http://problem-service:8082"
+      CHERRY_JUDGING_SERVICE_URL: "http://judging-service:8084"
+      CHERRY_SUBMISSION_ACCEPTING: "${FORMAL_ENABLED:-false}"
+      CHERRY_SUBMISSION_MESSAGING_ENABLED: "${FORMAL_ENABLED:-false}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "submission-logs:/app/logs"
+      - "submission-data:/app/data"
+  judging-service:
+    build:
+      context: "../../apps/server"
+      args:
+        SERVICE: "judging-service"
+    image: "cherry-oj-judging:${BACKEND_TAG:-local}"
+    environment:
+      SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
+      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
+      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
+      CHERRY_LOG_PATH: "/app/logs"
+      CHERRY_JUDGING_DB_URL: "${JUDGING_DB_URL:?set isolated database URL}"
+      CHERRY_JUDGING_DB_USERNAME: "${JUDGING_DB_USERNAME:?set database user}"
+      CHERRY_JUDGING_DB_PASSWORD: "${JUDGING_DB_PASSWORD:?set database password}"
+      CHERRY_KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:?set Kafka address}"
+      CHERRY_SUBMISSION_JUDGING_TOKENS: "${SUBMISSION_JUDGING_TOKEN:?set shared token}"
+      CHERRY_JUDGING_SUBMISSION_TOKEN: "${JUDGING_SUBMISSION_TOKEN:?set shared token}"
+      CHERRY_SUBMISSION_SERVICE_URL: "http://submission-service:8083"
+      CHERRY_FORMAL_JUDGING_ENABLED: "${FORMAL_ENABLED:-false}"
+      CHERRY_JUDGE_CONTROL_TOKEN: "${JUDGE_CONTROL_TOKEN:?set engine control token}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - "judging-logs:/app/logs"
+      - "judging-data:/app/data"
+volumes:
+  gateway-logs: {}
+  gateway-data: {}
+  user-logs: {}
+  user-data: {}
+  problem-logs: {}
+  problem-data: {}
+  submission-logs: {}
+  submission-data: {}
+  judging-logs: {}
+  judging-data: {}

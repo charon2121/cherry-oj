@@ -5,32 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 class JavaServiceConfigurationDefaultsTests {
 
     private static final Pattern CHERRY_PLACEHOLDER =
             Pattern.compile("\\$\\{(CHERRY_[A-Z0-9_]+)(?::([^}]*))?}");
-    private static final Pattern PRODUCTION_PROFILE =
-            Pattern.compile("(?m)^\\s*on-profile:\\s*[\"']?(?:prod\\s*\\|\\s*production|production\\s*\\|\\s*prod)[\"']?\\s*$");
-    private static final Set<String> INTENTIONALLY_EMPTY_DEFAULTS = Set.of(
-            "CHERRY_REDIS_PASSWORD",
-            // Formal submission is opt-in; no shared credential or database password is built in.
-            "CHERRY_SUBMISSION_DB_PASSWORD", "CHERRY_SUBMISSION_PROBLEM_TOKEN",
-            "CHERRY_SUBMISSION_JUDGING_TOKEN", "CHERRY_SUBMISSION_JUDGING_TOKENS",
-            "CHERRY_JUDGING_SUBMISSION_TOKEN", "CHERRY_JUDGING_SUBMISSION_TOKENS");
-    private static final Set<String> PRODUCTION_REQUIRED = Set.of(
-            "user-service/application.yaml:CHERRY_USER_DB_PASSWORD",
-            "user-service/application.yaml:CHERRY_AUTH_PRIVATE_KEY_LOCATION",
-            "user-service/application.yaml:CHERRY_AUTH_PUBLIC_KEY_LOCATION",
-            "problem-service/application.yaml:CHERRY_PROBLEM_DB_PASSWORD",
-            "judging-service/application.yaml:CHERRY_JUDGING_DB_PASSWORD",
-            "judging-service/application.yaml:CHERRY_JUDGE_CONTROL_TOKEN");
     private static final Set<String> JAVA_SERVICES = Set.of(
             "gateway-service",
             "user-service",
@@ -45,55 +27,23 @@ class JavaServiceConfigurationDefaultsTests {
             "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/.well-known/jwks.json}";
 
     @Test
-    void everyJavaServiceEnvironmentPlaceholderHasAnIntentionalDefaultOrProductionRequirement() throws IOException {
-        Path serverRoot = serverRoot();
-        List<Path> configurations;
-        try (Stream<Path> paths = Files.walk(serverRoot, 5)) {
-            configurations = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.toString().contains("src/main/resources"))
-                    .filter(path -> path.getFileName().toString().matches("application.*\\.ya?ml"))
-                    .sorted()
-                    .toList();
-        }
-
-        Set<String> services = new HashSet<>();
-        Set<String> productionRequired = new HashSet<>();
-        Set<String> localDefaults = new HashSet<>();
-        Set<String> invalid = new HashSet<>();
-
-        for (Path configuration : configurations) {
-            String service = serverRoot.relativize(configuration).getName(0).toString();
-            services.add(service);
-            String file = service + "/" + configuration.getFileName();
-            for (String document : Files.readString(configuration).split("(?m)^---\\s*$")) {
-                boolean production = PRODUCTION_PROFILE.matcher(document).find();
-                var matcher = CHERRY_PLACEHOLDER.matcher(document);
-                while (matcher.find()) {
-                    String variable = matcher.group(1);
-                    String defaultValue = matcher.group(2);
-                    String key = file + ":" + variable;
-                    if (defaultValue == null) {
-                        if (production && PRODUCTION_REQUIRED.contains(key)) {
-                            productionRequired.add(key);
-                        } else {
-                            invalid.add(key + " has no default outside a production-only document");
-                        }
-                    } else if (defaultValue.isEmpty()) {
-                        if (!INTENTIONALLY_EMPTY_DEFAULTS.contains(variable)) {
-                            invalid.add(key + " has an unclassified empty default");
-                        }
-                    } else if (!production) {
-                        localDefaults.add(key);
-                    }
+    void sharedConfigurationIsCompleteWithoutEmbeddingPrivateCredentials() throws IOException {
+        Path root = serverRoot();
+        for (String service : JAVA_SERVICES) {
+            Path resources = root.resolve(service + "/src/main/resources");
+            String configuration = Files.readString(resources.resolve("application.yaml"));
+            assertThat(configuration).contains("default: local").doesNotContain("spring.config.additional-location", "optional:file:");
+            assertThat(resources.resolve("application-local.example.yaml")).isRegularFile();
+            var matcher = CHERRY_PLACEHOLDER.matcher(configuration);
+            while (matcher.find()) {
+                String key = matcher.group(1), value = matcher.group(2);
+                if (key.endsWith("_DB_PASSWORD")) {
+                    assertThat(value).as(key + " must be externally supplied").isNull();
+                } else if ((key.contains("TOKEN") && !key.contains("TTL")) || key.endsWith("_PASSWORD")) {
+                    assertThat(value == null || value.isEmpty()).as(key + " cannot have a shared secret default").isTrue();
                 }
             }
         }
-
-        assertThat(services).containsExactlyInAnyOrderElementsOf(JAVA_SERVICES);
-        assertThat(invalid).isEmpty();
-        assertThat(productionRequired).containsExactlyInAnyOrderElementsOf(PRODUCTION_REQUIRED);
-        assertThat(localDefaults).containsAll(PRODUCTION_REQUIRED);
     }
 
     @Test

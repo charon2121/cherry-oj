@@ -1,0 +1,11 @@
+# 复制为 application-local.yaml，填写本地值。空凭据必须填写，不能直接运行。
+# 服务 token 至少 32 位 URL-safe 字符；发送/接收值必须配对，详见 README。
+spring:
+  data:
+    redis:
+      host: "127.0.0.1"
+      port: "6379"
+      password: ""
+cherry:
+  custom-run:
+    enabled: "true"

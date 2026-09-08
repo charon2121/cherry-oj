@@ -1,10 +1,14 @@
+# 通用配置；本地复制 application-local.example.yaml 后直接运行主类。
+# 容器显式设置 SPRING_PROFILES_ACTIVE=dev/test/prod，通过环境变量覆盖。
 spring:
+  profiles:
+    default: local
   application:
     name: submission-service
   datasource:
     url: "${CHERRY_SUBMISSION_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_submission?serverTimezone=UTC}"
     username: "${CHERRY_SUBMISSION_DB_USERNAME:cherry_oj_submission}"
-    password: "${CHERRY_SUBMISSION_DB_PASSWORD:}"
+    password: "${CHERRY_SUBMISSION_DB_PASSWORD}"
   kafka:
     bootstrap-servers: "${CHERRY_KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}"
     producer:

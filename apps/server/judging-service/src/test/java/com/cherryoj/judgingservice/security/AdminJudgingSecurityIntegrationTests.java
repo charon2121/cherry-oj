@@ -36,8 +36,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {
         "spring.flyway.enabled=false",
+        "cherry.service-calls.submission-judging-tokens=work044-synthetic-service-token-0123456789",
         "spring.datasource.url=jdbc:mysql://127.0.0.1:1/not-used",
         "spring.datasource.username=none",
         "cherry.judging.recovery-enabled=false",
@@ -51,6 +53,7 @@ class AdminJudgingSecurityIntegrationTests {
     private final MockMvc mvc;
 
     @MockitoBean JudgingReadinessService service;
+    @MockitoBean com.cherryoj.judgingservice.api.SubmissionExecutionProfileController executionProfiles;
 
     @Autowired
     AdminJudgingSecurityIntegrationTests(WebApplicationContext context) {
@@ -108,6 +111,33 @@ class AdminJudgingSecurityIntegrationTests {
                         .header("Authorization", authorization)
                         .content(prefix + "\"cpuNs\":9223372036854775808," + suffix))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void trialRouteRequiresServiceCredentialEvenForAdminJwt() throws Exception {
+        String path = "/internal/submission/trials";
+        String body = """
+                {"problemId":"019c8e42-7f70-7000-8000-000000000010",
+                 "problemVersionId":"019c8e42-7f70-7000-8000-000000000011",
+                 "testDataVersionId":"019c8e42-7f70-7000-8000-000000000012",
+                 "testDataContentSha256":"%s","languageId":"cpp","source":"int main(){}",
+                 "inputText":"","deadlineEpochMs":%d}
+                """.formatted("0".repeat(64), System.currentTimeMillis() + 45000);
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
+                .header("Authorization", "Bearer " + token("ADMIN"))).andExpect(status().isUnauthorized());
+        // 下游无需功能开关；正确凭据进入执行配置检查，错误凭据不能触及执行逻辑。
+        org.mockito.Mockito.verifyNoInteractions(executionProfiles);
+        when(executionProfiles.resolve(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(new com.cherryoj.judgingservice.api.JudgingApiException(
+                        org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                        "RUN_LIMIT_UNSUPPORTED", "测试执行配置不支持自测。"));
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
+                .header("Authorization", "Bearer work044-synthetic-service-token-0123456789"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("RUN_LIMIT_UNSUPPORTED"));
+        org.mockito.Mockito.verify(executionProfiles).resolve(org.mockito.ArgumentMatchers.any());
     }
 
     private static String token(String role) {

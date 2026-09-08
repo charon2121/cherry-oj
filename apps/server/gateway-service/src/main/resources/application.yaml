@@ -1,4 +1,8 @@
+# 通用配置；本地复制 application-local.example.yaml 后直接运行主类。
+# 容器显式设置 SPRING_PROFILES_ACTIVE=dev/test/prod，通过环境变量覆盖。
 spring:
+  profiles:
+    default: local
   application:
     name: gateway-service
   http:
@@ -29,6 +33,8 @@ server:
         path: /api
 
 cherry:
+  custom-run:
+    enabled: ${CHERRY_CUSTOM_RUN_ENABLED:true}
   gateway:
     submission-service-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:8083}"
     user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:8081}"

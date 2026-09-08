@@ -1,4 +1,8 @@
+# 通用配置；本地复制 application-local.example.yaml 后直接运行主类。
+# 容器显式设置 SPRING_PROFILES_ACTIVE=dev/test/prod，通过环境变量覆盖。
 spring:
+  profiles:
+    default: local
   application:
     name: judging-service
   kafka:
@@ -24,7 +28,7 @@ spring:
   datasource:
     url: "${CHERRY_JUDGING_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_judging?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}"
     username: "${CHERRY_JUDGING_DB_USERNAME:cherry_oj_judging}"
-    password: "${CHERRY_JUDGING_DB_PASSWORD:K_9sF7pR2xQ8bT4vZ6n}"
+    password: "${CHERRY_JUDGING_DB_PASSWORD}"
   servlet:
     multipart:
       max-file-size: 100MB
@@ -57,7 +61,7 @@ cherry:
     read-timeout: 2s
   judging:
     node:
-      control-token: "${CHERRY_JUDGE_CONTROL_TOKEN:local-judge-control-token}"
+      control-token: "${CHERRY_JUDGE_CONTROL_TOKEN:}"
       lease-duration: "${CHERRY_JUDGE_NODE_LEASE_DURATION:35s}"
       deployment-mode: "${CHERRY_JUDGE_DEPLOYMENT_MODE:node-remote}"
     testdata-root: "${CHERRY_JUDGE_TESTDATA_ROOT:./data/judge-testdata}"

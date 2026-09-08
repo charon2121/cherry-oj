@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration name="UserServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="user-service" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.cherryoj.userservice.UserServiceApplication" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

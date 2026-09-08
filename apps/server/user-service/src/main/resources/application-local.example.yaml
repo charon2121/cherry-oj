@@ -1,0 +1,11 @@
+# 复制为 application-local.yaml，填写本地值。空凭据必须填写，不能直接运行。
+# 服务 token 至少 32 位 URL-safe 字符；发送/接收值必须配对，详见 README。
+spring:
+  datasource:
+    url: "jdbc:mysql://127.0.0.1:3306/cherry_oj_user"
+    username: "cherry_oj_user"
+    password: ""
+cherry:
+  auth:
+    private-key-location: "file:<server-directory>/data/identity-keys/active-private.pem"
+    public-key-location: "file:<server-directory>/data/identity-keys/active-public.pem"

@@ -23,6 +23,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties={"cherry.judging.node.deployment-mode=node-remote","cherry.judging.node.control-token=test-control"})
 @Testcontainers(disabledWithoutDocker=true)
 class NodeDeploymentIntegrationTests {

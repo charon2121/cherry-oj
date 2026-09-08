@@ -33,6 +33,7 @@ import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {
         "cherry.auth.mode=test",
         "spring.main.web-application-type=none",

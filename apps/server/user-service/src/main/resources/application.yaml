@@ -1,10 +1,14 @@
+# 通用配置；本地复制 application-local.example.yaml 后直接运行主类。
+# 容器显式设置 SPRING_PROFILES_ACTIVE=dev/test/prod，通过环境变量覆盖。
 spring:
+  profiles:
+    default: local
   application:
     name: user-service
   datasource:
     url: "${CHERRY_USER_DB_URL:jdbc:mysql://127.0.0.1:3306/cherry_oj_user}"
     username: "${CHERRY_USER_DB_USERNAME:cherry_oj_user}"
-    password: "${CHERRY_USER_DB_PASSWORD:K_9sF7pR2xQ8bT4vZ6n}"
+    password: "${CHERRY_USER_DB_PASSWORD}"
   flyway:
     enabled: true
 
@@ -15,6 +19,11 @@ mybatis:
 
 cherry:
   auth:
+    mode: "${CHERRY_AUTH_MODE:server}"
+    key-id: "${CHERRY_AUTH_KEY_ID:}"
+    # 旧公钥按 key-id 映射，仅在轮换时配置，不包含私钥。
+    # previous-public-keys:
+    #   old-key-id: "file:/path/to/old-public.pem"
     issuer: "${CHERRY_AUTH_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_AUTH_AUDIENCE:cherry-oj-internal}"
     private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:file:./data/identity-keys/active-private.pem}"

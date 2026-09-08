@@ -1,0 +1,8 @@
+**/application-local.yaml
+**/application-local.yml
+**/.local
+**/.idea
+**/src
+**/logs
+**/data
+.git

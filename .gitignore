@@ -8,3 +8,10 @@ logs/
 **/data/identity-keys/
 .vscode/
 password
+
+# Private local server settings and migration backups
+/apps/server/.local/
+
+# Per-service private Spring local configuration
+**/application-local.yaml
+**/application-local.yml

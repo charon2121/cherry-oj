@@ -1,0 +1,4 @@
+cherry:
+  judging:
+    node:
+      control-token: test-only-node-control-token

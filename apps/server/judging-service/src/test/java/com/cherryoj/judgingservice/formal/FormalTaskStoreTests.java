@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties={"cherry.formal.enabled=false","cherry.judging.recovery-enabled=false"})
 @Testcontainers
 class FormalTaskStoreTests {

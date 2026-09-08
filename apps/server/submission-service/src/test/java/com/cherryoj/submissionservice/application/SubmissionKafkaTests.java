@@ -24,6 +24,7 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties={"cherry.submission.messaging-enabled=true","cherry.submission.accepting=true"})
 @Testcontainers
 @org.springframework.test.annotation.DirtiesContext(classMode=org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)

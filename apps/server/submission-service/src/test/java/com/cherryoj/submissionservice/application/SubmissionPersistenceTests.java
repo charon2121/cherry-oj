@@ -23,6 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties={"cherry.submission.messaging-enabled=false","cherry.submission.accepting=false"})
 @Testcontainers
 class SubmissionPersistenceTests {

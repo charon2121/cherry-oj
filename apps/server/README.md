@@ -1,6 +1,6 @@
 # Cherry OJ Server
 
-这里是 Cherry OJ 的 Java 服务端基础工程。当前已经建立五个可独立启动、测试和打包的 Spring Boot 服务；数据库、鉴权、题库、提交和异步判题等业务能力仍待后续任务实现。
+这里是 Cherry OJ 的 Java 服务端基础工程。当前包含五个可独立启动、测试和打包的 Spring Boot 服务，承载数据库、鉴权、题库、提交和异步判题。
 
 如果你想理解 Maven、Spring Boot Starter、WebMVC 和 WebFlux 分别做什么，请看 [`TOOLCHAIN.md`](./TOOLCHAIN.md)。本页只讲怎样运行和验收现有工程。
 
@@ -12,7 +12,7 @@
 - `submission-service`，端口 8083：提交记录、不可变 JudgeInput 和判题状态。
 - `judging-service`，端口 8084：判题环境、任务编排，以及与 Go judge 的通信。
 
-这些是目标职责，也是模块边界。现阶段各服务只有启动入口、端口和健康检查，还没有业务 API、数据库或服务间路由。看到进程健康，只能证明基础工程可运行，不能代表相应产品功能已经完成。
+这些职责也是模块边界。进程健康不等于产品功能完成，具体能力仍须验证完整调用链。
 
 ## 先完成一次全量构建
 
@@ -35,7 +35,7 @@ cd apps/server
 
 ## 启动一个服务
 
-在 `apps/server` 目录中运行：
+首次按 [配置说明](./CONFIGURATION.md) 填写本地文件后，在 `apps/server` 目录中运行：
 
 ```bash
 ./mvnw -pl gateway-service spring-boot:run
@@ -91,31 +91,11 @@ curl -sS http://127.0.0.1:8080/actuator/health
 `logging-support` 模块。服务通过该模块获得 MVC/WebFlux HTTP 完成日志与 Trace 关联，不复制过滤器。
 完整字段、传播边界和 Go 对齐规则见 [`../../docs/logging.md`](../../docs/logging.md)。
 
-### 本地默认与生产 Secret
+### 本地配置与容器环境
 
-五个 Java 服务的 `application.yaml` 都提供了可直接启动的本地默认值。准备好配置所指向的 MySQL
-schema/账号和 Redis 后，启动命令本身不需要先 `export CHERRY_*`。默认值只解决配置输入，不会自动
-创建数据库、账号，也不会启动 MySQL、Redis 或 Go Judge。
-
-user-service 在没有显式 RSA 配置时，会在进程内随机生成一把仅限本地联调的临时签名密钥。密钥不会
-写入仓库或磁盘，但服务重启后旧 JWT 会失效，且这种模式不能用于多实例或生产部署。启动日志会给出
-临时密钥警告，不会打印密钥内容。
-
-部署使用 `prod` 或 `production` Spring profile。该 profile 下，user/problem/judging 数据库密码和
-user-service 的 `kid`、私钥位置、公钥位置都必须由环境或 Secret 显式提供；缺失时服务启动失败，不会
-回落到本地口令或临时密钥。现有变量名保持不变：
-
-- `CHERRY_USER_DB_PASSWORD`、`CHERRY_PROBLEM_DB_PASSWORD`、`CHERRY_JUDGING_DB_PASSWORD`；
-- `CHERRY_AUTH_KEY_ID`、`CHERRY_AUTH_PRIVATE_KEY_LOCATION`、`CHERRY_AUTH_PUBLIC_KEY_LOCATION`。
-
-Gateway 的 `CHERRY_REDIS_PASSWORD` 默认空字符串，表示本地 Redis 未启用鉴权，这是有意保留的有效
-配置；需要密码时照常覆盖。
-
-例如把所有 Java 日志写到 `/srv/log/cherry-oj`：
-
-```bash
-CHERRY_LOG_PATH=/srv/log/cherry-oj ./mvnw -pl gateway-service spring-boot:run
-```
+基础配置不再内置数据库密码或服务秘密。按 [CONFIGURATION.md](./CONFIGURATION.md)
+准备本地私有文件；容器通过 Compose 选择非 local Profile 并提供环境变量。
+发布 JAR 不包含本地配置；缺少必要凭据不能用开发默认密码启动。
 
 ## 产品审核时看什么
 
@@ -188,3 +168,11 @@ mysql --defaults-extra-file=/安全路径/mysql.cnf cherry_oj_judging < /tmp/swi
 `python3 apps/server/judging-service/scripts/node-e2e.py`。脚本建立独立 MySQL/Redis、五服务、
 Compose 项目与卷，从 Finder ZIP 上传、绑定、部署到 C++ 校准，并验证节点停止/恢复。
 结束只清理本次创建的资源，证据保存在打印的临时目录。
+
+
+## 配置与本地启动
+
+五服务统一使用 `application.yaml`、`application-local.example.yaml` 和不入库的
+`application-local.yaml`。默认 Profile 为 local；首次填写本地文件后，直接运行主类即可，
+不配置 VM 参数、Program 参数或环境变量。原 .local/*.properties 和 IDE 参数已移除。
+完整配置说明、凭据配对及 Compose 操作见 [CONFIGURATION.md](./CONFIGURATION.md)。

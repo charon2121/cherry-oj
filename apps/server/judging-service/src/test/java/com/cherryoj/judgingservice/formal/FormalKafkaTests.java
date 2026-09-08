@@ -26,6 +26,7 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
+@org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties={"cherry.formal.enabled=true","cherry.formal.submission-token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "cherry.judging.recovery-enabled=false"})
 @Testcontainers

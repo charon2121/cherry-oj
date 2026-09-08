@@ -1,0 +1,7 @@
+
+**/application-local.yaml
+**/application-local.yml
+**/.local
+**/.idea
+**/target
+.git

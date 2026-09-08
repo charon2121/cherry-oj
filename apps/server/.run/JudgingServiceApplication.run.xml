@@ -2,6 +2,7 @@
   <configuration default="false" name="JudgingServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
     <module name="judging-service" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.cherryoj.judgingservice.JudgingServiceApplication" />
+    <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>

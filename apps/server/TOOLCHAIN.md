@@ -121,9 +121,10 @@ V2 migration 追加节点、租约与逐节点部署表，不删除 V1 环境、
 
 ## 本地启动默认与生产配置边界
 
-五个服务的 `application.yaml` 对本地启动必需的 `CHERRY_*` 配置提供默认值，开发者准备好默认地址上的
-MySQL/Redis 后可以直接执行 `spring-boot:run`。空 Redis 密码表示本地无鉴权，judging 环境预置字段在
-功能关闭时允许为空，`${LOG_FILE}` 由 Spring 日志系统在运行时提供；这些都不是缺失的环境变量。
+五个服务默认启用 local Profile，从各自资源目录的 application-local.yaml 读取本机私有值。
+application-local.example.yaml 提供填写示例，application.yaml 保留公共字段和安全默认值；
+无需注入配置用途的启动参数或环境变量。发布 JAR 排除私有配置；测试选择非 local Profile。
+详见 [CONFIGURATION.md](./CONFIGURATION.md)。judging 的开发预置现在只保留在测试资源中。
 
 user-service 默认读取 `apps/server/data/identity-keys` 中的持久 RSA 密钥。首次本地运行前从仓库根执行
 `scripts/identity-keys init`；命令使用 3072 位 RSA、原子落盘、拒绝覆盖，并将私钥目录和文件限制为仅
@@ -152,7 +153,7 @@ Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验�
 三个数据库密码和 user-service 的三项当前密钥配置
 没有默认值，必须由部署 Secret 注入；user-service 代码也拒绝 `generated:local` 和默认本地 `kid`。
 身份/JWKS/metadata 及服务间调用均接受 HTTP 或 HTTPS，以适配可信内网和已有反向代理；
-本地数据库默认口令是公开开发约定，不具备 Secret 属性，不得用于共享、测试或生产环境。
+基础配置不再包含本地数据库口令。真实密码只写入本机 application-local.yaml 或由部署环境提供，不能进入 Git、JAR、镜像或测试配置。
 
 ## 五个服务共有的依赖
 
