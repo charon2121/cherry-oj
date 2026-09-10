@@ -46,6 +46,12 @@ try:
     for name in (helper,server):
         subprocess.run(['systemctl','show',name,'-p','MemoryMax','-p','TasksMax','-p','CPUQuotaPerSecUSec','-p','MainPID'],check=True)
     launch(driver,['MemoryMax=128M','MemorySwapMax=0','TasksMax=16','CPUQuota=50%','RuntimeMaxSec=150'],['python3',str(base/'http_chain.py'),str(base),mode,unit],wait=True)
+except BaseException:
+    # Preserve service state before finally stops it; a reset is not proof that helper crashed.
+    for name in (helper,server):
+        subprocess.run(['systemctl','show',name,'-p','ActiveState','-p','MainPID','-p','Result','-p','ExecMainStatus'],check=False,timeout=5)
+        subprocess.run(['journalctl','--unit='+name,'--no-pager','-n','80'],check=False,timeout=5)
+    raise
 finally:
     subprocess.run(['systemctl','stop',server,helper],check=False)
     for name in (server,helper):

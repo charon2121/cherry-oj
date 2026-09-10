@@ -83,3 +83,11 @@ result=pending；用户已签署意图闸并允许实施，验收闸未签署；
 - 修正测试采样：线程消失时丢弃整份样本，在原2s观察期限内再次采样，不能保留部分线程绕过全线程权限断言。
 - 原有Go job的TestEndToEndCpp与TestEndToEndJavaWithInnerClass各在5.01s编译退出-1；未出现race诊断。两者使用未修改的host开发夹具。包间资源竞争只是待验证推断；CI改为-p=1限制测试包间调度，保留包内并发、race、完整包集合及原5s期限，并保证失败时仍打印工具链版本。
 - 本次失败报告和日志保留在原运行产物中。修正后使用新提交完整运行，不将首轮覆盖或登记为成功。
+
+## 第二轮：通过采样后暴露连续请求异常
+
+[34464741702](https://github.com/charon2121/cherry-oj/actions/runs/34464741702) 对应54e728a9e3b3ac380b930e82432d5cbfb886360a：完整Go/race按包串行通过。Linux已通过边界、11线程身份/六namespace/只读挂载/资源限额、静态smoke和extended；C++链已通过编译、输入输出、CPU及进程树、OOM、OLE后空程序、普通SIGKILL、线程/后台回收及网络/mount/ptrace拒绝。
+
+magiclink请求在helper连接上被reset，结果InternalError，未达到原Signalled/SIGSYS断言，不能通过。CPU与整树本轮分别约1.002/1.003秒CPU、1.058/1.063秒墙钟；空程序峰值约8MiB。后续1000次等未执行，失败后最终资源仍为空。
+
+只读源码发现helper发Completion后才由外层defer归还槽，而接入处无可用槽时立即关闭连接，可能存在连续请求窗口。连接reset本身不足以证明该归因；新增失败时、停服前的有界systemctl/journal证据，以区分容量拒绝与服务退出。保持原断言，不添加请求sleep/重试或提高并发槽，也未修改禁止范围内的生产Go代码。
