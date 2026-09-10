@@ -200,3 +200,9 @@ WORK-051已由用户签署验收闸，TASK-114修复及独立复核完成。内�
 本地Darwin24.3.0/arm64，基于a0e1b35的未提交修改：`PYTHONDONTWRITEBYTECODE=1 python3 deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work050-native-basic-3`通过，15安装+6rootfs+34CI单测（新增11项反例），50个Python AST、4个shell语法；`/private/tmp/cherry-work050-actionlint/actionlint -shellcheck= .github/workflows/ci.yml`通过。已有及新增workflow共9job，其中native尚未远端执行，不能宣称9job或10部署case通过。
 
 反例包括缺/重复cap删减、缺恢复标记、错误指纹、无线程/计量值、旧节点注册、未知fragment/drop-in/enable、被改写单元、残留阻止删除、别轮marker拒绝、无需完成安装回执的清理声明，以及先停驱动再清理且失败保留证据。真实取消与部分安装故障仍需Linux执行证明，不把mock当内核实测。TASK-111保持doing，TASK-112/113未开始；本批提交推送等待对应发布授权，历史helper/语言测试推送许可不扩张到新部署job。
+
+## TASK-111首轮Linux实测失败（2026-09-11）
+
+[CI34501990167](https://github.com/charon2121/cherry-oj/actions/runs/34501990167)对应93df0acf00a002cc3c5871ca843b948e4c17d79e，Linux6.17.0-1022-azure/amd64。原生安装、线程/namespace/24项限额、三种缺文件及三服务在途崩溃共8项PASS；caps脚本的七权限正例及全部7个逐项删减均通过，随后finally中的manage.operate(start)启动judge失败，native.caps记FAIL、uninstall记NOT_RUN。并非capability隔离拒绝断言失败，也不能凭此前绿灯将整个caps场景计PASS。
+
+下载原报告至/private/tmp/cherry-work050-native-34501990167，report.validate(successful=False)和verify_files核验SHA/harness及证据通过；cleanup.confirmed=true，native-resources-after的tasks/mounts/cgroups/paths/accounts/groups全部为空，resources-after亦为空。此次完整清理通过。现有管理入口只展示CalledProcessError，无捕获的systemd错误详情，无法区分启动频率限制、隔离能力或其他原因。追加失败时显式systemctl状态字段取证（含Result及StartLimit配置），有界写日志，不采集任意日志或凭据，不改原断言/限额、不先reset-failed或sleep。下一次仅用于带诊断定位，首轮失败保留。

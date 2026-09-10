@@ -100,6 +100,17 @@ class Native:
         self.fingerprint = value['environmentFingerprint']
         return value
 
+    def diagnose(self):
+        # A failed management command intentionally omits captured stderr. Retain only explicit
+        # systemd state fields, not arbitrary journal messages or token-bearing configuration.
+        fields = ('Id', 'LoadState', 'ActiveState', 'SubState', 'Result', 'ExecMainCode', 'ExecMainStatus',
+                  'StartLimitBurst', 'StartLimitIntervalUSec', 'NRestarts', 'MainPID', 'ControlGroup',
+                  'FragmentPath', 'DropInPaths', 'UnitFileState')
+        argv = ['systemctl', 'show', *UNITS]
+        for field in fields:
+            argv += ['-p', field]
+        run(argv, self.report.output / 'service-failure.log', 10)
+
     def execute(self):
         port = self.start_control()
         source, review = self.prepare(port)
@@ -167,6 +178,11 @@ def main():
         if next(c for c in report.data['cases'] if c['id'] == case)['status'] == 'NOT_RUN':
             status = 'CANCELLED' if isinstance(error, (InterruptedError, KeyboardInterrupt)) else ('FAIL' if native else 'ENVIRONMENT_ERROR')
             report.record([case], status, ['failure.json'])
+        if native is not None and RECORD.exists():
+            try:
+                native.diagnose()
+            except BaseException as diagnostic_error:
+                (report.output / 'diagnostic-error.json').write_text(json.dumps(dict(type=type(diagnostic_error).__name__)) + '\n')
         raise
     finally:
         try:
