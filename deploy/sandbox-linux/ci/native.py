@@ -110,6 +110,10 @@ class Native:
         for field in fields:
             argv += ['-p', field]
         run(argv, self.report.output / 'service-failure.log', 10)
+        # The helper has no control-plane token or user session. Limit to this owned helper's
+        # current-boot log; never collect the host journal or the token-bearing judge service.
+        run(['journalctl', '--boot', '--unit=cherry-sandbox-helper.service', '--no-pager',
+             '--output=cat', '--lines=120'], self.report.output / 'helper-failure.log', 10)
 
     def execute(self):
         port = self.start_control()
