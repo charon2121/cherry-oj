@@ -164,8 +164,8 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "fail",
+        "note": "451b4d6正式CI34476081108为7/8成功，C++与Java功能测试触发5秒wall；内核63项及回收通过，但不能认定整体CI稳定"
       },
       {
         "name": "reliability",

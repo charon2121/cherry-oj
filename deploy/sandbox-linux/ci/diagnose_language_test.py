@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from diagnose_language import java_source, java_usage, wrappers
+from diagnose_language import java_source, java_usage, wrappers, jdk_files
 
 
 class LanguageDiagnosticTest(unittest.TestCase):
@@ -37,6 +37,30 @@ class LanguageDiagnosticTest(unittest.TestCase):
             self.assertEqual({p.name for p in directory.iterdir()}, {'javac', 'jar'})
             self.assertIn("exec '/path with spaces/javac' -J-XX:TieredStopAtLevel=1", (directory / 'javac').read_text())
             self.assertTrue(env['PATH'].startswith(str(directory)))
+
+    def test_preload_rejects_missing_linked_and_oversized_toolchain(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            java = root / 'bin/java'
+            with self.assertRaises(ValueError):
+                jdk_files(java)
+            names = ('bin/java', 'bin/javac', 'bin/jar', 'lib/modules', 'lib/server/libjvm.so',
+                     'lib/libjava.so', 'lib/libjli.so', 'lib/libzip.so', 'lib/libjimage.so')
+            for name in names:
+                p = root / name
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_bytes(b'fixture')
+            self.assertEqual(len(jdk_files(java)), 9)
+            modules = root / 'lib/modules'
+            modules.unlink()
+            modules.symlink_to(java)
+            with self.assertRaises(ValueError):
+                jdk_files(java)
+            modules.unlink()
+            with modules.open('wb') as output:
+                output.truncate((256 << 20) + 1)
+            with self.assertRaises(ValueError):
+                jdk_files(java)
 
 
 if __name__ == '__main__':

@@ -3,14 +3,20 @@ package language_test
 import (
 	"bytes"
 	"context"
+	"flag"
 	"io"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
+	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/judge/language"
 	"cherry-oj/judge-engine/internal/sandbox/container"
 )
+
+// 只用于可信语言功能夹具；诊断可显式保留原5秒，生产与运行期限不受影响。
+var compileClock = flag.Duration("language-compile-clock", 5*time.Second, "trusted language fixture compile deadline (0 < deadline <= 30s)")
 
 // 集成测试：用真的 container 跑一遍 registry 里的命令，
 // 编译 → 收产物 → **换一个干净工作间** → 运行。
@@ -50,8 +56,12 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 	var artifact []byte
 	if lang.NeedsCompile() {
 		var cerr bytes.Buffer
+		if *compileClock <= 0 || *compileClock > 30*time.Second {
+			t.Fatal("language-compile-clock must be within (0, 30s]")
+		}
 		p, err := build.Start(context.Background(),
-			container.Spec{Command: lang.Compile, Stderr: &cerr})
+			container.Spec{Command: lang.Compile, Stderr: &cerr,
+				Limits: contract.Limits{ClockNs: compileClock.Nanoseconds()}})
 		if err != nil {
 			t.Fatalf("编译 Start: %v", err)
 		}

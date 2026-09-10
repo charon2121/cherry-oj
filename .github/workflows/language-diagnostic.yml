@@ -2,6 +2,17 @@ name: Language diagnostic
 
 on:
   workflow_dispatch:
+    inputs:
+      preload:
+        description: JDK file preload group (no JVM execution)
+        type: choice
+        options: [none, odd, even]
+        default: none
+      compile_seconds:
+        description: Explicit diagnostic compile deadline
+        type: choice
+        options: ['5', '15', '30']
+        default: '5'
 
 permissions:
   contents: read
@@ -12,7 +23,7 @@ concurrency:
 
 jobs:
   measure:
-    name: 原 5 秒期限诊断（${{ matrix.replica }}）
+    name: 编译期限与文件加载对照（${{ matrix.replica }}）
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
@@ -30,9 +41,13 @@ jobs:
           go-version-file: apps/judge-engine/go.mod
           cache-dependency-path: apps/judge-engine/go.sum
       - name: 首次与重复样本、编译分段及候选启动参数
+        env:
+          PRELOAD_GROUP: ${{ inputs.preload }}
+          COMPILE_SECONDS: ${{ inputs.compile_seconds }}
         run: >-
           python3 deploy/sandbox-linux/ci/diagnose_language.py
           --output "$RUNNER_TEMP/language-diagnostic" --replica '${{ matrix.replica }}'
+          --preload "$PRELOAD_GROUP" --compile-seconds "$COMPILE_SECONDS"
       - name: 保存全部样本（失败也保留）
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

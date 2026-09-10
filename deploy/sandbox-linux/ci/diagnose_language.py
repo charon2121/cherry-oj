@@ -13,6 +13,7 @@ import shlex
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
 import zipfile
@@ -104,10 +105,11 @@ def wrappers(directory, tools, *, delayed=False, base_env=None):
     return env
 
 
-def sample(binary, output, label, env=None, *, all_languages=False):
+def sample(binary, output, label, env=None, *, all_languages=False, compile_seconds=5):
     pattern = '^TestEndToEnd' if all_languages else '^TestEndToEndJavaWithInnerClass$'
     log = output / (label + '.log')
-    item = measure([binary, '-test.v', '-test.count=1', '-test.run=' + pattern], log, 30,
+    item = measure([binary, '-test.v', '-test.count=1', '-test.run=' + pattern,
+                    f'-language-compile-clock={compile_seconds}s'], log, 2 * compile_seconds + 20,
                    cwd=ENGINE, env=env)
     text = log.read_text()
     item.update(label=label, usage=java_usage(text))
@@ -141,10 +143,49 @@ def stages(work, output, label, tools, candidate):
     return record
 
 
+def jdk_files(java):
+    root = Path(java).resolve().parents[1]
+    names = ('bin/java', 'bin/javac', 'bin/jar', 'lib/modules', 'lib/server/libjvm.so',
+             'lib/libjava.so', 'lib/libjli.so', 'lib/libzip.so', 'lib/libjimage.so')
+    paths = [root / name for name in names]
+    for path in paths:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('JDK preload requires regular files: ' + str(path))
+    if sum(path.stat().st_size for path in paths) > 256 << 20:
+        raise ValueError('JDK preload exceeds 256 MiB')
+    return paths
+
+
+def preload_jdk(java, output):
+    # Reading files only: no JVM execution or JIT warmup. A separately supervised
+    # process bounds disk stalls as well as bytes; no cache eviction or sudo.
+    paths = jdk_files(java)
+    code = '''import os, stat, sys
+total = 0
+for name in sys.argv[1:]:
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, 'rb') as source:
+        if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+            raise ValueError('non-regular JDK file')
+        while data := source.read(1 << 20):
+            total += len(data)
+            if total > 256 << 20:
+                raise ValueError('JDK preload exceeds byte budget')
+print(total)
+'''
+    record = measure([sys.executable, '-c', code, *paths], output / 'preload-jdk.log', 30, cwd=ENGINE)
+    if not record['completed']:
+        raise RuntimeError('JDK preload failed; cannot label this VM preloaded')
+    record.update(files=[str(path) for path in paths], bytes=int((output / 'preload-jdk.log').read_text()))
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--replica', type=int, choices=(1, 2, 3), required=True)
+    parser.add_argument('--preload', choices=('none', 'odd', 'even'), default='none')
+    parser.add_argument('--compile-seconds', type=int, choices=(5, 15, 30), default=5)
     args = parser.parse_args()
     if platform.system() != 'Linux' or os.environ.get('RUNNER_ENVIRONMENT') != 'github-hosted':
         raise RuntimeError('diagnostic execution requires a disposable GitHub Linux VM')
@@ -157,7 +198,8 @@ def main():
     if libc.prctl(36, 1, 0, 0, 0) != 0:  # PR_SET_CHILD_SUBREAPER, applies only to this process.
         raise OSError(ctypes.get_errno(), 'cannot own diagnostic descendants')
     report = dict(sourceSha=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-                  replica=args.replica, testDeadlineSeconds=5, candidateAdopted=False,
+                  replica=args.replica, testDeadlineSeconds=args.compile_seconds, candidateAdopted=False,
+                  preloadJdk=args.preload == ('odd' if args.replica % 2 else 'even'),
                   diagnosticCompleted=False, baselinePassed=False, samples=[], stages=[], cleanup=False)
     tools = {name: shutil.which(name) for name in ('java', 'javac', 'jar', 'go')}
     if not all(tools.values()):
@@ -179,14 +221,23 @@ def main():
             binary = work / 'language.test'
             run(['go', 'test', '-race', '-c', '-o', binary, './internal/judge/language'],
                 output / 'build.log', 180, cwd=ENGINE, env=baseline_env)
-            # No Java version/probe/prewarm before the first real test on this VM.
-            report['samples'].append(sample(binary, output, 'first-original', baseline_env, all_languages=True))
+            # The intervention only reads files. Both groups first execute the JVM here.
+            prepared = time.monotonic()
+            if report['preloadJdk']:
+                report['preload'] = preload_jdk(tools['java'], output)
+            if args.preload != 'none':
+                # Equal settling time avoids mistaking a later start for a preload effect.
+                time.sleep(max(0, prepared + 30 - time.monotonic()))
+            report['preSampleSeconds'] = time.monotonic() - prepared
+            report['samples'].append(sample(binary, output, 'first-original', baseline_env,
+                                             all_languages=True, compile_seconds=args.compile_seconds))
             candidate = wrappers(work / 'candidate', tools, base_env=baseline_env)
             order = ('original', 'tier1') if args.replica % 2 else ('tier1', 'original')
             for number in range(2):
                 for variant in order:
                     report['samples'].append(sample(binary, output, f'{variant}-{number}',
-                                                     candidate if variant == 'tier1' else baseline_env))
+                                                     candidate if variant == 'tier1' else baseline_env,
+                                                     compile_seconds=args.compile_seconds))
             for variant in order:
                 report['stages'].append(stages(work, output, 'stages-' + variant, tools, variant == 'tier1'))
             hashes = [item['classes'] for item in report['stages'] if 'classes' in item]
