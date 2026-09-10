@@ -1,0 +1,1122 @@
+{
+  "version": 1,
+  "baseline": "4a166d60a163f5d4afee2c7373d73160e11b1e68",
+  "suites": [
+    "basic",
+    "kernel",
+    "native",
+    "business"
+  ],
+  "cases": [
+    {
+      "id": "basic.install",
+      "suite": "basic",
+      "execution": "install",
+      "assertion": "现有15项单测实际执行，无跳过",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/render_test.py"
+        }
+      ]
+    },
+    {
+      "id": "basic.rootfs",
+      "suite": "basic",
+      "execution": "rootfs",
+      "assertion": "现有6项单测实际执行，无跳过",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/rootfs/build_test.py"
+        }
+      ]
+    },
+    {
+      "id": "basic.ci",
+      "suite": "basic",
+      "execution": "ci",
+      "assertion": "报告缺失、重复、越界、状态和SHA错误拒绝",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/ci/report.py",
+          "selector": "def validate("
+        }
+      ]
+    },
+    {
+      "id": "basic.python",
+      "suite": "basic",
+      "execution": "python",
+      "assertion": "全部受版本控制Python脚本AST可解析",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/ci/basic.py",
+          "selector": "ast.parse"
+        }
+      ]
+    },
+    {
+      "id": "basic.shell",
+      "suite": "basic",
+      "execution": "shell",
+      "assertion": "全部受版本控制shell入口语法通过",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/ci/basic.py",
+          "selector": "'sh', '-n'"
+        }
+      ]
+    },
+    {
+      "id": "kernel.capabilities",
+      "suite": "kernel",
+      "execution": "preflight",
+      "assertion": "实际OS/架构/systemd/cgroup v2、memory.peak/kill及cpu/memory/pids能力核对",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/probe.sh"
+        }
+      ]
+    },
+    {
+      "id": "kernel.go-linux",
+      "suite": "kernel",
+      "execution": "go-unit",
+      "assertion": "真实Linux专属helper/launcher/cgroup/policy包测试执行，无隐式skip",
+      "sources": [
+        {
+          "path": "apps/judge-engine/internal/sandbox/helper/execute_linux_amd64_test.go"
+        }
+      ]
+    },
+    {
+      "id": "kernel.startup",
+      "suite": "kernel",
+      "execution": "boundary",
+      "assertion": "八类启动边界与合法GO对照，未授权payload无输出",
+      "sources": [
+        {
+          "path": "apps/judge-engine/tests/sandbox-linux/boundary/start_linux_test.go",
+          "selector": "TestStartupBoundaries"
+        }
+      ]
+    },
+    {
+      "id": "kernel.files",
+      "suite": "kernel",
+      "execution": "boundary",
+      "assertion": "恶意链接/硬链接/magic link/FIFO/设备/1000次路径交换及安全FD",
+      "sources": [
+        {
+          "path": "apps/judge-engine/tests/sandbox-linux/boundary/files_linux_test.go",
+          "selector": "TestOutputPathBoundary"
+        }
+      ]
+    },
+    {
+      "id": "kernel.delegation",
+      "suite": "kernel",
+      "execution": "boundary",
+      "assertion": "逐项缺控制器及非cgroup文件系统拒绝启动",
+      "sources": [
+        {
+          "path": "apps/judge-engine/tests/sandbox-linux/boundary/capability_linux_test.go",
+          "selector": "TestCgroupCapabilityRefusal"
+        }
+      ]
+    },
+    {
+      "id": "kernel.exec",
+      "suite": "kernel",
+      "execution": "boundary",
+      "assertion": "真实exec失败阶段、errno保留与READY/GO失败关闭",
+      "sources": [
+        {
+          "path": "apps/judge-engine/tests/sandbox-linux/boundary/exec_linux_amd64_test.go",
+          "selector": "TestExecStageFailures"
+        }
+      ]
+    },
+    {
+      "id": "kernel.thread-permissions",
+      "suite": "kernel",
+      "execution": "static-identity",
+      "assertion": "init/payload全部线程UID/GID及五cap集合为零，NNP和seccomp",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/inspect_threads.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.namespaces",
+      "suite": "kernel",
+      "execution": "static-identity",
+      "assertion": "六namespace不同于宿主，userns保持既有模式",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/inspect_threads.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.readonly-mounts",
+      "suite": "kernel",
+      "execution": "static-identity",
+      "assertion": "根/proc/launcher只读，控制FD不泄漏",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/inspect_threads.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.task-controls",
+      "suite": "kernel",
+      "execution": "static-identity",
+      "assertion": "任务memory/swap/pids/cpu限额实际读回",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/inspect_threads.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.helper-protocol",
+      "suite": "kernel",
+      "execution": "static-smoke",
+      "assertion": "helper Completion与整组populated=false，输出有界",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/smoke.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-identity",
+      "suite": "kernel",
+      "execution": "static-smoke",
+      "assertion": "宿主文件缺失、根不可写、身份与FD可见性",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/smoke.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-cpu",
+      "suite": "kernel",
+      "execution": "static-smoke",
+      "assertion": "CPU主动原因及组累计CPU",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/smoke.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-oom",
+      "suite": "kernel",
+      "execution": "static-smoke",
+      "assertion": "真实OOM事件/信号证据",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/smoke.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-output",
+      "suite": "kernel",
+      "execution": "static-smoke",
+      "assertion": "输出限额及主动终止原因",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/smoke.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-network",
+      "suite": "kernel",
+      "execution": "static-smoke",
+      "assertion": "网络调用seccomp拒绝",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/smoke.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.process-limit",
+      "suite": "kernel",
+      "execution": "static-extended",
+      "assertion": "进程扩张产生pids事件，全部后代快速回收",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/extended.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.go-threads",
+      "suite": "kernel",
+      "execution": "static-extended",
+      "assertion": "Go线程扩张pids事件",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/extended.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-background",
+      "suite": "kernel",
+      "execution": "static-extended",
+      "assertion": "主进程退出后setsid后代不留存",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/extended.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.static-wall",
+      "suite": "kernel",
+      "execution": "static-extended",
+      "assertion": "150ms墙钟主动终止且观测小于1s",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/extended.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.low-pids",
+      "suite": "kernel",
+      "execution": "static-extended",
+      "assertion": "pids=1为平台启动失败而非放大预算",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/extended.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.helper-disconnect",
+      "suite": "kernel",
+      "execution": "static-extended",
+      "assertion": "helper客户端断开后取消，后续请求恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/extended.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.compile",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "C++隔离编译成功，artifact用于独立后续运行",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.echo",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "完整HTTP链stdin/stdout字节一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.cpu",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "1s累计CPU小于1.2s，运行墙钟小于2s",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.tree",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "全部子进程累计CPU1s预算与2s内墙钟",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.memory",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "任务自身OOM正确MLE",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.output",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "输出触限OLE",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.empty",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "紧接OLE空程序正常且峰值小于16MiB",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.kill",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "普通SIGKILL仍Signalled9，不能推断TLE/MLE",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.nonzero",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "退出7对应NonzeroExitStatus",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.background",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "后台setsid后代于1s内回收",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.threads",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "pthread扩张受限且返回denied",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.hostfile",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "不能读取宿主hostname",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.network",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "网络调用被拒绝",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.mount",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "挂载调用被拒绝",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.ptrace",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "ptrace调用被拒绝",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.wall",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "150ms墙钟TLE",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.symlink",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "创建symlink被拒且不发布产物",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.magiclink",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "magic-link被拒且不发布产物",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.hardlink",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "硬链接被拒且不发布产物",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.zero-limits",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "显式零CPU/clock/memory/pids保持契约",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.zero-output-empty",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "零输出预算无输出程序正常",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.zero-output-writer",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "零输出预算写者OLE",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.after-cancel",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "真实HTTP断开后全部回收，下一空程序正常",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.chain-cleanup",
+      "suite": "kernel",
+      "execution": "chain-smoke",
+      "assertion": "同PID FD/任务UID/组/工作文件/挂载/产物初末不增长",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.repeat-1000",
+      "suite": "kernel",
+      "execution": "chain-repeat",
+      "assertion": "连续1000次全OK，记录CPU/墙钟/峰值与最终快照",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py",
+          "selector": "range(1000)"
+        }
+      ]
+    },
+    {
+      "id": "kernel.parallel-two",
+      "suite": "kernel",
+      "execution": "chain-concurrency",
+      "assertion": "两独立组实际重叠，两个2秒任务总用时小于3.5秒",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/http_chain.py",
+          "selector": "peak==2"
+        }
+      ]
+    },
+    {
+      "id": "kernel.cpp-helper-resources",
+      "suite": "kernel",
+      "execution": "cpp-limits",
+      "assertion": "C++私有helper协议编译/整树CPU/普通信号/后台/线程/OOM事实直接对照",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/cpp_limits.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.missing-command",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "命令不存在为平台错误",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.enoexec",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "非法可执行格式为平台错误",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.queued-disconnect",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "队列断连释放容量",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.init-kill",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "init SIGKILL为平台错误且回收",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.http-kill",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "HTTP在途SIGKILL、暂存恢复及后续执行",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.helper-kill",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "helper在途SIGKILL、遗留状态恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.graceful-stop",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "HTTP正常停止取消并恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.fault-cleanup",
+      "suite": "kernel",
+      "execution": "fault",
+      "assertion": "崩溃前后FD基线与组/挂载/文件回收",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.pool-saturation",
+      "suite": "kernel",
+      "execution": "capacity",
+      "assertion": "2槽/4队列第7请求503，取消后恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.peer-isolation",
+      "suite": "kernel",
+      "execution": "capacity",
+      "assertion": "两槽payload/init独立身份、私有文件及宿主PID不可见、提权拒绝",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.handler-saturation",
+      "suite": "kernel",
+      "execution": "capacity",
+      "assertion": "10handler占满，第11请求503",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.aggregate-oom",
+      "suite": "kernel",
+      "execution": "capacity",
+      "assertion": "96MiB祖先限制杀128MiB任务为平台错误",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.task-oom",
+      "suite": "kernel",
+      "execution": "capacity",
+      "assertion": "恢复总量后64MiB任务OOM为MLE",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "kernel.capacity-cleanup",
+      "suite": "kernel",
+      "execution": "capacity",
+      "assertion": "容量/聚合OOM后无任务/文件/组残留",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+        }
+      ]
+    },
+    {
+      "id": "native.install",
+      "suite": "native",
+      "execution": "install",
+      "assertion": "独立安装回执、root保护和真实注册环境事实",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/manage.py"
+        }
+      ]
+    },
+    {
+      "id": "native.native",
+      "suite": "native",
+      "execution": "native",
+      "assertion": "真实编译/运行、线程权限、六namespace、只读挂载、24项限额",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-native.py"
+        }
+      ]
+    },
+    {
+      "id": "native.helper-config",
+      "suite": "native",
+      "execution": "helper-config",
+      "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-lifecycle.py"
+        }
+      ]
+    },
+    {
+      "id": "native.rootfs-manifest",
+      "suite": "native",
+      "execution": "rootfs-manifest",
+      "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-lifecycle.py"
+        }
+      ]
+    },
+    {
+      "id": "native.helper-binary",
+      "suite": "native",
+      "execution": "helper-binary",
+      "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-lifecycle.py"
+        }
+      ]
+    },
+    {
+      "id": "native.kill-judge",
+      "suite": "native",
+      "execution": "kill-judge",
+      "assertion": "judge在途SIGKILL、整组回收与受控恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-faults.py"
+        }
+      ]
+    },
+    {
+      "id": "native.kill-sandbox",
+      "suite": "native",
+      "execution": "kill-sandbox",
+      "assertion": "sandbox在途SIGKILL、整组回收与受控恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-faults.py"
+        }
+      ]
+    },
+    {
+      "id": "native.kill-helper",
+      "suite": "native",
+      "execution": "kill-helper",
+      "assertion": "helper在途SIGKILL、整组回收与受控恢复",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-faults.py"
+        }
+      ]
+    },
+    {
+      "id": "native.caps",
+      "suite": "native",
+      "execution": "caps",
+      "assertion": "七cap正常执行与逐项删减拒绝启动，恢复原设置",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-capabilities.py"
+        }
+      ]
+    },
+    {
+      "id": "native.uninstall",
+      "suite": "native",
+      "execution": "uninstall",
+      "assertion": "卸载仅登记单元，保留账号/数据；精确恢复启动，不enable",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/install/verify-uninstall.py"
+        }
+      ]
+    },
+    {
+      "id": "business.new-environment",
+      "suite": "business",
+      "execution": "prepare",
+      "assertion": "当前二进制/策略/rootfs真实新身份注册，正常入口选用",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        }
+      ]
+    },
+    {
+      "id": "business.deploy",
+      "suite": "business",
+      "execution": "prepare",
+      "assertion": "合成6对数据上传并远端核验，当前session回执READY",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        }
+      ]
+    },
+    {
+      "id": "business.calibrate",
+      "suite": "business",
+      "execution": "prepare",
+      "assertion": "本轮C++独立校准VALID并发布，绑定实际limits",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        }
+      ]
+    },
+    {
+      "id": "business.io",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行io，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/io.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.ce",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行compile_error，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/compile_error.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.re",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行runtime_error，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/runtime_error.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.signal",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行signal_kill，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/signal_kill.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.cpu",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行cpu_limit，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/cpu_limit.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.memory",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行memory_limit，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/memory_limit.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.output",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行output_limit，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/output_limit.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.empty",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行empty，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/empty.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.ac",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行sum，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/sum.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.wa",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "真实页面执行wrong_answer，与已验收终态/输出/资源口径一致",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/wrong_answer.cpp"
+        }
+      ]
+    },
+    {
+      "id": "business.history",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "正式提交代码回看及草稿不被覆盖，版本/环境/校准归属正确",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        }
+      ]
+    },
+    {
+      "id": "business.cleanup",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "业务后全部任务/组/挂载/文件与独立服务回收",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        }
+      ]
+    }
+  ],
+  "existingJobs": [
+    "development",
+    "web",
+    "contracts",
+    "go",
+    "tidy",
+    "containers"
+  ],
+  "exclusions": [
+    {
+      "id": "independent-review",
+      "status": "review-only",
+      "reason": "独立源码及工作流审查，CI不能代替或自签"
+    },
+    {
+      "id": "machine-reboot",
+      "status": "deferred",
+      "reason": "TASK-108用户明确留置"
+    },
+    {
+      "id": "other-linux",
+      "status": "not-supported-by-this-run",
+      "reason": "按实际内核/LSM记录，不承诺未测试组合"
+    },
+    {
+      "id": "arm64",
+      "status": "unsupported",
+      "reason": "当前正式后端仅linux/amd64"
+    }
+  ],
+  "requiredGoTests": {
+    "cherry-oj/judge-engine/internal/sandbox/cgroup": [
+      "TestCleanupTimeoutCanRetry",
+      "TestConcurrentCreatesAndBoundedHistory",
+      "TestFailedCloseStopsNewWorkEvenAfterRecovery",
+      "TestFreshGroupsAndFinalAccounting",
+      "TestKillAndAccountingFailureNeverBecomeSuccess",
+      "TestNewGroupDoesNotIssueKillBeforeFirstProcess",
+      "TestPartialCreateFailureQuarantinesManager",
+      "TestRejectWrongHierarchyAndNameCollision",
+      "TestUsageRejectsMalformedAndOverflow"
+    ],
+    "cherry-oj/judge-engine/internal/sandbox/helper": [
+      "TestAncestorOOMPreservesPlatformFailure",
+      "TestCaptureBoundsAndDrains",
+      "TestClientCancellationReleasesBlockedInput",
+      "TestClientEarlyFailureClosesBlockedInput",
+      "TestClientRejectsMissingCleanupAcknowledgement",
+      "TestClientRejectsUnrequestedArtifact",
+      "TestClientStreamsInputsAndOutputs",
+      "TestConfigRejectsPrivilegeConfusion",
+      "TestCopyInputOwnsNoCachedFastPath",
+      "TestDeliveryRejectsTruncatedArtifact",
+      "TestFailedStartAlwaysReclaimsOwnedResources",
+      "TestFinalOOMSurvivesInitExitDiagnostic",
+      "TestFinishCancelsBlockedInputBeforeWaiting",
+      "TestFinishClosesEarlierArtifactsWhenLaterOpenFails",
+      "TestFinishClosesUnconsumedReceivedFiles",
+      "TestFinishOOMDoesNotHideIndependentFailure",
+      "TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts",
+      "TestFinishPreservesExecutionAndMultipleCleanupErrors",
+      "TestOwnedFileConcurrentCloseUnblocksReader",
+      "TestSlotIdentityRange"
+    ],
+    "cherry-oj/judge-engine/internal/sandbox/launcher": [
+      "TestCompilerCommandNamesPreservePathBoundary",
+      "TestControlFDIsCloseOnExec",
+      "TestExecSpecBoundary",
+      "TestFailureErrnoPreservesCause",
+      "TestFramePreservesFollowingStream",
+      "TestFrameRejectsInvalidWire",
+      "TestOutputRejectsLinksAndSpecialFiles",
+      "TestRequestRejectsEscapesAndUnboundedData"
+    ],
+    "cherry-oj/judge-engine/internal/sandbox/policy": [
+      "TestAMD64PolicyBoundary"
+    ]
+  }
+}

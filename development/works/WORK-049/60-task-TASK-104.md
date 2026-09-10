@@ -10,7 +10,7 @@ related: []
 implements: ["CHANGE-013#REQ-001", "CHANGE-013#REQ-003", "CHANGE-013#REQ-004", "CHANGE-013#REQ-006", "CHANGE-013#REQ-007"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "docs/engineering", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "apps/judge-engine", "contracts", "deploy/sandbox-linux"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "docs/engineering", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "apps/judge-engine", "contracts", "deploy/sandbox-linux", "development/works/WORK-050", ".github/workflows/ci.yml"]
 write_paths: ["development/works/WORK-049"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "deploy", "docs/engineering", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-048"]
 created_at: "2026-09-10"

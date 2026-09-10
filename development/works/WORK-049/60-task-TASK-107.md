@@ -10,7 +10,7 @@ related: []
 implements: ["CHANGE-013#REQ-001", "CHANGE-013#REQ-002", "CHANGE-013#REQ-003", "CHANGE-013#REQ-004", "CHANGE-013#REQ-005", "CHANGE-013#REQ-006", "CHANGE-013#REQ-007", "CHANGE-013#AC-001", "CHANGE-013#AC-002", "CHANGE-013#AC-003", "CHANGE-013#AC-004", "CHANGE-013#AC-005", "CHANGE-013#AC-006"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "docs/engineering", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "apps/judge-engine", "contracts", "deploy/sandbox-linux"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "docs/engineering", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "apps/judge-engine", "contracts", "deploy/sandbox-linux", "development/works/WORK-050", ".github/workflows/ci.yml"]
 write_paths: ["development/works/WORK-049"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "deploy", "docs/engineering", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-048"]
 created_at: "2026-09-10"
@@ -55,6 +55,7 @@ VERIFY-050 的逐 AC 证据与实际命令/环境/结果；MEMORY-036 的已证�
 - [ ] 本机与 Linux 结果区分执行/未执行/跳过/失败，不能用交叉编译替代内核验证。
 - [ ] 数值、协议、权限、配置及工作区边界完成比对，回退只覆盖本工作。
 - [ ] 候选规则逐项列建议保留/调整/不提升及理由，人工确认待签；不修改全局规范。
+- [ ] WORK-050 交付的同一必需清单在重构最终提交全部运行通过，包含真实内核、原生部署、真实业务及清理；报告SHA对应本次候选，不复用基线成功记录。
 
 ## 验证
 

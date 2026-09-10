@@ -5,12 +5,12 @@ title: "重构 sandbox 命令执行主线与本机协议表达"
 status: "todo"
 work: "WORK-049"
 owners: ["codex/root"]
-depends_on: ["CHANGE-013", "DESIGN-043", "DECISION-027", "PLAN-033", "TASK-104"]
+depends_on: ["CHANGE-013", "DESIGN-043", "DECISION-027", "PLAN-033", "TASK-104", "TASK-113"]
 related: []
 implements: ["CHANGE-013#REQ-001", "CHANGE-013#REQ-002", "CHANGE-013#REQ-003", "CHANGE-013#REQ-004", "CHANGE-013#REQ-006", "CHANGE-013#REQ-007"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "docs/engineering", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "apps/judge-engine", "contracts", "deploy/sandbox-linux"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "docs/engineering", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "apps/judge-engine", "contracts", "deploy/sandbox-linux", "development/works/WORK-050", ".github/workflows/ci.yml"]
 write_paths: ["apps/judge-engine/internal/sandbox", "apps/judge-engine/cmd/sandbox", "apps/judge-engine/cmd/sandbox-helper", "apps/judge-engine/tests/sandbox-linux", "apps/judge-engine/README.md", "development/works/WORK-049"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "deploy", "docs/engineering", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-048"]
 created_at: "2026-09-10"
@@ -40,6 +40,8 @@ updated_at: "2026-09-10"
 以 front matter 的 forbidden_paths 为准；此外不能改变外部协议、固定预算、配置默认值与校验行为、进程/权限模型。
 
 ## 依赖
+
+用户要求先固化现有已验收测试；新增依赖 TASK-113 的自动基线交付。此前只能进行不改源码的阅读准备，不能以旧 WORK-048 手工报告替代本次 CI 基线。
 
 TASK-104 的基线、映射与交接完成；任何扩大到 contracts/部署/权限模型的需要先升级定义与计划。
 获得文档通过及后续实施授权、意图闸由人签署后才可推进；当前 todo 不代表可执行。

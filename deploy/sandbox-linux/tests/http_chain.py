@@ -129,6 +129,7 @@ try:
             print(json.dumps(dict(test=name,status=res['status'],error=res.get('error',''))),flush=True)
         for key,status in [('cpuNs','TimeLimitExceeded'),('clockNs','TimeLimitExceeded'),('memoryBytes','MemoryLimitExceeded'),('maxProcesses','InternalError')]:
             res=program(limits=dict(limits,**{key:0}));assert res['status']==status,(key,res)
+            print(json.dumps(dict(test='zero-'+key,status=res['status'])),flush=True)
         expect('zero-output-empty',program(limits=dict(limits,stdoutMaxBytes=0)),'OK')
         expect('zero-output-writer',program('output',limits=dict(limits,stdoutMaxBytes=0)),'OutputLimitExceeded')
         # 客户端关闭真实HTTP请求，等待回收后再验证服务可用。

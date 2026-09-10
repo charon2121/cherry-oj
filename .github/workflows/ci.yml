@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 # 同一分支上新的 push 会取消还在跑的旧任务，别让队列堆着过时的结果
 concurrency:
@@ -11,6 +12,74 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  sandbox-kernel:
+    name: sandbox CI（Linux 隔离、计量与回收）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+      - name: 当前提交构建、Linux 单测与锁定 rootfs
+        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build"
+      - name: 真实内核、1000 次、并发与故障测试
+        run: >-
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
+          python3 deploy/sandbox-linux/ci/kernel.py
+          --build "$RUNNER_TEMP/sandbox-build" --output "$RUNNER_TEMP/sandbox-kernel"
+      - name: 取消或失败后的所有权清理
+        if: always()
+        run: >-
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,PYTHONDONTWRITEBYTECODE
+          python3 deploy/sandbox-linux/ci/kernel.py --cleanup --output "$RUNNER_TEMP/sandbox-kernel"
+      - name: 保存内核报告
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-kernel
+          path: ${{ runner.temp }}/sandbox-kernel
+          if-no-files-found: error
+          retention-days: 14
+      - name: 保存有界构建日志
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-kernel-build
+          path: ${{ runner.temp }}/sandbox-build/logs
+          if-no-files-found: error
+          retention-days: 14
+
+  sandbox-basic:
+    name: sandbox CI（基础与证据校验）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: 部署与 rootfs 单测、脚本语法、报告正反例
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 deploy/sandbox-linux/ci/basic.py --output "$RUNNER_TEMP/sandbox-basic"
+      - name: 保存有界报告
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-basic
+          path: ${{ runner.temp }}/sandbox-basic
+          if-no-files-found: error
+          retention-days: 14
+
   # development/ 是统一工作项与开发文档真源；流程、引用或验证证据断链会让智能体拿到错误输入。
   development:
     name: 开发文档系统

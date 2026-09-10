@@ -9,7 +9,7 @@ risk: "high"
 impact: "multi-module"
 concerns: ["reliability"]
 depends_on: []
-related: ["CHANGE-013", "DESIGN-043", "DECISION-027", "PLAN-033", "TASK-104", "VERIFY-050", "MEMORY-036", "TASK-105", "TASK-106", "TASK-107"]
+related: ["CHANGE-013", "DESIGN-043", "DECISION-027", "PLAN-033", "TASK-104", "VERIFY-050", "MEMORY-036", "TASK-105", "TASK-106", "TASK-107", "WORK-050"]
 implements: []
 verifies: []
 tags: []

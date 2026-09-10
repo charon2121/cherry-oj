@@ -3,6 +3,7 @@
 import http.client
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -11,6 +12,9 @@ base=Path(sys.argv[1]);mode=sys.argv[2]
 assert base.parent==Path('/var/lib/cherry-sandbox-test') and base.name.startswith('work048-chain-')
 assert mode in ('smoke','repeat','concurrency')
 unit='cherry-sandbox-test-work048-chain-'+mode+'-v5'
+if len(sys.argv) == 4:
+    unit = sys.argv[3]
+    assert re.fullmatch('cherry-sandbox-test-work048-chain-' + mode + '-[a-z0-9-]+', unit)
 helper=unit+'-helper';server=unit+'-http';driver=unit+'-driver'
 
 def launch(name,props,args,wait=False):
