@@ -1,5 +1,6 @@
 """Negative controls for native evidence and ownership; never starts system services."""
 import json
+import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
@@ -20,6 +21,8 @@ class NativeEvidenceTest(unittest.TestCase):
     def test_capability_results_require_all_seven_distinct_negative_controls(self):
         rows = [dict(test='seven-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True)]
         rows += [dict(test='remove-capability', removed=cap, startup='REFUSED') for cap in resources.CAPS]
+        for i, row in enumerate(rows, 1):
+            row.update(invocationID=format(i, '032x'), mainStartedNs=i*1000)
         def write(values):
             self.log.write_text('\n'.join(json.dumps(row) for row in values) + '\nOriginal deployment restored; no judge registration under temporary policy.\n')
         write(rows)
@@ -28,6 +31,21 @@ class NativeEvidenceTest(unittest.TestCase):
             write(invalid)
             with self.assertRaises(ValueError):
                 results.check('caps', self.log, 'unused')
+        rows[-1]['invocationID'] = rows[-2]['invocationID']
+        write(rows)
+        with self.assertRaisesRegex(ValueError, 'distinct starts'):
+            results.check('caps', self.log, 'unused')
+
+    def test_prior_exit_code_cannot_prove_new_capability_start(self):
+        path = resources.ROOT / 'deploy/sandbox-linux/install/verify-capabilities.py'
+        spec = importlib.util.spec_from_file_location('capability_fixture', path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        before = dict(invocationID='a'*32, mainStartedNs=1000)
+        module.require_new_start(before, dict(invocationID='b'*32, mainStartedNs=2000))
+        for after in (before, dict(invocationID='b'*32, mainStartedNs=1000), dict(invocationID='', mainStartedNs=2000)):
+            with self.assertRaises(AssertionError):
+                module.require_new_start(before, after)
 
     def test_failure_or_missing_recovery_marker_cannot_pass(self):
         self.log.write_text(json.dumps(dict(case='helper-binary', result='PASS')) + '\n')

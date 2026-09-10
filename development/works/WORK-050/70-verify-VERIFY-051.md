@@ -208,3 +208,7 @@ WORK-051已由用户签署验收闸，TASK-114修复及独立复核完成。内�
 下载原报告至/private/tmp/cherry-work050-native-34501990167，report.validate(successful=False)和verify_files核验SHA/harness及证据通过；cleanup.confirmed=true，native-resources-after的tasks/mounts/cgroups/paths/accounts/groups全部为空，resources-after亦为空。此次完整清理通过。现有管理入口只展示CalledProcessError，无捕获的systemd错误详情，无法区分启动频率限制、隔离能力或其他原因。追加失败时显式systemctl状态字段取证（含Result及StartLimit配置），有界写日志，不采集任意日志或凭据，不改原断言/限额、不先reset-failed或sleep。下一次仅用于带诊断定位，首轮失败保留。
 
 诊断轮[CI34502569019](https://github.com/charon2121/cherry-oj/actions/runs/34502569019)，cae7a50a8e2347c8b49903cbacaeff2116c8b84b再次在同一caps恢复步骤失败；其余前8项通过且完整清理通过，报告下载校验无误。取证显示helper的Result=exit-code、ExecMainStatus=1，sandbox/judge未运行；启动限制为10秒/5次，但实际结果不是start-limit-hit，不能按启动频率问题处理。下一步仅追加本轮拥有的helper单元最近120条有界日志；helper不持有控制面token或用户会话，不收集全局journal或judge日志。仍不改生产、权限预算或断言，不进行reset-failed或延时试绿。
+
+第三轮[CI34503056429](https://github.com/charon2121/cherry-oj/actions/runs/34503056429)，d4ca30fde0380a4446f46582d5afcf3d4aa6db2e再次同位置失败且清理通过。helper日志首次提供直接证据：缺CAP_CHOWN时chown socket EPERM，后续3次明确“Start request repeated too quickly”，但Result仍为exit-code。因此推翻上一轮“Result非start-limit-hit可排除频率限制”的解释；前两轮记录的7个删减PASS标记中后两项并未证明缺权限拒绝，整项FAIL保持，不能作为权限支持证据。依PLAN-034先限定现有verify-capabilities.py适配：清除本轮独立失败对照的计数，检查每次实际新InvocationID及Main启动时间，恢复前同样隔离主动失败历史；不改服务配置或重试。后续Linux结果需重新证明全部7项。
+
+上述夹具修正本地通过：basic-6共56项单测（15安装/6rootfs/35CI）、AST/shell、actionlint和438文档通过。新增直接反例要求旧InvocationID、未变化的主进程启动时间和空ID均失败；报告拒绝8个标记重复使用同一启动实例。现只改TASK-111已允许的verify-capabilities.py及CI结果校验，不改生产管理器、systemd配置或任何资源预算。下一次Linux仍需实证8次真实启动和全部恢复通过。

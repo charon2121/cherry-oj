@@ -3,6 +3,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -37,15 +38,39 @@ def helper_state():
     return manage.run('systemctl', 'show', 'cherry-sandbox-helper.service', '-p', 'ActiveState', '--value')
 
 
-def probe(caps):
+def start_observation():
+    raw = manage.run('systemctl', 'show', 'cherry-sandbox-helper.service', '-p', 'InvocationID',
+                     '-p', 'ExecMainStartTimestampMonotonic')
+    values = dict(line.split('=', 1) for line in raw.splitlines())
+    return dict(invocationID=values.get('InvocationID', ''),
+                mainStartedNs=int(values.get('ExecMainStartTimestampMonotonic', '0')) * 1000)
+
+
+def require_new_start(before, after):
+    # Result can retain an earlier exit-code when start limiting prevents another process.
+    # A refusal counts only when THIS capability profile actually started a new main process.
+    assert re.fullmatch('[0-9a-f]{32}', after['invocationID']), after
+    assert after['invocationID'] != before['invocationID'], (before, after)
+    assert after['mainStartedNs'] > before['mainStartedNs'], (before, after)
+
+
+def probe():
+    before = start_observation()
+    # These are independent deliberate-failure fixtures, not automatic retries of a failed run.
+    # Keep the deployed rate-limit configuration intact; clear only this owned unit's history.
+    manage.run('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
     subprocess.run(['systemctl', 'start', 'cherry-sandbox-helper.service'],
                    capture_output=True, timeout=10)
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
         if helper_state() == 'failed':
-            return False
+            observation = start_observation()
+            require_new_start(before, observation)
+            return False, observation
         if health.ready('helper'):
-            return True
+            observation = start_observation()
+            require_new_start(before, observation)
+            return True, observation
         time.sleep(.05)
     raise AssertionError('helper did not reach a definitive state')
 
@@ -62,7 +87,8 @@ def main():
     content = None
     try:
         content = configure(CAPS)
-        assert probe(CAPS), 'reduced set failed startup'
+        ready, observation = probe()
+        assert ready, 'reduced set failed startup'
         manage.run('systemctl', 'start', 'cherry-sandbox.service')
         manage.run('python3', '/etc/cherry-sandbox/health.py', 'sandbox')
         source = '#include <unistd.h>\n#include <fcntl.h>\nint main(){int f=open("proof",O_CREAT|O_WRONLY,0600);if(f<0)return 2;write(f,"cap-test",8);close(f);if(!fork())sleep(10);return 0;}\n'
@@ -78,14 +104,16 @@ def main():
         finally:
             native.call('DELETE', '/blobs/' + ref)
         print(json.dumps(dict(test='seven-capability-set', result='PASS',
-                              nestedInput=True, privateOutput=True, descendantsReaped=True)), flush=True)
+                              nestedInput=True, privateOutput=True, descendantsReaped=True,
+                              **observation)), flush=True)
         stopped()
         for excluded in CAPS:
             content = configure(tuple(cap for cap in CAPS if cap != excluded))
-            assert not probe(CAPS), 'capability may be redundant: ' + excluded
+            ready, observation = probe()
+            assert not ready, 'capability may be redundant: ' + excluded
             result = manage.run('systemctl', 'show', 'cherry-sandbox-helper.service', '-p', 'Result', '--value')
             assert result != 'start-limit-hit', result
-            print(json.dumps(dict(test='remove-capability', removed=excluded, startup='REFUSED')), flush=True)
+            print(json.dumps(dict(test='remove-capability', removed=excluded, startup='REFUSED', **observation)), flush=True)
             stopped()
     finally:
         stopped()
@@ -95,6 +123,7 @@ def main():
         DIRECTORY.rmdir()
         manage.run('systemctl', 'daemon-reload')
         manage.owned()
+        manage.run('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
         manage.operate('start')
     print('Original deployment restored; no judge registration under temporary policy.', flush=True)
 

@@ -1,4 +1,5 @@
 """Translate the native verification scripts' actual assertions into required CI cases."""
+import re
 from native_resources import CAPS
 from results import json_lines, markers
 
@@ -33,10 +34,17 @@ def check(kind, path, fingerprint):
     elif kind == 'caps':
         baseline = [r for r in rows if r.get('test') == 'seven-capability-set']
         removed = [r for r in rows if r.get('test') == 'remove-capability']
-        if len(rows) != 8 or len(baseline) != 1 or baseline[0] != dict(test='seven-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True):
+        expected = dict(test='seven-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True)
+        if len(rows) != 8 or len(baseline) != 1 or any(baseline[0].get(k) != v for k, v in expected.items()):
             raise ValueError('missing seven-capability positive control')
         if len(removed) != 7 or {r.get('removed') for r in removed} != set(CAPS) or any(r.get('startup') != 'REFUSED' for r in removed):
             raise ValueError('missing capability deletion negative control')
+        invocations = [r.get('invocationID', '') for r in rows]
+        times = [r.get('mainStartedNs', 0) for r in rows]
+        if (any(not re.fullmatch('[0-9a-f]{32}', value) for value in invocations) or len(set(invocations)) != 8
+                or any(not isinstance(value, int) or value <= 0 for value in times)
+                or times != sorted(set(times))):
+            raise ValueError('capability refusal without eight actual distinct starts')
         markers(path, sentinel='Original deployment restored; no judge registration under temporary policy.')
     elif kind == 'uninstall':
         markers(path, sentinel='PASS: only recorded units removed; accounts, configurations and test data retained.')
