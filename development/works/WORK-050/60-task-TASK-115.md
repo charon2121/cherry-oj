@@ -11,8 +11,8 @@ implements: ["CAPABILITY-008#REQ-005", "CAPABILITY-008#AC-006"]
 verifies: []
 tags: []
 read_paths: ["AGENTS.md", "CLAUDE.md", "development/README.md", "docs/engineering", "development/works/WORK-050", "development/works/WORK-051", "apps/judge-engine/internal/judge/language", "apps/judge-engine/internal/sandbox/container", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci", ".github/workflows/language-diagnostic.yml"]
-write_paths: ["development/works/WORK-050", "apps/judge-engine/internal/judge/language/languages_e2e_test.go", "deploy/sandbox-linux/ci/diagnose_language.py", "deploy/sandbox-linux/ci/diagnose_language_test.py", ".github/workflows/language-diagnostic.yml"]
-forbidden_paths: ["apps/judge-engine/internal/sandbox", "apps/judge-engine/internal/judge/language/languages.go", "apps/judge-engine/cmd", "apps/server", "apps/web", "contracts", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", ".github/workflows/ci.yml", "AGETNTS.local.md"]
+write_paths: [".github/workflows/ci.yml", "development/works/WORK-050", "apps/judge-engine/internal/judge/language/languages_e2e_test.go", "deploy/sandbox-linux/ci/diagnose_language.py", "deploy/sandbox-linux/ci/diagnose_language_test.py", ".github/workflows/language-diagnostic.yml"]
+forbidden_paths: ["apps/judge-engine/internal/sandbox", "apps/judge-engine/internal/judge/language/languages.go", "apps/judge-engine/cmd", "apps/server", "apps/web", "contracts", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "AGETNTS.local.md"]
 created_at: "2026-09-10"
 updated_at: "2026-09-10"
 ---
@@ -35,13 +35,13 @@ CAPABILITY-008 REQ-005、AC-006，PLAN-034。CI 34470867753 全绿，随后仅�
 
 以 write_paths 为准。语言测试保留全部三语言和内部类、产物迁移及输出断言。可加入仅测试二进制的编译期限参数，初始默认5秒；满足PLAN-034条件后才改默认15秒，运行期限不变。
 
-诊断使用独立手动 GitHub workflow，每轮最多三个一次性 Linux job，每 job 最多 10 分钟；不改现有 ci.yml。只读环境记录限镜像/内核、CPU/内存、JDK/Go 路径版本和 CPU 压力，禁止输出完整环境或凭据。驱动编译当前真实 Go 测试二进制，以原 5 秒重复执行并保留全部成功/失败；另用同一 Java 源码分段测量 javac/jar CPU 与墙钟，每个命令独立有界，结果仅作诊断，不计入正式基线 PASS。
+诊断使用独立手动 GitHub workflow，每轮最多三个一次性 Linux job，每 job 最多 10 分钟；ci.yml仅可修正描述夹具期限的旧注释，不改任何执行配置。只读环境记录限镜像/内核、CPU/内存、JDK/Go 路径版本和 CPU 压力，禁止输出完整环境或凭据。驱动编译当前真实 Go 测试二进制，以原 5 秒重复执行并保留全部成功/失败；另用同一 Java 源码分段测量 javac/jar CPU 与墙钟，每个命令独立有界，结果仅作诊断，不计入正式基线 PASS。
 
 可对 JVM 启动参数作候选实验，明确标注、核对产物与运行结果；不得写入生产或正式 CI 默认配置。输出有界，独占临时目录，失败回收本次进程组及文件，不使用用户服务器或 sudo。可对固定JDK运行库/启动器作有界只读预读，不执行JVM、不清空系统缓存；与未预读组交替分配。测试期限遵循本轮条件授权，生产代码及工具JVM参数仍不得修改。
 
 ## 禁止修改
 
-生产 host 默认 5 秒、Linux 编译/运行限额、资源断言、语言注册命令、helper、cgroup、公开契约、当前服务器、IDEA 与 ci.yml 均不变。禁止用预读后通过替换未预读失败或重跑刷绿；不能无依据扩大到30秒。预读只作因果对照，不进入正式CI。
+生产 host 默认 5 秒、Linux 编译/运行限额、资源断言、语言注册命令、helper、cgroup、公开契约、当前服务器、IDEA与ci.yml执行配置均不变；注释维护例外见PLAN-034。禁止用预读后通过替换未预读失败或重跑刷绿；不能无依据扩大到30秒。预读只作因果对照，不进入正式CI。
 
 ## 依赖
 
@@ -80,6 +80,8 @@ TASK-109 已完成，WORK-050 意图闸已通过；用户后续明确要求“�
 - 2026-09-10：追加用户条件授权与PLAN-034多轮验证边界；首轮已完成记录保留，新阶段需完成对照及满足条件后的验证。
 - 2026-09-10：状态变更：done → doing。原因：开始两轮交替预读对照，初始期限仍为5秒，条件成立后再修改测试默认值
 - 2026-09-10：状态变更：doing → done。原因：追加两轮6台交替对照支持文件加载贡献；按用户条件授权仅测试编译15秒，第三轮3台未预读VM及正式8项CI通过，原5秒负例和严格资源限额保持
+- 2026-09-10：状态变更：done → doing。原因：最终一致性检查发现CI注释仍写旧5秒，已先更新PLAN和精确注释写边界；仅同步说明不改命令
+- 2026-09-10：状态变更：doing → done。原因：已同步旧CI注释，所有执行配置和已验证代码不变；多轮对照、条件实施和15秒回归均完成
 
 ## 追加完成标准
 
