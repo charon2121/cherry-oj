@@ -46,6 +46,16 @@ class NativeEvidenceTest(unittest.TestCase):
         for after in (before, dict(invocationID='b'*32, mainStartedNs=1000), dict(invocationID='', mainStartedNs=2000)):
             with self.assertRaises(AssertionError):
                 module.require_new_start(before, after)
+        with patch.object(module, 'helper_state', return_value='inactive'), patch.object(module.manage, 'run') as run:
+            module.reset_failure()
+            run.assert_not_called()
+        with patch.object(module, 'helper_state', return_value='failed'), patch.object(module.manage, 'run') as run:
+            module.reset_failure()
+            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
+        with patch.object(module, 'helper_state', return_value='active'), patch.object(module.manage, 'run') as run:
+            with self.assertRaises(AssertionError):
+                module.reset_failure()
+            run.assert_not_called()
 
     def test_failure_or_missing_recovery_marker_cannot_pass(self):
         self.log.write_text(json.dumps(dict(case='helper-binary', result='PASS')) + '\n')

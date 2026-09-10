@@ -54,11 +54,20 @@ def require_new_start(before, after):
     assert after['mainStartedNs'] > before['mainStartedNs'], (before, after)
 
 
+def reset_failure():
+    # Inactive successful units may already be garbage-collected by systemd; reset-failed
+    # then returns "not loaded". They have no retained failed attempt to clear.
+    state = helper_state()
+    assert state in ('inactive', 'failed'), state
+    if state == 'failed':
+        manage.run('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
+
+
 def probe():
     before = start_observation()
     # These are independent deliberate-failure fixtures, not automatic retries of a failed run.
     # Keep the deployed rate-limit configuration intact; clear only this owned unit's history.
-    manage.run('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
+    reset_failure()
     subprocess.run(['systemctl', 'start', 'cherry-sandbox-helper.service'],
                    capture_output=True, timeout=10)
     deadline = time.monotonic() + 10
@@ -123,7 +132,7 @@ def main():
         DIRECTORY.rmdir()
         manage.run('systemctl', 'daemon-reload')
         manage.owned()
-        manage.run('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
+        reset_failure()
         manage.operate('start')
     print('Original deployment restored; no judge registration under temporary policy.', flush=True)
 

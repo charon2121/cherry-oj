@@ -212,3 +212,7 @@ WORK-051已由用户签署验收闸，TASK-114修复及独立复核完成。内�
 第三轮[CI34503056429](https://github.com/charon2121/cherry-oj/actions/runs/34503056429)，d4ca30fde0380a4446f46582d5afcf3d4aa6db2e再次同位置失败且清理通过。helper日志首次提供直接证据：缺CAP_CHOWN时chown socket EPERM，后续3次明确“Start request repeated too quickly”，但Result仍为exit-code。因此推翻上一轮“Result非start-limit-hit可排除频率限制”的解释；前两轮记录的7个删减PASS标记中后两项并未证明缺权限拒绝，整项FAIL保持，不能作为权限支持证据。依PLAN-034先限定现有verify-capabilities.py适配：清除本轮独立失败对照的计数，检查每次实际新InvocationID及Main启动时间，恢复前同样隔离主动失败历史；不改服务配置或重试。后续Linux结果需重新证明全部7项。
 
 上述夹具修正本地通过：basic-6共56项单测（15安装/6rootfs/35CI）、AST/shell、actionlint和438文档通过。新增直接反例要求旧InvocationID、未变化的主进程启动时间和空ID均失败；报告拒绝8个标记重复使用同一启动实例。现只改TASK-111已允许的verify-capabilities.py及CI结果校验，不改生产管理器、systemd配置或任何资源预算。下一次Linux仍需实证8次真实启动和全部恢复通过。
+
+第四轮[CI34503720792](https://github.com/charon2121/cherry-oj/actions/runs/34503720792)，a0aea384a810c4f2aa81d4176fbc11cf62ceb7d2：原生前8项仍通过，caps正例尚未执行便因对inactive helper调用reset-failed失败；该单元可能已被systemd回收，显式状态为inactive/success。调整夹具只对failed状态清除失败记录，inactive不调用reset，active拒绝；不吞掉reset失败或重试。8个实际新启动实例的断言保留，补充inactive/failed/active三种本地反例。
+
+同轮还首次暴露另一项内核失败：TestStartupBoundaries/wrong-go在start_linux_test.go:166读取launcher.ReceiveEvent时返回interrupted system call；对应ReceiveEvent位于生产launcher/channel_linux.go:43，直接返回Recvmsg错误。此前多轮内核通过不覆盖本次失败。kernel清理confirmed=true，尚未修改该生产路径或在测试外层忽略EINTR；TASK-111禁止修改该包，先保留真实失败，后续必须单独冻结修复/验证边界。它不由权限测试reset或重跑全绿自动关闭。
