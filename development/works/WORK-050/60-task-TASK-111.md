@@ -2,7 +2,7 @@
 id: "TASK-111"
 type: "task"
 title: "自动验证原生安装权限与服务恢复"
-status: "doing"
+status: "done"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-110"]
@@ -10,8 +10,8 @@ related: []
 implements: ["CAPABILITY-008#REQ-003", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-003"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts"]
-write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/install/verify-native.py", "deploy/sandbox-linux/install/verify-faults.py", "deploy/sandbox-linux/install/verify-lifecycle.py", "deploy/sandbox-linux/install/verify-uninstall.py", "deploy/sandbox-linux/install/verify-capabilities.py", ".github/workflows/ci.yml"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "development/works/WORK-052"]
+write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/install/verify-native.py", "deploy/sandbox-linux/install/verify-faults.py", "deploy/sandbox-linux/install/verify-lifecycle.py", "deploy/sandbox-linux/install/verify-uninstall.py", "deploy/sandbox-linux/install/verify-capabilities.py", ".github/workflows/ci.yml", "development/works/WORK-052"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web", "deploy/sandbox-linux/install/manage.py", "deploy/sandbox-linux/install/layout.py", "deploy/sandbox-linux/install/render.py", "deploy/sandbox-linux/systemd"]
 created_at: "2026-09-10"
 updated_at: "2026-09-11"
@@ -49,12 +49,12 @@ CAPABILITY-008 REQ-003/005/006与AC-003；复用TASK-110当前构建与可信roo
 
 ## 完成标准
 
-- [ ] 全新账号/路径/端口预检、安装回执及root保护校验、实际新指纹和24项限额可核对。
-- [ ] verify-native的编译运行、全线程权限、六namespace和只读挂载通过。
-- [ ] 七cap正常链与逐项删减拒绝通过，临时drop-in恢复后重新核验安装摘要。
-- [ ] 缺helper配置/rootfs清单/helper二进制拒绝及恢复、judge/sandbox/helper在途崩溃及清理通过。
-- [ ] 卸载保留账号/配置/数据，restore仅恢复原单元再显式start，身份一致性及清理通过。
-- [ ] 不enable、不整机重启、不接现有后端；每阶段串行、预算封顶、失败保留证据并清理本次资源。
+- [x] 全新账号/路径/端口预检、安装回执及root保护校验、实际新指纹和24项限额可核对。
+- [x] verify-native的编译运行、全线程权限、六namespace和只读挂载通过。
+- [x] 七cap正常链与逐项删减拒绝通过，临时drop-in恢复后重新核验安装摘要。
+- [x] 缺helper配置/rootfs清单/helper二进制拒绝及恢复、judge/sandbox/helper在途崩溃及清理通过。
+- [x] 卸载保留账号/配置/数据，restore仅恢复原单元再显式start，身份一致性及清理通过。
+- [x] 不enable、不整机重启、不接现有后端；每阶段串行、预算封顶、失败保留证据并清理本次资源。
 
 ## 验证
 
@@ -73,3 +73,10 @@ CAPABILITY-008 REQ-003/005/006与AC-003；复用TASK-110当前构建与可信roo
 
 - 2026-09-11：新增native编排、受限协议接收器、所有权清理、严格逐项结果校验及11项CI反例；独立sandbox-native工作流已接线。基础55项单测、AST/shell和actionlint通过；未发布或取得Linux部署证据，保持doing，详见VERIFY-051。
 - 2026-09-11：用户明确授权本批TASK-111原生部署CI、测试及WORK-051验收交接记录commit + push到origin/main，并在一次性GitHub Linux VM运行；准备发布精确SHA进行首次实测。
+
+- 2026-09-11：依PLAN-034，在新建WORK-052之前仅补入该工作文档读写范围，用于记录内核Recvmsg的EINTR失败和精确候选修复；生产Go禁止边界不变，不授权实施。
+
+- 2026-09-11：9ce5670的CI34504378807共9job全绿，原生10项与63内核项通过；下载制品重新校验精确SHA/harness、8个真实启动实例、24限额、卸载保留/恢复及完整清理。TASK-111技术完成；已观察内核EINTR另列WORK-052，不以本轮绿灯关闭，TASK-112增加TASK-116前置。
+- 2026-09-11：状态变更：doing → done。原因：CI34504378807的10项原生全过，逐项制品/8真实权限启动/完整清理复验通过；独立内核EINTR由WORK-052承接，不开始TASK-112
+
+- 2026-09-11：WORK-052实施核对纠正上述“内核Recvmsg失败”归因：同一event()调用行可覆盖Poll或ReceiveEvent；失败事实仍保留，TASK-116前置不取消。

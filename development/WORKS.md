@@ -56,3 +56,4 @@
 | WORK-049 | 按命令执行顺序重构 Go 判题引擎源码 | 整理维护 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-049/00-work.md) |
 | WORK-050 | 将沙箱已验收回归固化为重构 CI | 基础能力 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-050/00-work.md) |
 | WORK-051 | 修复沙箱连续请求完成与容量归还的竞态 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-051/00-work.md) |
+| WORK-052 | 修复沙箱启动通信被信号中断时的处理 | 问题修复 | 执行中 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-052/00-work.md) |

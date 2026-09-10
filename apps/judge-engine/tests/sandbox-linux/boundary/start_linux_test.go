@@ -2,6 +2,7 @@ package boundary_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -40,6 +41,7 @@ func require(t *testing.T, err error) {
 
 func TestStartupBoundaries(t *testing.T) {
 	base, jobs := fixture(t)
+	t.Run("control-signal-observation", observeControlSignal)
 	manager, err := cgroup.Open(jobs)
 	require(t, err)
 	defer func() {
@@ -114,12 +116,16 @@ func TestStartupBoundaries(t *testing.T) {
 				t.Helper()
 				poll := []unix.PollFd{{Fd: int32(control.Fd()), Events: unix.POLLIN}}
 				n, e := unix.Poll(poll, 2000)
-				require(t, e)
+				if e != nil {
+					require(t, fmt.Errorf("startup event poll: %w", e))
+				}
 				if n == 0 {
 					t.Fatal("event deadline")
 				}
 				ev, dir, e := launcher.ReceiveEvent(control)
-				require(t, e)
+				if e != nil {
+					require(t, fmt.Errorf("startup event receive: %w", e))
+				}
 				if dir != nil {
 					require(t, dir.Close())
 				}

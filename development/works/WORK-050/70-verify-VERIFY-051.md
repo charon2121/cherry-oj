@@ -23,7 +23,7 @@ CAPABILITY-008 的用例映射、真实内核/原生部署/业务自动化、汇
 
 ## 对应要求
 
-AC-001～006分别对应清单、内核、部署、业务、失败/清理汇总以及两次基线。基础与Linux内核Actions已有实际执行证据；已接入的8项CI在测试编译期限调整后通过，原生部署、业务与汇总尚未完成。下方按轮次保留历史状态与失败，不把旧记录视为当前结论。
+AC-001～006分别对应清单、内核、部署、业务、失败/清理汇总以及两次基线。基础与Linux内核Actions已有实际执行证据；最新9ce5670的9项CI全部通过，原生部署10项及内核63项已执行；之前出现的内核EINTR另由已签署意图闸的WORK-052承接，业务与汇总尚未完成。下方按轮次保留历史状态与失败，不把旧记录视为当前结论。
 
 ## 检查与结果
 
@@ -33,7 +33,7 @@ AC-001～006分别对应清单、内核、部署、业务、失败/清理汇总�
 
 ## 未通过项
 
-AC-001清单与基础接线已实现；AC-002已有63项内核测试及回收证据，WORK-051已独立复核并人工验收，TASK-110完成。AC-003的原生驱动及本地自测已实现，Linux实跑尚缺；AC-004～006尚未满足，不能从WORK-048旧报告复制PASS。
+AC-001清单与基础接线已实现；AC-002已有63项内核测试及回收证据，WORK-051已独立复核并人工验收，TASK-110完成。AC-003的原生10项已在CI34504378807通过，TASK-111完成；已观察内核EINTR待WORK-052处理，AC-004～006尚未满足，不能从WORK-048旧报告复制PASS。
 
 ## 范围检查
 
@@ -41,7 +41,7 @@ TASK-115按用户条件授权完成多轮诊断后，仅将可信语言功能测
 
 ## 遗留问题
 
-93个case已细化，Linux内核套件已运行；语言首次编译5秒不稳定已有复现，测试专用15秒已按条件授权实施并完成本轮验证；仍不承诺所有托管VM永不超时。原生部署自动化已在本地实现但尚未发布实跑；完整业务环境与总汇总尚未实现。
+93个case已细化，Linux内核套件已运行；语言首次编译5秒不稳定已有复现，测试专用15秒已按条件授权实施并完成本轮验证；仍不承诺所有托管VM永不超时。原生部署自动化已发布且10项实跑通过；独立内核中断问题仍待处理，完整业务环境与总汇总尚未实现。
 
 ## 剩余风险
 
@@ -215,4 +215,16 @@ WORK-051已由用户签署验收闸，TASK-114修复及独立复核完成。内�
 
 第四轮[CI34503720792](https://github.com/charon2121/cherry-oj/actions/runs/34503720792)，a0aea384a810c4f2aa81d4176fbc11cf62ceb7d2：原生前8项仍通过，caps正例尚未执行便因对inactive helper调用reset-failed失败；该单元可能已被systemd回收，显式状态为inactive/success。调整夹具只对failed状态清除失败记录，inactive不调用reset，active拒绝；不吞掉reset失败或重试。8个实际新启动实例的断言保留，补充inactive/failed/active三种本地反例。
 
-同轮还首次暴露另一项内核失败：TestStartupBoundaries/wrong-go在start_linux_test.go:166读取launcher.ReceiveEvent时返回interrupted system call；对应ReceiveEvent位于生产launcher/channel_linux.go:43，直接返回Recvmsg错误。此前多轮内核通过不覆盖本次失败。kernel清理confirmed=true，尚未修改该生产路径或在测试外层忽略EINTR；TASK-111禁止修改该包，先保留真实失败，后续必须单独冻结修复/验证边界。它不由权限测试reset或重跑全绿自动关闭。
+同轮还首次暴露另一项内核失败：TestStartupBoundaries/wrong-go在start_linux_test.go:166调用event()时返回interrupted system call；2026-09-11核对发现内部Poll和ReceiveEvent错误都归到这一行，撤回对生产Recvmsg的确定归因。生产ReceiveEvent直接返回Recvmsg错误是源码事实，不是该次CI来源的证明。此前多轮内核通过不覆盖本次失败。kernel清理confirmed=true，尚未修改该生产路径或在测试外层忽略EINTR；TASK-111禁止修改该包，先保留真实失败，后续必须单独冻结修复/验证边界。它不由权限测试reset或重跑全绿自动关闭。
+
+## TASK-111完整原生验证通过（2026-09-11）
+
+[CI34504378807](https://github.com/charon2121/cherry-oj/actions/runs/34504378807)，9ce5670142558764aeb8fe4b875f7ffe832a3bb7，9个job全部成功。原生10项与内核63项同源码、同harness `084d1262758cd8c8cbda58533e65a795e93067c82753f2264f509253ccb7db8d`，实际Linux6.17.0-1022-azure/amd64；下载至/private/tmp/cherry-work050-sandbox-{native,kernel}-34504378807后report.validate、verify_files、native_results逐项及linux_units/boundary/三组chain标记重新校验通过。
+
+- 原生安装后不自动start/enable；正常新节点注册和心跳通过。实际24项限制、6namespace、3只读挂载、sandbox/judge各7线程与9个任务线程权限通过；编译CPU72223000ns/组峰值12791808bytes，运行CPU16430000ns/组峰值10178560bytes。
+- 三种缺文件均拒绝并恢复；judge/sandbox/helper在途SIGKILL后清理及新请求RAN，环境指纹一致。
+- 完整七权限正例以及7个逐项删减均通过：8个不同InvocationID与严格递增mainStartedNs，证明确实各启动过一次。本次CAP_DAC_OVERRIDE和CAP_MKNOD已实际运行后拒绝，不再使用早先受频率限制的标记作证据；恢复原策略后服务成功。
+- uninstall仅删除登记单元，账号/配置/数据保留；restore恢复原单元后显式start，三服务active且disabled、摘要不变。最后CI清理阶段仅删除本轮资源，native-resources-after中tasks/mounts/cgroups/paths/accounts/groups全部为空，resources-after亦为空，cleanup.confirmed=true。
+- 内核45个必需Go测试无skip，63项及1000次/并发/故障清理通过。这只记录本轮结果，a0aea38的EINTR失败仍未修复，后续WORK-052不得由本轮绿灯自动关闭。
+
+TASK-111技术完成。TASK-112等待TASK-116及WORK-052人工审核/实施/验收交回，完整93项基线尚未形成；未启动WORK-049重构。以上是源码及实跑证据，不代表现有用户服务器已更新。

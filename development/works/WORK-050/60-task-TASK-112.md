@@ -5,7 +5,7 @@ title: "自动验证新节点校准与真实业务闭环"
 status: "todo"
 work: "WORK-050"
 owners: ["codex/root"]
-depends_on: ["TASK-111"]
+depends_on: ["TASK-111", "TASK-116"]
 related: []
 implements: ["CAPABILITY-008#REQ-004", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-004"]
 verifies: []
@@ -67,3 +67,5 @@ ci内独立Java/MySQL/Redis/Kafka和原生节点编排、合成6对数据及业�
 ## 执行记录
 
 - 2026-09-10：确认现有页面用例模拟响应、TASK-100夹具依赖手工环境；本轮仅设计。
+
+- 2026-09-11：按PLAN-034的新内核通信失败分支增加TASK-116依赖。TASK-111原生10项已通过，但必须先完成WORK-052的EINTR修复及验收交回，不能用后一轮偶然全绿关闭已观察失败。TASK-112保持todo，未实施。
