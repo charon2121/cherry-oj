@@ -1,0 +1,39 @@
+[Unit]
+Description=Cherry OJ privileged isolation helper
+Before=cherry-sandbox.service
+
+[Service]
+Type=exec
+Slice=cherry-sandbox.slice
+ExecStart=/usr/bin/python3 /etc/cherry-sandbox/helper-start.py
+User=root
+Group=root
+UMask=0022
+Delegate=cpu memory pids
+KillMode=control-group
+TimeoutStopSec=15s
+Restart=no
+RuntimeDirectory=cherry-sandbox-helper
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+MemoryMax=768M
+MemorySwapMax=0
+TasksMax=192
+CPUQuota=100%
+CPUQuotaPeriodSec=100ms
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_MKNOD
+# systemd 255 drops SETUID during seccomp setup unless explicitly retained here.
+# The launcher clears every ambient/bounding capability before the payload GO.
+AmbientCapabilities=CAP_SETUID
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/run/cherry-sandbox-helper /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,42 @@
+[Unit]
+Description=Cherry OJ independent judge node
+Requires=cherry-sandbox.service
+After=cherry-sandbox.service
+BindsTo=cherry-sandbox.service
+
+[Service]
+Type=exec
+Slice=cherry-sandbox.slice
+ExecStartPre=/usr/bin/test -f /etc/cherry-sandbox/judge.json
+ExecStartPre=/usr/bin/python3 /etc/cherry-sandbox/health.py sandbox
+ExecStart=/var/lib/cherry-sandbox/current/bin/judge -config /etc/cherry-sandbox/judge.json
+User=cherry-judge
+Group=cherry-judge
+UMask=0077
+KillMode=control-group
+TimeoutStopSec=15s
+Restart=no
+MemoryMax=384M
+MemorySwapMax=0
+TasksMax=96
+CPUQuota=50%
+CPUQuotaPeriodSec=100ms
+CapabilityBoundingSet=
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/cherry-sandbox/judge
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+[Install]
+WantedBy=multi-user.target

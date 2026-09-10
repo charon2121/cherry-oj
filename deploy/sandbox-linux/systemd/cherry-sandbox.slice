@@ -1,0 +1,9 @@
+[Unit]
+Description=Cherry OJ isolated node resource budget
+
+[Slice]
+MemoryMax=1536M
+MemorySwapMax=0
+TasksMax=384
+CPUQuota=200%
+CPUQuotaPeriodSec=100ms

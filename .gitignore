@@ -15,3 +15,6 @@ password
 # Per-service private Spring local configuration
 **/application-local.yaml
 **/application-local.yml
+
+# Private test-server connection and local agent notes
+/AGETNTS.local.md
