@@ -1,0 +1,43 @@
+name: Language diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: language-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    name: 原 5 秒期限诊断（${{ matrix.replica }}）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        replica: [1, 2, 3]
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+      - name: 首次与重复样本、编译分段及候选启动参数
+        run: >-
+          python3 deploy/sandbox-linux/ci/diagnose_language.py
+          --output "$RUNNER_TEMP/language-diagnostic" --replica '${{ matrix.replica }}'
+      - name: 保存全部样本（失败也保留）
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: language-diagnostic-${{ matrix.replica }}
+          path: ${{ runner.temp }}/language-diagnostic
+          if-no-files-found: error
+          retention-days: 14

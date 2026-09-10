@@ -9,7 +9,7 @@ risk: "high"
 impact: "multi-module"
 concerns: ["reliability", "security"]
 depends_on: ["WORK-048"]
-related: ["CAPABILITY-008", "EXPERIENCE-021", "DESIGN-044", "DECISION-028", "PLAN-034", "TASK-109", "VERIFY-051", "MEMORY-037", "TASK-110", "TASK-111", "TASK-112", "TASK-113", "WORK-049"]
+related: ["CAPABILITY-008", "EXPERIENCE-021", "DESIGN-044", "DECISION-028", "PLAN-034", "TASK-109", "VERIFY-051", "MEMORY-037", "TASK-110", "TASK-111", "TASK-112", "TASK-113", "WORK-049", "TASK-115"]
 implements: []
 verifies: []
 tags: []
@@ -52,8 +52,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-044 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-028 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-034 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ✖ 受阻 | 必需 | TASK-109 `done`、TASK-110 `blocked`、TASK-111 `todo`、TASK-112 `todo`、TASK-113 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ✖ 受阻 | 必需 | TASK-109 `done`、TASK-110 `blocked`、TASK-111 `todo`、TASK-112 `todo`、TASK-113 `todo` | 按任务实施，产出代码与测试 |
+| 开发任务 | ✖ 受阻 | 必需 | TASK-109 `done`、TASK-110 `blocked`、TASK-111 `todo`、TASK-112 `todo`、TASK-113 `todo`、TASK-115 `doing` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✖ 受阻 | 必需 | TASK-109 `done`、TASK-110 `blocked`、TASK-111 `todo`、TASK-112 `todo`、TASK-113 `todo`、TASK-115 `doing` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 验证 | ▶ 进行中 | 必需 | VERIFY-051 `review` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ▶ 进行中 | 必需 | MEMORY-037 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |

@@ -27,7 +27,7 @@ ISSUE-015 AC-001～004：时序回归、收尾与容量安全、完整CI和边�
 |---|---|---|
 | AC-001 时序回归 | 旧客户端在完成后连接仍开启、尾部有垃圾两个用例失败；修复后本地及 Linux 通过，服务端受控 EOF/槽位测试通过 | 通过 |
 | AC-002 收尾及容量 | 本地协议/取消/早期失败阻塞输入回归通过；Linux 实际 reset、慢交付、清理后复用及完整容量/故障套件通过 | 通过 |
-| AC-003 完整回归 | 本地完整 Go race、vet、基础 39 项通过；946e528 的 8 job 与 Linux 63 项通过 | 通过 |
+| AC-003 完整回归 | 本地完整 Go race、vet、基础 39 项通过；946e528 的 8 job 与 Linux 63 项通过；最新 b03e6bd 的 Java 功能测试失败 | 最新整体 CI 未通过 |
 | AC-004 边界及复核 | 生产仅两个 helper 文件；测试消费者边界先更新再修改。未部署或更改原节点；尚无本次独立复核 | 部分完成 |
 
 ## 检查与结果
@@ -61,9 +61,17 @@ Linux 的当前实现已实跑通过后，进一步补齐旧服务端顺序的�
 - init/HTTP/helper SIGKILL、正常停止、排队断连、恢复及清理均通过。祖先 96 MiB 聚合 OOM 保持 InternalError；任务自身 64 MiB OOM 为 MemoryLimitExceeded。不同槽身份及文件/PID隔离、提权拒绝通过。
 - cleanup.json 为 PASS；resources-after.json 中 tasks/mounts/cgroups 均为空。报告与日志保存在该 CI 的制品中，本地下载副本 `/private/tmp/cherry-work051-ci-34470867753-kernel` 不提交为固定测试输入。
 
+## 最新文档提交的独立 Go 失败
+
+[b03e6bd / CI 34471753900](https://github.com/charon2121/cherry-oj/actions/runs/34471753900) 最终 7/8 成功。Linux 63 项和 45 必需 Go 测试及 cleanup 再次 PASS，下载后重新校验 sourceSha、harnessSha、逐项报告和循环/并发标记，resources-after 的 tasks/mounts/cgroups 为空。代码与 946e528 相同。
+
+普通 Go job 失败于原 TestEndToEndJavaWithInnerClass：5.00 秒、编译 exit=-1，stderr 为空；未报告 race。源码显示它使用可信 host 默认 5 秒，且漏报 Wait error；尚无直接超时原因日志，不能称已确定根因。原日志保存为 `/private/tmp/cherry-work051-ci-34471753900-go.log`。这否定“最新 main 整体 CI 已全绿”的结论，但不抹去上一轮或两轮 Linux 专项通过的事实。
+
+已在 WORK-050 整理待审 TASK-115，拟仅修正语言功能测试的诊断与测试专用编译期限；本轮未修改该测试、host、工作流或预算，未重跑覆盖。新增提案和本段记录暂留工作区，避免在红色 CI 上继续叠提交。
+
 ## 未通过项
 
-本次独立复核尚未完成。旧红新绿和整链通过支持此修复解决已识别的次序问题，不声称所有连接 reset 都只可能有这一原因。
+本次独立复核尚未完成，最新 main 整体 CI 也未通过，另由待审 TASK-115 承接语言功能测试失败。旧红新绿和整链通过支持此修复解决已识别的次序问题，不声称所有连接 reset 都只可能有这一原因。
 
 ## 范围检查
 
@@ -79,7 +87,7 @@ Linux 实跑已经验证本次整链与完整容量清理，剩余独立源码�
 
 ## 结论
 
-result=pending；用户已签署意图闸并允许实施，本地修复、Linux 实机和现有完整 CI 已通过；独立复核授权与结论尚待完成，TASK-114 保持 doing。
+result=pending；用户已签署意图闸并允许实施，修复提交 946e528 的完整 CI 通过，最新 b03e6bd 的 Linux 专项通过但整体 CI 失败；独立复核及 TASK-115 提案仍待确认，TASK-114 保持 doing。
 
 ## 变更记录
 

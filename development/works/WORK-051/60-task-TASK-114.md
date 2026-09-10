@@ -11,7 +11,7 @@ implements: ["ISSUE-015#REQ-001", "ISSUE-015#REQ-002", "ISSUE-015#REQ-003", "ISS
 verifies: []
 tags: []
 read_paths: ["AGENTS.md", "CLAUDE.md", "development/README.md", "docs/engineering", "development/works/WORK-050", "development/works/WORK-051", "apps/judge-engine", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests", ".github/workflows/ci.yml"]
-write_paths: ["development/works/WORK-051", "apps/judge-engine/internal/sandbox/helper/client.go", "apps/judge-engine/internal/sandbox/helper/server_linux_amd64.go", "apps/judge-engine/internal/sandbox/helper/client_test.go", "apps/judge-engine/internal/sandbox/helper/server_linux_amd64_test.go", "apps/judge-engine/internal/sandbox/helper/README.md", "deploy/sandbox-linux/ci/cases.json", "deploy/sandbox-linux/tests/client.py", "deploy/sandbox-linux/tests/smoke.py"]
+write_paths: ["development/works/WORK-051", "development/works/WORK-050", "apps/judge-engine/internal/sandbox/helper/client.go", "apps/judge-engine/internal/sandbox/helper/server_linux_amd64.go", "apps/judge-engine/internal/sandbox/helper/client_test.go", "apps/judge-engine/internal/sandbox/helper/server_linux_amd64_test.go", "apps/judge-engine/internal/sandbox/helper/README.md", "deploy/sandbox-linux/ci/cases.json", "deploy/sandbox-linux/tests/client.py", "deploy/sandbox-linux/tests/smoke.py"]
 forbidden_paths: ["apps/server", "apps/web", "contracts", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "apps/judge-engine/internal/sandbox/cgroup", "apps/judge-engine/internal/sandbox/launcher", "apps/judge-engine/internal/sandbox/policy", "apps/judge-engine/internal/sandbox/helper/execute_linux_amd64.go", "apps/judge-engine/internal/sandbox/helper/execution.go", "apps/judge-engine/internal/sandbox/helper/trust_linux.go", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md"]
 created_at: "2026-09-10"
 updated_at: "2026-09-10"
@@ -52,7 +52,7 @@ ISSUE-015 REQ-001～004、AC-001～004与DESIGN-045/DECISION-029/PLAN-035。
 - [x] 旧完成/slot顺序在可控调度下失败，修复后通过。
 - [x] 正常EOF前客户端不返回成功，取消/超时/缺尾帧/垃圾尾部/连接reset拒绝成功。
 - [x] 真正满槽仍拒绝，慢客户端不累积无界连接，资源/身份回收先于复用。
-- [x] 完整Go/race和Linux63项（含1000次/并发/故障/容量/清理）在本次SHA通过。
+- [ ] 完整Go/race和Linux63项（含1000次/并发/故障/容量/清理）在本次SHA通过。946e528 已通过，最新 b03e6bd 的整体 CI 因旧 Java 功能测试未通过，见 VERIFY-052。
 - [ ] 独立复核并记录影响、身份与回退，无现有环境变更。
 
 ## 验证
@@ -73,3 +73,5 @@ ISSUE-015 REQ-001～004、AC-001～004与DESIGN-045/DECISION-029/PLAN-035。
 - 2026-09-10：最小收尾修复及本地完整 Go race/vet/基础测试通过，Linux 测试已编译但未实跑；详见 VERIFY-052，任务保持 doing。
 - 2026-09-10：用户明确授权本次修复及关联工作记录 commit + push 到 origin/main，并运行一次性 GitHub Linux CI；独立复核委派授权仍待回复。
 - 2026-09-10：946e528 已推送，CI 34470867753 的 8 job 与内核 63 项全绿，下载后再次核验日志及完整回收。独立复核委派尚未授权，保持 doing。
+- 2026-09-10：依 DESIGN-045/PLAN-035，在写入前补入 WORK-050 文档路径，移交旧 Java 语言测试失败；未增加语言测试、工作流或 host 源码写权限。
+- 2026-09-10：最新文档提交 b03e6bd 整体 CI 7/8，Java 语言功能测试在 5 秒失败；Linux 63 项再次全过。形成 WORK-050/TASK-115 待审测试期限与诊断提案，没有修改额外源码或重跑覆盖。

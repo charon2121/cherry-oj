@@ -56,8 +56,9 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 			t.Fatalf("编译 Start: %v", err)
 		}
 		u, err := p.Wait(context.Background())
+		t.Logf("compile language=%s usage=%+v waitError=%v", langName, u, err)
 		if err != nil || u.ExitCode != 0 {
-			t.Fatalf("编译失败 exit=%d: %s", u.ExitCode, cerr.String())
+			t.Fatalf("编译失败 usage=%+v waitError=%v stderr=%s", u, err, cerr.String())
 		}
 		rc, err := build.GetFile(lang.CompiledArtifact)
 		if err != nil {
@@ -92,6 +93,7 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 		t.Fatalf("运行 Start: %v", err)
 	}
 	u, err := p.Wait(context.Background())
+	t.Logf("run language=%s usage=%+v waitError=%v", langName, u, err)
 	if err != nil {
 		t.Fatal(err)
 	}

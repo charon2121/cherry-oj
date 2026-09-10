@@ -105,7 +105,8 @@
       "TASK-110",
       "TASK-111",
       "TASK-112",
-      "TASK-113"
+      "TASK-113",
+      "TASK-115"
     ],
     "checks": [],
     "source": "profile:infra",
@@ -122,7 +123,8 @@
       "TASK-110",
       "TASK-111",
       "TASK-112",
-      "TASK-113"
+      "TASK-113",
+      "TASK-115"
     ],
     "checks": [],
     "source": "profile:infra",

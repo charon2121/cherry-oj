@@ -128,8 +128,8 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pass",
-        "note": "946e528在CI 34470867753的8job与63内核项全绿，45必需Go测试无跳过，制品下载复验通过"
+        "result": "fail",
+        "note": "946e528曾8job全绿，最新b03e6bd的Linux63项仍通过但旧Java语言功能测试5秒失败，另列待审TASK-115"
       },
       {
         "name": "reliability",

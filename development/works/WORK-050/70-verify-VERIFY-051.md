@@ -101,3 +101,19 @@ magiclink请求在helper连接上被reset，结果InternalError，未达到原Si
 C++整组中断后没有运行1000次、双并发和后续故障组；整组失败不表示前面已打印事实的断言都失败，也不能把这部分事实当作该组全部通过。准确部分结果保留在chain-smoke.log。
 
 TASK-110已置blocked，依赖新建WORK-051/TASK-114。该工作只有待审修复材料，尚未修改任何生产Go文件；候选是修正完成确认/容量释放/连接结束的顺序，先用确定性回归确认，禁止加请求sleep/重试或扩大槽位。WORK-050仍不能验收，WORK-049仍不能开始源码重构。
+
+## helper 修复后的结果与新失败
+
+WORK-051 提交 946e528 的 [34470867753](https://github.com/charon2121/cherry-oj/actions/runs/34470867753) 8 job 全绿，Linux 63 项和 45 必需 Go 测试无跳过，1000 次/并发/故障/容量及完整清理通过。
+
+随后仅文档提交 b03e6bd 的 [34471753900](https://github.com/charon2121/cherry-oj/actions/runs/34471753900) 为 7/8 成功；Linux 63 项及清理再次通过，Go job 的 TestEndToEndJavaWithInnerClass 在 5.00 秒报“编译失败 exit=-1”。Go 1.26.3 / linux-amd64，JDK 17.0.20.1；没有 race 检测报告。原测试继承 host 默认 5 秒编译期限，却不打印 Wait error，故仅能判断高度疑似期限触发。先前 -p=1 不能保证该功能测试稳定，保留此前通过和本轮失败，不重跑覆盖。
+
+TASK-115 仅提出测试专用编译期限和诊断方案，未实施；WORK-051 独立复核也尚待授权。WORK-050 尚未完成原生/真实业务/总汇总，不宣称 CI 基线稳定。
+
+## TASK-115 原期限诊断准备
+
+用户要求先确认和优化，尚未批准测试专用期限。语言测试只增加 Usage/Wait 日志，没有传入新 Limits。独立手动 language-diagnostic workflow 限 3 台一次性 VM、每 job 10 分钟，默认测试和候选启动参数分开采样，所有原始失败保留。分段 javac/jar 各自 5 秒仅作测量，不把相加后的结果算正式编译通过。候选 TieredStopAtLevel=1 只作用于工具 JVM，不作用于被测 Java 程序，尚未采纳。参数依据为 [OpenJDK 17 flags](https://github.com/openjdk/jdk17u/blob/master/src/hotspot/share/compiler/compiler_globals.hpp) 与 [javac -J](https://docs.oracle.com/en/java/javase/17/docs/specs/man/javac.html)。
+
+本地 Darwin/arm64 Go1.26.3：语言真实集成、完整 Go race 与 vet 通过；基础入口43项单测（15安装+6rootfs+22CI）通过，actionlint通过。新增4项验证缺失/重复观察拒绝、nil error 下 wall 原因保留、内部类夹具及候选仅包装编译工具。真实 Linux 诊断尚待执行，不据本地约1秒编译推断 CI 必须在5秒内。
+
+只读核对 Go1.26.3 构建调度源码：-p=1 时 action worker只有一个，Act完成后才推进后续action；不能继续把同一 go test 命令的包间并发当成当前失败的已确认原因。
