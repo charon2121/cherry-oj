@@ -52,3 +52,5 @@
 | WORK-045 | 统一本地judging服务启动入口 | 整理维护 | 实现完成 | 低 | 局部 | codex/root | [00-work.md](./works/WORK-045/00-work.md) |
 | WORK-046 | 统一服务配置与环境启动管理 | 整理维护 | 实现完成 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-046/00-work.md) |
 | WORK-047 | 恢复自定义运行并移除运行冷却 | 问题修复 | 验证通过 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-047/00-work.md) |
+| WORK-048 | Linux 沙箱隔离与资源计量硬化 | 工程改进 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-048/00-work.md) |
+| WORK-049 | 按命令执行顺序重构 Go 判题引擎源码 | 整理维护 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-049/00-work.md) |

@@ -1,0 +1,201 @@
+[
+  {
+    "stage": "clarify",
+    "label": "需求澄清",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-048"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "definition",
+    "label": "改进说明与目标指标",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "IMPROVEMENT-004"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认目标和验收标准，允许按 TASK-093 开展只读探测与实施边界冻结"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认目标和验收标准，允许按 TASK-093 开展只读探测与实施边界冻结"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "技术方案",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DESIGN-042"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有独立技术方案"
+  },
+  {
+    "stage": "decision",
+    "label": "技术决策",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "DECISION-026"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响需要可长期追踪的技术决定"
+  },
+  {
+    "stage": "plan",
+    "label": "开发计划",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "PLAN-032"
+    ],
+    "checks": [
+      {
+        "name": "rollback",
+        "result": "pass",
+        "note": "TASK-099已实测正式服务停止/恢复、缺配置恢复及卸载后按回执恢复，保留数据与账号；TASK-100记录ACTIVE切换及新修订发布后的回退限制，不切host、不复制校准；TASK-108未实施无远端变更"
+      }
+    ],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级影响必须有显式实施计划"
+  },
+  {
+    "stage": "tasks",
+    "label": "实施任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-093",
+      "TASK-094",
+      "TASK-095",
+      "TASK-096",
+      "TASK-097",
+      "TASK-098",
+      "TASK-099",
+      "TASK-100",
+      "TASK-101",
+      "TASK-102",
+      "TASK-103",
+      "TASK-108"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "实施",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-093",
+      "TASK-094",
+      "TASK-095",
+      "TASK-096",
+      "TASK-097",
+      "TASK-098",
+      "TASK-099",
+      "TASK-100",
+      "TASK-101",
+      "TASK-102",
+      "TASK-103",
+      "TASK-108"
+    ],
+    "checks": [],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "TASK-100已核对ACTIVE全局影响、新修订部署校准、发布前后回退限制；旧节点保留，原ZIP和server/web生产代码未变"
+      },
+      {
+        "name": "independent-review",
+        "result": "pass",
+        "note": "VERIFY-049 TASK-098记录已获用户授权的Boyle独立隔离/失败回收复核，TASK-103两项P2修复后原复核者确认充分且最终Linux套件通过；不扩大为未做的部署专项独立审计"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "验证",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-049"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "VERIFY-049记录TASK-098最终race/vet与Linux构建、1000次/故障套件，TASK-099十五项部署测试及TASK-100真实业务；机器重启单列未覆盖"
+      },
+      {
+        "name": "performance",
+        "result": "pass",
+        "note": "VERIFY-049记录CPU累计预算、5ms观测粒度、约1.052s运行区间及4.207/4.343ms超限误差，1000次回收和双并发基线；不宣称普适误差上界"
+      },
+      {
+        "name": "reliability",
+        "result": "pass",
+        "note": "按用户明确留置机器重启后的AC-004范围：TASK-098最终1000次与并发、容量/聚合OOM及崩溃恢复通过；TASK-099正式服务故障回收、缺文件拒绝、卸载恢复通过；整机重启与隧道自动重连未验证，留置TASK-108"
+      },
+      {
+        "name": "security",
+        "result": "pass",
+        "note": "VERIFY-049首站namespace/权限/seccomp/文件边界/节点资源与正式七cap收敛实测通过；仅既定可信宿主loopback与共享内核边界，不声称其它Linux或机器重启已验证"
+      }
+    ],
+    "source": "profile:improvement",
+    "reason": "improvement 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "MEMORY-035"
+    ],
+    "checks": [],
+    "source": "overlay:risk-impact",
+    "reason": "高风险或系统级工作必须沉淀长期记忆"
+  }
+]
