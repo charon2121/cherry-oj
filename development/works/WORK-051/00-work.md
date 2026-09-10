@@ -2,7 +2,7 @@
 id: "WORK-051"
 type: "work"
 title: "修复沙箱连续请求完成与容量归还的竞态"
-status: "doing"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["issue", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "reliability", "security"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: true
 user_visible: false
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-11"
 work_type: "fix"
 ---
 
@@ -50,11 +50,11 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 原因与修复方案 | ✔ 完成 | 必需 | DESIGN-045 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-029 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-035 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 修复任务 | ✔ 完成 | 必需 | TASK-114 `doing` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ▶ 进行中 | 必需 | TASK-114 `doing` | 按任务实施，产出代码与测试 |
-| 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-052 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-038 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 修复任务 | ✔ 完成 | 必需 | TASK-114 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-114 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-052 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-038 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -70,3 +70,10 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-10：检查项 impact-analysis 记录结论：通过。原因：生产只改helper连接收尾，私有消费者配套EOF，未改公开契约/权限/限额/现有节点；未来新身份部署校准
 - 2026-09-10：检查项 reliability 记录结论：通过。原因：受控时序、EOF超时/reset、1000次、并发、故障与容量回归通过，最终任务/挂载/cgroup为空
 - 2026-09-10：检查项 automated-tests 记录结论：未通过。原因：946e528曾8job全绿，最新b03e6bd的Linux63项仍通过但旧Java语言功能测试5秒失败，另列待审TASK-115
+- 2026-09-10：检查项 automated-tests 记录结论：通过。原因：TASK-115已完成独立语言功能期限诊断和调整；e44f9b4及a0e1b35现有8项CI全绿，helper与946e528一致，63项内核和完整清理证据核验通过
+- 2026-09-11：检查项 independent-review 记录结论：通过。原因：2026-09-11用户授权Zeno独立只读审查7a66b35..946e528及当前一致性，无本次引入的阻断发现；两项测试覆盖限制已入VERIFY-052
+- 2026-09-11：检查项 security 记录结论：通过。原因：独立复核确认Completion加正常EOF、先清理及fatal停服再归还槽位关闭socket，容量和期限未放宽；输入Close契约与测试证据限制已记录
+- 2026-09-11：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-11：流程阶段 复核：ready → done。原因：Zeno独立源码复核完成，实施者核对范围和两项非阻断证据限制，结论入VERIFY-052
+- 2026-09-11：验收闸：passed。原因：确认连续请求修复及独立复核结论，接受已记录的测试覆盖限制
+- 2026-09-11：根据文档、任务与验证事实刷新状态：implemented → verified。

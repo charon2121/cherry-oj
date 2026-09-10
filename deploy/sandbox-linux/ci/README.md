@@ -44,3 +44,20 @@ Go 边界测试和锁定的 56 包 rootfs。它执行 Linux 专属包的 race �
 `results.py` 要求 Linux 专属 Go 测试、四组实际边界测试及 Python 逐模式标记出现；边界夹具的
 `TestExecFailureChild` 在非子进程模式正常返回，不设置跳过例外。旧手动脚本默认参数保持有效，
 CI 仅为 `chain_batch.py` 增加可选独立单元名，为零限额场景增加结果记录。
+
+## 原生部署套件
+
+`sandbox-native`在另一台一次性VM上构建同一源码和锁定rootfs，再由`native.py`调用原安装器。
+十项case覆盖安装、线程/namespace/24项限额、三种缺文件、三服务在途崩溃、七项capability删减及
+卸载/恢复。原`verify-*.py`断言和预算不变，`native_results.py`要求实际结束标记及测量值完整。
+
+`native_control.py`只作为有界loopback协议接收器，核验新节点注册、心跳和恢复后身份不变；令牌每轮
+生成并仅留于私有临时目录。它不是Java后端，不能凭此宣称数据部署、校准或真实业务已验证。
+完整业务由TASK-112另行实现。
+
+安装前除普通预检外，再拒绝已有固定单元文件、drop-in、账号及目录。`.native-owner.json`先记录
+本轮安装声明及单元摘要，再调用安装器，覆盖尚未写完安装回执的失败。清理先停止本轮验证驱动，
+检查固定单元来源和已知临时capability配置，再停止原生服务并核验所有进程的挂载与任务身份；
+有残留或未知改动即失败。卸载保留数据的语义先由原验证脚本断言，随后CI仅删除本轮创建且身份
+仍匹配的账号/目录/单元，保存`native-resources-after.json`。finally和always使用同一入口；
+正常报告只有完整清理后才能PASS，VM销毁不算清理证据。没有enable、整机重启或现有服务连接。

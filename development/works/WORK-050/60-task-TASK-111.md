@@ -2,7 +2,7 @@
 id: "TASK-111"
 type: "task"
 title: "自动验证原生安装权限与服务恢复"
-status: "todo"
+status: "doing"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-110"]
@@ -14,7 +14,7 @@ read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/wor
 write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/install/verify-native.py", "deploy/sandbox-linux/install/verify-faults.py", "deploy/sandbox-linux/install/verify-lifecycle.py", "deploy/sandbox-linux/install/verify-uninstall.py", "deploy/sandbox-linux/install/verify-capabilities.py", ".github/workflows/ci.yml"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web", "deploy/sandbox-linux/install/manage.py", "deploy/sandbox-linux/install/layout.py", "deploy/sandbox-linux/install/render.py", "deploy/sandbox-linux/systemd"]
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-11"
 ---
 
 # TASK-111：自动验证原生安装权限与服务恢复
@@ -67,3 +67,9 @@ CAPABILITY-008 REQ-003/005/006与AC-003；复用TASK-110当前构建与可信roo
 ## 执行记录
 
 - 2026-09-10：已盘点现有安装与verify入口，未实施。
+- 2026-09-11：等待前置修复验收期间完成只读准备：确认可复用现有prepare构建和五类verify脚本；部署层使用有界本地协议接收器核验新节点注册，真实Java另归TASK-112。原生安装使用固定账号、路径及单元，现有kernel所有权清理未覆盖这些资源，实施时须单独记录本次安装所有权，并覆盖部分安装、故障中断及取消清理；不得将VM最终销毁当作已证明无残留。未开始TASK-111编码或部署。
+- 2026-09-11：状态变更：todo → ready。原因：意图与实施授权已存在，TASK-110完成且WORK-051已验收，原生部署测试边界明确
+- 2026-09-11：状态变更：ready → doing。原因：实现一次性VM原生安装、逐项恢复验证与所有权清理
+
+- 2026-09-11：新增native编排、受限协议接收器、所有权清理、严格逐项结果校验及11项CI反例；独立sandbox-native工作流已接线。基础55项单测、AST/shell和actionlint通过；未发布或取得Linux部署证据，保持doing，详见VERIFY-051。
+- 2026-09-11：用户明确授权本批TASK-111原生部署CI、测试及WORK-051验收交接记录commit + push到origin/main，并在一次性GitHub Linux VM运行；准备发布精确SHA进行首次实测。

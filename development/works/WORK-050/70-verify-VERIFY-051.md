@@ -33,7 +33,7 @@ AC-001～006分别对应清单、内核、部署、业务、失败/清理汇总�
 
 ## 未通过项
 
-AC-001清单与基础接线已实现；AC-002已有63项内核测试及回收证据，TASK-110仍等待WORK-051独立复核；AC-003～006尚未完整满足，不能从WORK-048旧报告复制PASS。
+AC-001清单与基础接线已实现；AC-002已有63项内核测试及回收证据，WORK-051已独立复核并人工验收，TASK-110完成。AC-003的原生驱动及本地自测已实现，Linux实跑尚缺；AC-004～006尚未满足，不能从WORK-048旧报告复制PASS。
 
 ## 范围检查
 
@@ -41,7 +41,7 @@ TASK-115按用户条件授权完成多轮诊断后，仅将可信语言功能测
 
 ## 遗留问题
 
-93个case已细化，Linux内核套件已运行；语言首次编译5秒不稳定已有复现，测试专用15秒已按条件授权实施并完成本轮验证；仍不承诺所有托管VM永不超时。原生部署、完整业务环境与总汇总尚未实现。
+93个case已细化，Linux内核套件已运行；语言首次编译5秒不稳定已有复现，测试专用15秒已按条件授权实施并完成本轮验证；仍不承诺所有托管VM永不超时。原生部署自动化已在本地实现但尚未发布实跑；完整业务环境与总汇总尚未实现。
 
 ## 剩余风险
 
@@ -188,3 +188,15 @@ VM1的实际完整编译在10.56秒正常结束，产物迁移/内部类/输出�
 该15秒版本内核报告下载后通过report.validate、verify_files和linux_units；63项case、45个冻结Go用例、1000次/并发/故障及cleanup通过，resources-after中的tasks/mounts/cgroups均为空。harness SHA为`a92c0348f189c6e443b293831ffa15af8baf71fbd14d575f5a5a3bfbd91c68b8`；本轮实际内核镜像20260907.300.1。文档检查438份、链接507份通过；refresh仍受既有后续任务未完成的阶段推导限制，未手工改状态或代签闸。
 
 最终同步ci.yml中提及旧5秒的过时注释，执行配置逐行比对未变，actionlint和文档检查通过。归档后的额外CI用于核验最终main；核心15秒实现与e44f9b4相同，不覆盖三轮对照或此前失败。
+
+## TASK-110修复交回（2026-09-11）
+
+WORK-051已由用户签署验收闸，TASK-114修复及独立复核完成。内核基线承接[VERIFY-052](../WORK-051/70-verify-VERIFY-052.md)的精确提交与Linux实跑：CI34478647561（e44f9b4）63项kernel、45必需Go及1000次/并发/故障/容量/最终清理均通过，最新CI34479485875（a0e1b35）现有8个job通过。TASK-110完成；保留前文失败事实，不将此交回当作native/business或完整93项基线通过。
+
+## TASK-111本地实现与发布前检查（2026-09-11）
+
+新增native.py编排原安装器、原五类verify脚本和十项case，native_control.py仅接收本轮注册/心跳；native_resources.py记录初装前所有权、校验单元和临时drop-in、停驱动及服务、核验无任务/挂载/cgroup后删除本轮账号与文件。native_results.py要求实际测量和结束标记，缺失或重复capability删减不得通过。原manage/render/layout/systemd、verify脚本、Go生产代码及预算未变。新增独立sandbox-native job（20分钟上限），普通用户prepare，sudo仅测试阶段，finally/always清理和脱敏报告；不enable、不重启，不接原服务器、IDEA或真实业务。
+
+本地Darwin24.3.0/arm64，基于a0e1b35的未提交修改：`PYTHONDONTWRITEBYTECODE=1 python3 deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work050-native-basic-3`通过，15安装+6rootfs+34CI单测（新增11项反例），50个Python AST、4个shell语法；`/private/tmp/cherry-work050-actionlint/actionlint -shellcheck= .github/workflows/ci.yml`通过。已有及新增workflow共9job，其中native尚未远端执行，不能宣称9job或10部署case通过。
+
+反例包括缺/重复cap删减、缺恢复标记、错误指纹、无线程/计量值、旧节点注册、未知fragment/drop-in/enable、被改写单元、残留阻止删除、别轮marker拒绝、无需完成安装回执的清理声明，以及先停驱动再清理且失败保留证据。真实取消与部分安装故障仍需Linux执行证明，不把mock当内核实测。TASK-111保持doing，TASK-112/113未开始；本批提交推送等待对应发布授权，历史helper/语言测试推送许可不扩张到新部署job。

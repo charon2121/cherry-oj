@@ -2,7 +2,7 @@
 id: "TASK-110"
 type: "task"
 title: "编排真实Linux隔离资源与完整回收回归"
-status: "blocked"
+status: "done"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-109", "TASK-114"]
@@ -14,7 +14,7 @@ read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/wor
 write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests", "apps/judge-engine/tests/sandbox-linux", ".github/workflows/ci.yml", "development/works/WORK-051"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web"]
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-11"
 ---
 
 # TASK-110：编排真实Linux隔离资源与完整回收回归
@@ -49,12 +49,12 @@ CAPABILITY-008 REQ-001/002/005/006与AC-002，TASK-109清单，DESIGN-044安全�
 
 ## 完成标准
 
-- [ ] 实测systemd、clone3入组、namespace/seccomp、cgroup控制器和peak/kill接口可用；能力缺失明确失败。
-- [ ] 边界各握手及exec失败阶段/errno、链接和特殊文件及1000次路径交换全部执行，无必需skip。
-- [ ] C++编译/运行隔离及全部线程权限、宿主/网络/任务间访问拒绝通过。
-- [ ] 单/多进程CPU、独立峰值、OOM/swap/pids、墙钟、普通SIGKILL、OLE后空程序、排队/handler/聚合OOM归因通过。
-- [ ] 完整1000次与双并发，取消和init/helper/HTTP崩溃恢复均通过；同PID FD与进程/挂载/cgroup/文件快照完整，无残留。
-- [ ] 原预算和断言保留；基于所有权的finally/always与超时托底生效，失败也有可归属报告。
+- [x] 实测systemd、clone3入组、namespace/seccomp、cgroup控制器和peak/kill接口可用；能力缺失明确失败。
+- [x] 边界各握手及exec失败阶段/errno、链接和特殊文件及1000次路径交换全部执行，无必需skip。
+- [x] C++编译/运行隔离及全部线程权限、宿主/网络/任务间访问拒绝通过。
+- [x] 单/多进程CPU、独立峰值、OOM/swap/pids、墙钟、普通SIGKILL、OLE后空程序、排队/handler/聚合OOM归因通过。
+- [x] 完整1000次与双并发，取消和init/helper/HTTP崩溃恢复均通过；同PID FD与进程/挂载/cgroup/文件快照完整，无残留。
+- [x] 原预算和断言保留；基于所有权的finally/always与超时托底生效，失败也有可归属报告。
 
 ## 验证
 
@@ -76,3 +76,8 @@ CAPABILITY-008 REQ-001/002/005/006与AC-002，TASK-109清单，DESIGN-044安全�
 
 - 2026-09-10：依PLAN-034增加WORK-051文档读写范围，仅整理已复现连续请求异常的独立修复材料；原生产Go禁止边界保留，不授权修复实施。
 - 2026-09-10：状态变更：doing → blocked。原因：两轮连续请求reset且helper存活；需要WORK-051独立修复，当前任务禁止改生产Go
+- 2026-09-11：TASK-114已完成技术修复、现有8项CI及Linux63项/45必需Go测试验证和独立复核，证据见VERIFY-052。按PLAN-035第5步仍等待WORK-051人工验收后交回；保持blocked，不把技术完成或委派复核授权视为验收签署。通过后据已有实跑证据逐项收束本任务，再开始TASK-111。
+- 2026-09-11：状态变更：blocked → doing。原因：WORK-051人工验收已核验通过，解除阻塞，按已有完整Linux证据逐项收束
+
+- 2026-09-11：已核验WORK-051验收闸passed并refresh为verified。完成标准对应证据为VERIFY-052的CI34470867753、34478647561及最新34479485875：Linux63项、45必需Go无skip、1000次/双并发/故障/容量和空资源快照均通过；原预算保留。TASK-110技术完成，WORK-050整体仍等待部署、业务与汇总。
+- 2026-09-11：状态变更：doing → done。原因：WORK-051人工验收通过，63项Linux及45必需Go、连续1000次并发故障清理证据完整，原预算保留

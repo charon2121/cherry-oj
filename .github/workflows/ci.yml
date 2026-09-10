@@ -57,6 +57,51 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  sandbox-native:
+    name: sandbox CI（原生安装、权限与服务恢复）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+      - name: 当前提交构建、Linux 单测与锁定 rootfs
+        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build"
+      - name: 原生安装与十项部署恢复验证
+        run: >-
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
+          python3 deploy/sandbox-linux/ci/native.py
+          --build "$RUNNER_TEMP/sandbox-build" --output "$RUNNER_TEMP/sandbox-native"
+      - name: 取消或失败后的所有权清理
+        if: always()
+        run: >-
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,PYTHONDONTWRITEBYTECODE
+          python3 deploy/sandbox-linux/ci/native.py --cleanup --output "$RUNNER_TEMP/sandbox-native"
+      - name: 保存原生部署报告
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-native
+          path: ${{ runner.temp }}/sandbox-native
+          if-no-files-found: error
+          retention-days: 14
+      - name: 保存有界构建日志
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-native-build
+          path: ${{ runner.temp }}/sandbox-build/logs
+          if-no-files-found: error
+          retention-days: 14
+
   sandbox-basic:
     name: sandbox CI（基础与证据校验）
     runs-on: ubuntu-24.04
