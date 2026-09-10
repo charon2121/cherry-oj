@@ -5,6 +5,7 @@ import (
 	"cherry-oj/judge-engine/internal/sandbox/store"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -19,22 +20,35 @@ type Executor interface {
 // api.New(p, st, 67108864) 则要回来翻签名。
 type Options struct {
 	// MaxBlobBytes：POST /blobs 单次上传上限。<=0 用默认值。
-	MaxBlobBytes int64
+	MaxBlobBytes    int64
+	MaxRequestBytes int64
+	MaxConcurrent   int
+	Isolation       string
 }
 
 const defaultMaxBlobBytes = 64 << 20
 
 type Server struct {
-	exec  Executor
-	store store.Store
-	opts  Options
+	exec     Executor
+	store    store.Store
+	opts     Options
+	requests chan struct{}
 }
 
 func New(exec Executor, st store.Store, opts Options) *Server {
 	if opts.MaxBlobBytes <= 0 { // 又一次零值兜底：没配 ≠ 不许上传
 		opts.MaxBlobBytes = defaultMaxBlobBytes
 	}
-	return &Server{exec: exec, store: st, opts: opts}
+	if opts.MaxRequestBytes <= 0 {
+		opts.MaxRequestBytes = 2 << 20
+	}
+	if opts.MaxConcurrent <= 0 {
+		opts.MaxConcurrent = 16
+	}
+	if opts.Isolation == "" {
+		opts.Isolation = "unconfigured"
+	}
+	return &Server{exec: exec, store: st, opts: opts, requests: make(chan struct{}, opts.MaxConcurrent)}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -44,14 +58,22 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /blobs", s.handleBlobPut)
 	mux.HandleFunc("GET /blobs/{ref}", s.handleBlobGet)
 	mux.HandleFunc("DELETE /blobs/{ref}", s.handleBlobDelete)
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case s.requests <- struct{}{}:
+			defer func() { <-s.requests }()
+			mux.ServeHTTP(w, r)
+		default:
+			writeError(w, http.StatusServiceUnavailable, fmt.Errorf("sandbox HTTP容量已满"))
+		}
+	})
 }
 
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":      "cherry-oj-sandbox",
 		"version":   "0.1.0-mvp",
-		"isolation": "host",
+		"isolation": s.opts.Isolation,
 	})
 }
 

@@ -21,14 +21,22 @@ logging:
 sandbox:
   httpAddr: 127.0.0.1:5050
 
-  # 最多同时跑几个程序。0 = 按 CPU 核数。
-  parallelism: 0
+  # 显式可信本地开发；Linux正式模式改为linux，helper不可用时拒绝启动。
+  backend: trusted-host
+  helperSocket: /run/cherry-sandbox/helper.sock
+  workspaceRoot: ./data/sandbox-work
+  parallelism: 1
+  queueSize: 8
+  maxRequestBytes: 2097152
 
   store:
-    # blob 落盘的根目录。留空 = 自动探测 /dev/shm，不可用则回退系统临时目录。
-    root: ""
+    # 服务独占目录，权限0700；不与其他实例共享。
+    root: ./data/sandbox-blobs
     # 单次上传上限。/dev/shm 是内存盘，没有上限一次大上传就能撑爆 RAM。
     maxBlobBytes: 67108864 # 64 MiB
+    maxTotalBytes: 536870912 # 512 MiB，含在途预留和未关闭读者
+    maxEntries: 4096
+    retention: 1h
 
 judge:
   httpAddr: 127.0.0.1:5051
@@ -111,3 +119,7 @@ judge:
     maxEntryBytes: 67108864
     maxFiles: 2000
     maxCompressionRatio: 100
+
+# Linux helper当前stdout/stderr每路硬界为1MiB；启用linux后端时同时把
+# judge.output.stdoutMaxBytes、stderrMaxBytes设为1048576，并使用新节点身份重新校准。
+# 不沿用local-development或旧环境指纹。其他Linux节点部署材料见WORK-048/TASK-099。

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -63,7 +64,7 @@ func run() int {
 		cfg.Judge, err = node.ProbeEnvironment(probeCtx, cfg.Judge)
 		cancel()
 		if err != nil {
-			logger.Error("judge.node.environment.probe.failed")
+			logger.Error("judge.node.environment.probe.failed", "error", err)
 			return 1
 		}
 	}
@@ -89,6 +90,14 @@ func run() int {
 		Handler: tracecontext.Middleware(logger, handler),
 	}
 
+	// Bind before advertising the endpoint: an occupied port must never create an online node.
+	listener, err := net.Listen("tcp", cfg.Judge.HTTPAddr)
+	if err != nil {
+		logger.Error("process.listen.failed", "error", err)
+		return 1
+	}
+	defer listener.Close()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if judgeNode != nil {
@@ -104,7 +113,7 @@ func run() int {
 			"http_addr", cfg.Judge.HTTPAddr,
 			"sandbox_url", cfg.Judge.SandboxURL,
 		)
-		serveErr <- srv.ListenAndServe()
+		serveErr <- srv.Serve(listener)
 	}()
 
 	exitCode := 0

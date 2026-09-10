@@ -177,12 +177,12 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 	}
 }
 
-// parallelism=0 是合法的（表示「按 CPU 核数」），别把它和「没配」混为一谈
-func TestParallelismZeroIsAllowed(t *testing.T) {
+// 缺省已有正数默认值，显式0拒绝启动。
+func TestParallelismZeroIsRejected(t *testing.T) {
 	cfg := Default()
 	cfg.Sandbox.Parallelism = 0
-	if err := cfg.Validate(); err != nil {
-		t.Errorf("parallelism=0 表示按 CPU 核数，应当合法: %v", err)
+	if err := cfg.Validate(); err == nil {
+		t.Errorf("parallelism=0应拒绝")
 	}
 }
 
@@ -238,5 +238,25 @@ func TestStrictWhitespaceFromEnv(t *testing.T) {
 	}
 	if !cfg.Judge.StrictWhitespace {
 		t.Error("环境变量没生效")
+	}
+}
+
+func TestSandboxHardeningConfig(t *testing.T) {
+	for _, mutate := range []func(*Config){
+		func(c *Config) { c.Sandbox.Backend = "auto" },
+		func(c *Config) { c.Sandbox.HelperSocket = "" },
+		func(c *Config) { c.Sandbox.QueueSize = 0 },
+		func(c *Config) { c.Sandbox.MaxRequestBytes = 0 },
+		func(c *Config) { c.Sandbox.Store.MaxTotalBytes = 1 },
+		func(c *Config) { c.Sandbox.Store.Retention = 0 },
+	} {
+		c := Default()
+		mutate(&c)
+		if e := c.Validate(); e == nil {
+			t.Fatal("unsafe config accepted")
+		}
+	}
+	if c := Default(); c.Sandbox.Backend != "linux" || c.Sandbox.Parallelism <= 0 {
+		t.Fatal("unsafe default")
 	}
 }

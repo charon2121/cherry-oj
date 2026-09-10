@@ -18,6 +18,8 @@ type Limits struct {
 	MaxProcesses   int   `json:"maxProcesses,omitempty"`
 	StdoutMaxBytes int64 `json:"stdoutMaxBytes"`
 	StderrMaxBytes int64 `json:"stderrMaxBytes"`
+	// present 区分 JSON 的省略和显式 0，不改变既有 Go literal 的字段类型。
+	present uint8
 }
 
 type RunSpec struct {

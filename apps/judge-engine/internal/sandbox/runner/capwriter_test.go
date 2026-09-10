@@ -13,8 +13,7 @@ func TestCapWriterBoundary(t *testing.T) {
 	}{
 		{"恰好写满不算溢出", 5, "hello", "hello", false},
 		{"多一个字节才算溢出", 5, "hello!", "hello", true},
-		{"没设上限走默认", 0, "hi", "hi", false},
-		{"负数上限也走默认", -1, "hi", "hi", false},
+		{"显式零输出", 0, "hi", "", true},
 	}
 
 	for _, tt := range tests {

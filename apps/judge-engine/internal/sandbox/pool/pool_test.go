@@ -8,16 +8,25 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/sandbox/container"
 	"cherry-oj/judge-engine/internal/sandbox/store"
 )
 
 func newTestPool(t *testing.T, parallelism int) *Pool {
 	t.Helper()
-	st, err := store.NewDiskStore()
+	st, err := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := New(parallelism, st)
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	p, err := New(st, Options{Parallelism: parallelism, QueueSize: 32, Factory: func() (container.Container, error) { return container.NewHost() }})
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { p.Close() })
 	return p
 }
@@ -110,8 +119,8 @@ func TestRunReleasesToken(t *testing.T) {
 	}
 }
 
-func TestReusesContainer(t *testing.T) {
-	// parallelism=1：第二次一定借回同一个工作间（若 put 真的还池了）
+func TestNewContainerHasNoPreviousFiles(t *testing.T) {
+	// parallelism=1：两次顺序执行也必须拥有全新工作区。
 	p := newTestPool(t, 1)
 
 	res, err := p.Run(context.Background(), contract.RunSpec{
@@ -124,11 +133,8 @@ func TestReusesContainer(t *testing.T) {
 	if res.Status != contract.StatusOK {
 		t.Fatalf("status=%s err=%s", res.Status, res.Error)
 	}
-	if len(p.containers) != 1 {
-		t.Fatalf("containers=%d, want 1 (工作间应还回池子)", len(p.containers))
-	}
 
-	// Reset 过的话，marker 不该还在
+	// 上一次的marker不能出现在新工作区
 	res, err = p.Run(context.Background(), contract.RunSpec{
 		Command: []string{"/bin/sh", "-c", "test ! -e marker"},
 		Limits:  quickLimits(),
@@ -137,6 +143,6 @@ func TestReusesContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	if res.Status != contract.StatusOK {
-		t.Fatalf("marker 仍在工作目录里（put 未 Reset？）status=%s stderr=%q", res.Status, res.Stderr)
+		t.Fatalf("marker 泄漏到新工作区status=%s stderr=%q", res.Status, res.Stderr)
 	}
 }

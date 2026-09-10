@@ -57,16 +57,24 @@ type LoggingConfig struct {
 
 type SandboxConfig struct {
 	HTTPAddr string `yaml:"httpAddr"`
-	// Parallelism：最多同时跑几个程序。0 = 按 CPU 核数。
-	Parallelism int         `yaml:"parallelism"`
-	Store       StoreConfig `yaml:"store"`
+	// Parallelism：正数并发容量，显式0拒绝启动。
+	Parallelism     int         `yaml:"parallelism"`
+	Store           StoreConfig `yaml:"store"`
+	Backend         string      `yaml:"backend"`
+	HelperSocket    string      `yaml:"helperSocket"`
+	WorkspaceRoot   string      `yaml:"workspaceRoot"`
+	QueueSize       int         `yaml:"queueSize"`
+	MaxRequestBytes int64       `yaml:"maxRequestBytes"`
 }
 
 type StoreConfig struct {
-	// Root：blob 落盘的根目录。空 = 自动探测 /dev/shm，不可用则回退到系统临时目录。
+	// Root：服务独占的私有blob目录，由配置显式指定。
 	Root string `yaml:"root"`
 	// MaxBlobBytes：单次上传的上限。/dev/shm 是内存盘，没有上限一次大上传就能撑爆 RAM。
-	MaxBlobBytes int64 `yaml:"maxBlobBytes"`
+	MaxBlobBytes  int64    `yaml:"maxBlobBytes"`
+	MaxTotalBytes int64    `yaml:"maxTotalBytes"`
+	MaxEntries    int      `yaml:"maxEntries"`
+	Retention     Duration `yaml:"retention"`
 }
 
 // OutputConfig：最多替被判的程序收多少输出。
@@ -137,7 +145,7 @@ type CompileConfig struct {
 	ClockNs     int64 `yaml:"clockNs"`
 }
 
-// Default 返回一套能直接跑起来的默认值。
+// Default 返回有界默认配置；Linux隔离服务仍需先准备helper和权限。
 //
 // 有默认值意味着**配置文件可以缺失**，也意味着 YAML 里只需要写要改的那几项——
 // 这是「零值陷阱」的解药：不填不等于填 0。
@@ -148,11 +156,19 @@ func Default() Config {
 			Level: "INFO",
 		},
 		Sandbox: SandboxConfig{
-			HTTPAddr:    "127.0.0.1:5050",
-			Parallelism: 0, // 0 = NumCPU，由 pool.New 兜底
+			HTTPAddr:        "127.0.0.1:5050",
+			Parallelism:     1,
+			Backend:         "linux",
+			HelperSocket:    "/run/cherry-sandbox/helper.sock",
+			WorkspaceRoot:   "./data/sandbox-work",
+			QueueSize:       8,
+			MaxRequestBytes: 2 << 20,
 			Store: StoreConfig{
-				Root:         "", // 空 = 自动探测
-				MaxBlobBytes: 64 << 20,
+				Root:          "./data/sandbox-blobs",
+				MaxBlobBytes:  64 << 20,
+				MaxTotalBytes: 512 << 20,
+				MaxEntries:    4096,
+				Retention:     Duration(time.Hour),
 			},
 		},
 		Judge: JudgeConfig{
@@ -169,8 +185,8 @@ func Default() Config {
 			OutputExcerptBytes:     4 << 10,
 			MessageExcerptBytes:    8 << 10,
 			Output: OutputConfig{
-				StdoutMaxBytes: 64 << 20,
-				StderrMaxBytes: 16 << 20,
+				StdoutMaxBytes: 1 << 20,
+				StderrMaxBytes: 1 << 20,
 			},
 			Compile: CompileConfig{
 				CPUNs:       10_000_000_000, // 10s
@@ -233,11 +249,24 @@ func (c Config) Validate() error {
 	if c.Sandbox.HTTPAddr == "" {
 		return fmt.Errorf("sandbox.httpAddr 不能为空")
 	}
-	if c.Sandbox.Parallelism < 0 {
-		return fmt.Errorf("sandbox.parallelism 不能为负，得到 %d", c.Sandbox.Parallelism)
+	if c.Sandbox.Parallelism <= 0 || c.Sandbox.Parallelism > 256 {
+		return fmt.Errorf("sandbox.parallelism 必须为1～256，得到 %d", c.Sandbox.Parallelism)
 	}
-	if c.Sandbox.Store.MaxBlobBytes <= 0 {
-		return fmt.Errorf("sandbox.store.maxBlobBytes 必须为正，得到 %d", c.Sandbox.Store.MaxBlobBytes)
+	if c.Sandbox.Store.MaxBlobBytes <= 0 || c.Sandbox.Store.MaxBlobBytes > 64<<20 {
+		return fmt.Errorf("sandbox.store.maxBlobBytes 必须为1～64MiB，得到 %d", c.Sandbox.Store.MaxBlobBytes)
+	}
+
+	if c.Sandbox.Backend != "linux" && c.Sandbox.Backend != "trusted-host" {
+		return fmt.Errorf("sandbox.backend必须为linux或trusted-host")
+	}
+	if c.Sandbox.Backend == "linux" && (c.Sandbox.HelperSocket == "" || c.Sandbox.WorkspaceRoot == "" || c.Sandbox.Store.Root == "") {
+		return fmt.Errorf("linux后端需要helperSocket、workspaceRoot和store.root")
+	}
+	if c.Sandbox.QueueSize <= 0 || c.Sandbox.QueueSize > 1024 || c.Sandbox.MaxRequestBytes <= 0 || c.Sandbox.MaxRequestBytes > 8<<20 {
+		return fmt.Errorf("sandbox排队或请求体上限无效")
+	}
+	if c.Sandbox.Store.MaxTotalBytes < c.Sandbox.Store.MaxBlobBytes || c.Sandbox.Store.MaxEntries <= 0 || c.Sandbox.Store.Retention <= 0 {
+		return fmt.Errorf("sandbox.store总量/条目/保留期无效")
 	}
 
 	j := c.Judge

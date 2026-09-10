@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -76,10 +77,15 @@ func TestHandleRunEmptyCommand(t *testing.T) {
 }
 
 func TestBlobRoundTrip(t *testing.T) {
-	st, err := store.NewDiskStoreWithRoot(t.TempDir())
+	st, err := store.NewDiskStoreWithRoot(filepath.Join(t.TempDir(), "store"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if e := st.Close(); e != nil {
+			t.Error(e)
+		}
+	})
 	h := api.New(&fakeExec{}, st, api.Options{}).Handler()
 
 	const body = "blob-payload"
@@ -125,10 +131,15 @@ func TestBlobRoundTrip(t *testing.T) {
 }
 
 func TestBlobNotFound(t *testing.T) {
-	st, err := store.NewDiskStoreWithRoot(t.TempDir())
+	st, err := store.NewDiskStoreWithRoot(filepath.Join(t.TempDir(), "store"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if e := st.Close(); e != nil {
+			t.Error(e)
+		}
+	})
 	h := api.New(&fakeExec{}, st, api.Options{}).Handler()
 
 	req := httptest.NewRequest("GET", "/blobs/0123456789abcdef0123456789abcdef", nil)
@@ -142,10 +153,15 @@ func TestBlobNotFound(t *testing.T) {
 
 // 上传上限来自 Options，不是写死的常量
 func TestBlobPutRespectsMaxBytes(t *testing.T) {
-	st, err := store.NewDiskStoreWithRoot(t.TempDir())
+	st, err := store.NewDiskStoreWithRoot(filepath.Join(t.TempDir(), "store"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if e := st.Close(); e != nil {
+			t.Error(e)
+		}
+	})
 	h := api.New(&fakeExec{}, st, api.Options{MaxBlobBytes: 8}).Handler()
 
 	req := httptest.NewRequest("POST", "/blobs", strings.NewReader("0123456789")) // 10 > 8
@@ -159,10 +175,15 @@ func TestBlobPutRespectsMaxBytes(t *testing.T) {
 
 // 零值兜底：没配 MaxBlobBytes 不等于「不许上传」
 func TestBlobPutZeroOptionUsesDefault(t *testing.T) {
-	st, err := store.NewDiskStoreWithRoot(t.TempDir())
+	st, err := store.NewDiskStoreWithRoot(filepath.Join(t.TempDir(), "store"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if e := st.Close(); e != nil {
+			t.Error(e)
+		}
+	})
 	h := api.New(&fakeExec{}, st, api.Options{}).Handler()
 
 	req := httptest.NewRequest("POST", "/blobs", strings.NewReader("hi"))

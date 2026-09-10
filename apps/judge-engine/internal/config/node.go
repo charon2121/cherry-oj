@@ -9,6 +9,8 @@ import (
 
 // NodeConfig 显式启用节点控制链路；禁用时保留旧 /judge 联调入口。
 type NodeConfig struct {
+	// DeploymentManifest is root-managed native Linux metadata; never supplied by a job.
+	DeploymentManifest  string   `yaml:"deploymentManifest"`
 	Architecture        string   `yaml:"-"`
 	RuntimeDigest       string   `yaml:"-"`
 	Enabled             bool     `yaml:"enabled"`

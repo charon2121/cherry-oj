@@ -13,10 +13,15 @@ import (
 // newStore 建一个只属于本用例的 store，t.TempDir 会自动清理。
 func newStore(t *testing.T) *diskStore {
 	t.Helper()
-	s, err := NewDiskStoreWithRoot(t.TempDir())
+	s, err := NewDiskStoreWithRoot(filepath.Join(t.TempDir(), "store"))
 	if err != nil {
 		t.Fatalf("create disk store: %v", err)
 	}
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	return s
 }
 

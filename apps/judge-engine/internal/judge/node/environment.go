@@ -49,14 +49,21 @@ func ProbeEnvironment(ctx context.Context, j config.JudgeConfig) (config.JudgeCo
 		return json.Unmarshal(b, result)
 	}
 	var version struct {
-		Name    string `json:"name"`
-		Version string `json:"version"`
+		Name      string `json:"name"`
+		Version   string `json:"version"`
+		Isolation string `json:"isolation"`
 	}
 	if err := get("/version", nil, &version); err != nil {
 		return j, err
 	}
 	if version.Name != "cherry-oj-sandbox" || version.Version == "" || len(version.Version) > 128 {
 		return j, fmt.Errorf("sandbox version invalid")
+	}
+	if version.Isolation == "linux" || j.Node.DeploymentManifest != "" {
+		if version.Isolation != "linux" || j.Node.DeploymentManifest == "" {
+			return j, fmt.Errorf("Linux sandbox requires matching deployment manifest and isolation")
+		}
+		return probeDeployment(ctx, j, version.Version, get)
 	}
 	var result contract.RunResult
 	spec := contract.RunSpec{Command: []string{"/usr/bin/python3", "-c", environmentProbe}, Limits: contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 134217728, MaxProcesses: 8, StdoutMaxBytes: 8192, StderrMaxBytes: 1024}}

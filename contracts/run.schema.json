@@ -6,7 +6,10 @@
   "x-transport-context": {
     "carrier": "http-headers",
     "propagation": "w3c-trace-context",
-    "headers": ["traceparent", "tracestate"],
+    "headers": [
+      "traceparent",
+      "tracestate"
+    ],
     "baggage": false,
     "requestIdHeader": "X-Request-Id",
     "description": "Trace 与同步 request ID 只通过 HTTP header 传播，不进入 RunSpec/RunResult。"
@@ -28,54 +31,67 @@
     },
     "Limits": {
       "type": "object",
-      "description": "资源上限。字段名自带单位。",
+      "description": "资源上限。省略字段使用节点受控默认值；显式 0 是零预算，不表示无限制。null、负数、未知字段和越界整数无效。",
       "properties": {
         "cpuNs": {
           "type": "integer",
           "minimum": 0,
-          "description": "CPU 时间上限"
+          "description": "累计 CPU 总预算（user+system，覆盖整个执行组）；0 表示不执行并返回 TimeLimitExceeded；cpu.max 的速率配额不是这个预算。",
+          "maximum": 9223372036854775807
         },
         "clockNs": {
           "type": "integer",
           "minimum": 0,
-          "description": "墙钟时间上限（防 sleep）"
+          "description": "墙钟预算，覆盖启动至执行组清空；0 表示不执行并返回 TimeLimitExceeded。",
+          "maximum": 9223372036854775807
         },
         "memoryBytes": {
           "type": "integer",
           "minimum": 0,
-          "description": "内存上限"
+          "description": "整个执行组内存预算，包含可信启动器及组内记账的文件缓存/tmpfs；0 表示不执行并返回 MemoryLimitExceeded。",
+          "maximum": 9223372036854775807
         },
         "maxProcesses": {
           "type": "integer",
           "minimum": 0,
-          "description": "进程数上限"
+          "description": "执行组全部进程和线程数量上限，含可信启动/监督线程；0 或不足以启动时返回 InternalError，不静默增加限额。",
+          "maximum": 2147483647
         },
         "stdoutMaxBytes": {
           "type": "integer",
           "minimum": 0,
-          "description": "最多收集多少字节 stdout，超出 → OutputLimitExceeded"
+          "description": "最多收集的字节数；0 允许无输出，产生首个字节即 OutputLimitExceeded。",
+          "maximum": 9223372036854775807
         },
         "stderrMaxBytes": {
           "type": "integer",
           "minimum": 0,
-          "description": "最多收集多少字节 stderr"
+          "description": "最多收集的字节数；0 允许无输出，产生首个字节即 OutputLimitExceeded。",
+          "maximum": 9223372036854775807
         }
-      }
+      },
+      "additionalProperties": false
     },
     "RunSpec": {
       "type": "object",
-      "required": ["command"],
+      "required": [
+        "command"
+      ],
       "description": "一次只跑一条命令（MVP）。编译与运行都走这里——对 sandbox 而言编译只是「跑 g++」。多命令管道以后再说。",
       "properties": {
         "command": {
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "要执行的命令，等同终端里空格拆开：command[0] 是程序路径"
         },
         "env": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "环境变量，如 PATH=/usr/bin:/bin"
         },
         "stdin": {
@@ -87,7 +103,9 @@
             },
             {
               "type": "object",
-              "required": ["ref"],
+              "required": [
+                "ref"
+              ],
               "properties": {
                 "ref": {
                   "type": "string",
@@ -99,17 +117,23 @@
         },
         "inputs": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/FileSource" },
+          "additionalProperties": {
+            "$ref": "#/definitions/FileSource"
+          },
           "description": "开跑前写入工作目录的文件。键 = 相对路径，如 main.cpp、main"
         },
         "outputs": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "跑完后，把工作目录里这些文件的内容内联放进响应 outputs"
         },
         "artifacts": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "跑完后存进 store，在响应 artifacts 里返回新 ref（给下一步 /run 用）"
         },
         "limits": {
@@ -119,7 +143,7 @@
     },
     "RunStatus": {
       "type": "string",
-      "description": "执行事实。OK = exit 0，不是 OJ 的 AC。",
+      "description": "执行事实。OK=exit 0 且启动/计量/清理成功，不是 OJ 的 AC。平台/计量/清理失败或调用取消为 InternalError；资源终止依据主动原因和本次 OOM 事件，不从任意 SIGKILL 推断。",
       "enum": [
         "OK",
         "TimeLimitExceeded",
@@ -133,10 +157,14 @@
     },
     "RunResult": {
       "type": "object",
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "description": "POST /run 的响应体（MVP 直接返回本对象，不再包一层 results[]）。",
       "properties": {
-        "status": { "$ref": "#/definitions/RunStatus" },
+        "status": {
+          "$ref": "#/definitions/RunStatus"
+        },
         "exitCode": {
           "type": "integer",
           "description": "进程退出码"
@@ -148,7 +176,7 @@
         "cpuNs": {
           "type": "integer",
           "minimum": 0,
-          "description": "用户 CPU 时间"
+          "description": "Linux 硬化后端：本次独立执行组及全部后代的累计 user+system CPU 时间，含可信启动/监督开销。cpu.stat usage_usec 换算为 ns，不冒称纳秒测量精度。"
         },
         "clockNs": {
           "type": "integer",
@@ -158,7 +186,7 @@
         "memoryBytes": {
           "type": "integer",
           "minimum": 0,
-          "description": "内存峰值"
+          "description": "Linux 硬化后端：本次独立 cgroup 的 memory.peak，覆盖全部后代并含组内记账的缓存/tmpfs及可信启动开销，不等同单进程 RSS。"
         },
         "stdout": {
           "type": "string",
@@ -170,13 +198,22 @@
         },
         "outputs": {
           "type": "object",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "description": "outputs 取回的文件内容，键为相对路径"
         },
         "artifacts": {
           "type": "object",
-          "additionalProperties": { "type": "string" },
+          "additionalProperties": {
+            "type": "string"
+          },
           "description": "artifacts 存进 store 得到的 ref，键为相对路径"
+        },
+        "signal": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "真实终止信号，0 表示未被信号终止；不能仅凭 SIGKILL 推断 TLE 或 MLE。"
         }
       }
     }

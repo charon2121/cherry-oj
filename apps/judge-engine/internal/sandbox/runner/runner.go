@@ -1,206 +1,237 @@
+// Package runner 解析文件引用、编排单次执行并发布已确认的产物；不持有特权操作。
 package runner
 
 import (
-	"bytes"
-	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/sandbox/container"
-	"cherry-oj/judge-engine/internal/sandbox/store"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
-	"time"
+	"sync"
+
+	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/sandbox/container"
+	"cherry-oj/judge-engine/internal/sandbox/store"
 )
 
-// 没设上限时的兜底，避免 Limits 零值被当成「一个字节都不许写」
-const defaultOutputMaxBytes = 64 << 10 // 64 KiB
+const MaxInlineBytes int64 = 1 << 20
+const MaxInputBytes int64 = 64 << 20
 
-// 收集子进程的 stdout, 超过限制之后进行截断
-type capWriter struct {
-	buf      bytes.Buffer
-	max      int64 // 最大能写多少字节
-	current  int64 // 当前写了多少字节
-	overflow bool
+func defaultLimits() contract.Limits {
+	return contract.ExplicitLimits(contract.Limits{CPUNs: 1e9, ClockNs: 5e9, MemoryBytes: 128 << 20, MaxProcesses: 64, StdoutMaxBytes: 64 << 10, StderrMaxBytes: 64 << 10})
 }
 
-func newCapWriter(max int64) *capWriter {
-	if max <= 0 {
-		max = defaultOutputMaxBytes
-	}
-	return &capWriter{max: max}
-}
-
-func (w *capWriter) Write(p []byte) (int, error) {
-
-	remain := w.max - w.current
-
-	// 只有真的有字节要被丢掉才算溢出。
-	// 写「满」不等于写「溢出」——恰好写到上限一个字节没丢，不该报 OLE。
-	if int64(len(p)) > remain {
-		w.overflow = true
-	}
-
-	if remain > 0 {
-		take := min(int64(len(p)), remain)
-		w.buf.Write(p[:take])
-		w.current += take
-	}
-
-	return len(p), nil
-}
-
-// Run 函数是 sandbox 执行一条命令的完整生命周期
-// 其中，Container 是具体的执行者，Store 和 RunSpec 互相配合，给 Container 的执行提供配置 / 依赖的文件
-//
-// 整个过程分四个大阶段
-//
-// 阶段一（准备）：
-// 1. 将 spec.Inputs 中的所有 FileSource 解析出 Reader，写入 Container 内
-// 2. 准备命令执行过程中的标准输入
-// 3. 创建收集器，收集命令执行的标准输出和标准错误
-// 4. 创建闹钟，命令超时未结束时移除杀进程
-// 阶段二（执行）：
-// 1. 运行 RunSpec 中指定的命令
-// 阶段三（判定）：
-// 1. 根据执行结果，组装 RunResult
-// 阶段四（收尾）：
-// 收命令运行成功之后的产物
-func Run(ctx context.Context, c container.Container, st store.Store, spec contract.RunSpec) contract.RunResult {
-
-	fail := func(s contract.Status, err error) contract.RunResult {
-		return contract.RunResult{
-			Status: s,
-			Error:  err.Error(),
+func Run(ctx context.Context, c container.Container, st store.Store, spec contract.RunSpec) (result contract.RunResult) {
+	fail := func(status contract.Status, err error) contract.RunResult {
+		if ctx.Err() != nil {
+			status = contract.StatusInternalError
+			err = errors.Join(err, ctx.Err())
 		}
+		return contract.RunResult{Status: status, Error: err.Error()}
 	}
-
-	// 铺 inputs: 把每个文件写进工作目录
-	// 1. ref 从 store 读
-	// 2. text 直接用
-	for name, src := range spec.Inputs {
-		rc, err := resolve(st, src)
-		if err != nil {
-			return fail(contract.StatusWorkspaceError, err)
-		}
-		err = c.PutFile(name, rc, 0o755)
-		rc.Close()
-		if err != nil {
-			return fail(contract.StatusWorkspaceError, err)
-		}
-	}
-
-	// 准备标准输入
-	var stdin io.Reader
-	if spec.Stdin != nil {
-		rc, err := resolve(st, *spec.Stdin)
-		if err != nil {
-			return fail(contract.StatusWorkspaceError, err)
-		}
-		defer rc.Close()
-		stdin = rc
-	}
-
-	// 创建带上限的收集器，收集标准错误和标准输出
-	stdout := newCapWriter(spec.Limits.StdoutMaxBytes)
-	stderr := newCapWriter(spec.Limits.StderrMaxBytes)
-
-	// 墙钟超时时间，程序最多能执行的时间。
-	// ClockNs 没设（=0）就是「不限时」——不能直接 WithTimeout(ctx, 0)，那会立刻超时。
-	var runCtx context.Context
-	var cancel context.CancelFunc
-	if spec.Limits.ClockNs > 0 {
-		runCtx, cancel = context.WithTimeout(ctx, time.Duration(spec.Limits.ClockNs))
-	} else {
-		runCtx, cancel = context.WithCancel(ctx)
-	}
-	defer cancel()
-
-	// 起进程 + 等结束 + 量墙钟时间
-	start := time.Now()
-
-	proc, err := c.Start(runCtx, container.Spec{
-		Command: spec.Command,
-		Env:     spec.Env,
-		Stdin:   stdin,
-		Stdout:  stdout,
-		Stderr:  stderr,
-		Limits:  spec.Limits,
-	})
-
+	limits, err := spec.Limits.WithDefaults(defaultLimits())
 	if err != nil {
 		return fail(contract.StatusInternalError, err)
 	}
-
-	usage, _ := proc.Wait(runCtx)
-	wall := time.Since(start).Nanoseconds()
-
-	status := classify(spec.Limits, usage, stdout.overflow || stderr.overflow, runCtx.Err())
-
-	res := contract.RunResult{
-		Status:      status,
-		ExitCode:    usage.ExitCode,
-		Signal:      usage.Signal,
-		CPUNs:       usage.CPUNs,
-		ClockNs:     wall,
-		MemoryBytes: usage.MemoryBytes,
-		Stdout:      stdout.buf.String(),
-		Stderr:      stderr.buf.String(),
+	if len(spec.Command) == 0 || len(spec.Inputs) > 128 || len(spec.Outputs)+len(spec.Artifacts) > 128 {
+		return fail(contract.StatusWorkspaceError, fmt.Errorf("命令或文件数量无效"))
 	}
-
+	if err := ctx.Err(); err != nil {
+		return fail(contract.StatusInternalError, err)
+	}
+	if limits.CPUNs == 0 || limits.ClockNs == 0 {
+		return contract.RunResult{Status: contract.StatusTimeLimitExceeded}
+	}
+	if limits.MemoryBytes == 0 {
+		return contract.RunResult{Status: contract.StatusMemoryLimitExceeded}
+	}
+	if limits.MaxProcesses == 0 {
+		return fail(contract.StatusInternalError, fmt.Errorf("maxProcesses=0无法启动"))
+	}
+	// 所有后端都限制服务侧内存；Linux更严格的硬界由适配器校验，绝不悄悄截小预算。
+	if limits.StdoutMaxBytes > 64<<20 || limits.StderrMaxBytes > 16<<20 {
+		return fail(contract.StatusInternalError, fmt.Errorf("输出预算超过服务硬界"))
+	}
+	var remaining int64 = MaxInputBytes
+	for name, src := range spec.Inputs {
+		if err := putInput(ctx, c, st, name, src, &remaining); err != nil {
+			return fail(contract.StatusWorkspaceError, err)
+		}
+	}
+	var stdin io.ReadCloser
+	if spec.Stdin != nil {
+		stdin, err = resolve(st, *spec.Stdin)
+		if err != nil {
+			return fail(contract.StatusWorkspaceError, err)
+		}
+		// 输入源限于本地文件/内存；关闭可解除取消后的阻塞读取。
+		closeInput := sync.OnceValue(stdin.Close)
+		stop := context.AfterFunc(ctx, func() { closeInput() })
+		defer func() {
+			stop()
+			if e := closeInput(); e != nil {
+				for _, ref := range result.Artifacts {
+					e = errors.Join(e, st.Delete(ref))
+				}
+				result.Outputs = nil
+				result.Artifacts = nil
+				result.Status = contract.StatusInternalError
+				if result.Error != "" {
+					e = errors.Join(errors.New(result.Error), e)
+				}
+				result.Error = e.Error()
+			}
+		}()
+	}
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stdout, stderr := newCapWriter(limits.StdoutMaxBytes), newCapWriter(limits.StderrMaxBytes)
+	stdout.onOverflow = cancel
+	stderr.onOverflow = cancel
+	outputs := make([]string, 0, len(spec.Outputs)+len(spec.Artifacts))
+	seen := map[string]bool{}
+	for _, list := range [][]string{spec.Outputs, spec.Artifacts} {
+		for _, name := range list {
+			if !seen[name] {
+				outputs = append(outputs, name)
+				seen[name] = true
+			}
+		}
+	}
+	var input io.Reader
+	if stdin != nil {
+		input = &budgetReader{r: stdin, remaining: remaining}
+	}
+	proc, err := c.Start(runCtx, container.Spec{Command: spec.Command, Env: spec.Env, Stdin: input, Stdout: stdout, Stderr: stderr, Limits: limits, Outputs: outputs})
+	if err != nil {
+		return fail(contract.StatusInternalError, err)
+	}
+	usage, waitErr := proc.Wait(runCtx)
+	res := contract.RunResult{ExitCode: usage.ExitCode, Signal: usage.Signal, CPUNs: usage.CPUNs, ClockNs: usage.ClockNs, MemoryBytes: usage.MemoryBytes, Stdout: stdout.buf.String(), Stderr: stderr.buf.String()}
+	res.Status = classify(limits, usage, stdout.overflow || stderr.overflow, ctx.Err())
+	if waitErr != nil {
+		res.Status = contract.StatusInternalError
+		res.Error = waitErr.Error()
+	}
 	if res.Status != contract.StatusOK {
 		return res
 	}
+	return collect(c, st, spec, res)
+}
 
-	// 收产物（1）：内联取回
-	res.Outputs = make(map[string]string)
+func putInput(ctx context.Context, c container.Container, st store.Store, name string, src contract.FileSource, remaining *int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	rc, err := resolve(st, src)
+	if err != nil {
+		return err
+	}
+	closeInput := sync.OnceValue(rc.Close)
+	stop := context.AfterFunc(ctx, func() { closeInput() })
+	defer stop()
+	r := &budgetReader{r: rc, remaining: *remaining}
+	err = c.PutFile(name, r, 0o755)
+	*remaining = r.remaining
+	return errors.Join(err, closeInput(), ctx.Err())
+}
+
+// 超限返回错误而不是伪装成EOF，防止接受被截断的源码/输入。
+type budgetReader struct {
+	r         io.Reader
+	remaining int64
+}
+
+func (r *budgetReader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if r.remaining == 0 {
+		var b [1]byte
+		n, e := r.r.Read(b[:])
+		if n > 0 {
+			return 0, fmt.Errorf("输入总量超限")
+		}
+		return 0, e
+	}
+	if int64(len(p)) > r.remaining {
+		p = p[:r.remaining]
+	}
+	n, e := r.r.Read(p)
+	r.remaining -= int64(n)
+	return n, e
+}
+
+func collect(c container.Container, st store.Store, spec contract.RunSpec, res contract.RunResult) (result contract.RunResult) {
+	result = res
+	result.Outputs = map[string]string{}
+	result.Artifacts = map[string]string{}
+	// 只有全部产物成功才发布ref；中途失败删除已写入Store的文件。
+	defer func() {
+		if result.Status != contract.StatusOK {
+			for _, ref := range result.Artifacts {
+				if e := st.Delete(ref); e != nil {
+					result.Error += "; 回滚产物: " + e.Error()
+				}
+			}
+			result.Outputs = nil
+			result.Artifacts = nil
+		}
+	}()
+	remaining := MaxInlineBytes
 	for _, name := range spec.Outputs {
-		rc, err := c.GetFile(name)
-		if err != nil {
-			res.Status = contract.StatusWorkspaceError
-			res.Error = err.Error()
-			return res
+		rc, e := c.GetFile(name)
+		if e != nil {
+			result.Status = contract.StatusWorkspaceError
+			result.Error = e.Error()
+			return
 		}
-		data, err := io.ReadAll(rc)
-		rc.Close()
-		if err != nil {
-			res.Status = contract.StatusWorkspaceError
-			res.Error = err.Error()
-			return res // 读了半截的内容不能算数
+		data, e := io.ReadAll(io.LimitReader(rc, remaining+1))
+		e = errors.Join(e, rc.Close())
+		if int64(len(data)) > remaining {
+			e = errors.Join(e, fmt.Errorf("内联产物总量超过%d bytes", MaxInlineBytes))
 		}
-		res.Outputs[name] = string(data)
+		if e != nil {
+			result.Status = contract.StatusWorkspaceError
+			result.Error = e.Error()
+			return
+		}
+		remaining -= int64(len(data))
+		result.Outputs[name] = string(data)
 	}
-
-	// 收产物（2）：存储到 store 中
-	res.Artifacts = make(map[string]string)
-
 	for _, name := range spec.Artifacts {
-		rc, err := c.GetFile(name)
-		if err != nil {
-			res.Status = contract.StatusWorkspaceError
-			res.Error = err.Error()
-			return res
+		if _, ok := result.Artifacts[name]; ok {
+			continue
 		}
-		ref, err := st.Put(rc)
-		rc.Close()
-		if err != nil {
-			res.Status = contract.StatusInternalError // Put 挂 = 基础设施，别写成 WorkspaceError
-			res.Error = err.Error()
-			return res
+		rc, e := c.GetFile(name)
+		if e != nil {
+			result.Status = contract.StatusWorkspaceError
+			result.Error = e.Error()
+			return
 		}
-		res.Artifacts[name] = ref
+		ref, e := st.Put(rc)
+		// Put成功后即登记，随后Close失败也可以回滚。
+		if e == nil {
+			result.Artifacts[name] = ref
+		}
+		e = errors.Join(e, rc.Close())
+		if e != nil {
+			result.Status = contract.StatusInternalError
+			result.Error = e.Error()
+			return
+		}
 	}
-
-	return res
+	return
 }
 
 func resolve(st store.Store, src contract.FileSource) (io.ReadCloser, error) {
 	switch {
 	case src.Ref != "" && src.Text != "":
-		return nil, fmt.Errorf("file source: ref & text 只能二选一")
+		return nil, fmt.Errorf("file source: ref & text只能二选一")
 	case src.Ref != "":
-		rc, err := st.Get(src.Ref)
-		if err != nil {
-			return nil, fmt.Errorf("get %q: %w", src.Ref, err)
+		rc, e := st.Get(src.Ref)
+		if e != nil {
+			return nil, fmt.Errorf("get %q: %w", src.Ref, e)
 		}
 		return rc, nil
 	default:
@@ -210,19 +241,25 @@ func resolve(st store.Store, src contract.FileSource) (io.ReadCloser, error) {
 
 func classify(lim contract.Limits, u container.Usage, outOverflow bool, ctxErr error) contract.Status {
 	switch {
-	case ctxErr == context.DeadlineExceeded:
-		return contract.StatusTimeLimitExceeded // 墙钟超时
-	case lim.CPUNs > 0 && u.CPUNs > lim.CPUNs:
-		return contract.StatusTimeLimitExceeded // CPU 超时
-	case lim.MemoryBytes > 0 && u.MemoryBytes > lim.MemoryBytes:
-		return contract.StatusMemoryLimitExceeded // 需要靠 cgroup 才准
-	case outOverflow:
-		return contract.StatusOutputLimitExceeded // 输出超限
+	case ctxErr != nil || u.Reason == container.ReasonPlatform:
+		return contract.StatusInternalError
+	case u.OOMKilled:
+		return contract.StatusMemoryLimitExceeded
+	case u.Reason == container.ReasonCPU || u.Reason == container.ReasonWall:
+		return contract.StatusTimeLimitExceeded
+	case outOverflow || u.Reason == container.ReasonOutput:
+		return contract.StatusOutputLimitExceeded
+	case u.Reason != "":
+		return contract.StatusInternalError
+	case u.CPUNs > lim.CPUNs:
+		return contract.StatusTimeLimitExceeded
+	case !u.GroupAccounting && u.MemoryBytes > lim.MemoryBytes:
+		return contract.StatusMemoryLimitExceeded
 	case u.Signal != 0:
-		return contract.StatusSignalled // SIGSEGV 等
+		return contract.StatusSignalled
 	case u.ExitCode == 0:
 		return contract.StatusOK
 	default:
-		return contract.StatusNonzeroExit // 非 0 退出
+		return contract.StatusNonzeroExit
 	}
 }

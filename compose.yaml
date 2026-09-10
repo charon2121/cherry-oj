@@ -18,6 +18,8 @@ services:
       CHERRY_OJ_LOGGING_PATH: /var/log/cherry-oj
       CHERRY_OJ_LOGGING_LEVEL: ${ENGINE_LOG_LEVEL:-INFO}
       CHERRY_OJ_SANDBOX_HTTP_ADDR: 0.0.0.0:5050
+      # 此 Compose 仅用于可信代码开发；不可信执行使用 deploy/sandbox-linux 原生隔离部署。
+      CHERRY_OJ_SANDBOX_BACKEND: trusted-host
       CHERRY_OJ_SANDBOX_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
       CHERRY_OJ_SANDBOX_STORE_ROOT: /var/lib/cherry-oj/store
       CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}

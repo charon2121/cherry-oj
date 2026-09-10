@@ -20,10 +20,15 @@ func setup(t *testing.T) (container.Container, store.Store) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { c.Close() })
-	st, err := store.NewDiskStore()
+	st, err := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	return c, st
 }
 
@@ -110,7 +115,7 @@ func TestOutputLimitExceeded(t *testing.T) {
 		},
 	})
 	if res.Status != contract.StatusOutputLimitExceeded {
-		t.Fatalf("status=%s want OutputLimitExceeded", res.Status)
+		t.Fatalf("status=%s error=%s stdout=%q want OutputLimitExceeded", res.Status, res.Error, res.Stdout)
 	}
 	if res.Stdout != "0123" {
 		t.Fatalf("stdout=%q want %q", res.Stdout, "0123")

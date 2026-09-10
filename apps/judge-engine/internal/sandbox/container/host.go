@@ -10,16 +10,28 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
 
 type hostContainer struct {
-	workDir string
+	workDir   string
+	mu        sync.Mutex
+	process   *hostProcess
+	closed    bool
+	closeOnce sync.Once
+	closeErr  error
 }
 
 type hostProcess struct {
-	cmd *exec.Cmd
+	cmd    *exec.Cmd
+	ctx    context.Context
+	cancel context.CancelFunc
+	start  time.Time
+	once   sync.Once
+	usage  Usage
+	err    error
 }
 
 func NewHost() (*hostContainer, error) {
@@ -33,19 +45,30 @@ func NewHost() (*hostContainer, error) {
 }
 
 func (p *hostProcess) Wait(ctx context.Context) (Usage, error) {
+	stop := context.AfterFunc(ctx, p.cancel)
+	defer stop()
+	p.once.Do(func() { p.usage, p.err = p.wait() })
+	return p.usage, p.err
+}
+func (p *hostProcess) wait() (Usage, error) {
 
-	// ctx 用不到
+	defer p.cancel()
 	err := p.cmd.Wait()
 	var ee *exec.ExitError
 
 	// 异常退出
-	if err != nil && !errors.As(err, &ee) {
+	if err != nil && !errors.As(err, &ee) && !(p.cmd.ProcessState != nil && errors.Is(err, p.ctx.Err())) {
 		return Usage{}, err
 	}
 
 	ps := p.cmd.ProcessState
 
-	u := Usage{ExitCode: ps.ExitCode()}
+	u := Usage{ExitCode: ps.ExitCode(), ClockNs: time.Since(p.start).Nanoseconds()}
+	if p.ctx.Err() == context.DeadlineExceeded {
+		u.Reason = ReasonWall
+	} else if p.ctx.Err() != nil {
+		u.Reason = ReasonCancelled
+	}
 
 	if ws, ok := ps.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 		u.Signal = int(ws.Signal())
@@ -61,6 +84,11 @@ func (p *hostProcess) Wait(ctx context.Context) (Usage, error) {
 }
 
 func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed || c.process != nil {
+		return nil, fmt.Errorf("Container只能执行一次")
+	}
 
 	if len(s.Command) == 0 {
 		return nil, fmt.Errorf("container: empty command")
@@ -75,7 +103,12 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, name, s.Command[1:]...)
+	clock := s.Limits.ClockNs
+	if clock <= 0 {
+		clock = int64(5 * time.Second)
+	}
+	runCtx, cancel := context.WithTimeout(ctx, time.Duration(clock))
+	cmd := exec.CommandContext(runCtx, name, s.Command[1:]...)
 
 	cmd.Dir = c.workDir
 	cmd.Env = s.Env
@@ -90,21 +123,45 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 
 	// 当 pid 参数为负数时，向一个进程组发送信号，而不是单个进程。
 	cmd.Cancel = func() error {
-		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		pid := cmd.Process.Pid
+		if pid <= 0 {
+			return os.ErrProcessDone
+		}
+		err := syscall.Kill(-pid, syscall.SIGKILL)
+		if err != nil {
+			// 进程退出与输出溢出取消可同时发生。确认主进程已消失才把迟到的取消视为完成。
+			_, groupErr := syscall.Getpgid(pid)
+			if errors.Is(groupErr, syscall.ESRCH) {
+				return os.ErrProcessDone
+			}
+			probe := cmd.Process.Signal(syscall.Signal(0))
+			if errors.Is(probe, os.ErrProcessDone) || errors.Is(probe, syscall.ESRCH) {
+				return os.ErrProcessDone
+			}
+		}
+		return err
 	}
 
 	// 解决子进程退出后，Wait 无限等待的问题
 	cmd.WaitDelay = 2 * time.Second
 
+	start := time.Now()
 	if err := cmd.Start(); err != nil {
+		cancel()
 		return nil, err
 	}
 
-	return &hostProcess{cmd: cmd}, nil
+	c.process = &hostProcess{cmd: cmd, ctx: runCtx, cancel: cancel, start: start}
+	return c.process, nil
 }
 
 // 往容器中放文件
 func (c *hostContainer) PutFile(name string, r io.Reader, mode os.FileMode) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.closed || c.process != nil {
+		return fmt.Errorf("工作区不再接受输入")
+	}
 	full, err := c.resolve(name)
 	if err != nil {
 		return err
@@ -135,23 +192,20 @@ func (c *hostContainer) GetFile(name string) (io.ReadCloser, error) {
 	return os.Open(full)
 }
 
-func (c *hostContainer) Reset() error {
-	entries, err := os.ReadDir(c.workDir)
-	if err != nil {
-		return err
-	}
-
-	for _, e := range entries {
-		if err := os.RemoveAll(filepath.Join(c.workDir, e.Name())); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *hostContainer) Close() error {
-	return os.RemoveAll(c.workDir)
+	c.closeOnce.Do(func() {
+		c.mu.Lock()
+		c.closed = true
+		p := c.process
+		c.mu.Unlock()
+		if p != nil {
+			p.cancel()
+			_, err := p.Wait(context.Background())
+			c.closeErr = err
+		}
+		c.closeErr = errors.Join(c.closeErr, os.RemoveAll(c.workDir))
+	})
+	return c.closeErr
 }
 
 func (c *hostContainer) resolve(name string) (string, error) {
