@@ -25,9 +25,9 @@ ISSUE-015 AC-001～004：时序回归、收尾与容量安全、完整CI和边�
 
 | 要求 | 本轮证据 | 状态 |
 |---|---|---|
-| AC-001 时序回归 | 旧客户端在完成后连接仍开启、尾部有垃圾两个用例失败；修复后本地通过。服务端 EOF/槽位测试已编译，须在 Linux 实际运行 | 部分完成 |
-| AC-002 收尾及容量 | 本地协议/取消/早期失败阻塞输入回归通过；新增 Linux reset、慢交付及清理后复用测试等待实跑，真实满槽及故障沿用内核套件 | 部分完成 |
-| AC-003 完整回归 | 本地完整 Go race、vet、基础 39 项通过；修复后的 Linux 63 项未运行 | 部分完成 |
+| AC-001 时序回归 | 旧客户端在完成后连接仍开启、尾部有垃圾两个用例失败；修复后本地及 Linux 通过，服务端受控 EOF/槽位测试通过 | 通过 |
+| AC-002 收尾及容量 | 本地协议/取消/早期失败阻塞输入回归通过；Linux 实际 reset、慢交付、清理后复用及完整容量/故障套件通过 | 通过 |
+| AC-003 完整回归 | 本地完整 Go race、vet、基础 39 项通过；946e528 的 8 job 与 Linux 63 项通过 | 通过 |
 | AC-004 边界及复核 | 生产仅两个 helper 文件；测试消费者边界先更新再修改。未部署或更改原节点；尚无本次独立复核 | 部分完成 |
 
 ## 检查与结果
@@ -42,9 +42,28 @@ ISSUE-015 AC-001～004：时序回归、收尾与容量安全、完整CI和边�
 
 源码收尾顺序：serveConn 完成执行清理、产物交付、FD Close 及取消 defer；fatal 先通知停服；serveInSlot 归还槽位后关闭 Unix socket；客户端验证正常 EOF 后返回。槽位归还之前包括全部可阻塞交付，之后没有协议写入或后台任务，仅本地 socket 关闭。保持 accept 处无槽即拒绝及原连接/写期限。
 
+## 服务端受控旧顺序对照
+
+Linux 的当前实现已实跑通过后，进一步补齐旧服务端顺序的确定性对照。macOS 使用临时 Go `-overlay`，把当前 server_linux_amd64.go 中的 serveInSlot 原函数及 server_linux_amd64_test.go 中的真实 Unix socket 槽位用例并入测试文件；旧版本仅交换该函数的两个 defer，恢复原“先关闭连接、后归还槽位”的顺序。两份 overlay 和提取内容保存在 `/private/tmp/cherry-work051-slot-order`，没有改动仓库源码或新增生产分支。
+
+同一命令 `go test -race -count=1 -overlay <old|fixed>.json -run '^TestConnectionEOFReturnsCleanSlot$' ./internal/sandbox/helper`：旧顺序 FAIL，报“EOF 前下一连接未能取得已经清理的槽位”；当前顺序 PASS。测试在 Close 交付 EOF 之前同步尝试取得唯一槽位，且完成帧发出后用通道暂停清理；不靠循环碰调度窗口。此对照只证明收尾次序，Linux 系统行为仍以以下 CI 实跑为准。
+
+## 修复后 Linux 实测
+
+[CI 34470867753](https://github.com/charon2121/cherry-oj/actions/runs/34470867753) 对应 `946e52890aae40017ea1802dfc5784bb975eda83`：8 个 job 全部成功。Ubuntu 24.04.5 / Linux 6.17.0-1022-azure / x86_64，4 CPU，约 16 GiB RAM、3 GiB swap；LSM 为 lockdown/capability/landlock/yama/apparmor/ima/evm，runner image 20260907.300.1。没有关闭 LSM 或修改现有服务器。
+
+下载 sandbox-kernel 与 sandbox-kernel-build 制品至本地临时目录后，重新执行 report.validate、report.verify_files、results.linux_units、results.boundary 和三个 results.chain 校验，全部通过。sourceSha 与本次提交一致，harnessSha 为 `425160ccb62b94c681673d79ebc0757629ec1f331e1ff4e8b04931dae81aedf3`；63 个 kernel 项全部 PASS，无 NOT_RUN。45 个必需 Go 测试无 skip/fail，包括本次 7 个回归；真实 Unix ECONNRESET、EOF 前取得已清理槽位和慢交付期限均通过。
+
+- 原失败 magiclink 与 zero-output-writer 分别恢复预期 Signalled、OutputLimitExceeded；取消后的下一空程序 OK。
+- CPU 1 秒预算：单循环 1.003224 秒 CPU / 1.063428 秒墙钟，整树 1.009736 秒 CPU / 1.053690 秒墙钟。输出超限后空程序独立峰值 8,126,464 bytes，没有继承历史峰值。
+- 连续 1000 次全部成功，共 22.351416 秒；单次墙钟中位数 20,028,614 ns、最大 110,362,626 ns，峰值内存最大 10,604,544 bytes。前后同 PID 的 helper FD=9、HTTP FD=11，任务/组/挂载为空，工作目录及产物基线不增长。
+- 两个 2 秒任务共 2.026625 秒，peakGroups=2，证明确实并发；两槽/四队列满载第七请求 503，10 个 handler 满载第十一个请求 503。
+- init/HTTP/helper SIGKILL、正常停止、排队断连、恢复及清理均通过。祖先 96 MiB 聚合 OOM 保持 InternalError；任务自身 64 MiB OOM 为 MemoryLimitExceeded。不同槽身份及文件/PID隔离、提权拒绝通过。
+- cleanup.json 为 PASS；resources-after.json 中 tasks/mounts/cgroups 均为空。报告与日志保存在该 CI 的制品中，本地下载副本 `/private/tmp/cherry-work051-ci-34470867753-kernel` 不提交为固定测试输入。
+
 ## 未通过项
 
-修复后 Linux 测试和完整 CI、1000 次、并发、故障及容量结果均未形成；也未完成本次独立复核。不能仅凭客户端旧红新绿声称已经解释全部真实 reset。
+本次独立复核尚未完成。旧红新绿和整链通过支持此修复解决已识别的次序问题，不声称所有连接 reset 都只可能有这一原因。
 
 ## 范围检查
 
@@ -52,17 +71,18 @@ ISSUE-015 AC-001～004：时序回归、收尾与容量安全、完整CI和边�
 
 ## 遗留问题
 
-Linux 实跑后核对 EOF 顺序能否消除原始链路故障，并检查完整容量和清理结果。用户已授权本次提交推送及 GitHub Linux CI；独立复核委派仍待对应授权，验收闸仍由用户签署。
+Linux 实跑已经验证本次整链与完整容量清理，剩余独立源码复核。用户已授权本次提交推送及 GitHub Linux CI；独立复核委派仍待对应授权，验收闸仍由用户签署。
 
 ## 剩余风险
 
-当前 CI 基线未全绿，不能完成 WORK-050 或开始 WORK-049 源代码重构。当前服务器未更新；修复后的配套二进制后续按新身份部署校准，不沿用旧指纹。
+当前已有一轮内核及现有 8 job 全绿，但 WORK-050 尚有原生部署、真实业务及最终复核任务，不能宣称全部 CI 整理完成或开始 WORK-049 源代码重构。当前服务器未更新；修复后的配套二进制后续按新身份部署校准，不沿用旧指纹。
 
 ## 结论
 
-result=pending；用户已签署意图闸并允许实施，本地修复及回归已完成，Linux 实机、完整 CI 和独立复核尚待执行。
+result=pending；用户已签署意图闸并允许实施，本地修复、Linux 实机和现有完整 CI 已通过；独立复核授权与结论尚待完成，TASK-114 保持 doing。
 
 ## 变更记录
 
 - 2026-09-10：状态变更：draft → review。原因：保留失败证据与未执行项，无修复通过结论
 - 2026-09-10：记录实际旧红新绿、本地全量回归及交叉编译，明确 Linux 和复核缺口。
+- 2026-09-10：记录修复提交 946e528 的 8 job、63 内核项、45 Go 测试及完整回收成功证据；没有代签验收或独立复核。

@@ -104,8 +104,8 @@
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "生产只改helper连接收尾，私有消费者配套EOF，未改公开契约/权限/限额/现有节点；未来新身份部署校准"
       },
       {
         "name": "independent-review",
@@ -128,13 +128,13 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "946e528在CI 34470867753的8job与63内核项全绿，45必需Go测试无跳过，制品下载复验通过"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "受控时序、EOF超时/reset、1000次、并发、故障与容量回归通过，最终任务/挂载/cgroup为空"
       },
       {
         "name": "security",
