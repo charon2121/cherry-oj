@@ -91,3 +91,13 @@ result=pending；用户已签署意图闸并允许实施，验收闸未签署；
 magiclink请求在helper连接上被reset，结果InternalError，未达到原Signalled/SIGSYS断言，不能通过。CPU与整树本轮分别约1.002/1.003秒CPU、1.058/1.063秒墙钟；空程序峰值约8MiB。后续1000次等未执行，失败后最终资源仍为空。
 
 只读源码发现helper发Completion后才由外层defer归还槽，而接入处无可用槽时立即关闭连接，可能存在连续请求窗口。连接reset本身不足以证明该归因；新增失败时、停服前的有界systemctl/journal证据，以区分容量拒绝与服务退出。保持原断言，不添加请求sleep/重试或提高并发槽，也未修改禁止范围内的生产Go代码。
+
+## 第三轮最终结果与阻塞交接
+
+[34465164384](https://github.com/charon2121/cherry-oj/actions/runs/34465164384) 对应已推送7a66b35fd157272e6dcc0a3a80a7bca0ad8cd690：8个job中7成功，sandbox-kernel失败；Go包间串行后连续两轮完整通过。
+
+本轮magiclink/hardlink与显式零CPU/clock/memory/pids已达到原预期，连接reset出现在zero-output-writer。停服前helper主PID8729、HTTP主PID8755仍与初始快照一致，均ActiveState=active、Result=success、ExecMainStatus=0；helper未因该reset退出。journald中的任务OOM发生于此前正常MLE阶段，不能当成主helper崩溃证据。最终resources-after.json显示tasks/mounts/cgroups均为空，cleanup PASS。
+
+C++整组中断后没有运行1000次、双并发和后续故障组；整组失败不表示前面已打印事实的断言都失败，也不能把这部分事实当作该组全部通过。准确部分结果保留在chain-smoke.log。
+
+TASK-110已置blocked，依赖新建WORK-051/TASK-114。该工作只有待审修复材料，尚未修改任何生产Go文件；候选是修正完成确认/容量释放/连接结束的顺序，先用确定性回归确认，禁止加请求sleep/重试或扩大槽位。WORK-050仍不能验收，WORK-049仍不能开始源码重构。

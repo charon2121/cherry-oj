@@ -1086,12 +1086,18 @@
     "cherry-oj/judge-engine/internal/sandbox/helper": [
       "TestAncestorOOMPreservesPlatformFailure",
       "TestCaptureBoundsAndDrains",
+      "TestClientCancellationAfterCompletion",
       "TestClientCancellationReleasesBlockedInput",
       "TestClientEarlyFailureClosesBlockedInput",
+      "TestClientRejectsInvalidCompletion",
       "TestClientRejectsMissingCleanupAcknowledgement",
+      "TestClientRejectsResetAfterCompletion",
+      "TestClientRejectsTrailingData",
       "TestClientRejectsUnrequestedArtifact",
       "TestClientStreamsInputsAndOutputs",
+      "TestClientWaitsForConnectionRelease",
       "TestConfigRejectsPrivilegeConfusion",
+      "TestConnectionEOFReturnsCleanSlot",
       "TestCopyInputOwnsNoCachedFastPath",
       "TestDeliveryRejectsTruncatedArtifact",
       "TestFailedStartAlwaysReclaimsOwnedResources",
@@ -1103,7 +1109,8 @@
       "TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts",
       "TestFinishPreservesExecutionAndMultipleCleanupErrors",
       "TestOwnedFileConcurrentCloseUnblocksReader",
-      "TestSlotIdentityRange"
+      "TestSlotIdentityRange",
+      "TestSlowDeliveryHoldsSlotUntilDeadline"
     ],
     "cherry-oj/judge-engine/internal/sandbox/launcher": [
       "TestCompilerCommandNamesPreservePathBoundary",

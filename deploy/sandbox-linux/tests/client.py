@@ -47,6 +47,7 @@ def call(path,req,data=b''):
             artifacts[name]=exact(sock,size)
         completion=frame(sock)
         assert completion==dict(Version=1,Complete=True)
+        assert sock.recv(1)==b'', 'helper sent data after completion'
     assert not result['Usage']['Populated'],result
     stdout=base64.b64decode(result.pop('Stdout') or '')
     stderr=base64.b64decode(result.pop('Stderr') or '')

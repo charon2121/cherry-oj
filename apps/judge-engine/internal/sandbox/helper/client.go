@@ -96,8 +96,16 @@ func Call(ctx context.Context, socket string, r launcher.Request, input io.ReadC
 	if completion.Version != launcher.Version || !completion.Complete {
 		return result, fmt.Errorf("helper 没有确认完整回收与交付")
 	}
-	// 提前失败时关闭 socket，打断仍在向 helper 写入的线程；输入源本身须遵循调用者 ctx。
-	closeConn()
-
-	return result, nil
+	// Completion 确认执行资源和产物回收；正常 EOF 才确认连接收尾、槽位归还。
+	// 此读取仍受上面的总期限和 ctx 取消约束。reset 或多余字节不能当作成功。
+	var trailing [1]byte
+	if n, err := conn.Read(trailing[:]); n != 0 {
+		return result, fmt.Errorf("helper 完成帧后存在多余数据")
+	} else if err != io.EOF {
+		if err == nil {
+			err = io.ErrNoProgress
+		}
+		return result, fmt.Errorf("等待 helper 连接收尾: %w", err)
+	}
+	return result, ctx.Err()
 }

@@ -38,7 +38,8 @@ for mode in ['identity','cpu','memory','output','identity','network','identity']
         result=frame(sock)
         assert not result.get('Outputs')
         completion=frame(sock)
-        assert completion['Complete']
+        assert completion==dict(Version=1,Complete=True)
+        assert sock.recv(1)==b'', 'helper sent data after completion'
         stdout=base64.b64decode(result.get('Stdout') or '')
         result['StdoutBytes']=len(stdout)
         result.pop('Stdout',None)

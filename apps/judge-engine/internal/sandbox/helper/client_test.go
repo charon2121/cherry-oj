@@ -1,8 +1,10 @@
+// 同包以便 Linux 非导出的连接生命周期测试复用真实 Unix 协议夹具。
 package helper
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -163,5 +165,90 @@ func TestClientCancellationReleasesBlockedInput(t *testing.T) {
 	}
 	if _, err := writer.Write([]byte{1}); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatal("取消后输入仍阻塞", err)
+	}
+}
+
+func TestClientWaitsForConnectionRelease(t *testing.T) {
+	// 完成帧已经交付，但服务端尚未结束连接：期限到达也不能返回成功。
+	release := make(chan struct{})
+	socket := fakeServer(t, func(c net.Conn) {
+		writeTestCompletion(t, c)
+		<-release
+	})
+	t.Cleanup(func() { close(release) })
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	result, err := Call(ctx, socket, testRequest(), io.NopCloser(strings.NewReader("")), nil)
+	if err == nil {
+		t.Fatal("完成帧之后没有 EOF，客户端仍返回成功")
+	}
+	if result.Version != launcher.Version || !strings.Contains(err.Error(), "等待 helper 连接收尾") || ctx.Err() != context.DeadlineExceeded {
+		t.Fatalf("未到达 EOF 等待期限: result=%+v err=%v ctx=%v", result, err, ctx.Err())
+	}
+}
+
+func TestClientCancellationAfterCompletion(t *testing.T) {
+	release := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	socket := fakeServer(t, func(c net.Conn) {
+		writeTestCompletion(t, c)
+		cancel()
+		<-release
+	})
+	t.Cleanup(func() { close(release) })
+	if _, err := Call(ctx, socket, testRequest(), io.NopCloser(strings.NewReader("")), nil); err == nil {
+		t.Fatal("完成帧之后取消，客户端仍返回成功")
+	}
+}
+
+func TestClientRejectsTrailingData(t *testing.T) {
+	socket := fakeServer(t, func(c net.Conn) {
+		writeTestCompletion(t, c)
+		if _, err := c.Write([]byte{1}); err != nil {
+			t.Error(err)
+		}
+	})
+	if _, err := Call(context.Background(), socket, testRequest(), io.NopCloser(strings.NewReader("")), nil); err == nil {
+		t.Fatal("完成帧之后存在多余字节，客户端仍返回成功")
+	}
+}
+
+func TestClientRejectsInvalidCompletion(t *testing.T) {
+	for _, completion := range []Completion{{Version: launcher.Version}, {Version: launcher.Version + 1, Complete: true}} {
+		t.Run(fmt.Sprintf("%+v", completion), func(t *testing.T) {
+			socket := fakeServer(t, func(c net.Conn) {
+				var request launcher.Request
+				if err := launcher.ReadFrame(c, &request, launcher.MaxFrameBytes); err != nil {
+					t.Error(err)
+					return
+				}
+				if err := launcher.WriteFrame(c, Result{Version: launcher.Version}, 4<<20); err != nil {
+					t.Error(err)
+				}
+				if err := launcher.WriteFrame(c, completion, 1024); err != nil {
+					t.Error(err)
+				}
+			})
+			if _, err := Call(context.Background(), socket, testRequest(), io.NopCloser(strings.NewReader("")), nil); err == nil {
+				t.Fatal("无效完成帧仍返回成功")
+			}
+		})
+	}
+}
+
+func writeTestCompletion(t *testing.T, c net.Conn) {
+	t.Helper()
+	var request launcher.Request
+	if err := launcher.ReadFrame(c, &request, launcher.MaxFrameBytes); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := launcher.WriteFrame(c, Result{Version: launcher.Version}, 4<<20); err != nil {
+		t.Error(err)
+		return
+	}
+	if err := launcher.WriteFrame(c, Completion{Version: launcher.Version, Complete: true}, 1024); err != nil {
+		t.Error(err)
 	}
 }

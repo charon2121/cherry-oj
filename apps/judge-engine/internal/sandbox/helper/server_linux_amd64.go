@@ -102,18 +102,27 @@ func Serve(ctx context.Context, c Config) (result error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			defer func() { slots <- slot }()
-			defer conn.Close()
-			if err := serveConn(serveCtx, conn, c.forSlot(slot), manager, executable); err != nil {
-				select {
-				case fatal <- err:
-				default:
+			serveInSlot(conn, slots, slot, func() {
+				if err := serveConn(serveCtx, conn, c.forSlot(slot), manager, executable); err != nil {
+					select {
+					case fatal <- err:
+					default:
+					}
+					stop()
 				}
-				stop()
-			}
+			})
 		}()
 	}
 }
+
+// serveInSlot 接管已取得的槽位和连接。serve 包含交付、资源回收和 fatal 停服处理；
+// 只有它完整返回后才归还槽位，最后的 socket EOF 让客户端观察到这一顺序。
+func serveInSlot(conn io.Closer, slots chan int, slot int, serve func()) {
+	defer conn.Close()
+	defer func() { slots <- slot }()
+	serve()
+}
+
 func checkPeer(c *net.UnixConn, uid int) error {
 	raw, err := c.SyscallConn()
 	if err != nil {

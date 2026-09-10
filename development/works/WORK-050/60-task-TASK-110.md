@@ -2,16 +2,16 @@
 id: "TASK-110"
 type: "task"
 title: "编排真实Linux隔离资源与完整回收回归"
-status: "doing"
+status: "blocked"
 work: "WORK-050"
 owners: ["codex/root"]
-depends_on: ["TASK-109"]
+depends_on: ["TASK-109", "TASK-114"]
 related: []
 implements: ["CAPABILITY-008#REQ-001", "CAPABILITY-008#REQ-002", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-002"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts"]
-write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests", "apps/judge-engine/tests/sandbox-linux", ".github/workflows/ci.yml"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "development/works/WORK-051"]
+write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests", "apps/judge-engine/tests/sandbox-linux", ".github/workflows/ci.yml", "development/works/WORK-051"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web"]
 created_at: "2026-09-10"
 updated_at: "2026-09-10"
@@ -73,3 +73,6 @@ CAPABILITY-008 REQ-001/002/005/006与AC-002，TASK-109清单，DESIGN-044安全�
 - 2026-09-10：已实现prepare/kernel、受限命令执行、运行所有权、完成记录校验与sandbox-kernel job；原手工脚本只增加可选单元名及零限额日志，未改断言。清单冻结38个Linux专属包测试名，专用套件拒绝所有skip。
 - 本地无特权校验：basic入口共39项单测通过（install15/rootfs6/CI18）；actionlint1.7.12通过；linux/amd64边界测试二进制交叉构建成功，不能计为运行验证。
 - 保持doing：尚未发布这批CI，未取得一次性GitHub VM上的真实内核、1000次、故障和清理证据；依PLAN-034逐阶段验证后再进入TASK-111。
+
+- 2026-09-10：依PLAN-034增加WORK-051文档读写范围，仅整理已复现连续请求异常的独立修复材料；原生产Go禁止边界保留，不授权修复实施。
+- 2026-09-10：状态变更：doing → blocked。原因：两轮连续请求reset且helper存活；需要WORK-051独立修复，当前任务禁止改生产Go
