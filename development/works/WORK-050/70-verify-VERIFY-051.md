@@ -72,3 +72,14 @@ result=pending；用户已签署意图闸并允许实施，验收闸未签署；
 - 尚无该批Actions运行；TASK-110保持doing，TASK-111～113未开始，WORK-049重构尚不能启动。根据CLAUDE提交规则及PLAN-034阶段验证顺序，下一步需要用户授权发布此批CI，以取得真实Linux结果后继续。
 
 - `scripts/work check`：429份文档通过，保留既有WORK-033提示。`refresh WORK-050`因后续TASK仍todo而将开发任务阶段视作未完成，拒绝将WORK推至doing；未绕过工具或提前置后续任务ready。当前TASK-109 done、TASK-110 doing的事实记录保留。
+
+## 首轮 GitHub 实际执行（保留失败）
+
+用户于本轮明确允许提交推送，已发布7cd13146925664965749769a6773d4cd2bfa3f3b。运行：[34464207491](https://github.com/charon2121/cherry-oj/actions/runs/34464207491)，8个job中6成功、2失败，不是完整通过。
+
+- basic通过5/5，39项Python测试、43个Python文件和4个shell入口；下载报告核验sourceSha/harnessSha/证据和cleanup均通过。
+- kernel实际环境Ubuntu24.04.5、Linux6.17.0-1022-azure、x86_64、4CPU、约16GiB内存及3GiB swap，LSM含AppArmor；本轮未关闭安全策略。锁定rootfs构建及38个Linux包测试通过。
+- 四组真实边界通过：缺控制器拒绝、11类exec阶段/errno、9类文件拒绝与1000次路径交换、8类启动握手；静态线程采样因/proc/8333/task/8336/status在枚举后消失而失败。后续用例NOT_RUN，不能算通过；最终tasks/mounts/cgroups全部为空，cleanup PASS。
+- 修正测试采样：线程消失时丢弃整份样本，在原2s观察期限内再次采样，不能保留部分线程绕过全线程权限断言。
+- 原有Go job的TestEndToEndCpp与TestEndToEndJavaWithInnerClass各在5.01s编译退出-1；未出现race诊断。两者使用未修改的host开发夹具。包间资源竞争只是待验证推断；CI改为-p=1限制测试包间调度，保留包内并发、race、完整包集合及原5s期限，并保证失败时仍打印工具链版本。
+- 本次失败报告和日志保留在原运行产物中。修正后使用新提交完整运行，不将首轮覆盖或登记为成功。

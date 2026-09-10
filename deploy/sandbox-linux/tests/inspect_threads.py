@@ -30,11 +30,16 @@ try:
         groups=[p for p in jobs.iterdir() if p.is_dir()]
         rows=[]
         if len(groups)==1:
-            for pid in (groups[0]/'cgroup.procs').read_text().split():
-                proc=Path('/proc')/pid
-                for thread in (proc/'task').iterdir():
-                    values=status(thread/'status')
-                    rows.append((pid,thread.name,values))
+            try:
+                for pid in (groups[0]/'cgroup.procs').read_text().split():
+                    proc=Path('/proc')/pid
+                    for thread in (proc/'task').iterdir():
+                        values=status(thread/'status')
+                        rows.append((pid,thread.name,values))
+            except (FileNotFoundError,ProcessLookupError):
+                # Runtime startup/exec can retire a thread between readdir and open.
+                # Discard the whole sample; a partial set must never certify all-thread credentials.
+                rows=[]
         ids={v['Uid'].split()[0] for _,_,v in rows}
         if ids=={'61002','61003'} and all(v['NoNewPrivs']=='1' and v['Seccomp']=='2' for _,_,v in rows):break
         time.sleep(.01)
