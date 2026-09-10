@@ -15,8 +15,9 @@ import (
 	"cherry-oj/judge-engine/internal/sandbox/container"
 )
 
-// 只用于可信语言功能夹具；诊断可显式保留原5秒，生产与运行期限不受影响。
-var compileClock = flag.Duration("language-compile-clock", 5*time.Second, "trusted language fixture compile deadline (0 < deadline <= 30s)")
+// 可信功能夹具需容纳CI首次加载工具链的等待，依据见WORK-050/TASK-115。
+// 诊断仍显式测原5秒；生产、运行期限和严格资源回归不受影响。
+var compileClock = flag.Duration("language-compile-clock", 15*time.Second, "trusted language fixture compile deadline (0 < deadline <= 30s)")
 
 // 集成测试：用真的 container 跑一遍 registry 里的命令，
 // 编译 → 收产物 → **换一个干净工作间** → 运行。
