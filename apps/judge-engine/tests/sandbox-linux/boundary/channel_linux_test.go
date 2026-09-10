@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 	"golang.org/x/sys/unix"
@@ -65,9 +66,14 @@ func TestControlSignalChild(t *testing.T) {
 	unblocked.Val[0] &^= blocked.Val[0]
 	fds := []unix.PollFd{{Fd: int32(control.Fd()), Events: unix.POLLIN}}
 	timeout := unix.NsecToTimespec((2 * time.Second).Nanoseconds())
-	_, err = unix.Ppoll(fds, &timeout, &unblocked)
-	if !errors.Is(err, unix.EINTR) {
-		t.Fatalf("pending signal poll: %v", err)
+	// x/sys v0.46.0 Ppoll passes a zero sigsetsize, valid only for a nil mask.
+	// This linux/amd64 fixture supplies the kernel's 64-bit mask explicitly;
+	// libc's 128-byte Sigset_t is not the kernel ABI size.
+	kernelMask := uint64(unblocked.Val[0])
+	_, _, errno := unix.Syscall6(unix.SYS_PPOLL, uintptr(unsafe.Pointer(&fds[0])), uintptr(len(fds)),
+		uintptr(unsafe.Pointer(&timeout)), uintptr(unsafe.Pointer(&kernelMask)), unsafe.Sizeof(kernelMask), 0)
+	if errno != unix.EINTR {
+		t.Fatalf("pending signal poll: %v", errno)
 	}
 	select {
 	case <-notified:
