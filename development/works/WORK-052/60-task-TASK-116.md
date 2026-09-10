@@ -72,3 +72,5 @@ ISSUE-016 REQ-001～003、AC-001～004及DESIGN-046/DECISION-030/PLAN-036。
 - 2026-09-11：新增startup poll/receive阶段报错，以及原TestStartupBoundaries内必经的control-signal-observation：独立5秒子进程，待决线程信号配合Ppoll，随后一次消息/FD/EOF观测。尚未运行Linux信号测试，尚未修改channel生产实现。
 
 - 2026-09-11：诊断首轮CI34507325931因夹具Ppoll掩码长度为0而EINVAL，尚未注入信号；仅修正该测试的内核ABI调用并复验，不将此失败当成生产问题。
+
+- 2026-09-11：ebb8b73的CI34507853030九job通过，真实等待阶段EINTR及后续一次消息/FD/EOF已验证，63内核/45必需Go/10原生及完整回收核验通过。生产Recvmsg仍未注入或修复，原始失败来源未追溯确定，保持doing，不能视为旧红新绿或最终验收。

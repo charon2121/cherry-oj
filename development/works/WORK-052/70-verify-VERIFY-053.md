@@ -23,7 +23,7 @@ ISSUE-016 AC-001～004：确定性复现、消息/FD/期限语义、完整Linux�
 
 ## 对应要求
 
-四项AC均未完成，仅存在真实失败及源码读取证据。
+已完成真实Linux诊断与当前诊断SHA的完整工程、内核、原生回归；生产修复、旧红新绿、完整期限语义及独立复核尚未完成，四项AC不据此整体通过。
 
 ## 检查与结果
 
@@ -33,7 +33,7 @@ ISSUE-016 AC-001～004：确定性复现、消息/FD/期限语义、完整Linux�
 
 ## 未通过项
 
-新增信号诊断已完成Linux交叉构建，但真实Linux复现、生产修复、FD/期限验证、修复后完整CI和独立复核尚未完成。
+真实Linux信号诊断已通过；生产修复、原失败的确定归因、收发旧红新绿、连续中断/取消/期限验证及独立复核尚未完成。
 
 ## 范围检查
 
@@ -65,3 +65,15 @@ result=pending。意图闸及实施授权已核验，TASK-116进行中；本地�
 
 - 2026-09-11：首轮发布9a0ad6743574dc167b6659f7a3692797f269ab92，CI34507325931的kernel失败于新增control-signal-observation：`pending signal poll: invalid argument`；原八项启动场景全部通过。首轮未成功注入信号，不能支持EINTR归因。下载目录/private/tmp/cherry-work052-kernel-34507325931，经validate(successful=False)与verify_files核对，harness=ab2824a62b22fb5c0ce32f375d0bdccd5429dac4dd6e49dc7d3ebc77c5622889，kernel2PASS、4FAIL、57NOT_RUN，cleanup confirmed=true。
 - 2026-09-11：核对锁定x/sys v0.46.0的zsyscall_linux.go:137，Ppoll底层把sigsetsize固定传0；原无掩码Poll不受影响，新增非空掩码夹具因此EINVAL。修正仅在该测试使用unix.Syscall6调用ppoll，传递Linux/amd64的64位内核掩码与8字节大小；不改依赖、生产、场景预算或错误判据。Linux目标vet与交叉构建通过，需新SHA实跑确认。
+
+
+## 诊断发布结果（2026-09-11）
+
+提交ebb8b7355d7c1e6bbf37ed4c8dc54b1f4ebe3bc9，[CI34507853030](https://github.com/charon2121/cherry-oj/actions/runs/34507853030)九个job全部success。第一轮34507325931的夹具错误与失败报告保留，不覆盖为PASS。
+
+- 实际环境：Ubuntu24.04.5、Linux6.17.0-1022-azure、x86_64、LSM含AppArmor，GitHub镜像20260907.300.1。不是用户服务器测试，不代表其他Linux支持。
+- 新增诊断输出`poll=EINTR receiveCallsBeforeSend=0 message=workspace fd=once eof=true`：线程定向待决SIGUSR1在ppoll原子解屏蔽时产生真实EINTR，生产ReceiveEvent尚未被调用；随后原生产SendEvent/ReceiveEvent完整交付一次消息、同一目录FD并观察EOF。该用例没有向生产Recvmsg注入EINTR，因此不能证明其恢复能力，也不能追溯证明历史失败的具体系统调用或信号。
+- 内核63项PASS、45个必需Linux Go测试无skip；原八项启动边界及新增诊断、文件/exec边界、整链smoke、1000次、并发与故障完成。
+- 原生10项PASS；重新执行native_results全部检查，包含八个不同的真实权限测试启动记录、服务故障恢复与卸载保留/还原。内核和原生cleanup.json均confirmed=true；任务、挂载、cgroup全部为空，原生额外路径、账户、用户组亦为空。
+- 下载目录：/private/tmp/cherry-work052-kernel-34507853030及/private/tmp/cherry-work052-native-34507853030。两份report.validate与verify_files均通过，sourceSha与上述提交一致，harnessSha均为a0568d8816c5f137a52fb1b1c2469a5ec8d6fcbaa0eef0e9c6795ecc5ee8968c；已重新核验Linux必需测试、boundary/chain标记和原生断言。
+- 发布正常执行hooks，无缓存Go race通过。未修改生产通道或现有服务器，未读取/纳入本地测试数据ZIP。TASK-116保持doing，WORK-052验收闸pending；本次诊断通过不关闭原始问题，也不解除TASK-112依赖。
