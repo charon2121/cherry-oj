@@ -883,6 +883,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        },
+        {
+          "path": "deploy/sandbox-linux/ci/business.py"
         }
       ]
     },
@@ -894,6 +897,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        },
+        {
+          "path": "deploy/sandbox-linux/ci/business.py"
         }
       ]
     },
@@ -905,6 +911,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        },
+        {
+          "path": "deploy/sandbox-linux/ci/business.py"
         }
       ]
     },
@@ -916,6 +925,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/io.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -927,6 +939,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/compile_error.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -938,6 +953,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/runtime_error.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -949,6 +967,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/signal_kill.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -960,6 +981,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/cpu_limit.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -971,6 +995,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/memory_limit.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -982,6 +1009,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/output_limit.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -993,6 +1023,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/empty.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -1004,6 +1037,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/sum.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -1015,6 +1051,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/wrong_answer.cpp"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -1026,6 +1065,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        },
+        {
+          "path": "apps/web/e2e-live/business.spec.ts"
         }
       ]
     },
@@ -1037,6 +1079,9 @@
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"
+        },
+        {
+          "path": "deploy/sandbox-linux/ci/business.py"
         }
       ]
     }

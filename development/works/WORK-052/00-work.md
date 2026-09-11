@@ -2,7 +2,7 @@
 id: "WORK-052"
 type: "work"
 title: "修复沙箱启动通信被信号中断时的处理"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["issue", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "reliability", "security"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -52,9 +52,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发计划 | ✔ 完成 | 必需 | PLAN-036 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 修复任务 | ✔ 完成 | 必需 | TASK-116 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-116 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-053 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-039 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-053 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-039 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -74,3 +74,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-11：检查项 security 记录结论：通过。原因：FD引用保护与一次交付、错误释放、短写/截断/非法事件仍失败；Linux隔离/权限/24限额回归通过，安装观测只记录本次归属cgroup数字和回执计数，独立复核无阻断。
 - 2026-09-11：流程阶段 复核：ready → done。原因：独立复核与影响检查已记录通过，无未解决阻断；源码、观测和安装驱动例外均在授权范围
 - 2026-09-11：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-11：验收闸：passed。原因：确认控制消息修复与回归通过，接受已记录的安装内存观测限制
+- 2026-09-11：根据文档、任务与验证事实刷新状态：implemented → verified。

@@ -2,7 +2,7 @@
 id: "TASK-112"
 type: "task"
 title: "自动验证新节点校准与真实业务闭环"
-status: "todo"
+status: "doing"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-111", "TASK-116"]
@@ -10,11 +10,11 @@ related: []
 implements: ["CAPABILITY-008#REQ-004", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-004"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/server", "apps/web", "scripts/identity-keys", "deploy/backend"]
-write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", ".github/workflows/ci.yml"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/server", "apps/web", "scripts/identity-keys", "deploy/backend", "development/works/WORK-052", "compose.yaml"]
+write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", "apps/web/tsconfig.node.json", "apps/web/eslint.config.js", ".github/workflows/ci.yml", "development/works/WORK-052"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web/src", "apps/web/e2e", "apps/web/package.json", "apps/web/package-lock.json", "apps/web/playwright.config.ts", "apps/web/vite.config.ts"]
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-11"
 ---
 
 # TASK-112：自动验证新节点校准与真实业务闭环
@@ -41,7 +41,7 @@ CAPABILITY-008 REQ-004/005/006与AC-004，WORK-048/TASK-100，DESIGN-044业务�
 
 ## 依赖
 
-依 depends_on 顺序推进；本轮只是文档，需人工意图闸及后续实施授权，当前 todo 不可直接执行。
+WORK-050意图闸及实施授权已存在；TASK-111/116已完成，WORK-052验收已由用户签署，本轮明确开始TASK-112。只推进本任务，不启动WORK-049。
 
 ## 产出
 
@@ -69,3 +69,9 @@ ci内独立Java/MySQL/Redis/Kafka和原生节点编排、合成6对数据及业�
 - 2026-09-10：确认现有页面用例模拟响应、TASK-100夹具依赖手工环境；本轮仅设计。
 
 - 2026-09-11：按PLAN-034的新内核通信失败分支增加TASK-116依赖。TASK-111原生10项已通过，但必须先完成WORK-052的EINTR修复及验收交回，不能用后一轮偶然全绿关闭已观察失败。TASK-112保持todo，未实施。
+
+- 2026-09-11：核验WORK-052人工验收passed，按PLAN补充只读依据与工具交回路径后开始实施；用户签闸产生的未提交记录与原ZIP保留。
+- 2026-09-11：状态变更：todo → ready。原因：WORK-050意图与实施授权存在，TASK-111/116完成且WORK-052已由用户验收；用户明确开始真实业务CI
+- 2026-09-11：状态变更：ready → doing。原因：开始独立全栈准备、真实浏览器业务断言与所有权清理
+- 2026-09-11：完成业务job、全栈所有权编排、正常API准备与只读取证、11项真实页面断言和失败回收接入；本地74项基础单测、Node24类型/lint、Playwright发现及actionlint通过。真实VM、独立复核与本批提交推送尚未执行，完成标准保持未勾选；详见VERIFY-051本轮记录。
+- 2026-09-11：用户明确授权本批独立复核、修正后commit/push到origin/main并运行和处理GitHub CI；开始只读独立复核和发布核对，授权不涉及现有服务器、生产代码或WORK-049重构。

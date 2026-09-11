@@ -236,3 +236,25 @@ WORK-052控制通道修复b3e5ec0的CI34557663857中，内核63项与52个必需
 ## WORK-052技术完成、待人工交回（2026-09-11）
 
 b699604的CI34559188597、34559407284两台新VM现有九job全部通过，63内核/52必需Go/10原生及清理证据复验通过。控制通道最小修复、独立复核及用户明确批准的仅安装驱动256MiB例外完成；首次OOM根因未确证、安装文件页压力仍存在，限制详见[VERIFY-053](../WORK-052/70-verify-VERIFY-053.md)。TASK-116技术完成，WORK-052验收闸仍待用户签署，TASK-112继续等待该人工交回；15项真实业务与最终汇总尚未完成，不宣称WORK-050全93项基线通过。
+
+## TASK-112 真实业务 CI 接入与本地验证（2026-09-11）
+
+本批先核验WORK-052人工验收passed并由工具refresh为verified，再将TASK-112按依赖置ready/doing。已新增sandbox-business job：当前SHA原生构建与rootfs、JDK21五个真实Java服务、四库/MySQL/Redis/Kafka、新Linux节点、正常数据部署/校准/发布和单worker零重试的真实页面用例。业务15项仍需真实VM运行，当前没有通过记录。
+
+本批不改Go/Java/生产Web/协议/运行限额，前端仅追加live测试及其类型/lint索引。私有凭据和日志在本轮独占目录，报告只有白名单事实；生成六对公开数据，不读取旧运行ZIP。正式提交核对当前JudgeInput、源摘要、环境/数据/校准和两端Kafka收发记录；AC和WA均通过真实历史页读取源码并检查草稿保持。CPU/MLE旁路取证记录执行组与Main可见生命周期，父组本地OOM计数单独校验。回收复用既有安装所有权与清理器，并追加独占Docker容器/卷清理。
+
+本地结果（Darwin/arm64，Python3.12；最终TypeScript检查使用bundled Node24.19.0；未启动后端、浏览器页面或资源夹具）：
+
+- `python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-task112-basic-final`：74项单测通过，15安装+6rootfs+53 CI；新增12项涵盖ZIP正确性、私有凭据与非local配置、HTTP有界及不重试、缺测/重复请求/错误限额拒绝、CPU墙钟/OOM证据缺失、所有权碰撞、部分清理失败和只读取证拒绝路径。Python AST/shell语法及报告文件校验通过。
+- Node24直接运行仓库Prettier、ESLint和`tsc -p tsconfig.node.json --noEmit`：新live用例和配置通过。初次检查发现NodeNext相对导入缺扩展名，已修正；未改严格规则。现有本机默认Node26的初步结果不作为Node24证据。
+- `playwright test --config playwright.live.config.ts --list --reporter=list`：发现1条串行完整业务测试，其中11个页面case逐项保存结果；仅发现/编译用例，不代表页面已通过。
+- `actionlint .github/workflows/ci.yml`通过。最初发现job级env不允许runner.temp上下文，已移动到step环境并通过复查。
+- `scripts/work check`与`python3 -B scripts/docs_test.py`通过。WORK-050的refresh仍受既有开发任务阶段派生问题影响：TASK-113保持todo时工作入口显示todo/开发任务ready，不能推导doing；未手工改flow或虚签阶段。TASK-112事实为doing，最终汇总仍属于TASK-113。
+
+尚未提交、推送、运行本批Actions或委派独立复核。之前授权分别属于TASK-116等批次；本批完成可审核代码后需单独获得发布/运行和复核委派授权。TASK-112不置done，WORK-050不声明93项全绿，WORK-049继续等待完整CI基线。第一轮Linux实际启动、数据库/Kafka收发、1ms观察器是否获得完整OOM事实、真实页面和最终资源清理仍待实测；缺证据必须失败，不重试请求掩盖。
+
+## TASK-112 发布前独立复核（2026-09-11）
+
+用户已明确授权本批独立复核、修正后提交推送main及运行处理GitHub CI。只读子智能体核对业务/API/SQL/页面、凭据输出与回收链，未发现新的确定性业务阻断或假绿路径；指出两个新增Action未固定SHA，已从官方仓库解析并固定。建议的容器Status/ExitCode/OOMKilled白名单诊断已补充，不导出原始日志或配置。
+
+主线程核对真实UserServiceApplication发现bootstrap模式还依赖命令行标记以选择非Web生命周期并退出；现补入不含凭据的模式参数，密码仍由私有文件经stdin交付。新增回归测试核对模式、profile和密码不进入argv。`python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-task112-publish-basic`通过75项单测（15安装+6rootfs+54CI），AST/shell/报告验证、actionlint、work check与diff check通过。以上仍为本地与源码证据，首轮Linux实际结果随后记录，不预先勾选完成标准。

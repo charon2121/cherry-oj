@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: read
     env:
-      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -64,7 +64,7 @@ jobs:
     permissions:
       contents: read
     env:
-      PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONDONTWRITEBYTECODE: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -102,6 +102,74 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  sandbox-business:
+    name: sandbox CI（真实页面、校准与 Kafka 业务闭环）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: apps/server/**/pom.xml
+          overwrite-settings: false
+      - name: 构建当前提交的 Linux 二进制与 rootfs
+        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build"
+      - name: 构建真实 Java 服务与 Web 页面
+        run: python3 deploy/sandbox-linux/ci/business_prepare.py --output "$RUNNER_TEMP/business-build"
+      - name: 安装本轮 Chromium 与系统依赖
+        working-directory: apps/web
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/business-browsers
+        run: npx playwright install --with-deps chromium
+      - name: 新环境、数据部署、独立校准与真实页面判题
+        run: >-
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
+          python3 deploy/sandbox-linux/ci/business.py
+          --build "$RUNNER_TEMP/sandbox-build" --application-build "$RUNNER_TEMP/business-build"
+          --java "$JAVA_HOME/bin/java" --node "$(command -v node)"
+          --browsers "$RUNNER_TEMP/business-browsers" --output "$RUNNER_TEMP/sandbox-business"
+      - name: 取消或失败后清理本轮完整栈
+        if: always()
+        run: >-
+          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,PYTHONDONTWRITEBYTECODE
+          python3 deploy/sandbox-linux/ci/business.py --cleanup --output "$RUNNER_TEMP/sandbox-business"
+      - name: 保存脱敏业务证据
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-business
+          path: ${{ runner.temp }}/sandbox-business
+          if-no-files-found: error
+          retention-days: 14
+      - name: 保存有界构建日志
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-business-build
+          path: |
+            ${{ runner.temp }}/business-build
+            ${{ runner.temp }}/sandbox-build/logs
+          if-no-files-found: error
+          retention-days: 14
+
   sandbox-basic:
     name: sandbox CI（基础与证据校验）
     runs-on: ubuntu-24.04
@@ -114,7 +182,7 @@ jobs:
           persist-credentials: false
       - name: 部署与 rootfs 单测、脚本语法、报告正反例
         env:
-          PYTHONDONTWRITEBYTECODE: '1'
+          PYTHONDONTWRITEBYTECODE: "1"
         run: python3 deploy/sandbox-linux/ci/basic.py --output "$RUNNER_TEMP/sandbox-basic"
       - name: 保存有界报告
         if: always()

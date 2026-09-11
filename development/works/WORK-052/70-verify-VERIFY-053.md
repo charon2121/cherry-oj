@@ -2,7 +2,7 @@
 id: "VERIFY-053"
 type: "verify"
 title: "修复沙箱启动通信被信号中断时的处理"
-status: "review"
+status: "approved"
 work: "WORK-052"
 owners: ["codex/root"]
 depends_on: ["TASK-116"]
@@ -70,7 +70,7 @@ result=pass，指TASK-116范围内技术验证通过，状态仍review，人工�
 
 - 2026-09-11：首轮发布9a0ad6743574dc167b6659f7a3692797f269ab92，CI34507325931的kernel失败于新增control-signal-observation：`pending signal poll: invalid argument`；原八项启动场景全部通过。首轮未成功注入信号，不能支持EINTR归因。下载目录/private/tmp/cherry-work052-kernel-34507325931，经validate(successful=False)与verify_files核对，harness=ab2824a62b22fb5c0ce32f375d0bdccd5429dac4dd6e49dc7d3ebc77c5622889，kernel2PASS、4FAIL、57NOT_RUN，cleanup confirmed=true。
 - 2026-09-11：核对锁定x/sys v0.46.0的zsyscall_linux.go:137，Ppoll底层把sigsetsize固定传0；原无掩码Poll不受影响，新增非空掩码夹具因此EINVAL。修正仅在该测试使用unix.Syscall6调用ppoll，传递Linux/amd64的64位内核掩码与8字节大小；不改依赖、生产、场景预算或错误判据。Linux目标vet与交叉构建通过，需新SHA实跑确认。
-
+- 2026-09-11：验收闸通过：review → approved。原因：确认控制消息修复与回归通过，接受已记录的安装内存观测限制
 
 ## 诊断发布结果（2026-09-11）
 

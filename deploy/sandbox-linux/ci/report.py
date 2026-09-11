@@ -20,7 +20,8 @@ def harness_sha():
     """Include tracked and new source files, excluding private/ignored runtime data."""
     paths = subprocess.check_output(['git', '-c', 'safe.directory=' + str(ROOT), 'ls-files', '--cached', '--others', '--exclude-standard',
                                      '-z', 'deploy/sandbox-linux', 'apps/judge-engine/tests/sandbox-linux',
-                                     'apps/web/e2e-live', 'apps/web/playwright.live.config.ts'], cwd=ROOT)
+                                     'apps/web/e2e-live', 'apps/web/playwright.live.config.ts',
+                                     'apps/web/tsconfig.node.json', 'apps/web/eslint.config.js', '.github/workflows/ci.yml'], cwd=ROOT)
     value = hashlib.sha256()
     for name in sorted(set(paths.split(b'\0')) - {b''}):
         path = ROOT / name.decode()

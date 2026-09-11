@@ -67,3 +67,25 @@ CI 仅为 `chain_batch.py` 增加可选独立单元名，为零限额场景增�
 不修改部署的启动频率配置、不重试当前对照；逐次要求新的InvocationID和主进程启动时间，
 报告必须含8个不同启动实例（完整权限正例+7个删减）。恢复原配置并核对摘要后同样清除主动
 失败历史，再运行原启动与恢复断言。该处理仅属于测试夹具，不进入生产管理器。
+
+## 真实业务套件（TASK-112）
+
+`sandbox-business`在第三台独占VM运行真实全栈：`business_prepare.py`按Maven wrapper/JDK21和
+Node24构建五个Java服务与生产Web；打包时跳过Java单测只作为构建准备，不计作测试证据。
+`business.py`通过正常安装器注册新Linux节点，调用正常bootstrap、登录/改密/CSRF、题目、
+数据部署、校准及发布接口，然后运行`apps/web/playwright.live.config.ts`的真实页面测试。
+不使用`native_control.py`协议接收器，不启动旧node-e2e或用户Compose。
+
+- `business_config.py`只生成本轮凭据、独立四库初始化与显式test配置。
+- `business_resources.py`管理带运行标签的三个Docker容器/卷；`business_stack.py`管理有界非root Java/浏览器systemd单元。
+- `business_api.py`生成六对公开A+B数据，通过API准备。`business_evidence.py`用固定只读事务核对节点会话、数据摘要、独立校准和Kafka两端Outbox/Inbox。
+- `business_observer.py`只读观察CPU/MLE同次Main及执行组；1ms目标采样、记录实际最大间隔。缺OOM事实、采样间隔达到100ms或缺执行退出记录直接失败；它不把HTTP耗时算用户程序墙钟。
+- `business_results.py`核对15项清单中11项页面结果；缺项、普通SIGKILL误映射、OLE后峰值串用、非6/6 AC、重复正式提交或历史草稿丢失都不能通过。
+
+每轮私有配置和应用日志只在`/var/lib/cherry-sandbox-test/business`，不进入产物。Playwright
+单worker/零重试/无trace或截图，单次自定义观察60s，正式提交只创建一次。原生后端限额不变；
+整轮业务驱动20分钟期限，服务/容器/浏览器分别限制CPU、内存、swap和线程，详细预算见DESIGN-044。
+所有已登记资源即使某部分清理失败也继续分别回收；未能回收时保留所有权记录，报告失败，不能靠VM销毁补造PASS。
+
+本地只运行`basic.py`、类型/lint和`playwright --list`，不在Mac启动资源耗尽夹具。完整业务结果
+必须来自审核后本批GitHub运行；当前实跑状态见WORK-050/VERIFY-051，不把用例已编写当作闭环已通过。

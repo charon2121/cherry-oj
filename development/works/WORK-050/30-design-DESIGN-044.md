@@ -93,3 +93,16 @@ GitHub内核/LSM与原服务器不一致、包下载失效、五服务栈内存�
 
 - 2026-09-10：状态变更：draft → review。原因：已盘点既有验收与CI缺口，补齐分层方案、边界及验收条件供人工审核；尚未实施
 - 2026-09-10：结构与内容校验通过，由工具置为 checked。
+
+## TASK-112 实施细化（2026-09-11）
+
+- 一次性 Ubuntu 24.04 GitHub VM，启动前确认至少10 GiB可用内存、预留端口与原生沙箱路径空闲。依赖使用已有后端测试采用的MySQL 8.4、Redis 7.4-alpine、Kafka native 3.8.0镜像；记录实际镜像ID。四库初始化仅建库/用户/授权，业务准备只走正常接口；业务取证为固定模板只读事务。
+- Docker容器与卷以运行ID命名并贴所有权标签，创建前先落盘清理记录；Java五服务以独立systemd单元、runner非root身份、显式test profile运行。私钥、密码、环境文件和应用日志放本轮私有目录，不上传。服务单元CPU100%、内存768 MiB、swap0、线程128、最长1500 s；MySQL1024 MiB、Kafka1024 MiB、Redis128 MiB，容器pids256/swap0/CPU1；浏览器1024 MiB、线程128、最长900 s。原生沙箱24项限制不变，安装驱动沿用已批准256 MiB。
+- Playwright复用现有依赖和Vite预览代理，单worker、零重试，直接操作真实页面。为使新测试参与现有严格检查，TASK-112追加仅`apps/web/tsconfig.node.json`与`apps/web/eslint.config.js`两处测试路径索引写权限；不改规则、依赖或生产代码。
+- 自定义CPU/MLE测试通过本轮执行组只读观察采样取证；HTTP总时长与Main进程可见墙钟区分。普通SIGKILL必须RE，OLE后空程序连续执行。正式提交ID必须与Kafka两端Outbox/Inbox、JudgeInput、节点/环境/部署/校准记录关联，不以HTTP接收成功替代判题结束。
+- 公共证据只保存白名单ID、状态、计量和请求标识；单文件/报告沿用现有有界报告约束。应用日志私下滚动保留，最多每服务8 MiB；禁止上传环境、cookie、JWT、Kafka原始载荷。所有异常进入finally清理，工作流always补清理；清理失败保留所有权记录并令任务失败。
+- 本地完成类型、脚本、配置/证据拒绝路径测试；真实完整栈需本批提交推送/CI运行授权后验证。未经实跑不得把15项标成通过。
+
+业务编排总期限20分钟，进入清理前撤销计时器以完成有界回收。运行观察器目标采样1ms（helper累计CPU监测仍为5ms），记录最大实际间隔，达到100ms则拒绝本轮时间关联证据；CPU预算1s时接受累计CPU低于1.5s、Main可见生命周期低于5s，HTTP耗时独立记录。该阈值用于发现历史约10s回归，不承诺精确exec/wait时长。MLE必须观察到执行组oom_kill且父组memory.events.local未增长，未采到不能推定通过。
+
+Kafka挂载位置按[3.8.0原生镜像Dockerfile](https://github.com/apache/kafka/blob/3.8.0/docker/native/Dockerfile)核对：复用镜像中已有归属的`/mnt/shared/config`作为本轮卷，将另一声明卷以临时内存挂载覆盖，避免留下匿名卷；不复制上游实现代码。

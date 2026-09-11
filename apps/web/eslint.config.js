@@ -58,7 +58,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['*.config.{js,mjs,ts}', '.storybook/**/*.{ts,tsx}', 'e2e/**/*.ts'],
+    files: ['*.config.{js,mjs,ts}', '.storybook/**/*.{ts,tsx}', 'e2e/**/*.ts', 'e2e-live/**/*.ts'],
     languageOptions: {
       globals: globals.node,
     },
