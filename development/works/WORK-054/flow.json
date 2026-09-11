@@ -110,7 +110,7 @@
       {
         "name": "independent-review",
         "result": "pass",
-        "note": "本批逐包诊断独立复核通过；共享输出锁修正混合日志交错，复核者去锁后同一回归失败、当前通过；最终104项本地基础测试通过，Linux诊断待发布"
+        "note": "方案1经用户明确批准；独立复核确认仅CI下载240至600秒及对应断言，其他预算与协议保持；104项本地基础通过，准备两轮同SHA冷下载取证"
       }
     ],
     "source": "profile:fix",
@@ -129,12 +129,12 @@
       {
         "name": "automated-tests",
         "result": "fail",
-        "note": "97项本地及Linux基础通过，原生56包/10项通过；CI34580313653的kernel/business下载240秒终止，完整回归未通过，见VERIFY-055"
+        "note": "诊断批次104基础及kernel63项通过；CI34582727482仍native下载240秒终止和business.io失败，8job成功2失败；完整回归未通过"
       },
       {
         "name": "reliability",
         "result": "fail",
-        "note": "三VM均有真实回退，但两VM仍耗尽下载总期限；整体准备未稳定恢复，按PLAN重审，禁止以一次成功声称恢复"
+        "note": "诊断已定位native唯一GCC包收到响应头后正文未完成，其余55包验证成功；TLS回退不足以保证全部准备稳定，保持原预算待慢响应策略重审"
       },
       {
         "name": "security",

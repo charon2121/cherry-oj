@@ -15,15 +15,15 @@ created_at: "2026-09-11"
 updated_at: "2026-09-11"
 ---
 
-# VERIFY-055：连接回退已验证，完整CI仍被下载总期限阻断
+# VERIFY-055：逐包诊断定位正文处理超时，业务失败取得源码位置
 
 ## 验证对象
 
-提交68c91d4866dafd3670f164008d2d336dcd117f0c，已推送origin/main；GitHub CI34580313653首次执行。
+连接修复68c91d4866dafd3670f164008d2d336dcd117f0c及诊断d001f03b21622dd68dc2bf2f390d12d6b567105c均已推送origin/main；最新GitHub CI34582727482首次执行，原CI34580313653失败证据保留。
 
 ## 对应要求
 
-AC-001至003通过本地及Linux基础测试与独立复核；AC-004原生任务全量下载成功，但另外两项Linux准备仍失败，整体恢复目标未达成。AC-005源码和已有证据复核通过，人工验收不就绪。
+AC-001至003通过本地及Linux基础测试与独立复核；AC-004前轮原生全量成功，本轮内核/业务全量成功但原生下载仍超时，整体稳定恢复目标未达成。AC-005源码和已有证据复核通过，人工验收不就绪。
 
 ## 检查与结果
 
@@ -33,7 +33,7 @@ CI34571258539的3a74fc7三次尝试均失败在rootfs下载TLS握手；日志分
 
 ## 未通过项
 
-本轮内核与业务任务在下载命令240秒总期限终止；没有启动相应套件，不能宣称下载阻断已全面解除。
+最新轮原生任务下载命令240秒终止，仅一个GCC包没有正文结束/校验终态；业务本轮进入真实页面但io失败。不能宣称下载阻断已全面解除或业务闭环通过。
 
 ## 范围检查
 
@@ -41,7 +41,7 @@ CI34571258539的3a74fc7三次尝试均失败在rootfs下载TLS握手；日志分
 
 ## 遗留问题
 
-GitHub旧日志没有失败peer，不能断言它命中了本地异常IP；原浏览器business.io失败也仍未定位。
+GitHub旧日志没有失败peer，不能断言它命中了本地异常IP；原浏览器business.io失败现定位到support.ts:45:24，具体失败原因待TASK-112读取源码继续核对。
 
 ## 剩余风险
 
@@ -49,7 +49,7 @@ GitHub旧日志没有失败peer，不能断言它命中了本地异常IP；原�
 
 ## 结论
 
-意图闸已由用户签署；连接回退确实有效，本轮原生全量下载/构建/10项测试通过，但两个Linux任务耗尽下载总期限。整体结果fail，TASK-118等待重审准备方案，WORK-050仍阻断，不冻结重构基线。
+意图闸及后续诊断方案已由用户确认；本轮诊断实施/复核/发布/实跑完成，连接回退有效，剩余下载失败定位到GCC包正文处理。整体结果fail：原生下载尚不稳定，真实业务io仍失败。TASK-118等待慢响应处理方案重审，TASK-112仍未完成，不冻结重构基线。
 
 ## 实施前文档检查（历史）
 
@@ -73,7 +73,7 @@ GitHub旧日志没有失败peer，不能断言它命中了本地异常IP；原�
 
 修正后运行`python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work054-reviewed-basic`，15安装+20rootfs+62CI=97项通过，零skip；Python AST、shell语法、报告检查通过。完整输出为/private/tmp/cherry-work054-reviewed-basic.stdout。代码与证据经过复核后发布，尚不把本地结果计为Linux下载恢复。
 
-## GitHub Linux完整执行（2026-09-11）
+## 连接回退首次GitHub执行（2026-09-11）
 
 [CI34580313653](https://github.com/charon2121/cherry-oj/actions/runs/34580313653)，attempt1，sourceSha=68c91d4866dafd3670f164008d2d336dcd117f0c，harnessSha=4e0df20a6145653ed28b9a93a0544af0b0e7544665895dfd4e25ba785ef15762。10个job中8PASS/2FAIL，无重跑；基础97测试与Go竞态、Web、契约、文档、legacy和原生任务通过。全部下载保持原锁、同源证书检查与240秒总期限。
 
@@ -106,3 +106,36 @@ work054_review独立核验本轮基础/原生完整证据及两个失败job，�
 用户已审核上节诊断提案并批准实施，设计/计划及TASK先补写diagnostics.py与diagnostics_test.py的精确边界。新增请求关联、阶段与有界进度；默认输出保持。新增正文超时用例在旧实现失败（missing request stage diagnostics，/private/tmp/cherry-work054-diagnostics-old.log），实现后通过。首次完整基础回归15安装+25rootfs+62CI=102项通过，证据/private/tmp/cherry-work054-diagnostics-basic及同名前缀.stdout；正在独立复核，本批尚未发布。旧失败仍保留，不把诊断完成当下载问题已解决。
 
 独立复核work054_review发现并确认旧verified文本可与并发JSON交错，已在download.py共用诊断锁保持完整行；新增8包混合输出测试，复核者在独立进程仅去掉锁后同一测试失败，当前实现通过。新增索引解析成功/失败诊断测试。最终`python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work054-diagnostics-reviewed-basic`：15安装+27rootfs+62CI=104项通过、零skip，AST/shell/报告校验通过；462开发文档/531Markdown链接和git diff --check通过。复核无未解决阻断，按既有本工作发布与CI授权提交本批诊断；未修改原下载策略及限额。
+
+## 逐包诊断GitHub实测（2026-09-11）
+
+[CI34582727482](https://github.com/charon2121/cherry-oj/actions/runs/34582727482)，attempt1，source=d001f03b21622dd68dc2bf2f390d12d6b567105c，harness=beb989c1501987770d77b533364733162133109e0214d46ca44dd03fe2e83edf。最终8job成功、2job失败；本轮只增加诊断与输出互斥，没有更改下载预算、并发、读取语义或HTTP重试。不能将本轮部分成功归因于诊断提高了传输能力。
+
+| 任务 | 下载诊断 | 后续结果 |
+|---|---|---|
+| basic | Linux上15安装+27rootfs+62CI=104测试通过，零skip | 5项报告PASS，源码/harness/证据核验通过 |
+| kernel | 82,283字节日志，56个包唯一verified、两个索引index_ready；58CONNECTED/10TIMEOUT | 63项内核用例PASS，包括1000次执行、并发、故障与回收；cleanupPASS |
+| native | 78,433字节日志，55个包verified、两个索引index_ready，仅request16没有完成终态；58CONNECTED/8TIMEOUT | 外层240秒下载期限终止，没有rootfs构建和原生套件报告 |
+| business | 80,241字节日志，56个包唯一verified、两个索引index_ready；58CONNECTED/18TIMEOUT | Java/Web/Chromium准备通过；环境/部署/校准3PASS、ioFAIL、11NOT_RUN；最终cleanupPASS |
+
+三份下载日志每行可解析，无截断标记，requestId和包名一致；进度符合每请求16次/至少5秒。kernel与business所有完成包名匹配原56包锁，build.json packageLock均与本地4dbcf4dd7025146ff44782024354b1868eacaaa313d53a57ded5fab247fb129c匹配。完整报告由validate/verify_files核对；失败业务报告使用successful=False校验结构/源码/证据，不将其算为成功套件。
+
+### 原生失败已定位的事实
+
+request16=`gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb`：首次TLS到91.189.92.24约2.033秒成功，4.073秒收到HTTP200。正文进度持续增加，84.299秒记录11,141,120bytes后达到16次上限；没有verify/verified或固定异常事件。原生外层日志明确download命令deadline exceeded，prepare.py保持240秒，因此是唯一仍未完成的包占用到总期限。
+
+相同锁定包完整大小21,084,546bytes：kernel先经历一次5秒TLS超时，再连接91.189.91.83，总5.525秒完成；business总0.731秒完成。同一轮各VM耗时差异显著，但此对照没有控制VM或网络路径，不能认定特定IP永久慢或唯一网络原因。可确认失败发生在收到响应头后的正文处理阶段，非纯TLS握手问题；body仍包含读取/摘要更新/文件写入。进度达上限后未继续输出，11,141,120不是最终读取量，不表示84秒后完全停止。kernel另一约2.46MB binutils包headers2.525秒、verified103.557秒，中间持续有进度，进一步说明正文阶段可明显慢于建连。
+
+### 业务诊断交回
+
+本轮真实MySQL认证8项全部PASS；部署与校准后浏览器首个io用例失败。脱敏browser-diagnostic.json为phase=io、status=failed、support.ts:45:24；报告business.io=FAIL，剩余11项NOT_RUN。最终cleanup.json confirmed=true，原生任务进程/挂载/cgroup/工作文件/账号快照为空，dependencies-after的container/volume均为空。报告中business.cleanup用例因浏览器提前失败保持NOT_RUN，与finally实际回收PASS分开记录。当前TASK-118未读取或修改apps源码，不凭源码位置猜测业务原因，交给TASK-112后续核对。
+
+### 证据与后续边界
+
+证据根/private/tmp/cherry-work054-34582727482：sandbox-basic、kernel/sandbox-kernel及sandbox-kernel-build、native-build、business/sandbox-business及sandbox-business-build。外层失败日志/private/tmp/cherry-work054-34582727482-failed.log，最终状态同前缀-status.json。本轮诊断已达到定位未完成包与阶段的目标；完整CI仍失败。下一步应单独审核慢响应处理（包含预算、是否允许有界重取等明确取舍），不能把现有“HTTP发送后不重试”约束自行改掉，也不自动提高240秒。准备缓存/集中构建可减少重复下载，但冷下载依然需要明确处理，不能直接宣称它解决本次慢响应。
+
+## 方案1实施准备（2026-09-11）
+
+用户已阅读四种处理方案并明确选择方案1，先在上游记录仅CI下载总期限240→600秒的有限例外再改代码。prepare.py一处期限和prepare_test.py既有断言/命名更新，README同步；来源、锁、TLS、并发、读超时、HTTP不重放及其他预算保持。work054_review独立复核通过，确认外层15/20/40分钟仍是限制，不保证所有步骤同时达到各自上限。
+
+`python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work054-600-basic`：15安装+27rootfs+62CI=104项通过、零skip，AST/shell/报告检查通过。462开发文档、531Markdown入口与git diff --check通过。本批按本WORK已有发布/CI授权提交后进行两轮同SHA冷下载试验，保留全部成功与失败；此前下载与business.io失败不覆盖。

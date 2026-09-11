@@ -1,4 +1,4 @@
-"""CI selects the reviewed download option without extending its command budget."""
+"""CI selects the reviewed download option and its explicitly approved deadline."""
 from pathlib import Path
 import tempfile
 import unittest
@@ -8,12 +8,12 @@ import prepare
 
 
 class PrepareTests(unittest.TestCase):
-    def test_ci_selects_failover_with_original_command_deadline(self):
+    def test_ci_selects_failover_with_approved_download_deadline(self):
         class StopAfterDownload(Exception): pass
         def run(argv, log, seconds, **_kwargs):
             if Path(log).name == 'download.log':
                 self.assertIn('--address-failover', argv)
-                self.assertEqual(seconds, 240)
+                self.assertEqual(seconds, 600)
                 raise StopAfterDownload()
         with tempfile.TemporaryDirectory() as tmp, patch.object(prepare.platform, 'system', return_value='Linux'), patch.object(
                 prepare.platform, 'machine', return_value='x86_64'), patch.object(prepare, 'install_signal_handlers'), patch.object(
