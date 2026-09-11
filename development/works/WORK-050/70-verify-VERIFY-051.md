@@ -258,3 +258,9 @@ b699604的CI34559188597、34559407284两台新VM现有九job全部通过，63内
 用户已明确授权本批独立复核、修正后提交推送main及运行处理GitHub CI。只读子智能体核对业务/API/SQL/页面、凭据输出与回收链，未发现新的确定性业务阻断或假绿路径；指出两个新增Action未固定SHA，已从官方仓库解析并固定。建议的容器Status/ExitCode/OOMKilled白名单诊断已补充，不导出原始日志或配置。
 
 主线程核对真实UserServiceApplication发现bootstrap模式还依赖命令行标记以选择非Web生命周期并退出；现补入不含凭据的模式参数，密码仍由私有文件经stdin交付。新增回归测试核对模式、profile和密码不进入argv。`python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-task112-publish-basic`通过75项单测（15安装+6rootfs+54CI），AST/shell/报告验证、actionlint、work check与diff check通过。以上仍为本地与源码证据，首轮Linux实际结果随后记录，不预先勾选完成标准。
+
+## TASK-112 首轮Linux业务失败（2026-09-11）
+
+7c8f9a2fd4086a956b51ec77b5993efeb572b2fe的[CI34563521786](https://github.com/charon2121/cherry-oj/actions/runs/34563521786)其余9job成功。业务VM为Ubuntu24.04.5、Linux6.17.0-1022-azure/amd64；五Java服务、三依赖均启动，新节点注册及原生24限额校验通过，business.new-environment PASS。正常bootstrap和登录200之后，首次POST /api/auth/password/change返回503，business.deploy FAIL，其余13项NOT_RUN。没有重试请求或跳过改密。
+
+报告下载至/private/tmp/cherry-task112-34563521786；cleanup.confirmed=true，Docker容器/卷为空，native与总清理的任务/挂载/cgroup/路径/账号/组均为空。容器诊断全部running、exitCode0、oomKilled=false。首次响应未保留错误分类，不能只凭503确定根因。源码发现待核实方向：AuthenticationService首次期限使用未截断的LocalDateTime，MySQL DATETIME(6)回读后Gateway要求absoluteExpiresAt完全相等。追加只匹配固定公共错误detail的枚举分类，不导出正文或任意字段；本地76项基础单测通过。下一轮仅诊断，不改生产、身份规则、期限或资源预算。

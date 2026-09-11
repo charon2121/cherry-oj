@@ -17,6 +17,21 @@ FIXTURES = ROOT / 'deploy/sandbox-linux/tests/acceptance'
 MAX_BODY = 1 << 20
 
 
+def failure_kind(data):
+    # Classify only exact, fixed public errors; never export an arbitrary response field.
+    try:
+        value = json.loads(data)
+    except (ValueError, UnicodeError):
+        return 'UNCLASSIFIED'
+    if not isinstance(value, dict):
+        return 'UNCLASSIFIED'
+    if value.get('code') != 'SERVICE_UNAVAILABLE':
+        return 'UNCLASSIFIED'
+    return {'身份服务配置不一致，请联系管理员。': 'IDENTITY_CONFIGURATION_MISMATCH',
+            '身份信任状态暂时不一致，请稍后重试。': 'IDENTITY_TRUST_MISMATCH',
+            '服务暂时不可用，请稍后重试。': 'UPSTREAM_UNAVAILABLE'}.get(value.get('detail'), 'UNCLASSIFIED')
+
+
 def fixture_zip():
     buffer = io.BytesIO()
     pairs = [(1, 2), (0, 0), (-17, 9), (1000000000, 1000000000), (-999, -1), (42, -42)]
@@ -64,6 +79,8 @@ class API:
             request_id = response.headers.get('X-Request-Id', '')
             self.events.append(dict(method=method, path=path, status=response.status,
                                     requestId=request_id, httpNs=time.monotonic_ns() - started))
+            if response.status != expected:
+                self.events[-1]['failureKind'] = failure_kind(data)
             if self.output is not None:
                 (self.output / 'preparation-requests.json').write_text(json.dumps(self.events) + '\n')
             if response.status != expected:

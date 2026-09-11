@@ -9,7 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 import zipfile
 
-from business_api import API, MAX_BODY, fixture_zip
+from business_api import API, MAX_BODY, failure_kind, fixture_zip
 from business_config import DATABASES, create, environment
 from business_evidence import Evidence, uuid
 from business_observer import verify_observations
@@ -30,6 +30,13 @@ def live_fixture():
 
 
 class BusinessTests(unittest.TestCase):
+    def test_failure_diagnostics_only_export_exact_known_classification(self):
+        self.assertEqual(failure_kind(json.dumps(dict(code='SERVICE_UNAVAILABLE',
+            detail='身份服务配置不一致，请联系管理员。', secret='must-not-export'))), 'IDENTITY_CONFIGURATION_MISMATCH')
+        for raw in ('private-password', '{}', '[]', '{"code":"PRIVATE_SECRET"}',
+                    '{"code":"SERVICE_UNAVAILABLE","detail":"private-token"}'):
+            self.assertEqual(failure_kind(raw), 'UNCLASSIFIED')
+
     def test_bootstrap_selects_one_shot_lifecycle_without_password_in_argv(self):
         import business_service
         with tempfile.TemporaryDirectory() as temp:
