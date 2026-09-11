@@ -5,11 +5,33 @@ import stat
 import xml.etree.ElementTree as ET
 
 from business_config import SERVICES
-from report import ROOT, digest, git_sha, harness_sha
+from report import ROOT, digest, git_sha, harness_sha, read_json
 
 LIVE_CASES = ('io', 'ce', 're', 'signal', 'cpu', 'memory', 'output', 'empty', 'ac', 'wa', 'history')
 STATUSES = dict(zip(LIVE_CASES[:8], ('COMPLETED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'RUNTIME_ERROR',
                                    'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED', 'OUTPUT_LIMIT_EXCEEDED', 'COMPLETED')))
+
+
+def browser_diagnostic(path):
+    """Validate private reporter output before copying it to public artifacts."""
+    info = Path(path).lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 16_384:
+        raise ValueError('untrusted or oversized browser diagnostic')
+    value = read_json(path)
+    if not isinstance(value, dict) or set(value) != {'phase', 'status', 'failures'}:
+        raise ValueError('invalid browser diagnostic')
+    if value['phase'] not in ('startup', 'login', 'problem', *LIVE_CASES) or value['status'] not in (
+            'passed', 'failed', 'timedout', 'interrupted'):
+        raise ValueError('unknown browser diagnostic classification')
+    if not isinstance(value['failures'], list) or len(value['failures']) > 16:
+        raise ValueError('too many browser diagnostic locations')
+    for row in value['failures']:
+        if not isinstance(row, dict) or set(row) != {'file', 'line', 'column'} or row['file'] not in (
+                'business.spec.ts', 'support.ts', 'schemas.ts', 'reporter.ts', 'playwright.live.config.ts'):
+            raise ValueError('unknown browser source location')
+        if any(type(row[key]) is not int or not 1 <= row[key] <= 100_000 for key in ('line', 'column')):
+            raise ValueError('invalid browser source position')
+    return value
 
 AUTHENTICATION_TESTS = {
     'com.cherryoj.userservice.application.AuthenticationServiceTests': {

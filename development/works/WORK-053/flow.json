@@ -85,7 +85,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-117"
@@ -98,19 +98,19 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "仅AuthenticationService签发absoluteExpiresAt统一微秒；JWT/审计时间/事务/网关/Schema/配置/现有服务均未改。新增两类测试及CI报告门禁，不改变沙箱或业务预算；旧Redis纳秒会话仍需重新登录"
       },
       {
         "name": "independent-review",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "经本工作明确授权，work053_review只读复核复现测试及单处生产截断：真实事务、固定期限、到期撤销、零skip和日志资源边界无阻断；指出准备阶段容器清理仅依赖Testcontainers，已保留证据限制"
       }
     ],
     "source": "profile:fix",
@@ -120,7 +120,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-054"
@@ -128,18 +128,18 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "fail",
-        "note": "本地JDK21编译通过；旧实现认证单测3PASS/1FAIL，新增精度用例确定性失败；81项基础检查通过。真实MySQL旧红与修复后回归及Linux业务尚未执行，不宣称修复完成"
+        "result": "pass",
+        "note": "同harness真实MySQL ef3312e 6PASS/2精度FAILURE，31b4019 8PASS/0ERROR/0SKIP；真实登录200改密204重登200，部署校准发布成功。本地81基础检查及4认证通过；后续浏览器失败归TASK-112，完整WORK-050仍未通过"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "确定性数据库期限差值旧红新绿；validate/exchange、到期前1微秒、到期及撤销均通过，未重试业务。新环境实际改密恢复，原有认证不变量保持"
       },
       {
         "name": "security",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "签发期限最多缩短999ns，网关严格相等/JWT TTL/撤销规则未改；独立源码与证据复核通过。日志摘要白名单、CI零skip与现有用户环境边界保持；旧会话与Testcontainers清理观测限制已记录"
       }
     ],
     "source": "profile:fix",
@@ -149,7 +149,7 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "MEMORY-040"

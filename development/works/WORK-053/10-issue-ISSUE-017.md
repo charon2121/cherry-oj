@@ -26,7 +26,7 @@ WORK-050的CI34563521786在空白Linux环境完成bootstrap、login200后，首�
 
 ## 原因
 
-AuthenticationService.now保留Clock.systemUTC纳秒，authenticate把同一absoluteExpiresAt写入MySQL DATETIME(6)并原样返回。validate/exchange回读为微秒，GatewayAuthenticationService.validateUpdatedDeadline要求equals。首次值不是微秒整数时存在确定的不一致机制，独立源码复核确认；尚无真实数据库的确定性旧红新绿证据。
+AuthenticationService.now保留Clock.systemUTC纳秒，authenticate把同一absoluteExpiresAt写入MySQL DATETIME(6)并原样返回。validate/exchange回读为微秒，GatewayAuthenticationService.validateUpdatedDeadline要求equals。首次值不是微秒整数时存在确定的不一致机制，独立源码复核确认；后续ef3312e/31b4019已取得同组真实数据库旧红新绿，详见VERIFY-054。
 
 ## 预期结果
 
@@ -43,15 +43,15 @@ AuthenticationService.now保留Clock.systemUTC纳秒，authenticate把同一abso
 
 ## 当前状态
 
-用户已签署意图闸并允许实施；TASK-117正在补确定性复现和CI证据，生产修复尚未开始。
+用户已签署意图闸并允许实施；31b4019技术修复与验证完成，待人工验收。
 
 ## 复现方式
 
-在7c8f9a2或3c0b0cc运行完整ci.yml，独立新环境首次登录后改密。两次均失败，尚未有固定时钟数据库最小复现。
+在7c8f9a2或3c0b0cc运行完整ci.yml，独立新环境首次登录后改密。两次均失败；后续固定时钟MySQL最小复现与新绿见VERIFY-054。
 
 ## 实际结果
 
-诊断CI34564019849确认IDENTITY_CONFIGURATION_MISMATCH，登录后deadline一致性检查存在明确嫌疑；配置时长和policy未发生变化。没有采集绝对期限差值，仍须确定性实验完成归因。
+诊断CI34564019849确认IDENTITY_CONFIGURATION_MISMATCH，登录后deadline一致性检查存在明确嫌疑；配置时长和policy未发生变化。该早期诊断未采集期限差值；后续MySQL实验已确认+211ns差异并通过签发源精度修复消除，详见VERIFY-054。
 
 ## 影响与条件
 

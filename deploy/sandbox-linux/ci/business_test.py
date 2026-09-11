@@ -15,7 +15,7 @@ from business_config import DATABASES, create, environment
 from business_evidence import Evidence, uuid
 from business_observer import verify_observations
 from business_resources import Dependencies
-from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authentication_results,
+from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authentication_results, browser_diagnostic,
                               verify_authentication_tests, verify_live)
 
 
@@ -41,6 +41,22 @@ def authentication_fixture(directory):
 
 
 class BusinessTests(unittest.TestCase):
+    def test_browser_diagnostics_reject_private_text_and_unbounded_positions(self):
+        good = dict(phase='login', status='failed', failures=[dict(file='support.ts', line=52, column=7)])
+        bad = [dict(good, message='private-password'), dict(good, phase='private-password'),
+               dict(good, status='private-cookie'), dict(good, failures=good['failures'] * 17)]
+        for update in (dict(file='/private/support.ts'), dict(line=True), dict(line=0),
+                       dict(column=100001), dict(message='private-password')):
+            bad.append(dict(good, failures=[dict(good['failures'][0], **update)]))
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'diagnostic.json'
+            path.write_text(json.dumps(good))
+            self.assertEqual(browser_diagnostic(path), good)
+            for value in bad:
+                with self.subTest(value=value), self.assertRaises(ValueError):
+                    path.write_text(json.dumps(value))
+                    browser_diagnostic(path)
+
     def test_authentication_report_exports_only_expected_methods_and_statuses(self):
         with tempfile.TemporaryDirectory() as temp:
             authentication_fixture(temp)

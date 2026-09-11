@@ -44,6 +44,7 @@ def main():
     run(['./mvnw', '-B', '-ntp', 'package', '-DskipTests'], args.output / 'maven-build.log', 600,
         cwd=ROOT / 'apps/server', env=dict(os.environ, MAVEN_OPTS='-Xmx768m'))
     run(['npm', 'ci'], args.output / 'npm-install.log', 180, cwd=ROOT / 'apps/web')
+    run(['node', 'e2e-live/reporter-check.mjs'], args.output / 'reporter-check.log', 20, cwd=ROOT / 'apps/web')
     run(['npm', 'run', 'build'], args.output / 'web-build.log', 180, cwd=ROOT / 'apps/web')
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(),
                     authenticationTests=authentication,

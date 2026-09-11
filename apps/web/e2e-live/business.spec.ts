@@ -27,16 +27,20 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
       owners.add(request.headers()['x-expected-user-id'] ?? '');
     }
   });
-  await page.goto('/login');
-  await page.getByLabel('用户名').fill(context.username);
-  await page.getByLabel('密码', { exact: true }).fill(context.password);
-  const login = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === '/api/auth/login',
-  );
-  await page.getByRole('button', { name: '登录', exact: true }).click();
-  expect((await login).status()).toBe(200);
-  await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
-  await page.goto('/problems/' + context.slug);
+  await test.step('login', async () => {
+    await page.goto('/login');
+    await page.getByLabel('用户名').fill(context.username);
+    await page.getByLabel('密码', { exact: true }).fill(context.password);
+    const login = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/api/auth/login',
+    );
+    await page.getByRole('button', { name: '登录', exact: true }).click();
+    expect((await login).status()).toBe(200);
+    await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
+  });
+  await test.step('problem', async () => {
+    await page.goto('/problems/' + context.slug);
+  });
 
   for (const [key, fixture, status, label] of cases) {
     await test.step(key, async () => {

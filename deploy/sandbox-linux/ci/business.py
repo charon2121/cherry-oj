@@ -12,7 +12,7 @@ from business_config import private
 from business_evidence import Evidence
 from business_observer import JOBS, Observer, counters, verify_observations
 from business_resources import Dependencies, RECORD as BUSINESS_RECORD
-from business_results import LIVE_CASES, verify_build as verify_business_build, verify_live
+from business_results import LIVE_CASES, browser_diagnostic, verify_build as verify_business_build, verify_live
 from business_stack import PRIVATE, Stack
 from command import install_signal_handlers
 from kernel import verify_build
@@ -194,6 +194,13 @@ def main():
         business = Business(args, report, owned)
         business.execute()
     except BaseException as error:
+        diagnostic = PRIVATE / 'playwright-diagnostic.json'
+        if business and business.active == 'business.io' and (diagnostic.exists() or diagnostic.is_symlink()):
+            try:
+                save(report.output, 'browser-diagnostic.json', browser_diagnostic(diagnostic))
+            except (OSError, ValueError, TypeError):
+                # Never let malformed diagnostics suppress the original failure or cleanup.
+                save(report.output, 'browser-diagnostic.json', {'rejected': True})
         # Export only a known step ID, never the Playwright error/call log.
         if business and business.active == 'business.io' and (PRIVATE / 'playwright-step.json').exists():
             progress = read_json(PRIVATE / 'playwright-step.json')

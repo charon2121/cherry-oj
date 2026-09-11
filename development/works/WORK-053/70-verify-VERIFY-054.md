@@ -2,7 +2,7 @@
 id: "VERIFY-054"
 type: "verify"
 title: "修复登录会话期限在数据库往返后的精度不一致"
-status: "draft"
+status: "approved"
 work: "WORK-053"
 owners: ["codex/root"]
 depends_on: ["TASK-117"]
@@ -10,7 +10,7 @@ related: []
 implements: []
 verifies: ["ISSUE-017#AC-001", "ISSUE-017#AC-002", "ISSUE-017#AC-003", "ISSUE-017#AC-004", "TASK-117"]
 tags: []
-result: "pending"
+result: "pass"
 created_at: "2026-09-11"
 updated_at: "2026-09-11"
 ---
@@ -19,35 +19,35 @@ updated_at: "2026-09-11"
 
 ## 验证对象
 
-ISSUE-017的AC-001至AC-004。当前仅源码归因和WORK-050实测失败，无生产修复结果。
-
-## 检查与结果
-
-CI34563521786登录成功后改密503；五服务和新节点正常，全部清理通过。独立只读复核确认纳秒签发、DATETIME(6)回读与网关equals之间存在缺陷机制。现有单测用整秒时钟、数据库测试预先截断微秒、网关集成模拟身份返回，未覆盖实际组合。
-
-## 未通过项
-
-真实MySQL确定性旧红新绿、原认证回归、零skip检查、完整Linux业务链和修复后独立复核均未执行。诊断轮34564019849的错误类别与清理证据已归档WORK-050/VERIFY-051。
-
-## 范围检查
-
-本工作未改Java、数据库、用户配置或部署。旧纳秒会话不自动修复；当前CI具体503仍需结合错误分类确认。
-
-## 结论
-
-pending，未达到验收条件。
+31b4019的最小会话期限修复及对应测试、CI必需执行校验。
 
 ## 对应要求
 
-AC-001确定性旧红新绿，AC-002认证回归，AC-003真实业务，AC-004独立复核与人工验收；均待实施。
+ISSUE-017的AC-001至AC-004技术要求均满足；实际证据见下方各轮记录，最终人工验收尚未签署。
+
+## 检查与结果
+
+本地JDK21认证旧红新绿、81基础检查通过。真实MySQL同组测试旧轮6PASS/2FAILURE，修复轮8PASS/0ERROR/0SKIP；真实Gateway登录200、改密204、重登200，数据部署/校准/发布成功。独立源码和下载证据复核通过。
+
+## 未通过项
+
+WORK-053认证修复范围无未通过项。WORK-050的后续浏览器阶段仍失败，完整业务CI未完成；不能将本工作通过等同整体93项通过。
+
+## 范围检查
+
+生产只改AuthenticationService新会话期限；网关、Schema、JWT TTL、事务与审计时间不变。测试/CI变更均在TASK-117精确路径内，现有服务器、IDEA与用户数据未改。
 
 ## 遗留问题
 
-诊断CI34564019849再次在改密503，固定分类IDENTITY_CONFIGURATION_MISMATCH，全部清理通过；仍未采集原始期限差值。
+TASK-112须诊断business.io的浏览器退出1，目前没有精确错误证据。WORK-049继续等待完整CI基线。
 
 ## 剩余风险
 
-精度候选尚无确定性数据库实验和修复验证，不能声明根因和修复已完成。
+旧Redis纳秒期限会话不自动修复，需正常重新登录。准备阶段Testcontainers正常停止/Ryuk清理未另留逐容器零残留快照；业务栈完整清理已实测，两类证据不得混用。
+
+## 结论
+
+技术验证pass，提交WORK-053人工验收；WORK-050整体仍未完成。
 
 ## TASK-117复现批次本地证据（2026-09-11）
 
@@ -68,3 +68,22 @@ CI改为先清除选中模块的旧构建再执行两类必需测试，固定8�
 有界日志与摘要下载至/private/tmp/cherry-work053-old-34569308782/business-build，source SHA、harness 3fd2ebe7d71b9270746fc0e09397fb7e597c467db0956271cfb5a8ce3c306892及6PASS/2FAILURE复核通过。后续用例未被替换或预截断；旧轮数据库循环在首个纳秒值失败，秒末、到期及撤销分支仍需新绿。准备阶段Testcontainers依赖正常stop/Ryuk，当前没有逐容器零残留快照，不能用未启动业务栈的cleanup代称MySQL清理已实测。
 
 取得旧红后，仅AuthenticationService生成absoluteExpiresAt处追加truncatedTo(MICROS)，保留同一值入库/返回；不更改Clock、JWT TTL、审计now、事务、网关或Schema。JDK21相同本地AuthenticationServiceTests命令4PASS/0FAIL/0ERROR/0SKIP，/private/tmp/cherry-work053-unit-fixed.log，形成同测试本地旧红新绿。work053_review再次独立复核生产差异与测试，无发布阻断；Linux8/8和真实改密仍待修复批次。
+
+## 修复后Linux新绿与业务边界（2026-09-11）
+
+31b401989413476a5902d76763817e56060138fc的[CI34569661914](https://github.com/charon2121/cherry-oj/actions/runs/34569661914)：真实MySQL8.4认证8/8 PASS、零FAIL/ERROR/SKIP；与ef3312e旧红使用相同harness 3fd2ebe7d71b9270746fc0e09397fb7e597c467db0956271cfb5a8ce3c306892和同一组未修改测试。数据库循环完整经过一般纳秒、秒末、微秒与整秒，validate/exchange精度相等，到期前1微秒、到期、撤销断言全部通过。构建证据/private/tmp/cherry-work053-fixed-build-34569661914/business-build，认证摘要source/harness和八方法再次校验通过。
+
+真实Gateway请求依次login200→password/change204→login200，之后创建题目201、上传测试数据201、部署200、校准200、发布200。新节点、部署回执、校准三项PASS；此前身份配置不一致阻断已消失。业务报告/private/tmp/cherry-work053-fixed-34569661914，report.validate(successful=False)/verify_files通过，源提交/测试harness/文件有界和清理一致。
+
+其余9个工程/内核/原生job成功，业务job仍FAIL：浏览器单元启动13.023秒后退出1，记录business.io FAIL，后续11项NOT_RUN（合计3PASS/1FAIL/11NOT_RUN）。现有报告未导出具体浏览器错误，不能判断失败发生在登录、编辑器还是第一个运行断言；不归因为此次精度修复，也不宣称整个WORK-050或93项已通过。浏览器诊断继续归TASK-112，在本工作人工验收后交回；没有修改前端、网关或业务断言绕过。
+
+业务退出清理confirmed=true，Docker容器/卷为空，原生tasks/mounts/cgroups/paths/accounts/groups均空，总tasks/mounts/cgroups为空。准备阶段Testcontainers清理证据限制仍如前述，不能将两种清理混同。现有用户服务/服务器/数据未改。旧Redis中可能已保存纳秒期限的会话不自动修正，需正常重新登录；此限制保留给人工验收。
+
+对应AC：AC-001真实数据库同测试旧红新绿；AC-002原认证生命周期及新边界通过且网关不变；AC-003正常bootstrap/登录/改密/重登通过并推进部署校准发布，新的浏览器失败如实保留；AC-004独立复核、精确边界与无现有部署已核验，最终人工验收由用户签署。WORK-053的技术修复完成不代表WORK-050整体CI完成。
+
+修复后work053_review再次独立核验两轮认证摘要、失败差值、实际请求序列、业务报告与清理文件，确认AC-001至AC-004技术满足，人工验收保留；没有把后续浏览器失败或准备阶段清理证据缺口隐去。
+
+## 变更记录
+
+- 2026-09-11：状态变更：draft → review。原因：技术验证pass，完整证据与范围及后续浏览器失败已记录，提交人工验收
+- 2026-09-11：验收闸通过：review → approved。原因：确认会话期限精度修复及回归通过，接受已记录限制，交回真实业务 CI
