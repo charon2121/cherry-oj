@@ -60,3 +60,11 @@ AC-001确定性旧红新绿，AC-002认证回归，AC-003真实业务，AC-004�
 CI改为先清除选中模块的旧构建再执行两类必需测试，固定8方法，拒绝缺失/重复/错误类/不一致计数/失败/skip/符号或硬链接/超限/XML实体；失败仅保存固定名称和状态，不泄漏报告正文。Maven本身失败即使报告全绿仍必须失败。独立复核与本工作提交推送尚未授权或执行；下一步先发布测试批次取得Linux旧红，再做已批准最小生产修复。
 
 最终本地`python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work053-basic-final`通过81项（15安装+6rootfs+60CI），包含新增5项认证报告反例；Python AST、shell语法和报告验证通过。开发流程刷新首次指出rollback检查未记录，按PLAN-037既有回退事实补记后再刷新，不改工具规则或人工闸。当前源码类未改，测试批次等待本工作独立复核/发布授权。
+
+## 真实MySQL旧红及最小修复（2026-09-11）
+
+用户已明确授权独立复核、复现及后续修复分批commit/push/CI。只读work053_review复核测试、真实事务、失败/skip校验及资源输出，无发布阻断。ef3312e0c9bcfeba42c20e98c4c57df8faa81729的[CI34569308782](https://github.com/charon2121/cherry-oj/actions/runs/34569308782)其余9job通过；业务准备认证测试8执行、6PASS/2FAILURE/0ERROR/0SKIP，未进入业务栈。MySQL8.4/JDK21.0.12.1实际启动并完成迁移；新数据库用例期望签发2026-10-11T12:00:00.123456789，validate回读2026-10-11T12:00:00.123457，相差+211ns。由断言FAILURE而非环境ERROR证明实际持久化精度不一致。
+
+有界日志与摘要下载至/private/tmp/cherry-work053-old-34569308782/business-build，source SHA、harness 3fd2ebe7d71b9270746fc0e09397fb7e597c467db0956271cfb5a8ce3c306892及6PASS/2FAILURE复核通过。后续用例未被替换或预截断；旧轮数据库循环在首个纳秒值失败，秒末、到期及撤销分支仍需新绿。准备阶段Testcontainers依赖正常stop/Ryuk，当前没有逐容器零残留快照，不能用未启动业务栈的cleanup代称MySQL清理已实测。
+
+取得旧红后，仅AuthenticationService生成absoluteExpiresAt处追加truncatedTo(MICROS)，保留同一值入库/返回；不更改Clock、JWT TTL、审计now、事务、网关或Schema。JDK21相同本地AuthenticationServiceTests命令4PASS/0FAIL/0ERROR/0SKIP，/private/tmp/cherry-work053-unit-fixed.log，形成同测试本地旧红新绿。work053_review再次独立复核生产差异与测试，无发布阻断；Linux8/8和真实改密仍待修复批次。

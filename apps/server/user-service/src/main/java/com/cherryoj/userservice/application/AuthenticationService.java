@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -104,7 +105,10 @@ public class AuthenticationService {
 
         accounts.recordLoginSuccess(account.id(), now);
         String grant = grants.generate();
-        LocalDateTime absoluteExpiresAt = now.plus(properties.sessionAbsoluteTimeout());
+        // MySQL DATETIME(6) must preserve the exact deadline returned to the gateway.
+        // Truncate before both persistence and issuance so rounding cannot extend the session.
+        LocalDateTime absoluteExpiresAt = now.plus(properties.sessionAbsoluteTimeout())
+                .truncatedTo(ChronoUnit.MICROS);
         sessions.insert(
                 uuidV7.next().toString(),
                 account.id(),
