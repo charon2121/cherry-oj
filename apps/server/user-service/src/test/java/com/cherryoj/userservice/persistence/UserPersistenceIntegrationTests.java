@@ -3,7 +3,10 @@ package com.cherryoj.userservice.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
+import com.github.dockerjava.api.model.LogConfig;
 import com.cherryoj.userservice.application.AuditService;
 import com.cherryoj.userservice.application.AuthenticationService;
 import com.cherryoj.userservice.application.UserAdministrationService;
@@ -13,13 +16,18 @@ import com.cherryoj.userservice.domain.IdentityConflictException;
 import com.cherryoj.userservice.domain.UsernamePolicy;
 import com.cherryoj.userservice.domain.UuidV7;
 import com.cherryoj.userservice.domain.UserStatus;
+import com.cherryoj.userservice.domain.UserAccount;
+import com.cherryoj.userservice.domain.LoginGrant;
 import com.cherryoj.userservice.security.LoginGrantCodec;
 import com.cherryoj.userservice.security.PasswordService;
 import com.cherryoj.userservice.security.TokenService;
+import com.cherryoj.userservice.security.TokenValue;
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -29,6 +37,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -47,7 +56,14 @@ class UserPersistenceIntegrationTests {
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("cherry_oj_user")
             .withUsername("cherry")
-            .withPassword("test-password");
+            .withPassword("test-password")
+            .withCreateContainerCmdModifier(command -> command.getHostConfig()
+                    .withMemory(1024L << 20)
+                    .withMemorySwap(1024L << 20)
+                    .withNanoCPUs(1_000_000_000L)
+                    .withPidsLimit(256L)
+                    .withLogConfig(new LogConfig(LogConfig.LoggingType.LOCAL,
+                            Map.of("max-size", "1m", "max-file", "2"))));
 
     @DynamicPropertySource
     static void mysqlProperties(DynamicPropertyRegistry registry) {
@@ -161,5 +177,48 @@ class UserPersistenceIntegrationTests {
         var fixed = sessions.findActiveByGrantHash(digest, now.plusDays(29));
         assertThat(fixed.absoluteExpiresAt()).isEqualTo(absolute);
         assertThat(sessions.findActiveByGrantHash(digest, absolute)).isNull();
+    }
+
+    @Test
+    @Order(4)
+    void authenticatedDeadlineSurvivesMysqlRoundTripAtNanosecondPrecision() {
+        var created = users.createUser(null, "PrecisionLearner");
+        for (int inputNs : new int[] {123456789, 999999999, 123456000, 0}) {
+            Instant instant = Instant.parse("2026-09-11T12:00:00Z").plusNanos(inputNs);
+            var authentication = authenticationAt(instant);
+            // Exercise real authentication and persistence; never pre-truncate the clock or insert a session here.
+            var issued = authentication.authenticate(created.user().username(), created.temporaryPassword());
+            var validated = authentication.validate(issued.loginGrant());
+            var exchanged = new TransactionTemplate(transactionManager)
+                    .execute(ignored -> authentication.exchange(issued.loginGrant()));
+
+            assertThat(validated.sessionAbsoluteExpiresAt()).as("validate fraction ns=%s", inputNs)
+                    .isEqualTo(issued.sessionAbsoluteExpiresAt());
+            assertThat(exchanged).isNotNull();
+            assertThat(exchanged.sessionAbsoluteExpiresAt()).as("exchange fraction ns=%s", inputNs)
+                    .isEqualTo(issued.sessionAbsoluteExpiresAt());
+            assertThat(issued.sessionAbsoluteExpiresAt())
+                    .isBeforeOrEqualTo(LocalDateTime.ofInstant(instant, ZoneOffset.UTC)
+                            .plus(properties.sessionAbsoluteTimeout()));
+
+            Instant deadline = issued.sessionAbsoluteExpiresAt().toInstant(ZoneOffset.UTC);
+            assertThat(authenticationAt(deadline.minusNanos(1000)).validate(issued.loginGrant())
+                    .sessionAbsoluteExpiresAt()).isEqualTo(issued.sessionAbsoluteExpiresAt());
+            assertThatThrownBy(() -> authenticationAt(deadline).validate(issued.loginGrant()))
+                    .isInstanceOf(AuthenticationFailedException.class);
+            new TransactionTemplate(transactionManager).executeWithoutResult(
+                    ignored -> authentication.revoke(issued.loginGrant()));
+            assertThatThrownBy(() -> authentication.validate(issued.loginGrant()))
+                    .isInstanceOf(AuthenticationFailedException.class);
+        }
+    }
+
+    private AuthenticationService authenticationAt(Instant instant) {
+        TokenService tokens = mock(TokenService.class);
+        TokenValue token = new TokenValue("test-token", instant.plus(properties.accessTokenTtl()));
+        when(tokens.issue(any(UserAccount.class))).thenReturn(token);
+        when(tokens.issue(any(LoginGrant.class))).thenReturn(token);
+        return new AuthenticationService(accounts, sessions, usernames, passwords, grants, tokens,
+                audit, uuidV7, properties, Clock.fixed(instant, ZoneOffset.UTC), transactionManager);
     }
 }

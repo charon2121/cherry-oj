@@ -9,6 +9,24 @@ import platform
 from command import install_signal_handlers, run
 from report import ROOT, digest, git_sha, harness_sha
 from business_config import SERVICES
+from business_results import authentication_results, verify_authentication_tests
+
+
+def test_authentication(output):
+    # Clean only this disposable checkout's selected modules so old XML cannot supply a false PASS.
+    # The two classes must really execute; Testcontainers' disabledWithoutDocker is not accepted as success.
+    try:
+        run(['./mvnw', '-B', '-ntp', '-pl', 'user-service', '-am', 'clean', 'test',
+             '-Dtest=AuthenticationServiceTests,UserPersistenceIntegrationTests',
+             '-DargLine=-Xmx512m',
+             '-Dsurefire.failIfNoSpecifiedTests=false'], output / 'authentication-tests.log', 600,
+            cwd=ROOT / 'apps/server', env=dict(os.environ, MAVEN_OPTS='-Xmx768m'))
+    finally:
+        results = authentication_results(ROOT / 'apps/server/user-service/target/surefire-reports')
+        (output / 'authentication-tests.json').write_text(json.dumps(dict(
+            sourceSha=git_sha(), harnessSha=harness_sha(), suites=results), indent=2) + '\n')
+    verify_authentication_tests(results)
+    return results
 
 
 def main():
@@ -21,12 +39,14 @@ def main():
     install_signal_handlers()
     for name, argv in [('java', ['java', '--version']), ('node', ['node', '--version']), ('npm', ['npm', '--version'])]:
         run(argv, args.output / (name + '-version.log'), 10)
-    # Tests run in the existing jobs; packaging is preparation, not claimed as Java test evidence.
+    authentication = test_authentication(args.output)
+    # The required authentication tests ran above; packaging the other services is preparation only.
     run(['./mvnw', '-B', '-ntp', 'package', '-DskipTests'], args.output / 'maven-build.log', 600,
         cwd=ROOT / 'apps/server', env=dict(os.environ, MAVEN_OPTS='-Xmx768m'))
     run(['npm', 'ci'], args.output / 'npm-install.log', 180, cwd=ROOT / 'apps/web')
     run(['npm', 'run', 'build'], args.output / 'web-build.log', 180, cwd=ROOT / 'apps/web')
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(),
+                    authenticationTests=authentication,
                     jars={s: digest(ROOT / f'apps/server/{s}-service/target/{s}-service-0.0.1-SNAPSHOT.jar') for s in SERVICES},
                     web={str(p.relative_to(ROOT / 'apps/web/dist')): digest(p)
                          for p in sorted((ROOT / 'apps/web/dist').rglob('*')) if p.is_file()})

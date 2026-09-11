@@ -264,3 +264,13 @@ b699604的CI34559188597、34559407284两台新VM现有九job全部通过，63内
 7c8f9a2fd4086a956b51ec77b5993efeb572b2fe的[CI34563521786](https://github.com/charon2121/cherry-oj/actions/runs/34563521786)其余9job成功。业务VM为Ubuntu24.04.5、Linux6.17.0-1022-azure/amd64；五Java服务、三依赖均启动，新节点注册及原生24限额校验通过，business.new-environment PASS。正常bootstrap和登录200之后，首次POST /api/auth/password/change返回503，business.deploy FAIL，其余13项NOT_RUN。没有重试请求或跳过改密。
 
 报告下载至/private/tmp/cherry-task112-34563521786；cleanup.confirmed=true，Docker容器/卷为空，native与总清理的任务/挂载/cgroup/路径/账号/组均为空。容器诊断全部running、exitCode0、oomKilled=false。首次响应未保留错误分类，不能只凭503确定根因。源码发现待核实方向：AuthenticationService首次期限使用未截断的LocalDateTime，MySQL DATETIME(6)回读后Gateway要求absoluteExpiresAt完全相等。追加只匹配固定公共错误detail的枚举分类，不导出正文或任意字段；本地76项基础单测通过。下一轮仅诊断，不改生产、身份规则、期限或资源预算。
+
+## TASK-112身份诊断结果与暂停边界（2026-09-11）
+
+诊断提交3c0b0cc5f0abdb863fb571fff13f6794bc51faf4的[CI34564019849](https://github.com/charon2121/cherry-oj/actions/runs/34564019849)其余9job再次通过；业务仍1PASS/1FAIL/13NOT_RUN。login200后password/change503，固定错误分类为IDENTITY_CONFIGURATION_MISMATCH；不是普通upstream unavailable或身份信任拒绝。原生节点验证通过，Docker三依赖均running且未OOM。
+
+下载至/private/tmp/cherry-task112-34564019849，report.validate(successful=False)、verify_files通过，当前source/harness和非空有界证据匹配；cleanup.confirmed=true，native-resources-after、dependencies-after、resources-after全部空。首轮7c8f9a2报告按其Git树独立重算harness为2dc53cd52bef057270cd7e04219fffa365eb760db8e6d09ebeb3c96daf612c1d后同样验证通过（不能用诊断修改后的harness误验旧报告）。
+
+独立只读复核确认AuthenticationService产生未截断纳秒期限、DATETIME(6)回读微秒、Gateway严格equals之间的缺陷机制；单测整秒Clock、持久化测试预先截断、网关模拟身份服务均未覆盖真实往返。当前错误分类与此机制相符，但未采集初始/回读期限差值，也未完成确定性MySQL旧红新绿，保留归因限度。
+
+按PLAN-034真实缺陷另拆原则形成WORK-053/ISSUE-017/DESIGN-047/TASK-117，仅修复材料，待用户意图闸与明确实施授权；不修改Java、不改网关容差、不跳过正常改密、不重试业务。TASK-112仍未完成，TASK-113及WORK-049继续等待。两笔CI代码提交已推送origin/main；本段及新修复材料保留本地待审，不在红CI上追加无修复的发布。

@@ -1,5 +1,9 @@
 """Require every live case, bounded facts, and current build identity before reporting PASS."""
 
+from pathlib import Path
+import stat
+import xml.etree.ElementTree as ET
+
 from business_config import SERVICES
 from report import ROOT, digest, git_sha, harness_sha
 
@@ -7,10 +11,65 @@ LIVE_CASES = ('io', 'ce', 're', 'signal', 'cpu', 'memory', 'output', 'empty', 'a
 STATUSES = dict(zip(LIVE_CASES[:8], ('COMPLETED', 'COMPILE_ERROR', 'RUNTIME_ERROR', 'RUNTIME_ERROR',
                                    'TIME_LIMIT_EXCEEDED', 'MEMORY_LIMIT_EXCEEDED', 'OUTPUT_LIMIT_EXCEEDED', 'COMPLETED')))
 
+AUTHENTICATION_TESTS = {
+    'com.cherryoj.userservice.application.AuthenticationServiceTests': {
+        'authenticationIssuesDatabaseRepresentableDeadlineWithoutExtendingLifetime',
+        'failedPasswordCommitsBackoffBeforeReturningGenericFailure',
+        'validateIsReadOnlyAndReturnsUnchangedAbsoluteDeadline',
+        'exchangeRecordsUsageButNeverExtendsAbsoluteDeadline'},
+    'com.cherryoj.userservice.persistence.UserPersistenceIntegrationTests': {
+        'flywayAndMappersPreserveAccountInvariants',
+        'failedLoginBackoffSurvivesTheGenericAuthenticationException',
+        'mysqlValidationIgnoresLegacyIdleAndNeverExtendsAbsoluteDeadline',
+        'authenticatedDeadlineSurvivesMysqlRoundTripAtNanosecondPrecision'}}
+
+
+def authentication_results(directory):
+    """Read only the two expected fresh Surefire files; discard properties, output and failure bodies."""
+    results = {}
+    for suite, methods in AUTHENTICATION_TESTS.items():
+        path = Path(directory) / ('TEST-' + suite + '.xml')
+        info = path.lstat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 2 << 20:
+            raise ValueError('untrusted or oversized authentication report')
+        raw = path.read_bytes()
+        if b'<!DOCTYPE' in raw or b'<!ENTITY' in raw:
+            raise ValueError('authentication report must not contain XML declarations')
+        root = ET.fromstring(raw)
+        if root.tag != 'testsuite' or root.get('name') != suite:
+            raise ValueError('authentication test suite mismatch')
+        cases = root.findall('testcase')
+        if len(cases) != len(methods) or int(root.get('tests', '-1')) != len(cases):
+            raise ValueError('authentication test count mismatch')
+        found = {}
+        for case in cases:
+            name = case.get('name')
+            if case.get('classname') != suite or name not in methods or name in found:
+                raise ValueError('missing, duplicate or unexpected authentication test')
+            outcome = [key for key in ('failure', 'error', 'skipped') if case.find(key) is not None]
+            if len(outcome) > 1:
+                raise ValueError('ambiguous authentication test outcome')
+            found[name] = outcome[0].upper() if outcome else 'PASS'
+        for attribute, status in [('failures', 'FAILURE'), ('errors', 'ERROR'), ('skipped', 'SKIPPED')]:
+            if int(root.get(attribute, '-1')) != list(found.values()).count(status):
+                raise ValueError('authentication summary disagrees with test outcomes')
+        results[suite] = found
+    return results
+
+
+def verify_authentication_tests(value):
+    if not isinstance(value, dict) or set(value) != set(AUTHENTICATION_TESTS):
+        raise ValueError('missing required authentication suites')
+    for suite, methods in AUTHENTICATION_TESTS.items():
+        if not isinstance(value[suite], dict) or set(value[suite]) != methods or any(
+                status != 'PASS' for status in value[suite].values()):
+            raise ValueError('authentication regression missing, failed or skipped')
+
 
 def verify_build(value):
     if value['sourceSha'] != git_sha() or value['harnessSha'] != harness_sha():
         raise ValueError('business build belongs to a different checkout')
+    verify_authentication_tests(value.get('authenticationTests'))
     jars = {s: digest(ROOT / f'apps/server/{s}-service/target/{s}-service-0.0.1-SNAPSHOT.jar') for s in SERVICES}
     web = {str(p.relative_to(ROOT / 'apps/web/dist')): digest(p)
            for p in sorted((ROOT / 'apps/web/dist').rglob('*')) if p.is_file()}

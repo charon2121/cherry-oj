@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.UUID;
 
 import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.AuthenticationFailedException;
@@ -36,6 +37,47 @@ import org.springframework.transaction.TransactionStatus;
 class AuthenticationServiceTests {
 
     private static final Instant NOW = Instant.parse("2026-08-26T12:00:00Z");
+
+    @Test
+    void authenticationIssuesDatabaseRepresentableDeadlineWithoutExtendingLifetime() {
+        // Include sub-microsecond values and the final nanosecond before the next second.
+        Map<Integer, Integer> cases = Map.of(0, 0, 1, 0, 123456000, 123456000,
+                123456789, 123456000, 999999999, 999999000);
+        cases.forEach((inputNs, expectedNs) -> {
+            Instant instant = NOW.plusNanos(inputNs);
+            LocalDateTime now = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+            UserAccountMapper accounts = mock(UserAccountMapper.class);
+            LoginSessionMapper sessions = mock(LoginSessionMapper.class);
+            PasswordService passwords = mock(PasswordService.class);
+            LoginGrantCodec grants = mock(LoginGrantCodec.class);
+            TokenService tokens = mock(TokenService.class);
+            UuidV7 ids = mock(UuidV7.class);
+            UUID sessionId = UUID.fromString("019c8e42-7f70-7000-8000-000000000002");
+            byte[] digest = {1, 2, 3};
+            PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
+            when(transactions.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
+            when(accounts.findByNormalizedUsernameForUpdate("learner01")).thenReturn(account());
+            when(passwords.matches("correct-password", "stored-hash")).thenReturn(true);
+            when(grants.generate()).thenReturn("grant-value");
+            when(grants.digest("grant-value")).thenReturn(digest);
+            when(ids.next()).thenReturn(sessionId);
+            when(tokens.issue(account())).thenReturn(new TokenValue("token", instant.plusSeconds(7200)));
+            AuthenticationService authentication = new AuthenticationService(accounts, sessions,
+                    new UsernamePolicy(), passwords, grants, tokens, mock(AuditService.class), ids,
+                    properties(), Clock.fixed(instant, ZoneOffset.UTC), transactions);
+
+            var result = authentication.authenticate("Learner01", "correct-password");
+
+            LocalDateTime expected = localNow().plusDays(30).withNano(expectedNs);
+            assertThat(result.sessionAbsoluteExpiresAt()).as("input fraction ns=%s", inputNs)
+                    .isEqualTo(expected).isBeforeOrEqualTo(now.plusDays(30));
+            verify(sessions).insert(sessionId.toString(), account().id(), digest,
+                    account().sessionVersion(), now, result.sessionAbsoluteExpiresAt());
+            // Only the session deadline is normalized; token TTL and other timestamps retain their meaning.
+            assertThat(result.accessTokenExpiresAt()).isEqualTo(instant.plusSeconds(7200));
+            verify(accounts).recordLoginSuccess(account().id(), now);
+        });
+    }
 
     @Test
     void failedPasswordCommitsBackoffBeforeReturningGenericFailure() {

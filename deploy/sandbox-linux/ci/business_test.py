@@ -7,6 +7,7 @@ import stat
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
+import xml.etree.ElementTree as ET
 import zipfile
 
 from business_api import API, MAX_BODY, failure_kind, fixture_zip
@@ -14,7 +15,8 @@ from business_config import DATABASES, create, environment
 from business_evidence import Evidence, uuid
 from business_observer import verify_observations
 from business_resources import Dependencies
-from business_results import LIVE_CASES, STATUSES, verify_live
+from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authentication_results,
+                              verify_authentication_tests, verify_live)
 
 
 def live_fixture():
@@ -29,7 +31,90 @@ def live_fixture():
     return result
 
 
+def authentication_fixture(directory):
+    for suite, names in AUTHENTICATION_TESTS.items():
+        root = ET.Element('testsuite', name=suite, tests=str(len(names)), failures='0', errors='0', skipped='0')
+        for name in sorted(names):
+            ET.SubElement(root, 'testcase', name=name, classname=suite)
+        ET.SubElement(root, 'system-out').text = 'private-grant-must-not-be-exported'
+        ET.ElementTree(root).write(Path(directory) / ('TEST-' + suite + '.xml'))
+
+
 class BusinessTests(unittest.TestCase):
+    def test_authentication_report_exports_only_expected_methods_and_statuses(self):
+        with tempfile.TemporaryDirectory() as temp:
+            authentication_fixture(temp)
+            results = authentication_results(temp)
+            verify_authentication_tests(results)
+            self.assertEqual(sum(map(len, results.values())), 8)
+            self.assertNotIn('private-grant', json.dumps(results))
+
+    def test_authentication_report_rejects_false_green_and_keeps_real_failure(self):
+        for kind in ('skipped', 'failure', 'error', 'missing', 'duplicate', 'wrong-class', 'summary'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temp:
+                authentication_fixture(temp)
+                path = sorted(Path(temp).glob('*.xml'))[0]
+                tree = ET.parse(path)
+                root = tree.getroot()
+                case = root.find('testcase')
+                if kind in ('skipped', 'failure', 'error'):
+                    ET.SubElement(case, kind).text = 'private-message'
+                    root.set({'skipped': 'skipped', 'failure': 'failures', 'error': 'errors'}[kind], '1')
+                elif kind == 'missing': root.remove(case)
+                elif kind == 'duplicate': root.findall('testcase')[1].set('name', case.get('name'))
+                elif kind == 'wrong-class': case.set('classname', 'other.Class')
+                elif kind == 'summary': root.set('tests', '0')
+                tree.write(path)
+                if kind in ('skipped', 'failure', 'error'):
+                    results = authentication_results(temp)
+                    self.assertIn(kind.upper(), results[root.get('name')].values())
+                    self.assertNotIn('private-message', json.dumps(results))
+                    with self.assertRaises(ValueError):
+                        verify_authentication_tests(results)
+                else:
+                    with self.assertRaises(ValueError): authentication_results(temp)
+
+    def test_authentication_report_missing_link_oversize_and_entity_are_rejected(self):
+        for kind in ('missing', 'symlink', 'hardlink', 'oversize', 'entity'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temp:
+                authentication_fixture(temp)
+                path = sorted(Path(temp).glob('*.xml'))[0]
+                if kind == 'missing': path.unlink()
+                elif kind in ('symlink', 'hardlink'):
+                    target = path.with_suffix('.original')
+                    path.rename(target)
+                    if kind == 'symlink': path.symlink_to(target)
+                    else: path.hardlink_to(target)
+                elif kind == 'oversize': path.write_bytes(b'x' * ((2 << 20) + 1))
+                elif kind == 'entity': path.write_text('<!DOCTYPE test [<!ENTITY a "secret">]><test/>')
+                with self.assertRaises((ValueError, FileNotFoundError)): authentication_results(temp)
+
+    def test_authentication_build_gate_requires_both_complete_passing_suites(self):
+        with tempfile.TemporaryDirectory() as temp:
+            authentication_fixture(temp)
+            good = authentication_results(temp)
+        bad = copy.deepcopy(good)
+        suite = next(iter(bad))
+        del bad[suite][next(iter(bad[suite]))]
+        for value in (None, {}, bad, {suite: good[suite]}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                verify_authentication_tests(value)
+
+    def test_failed_maven_cannot_be_overridden_by_a_passing_report(self):
+        import business_prepare
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            reports = root / 'apps/server/user-service/target/surefire-reports'
+            reports.mkdir(parents=True)
+            authentication_fixture(reports)
+            with patch.object(business_prepare, 'ROOT', root), patch.object(
+                    business_prepare, 'run', side_effect=RuntimeError('command failed')):
+                with self.assertRaisesRegex(RuntimeError, 'command failed'):
+                    business_prepare.test_authentication(root)
+            summary = json.loads((root / 'authentication-tests.json').read_text())
+            self.assertNotIn('private-grant', json.dumps(summary))
+            verify_authentication_tests(summary['suites'])  # Evidence can be retained without accepting the command.
+
     def test_failure_diagnostics_only_export_exact_known_classification(self):
         self.assertEqual(failure_kind(json.dumps(dict(code='SERVICE_UNAVAILABLE',
             detail='身份服务配置不一致，请联系管理员。', secret='must-not-export'))), 'IDENTITY_CONFIGURATION_MISMATCH')

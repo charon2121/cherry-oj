@@ -89,3 +89,9 @@ Node24构建五个Java服务与生产Web；打包时跳过Java单测只作为构
 
 本地只运行`basic.py`、类型/lint和`playwright --list`，不在Mac启动资源耗尽夹具。完整业务结果
 必须来自审核后本批GitHub运行；当前实跑状态见WORK-050/VERIFY-051，不把用例已编写当作闭环已通过。
+
+### 认证期限数据库回归（WORK-053）
+
+`business_prepare.py`在打包前显式clean并运行AuthenticationServiceTests与UserPersistenceIntegrationTests。后者以带纳秒尾数的固定时钟执行实际authenticate→MySQL→validate/exchange，覆盖原有过期/撤销/固定期限行为；本地只运行无数据库单测和编译，数据库只在一次性Linux VM执行。MySQL夹具1GiB/swap0/1CPU/256进程，日志1MiB×2；测试JVM堆512MiB，Maven堆768MiB，600秒命令期限。
+
+两份Surefire XML仅解析固定测试名及状态，不上传properties、system-out或失败正文；摘要保留当前source/harness。缺文件、重复、缺方法、计数不一致、skip、失败及命令非零都阻断业务准备，失败摘要仍保留。构建清单携带摘要，由业务入口再次核验。不能把打包的-DskipTests或Docker不可用时自动跳过计为数据库通过。生产精度修复须先获得真实MySQL旧红，实测进展见WORK-053/VERIFY-054。

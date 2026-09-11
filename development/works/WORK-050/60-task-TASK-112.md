@@ -10,8 +10,8 @@ related: []
 implements: ["CAPABILITY-008#REQ-004", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-004"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/server", "apps/web", "scripts/identity-keys", "deploy/backend", "development/works/WORK-052", "compose.yaml"]
-write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", "apps/web/tsconfig.node.json", "apps/web/eslint.config.js", ".github/workflows/ci.yml", "development/works/WORK-052"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/server", "apps/web", "scripts/identity-keys", "deploy/backend", "development/works/WORK-052", "development/works/WORK-053", "compose.yaml"]
+write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", "apps/web/tsconfig.node.json", "apps/web/eslint.config.js", ".github/workflows/ci.yml", "development/works/WORK-052", "development/works/WORK-053"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web/src", "apps/web/e2e", "apps/web/package.json", "apps/web/package-lock.json", "apps/web/playwright.config.ts", "apps/web/vite.config.ts"]
 created_at: "2026-09-10"
 updated_at: "2026-09-11"
@@ -75,3 +75,5 @@ ci内独立Java/MySQL/Redis/Kafka和原生节点编排、合成6对数据及业�
 - 2026-09-11：状态变更：ready → doing。原因：开始独立全栈准备、真实浏览器业务断言与所有权清理
 - 2026-09-11：完成业务job、全栈所有权编排、正常API准备与只读取证、11项真实页面断言和失败回收接入；本地74项基础单测、Node24类型/lint、Playwright发现及actionlint通过。真实VM、独立复核与本批提交推送尚未执行，完成标准保持未勾选；详见VERIFY-051本轮记录。
 - 2026-09-11：用户明确授权本批独立复核、修正后commit/push到origin/main并运行和处理GitHub CI；开始只读独立复核和发布核对，授权不涉及现有服务器、生产代码或WORK-049重构。
+
+- 2026-09-11：按用户授权完成只读独立复核，修正bootstrap生命周期与Action固定SHA后提交7c8f9a2、诊断3c0b0cc并推送main。两轮其余9job成功，业务首次改密503；诊断确认身份配置不一致，全部资源清理通过。WORK-053已形成独立最小修复材料待人工闸，不扩大本任务Java权限；完成标准仍不勾选。

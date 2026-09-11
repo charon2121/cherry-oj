@@ -1,62 +1,36 @@
 [
   {
-    "stage": "clarify",
-    "label": "需求澄清",
-    "requirement": "required",
-    "status": "done",
-    "status_source": "derived",
-    "artifacts": [
-      "WORK-050"
-    ],
-    "checks": [],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
-  },
-  {
     "stage": "definition",
-    "label": "能力定义",
+    "label": "问题说明、复现与预期",
     "requirement": "required",
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "CAPABILITY-008"
+      "ISSUE-017"
     ],
     "checks": [
       {
         "name": "definition",
         "result": "pass",
-        "note": "意图闸签署时确认：确认将已验收测试固化为分层CI，使用独立测试环境，作为重构回归基线"
+        "note": "意图闸签署时确认：确认期限精度修复方案，允许实施"
       },
       {
         "name": "scope",
         "result": "pass",
-        "note": "意图闸签署时确认：确认将已验收测试固化为分层CI，使用独立测试环境，作为重构回归基线"
+        "note": "意图闸签署时确认：确认期限精度修复方案，允许实施"
       }
     ],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
-  },
-  {
-    "stage": "experience",
-    "label": "开发体验 / 运维要求",
-    "requirement": "required",
-    "status": "done",
-    "status_source": "derived",
-    "artifacts": [
-      "EXPERIENCE-021"
-    ],
-    "checks": [],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
   },
   {
     "stage": "design",
-    "label": "技术方案",
+    "label": "原因与修复方案",
     "requirement": "required",
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "DESIGN-044"
+      "DESIGN-047"
     ],
     "checks": [],
     "source": "overlay:risk-impact",
@@ -69,7 +43,7 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "DECISION-028"
+      "DECISION-031"
     ],
     "checks": [],
     "source": "overlay:risk-impact",
@@ -82,13 +56,13 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "PLAN-034"
+      "PLAN-037"
     ],
     "checks": [
       {
         "name": "rollback",
         "result": "pass",
-        "note": "PLAN-034明确仅回退新增CI与驱动，保持原六项CI、已验收实现和用户环境；一次性VM资源按本轮所有权清理"
+        "note": "复现批次仅两份测试及CI准备校验，可独立回退；后续签发精度修复也仅一个类。无需数据库迁移或现有服务变更，旧精度问题和CI失败记录保留"
       }
     ],
     "source": "overlay:risk-impact",
@@ -96,21 +70,16 @@
   },
   {
     "stage": "tasks",
-    "label": "开发任务",
+    "label": "修复任务",
     "requirement": "required",
-    "status": "ready",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "TASK-109",
-      "TASK-110",
-      "TASK-111",
-      "TASK-112",
-      "TASK-113",
-      "TASK-115"
+      "TASK-117"
     ],
     "checks": [],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
   },
   {
     "stage": "development",
@@ -119,16 +88,11 @@
     "status": "doing",
     "status_source": "derived",
     "artifacts": [
-      "TASK-109",
-      "TASK-110",
-      "TASK-111",
-      "TASK-112",
-      "TASK-113",
-      "TASK-115"
+      "TASK-117"
     ],
     "checks": [],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
   },
   {
     "stage": "review",
@@ -149,23 +113,23 @@
         "note": ""
       }
     ],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
   },
   {
     "stage": "verification",
-    "label": "验证",
+    "label": "回归验证",
     "requirement": "required",
-    "status": "doing",
+    "status": "pending",
     "status_source": "derived",
     "artifacts": [
-      "VERIFY-051"
+      "VERIFY-054"
     ],
     "checks": [
       {
         "name": "automated-tests",
         "result": "fail",
-        "note": "7c8f9a2与3c0b0cc两轮其余9job成功；真实业务1PASS/1FAIL/13NOT_RUN，首次改密503且诊断为身份配置不一致；完整清理通过，WORK-053最小修复材料待人工审核，TASK-113汇总尚未实施"
+        "note": "本地JDK21编译通过；旧实现认证单测3PASS/1FAIL，新增精度用例确定性失败；81项基础检查通过。真实MySQL旧红与修复后回归及Linux业务尚未执行，不宣称修复完成"
       },
       {
         "name": "reliability",
@@ -178,17 +142,17 @@
         "note": ""
       }
     ],
-    "source": "profile:infra",
-    "reason": "infra 基础流程"
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
   },
   {
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "doing",
+    "status": "pending",
     "status_source": "derived",
     "artifacts": [
-      "MEMORY-037"
+      "MEMORY-040"
     ],
     "checks": [],
     "source": "overlay:risk-impact",
