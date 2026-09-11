@@ -10,8 +10,8 @@ related: []
 implements: ["ISSUE-016#REQ-001", "ISSUE-016#REQ-002", "ISSUE-016#REQ-003", "ISSUE-016#AC-001", "ISSUE-016#AC-002", "ISSUE-016#AC-003", "ISSUE-016#AC-004"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "CLAUDE.md", "development/README.md", "docs/engineering", "development/works/WORK-050", "development/works/WORK-052", "apps/judge-engine", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests", ".github/workflows/ci.yml"]
-write_paths: ["development/works/WORK-052", "development/works/WORK-050", "apps/judge-engine/internal/sandbox/launcher/channel_linux.go", "apps/judge-engine/internal/sandbox/launcher/channel_linux_test.go", "apps/judge-engine/internal/sandbox/launcher/files_linux_test.go", "apps/judge-engine/tests/sandbox-linux/boundary/start_linux_test.go", "apps/judge-engine/tests/sandbox-linux/boundary/channel_linux_test.go", "deploy/sandbox-linux/ci/cases.json"]
+read_paths: ["AGENTS.md", "CLAUDE.md", "development/README.md", "docs/engineering", "development/works/WORK-050", "development/works/WORK-052", "apps/judge-engine", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/install", "deploy/sandbox-linux/tests", ".github/workflows/ci.yml"]
+write_paths: ["development/works/WORK-052", "development/works/WORK-050", "apps/judge-engine/internal/sandbox/launcher/channel_linux.go", "apps/judge-engine/internal/sandbox/launcher/channel_linux_test.go", "apps/judge-engine/internal/sandbox/launcher/files_linux_test.go", "apps/judge-engine/tests/sandbox-linux/boundary/start_linux_test.go", "apps/judge-engine/tests/sandbox-linux/boundary/channel_linux_test.go", "deploy/sandbox-linux/ci/cases.json", "deploy/sandbox-linux/ci/native.py", "deploy/sandbox-linux/ci/memory_watch.py", "deploy/sandbox-linux/ci/memory_watch_test.py"]
 forbidden_paths: ["apps/server", "apps/web", "contracts", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "apps/judge-engine/internal/sandbox/cgroup", "apps/judge-engine/internal/sandbox/helper", "apps/judge-engine/internal/sandbox/policy", "apps/judge-engine/internal/sandbox/launcher/init_linux_amd64.go", "apps/judge-engine/internal/sandbox/launcher/exec_linux_amd64.go", "deploy/sandbox-linux/install", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/rootfs", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md"]
 created_at: "2026-09-11"
 updated_at: "2026-09-11"
@@ -78,3 +78,5 @@ ISSUE-016 REQ-001～003、AC-001～004及DESIGN-046/DECISION-030/PLAN-036。
 - 2026-09-11：依据前两轮真实等待中断证据，在实现前细化边界：允许测试自身Poll按剩余期限恢复。原“只观察”不足以消除已确认的测试等待脆弱点；该变更不扩大生产文件范围、不改变协议或执行状态机，也不在测试中掩盖ReceiveEvent错误。
 
 - 2026-09-11：生产单次系统调用恢复、FD引用和失败释放候选已实现；参数注入的旧红新绿与Poll绝对期限测试本地race通过，Linux交叉构建通过。新增7个必需Linux Go用例，真实Linux与独立复核待执行，不标done。
+
+- 2026-09-11：新增失败为原生安装驱动OOM，与已通过的控制通道用例不同。在编码前同步DESIGN/PLAN并仅扩展CI观测文件的读写路径，安装器增加只读依据、禁止修改不变；不提高128MiB上限、不重跑请求、不把后续通过覆盖本轮失败。用户已授权本批CI运行及问题处理。

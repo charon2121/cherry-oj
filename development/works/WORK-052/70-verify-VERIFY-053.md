@@ -23,7 +23,7 @@ ISSUE-016 AC-001～004：确定性复现、消息/FD/期限语义、完整Linux�
 
 ## 对应要求
 
-已完成已发布诊断SHA的Linux回归；本地候选修复、可控收发旧红新绿和等待期限测试已通过，修复后的Linux实跑及独立复核仍未完成，四项AC不据此整体通过。
+生产修复已发布为b3e5ec0；独立源码复核、确定性旧红新绿及真实Linux内核验证通过。对应CI原生安装发生OOM，完整CI验收尚未通过，TASK-116保持doing。
 
 ## 检查与结果
 
@@ -33,15 +33,15 @@ ISSUE-016 AC-001～004：确定性复现、消息/FD/期限语义、完整Linux�
 
 ## 未通过项
 
-真实Linux信号诊断已通过；生产修复、原失败的确定归因、收发旧红新绿、连续中断/取消/期限验证及独立复核尚未完成。
+CI34557663857的原生安装驱动OOM，原生1项FAIL、9项NOT_RUN。历史中断的具体系统调用和信号仍无法追溯，当前通过证据不对此作确定归因。
 
 ## 范围检查
 
-本轮修改仅为WORK-050/052记录与TASK-116允许的两份boundary测试：给原Poll/ReceiveEvent报错添加阶段，新增独立有界子进程的真实信号诊断。没有改变生产、部署、协议、预算或重试行为。
+已发布生产仅channel_linux.go，测试覆盖FD/中断/关闭/期限与真实信号；本轮新增仅CI安装内存观测及其测试，编码前同步DESIGN/PLAN/TASK路径。安装器、协议、隔离策略、资源预算和现有服务器不变。
 
 ## 遗留问题
 
-具体中断信号、稳定复现方法及安全恢复方案需在获准后验证；不推断所有连接失败同因。
+历史具体中断来源未知；可控收发序列、等待期限与真实Linux接收信号条件已验证。原生安装OOM须独立取证，不推断由新通道实现引起。
 
 ## 剩余风险
 
@@ -79,7 +79,7 @@ result=pending。意图闸及实施授权已核验，TASK-116进行中；本地�
 - 发布正常执行hooks，无缓存Go race通过。未修改生产通道或现有服务器，未读取/纳入本地测试数据ZIP。TASK-116保持doing，WORK-052验收闸pending；本次诊断通过不关闭原始问题，也不解除TASK-112依赖。
 
 
-## 本地修复候选（2026-09-11，未提交）
+## 本地修复候选（2026-09-11，发布前记录）
 
 - 生产仅修改launcher/channel_linux.go。sendmsg/recvmsg每次在RawConn.Control持有文件引用后调用，EINTR仅在未交付数据/FD时继续；每次继续前重新获取文件引用，观察关闭，附带FD同样保护。非EINTR、短写与部分交付仍报错；接收错误先释放已收到的FD。
 - 取消仍沿既有helper监控期限、停止资源组、shutdown、等待、Close的生命周期；未新增或重置生产预算。控制socket仍阻塞，Close单独唤醒不作承诺；SO_RCVTIMEO只用于Linux测试触发信号中断，不是生产新增配置。
@@ -93,3 +93,16 @@ result=pending。意图闸及实施授权已核验，TASK-116进行中；本地�
 - 2026-09-11：用户明确授权本批独立复核子智能体、修复问题后提交推送及Linux CI。只读work052_review已启动；不是人工验收。另将Poll恢复分支从临时副本删除进行变异验证，continuous-interruption和ready-after-interruption按预期失败（exit1），证明期限与恢复用例能拦住退化；记录/private/tmp/cherry-work052-channel/wait-no-recovery.log。
 
 - 2026-09-11：独立只读work052_review完成源码、全部新增测试与Go1.26.3 RawControl引用语义审查，未发现新增P0/P1/P2阻断。确认生产只恢复无交付EINTR、文件引用与附带FD保护、helper原取消链及测试Poll绝对期限。复核未独立运行测试，真实Linux尚待本批CI；连续中断+Close白盒与shutdown测试分别取证，不能合称“真实helper在信号风暴下墙钟超时已验证”。shutdown用例20ms未返回不等于线程syscall观测；真实接收信号夹具用生产未配置的SO_RCVTIMEO构造可中断条件，不证明常态触发频率或最早失败来源。
+
+## 生产修复发布与新阻断（2026-09-11）
+
+提交b3e5ec0e8355833e3ddc6699d717f8398fab4944，[CI34557663857](https://github.com/charon2121/cherry-oj/actions/runs/34557663857)八个job通过、原生job失败。同SHA的push运行34557663756在任务步骤开始前取消，不计为验证结果。
+
+- 内核63项PASS、52个必需Linux Go测试通过且无skip；boundary与smoke/1000次/并发/故障日志经结果校验器复验。真实信号输出同时包含`poll=EINTR receiveCallsBeforeSend=0 message=workspace fd=once eof=true`与`recvmsg-blocked=true signal=SIGUSR1 message=workspace fd=once eof=true`。这验证构造条件下的恢复，不追溯历史来源，也不等同helper信号风暴下完整超时实测。
+- 原生install.log记录519ms、CPU279ms、Memory peak128.0M、swap0、result=oom-kill；helper/sandbox/judge均尚未安装。1FAIL、9NOT_RUN，不能宣称本轮完整通过。
+- 两套report精确sourceSha及harnessSha=60c0ae2b6e784e1c1c91a5436698d4ddea3fa3658372bf80dd681547393524ee通过validate与verify_files（原生successful=False）。cleanup confirmed=true；内核任务/挂载/cgroup为空，原生额外路径/账号/组也为空。下载目录/private/tmp/cherry-work052-{kernel,native}-34557663857。环境Ubuntu24.04.5、Linux6.17.0-1022-azure、x86_64、AppArmor，GitHub镜像20260907.300.1。
+- 正常commit/push hooks通过，推送前全模块无缓存Go race通过；未触碰本地ZIP及现有服务。
+- 只读独立复核新失败确认：128MiB覆盖安装驱动、账号创建子进程和文件页，现有证据不足以区分来源。补充组外10ms采样，尾部最多64条及最高memory.current记录，直接读取memory.peak并明确内存组成并非原子快照；失败前仅保存安装回执的状态/创建计数和release目录是否存在，不能导出配置/token。未提高预算或重试安装。
+- 观测本地基础CI62项单测通过（安装15/rootfs6/CI41），Python与shell语法通过，446份开发文档及515份Markdown检查通过。观测自身尚待发布实测；TASK-116与WORK-052验收保持未完成。
+
+- 2026-09-11：独立复核观测代码发现P2：安装OOM可能中断回执写入，JSON解析失败会阻止原服务诊断。已局部记录受控receiptReadError并继续systemctl/journal；截断、null及异常accounts结构三反例通过。此前34507853030与34508410501的安装成功日志均Memory peak128.0M，说明上限接触并非新版本独有；不据此断言此次OOM根因。

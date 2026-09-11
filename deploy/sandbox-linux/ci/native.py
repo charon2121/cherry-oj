@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+from contextlib import nullcontext
 import secrets
 import shutil
 import socket
@@ -14,7 +15,8 @@ from kernel import verify_build
 from native_control import validate_registration
 from native_resources import Installation, RECORD, ETC, STATE, UNITS
 import native_results
-from owned import BASE, MARKER, Owned, github_vm, preflight
+from memory_watch import observe
+from owned import BASE, CGROUP, MARKER, Owned, github_vm, preflight
 from report import ROOT, Report, digest, git_sha, read_json, validate, verify_files
 
 INSTALL = ROOT / 'deploy/sandbox-linux/install'
@@ -57,7 +59,10 @@ class Native:
     def command(self, name, argv, seconds=90):
         unit = 'cherry-sandbox-test-work048-native-' + name + '-' + self.owned.identity
         self.owned.register(unit)
-        self.owned.launch(unit, argv, name + '.log', seconds=seconds)
+        observation = (observe(CGROUP / (unit + '.service'), self.report.output / 'install-memory.json')
+                       if name == 'install' else nullcontext())
+        with observation:
+            self.owned.launch(unit, argv, name + '.log', seconds=seconds)
 
     def start_control(self):
         self.control.mkdir(mode=0o700)
@@ -101,6 +106,24 @@ class Native:
         return value
 
     def diagnose(self):
+        # Save only progress counters before owned cleanup removes a partial install.
+        # Never export the receipt's file map or any judge configuration/token here.
+        receipt = STATE / 'installation.json'
+        progress = dict(receiptExists=receipt.exists(), releaseExists=(STATE / 'releases' / self.node).exists())
+        if progress['receiptExists']:
+            try:
+                value = read_json(receipt)
+                status = value.get('status')
+                progress['status'] = status if status in {'installing', 'installed', 'running', 'stopped', 'uninstalled'} else 'unknown'
+                accounts = value.get('accounts', {}).values()
+                progress['groupsCreated'] = sum(a.get('groupCreated') is True for a in accounts)
+                progress['usersCreated'] = sum(a.get('userCreated') is True for a in accounts)
+                progress['recordedFiles'] = len(value.get('files', {}))
+            except (OSError, ValueError, TypeError, AttributeError) as error:
+                # OOM can interrupt the installer's receipt write. A partial receipt
+                # must not prevent the independent service diagnostics below.
+                progress['receiptReadError'] = type(error).__name__
+        (self.report.output / 'install-progress.json').write_text(json.dumps(progress) + '\n')
         # A failed management command intentionally omits captured stderr. Retain only explicit
         # systemd state fields, not arbitrary journal messages or token-bearing configuration.
         fields = ('Id', 'LoadState', 'ActiveState', 'SubState', 'Result', 'ExecMainCode', 'ExecMainStatus',

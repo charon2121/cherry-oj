@@ -67,3 +67,5 @@ SocketPair/SendEvent/ReceiveEvent签名、协议版本、FD数量和CLOEXEC约�
 
 - 2026-09-11：实施细化：单次sendmsg/recvmsg通过os.File.SyscallConn.Control持有描述符引用，每次EINTR后释放再重取，从而观察Close并避免编号复用；发送同时保护附带FD。仅在无数据/附带FD交付时恢复，其他错误不恢复，接收错误先关闭已收到的FD。现有阻塞控制socket由helper在取消、startup/墙钟期限后shutdown，再回收；单独Close不承诺唤醒尚未返回的阻塞syscall，不能删除既有shutdown链。SO_RCVTIMEO仅用于测试触发真实recvmsg中断，不新增生产socket期限配置。
 - 2026-09-11：在修改前同步TASK/PLAN边界，允许测试自身Poll恢复EINTR但始终按原两秒绝对截止时间计算剩余等待；ReceiveEvent仍只调用一次、错误不被测试吞掉。此处与生产收发分别验证，避免混淆历史归因。
+
+- 2026-09-11：b3e5ec0的CI34557663857内核63项/52个必需Go测试通过，但原生安装驱动在128MiB封顶处OOM，服务尚未安装。为完成原定完整CI验收，先增加仅CI的安装资源观测：由单元外驱动读取本次已登记安装cgroup的memory.current/peak/stat/events，固定频率、样本数量与字段，失败仍失败并沿原清理链退出。新增ci/memory_watch.py、memory_watch_test.py及native.py接线；不改安装器、生产、资源预算或重试。观测仅定位匿名内存/文件缓存等来源，轮询值不能冒充准确峰值；仅memory.peak为内核峰值。如发现安装器缺陷，另行冻结修复边界。
