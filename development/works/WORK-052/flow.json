@@ -62,7 +62,7 @@
       {
         "name": "rollback",
         "result": "pass",
-        "note": "本批仅新增边界诊断及阶段日志，可单独回退两份测试；不改变生产或部署。后续候选channel修复亦可独立回退，旧版本已知失败仍需保留。"
+        "note": "通道修复及CI安装驱动例外可分别回退；旧EINTR与128MiB安装OOM记录保留，回退不构成验收通过。没有现有节点迁移或服务改动。"
       }
     ],
     "source": "overlay:risk-impact",
@@ -85,7 +85,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-116"
@@ -98,19 +98,19 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
-    "status_source": "derived",
+    "status": "done",
+    "status_source": "manual",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "生产仅channel收发中断/FD生命周期；协议、helper状态机及正式预算未变。CI仅安装驱动256MiB由用户明确批准，现有服务器/业务/ZIP未改。"
       },
       {
         "name": "independent-review",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "用户授权的work052_review完成生产、FD与取消链、测试期限、CI观测和256MiB例外独立复核；唯一观测P2截断回执阻断诊断已修复并复查，无未解决阻断。"
       }
     ],
     "source": "profile:fix",
@@ -128,18 +128,18 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "本地Go vet/race、62项基础单测通过；b699604两台新VM CI34559188597/34559407284九job全过，63内核/52必需Go/10原生及全部报告和清理复验通过。"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "确定性收发旧红新绿、连续EINTR与Close、真实shutdown、Poll固定期限、真实信号恢复、1000次/并发/故障通过；没有整请求重试。原始中断来源与旧安装OOM根因未确证，观测限制留VERIFY。"
       },
       {
         "name": "security",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "FD引用保护与一次交付、错误释放、短写/截断/非法事件仍失败；Linux隔离/权限/24限额回归通过，安装观测只记录本次归属cgroup数字和回执计数，独立复核无阻断。"
       }
     ],
     "source": "profile:fix",
