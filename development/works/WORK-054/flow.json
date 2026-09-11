@@ -110,7 +110,7 @@
       {
         "name": "independent-review",
         "result": "pass",
-        "note": "用户授权work054_review只读复核；P2重定向截断后默认无界排空已修正，完整路径测试及独立10项复测通过，无剩余源码阻断；Linux证据仍待CI，见VERIFY-055"
+        "note": "本批逐包诊断独立复核通过；共享输出锁修正混合日志交错，复核者去锁后同一回归失败、当前通过；最终104项本地基础测试通过，Linux诊断待发布"
       }
     ],
     "source": "profile:fix",
@@ -120,7 +120,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-055"
@@ -128,18 +128,18 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "fail",
+        "note": "97项本地及Linux基础通过，原生56包/10项通过；CI34580313653的kernel/business下载240秒终止，完整回归未通过，见VERIFY-055"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "fail",
+        "note": "三VM均有真实回退，但两VM仍耗尽下载总期限；整体准备未稳定恢复，按PLAN重审，禁止以一次成功声称恢复"
       },
       {
         "name": "security",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "真实TLS拒绝、同源/重定向有界读取、socket关闭、默认行为与内容校验负例通过；独立源码复核及Linux证据复核完成，无关闭TLS或修改锁/预算，见VERIFY-055"
       }
     ],
     "source": "profile:fix",

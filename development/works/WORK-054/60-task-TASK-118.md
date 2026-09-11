@@ -11,7 +11,7 @@ implements: ["ISSUE-018#REQ-001", "ISSUE-018#REQ-002", "ISSUE-018#REQ-003"]
 verifies: []
 tags: []
 read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-050", "development/works/WORK-054", "docs/engineering", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml"]
-write_paths: ["development/works/WORK-054", "development/works/WORK-050", "deploy/sandbox-linux/rootfs/download.py", "deploy/sandbox-linux/rootfs/download_test.py", "deploy/sandbox-linux/rootfs/transport.py", "deploy/sandbox-linux/rootfs/transport_test.py", "deploy/sandbox-linux/ci/prepare.py", "deploy/sandbox-linux/ci/prepare_test.py", "deploy/sandbox-linux/ci/README.md"]
+write_paths: ["development/works/WORK-054", "development/works/WORK-050", "deploy/sandbox-linux/rootfs/download.py", "deploy/sandbox-linux/rootfs/download_test.py", "deploy/sandbox-linux/rootfs/diagnostics.py", "deploy/sandbox-linux/rootfs/diagnostics_test.py", "deploy/sandbox-linux/rootfs/transport.py", "deploy/sandbox-linux/rootfs/transport_test.py", "deploy/sandbox-linux/ci/prepare.py", "deploy/sandbox-linux/ci/prepare_test.py", "deploy/sandbox-linux/ci/README.md"]
 forbidden_paths: ["apps", "contracts", "compose.yaml", "deploy/backend", "deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json", "deploy/sandbox-linux/rootfs/build.py", "deploy/sandbox-linux/install", "deploy/sandbox-linux/systemd", "AGETNTS.local.md", ".github/workflows"]
 created_at: "2026-09-11"
 updated_at: "2026-09-11"
@@ -41,7 +41,7 @@ ISSUE-018 REQ-001至003，DESIGN-048、DECISION-032、PLAN-038。
 
 ## 依赖
 
-本工作意图闸passed且用户明确允许实施，当前doing。用户已单独授权本批独立复核、commit/push main及远端CI。
+本工作意图闸passed且用户明确允许实施；本轮CI准备未全面恢复，现等待重审。用户已单独授权本批独立复核、commit/push main及远端CI。
 
 ## 产出
 
@@ -74,3 +74,13 @@ ISSUE-018 REQ-001至003，DESIGN-048、DECISION-032、PLAN-038。
 - 2026-09-11：用户明确授权本批独立复核、修正后提交推送main及运行处理Linux CI。开始work054_review只读复核，未扩大任务业务/包锁边界。
 
 - 2026-09-11：独立复核发现的P2重定向截断读取已修正并复核通过；修正后97项基础测试通过，准备发布到一次性Linux CI，详细证据见VERIFY-055。
+
+- 2026-09-11：已授权提交68c91d4并推送，CI34580313653为8PASS/2FAIL；native56包全量验证及10项通过，kernel/business仍在下载240秒期限终止。记录新失败，不扩大预算或HTTP重试，按PLAN重审条件等待后续诊断方案；详见VERIFY-055。
+- 2026-09-11：状态变更：doing → blocked。原因：原生全量通过但两项下载耗尽240秒，按PLAN重审条件待审核有界逐包诊断，不扩大预算/策略；见VERIFY-055
+- 2026-09-11：状态变更：blocked → doing。原因：开始已批准诊断实现、受控阶段/并发/有界输出测试及本批Linux证据验证
+
+## 已批准诊断实施边界（2026-09-11）
+
+用户批准上轮VERIFY-055的有界逐包诊断提案，恢复本任务。新增rootfs/diagnostics.py和diagnostics_test.py写路径用于隔离诊断状态/输出预算及正反例；download.py负责插入阶段，transport.py关联请求序号，保持默认路径/来源/包锁/TLS/HTTP不重放/并发和预算。验收证据包含真实逐包阶段及失败事实；本任务原独立复核与提交推送/处理CI授权持续适用，人工验收不代签。
+
+- 2026-09-11：已批准逐包诊断完成；独立复核发现的混合输出交错已修正，正负回归证实有效。最终104基础测试通过，按本工作已有授权提交推送并执行一次Linux诊断；原8PASS/2FAIL不删除，完整恢复仍待证据。

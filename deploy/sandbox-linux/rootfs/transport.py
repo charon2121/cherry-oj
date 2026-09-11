@@ -1,5 +1,6 @@
 """Opt-in direct HTTPS: try DNS peers only before sending any HTTP request."""
 import errno
+from contextvars import ContextVar
 from http.client import HTTPSConnection
 import ipaddress
 import json
@@ -13,6 +14,7 @@ import urllib.request
 CONNECT_SECONDS = 30
 ADDRESS_SECONDS = 5
 MAX_ADDRESSES = 8
+OBSERVER = ContextVar('download_observer', default=None)
 NETWORK_ERRORS = {errno.ECONNREFUSED, errno.ECONNRESET, errno.ECONNABORTED,
                   errno.ENETUNREACH, errno.EHOSTUNREACH, errno.ETIMEDOUT}
 
@@ -91,9 +93,14 @@ class AddressHTTPSConnection(HTTPSConnection):
                     if raw is not None:
                         raw.close()
                 # Fixed classifications only; no exception text, URL path, headers or environment.
-                print(json.dumps(dict(event='https-connect', host=self.host, peer=peer,
+                facts = dict(host=self.host, peer=peer,
                     attempt=len(seen), stage=stage, outcome=outcome,
-                    elapsedNs=max(0, int((time.monotonic() - started) * 1e9)))), flush=True)
+                    elapsedNs=max(0, int((time.monotonic() - started) * 1e9)))
+                observer = OBSERVER.get()
+                if observer is not None:
+                    observer.connection(**facts)
+                else:
+                    print(json.dumps(dict(event='https-connect', **facts)), flush=True)
         if last_error is not None:
             raise last_error
         raise OSError('no usable HTTPS peer addresses')
@@ -142,9 +149,13 @@ def source_urlopen(base):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
         AddressHTTPSHandler(context=context), SameOriginRedirect(expected))
 
-    def open_url(url, timeout=CONNECT_SECONDS):
+    def open_url(url, timeout=CONNECT_SECONDS, *, observer=None):
         if origin(url) != expected:
             raise ValueError('HTTPS request leaves the package source')
-        return opener.open(url, timeout=timeout)
+        token = OBSERVER.set(observer)
+        try:
+            return opener.open(url, timeout=timeout)
+        finally:
+            OBSERVER.reset(token)
 
     return open_url
