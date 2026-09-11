@@ -58,3 +58,4 @@
 | WORK-051 | 修复沙箱连续请求完成与容量归还的竞态 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-051/00-work.md) |
 | WORK-052 | 修复沙箱启动通信被信号中断时的处理 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-052/00-work.md) |
 | WORK-053 | 修复登录会话期限在数据库往返后的精度不一致 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-053/00-work.md) |
+| WORK-054 | 为CI软件包下载增加有界同源地址回退 | 问题修复 | 执行中 | 高 | 局部 | codex/root | [00-work.md](./works/WORK-054/00-work.md) |

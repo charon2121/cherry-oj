@@ -34,7 +34,7 @@ def main():
         run(command, logs / (name + '.log'), 120, cwd=go, env=env)
     lock = output / 'release/packages.lock.json'
     run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/download.py', '--lock', lock,
-         '--output', output / 'packages'], logs / 'download.log', 240)
+         '--output', output / 'packages', '--address-failover'], logs / 'download.log', 240)
     run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/build.py', '--lock', lock,
          '--packages', output / 'packages', '--output', output / 'cpp-rootfs'], logs / 'rootfs.log', 120)
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(), architecture=platform.machine(),

@@ -52,8 +52,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-044 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-028 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-034 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ○ 就绪 | 必需 | TASK-109 `done`、TASK-110 `done`、TASK-111 `done`、TASK-112 `doing`、TASK-113 `todo`、TASK-115 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ▶ 进行中 | 必需 | TASK-109 `done`、TASK-110 `done`、TASK-111 `done`、TASK-112 `doing`、TASK-113 `todo`、TASK-115 `done` | 按任务实施，产出代码与测试 |
+| 开发任务 | ✖ 受阻 | 必需 | TASK-109 `done`、TASK-110 `done`、TASK-111 `done`、TASK-112 `blocked`、TASK-113 `todo`、TASK-115 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✖ 受阻 | 必需 | TASK-109 `done`、TASK-110 `done`、TASK-111 `done`、TASK-112 `blocked`、TASK-113 `todo`、TASK-115 `done` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 验证 | ▶ 进行中 | 必需 | VERIFY-051 `review` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ▶ 进行中 | 必需 | MEMORY-037 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
@@ -72,3 +72,4 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：TASK-111/116原生及生产修复已通过，TASK-112接入及本地74项基础检查通过但真实业务VM尚未执行，TASK-113总汇总未实施；不能声称全部93项通过
 - 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：7c8f9a2与3c0b0cc两轮其余9job成功；真实业务1PASS/1FAIL/13NOT_RUN，首次改密503且诊断为身份配置不一致；完整清理通过，WORK-053最小修复材料待人工审核，TASK-113汇总尚未实施
 - 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：WORK-053已人工验收交回；31b4019真实认证8/8及部署校准发布通过，业务浏览器失败3PASS/1FAIL/11NOT_RUN。TASK-112诊断本地82项与类型检查通过待Linux；TASK-113未实施
+- 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：3a74fc7本地82基础及Web168测试通过；CI两次尝试均有三个Linux准备阶段TLS超时，浏览器诊断未实跑，TASK-112环境阻断，TASK-113未实施

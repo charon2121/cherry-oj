@@ -286,3 +286,15 @@ WORK-053待人工验收；TASK-112后续首先补浏览器阶段的脱敏诊断�
 WORK-053验收已由用户签署并刷新verified，认证修复交回本任务。当前浏览器失败仍保留，新增固定阶段与源码行列诊断，不上传错误正文或调用参数；Python公共导出再次校验结构、大小和文件类型。真实reporter私密字段负例与16条上限自测已接入business_prepare；正常业务断言、资源预算与零重试不变。
 
 本地Node26.3.0执行reporter-check通过；TypeScript构建检查、e2e-live ESLint/Prettier通过。基础82项（15安装+6rootfs+61CI）通过，证据/private/tmp/cherry-task112-browser-locations-basic-2；开发454份及Markdown523份检查通过，仅既有WORK-033状态提示。首次本地检查发现诊断插入位置错误及MJS全局引用，发布前已修正并重跑通过，未用于Linux结果。task112_review按既有授权只读复核通过；下一轮以CI Node24实跑，不把本地检查计作真实业务通过。
+
+3a74fc72b3fa8b2343fb85c303487a25676d307f发布时hooks完整Web168测试与生产构建通过。[CI34571258539](https://github.com/charon2121/cherry-oj/actions/runs/34571258539)attempt1有7job通过；三个特权job在rootfs锁定软件包下载TLS握手30秒超时，未启动内核/原生/业务套件，不作为业务回归失败或通过证据。构建日志下载/private/tmp/cherry-task112-34571258539-build；三个download.log均明确_SSL握手超时，Go构建和指定Linux单测已完成。按既有处理CI授权重跑同SHA失败job一次，保留attempt1失败，不计为连续完整绿色基线。
+
+同run attempt2三个失败job再次在锁定包下载TLS握手超时，未启动任何真实业务；其余7job沿用attempt1的成功，不表述为第二轮全部重跑。第二轮日志/private/tmp/cherry-task112-34571258539-attempt2-build，已核对GitHub artifact创建时间与新ID：kernel10187964409、native10187971989、business10187971708（06:49–06:50 UTC）；不是用旧失败猜测。原轮三个artifact为10187878428/10187881726/10187876068（06:46 UTC）。不再盲目重跑，不更换锁定包/来源、不扩大下载期限或使用已有服务。TASK-112暂停于外部下载连通性，下一步在来源恢复或另行确认下载方案后，以精确提交继续真实浏览器定位；不能声称新的诊断已在浏览器实机产出。
+
+## 第三轮下载失败与独立修复提案（2026-09-11）
+
+用户再次要求继续后，本地索引HEAD恢复200，启动同SHA attempt3；三个Linux job仍在锁定包下载TLS握手超时。新artifact：kernel10188365642（07:04:17UTC）、native10188345912（07:03:35UTC）、business10188324256（07:02:49UTC），日志/private/tmp/cherry-task112-34571258539-attempt3-build。其余7job继承首轮成功，不能称为本轮重新验证。原浏览器诊断未执行，代码仍为3a74fc7。
+
+只读逐DNS地址对照：本地archive.ubuntu.com六个IPv4地址中185.125.190.82的TLS握手5秒超时，另五个均验证证书后HEAD200；同一锁定cpp-13包在两个已观察到的其他IP上HEAD200。此结果只证明本地端点差异，GitHub旧日志没有peer，不能推定所有失败均命中该IP。
+
+先依PLAN-034扩展文档路径并创建WORK-054/ISSUE-018/DESIGN-048/TASK-118。提案为默认关闭、CI显式开启的同源有限连接回退，保留共同30秒、原240秒命令上限及证书/内容校验；尚未实施或发布，待用户意图闸及实施许可。TASK-112保持下载阻断，WORK-049不启动。

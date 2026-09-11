@@ -2,7 +2,7 @@
 id: "TASK-112"
 type: "task"
 title: "自动验证新节点校准与真实业务闭环"
-status: "doing"
+status: "blocked"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-111", "TASK-116"]
@@ -10,8 +10,8 @@ related: []
 implements: ["CAPABILITY-008#REQ-004", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-004"]
 verifies: []
 tags: []
-read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/server", "apps/web", "scripts/identity-keys", "deploy/backend", "development/works/WORK-052", "development/works/WORK-053", "compose.yaml"]
-write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", "apps/web/tsconfig.node.json", "apps/web/eslint.config.js", ".github/workflows/ci.yml", "development/works/WORK-052", "development/works/WORK-053"]
+read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/server", "apps/web", "scripts/identity-keys", "deploy/backend", "development/works/WORK-052", "development/works/WORK-053", "compose.yaml", "development/works/WORK-054"]
+write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", "apps/web/tsconfig.node.json", "apps/web/eslint.config.js", ".github/workflows/ci.yml", "development/works/WORK-052", "development/works/WORK-053", "development/works/WORK-054"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web/src", "apps/web/e2e", "apps/web/package.json", "apps/web/package-lock.json", "apps/web/playwright.config.ts", "apps/web/vite.config.ts"]
 created_at: "2026-09-10"
 updated_at: "2026-09-11"
@@ -78,3 +78,10 @@ ci内独立Java/MySQL/Redis/Kafka和原生节点编排、合成6对数据及业�
 
 - 2026-09-11：按用户授权完成只读独立复核，修正bootstrap生命周期与Action固定SHA后提交7c8f9a2、诊断3c0b0cc并推送main。两轮其余9job成功，业务首次改密503；诊断确认身份配置不一致，全部资源清理通过。WORK-053已形成独立最小修复材料待人工闸，不扩大本任务Java权限；完成标准仍不勾选。
 - 2026-09-11：核验WORK-053验收passed并刷新verified，恢复本任务。31b4019真实登录/改密/重登及部署校准发布已通过；浏览器退出1，先按DESIGN-044补固定阶段/源码位置诊断，再在独立VM继续原断言。现有TASK-112独立复核、修正后提交推送及CI授权持续有效，生产写边界不扩大。
+
+- 2026-09-11：浏览器诊断提交3a74fc7，本地82基础检查、Web168测试与构建、独立复核通过。CI34571258539的两次尝试中，三个Linux job均在锁定rootfs下载TLS握手超时，浏览器诊断尚未实跑；记录外部环境阻断并保留原业务失败，不连续盲目重跑或改变软件包来源。
+- 2026-09-11：状态变更：doing → blocked。原因：CI34571258539两次尝试的三个Linux VM均在rootfs锁定包TLS握手超时，未进入浏览器；需下载恢复或另行确认准备方案，保留原断言与所有失败
+- 2026-09-11：状态变更：blocked → doing。原因：用户要求继续；来源HTTPS只读可达，正在同SHA新VM核验下载恢复并继续浏览器诊断，已有失败保留
+
+- 2026-09-11：第三轮同SHA失败job仍为下载TLS超时。本地只读DNS端点对照有一超时五成功，未确认GitHub失败peer；按PLAN仅新增WORK-054修复文档，意图闸待用户，不扩大本任务下载器写权限。
+- 2026-09-11：状态变更：doing → blocked。原因：第三轮Linux准备仍TLS超时，完成只读端点对照并形成WORK-054有限同源连接回退材料；待人工意图闸和实施许可
