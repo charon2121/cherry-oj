@@ -41,6 +41,7 @@ func require(t *testing.T, err error) {
 
 func TestStartupBoundaries(t *testing.T) {
 	base, jobs := fixture(t)
+	t.Run("control-wait-deadline", testControlWaitDeadline)
 	t.Run("control-signal-observation", observeControlSignal)
 	manager, err := cgroup.Open(jobs)
 	require(t, err)
@@ -114,13 +115,9 @@ func TestStartupBoundaries(t *testing.T) {
 			require(t, dataW.Close())
 			event := func() launcher.Event {
 				t.Helper()
-				poll := []unix.PollFd{{Fd: int32(control.Fd()), Events: unix.POLLIN}}
-				n, e := unix.Poll(poll, 2000)
-				if e != nil {
-					require(t, fmt.Errorf("startup event poll: %w", e))
-				}
-				if n == 0 {
-					t.Fatal("event deadline")
+				waiter := eventWaiter{poll: unix.Poll, now: time.Now}
+				if err := waiter.wait(control, 2*time.Second); err != nil {
+					require(t, fmt.Errorf("startup event poll: %w", err))
 				}
 				ev, dir, e := launcher.ReceiveEvent(control)
 				if e != nil {

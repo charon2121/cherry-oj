@@ -23,7 +23,7 @@ ISSUE-016 AC-001～004：确定性复现、消息/FD/期限语义、完整Linux�
 
 ## 对应要求
 
-已完成真实Linux诊断与当前诊断SHA的完整工程、内核、原生回归；生产修复、旧红新绿、完整期限语义及独立复核尚未完成，四项AC不据此整体通过。
+已完成已发布诊断SHA的Linux回归；本地候选修复、可控收发旧红新绿和等待期限测试已通过，修复后的Linux实跑及独立复核仍未完成，四项AC不据此整体通过。
 
 ## 检查与结果
 
@@ -77,3 +77,19 @@ result=pending。意图闸及实施授权已核验，TASK-116进行中；本地�
 - 原生10项PASS；重新执行native_results全部检查，包含八个不同的真实权限测试启动记录、服务故障恢复与卸载保留/还原。内核和原生cleanup.json均confirmed=true；任务、挂载、cgroup全部为空，原生额外路径、账户、用户组亦为空。
 - 下载目录：/private/tmp/cherry-work052-kernel-34507853030及/private/tmp/cherry-work052-native-34507853030。两份report.validate与verify_files均通过，sourceSha与上述提交一致，harnessSha均为a0568d8816c5f137a52fb1b1c2469a5ec8d6fcbaa0eef0e9c6795ecc5ee8968c；已重新核验Linux必需测试、boundary/chain标记和原生断言。
 - 发布正常执行hooks，无缓存Go race通过。未修改生产通道或现有服务器，未读取/纳入本地测试数据ZIP。TASK-116保持doing，WORK-052验收闸pending；本次诊断通过不关闭原始问题，也不解除TASK-112依赖。
+
+
+## 本地修复候选（2026-09-11，未提交）
+
+- 生产仅修改launcher/channel_linux.go。sendmsg/recvmsg每次在RawConn.Control持有文件引用后调用，EINTR仅在未交付数据/FD时继续；每次继续前重新获取文件引用，观察关闭，附带FD同样保护。非EINTR、短写与部分交付仍报错；接收错误先释放已收到的FD。
+- 取消仍沿既有helper监控期限、停止资源组、shutdown、等待、Close的生命周期；未新增或重置生产预算。控制socket仍阻塞，Close单独唤醒不作承诺；SO_RCVTIMEO只用于Linux测试触发信号中断，不是生产新增配置。
+- 本地使用Go overlay编译相同channel实现及白盒测试：仅在临时编译副本中将macOS缺少的SOCK_CLOEXEC/MSG_CMSG_CLOEXEC常量置0，所选用例不调用SocketPair或真实sendmsg/recvmsg，而是在窄参数适配器注入结果；使用真实本地文件描述符验证引用、关闭和FD归属。没有修改Darwin生产实现，不能将这些结果表述为Linux内核验证。
+- 旧行为对照保存在/private/tmp/cherry-work052-channel/before_linux.go，只引入参数注入入口、保留原单次调用/提前返回语义。相同五组测试的before.log退出1：收发首个EINTR失败、连续中断无法完成、部分交付错误的防御性输入导致FD未关闭；after.log退出0。后者是故障注入的防御性检查，不是已观察到Linux内核返回FD同时报错的事实。
+- 新增七个必需Linux Go测试，清单45→52；包含真实seqpacket在注入中断后的一次消息/FD/CLOEXEC/EOF，以及真实阻塞收发的shutdown唤醒。新增真实信号夹具会先观察接收线程进入/proc/self/task/TID/syscall中的recvmsg，再线程定向SIGUSR1并验证ReceiveEvent继续等待和后续交付；该新夹具尚未在Linux实跑。
+- 测试自身Poll使用原两秒绝对截止时间，仅恢复其自身EINTR，后续ReceiveEvent不被测试重试。虚拟时钟用例验证连续中断的等待参数依次2000、1300、600毫秒，到期后没有第四次调用；就绪恢复、EIO和非法FD也分别校验。通过临时overlay原样编译该测试辅助函数和用例，在macOS执行race通过。
+- 本地Go1.26.3：全模块go vet和go test -race通过（部分原有测试缓存命中）；Linux/amd64的launcher与boundary vet及测试二进制交叉构建通过；基础CI56项单测、AST/shell检查通过，报告/private/tmp/cherry-work052-channel-basic-final。交叉构建不代表新增Linux用例已经运行。
+- 本批仅涉及TASK允许的生产channel、测试、cases清单及WORK-052记录；已在改变测试等待行为之前同步DESIGN/PLAN/TASK边界及理由。原服务器、IDEA、业务实现及本地ZIP未改动。独立复核、发布与Linux验证待本批授权；TASK-116仍doing，TASK-112/113仍按既定依赖等待。
+
+- 2026-09-11：用户明确授权本批独立复核子智能体、修复问题后提交推送及Linux CI。只读work052_review已启动；不是人工验收。另将Poll恢复分支从临时副本删除进行变异验证，continuous-interruption和ready-after-interruption按预期失败（exit1），证明期限与恢复用例能拦住退化；记录/private/tmp/cherry-work052-channel/wait-no-recovery.log。
+
+- 2026-09-11：独立只读work052_review完成源码、全部新增测试与Go1.26.3 RawControl引用语义审查，未发现新增P0/P1/P2阻断。确认生产只恢复无交付EINTR、文件引用与附带FD保护、helper原取消链及测试Poll绝对期限。复核未独立运行测试，真实Linux尚待本批CI；连续中断+Close白盒与shutdown测试分别取证，不能合称“真实helper在信号风暴下墙钟超时已验证”。shutdown用例20ms未返回不等于线程syscall观测；真实接收信号夹具用生产未配置的SO_RCVTIMEO构造可中断条件，不证明常态触发频率或最早失败来源。

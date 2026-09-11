@@ -1115,6 +1115,13 @@
     "cherry-oj/judge-engine/internal/sandbox/launcher": [
       "TestCompilerCommandNamesPreservePathBoundary",
       "TestControlFDIsCloseOnExec",
+      "TestControlInterruptChecksClosedFiles",
+      "TestControlInterruptedSocketDelivery",
+      "TestControlReceiveFailureClosesFDs",
+      "TestControlReceiveInterruptedOnce",
+      "TestControlSendInterruptedOnce",
+      "TestControlSendPreservesErrors",
+      "TestControlShutdownUnblocksIO",
       "TestExecSpecBoundary",
       "TestFailureErrnoPreservesCause",
       "TestFramePreservesFollowingStream",

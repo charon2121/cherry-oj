@@ -32,7 +32,7 @@ ISSUE-016记录读取事件过程中真实EINTR失败。实施核对发现日志
 
 ## 模块与数据
 
-生产仅launcher/channel_linux.go，包内channel_linux_test.go及已有files_linux_test.go负责收发边界；Linux边界夹具只增强观测与信号控制。CI cases.json同步必需Go测试名。没有数据迁移或新增依赖。
+生产仅launcher/channel_linux.go，包内channel_linux_test.go及已有files_linux_test.go负责收发边界；Linux边界夹具增强观测与信号控制，并仅在自己的Poll等待层恢复EINTR，固定原两秒截止时间；不重试生产ReceiveEvent或整个场景。CI cases.json同步必需Go测试名。没有数据迁移或新增依赖。
 
 ## 接口与状态
 
@@ -52,7 +52,7 @@ SocketPair/SendEvent/ReceiveEvent签名、协议版本、FD数量和CLOEXEC约�
 
 ## 备选方案
 
-让测试捕获EINTR再试会隐藏生产路径失败，不采用。改成全新网络或启动协议超出最小范围，不作为默认方案。
+让测试捕获ReceiveEvent的EINTR再试会隐藏生产路径失败，不采用；测试自身Poll的中断在独立等待层按剩余期限处理。改成全新网络或启动协议超出最小范围，不作为默认方案。
 
 ## 风险与重审条件
 
@@ -64,3 +64,6 @@ SocketPair/SendEvent/ReceiveEvent签名、协议版本、FD数量和CLOEXEC约�
 - 2026-09-11：结构与内容校验通过，由工具置为 checked。
 
 - 2026-09-11：实施先增加既有边界测试的poll/receive错误标记，并用独立5秒子进程、线程定向待决SIGUSR1及Ppoll原子解屏蔽诊断等待阶段中断；随后检查消息/FD及EOF。这只是候选归因验证，不忽略原场景错误、不增加重试。生产候选暂不实施，待真实Linux证据；当前材料不把原归因当事实。
+
+- 2026-09-11：实施细化：单次sendmsg/recvmsg通过os.File.SyscallConn.Control持有描述符引用，每次EINTR后释放再重取，从而观察Close并避免编号复用；发送同时保护附带FD。仅在无数据/附带FD交付时恢复，其他错误不恢复，接收错误先关闭已收到的FD。现有阻塞控制socket由helper在取消、startup/墙钟期限后shutdown，再回收；单独Close不承诺唤醒尚未返回的阻塞syscall，不能删除既有shutdown链。SO_RCVTIMEO仅用于测试触发真实recvmsg中断，不新增生产socket期限配置。
+- 2026-09-11：在修改前同步TASK/PLAN边界，允许测试自身Poll恢复EINTR但始终按原两秒绝对截止时间计算剩余等待；ReceiveEvent仍只调用一次、错误不被测试吞掉。此处与生产收发分别验证，避免混淆历史归因。
