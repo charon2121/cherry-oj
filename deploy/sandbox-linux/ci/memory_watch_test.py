@@ -60,7 +60,7 @@ class MemoryWatchTest(unittest.TestCase):
         self.assertIsNone(report['highestCurrent'])
         self.assertNotIn('error', report)
 
-    def test_only_install_observed_without_changing_launch_limits(self):
+    def test_only_install_gets_larger_budget_and_memory_observation(self):
         from unittest.mock import Mock, MagicMock
         owned, report = Mock(), Mock()
         owned.identity = '123-1'
@@ -68,11 +68,14 @@ class MemoryWatchTest(unittest.TestCase):
         obj = native.Native(self.root, report, owned)
         with patch.object(native, 'observe', return_value=MagicMock()) as observe:
             obj.command('install', ['python3', 'manage.py'])
-            obj.command('start', ['python3', 'manage.py', 'start'])
+            for name in ('start', 'native', 'helper-config', 'rootfs-manifest', 'helper-binary',
+                         'kill-judge', 'kill-sandbox', 'kill-helper', 'caps', 'uninstall'):
+                obj.command(name, ['python3', 'verify.py'], 120 if name == 'caps' else 90)
         observe.assert_called_once_with(native.CGROUP / 'cherry-sandbox-test-work048-native-install-123-1.service',
                                         self.root / 'install-memory.json')
-        self.assertEqual(owned.launch.call_args_list[0].kwargs, {'seconds': 90})
-        self.assertEqual(owned.launch.call_args_list[1].kwargs, {'seconds': 90})
+        self.assertEqual(owned.launch.call_args_list[0].kwargs, {'seconds': 90, 'memory': 256})
+        for call in owned.launch.call_args_list[1:]:
+            self.assertEqual(call.kwargs, {'seconds': 120 if call.args[2] == 'caps.log' else 90, 'memory': 128})
 
     def test_partial_progress_exports_only_counts_not_receipt_contents(self):
         from unittest.mock import Mock

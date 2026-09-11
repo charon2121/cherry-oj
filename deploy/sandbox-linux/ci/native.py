@@ -62,7 +62,10 @@ class Native:
         observation = (observe(CGROUP / (unit + '.service'), self.report.output / 'install-memory.json')
                        if name == 'install' else nullcontext())
         with observation:
-            self.owned.launch(unit, argv, name + '.log', seconds=seconds)
+            # Installing copies the release/rootfs, whose file pages count here too.
+            # This is only the installer budget; all verification drivers keep 128MiB.
+            self.owned.launch(unit, argv, name + '.log', seconds=seconds,
+                              memory=256 if name == 'install' else 128)
 
     def start_control(self):
         self.control.mkdir(mode=0o700)
