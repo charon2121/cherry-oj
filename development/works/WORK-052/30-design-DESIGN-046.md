@@ -69,3 +69,11 @@ SocketPair/SendEvent/ReceiveEvent签名、协议版本、FD数量和CLOEXEC约�
 - 2026-09-11：在修改前同步TASK/PLAN边界，允许测试自身Poll恢复EINTR但始终按原两秒绝对截止时间计算剩余等待；ReceiveEvent仍只调用一次、错误不被测试吞掉。此处与生产收发分别验证，避免混淆历史归因。
 
 - 2026-09-11：b3e5ec0的CI34557663857内核63项/52个必需Go测试通过，但原生安装驱动在128MiB封顶处OOM，服务尚未安装。为完成原定完整CI验收，先增加仅CI的安装资源观测：由单元外驱动读取本次已登记安装cgroup的memory.current/peak/stat/events，固定频率、样本数量与字段，失败仍失败并沿原清理链退出。新增ci/memory_watch.py、memory_watch_test.py及native.py接线；不改安装器、生产、资源预算或重试。观测仅定位匿名内存/文件缓存等来源，轮询值不能冒充准确峰值；仅memory.peak为内核峰值。如发现安装器缺陷，另行冻结修复边界。
+
+## 待确认：只调整CI安装驱动的内存上限
+
+当前保持128MiB。41a5396的安装观测中，最高memory.current达到134217728bytes，邻近memory.stat的file为119693312、anon为9564160bytes，最后memory.events.max=779、oom=0。该轮成功只证明内存压力不总是导致失败；不能倒推缺少采样的34557663857之OOM瞬间。
+
+候选：仅Native.command的install步骤将一次性systemd驱动MemoryMax设为256MiB，安装复制release/rootfs所产生的组内文件页也计入该上限；其他管理/验证驱动仍128MiB。swap仍0、TasksMax32、CPUQuota50%、RuntimeMaxSec90及清理不变，正式helper/jobs/sandbox/judge的24项限制、用户程序与编译预算不变。该步骤验证安装正确性，并非128MiB工作负载资源判定；保持有界内存比安装失败后自动重试更合适。
+
+256MiB是待实测的保守候选，不是测得的最低必要值，也不承诺所有机器不会OOM。用户确认后在新VM实测并保留memory.current/peak/stat/events和旧失败；若仍OOM或出现异常匿名内存增长，继续定位，不能再自动上调。当前PLAN的“不扩大资源预算”约束仍有效，未经本次确认不实施该候选。
