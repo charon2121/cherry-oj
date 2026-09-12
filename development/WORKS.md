@@ -59,4 +59,5 @@
 | WORK-052 | 修复沙箱启动通信被信号中断时的处理 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-052/00-work.md) |
 | WORK-053 | 修复登录会话期限在数据库往返后的精度不一致 | 问题修复 | 验证通过 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-053/00-work.md) |
 | WORK-054 | 为CI软件包下载增加有界同源地址回退 | 问题修复 | 待确认 | 高 | 局部 | codex/root | [00-work.md](./works/WORK-054/00-work.md) |
-| WORK-055 | 分离CI软件包准备与回归测试 | 工程改进 | 执行中 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-055/00-work.md) |
+| WORK-055 | 分离CI软件包准备与回归测试 | 工程改进 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-055/00-work.md) |
+| WORK-056 | 固定沙箱软件包来源与长期留存 | 工程改进 | 待确认 | 高 | 多个模块 | team/judge-engine | [00-work.md](./works/WORK-056/00-work.md) |

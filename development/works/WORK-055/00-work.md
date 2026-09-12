@@ -2,7 +2,7 @@
 id: "WORK-055"
 type: "work"
 title: "分离CI软件包准备与回归测试"
-status: "doing"
+status: "todo"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: false
 user_visible: false
 created_at: "2026-09-11"
-updated_at: "2026-09-11"
+updated_at: "2026-09-12"
 work_type: "improvement"
 ---
 
@@ -46,15 +46,15 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 
 | 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
 |---|---|---|---|---|
-| 需求澄清 | ✔ 完成 | 必需 | WORK-055 `doing` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
+| 需求澄清 | ✔ 完成 | 必需 | WORK-055 `todo` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
 | 改进说明与目标指标 | ✔ 完成 | 必需 | IMPROVEMENT-005 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-049 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-033 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-039 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 实施任务 | ✔ 完成 | 必需 | TASK-119 `done`、TASK-120 `doing` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 实施 | ▶ 进行中 | 必需 | TASK-119 `done`、TASK-120 `doing` | 按任务实施，产出代码与测试 |
+| 实施任务 | ✖ 受阻 | 必需 | TASK-119 `done`、TASK-120 `blocked` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 实施 | ✖ 受阻 | 必需 | TASK-119 `done`、TASK-120 `blocked` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 验证 | · 未开始 | 必需 | VERIFY-056 `draft` | 用可复现的证据确认要求逐条满足 |
+| 验证 | ▶ 进行中 | 必需 | VERIFY-056 `review` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | · 未开始 | 必需 | MEMORY-042 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
@@ -69,3 +69,6 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-11：检查项 independent-review 记录结论：通过。原因：work055_review复核TASK-119及120；发布后回收P2修复，独立20项包测试与8项workflow测试通过；Linux运行待发布授权
 - 2026-09-11：检查项 impact-analysis 记录结论：通过。原因：仅批准的CI工作流/包准备与证据接线；默认部署下载、包锁、apps与测试服务限额未改，WORK-050既有错误保留
 - 2026-09-11：根据文档、任务与验证事实刷新状态：todo → doing。
+- 2026-09-12：检查项 automated-tests 记录结论：未通过。原因：Linux基础134项通过，但包获取404阻断冷/热共享验收；完整要求未通过
+- 2026-09-12：检查项 reliability 记录结论：未通过。原因：两个独立VM锁定glibc路径404，未建立缓存及跨VM交付，按设计停止重审
+- 2026-09-12：状态变更：doing → todo。原因：锁定来源出现404，实施结果保留，后续轮次待来源方案重审

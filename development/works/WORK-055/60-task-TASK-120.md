@@ -2,7 +2,7 @@
 id: "TASK-120"
 type: "task"
 title: "接入共享软件包与独立冷下载CI"
-status: "doing"
+status: "blocked"
 work: "WORK-055"
 owners: ["codex/root"]
 depends_on: ["TASK-119", "PLAN-039"]
@@ -14,7 +14,7 @@ read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/wor
 write_paths: ["development/works/WORK-055", ".github/workflows/ci.yml", ".github/workflows/sandbox-download-cold.yml", "deploy/sandbox-linux/ci/workflow_test.py", "deploy/sandbox-linux/ci/report.py", "deploy/sandbox-linux/ci/report_test.py", "deploy/sandbox-linux/ci/README.md"]
 forbidden_paths: ["apps", "contracts", "compose.yaml", "deploy/backend", "deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json", "deploy/sandbox-linux/rootfs/build.py", "deploy/sandbox-linux/install", "deploy/sandbox-linux/systemd", "AGETNTS.local.md"]
 created_at: "2026-09-11"
-updated_at: "2026-09-11"
+updated_at: "2026-09-12"
 ---
 
 # TASK-120：接入共享软件包与独立冷下载CI
@@ -50,6 +50,7 @@ WORK-055意图闸及用户明确实施许可；文档阶段保持todo。TASK-120
 - 2026-09-11：仅形成任务边界，未实施。
 - 2026-09-11：状态变更：todo → ready。原因：TASK-119独立复核完成，意图与实施授权有效
 - 2026-09-11：状态变更：ready → doing。原因：开始已批准共享缓存与独立冷下载工作流接线
+- 2026-09-12：状态变更：doing → blocked。原因：两个LinuxVM三个glibc锁定包404，来源/包锁禁止擅改，按设计暂停后续验证待重审
 
 ## 依据
 
@@ -68,3 +69,5 @@ front matter的forbidden_paths是硬边界，不修改现有业务和用户数�
 发现现有文件安全或网络实现需超出精确路径时先改计划，不顺手重构其他模块。
 
 - 2026-09-11：共享包/缓存/冷workflow、身份与README接线完成；134基础测试及独立workflow复核通过。待本工作提交推送授权和真实Linux冷/热及跨VM验证，保持doing；见VERIFY-056。
+
+- 2026-09-12：2f49971已授权推送，日常与冷下载两个VM均三个锁定glibc包404。134项Linux基础通过；缓存保存/交付及三个消费者未执行。按设计暂停后续轮次，等待来源方案重审，详见VERIFY-056。

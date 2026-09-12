@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "packageLock": "4dbcf4dd7025146ff44782024354b1868eacaaa313d53a57ded5fab247fb129c",
+  "snapshot": "20260910T000000Z",
+  "indexes": [
+    "dists/noble/main/binary-amd64/Packages.xz",
+    "dists/noble-updates/main/binary-amd64/Packages.xz"
+  ]
+}

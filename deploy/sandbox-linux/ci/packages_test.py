@@ -33,11 +33,18 @@ class PackageTests(unittest.TestCase):
         self.lock = self.root / 'lock.json'
         self.data = dict(version=1, architecture='amd64', packages=[dict(package='cpp', version='1',
                         architecture='amd64', file=self.name, sha256=hashlib.sha256(self.content).hexdigest())])
+        self.descriptor = self.root / 'acquisition.json'
+        descriptor_patch = patch.object(packages, 'ACQUISITION', self.descriptor)
+        descriptor_patch.start()
+        self.addCleanup(descriptor_patch.stop)
         self.save()
         self.output = self.root / 'output'
 
     def save(self):
         self.lock.write_text(json.dumps(self.data))
+        config = json.loads((Path(packages.__file__).with_name('acquisition.json')).read_text())
+        config['packageLock'] = packages.digest(self.lock)
+        self.descriptor.write_text(json.dumps(config))
 
     def test_copy_uses_verified_bytes_and_independent_inode(self):
         result = packages.copy_verified(self.lock, self.source, self.output)
@@ -110,6 +117,29 @@ class PackageTests(unittest.TestCase):
         self.data['packages'] = [dict(self.data['packages'][0], file='../escape.deb')]
         self.save()
         with self.assertRaises(ValueError): packages.records(self.lock)
+
+    def test_descriptor_rejects_drift_before_network(self):
+        original = json.loads(self.descriptor.read_text())
+        for change in ({'packageLock': '0' * 64}, {'snapshot': '../escape'},
+                       {'snapshot': '20261310T000000Z'}, {'version': True},
+                       {'indexes': ['https://other.invalid/Packages.xz']}, {'extra': 1}):
+            with self.subTest(change=change):
+                self.descriptor.write_text(json.dumps(dict(original, **change)))
+                with patch.object(packages, 'Curl', side_effect=AssertionError('network')):
+                    with self.assertRaises(ValueError):
+                        packages.acquire(self.lock, self.output, packages.Events(), threading.Event())
+                self.assertFalse(self.output.exists())
+
+    def test_descriptor_changes_cache_identity(self):
+        # Production script_digest includes acquisition.json; change it in an isolated ROOT.
+        paths = packages.SCRIPT_PATHS
+        with patch.object(packages, 'ROOT', self.root), patch.object(packages, 'SCRIPT_PATHS', ('acquisition.json',)):
+            before = packages.cache_key(self.lock)
+            config = json.loads(self.descriptor.read_text())
+            config['snapshot'] = '20260909T000000Z'
+            self.descriptor.write_text(json.dumps(config))
+            self.assertNotEqual(before, packages.cache_key(self.lock))
+        self.assertIn('deploy/sandbox-linux/ci/acquisition.json', paths)
 
     def client(self):
         return packages.Curl(time.monotonic() + 10, threading.Event(), packages.Events())
@@ -219,6 +249,8 @@ class PackageTests(unittest.TestCase):
             result = packages.acquire(self.lock, self.output, packages.Events(), threading.Event())
         self.assertEqual(result['packages'], 8)
         self.assertEqual(len(urls), 10)
+        self.assertTrue(all(url.startswith(packages.BASE + '20260910T000000Z/') for url in urls))
+        self.assertEqual(sum('/dists/' in url for url in urls), 2)
         self.assertGreaterEqual(peak, 2)
         self.assertLessEqual(peak, 4)
         self.assertEqual(set(p.name for p in self.output.iterdir()), {item['file'] for item in self.data['packages']})

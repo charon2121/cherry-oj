@@ -2,7 +2,7 @@
 id: "VERIFY-056"
 type: "verify"
 title: "分离CI软件包准备与回归测试"
-status: "draft"
+status: "review"
 work: "WORK-055"
 owners: ["codex/root"]
 depends_on: ["TASK-119", "TASK-120"]
@@ -10,9 +10,9 @@ related: []
 implements: []
 verifies: ["IMPROVEMENT-005#AC-001", "IMPROVEMENT-005#AC-002", "IMPROVEMENT-005#AC-003", "IMPROVEMENT-005#AC-004", "IMPROVEMENT-005#AC-005", "TASK-119", "TASK-120"]
 tags: []
-result: "pending"
+result: "fail"
 created_at: "2026-09-11"
-updated_at: "2026-09-11"
+updated_at: "2026-09-12"
 ---
 
 # VERIFY-056：共享包与独立冷下载的验收证据
@@ -80,3 +80,23 @@ work055_review对TASK-120再独立审查并复跑8项workflow测试全部通过�
 本批代码和测试可供发布审核，但尚未提交或推送。PLAN-039的本工作提交/推送授权尚未获得；真实无缓存/命中缓存两轮及两次独立冷检查未执行，TASK-120保持doing，VERIFY结果pending。原business.io与proc采样失败未改，完整CI和重构基线仍未通过。
 
 - 2026-09-12：用户明确授权本批代码、测试与关联记录commit/push origin/main及运行处理计划中的Linux CI；现进入发布验证阶段，验收闸仍pending。
+
+## 首轮Linux发布验证（2026-09-12）
+
+用户授权后已commit/push 2f499714e2fa0927798928603d6dbdd99da9d97b（ci(sandbox): 分离软件包准备与回归测试）。[日常CI34672937023](https://github.com/charon2121/cherry-oj/actions/runs/34672937023)与[冷检查34672937009](https://github.com/charon2121/cherry-oj/actions/runs/34672937009)均attempt1，harness=6254487c08554a4a69e4b4c3a0870c63e5a7f69ec597c541964117492994f4a4，包锁=4dbcf4dd7025146ff44782024354b1868eacaaa313d53a57ded5fab247fb129c，两份identity一致。Ubuntu24.04 runner使用curl8.5.0。
+
+日常CI最终7job成功、1失败、3依赖job skipped；Go/Web/legacy/基础/文档/契约/tidy成功。Linux基础报告实际15+27+92=134项通过及AST/shell通过，validate和verify_files核对当前源码、harness、证据与清理通过。日常统一包任务cacheHit=false，约6.149秒报告失败；独立冷任务约6.460秒报告失败，未构建rootfs。
+
+两个独立VM均对libc-dev-bin、libc6-dev、libc6的锁定版本2.39-0ubuntu8.8收到HTTP404（code22），每个仅一次尝试。未关闭TLS、修改版本或重试HTTP拒绝。只能确认本轮锁定路径当前不可获取，不声称已证明永久删除或所有镜像均不可用。
+
+旧慢包gcc-13-x86-64-linux-gnu的21,084,546bytes在冷任务0.285秒、日常准备1.618秒完成传输；这两个样本不能证明所有慢响应已消除。冷任务39次请求、日常33次请求后失败；没有全56包verified，不把单包HTTP200或传输成功作为全量下载完成。
+
+日常cache/save与软件包artifact上传均skipped，三个消费者均未运行；没有缓存命中或跨VM交付成功证据。两个任务的日志保存及清理步骤均success，只证明包准备工作流清理执行，不冒充未运行套件的资源回收报告。证据：/private/tmp/cherry-work055-34672937009、/private/tmp/cherry-work055-34672937023-packages、/private/tmp/cherry-work055-34672937023-basic及对应-status.json。
+
+按DESIGN-049来源包失效与PLAN-039风险重审条款，暂停原定后续热路径和第二冷检查，不用已知404重复刷运行。包锁和源仍属禁止修改，未自动升级glibc、换源、从旧报告伪造缓存或变更用户节点。需要另行审核稳定保存同一锁定字节的来源方案；改包锁则涉及受测环境变化，也必须先明确边界。TASK-120转blocked，工作未验收。代码已推送，本节新运行记录先保留本地，不在红色CI基础上叠加纯文档发布。
+
+## 变更记录
+
+- 2026-09-12：状态变更：draft → review。原因：首轮Linux134基础通过，但两个VM锁定glibc包404，缓存交付及业务未运行，完整工作验证失败
+
+独立证据复核work055_review确认两份身份一致、三个404均单次终止、6.460/6.149秒失败及GCC完整传输事实；明确不能断言永久删除或慢下载彻底解决，支持按设计暂停后续轮次重审来源。收束检查：471开发文档、540Markdown链接、git diff --check通过；WORK-033既有提示保留。

@@ -113,6 +113,26 @@ CI获取使用curl：总600秒，最多4包并发，每对象最多3次，每次
 
 sandbox-download-cold.yml在rootfs/CI脚本、build-release.sh或相关workflow变化的PR/main push上运行，也支持每周一02:00 UTC和手工触发。它始终使用空目录、不读写缓存，完成全部下载与rootfs构建。它与日常CI使用不同并发组；失败独立呈现，TASK-113冻结基线必须包含本SHA应运行的冷检查。调度延迟或尚未触发不能计为通过。
 
-准备及冷下载job各15分钟；测试job原15/20/40分钟保持。packages.py输出有界事件，cache.log记录命中事实，消费者packages.log记录零源请求和当次源码/包锁身份。失败或取消保存日志后清理各自临时工作目录；未运行的测试不可记PASS。实现不等于Linux验证通过，当前实际证据见WORK-055/VERIFY-056。
+准备及冷下载job各15分钟；测试job原15/20/40分钟保持。packages.py输出有界事件，cache.log记录命中事实，消费者packages.log记录零源请求和当次源码/包锁身份。失败或取消保存日志后清理各自临时工作目录；未运行的测试不可记PASS。实现不等于Linux验证通过，历史证据见WORK-055/VERIFY-056；固定快照变更见WORK-056/VERIFY-057。
 
 软件包artifact名称包含run_attempt。不要仅重跑失败的消费者job：此前成功的准备job属于旧attempt，消费者会拒绝使用旧轮包。需要重新触发完整workflow，且保留前次失败；不能把反复重跑当连续绿色基线。
+
+
+## 固定官方快照（WORK-056 / TASK-121）
+
+`packages.py` 的网络来源固定为 Ubuntu 官方快照；`acquisition.json` 保存快照时间、
+两个索引路径及原包锁摘要。索引和包文件都从同一快照获取，逐包 SHA256 仍由原锁决定。
+描述文件不接受自定义域名、索引或未知字段；包锁不匹配时在连接前拒绝。
+获取描述及脚本摘要进入 v2 缓存键和 harness；更换来源不能误用旧缓存身份。
+`--source` 仍只复制校验本地包集，不创建网络客户端。
+
+独立获取命令（输出目录必须不存在；不安装包）：
+
+```sh
+python3 deploy/sandbox-linux/ci/packages.py \
+  --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json \
+  --output /tmp/cherry-snapshot-packages
+```
+
+原包锁和 `rootfs/download.py` 默认部署路径未改变。没有活动镜像回退或版本升级。
+固定 Release 资产及其消费属于后续 TASK-122/123，尚未发布；此阶段日常准备与独立冷检查都走固定快照。

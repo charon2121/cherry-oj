@@ -6,7 +6,7 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "WORK-055"
+      "WORK-056"
     ],
     "checks": [],
     "source": "profile:improvement",
@@ -19,18 +19,18 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "IMPROVEMENT-005"
+      "IMPROVEMENT-006"
     ],
     "checks": [
       {
         "name": "definition",
         "result": "pass",
-        "note": "意图闸签署时确认：确认统一包准备、缓存和独立冷下载方案，允许实施"
+        "note": "用户已签署意图闸，定义与验收指标完整"
       },
       {
         "name": "scope",
         "result": "pass",
-        "note": "意图闸签署时确认：确认统一包准备、缓存和独立冷下载方案，允许实施"
+        "note": "三项任务路径边界及依赖明确"
       }
     ],
     "source": "profile:improvement",
@@ -43,7 +43,7 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "DESIGN-049"
+      "DESIGN-050"
     ],
     "checks": [],
     "source": "overlay:risk-impact",
@@ -56,7 +56,7 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "DECISION-033"
+      "DECISION-034"
     ],
     "checks": [],
     "source": "overlay:risk-impact",
@@ -69,13 +69,13 @@
     "status": "done",
     "status_source": "derived",
     "artifacts": [
-      "PLAN-039"
+      "PLAN-040"
     ],
     "checks": [
       {
         "name": "rollback",
         "result": "pass",
-        "note": "回退只恢复本批workflow和prepare接线；无需迁移或清除用户数据，原600秒路径保留"
+        "note": "PLAN-040 明确按批次回退并保留资产及失败记录"
       }
     ],
     "source": "overlay:risk-impact",
@@ -85,11 +85,12 @@
     "stage": "tasks",
     "label": "实施任务",
     "requirement": "required",
-    "status": "blocked",
+    "status": "ready",
     "status_source": "derived",
     "artifacts": [
-      "TASK-119",
-      "TASK-120"
+      "TASK-121",
+      "TASK-122",
+      "TASK-123"
     ],
     "checks": [],
     "source": "profile:improvement",
@@ -99,11 +100,12 @@
     "stage": "development",
     "label": "实施",
     "requirement": "required",
-    "status": "blocked",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
-      "TASK-119",
-      "TASK-120"
+      "TASK-121",
+      "TASK-122",
+      "TASK-123"
     ],
     "checks": [],
     "source": "profile:improvement",
@@ -119,13 +121,13 @@
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pass",
-        "note": "仅批准的CI工作流/包准备与证据接线；默认部署下载、包锁、apps与测试服务限额未改，WORK-050既有错误保留"
+        "result": "pending",
+        "note": ""
       },
       {
         "name": "independent-review",
-        "result": "pass",
-        "note": "work055_review复核TASK-119及120；发布后回收P2修复，独立20项包测试与8项workflow测试通过；Linux运行待发布授权"
+        "result": "pending",
+        "note": ""
       }
     ],
     "source": "profile:improvement",
@@ -135,24 +137,19 @@
     "stage": "verification",
     "label": "验证",
     "requirement": "required",
-    "status": "doing",
+    "status": "pending",
     "status_source": "derived",
     "artifacts": [
-      "VERIFY-056"
+      "VERIFY-057"
     ],
     "checks": [
       {
         "name": "automated-tests",
-        "result": "fail",
-        "note": "Linux基础134项通过，但包获取404阻断冷/热共享验收；完整要求未通过"
+        "result": "pending",
+        "note": ""
       },
       {
         "name": "reliability",
-        "result": "fail",
-        "note": "两个独立VM锁定glibc路径404，未建立缓存及跨VM交付，按设计停止重审"
-      },
-      {
-        "name": "security",
         "result": "pending",
         "note": ""
       }
@@ -164,10 +161,10 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
-      "MEMORY-042"
+      "MEMORY-043"
     ],
     "checks": [],
     "source": "overlay:risk-impact",

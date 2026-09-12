@@ -23,7 +23,10 @@ from report import ROOT, digest, git_sha, read_json
 
 # Reuse archive naming and index parsing; the deployment CLI keeps its transport.
 sys.path.insert(0, str(ROOT / 'deploy/sandbox-linux/rootfs'))
-from download import BASE, archive_path, locations
+from download import BASE as ARCHIVE_BASE, archive_path, locations
+
+BASE = 'https://snapshot.ubuntu.com/ubuntu/'
+ACQUISITION = Path(__file__).with_name('acquisition.json')
 
 PACKAGE_LIMIT = 100 << 20
 INDEX_LIMIT = 32 << 20
@@ -31,7 +34,8 @@ TOTAL_SECONDS = 600
 ATTEMPT_SECONDS = 120
 RETRY_CODES = {18, 28, 56}
 SCRIPT_PATHS = ('deploy/sandbox-linux/ci/packages.py', 'deploy/sandbox-linux/ci/report.py',
-                'deploy/sandbox-linux/rootfs/download.py', 'deploy/sandbox-linux/rootfs/diagnostics.py')
+                'deploy/sandbox-linux/rootfs/download.py', 'deploy/sandbox-linux/rootfs/diagnostics.py',
+                'deploy/sandbox-linux/ci/acquisition.json')
 
 
 def records(lock):
@@ -61,9 +65,26 @@ def script_digest():
     return value.hexdigest()
 
 
+def snapshot_config(lock):
+    """A reviewed descriptor binds historical indexes to the exact, unchanged lock."""
+    config = read_json(ACQUISITION)
+    indexes = ['dists/' + suite + '/main/binary-amd64/Packages.xz'
+               for suite in ('noble', 'noble-updates')]
+    if (not isinstance(config, dict) or set(config) != {'version', 'packageLock', 'snapshot', 'indexes'}
+            or type(config['version']) is not int or config['version'] != 1
+            or config['packageLock'] != digest(lock) or config['indexes'] != indexes
+            or not isinstance(config['snapshot'], str)
+            or not re.fullmatch(r'[0-9]{8}T[0-9]{6}Z', config['snapshot'])):
+        raise ValueError('invalid acquisition descriptor or package lock mismatch')
+    from datetime import datetime
+    datetime.strptime(config['snapshot'], '%Y%m%dT%H%M%SZ')
+    return BASE + config['snapshot'] + '/', config
+
+
 def cache_key(lock):
     records(lock)
-    return 'sandbox-packages-v1-ubuntu24-amd64-' + digest(lock) + '-' + script_digest()
+    snapshot_config(lock)
+    return 'sandbox-packages-v2-ubuntu24-amd64-' + digest(lock) + '-' + script_digest()
 
 
 @contextmanager
@@ -255,6 +276,8 @@ class Curl:
 
 def acquire(lock, output, events, stopped):
     items = records(lock)
+    base, config = snapshot_config(lock)
+    events.emit('origin', source='snapshot', snapshot=config['snapshot'], acquisitionSha=digest(ACQUISITION))
     deadline = time.monotonic() + TOTAL_SECONDS
     client = Curl(deadline, stopped, events)
     client.version()
@@ -268,9 +291,12 @@ def acquire(lock, output, events, stopped):
         @contextmanager
         def open_index(url, timeout=30):
             del timeout  # curl and the common acquisition deadline own timeouts.
-            suite = url.split('/dists/', 1)[1].split('/', 1)[0]
+            relative = url.removeprefix(ARCHIVE_BASE)
+            if not url.startswith(ARCHIVE_BASE) or relative not in config['indexes']:
+                raise ValueError('unreviewed package index')
+            suite = relative.split('/')[1]
             path = indexes / (suite + '-Packages.xz')
-            client.fetch(url, path, INDEX_LIMIT)
+            client.fetch(base + relative, path, INDEX_LIMIT)
             with path.open('rb') as stream:
                 yield stream
 
@@ -279,7 +305,7 @@ def acquire(lock, output, events, stopped):
         def fetch(item):
             client.check()
             path = archive_path(item, paths[item['package']])
-            client.fetch(BASE + urllib.parse.quote(str(path)), raw / item['file'], PACKAGE_LIMIT, item['sha256'])
+            client.fetch(base + urllib.parse.quote(str(path)), raw / item['file'], PACKAGE_LIMIT, item['sha256'])
 
         pool = ThreadPoolExecutor(max_workers=4)
         try:
@@ -326,7 +352,8 @@ def main():
             staged = Path(scratch) / 'packages'
             result = copy_verified(args.lock, args.source, staged, check_cancelled) if args.source else acquire(args.lock, staged, events, stopped)
             check_cancelled()
-            facts = dict(source='existing' if args.source else 'cold', sourceSha=git_sha(),
+            facts = dict(source='existing' if args.source else 'snapshot', sourceSha=git_sha(),
+                         acquisitionSha=digest(ACQUISITION),
                          scriptsSha=script_digest(), requests=events.requests,
                          elapsedNs=time.monotonic_ns() - started, **result)
             info = staged.lstat()
