@@ -40,9 +40,36 @@ export function observe(key: string) {
   writeFileSync(pending, key);
   renameSync(pending, join(privateDirectory, 'observed-case'));
 }
+let problemResponse = 0;
+export function observeProblem(page: Page) {
+  page.on('response', (response) => {
+    if (new URL(response.url()).pathname === '/api/problems/' + context.slug) {
+      problemResponse = response.status();
+    }
+  });
+}
 export async function replace(page: Page, code: string) {
   const editor = page.getByRole('textbox', { name: /^C\+\+ 代码编辑器/ });
-  await expect(editor).toBeVisible();
+  try {
+    await expect(editor).toBeVisible();
+  } catch (error) {
+    // Fixed facts only; never export DOM, URLs, credentials or the original error text.
+    try {
+      const state = {
+        matches: Math.min(await editor.count(), 16),
+        visible: await editor.first().isVisible(),
+        loading: await page.getByText('正在加载代码编辑器…', { exact: true }).isVisible(),
+        loadError: await page
+          .getByRole('button', { name: '重新加载编辑器', exact: true })
+          .isVisible(),
+        problemResponse,
+      };
+      writeFileSync(join(privateDirectory, 'editor-state.json'), JSON.stringify(state));
+    } catch {
+      // A closed page must not replace the original assertion failure.
+    }
+    throw error;
+  }
   await editor.focus();
   await editor.press('Control+a');
   await page.keyboard.insertText(code);

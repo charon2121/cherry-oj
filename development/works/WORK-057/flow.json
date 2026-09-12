@@ -51,7 +51,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-124"
@@ -64,7 +64,7 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [],
     "checks": [
@@ -81,7 +81,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-058"
@@ -89,13 +89,13 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "本地JDK21认证4项通过，两台LinuxVM真实MySQL认证8项均零失败零跳过；完整业务io失败另记"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "两次独立执行均消除旧日期时间顺序失败，原精度/到期/撤销断言保留；不改变生产行为"
       }
     ],
     "source": "profile:fix",

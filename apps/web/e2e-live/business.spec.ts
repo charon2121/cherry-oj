@@ -1,7 +1,16 @@
 import { expect, test } from '@playwright/test';
 
 import { historyResponse, runResponse, submissionResponse } from './schemas.ts';
-import { context, editorCode, observe, record, replace, results, source } from './support.ts';
+import {
+  context,
+  editorCode,
+  observe,
+  observeProblem,
+  record,
+  replace,
+  results,
+  source,
+} from './support.ts';
 
 const cases = [
   ['io', 'io', 'COMPLETED', '运行完成（未校验答案）'],
@@ -38,6 +47,7 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
     expect((await login).status()).toBe(200);
     await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
   });
+  observeProblem(page);
   await test.step('problem', async () => {
     await page.goto('/problems/' + context.slug);
   });

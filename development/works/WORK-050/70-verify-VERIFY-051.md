@@ -304,3 +304,7 @@ WORK-053验收已由用户签署并刷新verified，认证修复交回本任务�
 - 2026-09-11：WORK-054诊断d001f03/CI34582727482：kernel全56包及63项通过，native仅GCC包正文未完成导致下载240秒终止；business本轮全56包、真实MySQL认证8项、环境/部署/校准通过，浏览器io失败现有诊断support.ts:45:24，11项未运行；finally完整回收确认。后续TASK-112需核对该源码位置与失败原因，本轮未改apps；完整CI仍8PASS/2FAIL，基线未冻结。
 
 - 2026-09-11：WORK-054方案1 d795c7f两轮CI34584984978/34586094583：6VM下载4完整、2在600秒仍超时，试验未恢复稳定下载。business两轮均部署/校准通过、io support.ts:45:24失败，最终清理确认。首轮kernel在static-identity读取/proc/8376/ns/mnt时FileNotFoundError（6PASS/4FAIL/53NOT_RUN）；第二轮63项通过不能覆盖首轮失败，需在后续测试边界调查进程采样原因。本批未修改相关源码，TASK-112未完成、重构基线未冻结。
+
+## TASK-112 编辑器状态诊断（2026-09-12）
+
+WORK-057已人工验收，当前io等待编辑器可见失败尚无法区分来源。按DESIGN-044增加固定计数/布尔/HTTP码，未改断言或生产代码。Node26本地TS/lint与reporter-check通过，基础137项(15+27+95)及AST/shell通过；Linux仍使用既有Node工具链。独立task112_editor_review无阻塞，核对选择器/API及两端白名单一致。建议超长/软硬链接反例已补且通过。新增诊断仍需Linux实跑，未声明io修复。

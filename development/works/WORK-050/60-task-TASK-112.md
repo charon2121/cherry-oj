@@ -2,7 +2,7 @@
 id: "TASK-112"
 type: "task"
 title: "自动验证新节点校准与真实业务闭环"
-status: "blocked"
+status: "doing"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-111", "TASK-116"]
@@ -14,7 +14,7 @@ read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/wor
 write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", "apps/web/e2e-live", "apps/web/playwright.live.config.ts", "apps/web/tsconfig.node.json", "apps/web/eslint.config.js", ".github/workflows/ci.yml", "development/works/WORK-052", "development/works/WORK-053", "development/works/WORK-054"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web/src", "apps/web/e2e", "apps/web/package.json", "apps/web/package-lock.json", "apps/web/playwright.config.ts", "apps/web/vite.config.ts"]
 created_at: "2026-09-10"
-updated_at: "2026-09-11"
+updated_at: "2026-09-12"
 ---
 
 # TASK-112：自动验证新节点校准与真实业务闭环
@@ -91,3 +91,6 @@ ci内独立Java/MySQL/Redis/Kafka和原生节点编排、合成6对数据及业�
 - 2026-09-11：WORK-054诊断d001f03/CI34582727482：kernel全56包及63项通过，native仅GCC包正文未完成导致下载240秒终止；business本轮全56包、真实MySQL认证8项、环境/部署/校准通过，浏览器io失败现有诊断support.ts:45:24，11项未运行；finally完整回收确认。后续TASK-112需核对该源码位置与失败原因，本轮未改apps；完整CI仍8PASS/2FAIL，基线未冻结。
 
 - 2026-09-11：WORK-054方案1 d795c7f两轮CI34584984978/34586094583：6VM下载4完整、2在600秒仍超时，试验未恢复稳定下载。business两轮均部署/校准通过、io support.ts:45:24失败，最终清理确认。首轮kernel在static-identity读取/proc/8376/ns/mnt时FileNotFoundError（6PASS/4FAIL/53NOT_RUN）；第二轮63项通过不能覆盖首轮失败，需在后续测试边界调查进程采样原因。本批未修改相关源码，TASK-112未完成、重构基线未冻结。
+
+- 2026-09-12：WORK-057人工验收通过，认证两轮8/8通过，恢复本任务。首个io尚未发送运行请求，即support.ts等待编辑器可见失败。先按DESIGN-044追加固定计数/布尔/HTTP状态诊断，保持隐私白名单与测试断言；沿本任务已有独立复核、提交推送和CI授权，未扩大生产写权限。
+- 2026-09-12：状态变更：blocked → doing。原因：下载与认证阻断已解除且WORK-057已验收，继续已批准的真实浏览器诊断

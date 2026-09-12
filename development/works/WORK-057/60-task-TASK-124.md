@@ -2,7 +2,7 @@
 id: "TASK-124"
 type: "task"
 title: "修复认证数据库回归的时钟夹具漂移"
-status: "doing"
+status: "done"
 work: "WORK-057"
 owners: ["team/server"]
 depends_on: ["ISSUE-019"]
@@ -50,8 +50,8 @@ ISSUE-019#REQ-001/REQ-002；来源为 WORK-056 的 CI34694917085 失败，承接
 ## 完成标准
 
 - [x] 首次认证严格晚于持久化创建时间，四组样本逐轮递增。
-- [ ] 保留四组原精度及到期、撤销断言，真实数据库 8 项零跳过通过。
-- [ ] 两台新 Linux VM 的原始结果分别留存，差异检查与相关本地编译/认证单测通过。
+- [x] 保留四组原精度及到期、撤销断言，真实数据库 8 项零跳过通过。
+- [x] 两台新 Linux VM 的原始结果分别留存，差异检查与相关本地编译/认证单测通过。
 
 ## 验证
 
@@ -69,3 +69,6 @@ ISSUE-019#REQ-001/REQ-002；来源为 WORK-056 的 CI34694917085 失败，承接
 
 - 2026-09-12：核验意图闸 passed，依用户明确授权实施。仅修改指定集成测试文件：回读账号 createdAt，基准秒加一后保留原纳秒输入并逐轮加秒，新增输入/回读时间顺序断言，原会话断言不变。
 - 2026-09-12：Homebrew JDK21、Maven Wrapper 离线运行 AuthenticationServiceTests：4项通过、0失败/错误/跳过；同时编译集成测试。日志 /private/tmp/cherry-work057-authentication.log。未启动数据库或用户服务，真实MySQL8项尚待两台Linux VM验证，任务保持doing。
+
+- 2026-09-12：7c74d99 已授权提交推送，CI34695556153完整attempt1/2在两台新VM均认证8/8零错误零跳过；后续business.io均失败且最终清理通过，详见VERIFY-058。本任务修复目标完成，整链失败留归TASK-112。
+- 2026-09-12：状态变更：doing → done。原因：同SHA两台LinuxVM真实MySQL认证8项均通过；原会话断言保持，独立业务io失败另记

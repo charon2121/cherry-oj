@@ -61,4 +61,4 @@
 | WORK-054 | 为CI软件包下载增加有界同源地址回退 | 问题修复 | 待确认 | 高 | 局部 | codex/root | [00-work.md](./works/WORK-054/00-work.md) |
 | WORK-055 | 分离CI软件包准备与回归测试 | 工程改进 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-055/00-work.md) |
 | WORK-056 | 固定沙箱软件包来源与长期留存 | 工程改进 | 待确认 | 高 | 多个模块 | team/judge-engine | [00-work.md](./works/WORK-056/00-work.md) |
-| WORK-057 | 修复认证数据库回归的时钟夹具漂移 | 问题修复 | 执行中 | 中 | 局部 | team/server | [00-work.md](./works/WORK-057/00-work.md) |
+| WORK-057 | 修复认证数据库回归的时钟夹具漂移 | 问题修复 | 验证通过 | 中 | 局部 | team/server | [00-work.md](./works/WORK-057/00-work.md) |

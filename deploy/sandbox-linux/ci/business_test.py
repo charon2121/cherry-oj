@@ -57,6 +57,19 @@ class BusinessTests(unittest.TestCase):
                     path.write_text(json.dumps(value))
                     browser_diagnostic(path)
 
+    def test_editor_observation_has_only_bounded_public_facts(self):
+        editor = dict(matches=0, visible=False, loading=True, loadError=False, problemResponse=200)
+        good = dict(phase='io', status='failed', failures=[], editor=editor)
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'diagnostic.json'
+            path.write_text(json.dumps(good))
+            self.assertEqual(browser_diagnostic(path), good)
+            for update in (dict(matches=True), dict(matches=17), dict(visible='secret'),
+                           dict(problemResponse=99), dict(problemResponse=True), dict(message='secret')):
+                path.write_text(json.dumps(dict(good, editor=dict(editor, **update))))
+                with self.assertRaises(ValueError):
+                    browser_diagnostic(path)
+
     def test_authentication_report_exports_only_expected_methods_and_statuses(self):
         with tempfile.TemporaryDirectory() as temp:
             authentication_fixture(temp)

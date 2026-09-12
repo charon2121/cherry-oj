@@ -18,7 +18,7 @@ def browser_diagnostic(path):
     if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 16_384:
         raise ValueError('untrusted or oversized browser diagnostic')
     value = read_json(path)
-    if not isinstance(value, dict) or set(value) != {'phase', 'status', 'failures'}:
+    if not isinstance(value, dict) or set(value) not in ({'phase', 'status', 'failures'}, {'phase', 'status', 'failures', 'editor'}):
         raise ValueError('invalid browser diagnostic')
     if value['phase'] not in ('startup', 'login', 'problem', *LIVE_CASES) or value['status'] not in (
             'passed', 'failed', 'timedout', 'interrupted'):
@@ -31,6 +31,14 @@ def browser_diagnostic(path):
             raise ValueError('unknown browser source location')
         if any(type(row[key]) is not int or not 1 <= row[key] <= 100_000 for key in ('line', 'column')):
             raise ValueError('invalid browser source position')
+    if 'editor' in value:
+        row = value['editor']
+        if (not isinstance(row, dict) or set(row) != {'matches', 'visible', 'loading', 'loadError', 'problemResponse'}
+                or type(row['matches']) is not int or not 0 <= row['matches'] <= 16
+                or type(row['problemResponse']) is not int
+                or not (row['problemResponse'] == 0 or 100 <= row['problemResponse'] <= 599)
+                or any(type(row[key]) is not bool for key in ('visible', 'loading', 'loadError'))):
+            raise ValueError('invalid editor observation')
     return value
 
 AUTHENTICATION_TESTS = {
