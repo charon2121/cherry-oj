@@ -316,3 +316,13 @@ WORK-057已人工验收，当前io等待编辑器可见失败尚无法区分来�
 源码确认AdminProblemService新题默认为PRIVATE，发布只处理版本，PublicProblemMapper要求PUBLIC+ACTIVE+PUBLISHED。CI遗漏公开步骤，不是编辑器慢。仅修CI准备：校准发布后重读管理元数据，检查本轮题目/slug/版本，以最新rowVersion正常PATCH PUBLIC，再从公开接口核对同一身份；失败立即停止且仍走finally。未修改生产权限或浏览器期限。
 
 本地business_test 22项通过；完整basic 138项（15安装+27rootfs+96CI）及AST/shell通过，输出/private/tmp/cherry-task112-public-basic-approved。首次受限执行因回环TLS监听权限失败，获工具权限后重跑通过。独立task112_editor_review核对真实契约与Java语义，无阻塞发现。新增反例覆盖两端身份错配、409与404失败及不重试。下一步用该修复提交运行Linux真实业务，尚未宣称闭环通过。
+
+## TASK-112 多行源码输入修复（2026-09-12）
+
+61fc5e4ef5473a62b60018a26997e960094c8c74的CI34698304712：公开PATCH与公开GET均200，浏览器推进至history，定位business.spec.ts:206:78的AC历史源码exact比较。全部8次自定义与正式AC/WA断言已走过，但驱动在最终校验前失败，报告仍严格为3PASS/1FAIL/11NOT_RUN，不能据执行进度补造PASS。下载/private/tmp/cherry-task112-public-business，validate/verify_files按当前原提交通过，清理PASS。
+
+本地真实Chromium/Monaco专用静态预览4187复现：keyboard.insertText将sum.cpp的多行输入逐行自动缩进，源码发生变化。通过DOM ClipboardEvent走编辑器正常paste路径后，截获提交请求source严格等于203字节原文件。脚本/private/tmp/cherry-task112-editor-reproduce.mts，模拟业务响应仅用于隔离诊断编辑器，不能替代Linux真实业务；预览和浏览器均已关闭。第一次模拟CSRF头大小写错误导致请求等待超时，修正夹具后通过；未操作既有后端。
+
+本批仅调整CI输入方式，保留历史exact比较，并对每个custom/submission请求新增原文件source严格比较，以更早定位输入失真。TS、ESLint、Prettier与reporter-check通过，仍需Linux复验。
+
+独立task112_editor_review无阻塞：合成paste事件经真实Monaco处理及React状态更新，不直接修改model或业务状态；不声称测试了系统剪贴板权限或真实Ctrl+V。Linux ControlOrMeta仍为Ctrl，原历史和草稿断言完整保留。

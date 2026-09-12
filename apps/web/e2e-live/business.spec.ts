@@ -69,6 +69,7 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
       );
       await page.getByRole('button', { name: '运行', exact: true }).click();
       const response = await received;
+      expect(response.request().postDataJSON()).toMatchObject({ source: source(fixture) });
       expect(response.status()).toBe(200);
       const body = await response.body();
       const httpNs = Number(process.hrtime.bigint() - started);
@@ -134,6 +135,7 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
       );
       await page.getByRole('button', { name: '提交', exact: true }).click();
       const response = await created;
+      expect(response.request().postDataJSON()).toMatchObject({ source: source(fixture) });
       expect(response.status()).toBe(201);
       const initial = submissionResponse.parse(await response.json());
       let final = initial;

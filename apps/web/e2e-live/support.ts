@@ -71,8 +71,15 @@ export async function replace(page: Page, code: string) {
     throw error;
   }
   await editor.focus();
-  await editor.press('Control+a');
-  await page.keyboard.insertText(code);
+  await editor.press('ControlOrMeta+a');
+  // Use Monaco's paste path: typing multiline text applies indentation on every line.
+  await editor.evaluate((element, text) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData('text/plain', text);
+    element.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData, bubbles: true, cancelable: true }),
+    );
+  }, code);
 }
 export async function editorCode(page: Page) {
   return (await page.locator('.monaco-editor .view-lines').innerText())
