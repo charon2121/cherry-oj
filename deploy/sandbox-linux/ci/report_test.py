@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import report
 from report import Report, case_ids, read_json, validate, verify_files
 
 SHA = 'a' * 40
@@ -82,6 +84,20 @@ class EvidenceTests(unittest.TestCase):
             path.write_text(content)
             with self.assertRaises(ValueError):
                 read_json(path)
+
+
+    def test_cold_workflow_change_invalidates_harness_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            name = '.github/workflows/sandbox-download-cold.yml'
+            path = root / name
+            path.parent.mkdir(parents=True)
+            path.write_text('first workflow')
+            with patch.object(report, 'ROOT', root), patch.object(report.subprocess, 'check_output', return_value=name.encode() + b'\0') as listing:
+                first = report.harness_sha()
+                self.assertIn(name, listing.call_args.args[0])
+                path.write_text('changed workflow')
+                self.assertNotEqual(report.harness_sha(), first)
 
 
 if __name__ == '__main__':

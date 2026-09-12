@@ -30,7 +30,7 @@ sourceSha 必须匹配本次 checkout，harnessSha 覆盖非忽略的部署/测�
 
 工作流中的 `sandbox-kernel` 先由普通 runner 用户运行 `prepare.py`，构建本提交的二进制、
 Go 边界测试和锁定的 56 包 rootfs。它执行 Linux 专属包的 race 测试并拒绝任何跳过，下载器逐包
-校验 SHA256；准备日志独立保存。当前使用冷包目录，尚未启用 rootfs 缓存。
+校验 SHA256；准备日志独立保存。软件包由统一任务交付并在本VM重新校验；rootfs和当前代码仍每次构建，不缓存rootfs。
 
 随后 `kernel.py` 在一次性 VM 内通过 sudo 编排已有测试，检查实际 systemd/内核/LSM、控制器与
 资源冲突。运行入口要求 GitHub-hosted 的环境与运行 ID、Linux/amd64 和 root；不可指向 SSH
@@ -98,6 +98,21 @@ Node24构建五个Java服务与生产Web；打包时跳过Java单测只作为构
 
 浏览器失败时，`browser-diagnostic.json`只导出固定阶段、状态和测试源码行列；不导出Playwright错误正文、动态标题或调用参数。`reporter-check.mjs`在业务构建准备中验证过滤与数量上限；损坏诊断拒绝导出，原失败及清理仍保留。
 
-WORK-054：CI准备显式传入`rootfs/download.py --address-failover`。仅在HTTP发送前，对同一HTTPS源解析出的不同地址尝试连接/TLS，每地址最多5秒、最多8个，共享原30秒连接期限；下载命令按用户批准的WORK-054方案1由240秒调整为600秒，验证冷下载等待预算是否足够。证书拒绝、HTTP错误、响应体错误与摘要不符不重试。默认部署调用不启用，不修改系统DNS/代理/包锁；连接日志只含公开域名/peer、阶段、固定结果和耗时，不能据此将最终失败或未运行套件算PASS。
+WORK-054保留路径：未传入`prepare.py --packages`时，准备显式传入`rootfs/download.py --address-failover`。仅在HTTP发送前，对同一HTTPS源解析出的不同地址尝试连接/TLS，每地址最多5秒、最多8个，共享原30秒连接期限；下载命令按用户批准的WORK-054方案1由240秒调整为600秒，验证冷下载等待预算是否足够。证书拒绝、HTTP错误、响应体错误与摘要不符不重试。默认部署调用不启用，不修改系统DNS/代理/包锁；连接日志只含公开域名/peer、阶段、固定结果和耗时，不能据此将最终失败或未运行套件算PASS。
 
 启用路径还为索引和每个包记录本轮requestId、包名、连接尝试、响应头到达、正文进度与摘要验证阶段。时间为单调ns、读取量为bytes；不输出响应头内容、正文或异常文本。共享诊断预算256KiB，超限后只输出一次截断标记；每请求首次有进度及其后至少5秒记录，最多16次，固定阶段与终态单列。默认部署路径不产生这些事件。逐包verified事件在实际完成时输出，旧verified文本仍按锁顺序输出。被命令期限终止且缺少终态的请求只能判断已到达的最后阶段；body阶段包含读取、摘要更新和文件写入，不能只凭停在body宣称是网络吞吐问题。
+
+
+## 软件包准备与独立冷下载（WORK-055）
+
+日常CI的sandbox-packages按包锁、平台及获取/校验脚本摘要恢复精确缓存；命中后不访问Ubuntu源，未命中才调用packages.py。无模糊restore-key。完整包集复制校验后才能保存缓存和发布带run ID/attempt的软件包artifact。三个Linux任务通过needs等待，接收当轮artifact，以prepare.py --packages重新复制校验，再分别构建当前代码、rootfs与执行原测试。
+
+缓存/artifact不等于可信内容：缺包、多包、链接、硬链接、文件变化、超限或SHA256不符直接失败；无效缓存不自动删除或覆盖，需要修复原因并更新缓存格式键。软件包缓存不包含节点身份、标定、数据回执或测试结果。新Action固定commit，contents:read，不启用pull_request_target或继承checkout凭据。
+
+CI获取使用curl：总600秒，最多4包并发，每对象最多3次，每次120秒、连接30秒，持续30秒低于64KiB/s中止。只重取超时、截断和接收断连；HTTP拒绝、重定向、证书、大小和摘要错误直接失败。完整包失败后只清理本次拥有的目录。正式部署下载CLI默认保持原实现。
+
+sandbox-download-cold.yml在rootfs/CI脚本、build-release.sh或相关workflow变化的PR/main push上运行，也支持每周一02:00 UTC和手工触发。它始终使用空目录、不读写缓存，完成全部下载与rootfs构建。它与日常CI使用不同并发组；失败独立呈现，TASK-113冻结基线必须包含本SHA应运行的冷检查。调度延迟或尚未触发不能计为通过。
+
+准备及冷下载job各15分钟；测试job原15/20/40分钟保持。packages.py输出有界事件，cache.log记录命中事实，消费者packages.log记录零源请求和当次源码/包锁身份。失败或取消保存日志后清理各自临时工作目录；未运行的测试不可记PASS。实现不等于Linux验证通过，当前实际证据见WORK-055/VERIFY-056。
+
+软件包artifact名称包含run_attempt。不要仅重跑失败的消费者job：此前成功的准备job属于旧attempt，消费者会拒绝使用旧轮包。需要重新触发完整workflow，且保留前次失败；不能把反复重跑当连续绿色基线。

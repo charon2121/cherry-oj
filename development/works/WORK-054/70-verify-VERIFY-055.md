@@ -15,11 +15,11 @@ created_at: "2026-09-11"
 updated_at: "2026-09-11"
 ---
 
-# VERIFY-055：逐包诊断定位正文处理超时，业务失败取得源码位置
+# VERIFY-055：600秒两轮试验仍有慢包超时，整体恢复未通过
 
 ## 验证对象
 
-连接修复68c91d4866dafd3670f164008d2d336dcd117f0c及诊断d001f03b21622dd68dc2bf2f390d12d6b567105c均已推送origin/main；最新GitHub CI34582727482首次执行，原CI34580313653失败证据保留。
+最新试验提交d795c7fb01f6ab412af6e66e31a624c9addea46b已推送main，仅CI下载总期限240→600秒；完成两轮CI34584984978、34586094583。原68c91d4连接回退和d001f03诊断及对应失败证据保留。
 
 ## 对应要求
 
@@ -49,7 +49,7 @@ GitHub旧日志没有失败peer，不能断言它命中了本地异常IP；原�
 
 ## 结论
 
-意图闸及后续诊断方案已由用户确认；本轮诊断实施/复核/发布/实跑完成，连接回退有效，剩余下载失败定位到GCC包正文处理。整体结果fail：原生下载尚不稳定，真实业务io仍失败。TASK-118等待慢响应处理方案重审，TASK-112仍未完成，不冻结重构基线。
+用户已批准意图、逐包诊断及方案1期限调整；本轮600秒试验完成，两轮6台VM冷下载4成功、2在600秒仍超时。四个成功样本整体准备均少于240秒，未取得延长期限改善完成结果的证据；方案1单独不足以稳定恢复。整体result=fail，TASK-118等待其他慢响应策略重审，TASK-112业务io及新观察的内核采样问题仍需处理，不冻结重构基线。
 
 ## 实施前文档检查（历史）
 
@@ -139,3 +139,30 @@ request16=`gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb`：首次TL
 用户已阅读四种处理方案并明确选择方案1，先在上游记录仅CI下载总期限240→600秒的有限例外再改代码。prepare.py一处期限和prepare_test.py既有断言/命名更新，README同步；来源、锁、TLS、并发、读超时、HTTP不重放及其他预算保持。work054_review独立复核通过，确认外层15/20/40分钟仍是限制，不保证所有步骤同时达到各自上限。
 
 `python3 -B deploy/sandbox-linux/ci/basic.py --output /private/tmp/cherry-work054-600-basic`：15安装+27rootfs+62CI=104项通过、零skip，AST/shell/报告检查通过。462开发文档、531Markdown入口与git diff --check通过。本批按本WORK已有发布/CI授权提交后进行两轮同SHA冷下载试验，保留全部成功与失败；此前下载与business.io失败不覆盖。
+
+方案1提交d795c7fb01f6ab412af6e66e31a624c9addea46b已推送，harness=f00b22736dc1317958a4c5a3e61e14240e4d187ed66c77586fc61a55107679d0。首轮CI34584984978的104基础检查通过；kernel全部56包与rootfs完成，最慢包50.182秒，但后续static-identity读取/proc/8376/ns/mnt时FileNotFoundError退出。报告6PASS/4FAIL/53NOT_RUN，cleanup与资源快照通过；独立复核确认不能由此推出namespace越界，也不能忽略该失败。具体进程消失原因由后续拥有测试源码边界的任务调查，本批不修改测试。其余结果与第二轮待完整取证后补充。
+
+方案1首轮34584984978最终7job成功/3失败。原生download命令明确deadline exceeded，prepare.py本SHA为600秒；55包verified、两个索引index_ready，仅GCC request16正文未完成。peer91.189.92.24首次TLS2.114秒成功，4.145秒HTTP200，100.659秒最后一条受限进度2,883,584bytes，此后已达16次记录上限，不等同最终读取量。600秒没有让该样本完成，已证伪“仅延长到600即可稳定恢复”的承诺；kernel/business全56包完成不改变此结论。第二轮按原计划以同SHA独立workflow_dispatch34586094583继续，不覆盖首轮结果，不因失败继续抬高期限。
+
+## 方案1两轮最终结果（2026-09-11）
+
+两轮同source=d795c7fb01f6ab412af6e66e31a624c9addea46b、harness=f00b22736dc1317958a4c5a3e61e14240e4d187ed66c77586fc61a55107679d0，均attempt1；第二轮是预先约定的独立workflow_dispatch，不覆盖首轮。未启用包缓存/resume，各VM均从空包目录下载。
+
+| 轮次及CI | VM | 包校验 | 整个构建准备步骤耗时 | 后续结果 |
+|---|---|---|---|---|
+| [第一轮34584984978](https://github.com/charon2121/cherry-oj/actions/runs/34584984978) | kernel | 56/56 | 115秒 | 6PASS/4FAIL/53NOT_RUN；static-identity读取/proc路径消失；cleanupPASS |
+| 第一轮 | native | 55/56 | 631秒，下载命令600秒到期 | 原生套件未运行 |
+| 第一轮 | business | 56/56 | 189秒 | 3PASS/1FAIL/11NOT_RUN；io support.ts:45:24；cleanupPASS |
+| [第二轮34586094583](https://github.com/charon2121/cherry-oj/actions/runs/34586094583) | kernel | 56/56 | 142秒 | 63PASS，包含1000次/并发/故障；cleanupPASS |
+| 第二轮 | native | 55/56 | 632秒，下载命令600秒到期 | 原生套件未运行 |
+| 第二轮 | business | 56/56 | 102秒 | 3PASS/1FAIL/11NOT_RUN；io support.ts:45:24；cleanupPASS |
+
+耗时来自GitHub步骤startedAt/completedAt，包含构建、Linux单测、下载和rootfs；不是纯下载耗时。600秒来自相同源码prepare.py的download命令及两个外层deadline exceeded证据，不是根据job总时长估算。首轮所有job为7成功/3失败，第二轮8成功/2失败。两轮104项基础测试均通过；四份完整build.json的source/harness/包锁与原锁一致，56个唯一verified与锁匹配，两份失败日志均55个唯一verified、一个没有终态的request16及两个index_ready，日志未截断。
+
+两次唯一未完成包均gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb（其他VM完整内容21,084,546bytes）：第一轮peer91.189.92.24，TLS约2.114秒/HTTP200约4.145秒，最后受限进度100.659秒/2,883,584bytes；第二轮peer91.189.92.23，TLS约1.873秒/HTTP200约3.808秒，最后受限进度91.643秒/4,456,448bytes。均已进入正文处理后未完成；16次进度上限后的字节量未知，不能把最后进度当最终读量，或断定其后完全停滞。没有证据把问题唯一归因于网络或磁盘，也不能硬编码/屏蔽这些IP。
+
+四个下载成功VM的整个准备步骤均小于240秒，因此本轮没有“超过240秒但在600秒内成功”的正例。两次600秒超时反例已足够说明仅增加等待不能稳定解决；4/6只是这六个样本的观察数，不是总体成功率估计。不再追加第三轮或继续抬高预算。
+
+业务两轮认证/MySQL准备通过，均在同一浏览器io位置失败且最终清理通过；内核第二轮通过不能撤销第一轮进程采样失败。第一轮四个关联身份/namespace/挂载/限额用例因检查未完成记FAIL，不代表四种隔离分别已被证明失效。相关测试源码修复不在本批范围，留WORK-050继续调查。
+
+证据根/private/tmp/cherry-work054-34584984978、/private/tmp/cherry-work054-34586094583：首轮kernel、business、native-build和sandbox-basic；第二轮completed、business和native-build。每轮外层失败日志和最终状态保存在同根前缀-failed.log/-status.json。已发布的600秒配置保留，验证记录更新本地；本轮不自动回退用户已选择的配置，也不扩展缓存、源或HTTP重试。下一方案另行审核，人工验收保持未通过。

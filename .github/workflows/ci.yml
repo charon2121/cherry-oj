@@ -12,7 +12,81 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  sandbox-packages:
+    name: sandbox CI（锁定软件包准备）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: 计算精确包缓存身份
+        id: identity
+        run: |
+          set -eu
+          key=$(python3 deploy/sandbox-linux/ci/packages.py --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json --key)
+          printf 'key=%s\n' "$key" >> "$GITHUB_OUTPUT"
+      - name: 恢复同锁同工具缓存
+        id: cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/cherry-package-work/cache
+          key: ${{ steps.identity.outputs.key }}
+      - name: 获取或校验并复制完整包集
+        env:
+          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'deploy/sandbox-linux/ci')
+          from command import install_signal_handlers, run
+          from report import digest, git_sha, harness_sha
+          install_signal_handlers()
+          workspace = Path(os.environ['RUNNER_TEMP']) / 'cherry-package-work'
+          workspace.mkdir(mode=0o700, exist_ok=True)
+          logs = Path(os.environ['RUNNER_TEMP']) / 'cherry-package-logs'
+          logs.mkdir(mode=0o700)
+          hit = os.environ['CACHE_HIT'] == 'true'
+          (logs / 'cache.log').write_text('cacheHit=' + str(hit).lower() + '\n')
+          (logs / 'identity.json').write_text(json.dumps(dict(sourceSha=git_sha(), harnessSha=harness_sha(), packageLock=digest('deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json'))) + '\n')
+          base = ['python3', 'deploy/sandbox-linux/ci/packages.py', '--lock', 'deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json']
+          if not hit:
+              run(base + ['--output', workspace / 'cache'], logs / 'download.log', 600)
+          run(base + ['--source', workspace / 'cache', '--output', workspace / 'verified'], logs / 'verify.log', 600)
+          PYCODE
+      - name: 保存已通过完整校验的缓存
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/cherry-package-work/cache
+          key: ${{ steps.identity.outputs.key }}
+      - name: 交付本轮软件包
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-package-work/verified
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+      - name: 保存准备证据
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-packages-logs
+          path: ${{ runner.temp }}/cherry-package-logs
+          if-no-files-found: error
+          retention-days: 14
+      - name: 清理本轮包准备目录
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/cherry-package-work"
+
   sandbox-kernel:
+    needs: sandbox-packages
     name: sandbox CI（Linux 隔离、计量与回收）
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -28,8 +102,13 @@ jobs:
         with:
           go-version-file: apps/judge-engine/go.mod
           cache-dependency-path: apps/judge-engine/go.sum
+      - name: 获取本轮已校验软件包
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-shared-packages
       - name: 当前提交构建、Linux 单测与锁定 rootfs
-        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build"
+        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
       - name: 真实内核、1000 次、并发与故障测试
         run: >-
           sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
@@ -57,7 +136,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: 清理本轮共享软件包
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/cherry-shared-packages"
+
   sandbox-native:
+    needs: sandbox-packages
     name: sandbox CI（原生安装、权限与服务恢复）
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -73,8 +157,13 @@ jobs:
         with:
           go-version-file: apps/judge-engine/go.mod
           cache-dependency-path: apps/judge-engine/go.sum
+      - name: 获取本轮已校验软件包
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-shared-packages
       - name: 当前提交构建、Linux 单测与锁定 rootfs
-        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build"
+        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
       - name: 原生安装与十项部署恢复验证
         run: >-
           sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
@@ -102,7 +191,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: 清理本轮共享软件包
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/cherry-shared-packages"
+
   sandbox-business:
+    needs: sandbox-packages
     name: sandbox CI（真实页面、校准与 Kafka 业务闭环）
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -130,8 +224,13 @@ jobs:
           cache: maven
           cache-dependency-path: apps/server/**/pom.xml
           overwrite-settings: false
+      - name: 获取本轮已校验软件包
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-shared-packages
       - name: 构建当前提交的 Linux 二进制与 rootfs
-        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build"
+        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
       - name: 构建真实 Java 服务与 Web 页面
         run: python3 deploy/sandbox-linux/ci/business_prepare.py --output "$RUNNER_TEMP/business-build"
       - name: 安装本轮 Chromium 与系统依赖
@@ -169,6 +268,10 @@ jobs:
             ${{ runner.temp }}/sandbox-build/logs
           if-no-files-found: error
           retention-days: 14
+
+      - name: 清理本轮共享软件包
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/cherry-shared-packages"
 
   sandbox-basic:
     name: sandbox CI（基础与证据校验）

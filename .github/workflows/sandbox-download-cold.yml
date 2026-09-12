@@ -1,0 +1,70 @@
+name: Sandbox cold download
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/sandbox-linux/rootfs/**'
+      - 'deploy/sandbox-linux/ci/**'
+      - 'deploy/sandbox-linux/build-release.sh'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/sandbox-download-cold.yml'
+  pull_request:
+    paths:
+      - 'deploy/sandbox-linux/rootfs/**'
+      - 'deploy/sandbox-linux/ci/**'
+      - 'deploy/sandbox-linux/build-release.sh'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/sandbox-download-cold.yml'
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sandbox-download-cold:
+    name: sandbox CI（无缓存冷下载与 rootfs）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: 空目录下载并构建锁定 rootfs
+        run: |
+          python3 - <<'PYCODE'
+          import json, os, sys
+          from pathlib import Path
+          sys.path.insert(0, 'deploy/sandbox-linux/ci')
+          from command import install_signal_handlers, run
+          from report import digest, git_sha, harness_sha
+          install_signal_handlers()
+          workspace = Path(os.environ['RUNNER_TEMP']) / 'cherry-cold-package-work'
+          workspace.mkdir(mode=0o700)
+          logs = Path(os.environ['RUNNER_TEMP']) / 'cherry-cold-package-logs'
+          logs.mkdir(mode=0o700)
+          lock = 'deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json'
+          (logs / 'identity.json').write_text(json.dumps(dict(sourceSha=git_sha(), harnessSha=harness_sha(), packageLock=digest(lock))) + '\n')
+          run(['python3', 'deploy/sandbox-linux/ci/packages.py', '--lock', lock,
+               '--output', workspace / 'packages'], logs / 'download.log', 600)
+          run(['python3', 'deploy/sandbox-linux/rootfs/build.py', '--lock', lock,
+               '--packages', workspace / 'packages', '--output', workspace / 'rootfs'], logs / 'rootfs.log', 120)
+          PYCODE
+      - name: 保存冷下载及构建证据
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-cold-download
+          path: ${{ runner.temp }}/cherry-cold-package-logs
+          if-no-files-found: error
+          retention-days: 14
+      - name: 清理本轮冷下载目录
+        if: always()
+        run: rm -rf -- "$RUNNER_TEMP/cherry-cold-package-work"

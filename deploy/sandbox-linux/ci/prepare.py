@@ -14,6 +14,7 @@ from results import linux_units
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--packages', type=Path, help='copy and verify an existing package set without downloading')
     args = parser.parse_args()
     if platform.system() != 'Linux' or platform.machine() != 'x86_64':
         raise RuntimeError('native Linux/amd64 preparation required')
@@ -33,8 +34,12 @@ def main():
                           ('boundary', ['go', 'test', '-c', '-o', str(output / 'boundary.test'), './tests/sandbox-linux/boundary'])]:
         run(command, logs / (name + '.log'), 120, cwd=go, env=env)
     lock = output / 'release/packages.lock.json'
-    run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/download.py', '--lock', lock,
-         '--output', output / 'packages', '--address-failover'], logs / 'download.log', 600)
+    if args.packages is not None:
+        run(['python3', ROOT / 'deploy/sandbox-linux/ci/packages.py', '--lock', lock,
+             '--source', args.packages, '--output', output / 'packages'], logs / 'packages.log', 600)
+    else:
+        run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/download.py', '--lock', lock,
+             '--output', output / 'packages', '--address-failover'], logs / 'download.log', 600)
     run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/build.py', '--lock', lock,
          '--packages', output / 'packages', '--output', output / 'cpp-rootfs'], logs / 'rootfs.log', 120)
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(), architecture=platform.machine(),
