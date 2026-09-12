@@ -183,11 +183,18 @@ class UserPersistenceIntegrationTests {
     @Order(4)
     void authenticatedDeadlineSurvivesMysqlRoundTripAtNanosecondPrecision() {
         var created = users.createUser(null, "PrecisionLearner");
+        LocalDateTime createdAt = accounts.findById(created.user().id()).createdAt();
+        // Follow the persisted account's clock instead of a calendar date that eventually becomes its past.
+        Instant second = createdAt.toInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS).plusSeconds(1);
         for (int inputNs : new int[] {123456789, 999999999, 123456000, 0}) {
-            Instant instant = Instant.parse("2026-09-11T12:00:00Z").plusNanos(inputNs);
+            Instant instant = second.plusNanos(inputNs);
+            // Advance whole seconds so MySQL rounding of 999999999 ns cannot put the next login in the past.
+            second = second.plusSeconds(1);
+            assertThat(instant).isAfter(createdAt.toInstant(ZoneOffset.UTC));
             var authentication = authenticationAt(instant);
             // Exercise real authentication and persistence; never pre-truncate the clock or insert a session here.
             var issued = authentication.authenticate(created.user().username(), created.temporaryPassword());
+            assertThat(accounts.findById(created.user().id()).updatedAt()).isAfterOrEqualTo(createdAt);
             var validated = authentication.validate(issued.loginGrant());
             var exchanged = new TransactionTemplate(transactionManager)
                     .execute(ignored -> authentication.exchange(issued.loginGrant()));

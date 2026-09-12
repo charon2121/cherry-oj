@@ -100,7 +100,7 @@
     "stage": "development",
     "label": "实施",
     "requirement": "required",
-    "status": "doing",
+    "status": "pending",
     "status_source": "derived",
     "artifacts": [
       "TASK-121",

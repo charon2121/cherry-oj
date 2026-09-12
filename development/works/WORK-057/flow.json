@@ -1,0 +1,115 @@
+[
+  {
+    "stage": "definition",
+    "label": "问题说明、复现与预期",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "ISSUE-019"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认仅修复认证测试时钟夹具，允许实施"
+      },
+      {
+        "name": "scope",
+        "result": "pass",
+        "note": "意图闸签署时确认：确认仅修复认证测试时钟夹具，允许实施"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "design",
+    "label": "原因与修复方案",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "tasks",
+    "label": "修复任务",
+    "requirement": "required",
+    "status": "done",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-124"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "development",
+    "label": "开发",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "TASK-124"
+    ],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "仅指定测试夹具，四组纳秒及原会话断言不变，生产约束和预算未改"
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "verification",
+    "label": "回归验证",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-058"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pending",
+        "note": ""
+      },
+      {
+        "name": "reliability",
+        "result": "pending",
+        "note": ""
+      }
+    ],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  },
+  {
+    "stage": "memory",
+    "label": "项目记忆",
+    "requirement": "optional",
+    "status": "skipped",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [],
+    "source": "profile:fix",
+    "reason": "fix 基础流程"
+  }
+]

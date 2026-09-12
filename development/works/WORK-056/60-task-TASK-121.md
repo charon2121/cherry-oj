@@ -2,7 +2,7 @@
 id: "TASK-121"
 type: "task"
 title: "固定沙箱软件包来源与长期留存"
-status: "doing"
+status: "done"
 work: "WORK-056"
 owners: ["team/judge-engine"]
 depends_on: ["IMPROVEMENT-006", "DESIGN-050", "DECISION-034", "PLAN-040"]
@@ -49,9 +49,9 @@ IMPROVEMENT-006#REQ-001、DESIGN-050、PLAN-040。
 
 ## 完成标准
 
-- [ ] 56/56 包通过原锁校验，原锁摘要不变，rootfs 清单匹配基线。
-- [ ] 不可用来源、篡改、取消和超限不产生成功目录，现有文件安全测试通过。
-- [ ] 记录 Linux 获取耗时与身份，未改变默认部署路径或既有预算。
+- [x] 56/56 包通过原锁校验，原锁摘要不变，rootfs 清单匹配基线。
+- [x] 不可用来源、篡改、取消和超限不产生成功目录，现有文件安全测试通过。
+- [x] 记录 Linux 获取耗时与身份，未改变默认部署路径或既有预算。
 
 ## 验证
 
@@ -73,3 +73,6 @@ IMPROVEMENT-006#REQ-001、DESIGN-050、PLAN-040。
 - 2026-09-12：Linux 获取与 rootfs 清单验证尚未执行，TASK 保持 doing；本机缺 dpkg-deb，不把本地下载结果当 Linux 运行通过。提交推送及独立子智能体复核需取得本批授权后继续。
 
 - 2026-09-12：用户明确授权本批只读独立子智能体复核、修正后提交推送 origin/main 并运行 Linux CI；已启动 work056_review。
+
+- 2026-09-12：f791b85 推送后 Linux 独立冷检查通过，56包恢复且rootfs基线一致；独立证据复核通过，完成本任务，完整主CI结果另行跟踪。详见VERIFY-057。
+- 2026-09-12：状态变更：doing → done。原因：独立复核、本地136测试、Linux全56包与原rootfs基线验证通过；主CI业务结果另记
