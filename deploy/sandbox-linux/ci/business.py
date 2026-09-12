@@ -116,6 +116,7 @@ class Business:
         self.report.record([self.active], 'PASS', ['deployment.json'])
         self.active = 'business.calibrate'
         api.calibrate(base)
+        api.make_public(context)
         calibration = evidence.calibration(context)
         context['languageCalibrationId'] = calibration['id']
         save(self.report.output, 'calibration.json', calibration)

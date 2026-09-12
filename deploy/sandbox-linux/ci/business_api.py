@@ -139,3 +139,15 @@ class API:
         version = self.request('GET', base)
         self.request('POST', base + '/publish', dict(rowVersion=version['rowVersion']))
         return calibration
+
+    def make_public(self, context):
+        # Publishing a version leaves the problem private; use the normal admin transition.
+        base = '/api/admin/problems/' + context['problemId']
+        problem = self.request('GET', base)
+        if (problem['id'] != context['problemId'] or problem['slug'] != context['slug']
+                or problem['currentPublishedVersionId'] != context['problemVersionId']):
+            raise ValueError('published problem identity mismatch')
+        self.request('PATCH', base, dict(slug=context['slug'], visibility='PUBLIC', rowVersion=problem['rowVersion']))
+        public = self.request('GET', '/api/problems/' + context['slug'])
+        if any(public[key] != context[key] for key in ('problemId', 'problemVersionId', 'slug')):
+            raise ValueError('public problem identity mismatch')

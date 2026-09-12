@@ -308,3 +308,11 @@ WORK-053验收已由用户签署并刷新verified，认证修复交回本任务�
 ## TASK-112 编辑器状态诊断（2026-09-12）
 
 WORK-057已人工验收，当前io等待编辑器可见失败尚无法区分来源。按DESIGN-044增加固定计数/布尔/HTTP码，未改断言或生产代码。Node26本地TS/lint与reporter-check通过，基础137项(15+27+95)及AST/shell通过；Linux仍使用既有Node工具链。独立task112_editor_review无阻塞，核对选择器/API及两端白名单一致。建议超长/软硬链接反例已补且通过。新增诊断仍需Linux实跑，未声明io修复。
+
+## TASK-112 公开题目夹具修复（2026-09-12）
+
+诊断提交a69c8932a81f9a9731dc0b3b62a583f31eae4e99，CI34697729762真实业务3PASS/1FAIL/11NOT_RUN，finally清理PASS；下载报告按原提交重算harness aea5d60c8d37ea85b51ffb6b79e8fd77c9d1208da124b5045befc598b59e9476复验通过。browser-diagnostic明确io/support.ts:54:26、matches=0、visible/loading/loadError=false、problemResponse=404。证据位于/private/tmp/cherry-task112-editor-business。
+
+源码确认AdminProblemService新题默认为PRIVATE，发布只处理版本，PublicProblemMapper要求PUBLIC+ACTIVE+PUBLISHED。CI遗漏公开步骤，不是编辑器慢。仅修CI准备：校准发布后重读管理元数据，检查本轮题目/slug/版本，以最新rowVersion正常PATCH PUBLIC，再从公开接口核对同一身份；失败立即停止且仍走finally。未修改生产权限或浏览器期限。
+
+本地business_test 22项通过；完整basic 138项（15安装+27rootfs+96CI）及AST/shell通过，输出/private/tmp/cherry-task112-public-basic-approved。首次受限执行因回环TLS监听权限失败，获工具权限后重跑通过。独立task112_editor_review核对真实契约与Java语义，无阻塞发现。新增反例覆盖两端身份错配、409与404失败及不重试。下一步用该修复提交运行Linux真实业务，尚未宣称闭环通过。

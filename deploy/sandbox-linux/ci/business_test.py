@@ -41,6 +41,32 @@ def authentication_fixture(directory):
 
 
 class BusinessTests(unittest.TestCase):
+    def test_public_fixture_requires_published_identity_and_public_readback(self):
+        context = dict(problemId='problem', problemVersionId='version', slug='ci-business-test')
+        problem = dict(id='problem', slug=context['slug'], currentPublishedVersionId='version', rowVersion=7)
+        api = API()
+        api.request = Mock(side_effect=[problem, None, context])
+        api.make_public(context)
+        self.assertEqual(api.request.call_args_list[1].args,
+                         ('PATCH', '/api/admin/problems/problem',
+                          dict(slug=context['slug'], visibility='PUBLIC', rowVersion=7)))
+        self.assertEqual(api.request.call_args_list[2].args, ('GET', '/api/problems/' + context['slug']))
+        for key in ('id', 'slug', 'currentPublishedVersionId'):
+            api.request = Mock(return_value=dict(problem, **{key: 'wrong'}))
+            with self.subTest(admin=key), self.assertRaisesRegex(ValueError, 'published problem identity'):
+                api.make_public(context)
+            self.assertEqual(api.request.call_count, 1)
+        for key in context:
+            api.request = Mock(side_effect=[problem, None, dict(context, **{key: 'wrong'})])
+            with self.subTest(public=key), self.assertRaisesRegex(ValueError, 'public problem identity'):
+                api.make_public(context)
+        for response in (RuntimeError('HTTP 409'), RuntimeError('HTTP 404')):
+            replies = [problem, response] if '409' in str(response) else [problem, None, response]
+            api.request = Mock(side_effect=replies)
+            with self.assertRaises(RuntimeError):
+                api.make_public(context)
+            self.assertEqual(api.request.call_count, len(replies))
+
     def test_browser_diagnostics_reject_private_text_and_unbounded_positions(self):
         good = dict(phase='login', status='failed', failures=[dict(file='support.ts', line=52, column=7)])
         bad = [dict(good, message='private-password'), dict(good, phase='private-password'),
