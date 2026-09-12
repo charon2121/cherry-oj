@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -90,9 +91,9 @@ def evidence_path(value):
 
 
 def validate(data, suite, source_sha, successful=True):
-    keys = {'schemaVersion', 'suite', 'sourceSha', 'harnessSha', 'runId', 'startedAt',
+    keys = {'schemaVersion', 'suite', 'sourceSha', 'harnessSha', 'runId', 'runAttempt', 'startedAt',
             'finishedAt', 'environment', 'cases', 'cleanup'}
-    if not isinstance(data, dict) or set(data) != keys or data['schemaVersion'] != 1:
+    if not isinstance(data, dict) or set(data) != keys or data['schemaVersion'] != 2:
         raise ValueError('unknown report schema or fields')
     if data['suite'] != suite or data['sourceSha'] != source_sha or not re.fullmatch('[0-9a-f]{40}', source_sha):
         raise ValueError('report suite/source SHA mismatch')
@@ -100,6 +101,8 @@ def validate(data, suite, source_sha, successful=True):
         raise ValueError('invalid harness digest')
     if not isinstance(data['environment'], dict) or not data['runId']:
         raise ValueError('missing execution context')
+    if not isinstance(data['runAttempt'], str) or not re.fullmatch('[1-9][0-9]*', data['runAttempt']):
+        raise ValueError('invalid execution attempt')
     if not data['startedAt'] or not data['finishedAt']:
         raise ValueError('unfinished report')
     observed = set()
@@ -157,8 +160,9 @@ class Report:
     def __init__(self, suite, output, source_sha, run_id, environment):
         self.output = Path(output)
         self.output.mkdir(parents=True, exist_ok=False)
-        self.data = dict(schemaVersion=1, suite=suite, sourceSha=source_sha,
-                         harnessSha=harness_sha(), runId=run_id, startedAt=timestamp(),
+        self.data = dict(schemaVersion=2, suite=suite, sourceSha=source_sha,
+                         harnessSha=harness_sha(), runId=run_id,
+                         runAttempt=os.environ.get('GITHUB_RUN_ATTEMPT', '1'), startedAt=timestamp(),
                          finishedAt=None, environment=environment,
                          cases=[dict(id=key, status='NOT_RUN', evidence=[], details={}) for key in case_ids(suite)],
                          cleanup=dict(status='NOT_RUN', evidence='cleanup.json'))

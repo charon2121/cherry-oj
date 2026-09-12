@@ -43,6 +43,35 @@ def python_script(text):
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_summary_covers_every_job_and_preserves_attempt_artifacts(self):
+        from summary import JOBS, SUITES
+        grouped = jobs(CI.read_text())
+        self.assertEqual(set(grouped) - {'sandbox-summary'}, set(JOBS))
+        summary = grouped['sandbox-summary']
+        required = re.search(r'^    needs: \[([^\]]+)\]$', summary, re.M)
+        self.assertEqual(set(required[1].split(', ')), set(JOBS))
+        self.assertIn('    if: always()\n', summary)
+        self.assertIn('      contents: read\n', summary)
+        self.assertNotIn('continue-on-error', summary)
+        self.assertNotIn('secrets.', summary)
+        self.assertNotIn('sudo ', summary)
+        for suite in SUITES:
+            identity = 'sandbox-' + suite + '-${{ github.run_id }}-${{ github.run_attempt }}'
+            self.assertIn('name: ' + identity, grouped['sandbox-' + suite])
+            self.assertIn('name: ' + identity, summary)
+        for name in ('sandbox-packages', 'sandbox-kernel', 'sandbox-native', 'sandbox-business'):
+            artifacts = re.findall(r'^          name: (sandbox-.*)$', grouped[name], re.M)
+            self.assertTrue(artifacts)
+            self.assertTrue(all(v.endswith('${{ github.run_id }}-${{ github.run_attempt }}') for v in artifacts))
+
+    def test_cold_full_baseline_bypasses_cache_without_deleting_it(self):
+        text = CI.read_text()
+        self.assertIn('      cold_packages:\n', text)
+        job = jobs(text)['sandbox-packages']
+        self.assertIn('if: inputs.cold_packages != true', job)
+        self.assertIn("if: steps.cache.outputs.cache-hit != 'true' && inputs.cold_packages != true", job)
+        self.assertNotIn('gh cache', job)
+
     def test_consumers_wait_and_verify_same_run_artifact(self):
         grouped = jobs(CI.read_text())
         for name, minutes in [('sandbox-kernel', 15), ('sandbox-native', 20), ('sandbox-business', 40)]:

@@ -13,7 +13,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/sandbox-linux/ci/basic.py --output /tmp
 一次性、独占的 GitHub Ubuntu VM；普通 Go 测试通过或交叉编译都不能替代它。当前套件实施与
 真实 Actions 验证进度以 WORK-050/VERIFY-051 为准。
 
-`report.py` 定义内部报告 schemaVersion=1：顶层严格包含 suite、sourceSha、harnessSha、runId、
+`report.py` 定义内部报告 schemaVersion=2：顶层严格包含 suite、sourceSha、harnessSha、runId、runAttempt、
 startedAt、finishedAt、environment、cases 和 cleanup。每个 case 只含 id/status/evidence/details；
 status 为 PASS、FAIL、ENVIRONMENT_ERROR、CANCELLED 或 NOT_RUN，默认 NOT_RUN。
 sourceSha 必须匹配本次 checkout，harnessSha 覆盖非忽略的部署/测试脚本内容，case ID 必须与清单
@@ -136,3 +136,11 @@ python3 deploy/sandbox-linux/ci/packages.py \
 
 原包锁和 `rootfs/download.py` 默认部署路径未改变。没有活动镜像回退或版本升级。
 固定 Release 资产及其消费属于后续 TASK-122/123，尚未发布；此阶段日常准备与独立冷检查都走固定快照。
+
+## 必需汇总（TASK-113）
+
+`sandbox-summary`等待现有11个job，通过`always()`在前置失败后也执行。`summary.py`要求所有job成功，并验证本run、本attempt的basic/kernel/native/business四份报告共93项全部PASS及清理一致。报告v2增加runAttempt；报告及构建日志产物名带run_id/run_attempt，不覆盖以前批次。旧v1报告应检出其原提交工具校验，不混入新基线。下载失败、缺报告或旧批次不能放行。
+
+汇总只输出固定job状态和套件通过计数，不打印报告中的任意异常文本；目录链接、硬链接、特殊文件、超过20MiB或4096项的产物拒绝读取。单测通过同一入口覆盖失败、跳过、取消、环境错误、身份错配和残缺证据。状态反例不等同真实Actions取消，实际取消及完整基线进度见VERIFY-051。
+
+手动触发CI时`cold_packages=true`使完整运行绕过软件包缓存读取与保存，仍从已冻结来源按原锁校验，不删除共享缓存。默认push/PR行为保持使用精确缓存。交付基线必须是同SHA连续两轮完整成功，至少一轮使用此冷模式；单独冷下载workflow不能替代完整冷基线。建议分支保护要求稳定名称`sandbox CI（必需回归汇总）`，本任务不自动修改仓库设置。

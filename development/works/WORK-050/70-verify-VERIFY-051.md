@@ -334,3 +334,29 @@ beabc8d77a61f9a31a8896f5bc90e7c54e7e740d的CI34698971214：浏览器进程退出
 仅在CI观察器枚举时过滤非目录，执行组读取异常继续传播。新增临时目录树反例验证控制文件被略过、缺少CPU/MLE观测仍不通过、真实执行目录读取异常仍失败。本地23项business与完整139项基础检查（15+27+97）通过，日志/private/tmp/cherry-task112-observer-basic。未修改沙箱执行策略或计量。
 
 独立task112_editor_review确认目录过滤不隐藏执行组错误，CPU/MLE各一条、goneNs与资源阈值未放宽，复核无阻塞，待Linux实测完整观测。
+
+## TASK-112 首次完整绿色交付（2026-09-12）
+
+源码4b5df320c3f4cb2d0b09da7f4a664cb453792e1c，[完整CI34699419677](https://github.com/charon2121/cherry-oj/actions/runs/34699419677)首轮11/11 job成功；[冷下载34699419705](https://github.com/charon2121/cherry-oj/actions/runs/34699419705)同SHA成功。业务15/15、内核63/63、原生10/10均PASS，无FAIL/NOT_RUN；三个报告的最终清理均PASS，下载/private/tmp/cherry-task112-green，按源码重新计算harness=855d3f989f0cb0bfc45742cc3ea40338d5140940118838feb99bac40dbeb9bcd并通过validate/verify_files。
+
+真实页面11场景包含8类自定义运行、正式AC/WA和历史回看，源码请求及回看严格相等；Kafka、冻结JudgeInput、校准、数据、节点身份与数据库摘要已由驱动核对。CPU观测运行墙钟1044390816ns、累计CPU1002203000ns；MLE运行57946784ns、memory.events oom_kill=3，最大采样间隔4688329ns。未用HTTP耗时代替运行墙钟，未沿用历史内存峰值。浏览器、执行组、挂载、工作目录与独占依赖按所有权完成回收。
+
+TASK-112技术完成，可交回TASK-113汇总失败/取消/缺报告验证与连续完整基线。此为首次完整成功，不满足至少连续两轮全部成功条件；同SHA冷下载成功也不等于第二轮完整CI。历史一次静态身份/proc采样失败仍需独立追踪，不能被新绿覆盖。WORK-050验收闸未签，WORK-049不启动。
+
+## TASK-113 本地汇总实现（2026-09-12）
+
+用户明确继续后，TASK-113推进ready→doing；TASK-112已有完成记录保留。新增summary.py及正反例、ci.yml必需汇总和完整冷缓存选项。报告v2携带runAttempt；四套件报告及准备/构建日志artifact按run_id/attempt区分。汇总等待现有11job并always执行，以固定字段输出各job及四套件结果；不同SHA/run/attempt/harness、缺报告/用例/文件、重复case、能力不足、取消/跳过、清理失败、链接和特殊文件均不能通过。
+
+本地完整basic.py 147项（15安装+27rootfs+105CI）及73个Python AST、4个shell语法通过，输出/private/tmp/cherry-task113-basic。summary_test 6项含全部前置状态矩阵与实际CLI退出码、workflow_test 10项、report_test 9项通过；Ruby Psych解析12job成功，未声称运行了本机不存在的actionlint。485份开发文档与554份链接检查通过（既有WORK-033提示不属于本批），git diff --check通过。
+
+本轮尚未独立复核、提交推送或远端运行，当前实现不能冒用上一版全绿证据。TASK-112单批发布授权不扩大为TASK-113，待可审阅本批授权独立复核/发布/Linux验证后继续。真实取消实验须取消本任务的一次性完整运行，保存所有权清理证据；建模cancelled的本地负例不能代替它。随后同SHA完整两次成功，至少一次cold_packages=true。
+
+只读重查inspect_threads.py：线程状态采样时捕获进程消失，但随后namespace/mount读取在采样循环外；进程在两阶段之间退出仍可触发历史FileNotFoundError。此为竞态机制判断，尚未复现原轮完整时序，不据后续通过关闭。该脚本不在TASK-113写路径，当前未修改；基线冻结前需先补精确测试修正边界及验证，不放宽权限断言。
+
+## TASK-113 授权与独立复核（2026-09-12）
+
+用户明确授权本批独立复核、修正后提交推送以及实际GitHub运行/取消。task113_review只读复核无阻断，独立执行汇总/报告/接线25项及快照故障5项通过。完整basic回归152项（15+27+110）、74Python AST及4shell通过，输出/private/tmp/cherry-task113-reviewed-basic。
+
+按PLAN先扩唯一测试文件边界后修正inspect_threads.py：namespace及mountinfo随线程/控制值在同一快照内读取，丢弃进程退出导致的不完整快照；原2秒期限和全部隔离断言不变。故障注入覆盖namespace与mountinfo中途消失、PermissionError立即失败、无完整样本超时及权限/namespace/挂载/资源违规不重试。历史竞态机制已修正且本地验证，仍待真实Linux回归，不以此声称原轮内核行为无问题。
+
+发布后先在本批一次性CI业务栈运行中调用GitHub取消，检查取消结果、汇总不通过及所有权清理产物；随后同SHA完整冷/热两轮。取消样本不计入成功基线，已有生产/用户环境不参与。

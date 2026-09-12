@@ -98,7 +98,7 @@
     "stage": "tasks",
     "label": "开发任务",
     "requirement": "required",
-    "status": "ready",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-109",

@@ -2,7 +2,7 @@
 id: "TASK-113"
 type: "task"
 title: "验证CI汇总失败处理并交付重构基线"
-status: "todo"
+status: "doing"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-112"]
@@ -11,10 +11,10 @@ implements: ["CAPABILITY-008#REQ-001", "CAPABILITY-008#REQ-005", "CAPABILITY-008
 verifies: []
 tags: []
 read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/works/WORK-048", "development/works/WORK-049", "development/works/WORK-050", "docs/engineering", ".github/workflows", "apps/judge-engine", "deploy/sandbox-linux", "contracts", "apps/web/e2e-live", "apps/web/playwright.live.config.ts"]
-write_paths: ["development/works/WORK-050", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "development/works/WORK-049"]
+write_paths: ["deploy/sandbox-linux/tests/inspect_threads.py", "development/works/WORK-050", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "development/works/WORK-049"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web"]
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-12"
 ---
 
 # TASK-113：验证CI汇总失败处理并交付重构基线
@@ -41,7 +41,7 @@ CAPABILITY-008 REQ-001/005/006与AC-001/005/006；依赖109～112实际交付。
 
 ## 依赖
 
-依 depends_on 顺序推进；本轮只是文档，需人工意图闸及后续实施授权，当前 todo 不可直接执行。
+WORK-050意图闸已通过，TASK-112已完成；用户在获知后续汇总与基线范围后明确要求继续，开始本任务实施。新批次独立复核、提交推送与真实取消实验在本地实现可审阅后落实授权，不复用TASK-112的单批发布授权。
 
 ## 产出
 
@@ -66,3 +66,9 @@ ci.yml必需汇总、清单完整性/取消测试、脱敏产物策略、VERIFY-
 ## 执行记录
 
 - 2026-09-10：只创建最终验收范围，尚未实施、委派或触发Actions。
+- 2026-09-12：状态变更：todo → ready。原因：WORK-050意图已签，TASK-112完成，用户明确继续汇总与基线实施
+- 2026-09-12：状态变更：ready → doing。原因：开始必需汇总、批次身份与失败拒绝测试，生产代码边界不变
+
+- 2026-09-12：完成本地必需汇总、v2批次身份、保留历史artifact与完整冷缓存开关。147项基础回归、YAML/接线与文档校验通过。独立复核及本批发布/真实Actions取消/两轮完整基线尚未执行，任务保持doing；历史static-identity采样竞态仍需精确边界处理。
+
+- 2026-09-12：用户明确授权本批独立复核、修正后commit/push及真实Actions运行/取消；按此前已披露采样竞态，先追加唯一测试文件inspect_threads.py写边界。只把全部只读事实置于原2秒重试快照内，进程消失丢弃整份样本；不重试隔离断言失败、不延长期限或修改probe/生产实现。

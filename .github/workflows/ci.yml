@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      cold_packages:
+        description: '完整基线使用冷软件包准备（不读取或删除共享缓存）'
+        type: boolean
+        default: false
 
 # 同一分支上新的 push 会取消还在跑的旧任务，别让队列堆着过时的结果
 concurrency:
@@ -31,6 +36,7 @@ jobs:
           key=$(python3 deploy/sandbox-linux/ci/packages.py --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json --key)
           printf 'key=%s\n' "$key" >> "$GITHUB_OUTPUT"
       - name: 恢复同锁同工具缓存
+        if: inputs.cold_packages != true
         id: cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -60,7 +66,7 @@ jobs:
           run(base + ['--source', workspace / 'cache', '--output', workspace / 'verified'], logs / 'verify.log', 600)
           PYCODE
       - name: 保存已通过完整校验的缓存
-        if: steps.cache.outputs.cache-hit != 'true'
+        if: steps.cache.outputs.cache-hit != 'true' && inputs.cold_packages != true
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/cherry-package-work/cache
@@ -77,7 +83,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-packages-logs
+          name: sandbox-packages-logs-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/cherry-package-logs
           if-no-files-found: error
           retention-days: 14
@@ -123,7 +129,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-kernel
+          name: sandbox-kernel-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sandbox-kernel
           if-no-files-found: error
           retention-days: 14
@@ -131,7 +137,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-kernel-build
+          name: sandbox-kernel-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sandbox-build/logs
           if-no-files-found: error
           retention-days: 14
@@ -178,7 +184,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-native
+          name: sandbox-native-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sandbox-native
           if-no-files-found: error
           retention-days: 14
@@ -186,7 +192,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-native-build
+          name: sandbox-native-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sandbox-build/logs
           if-no-files-found: error
           retention-days: 14
@@ -254,7 +260,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-business
+          name: sandbox-business-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sandbox-business
           if-no-files-found: error
           retention-days: 14
@@ -262,7 +268,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-business-build
+          name: sandbox-business-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/business-build
             ${{ runner.temp }}/sandbox-build/logs
@@ -291,7 +297,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: sandbox-basic
+          name: sandbox-basic-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/sandbox-basic
           if-no-files-found: error
           retention-days: 14
@@ -469,3 +475,61 @@ jobs:
           assert len(result["caseResults"]) == 3, result
           assert all(case["verdict"] == "AC" for case in result["caseResults"]), result
           '
+
+  sandbox-summary:
+    name: sandbox CI（必需回归汇总）
+    if: always()
+    needs: [sandbox-packages, sandbox-basic, sandbox-kernel, sandbox-native, sandbox-business, development, web, contracts, go, tidy, containers]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: 获取本批basic报告
+        if: always()
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-basic-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-basic-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 获取本批kernel报告
+        if: always()
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-kernel-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-kernel-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 获取本批native报告
+        if: always()
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-native-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-native-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 获取本批business报告
+        if: always()
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sandbox-business-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-business-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 验证全部前置结果与本批93项证据
+        if: always()
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set -eu
+          python3 - <<'PYCODE'
+          import os
+          from pathlib import Path
+          (Path(os.environ['RUNNER_TEMP']) / 'cherry-summary-needs.json').write_text(os.environ['NEEDS_JSON'])
+          PYCODE
+          python3 deploy/sandbox-linux/ci/summary.py --reports "$RUNNER_TEMP/cherry-summary-reports" --needs "$RUNNER_TEMP/cherry-summary-needs.json" --output "$RUNNER_TEMP/cherry-summary/summary.json"
+      - name: 保存本批汇总结论
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: sandbox-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cherry-summary/summary.json
+          if-no-files-found: error
+          retention-days: 14

@@ -52,7 +52,7 @@ class EvidenceTests(unittest.TestCase):
     def test_missing_duplicate_unknown_and_wrong_revision_fail(self):
         def duplicate(d): d['cases'].append(copy.deepcopy(d['cases'][0]))
         def missing(d): d['cases'].pop()
-        def version(d): d['schemaVersion'] = 2
+        def version(d): d['schemaVersion'] = 1
         def revision(d): d['sourceSha'] = 'b' * 40
         def unfinished(d): d['finishedAt'] = None
         def unknown(d): d['unknown'] = True
