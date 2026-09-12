@@ -56,7 +56,8 @@ class Observer(AbstractContextManager):
                     self.max_sample_gap_ns = max(self.max_sample_gap_ns, now - previous)
                 previous = now
                 for group in JOBS.glob('*'):
-                    if group.name in active or not case:
+                    # cgroupfs exposes controller files alongside execution directories.
+                    if not group.is_dir() or group.name in active or not case:
                         continue
                     try:
                         pids = (group / 'cgroup.procs').read_text().split()

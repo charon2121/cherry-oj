@@ -13,7 +13,7 @@ import zipfile
 from business_api import API, MAX_BODY, failure_kind, fixture_zip
 from business_config import DATABASES, create, environment
 from business_evidence import Evidence, uuid
-from business_observer import verify_observations
+from business_observer import Observer, verify_observations
 from business_resources import Dependencies
 from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authentication_results, browser_diagnostic,
                               verify_authentication_tests, verify_live)
@@ -41,6 +41,33 @@ def authentication_fixture(directory):
 
 
 class BusinessTests(unittest.TestCase):
+    def test_observer_skips_controller_files_but_keeps_execution_read_errors(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / 'observed-case').write_text('cpu')
+            jobs = root / 'jobs'
+            jobs.mkdir()
+            (jobs / 'cgroup.procs').write_text('')
+            (jobs / 'cpu.stat').write_text('usage_usec 1\n')
+            group = jobs / 'execution'
+            group.mkdir()
+            (group / 'cgroup.procs').write_text('')
+            observer = Observer(root, root)
+            observer.stop = Mock()
+            observer.stop.wait.side_effect = [False, True]
+            with patch('business_observer.JOBS', jobs):
+                observer.watch()
+            self.assertIsNone(observer.failure)
+            self.assertEqual(observer.records, [])
+            with self.assertRaises(ValueError):
+                verify_observations(dict(error=None, records=[], maxSampleGapNs=1), live_fixture())
+            (group / 'cgroup.procs').unlink()
+            (group / 'cgroup.procs').mkdir()
+            observer.stop.wait.side_effect = [False, True]
+            with patch('business_observer.JOBS', jobs):
+                observer.watch()
+            self.assertEqual(observer.failure, 'IsADirectoryError')
+
     def test_public_fixture_requires_published_identity_and_public_readback(self):
         context = dict(problemId='problem', problemVersionId='version', slug='ci-business-test')
         problem = dict(id='problem', slug=context['slug'], currentPublishedVersionId='version', rowVersion=7)

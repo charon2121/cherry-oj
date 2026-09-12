@@ -326,3 +326,11 @@ WORK-057已人工验收，当前io等待编辑器可见失败尚无法区分来�
 本批仅调整CI输入方式，保留历史exact比较，并对每个custom/submission请求新增原文件source严格比较，以更早定位输入失真。TS、ESLint、Prettier与reporter-check通过，仍需Linux复验。
 
 独立task112_editor_review无阻塞：合成paste事件经真实Monaco处理及React状态更新，不直接修改model或业务状态；不声称测试了系统剪贴板权限或真实Ctrl+V。Linux ControlOrMeta仍为Ctrl，原历史和草稿断言完整保留。
+
+## TASK-112 cgroup观测目录过滤（2026-09-12）
+
+beabc8d77a61f9a31a8896f5bc90e7c54e7e740d的CI34698971214：浏览器进程退出0，固定诊断status=passed，全部页面断言包含历史原文通过；诊断failures仍有expect.poll重试的步骤位置，不等于最终失败。驱动在Observer退出时报RuntimeError，execution-observations.json明确records=[]、error=NotADirectoryError。观察器枚举jobs目录时把cgroup.procs等控制文件当成子目录。证据/private/tmp/cherry-task112-paste-business；finally清理PASS，不将浏览器通过冒充资源与Kafka取证通过。
+
+仅在CI观察器枚举时过滤非目录，执行组读取异常继续传播。新增临时目录树反例验证控制文件被略过、缺少CPU/MLE观测仍不通过、真实执行目录读取异常仍失败。本地23项business与完整139项基础检查（15+27+97）通过，日志/private/tmp/cherry-task112-observer-basic。未修改沙箱执行策略或计量。
+
+独立task112_editor_review确认目录过滤不隐藏执行组错误，CPU/MLE各一条、goneNs与资源阈值未放宽，复核无阻塞，待Linux实测完整观测。
