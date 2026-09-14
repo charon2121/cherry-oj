@@ -2,7 +2,7 @@
 
 适用于本仓库所有 Go 代码。**写 Go 之前先读完本文。**
 跨语言的通用约定（单位、契约、零值陷阱、
-什么进配置什么进请求、测试观念）见 [`conventions.md`](./conventions.md)，
+什么进配置什么进请求、测试观念）见 [`project-conventions.md`](../project-conventions.md)，
 本文只写 Go 特有的部分。
 
 下面多数条款来自这个项目实际踩过的坑，括号里给了对应位置。
@@ -39,7 +39,7 @@ go test -race ./...     # 全绿
 ## 2. 命名
 
 通用的四条——「主语 = 接收者」「动词成对且全仓统一」「限定词只在存在对立面时
-才有信息量」「给意图起个名字」——见 [`conventions.md`](./conventions.md) §1.1，那里的
+才有信息量」「给意图起个名字」——见 [`project-conventions.md`](../project-conventions.md) §1.1，那里的
 例子本来就取自本模块。这里只补 Go 特有的：
 
 - **别让名字结巴。** Go 的调用处自带包名，`pool.NewPool()` 读起来是「池池」。
@@ -222,7 +222,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
 
 ## 12. 测试
 
-通用的测试观念见 [`conventions.md`](./conventions.md) §1.8，这里只写 Go 的写法：
+通用的测试观念见 [`project-conventions.md`](../project-conventions.md) §1.9，这里只写 Go 的写法：
 
 - **表驱动 + `t.Run`**，用例是数据、断言只有一份。子测试名用中文没问题。
 - **`t.TempDir()`** 建临时目录，自动清理、互不干扰。别用 `os.TempDir()` 在

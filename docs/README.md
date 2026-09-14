@@ -33,8 +33,10 @@ DECISION，避免历史原因丢失。
 - [`frontend.md`](./frontend.md)：Web 架构、状态、组件和工程规则；
 - [`design-system.md`](./design-system.md)：Web 视觉、主题合同、组件规则、可访问性与例外流程；
 - [`prd-background.md`](./prd-background.md)：产品缘起与长期背景；
-- [`engineering/`](./engineering/README.md)：分语言的编码规范、提交流程与各模块当前成熟度。
-  根目录 `CLAUDE.md` 只留每次都必须遵守的部分，展开的规范在这里按需读。
+- [`coding-standards/`](./coding-standards/README.md)：编码规范，分通用 / 语言 / 框架三层；
+- [`git-workflow.md`](./git-workflow.md)：提交拆分、hooks 与 CI 门禁；
+- [`status.md`](./status.md)：各模块当前是可用实现还是骨架。
+  根目录 `AGENTS.md` 只留每次都必须遵守的部分，展开的规范在这里按需读。
 
 [`design-system/`](./design-system/) 保存设计系统的可执行文档包。其中 Foundation 与主题 CSS 是数值
 真源，theme contract 是语义和对比合同；机器快照、组件 HTML 和 preview 是派生或评审材料。

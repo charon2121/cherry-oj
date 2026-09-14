@@ -153,24 +153,14 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 
 ## 3. 状态归属
 
-每类状态只设一个主要所有者，避免把所有数据都塞进“全局状态库”：
+每类状态只设一个主要所有者，避免把所有数据都塞进「全局状态库」。**具体归属表**（Router /
+Query / Form / Table / IndexedDB / localStorage / useState 各管什么）见
+[`coding-standards/frameworks/react.md`](./coding-standards/frameworks/react.md) §1。
 
-- 可分享、刷新后应保留的页面状态，例如页码、关键字、难度和标签，归
-  **TanStack Router search params**。
-- 来自 `apps/server` 的题目、用户、提交和判题结果，归 **TanStack Query**。
-- 表单值、校验错误、dirty/submitting 状态，归 **TanStack Form**。
-- 表格的列、排序和行选择，默认归 **TanStack Table**；需要分享或恢复的筛选、分页
-  同步到 Router。
-- 代码草稿归 **IndexedDB**，由 `lib/storage` 的项目级 repository 读写；组件中的编辑器值是
-  当前会话副本，不把整段源码塞进 Query cache 或全局 store。
-- 侧栏折叠等小型非敏感偏好可以归 `localStorage`。主题只保存键为 `cherry-oj.theme` 的 theme id，
-  由生成 registry 校验并在首屏脚本与 `src/lib/theme` 中统一解析；无效值和存储异常安全回退默认黑色。
-  鉴权令牌和用户源码不使用 `localStorage`。
-- 只影响一个组件树的临时交互状态，使用 React `useState` / `useReducer`。
-- 能从其它状态计算出的值不单独存储，在使用处派生。
+这里只记选型理由：初期**不引入 Zustand、Redux Toolkit 或 TanStack Store**。TanStack 四件套已经
+各自承担了一类状态，再加一个全局 store，边界会立刻模糊——「放哪都行」的状态最后一定会放错地方。
+只有出现上述边界无法自然承载的跨页面纯客户端状态，并且有具体用例和测试时，才重新评估。
 
-初期不引入 Zustand、Redux Toolkit 或 TanStack Store。只有出现无法由上述边界自然
-承载的跨页面纯客户端状态，并且有具体用例和测试时，才重新评估。
 
 ## 4. 数据、鉴权与异步流程
 
@@ -200,11 +190,9 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 
 ### 4.2 Query 约定
 
-- Query key 由各 feature 的 factory 集中定义并保持结构稳定；组件中不散落裸数组。
-- Mutation 成功后精确失效相关 key，不全局清缓存。乐观更新只用于失败时能完整回滚的交互。
-- 默认 Query 只对网络、超时和 5xx 的幂等读请求重试一次；aborted、contract 与 4xx 不自动重试。
-  Mutation 默认不重试，写请求必须结合 method、Idempotency-Key 和 endpoint 语义单独决定。
-- route loader / `beforeLoad` 可以预取或确保关键 Query，但不在 Router 和 Query 各缓存一份数据。
+Query key factory、失效范围、重试策略和 loader 预取规则见
+[`coding-standards/frameworks/react.md`](./coding-standards/frameworks/react.md) §3。
+
 
 ### 4.3 登录态与权限
 
@@ -248,179 +236,23 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 
 ## 5. 路由与页面边界
 
-- 应用壳采用 Linear-inspired 的退后侧栏、统一 location bar、页面级 view bar 和主工作区。
-  普通内容页使用受控最大宽度；题目工作台与管理表格可使用全宽布局。
-- **公开区**：`/`、`/problems`、`/problems/$id`、`/submissions/$id`。公开提交详情是否可见、
-  是否展示源码由服务端权限策略决定，前端默认不泄露他人源码。
-- **用户区**：`/workspace/$problemId`、`/submissions`、`/profile`。未登录访问由 Router
-  引导登录并保留安全的回跳地址。
-- **管理区**：`/admin/problems`、`/admin/users`、`/admin/submissions`。整个 route group 按角色
-  懒加载，不进入普通用户首屏 bundle。
-- 题库分页、关键字、难度、标签和排序放在类型安全的 search params；Zod 负责默认值与非法值
-  归一化，刷新、分享、前进和后退保持一致。
-- 每个路由明确实现 pending、empty、error、unauthorized、not-found 和 success 边界；页面错误
-  不能只在控制台出现。
-- 页面从设计系统的稳定模板组合：题库列表、题目工作台、提交详情、个人列表、管理表格与表单。
-  本地可视化参考见 Storybook（`cd apps/web && npm run storybook`）。
+公开区 / 用户区 / 管理区的路由划分、search params 规则、六种页面状态和应用壳布局见
+[`coding-standards/frameworks/react.md`](./coding-standards/frameworks/react.md) §4。
+
 
 ## 6. 代码风格与质量管理
 
-### 6.1 工具职责
+已迁出本文，按层查阅：
 
-每个工具只负责一层问题，避免规则重叠：
+- 语言层（类型约定、命名与导入、注释与错误处理、工具分层、命令与门禁）：
+  [`coding-standards/languages/typescript.md`](./coding-standards/languages/typescript.md)
+- 框架层（状态归属、组件与 Effect、Query 约定、路由边界、样式与可访问性、测试）：
+  [`coding-standards/frameworks/react.md`](./coding-standards/frameworks/react.md)
+- 跨语言通用（命名、零值陷阱、错误边界、资源、依赖方向、待办锚点）：
+  [`coding-standards/project-conventions.md`](./coding-standards/project-conventions.md)
 
-- `.editorconfig`：UTF-8、LF、文件末尾换行、两空格缩进和行尾空白。
-- `prettier.config.mjs`：纯格式化，不判断代码正确性。
-- `eslint.config.js`：错误模式、React Hooks、可访问性、导入和类型安全。
-- `tsconfig*.json`：编译期类型边界。
-- Vitest / Playwright：运行时行为与用户链路。
+本文只保留技术选型、状态归属的**设计理由**和分阶段引入顺序；具体怎么写以上述三份为准。
 
-ESLint 使用 Flat Config，启用 `@eslint/js`、typescript-eslint 的类型感知推荐规则、
-`eslint-plugin-react-hooks`、`eslint-plugin-jsx-a11y`、`eslint-plugin-simple-import-sort` 和
-`eslint-config-prettier`。不启用与 Prettier 冲突的排版规则。
-
-### 6.2 格式化基线
-
-Prettier 采用以下项目级约定：
-
-```js
-export default {
-  semi: true,
-  singleQuote: true,
-  trailingComma: 'all',
-  printWidth: 100,
-  tabWidth: 2,
-  endOfLine: 'lf',
-  plugins: ['prettier-plugin-tailwindcss'],
-};
-```
-
-- JavaScript/TypeScript 字符串使用单引号，JSX attribute 保持双引号。
-- 禁止用空格手工对齐赋值或参数；格式交给 Prettier。
-- 开发者可以启用编辑器 format-on-save，但 Git hook 和 CI 只检查、不改写文件。
-- shadcn/ui 生成的代码进入仓库后同样执行项目格式化和 Lint，不设永久豁免区。
-- `routeTree.gen.ts` 等真正由工具持续生成的文件不得手改；只有生成器拥有其格式时才加入
-  ESLint/Prettier ignore。若生成物入库，CI 必须重新生成并检查工作树没有漂移。
-
-### 6.3 TypeScript 约定
-
-`tsconfig` 除 `strict` 外启用 `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、
-`noFallthroughCasesInSwitch`、`noImplicitOverride`、`noUnusedLocals`、
-`noUnusedParameters` 和 `verbatimModuleSyntax`。
-
-- 禁止无理由的 `any`、非空断言和双重类型断言；不可信输入先保持 `unknown`，校验后再用。
-- 类型导入使用 `import type`，避免把纯类型误打进运行时代码。
-- 默认使用 `type`；确实需要声明合并或第三方扩展点时才使用 `interface`。
-- 不使用 TypeScript `enum`，使用 `as const` 对象或字符串联合；分支用可辨识联合表达。
-- `switch` 处理 verdict 等封闭联合时必须穷尽，新增状态不能静默落入含糊的 `default`。
-- API 边界优先从 Zod schema 推导类型，避免手写一份运行时 schema、再复制一份 TS 类型。
-- 时间、内存等单位保留服务端字段名，例如 `cpuNs`、`memoryBytes`，不在前端私自换单位命名；
-  展示层可以格式化，但原始模型不变。
-
-### 6.4 命名、文件与导入
-
-- 目录和源码文件统一 `kebab-case`：`problem-list.tsx`、`use-submission.ts`。
-- React 组件、类型使用 `PascalCase`；变量、函数使用 `camelCase`。
-- Hook 以 `use` 开头；布尔值用 `is` / `has` / `can` / `should` 表意。
-- 回调 prop 使用 `onSubmit`，组件内部处理函数使用 `handleSubmit`。
-- Props 命名为 `<Component>Props`，不加 `I`、`T` 等匈牙利前缀。
-- 默认使用具名导出，便于重构和全局搜索；只有工具配置或第三方约定要求时使用默认导出。
-- 使用 `@/` 指向 `src/`，避免跨层的 `../../../`；同目录短相对导入仍可使用。
-- 导入顺序由 ESLint 自动判断并由 `lint:fix` 修复：副作用 → 第三方 → `@/` → 相对路径。
-- 不建立把整个目录全部再导出一遍的 barrel 文件；feature 只有在需要稳定公共入口时才显式导出。
-
-依赖方向是 `app/routes → features → components/lib`。一个 feature 不直接导入另一个 feature
-的内部文件；跨 feature 协作通过路由、共享 API 模型或显式公共入口完成。初始化前端时用
-`no-restricted-imports` 把这条边界写进 ESLint，而不是只靠评审记忆。
-
-### 6.5 React 与 TanStack 写法
-
-- 组件使用普通函数，不使用 `React.FC`；Props、返回值和泛型让 TypeScript 自然推断。
-- 能在渲染时计算的值不放进 state，也不用 Effect 同步；Effect 只连接 React 外部系统。
-- 网络请求不写在组件 Effect 中，统一通过 Query options / Mutation hooks。
-- `routes/` 负责路由装配、search params 校验和页面边界，具体业务留在 `features/`。
-- 每个 feature 集中维护 query key factory 和复用的 `queryOptions`；组件里不散落裸 key 数组。
-- Mutation 只精确失效相关 Query；乐观更新必须同时实现失败回滚和最终重新同步。
-- Router search params 是分页、筛选、排序等可恢复页面状态的真源，不再复制到全局 store。
-- Table 默认自行管理纯视图状态；只有需要 URL、服务端或父组件拥有时才提升对应字段。
-- 列表 key 必须来自稳定业务标识，禁止用数组下标掩盖增删和排序问题。
-- 加载、空数据、错误、无权限和正常内容是明确的 UI 状态，不能只实现成功路径。
-
-### 6.6 Tailwind、组件与可访问性
-
-- 条件 class 统一通过项目 `cn()`；class 顺序交给 `prettier-plugin-tailwindcss`。
-- 颜色只使用 semantic token，间距与圆角只使用 Foundation token，或使用各自的 Tailwind alias；
-  禁止任意颜色值、raw hex/OKLCH、primitive palette、主题 selector 和 theme-id 分支。
-- `bg-primary` 必须与 `text-primary-foreground` 配对，`bg-destructive` 必须与
-  `text-destructive-foreground` 配对；普通品牌/危险文字分别使用 `text-brand` / `text-danger`，
-  shadcn `accent` 只承担中性 hover。
-- 组件变体多于简单布尔条件时使用 shadcn/ui 的 variant 模式，不在调用处复制长 class 串。
-- `style` 只用于必须由运行时计算的连续值；静态视觉规则放 Tailwind/CSS。
-- 优先语义化 HTML；可点击元素使用 `button` / `a`，不拿 `div` 模拟。
-- 所有交互必须可通过键盘完成，并具有可访问名称、正确 label、焦点态和错误提示关联。
-- 不通过颜色单独表达 verdict；颜色之外还要有 code、名称和图标或形状，并检查所有 manifest 主题的
-  允许 surface 对比度。
-
-### 6.7 注释与错误处理
-
-- 注释解释“为什么这样设计、边界在哪里”，不复述代码字面行为。
-- 公共 hook、复杂 query options 和反直觉的浏览器兼容处理写短注释；显而易见的组件不写模板式注释。
-- 待办使用 `TODO(TASK-001): 原因/退出条件`，并关联所属 `development/works/WORK-xxx/` 中的
-  `60-task-TASK-xxx.md`；
-  不留没有工作项上下文的 `TODO`。
-- 捕获异常时先按 `unknown` 处理，统一转换成应用错误类型；用户提示与诊断信息分开。
-- 生产代码不散落 `console.log`；可观测性通过统一入口，测试中的预期错误需显式断言或抑制。
-
-### 6.8 测试代码风格
-
-- 单元/组件测试与被测文件同目录，命名 `*.test.ts(x)`；Playwright 用例只放 `e2e/`。
-- 测用户可见行为，不测组件内部 state 和实现细节；优先 `getByRole`、label 和可见文本。
-- 用户操作使用 `user-event`，HTTP 使用 MSW；不直接 mock TanStack Query 或 `fetch` 实现细节。
-- 每个异步测试等待最终可见状态，禁止靠固定 sleep 碰运气。
-- 默认不使用大面积 snapshot；只有输出结构稳定且人工审查确有价值时使用小快照。
-- 测试数据使用具名 builder/factory，避免每个用例复制巨大对象或依赖执行顺序。
-
-### 6.9 npm 命令与质量门禁
-
-初始化 `apps/web` 时统一提供以下脚本，README、hook 和 CI 都只调用这些脚本，不各写一套命令：
-
-```jsonc
-{
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "generate:api": "openapi-ts",
-    "generate:api:check": "node scripts/check-generated-api.mjs",
-    "generate:design-system": "node scripts/generate-design-system.mjs",
-    "generate:design-system:check": "node scripts/generate-design-system.mjs --check",
-    "check:design-system:source": "node scripts/check-design-system.mjs",
-    "check:design-system:self-test": "node scripts/check-design-system.mjs --self-test",
-    "check:design-system": "node design-system/tools/build.mjs --check && node design-system/tools/check.mjs && node design-system/tools/check.mjs --self-test && npm run generate:design-system:check && npm run check:design-system:source && npm run check:design-system:self-test",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:e2e": "playwright test",
-    "storybook": "storybook dev -p 6006",
-    "storybook:build": "storybook build",
-    "check": "npm run check:design-system && npm run generate:api:check && npm run format:check && npm run lint && npm run typecheck && npm run test:run"
-  }
-}
-```
-
-- 开发中主动运行 `format` / `lint:fix`；提交前运行 `npm run check`。
-- pre-commit 只检查暂存前端文件的 Prettier 和 ESLint 结果，不自动修复或重新 `git add`。
-- pre-push 在 `apps/web` 有改动时运行 `npm run check` 和 `npm run build`。
-- OpenAPI 契约变化后运行 `generate:api` 并提交生成物；`generate:api:check` 与 `check` 会拒绝漂移。
-- 设计系统代码变化后运行本地 `design-system/tools/build.mjs`、`design-system/tools/check.mjs` 与生成物
-  检查；普通 `check` 不读取、复制或比较设计说明目录。
-- CI 使用 `npm ci`，运行 `check`、生产构建、Storybook 静态构建和 Playwright；任何 warning
-  不作为长期可忽略状态。
-- 门禁分层：Prettier 管格式，ESLint 管代码风险，TypeScript 管类型，Vitest 管组件行为，
-  Playwright 管端到端链路。某层通过不能替代下一层。
 
 ## 7. 推荐目录结构
 
@@ -496,7 +328,7 @@ shadcn/ui / Base UI、语义 token、Storybook、ESLint、Prettier、Vitest、Te
 - **alpha/beta/RC 依赖**：除非某阶段有明确收益、替代方案和升级计划，否则不进入主链路。
 
 这些不是永久禁令。若业务条件改变，应先记录问题、候选方案和取舍，再修改本文件与
-`CLAUDE.md`，避免技术栈靠口头约定漂移。
+`AGENTS.md`，避免技术栈靠口头约定漂移。
 
 ## 10. 已确定能力、尚未选择具体库
 

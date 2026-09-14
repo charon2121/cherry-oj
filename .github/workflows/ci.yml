@@ -382,7 +382,7 @@ jobs:
           go-version-file: apps/judge-engine/go.mod
           cache-dependency-path: apps/judge-engine/go.sum
 
-      # CLAUDE.md 里写的「提交前必须干净」，在这里变成强制的
+      # AGENTS.md 里写的「提交前必须干净」，在这里变成强制的
       - name: gofmt
         run: |
           unformatted=$(gofmt -l .)

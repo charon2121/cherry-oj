@@ -148,7 +148,7 @@ npm run test:e2e
 - `npm run test:e2e`：关键用户链路是否被自动化验收覆盖。
 - `npm run build`：最终是否能生成可部署的静态站点。
 
-工具存在的理由、运行阶段以及删除后的影响见 [`TOOLCHAIN.md`](./TOOLCHAIN.md)。全仓编码与架构边界以 [`CLAUDE.md`](../../CLAUDE.md) 为准。
+工具存在的理由、运行阶段以及删除后的影响见 [`TOOLCHAIN.md`](./TOOLCHAIN.md)。全仓编码与架构边界以 [`AGENTS.md`](../../AGENTS.md) 为准。
 
 ## 常见问题
 

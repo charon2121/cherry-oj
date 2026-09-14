@@ -163,20 +163,13 @@ OIDC 登录跳转或独立的 OAuth 授权服务器。
 
 ### 4.4 浏览器 REST 协议
 
-- `contracts/web-api.openapi.json` 是浏览器 ↔ Gateway 的 OpenAPI 3.1 唯一真源；内部服务 DTO 不直接
-  暴露，也不套用浏览器 envelope。
-- 请求 body 由 endpoint schema 直接描述。普通 JSON 成功响应使用
-  `{ data: T, meta: { requestId, pagination? } }`；无 body 的成功使用 204。
-- 错误使用 RFC 9457 `application/problem+json` 和正确 4xx/5xx，并扩展稳定 `code`、
-  `meta.requestId` 与可选 `violations`。Bean Validation 为 422，无法解析的请求为 400；未知 5xx
-  只能返回安全摘要。
-- Gateway 忽略不可信的来访 request ID，为每次请求生成 opaque `X-Request-Id`；响应 header、成功
-  meta 和 Problem meta 必须相同。request ID、内部 trace ID、Session 与 Idempotency-Key 不能混用。
-- 普通响应 schema 的新增可选字段属于兼容演进；破坏性修改必须提供迁移窗口或新 `/api/v2`。
+响应信封、RFC 9457 错误、状态码选择、`X-Request-Id` 归属和兼容演进规则见
+[`coding-standards/frameworks/spring.md`](./coding-standards/frameworks/spring.md) §2。
 
 外部 API 使用 HTTPS + REST/JSON。普通查询和立即需要结果的命令使用同步 HTTP；判题这种长流程使用
-Kafka 异步推进。HTTP 状态码描述本次协议交互是否成功，verdict 描述用户程序的运行结果：
+Kafka 异步推进。**HTTP 状态码描述本次协议交互是否成功，verdict 描述用户程序的运行结果**：
 AC、WA、TLE 等正常判题结论不是 HTTP 错误。
+
 
 ## 5. 数据访问与 MySQL
 
@@ -194,19 +187,10 @@ AC、WA、TLE 等正常判题结论不是 HTTP 错误。
 
 ### 5.2 SQL 规范
 
-- 表名、列名和索引名统一使用 `lower_snake_case`；表名统一使用单数形式，禁止混用单复数命名风格。
-  Java 字段使用 `camelCase`。
-- SQL 关键字大写；主要子句换行；复杂条件按逻辑层级缩进。
-- `SELECT` 必须显式列出需要的列，禁止 `SELECT *`。
-- Mapper 方法只表达一个清晰的数据操作；不在 XML 中堆叠大段业务分支。
-- 参数一律使用 `#{}` 绑定；除受控的固定枚举映射外，不使用 `${}` 拼接外部输入。
-- 写操作必须显式列出列名；禁止依赖数据库列顺序。
-- 分页和批处理查询必须有稳定排序；可能同值的排序字段追加主键作为最终顺序。
-- 高频查询必须由真实查询条件反推联合索引，遵守最左前缀；不为每列机械建单列索引。
-- 不使用存储过程、触发器承载业务逻辑；业务规则留在应用服务，数据库负责约束与持久化。
-- 不使用 Hibernate `ddl-auto` 等运行时自动改表能力；所有 DDL 经 Flyway 审查和迁移。
-- 跨服务禁止 JOIN；同一服务、同一数据库内允许为清晰查询使用 JOIN，避免人为制造 N+1。
-- 数据库事务只覆盖本服务数据；跨服务一致性通过事件和补偿实现，不使用分布式 XA 事务。
+已迁至 [`coding-standards/frameworks/spring.md`](./coding-standards/frameworks/spring.md) §3——表名列名风格、
+`SELECT` 显式列、`#{}` 绑定、稳定排序、联合索引最左前缀、禁止跨服务 JOIN 等具体写法都在那里。
+本文只保留选型理由（为什么是 MyBatis 而不是 JPA / jOOQ）和数据所有权边界。
+
 
 ### 5.3 数据所有权
 
@@ -287,32 +271,24 @@ JudgeTask 状态；基础设施重试耗尽时，对用户映射为 `Done + SE`�
 
 ## 9. 测试策略
 
-- Java 单元与组件测试使用 Spring Boot Test 提供的 JUnit 测试栈。
-- Mapper、Flyway migration、事务、锁和索引行为使用 **Testcontainers + MySQL 8.4**，不使用 H2 模拟。
-- Kafka 的序列化、Inbox 去重、重复投递和消费提交边界必须有集成测试。
-- 服务间 HTTP 在单元测试中使用假客户端；跨服务关键路径在集成测试中启动真实服务依赖。
-- JSON Schema 示例必须能被 Java 和 Go DTO 正确反序列化，并断言字段单位和可选语义。
-- Go 侧继续使用标准 `testing`、`httptest` 和 `go test -race`。
-- 关键故障必须可重复测试：Relay 重发、Kafka 重投、Worker 租约过期、旧 token 迟到、Judge 超时与毒消息。
+Java 侧的测试要求（Spring Boot Test、Testcontainers 而非 H2、Kafka 集成测试、契约对齐）见
+[`coding-standards/frameworks/spring.md`](./coding-standards/frameworks/spring.md) §5；Go 侧见
+[`coding-standards/languages/go.md`](./coding-standards/languages/go.md)。
+
+**关键故障必须可重复测试**：Relay 重发、Kafka 重投、Worker 租约过期、旧 token 迟到、Judge 超时
+与毒消息。这条是架构层要求——如果这些路径只能靠线上事故验证，可靠性模型就只是纸面承诺。
+
 
 ## 10. 配置、部署与工程约束
 
-- Java 服务使用各自的 `application.yaml`，敏感信息只从环境变量或部署 Secret 注入。
-- 公共依赖版本通过 Maven BOM 管理；业务代码和 Mapper 不做跨服务源码共享。
-- Docker Compose 用于本地拉起 MySQL、Redis、Kafka 和各服务；生产部署方案暂不在本文锁定。
-- 健康检查至少区分存活与就绪；依赖暂时不可用不应导致无界快速重试。
-- 所有网络客户端必须配置连接、读取和总调用超时，重试只用于明确可重试且具备幂等性的操作。
-- 时间字段统一使用 UTC；资源限制字段延续现有契约：时间为 ns，内存为 bytes，并在字段名中写出单位。
-- 日志必须包含 `traceId`，判题链路同时包含 `submissionId`、`taskId` 和 `attemptNo`；不得记录源码、Cookie、
-  内部 JWT、密码、密码摘要或完整敏感请求体。
-- Gateway 继续生成并覆盖 public `X-Request-Id`；同步内部 HTTP 可以传播该值，但不得写入 Kafka/数据库，
-  也不得承担 Trace、身份、幂等或业务主键语义。内部 Trace 仅使用 W3C `traceparent`/`tracestate`，
-  baseline 禁用 baggage；未来实现必须由 Gateway 作为公开信任边界新建内部 root。
-- `judge-events.traceId` 只保存当前 32-hex Trace ID 供查询；HTTP/Kafka header 才是父子传播真源。
-  JudgeRequest、RunSpec 与业务响应不增加观测字段。
-- Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日文件规则见
-  [`logging.md`](./logging.md)。Kafka 链尚未实现，Metrics、collector、远端 Trace/日志存储与查询后端
-  也未交付，不能把 HTTP 日志关联扩大解释为完整观测平台。
+配置注入、健康检查、超时与重试、时间与单位、日志字段和 Trace 传播的具体规则见
+[`coding-standards/frameworks/spring.md`](./coding-standards/frameworks/spring.md) §4。
+
+架构层约束：Docker Compose 用于本地拉起 MySQL、Redis、Kafka 和各服务，生产部署方案暂不锁定。
+Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日文件规则见
+[`logging.md`](./logging.md)。**Kafka 链尚未实现**，Metrics、collector、远端 Trace/日志存储与
+查询后端也未交付，不能把 HTTP 日志关联扩大解释为完整观测平台。
+
 
 ## 11. 当前明确不采用
 
