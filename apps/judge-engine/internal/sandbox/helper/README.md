@@ -46,12 +46,13 @@
 
 sandbox 使用 `api → pool → runner → Container`，Store 独立管理文件引用。Linux Container 负责与此处的单次输入/指定输出协议衔接；helper 只实现特权执行部分，runner 沿用 Container 接口。
 
-- `execute_linux_amd64.go` 创建 Linux 进程、启动 I/O、监督资源和处理握手事件。
-- `execution.go` 持有一次执行的状态，显式完成 Stop、等待、受控产物打开和最终释放。执行失败保留为本次平台错误；回收失败额外返回 error，让服务停止接单。
-- `file.go` 管理 FD 的一次性关闭；重复/并发收尾返回首次关闭结果，后台读写不依赖可变的裸指针。
-- `delivery.go` 独占产物 FD。公开 `Result` 只有事实数据，客户端不取得宿主文件句柄。
-- launcher 的 `initSession` 管理配置、payload 启动、降权后的放行和退出报告；传递阶段与 errno。控制和存活通道保持到 PID 1 退出，其余文件显式登记/释放。
+- `server_linux_amd64.go` 的 service 持有监听、管理器和槽位；调用 execution.Run 后交付和关闭结果。
+- `execution.go` 的 execution 独占本次 cgroup 与终止状态。`Run` 统一启动、监督和 `cleanup.go` 中的最终回收；重复或并发 Run 被拒绝。
+- `isolation_plan.go` 持有经过复制的请求与固定 namespace、文件系统、资源和身份策略，不持有 FD，也不改变协议类型。
+- `process.go` 的 isolatedProcess 拥有握手、工作区目录、FD 与输入输出任务；`process_linux_amd64.go` 实际以 namespace + UseCgroupFD 启动 P4，`process_cleanup.go` 返回等待事实。execution 不访问这些原始通道。
+- `delivery.go` 的 artifactSet 聚合受控产物，executionResult 接管后负责交付和关闭；重复关闭保留首次错误。
+- launcher 的 initSession 在 P4 调用 rootFilesystem.Prepare，再启动/放行 P5；rootFilesystem 负责挂载准备与局部 FD，无法替 P3 停组。最终 exec 的线程和系统调用限制保持原样。
 
-单次执行的固定监督策略集中在 execution.go；请求中的资源预算与这些安全策略分开。部署侧可调参数仍须在 TASK-099 明确范围，不能让客户端修改特权策略。
+预算复查由 execution 完成，握手合法性由 isolatedProcess 判断。读到 ready 仍不能自行发 GO；必须再次检查取消、墙钟和累计 CPU。结束后先停组和等待，再打开产物、释放环境，结果交付仍遵循 Completion 与 EOF 协议。
 
 本地生命周期故障测试可直接在 macOS 上运行，覆盖独立清理上下文、停止/等待/关闭失败、部分产物打开失败、输入取消及 FD 所有权。它们测试控制逻辑，不取代 Linux 内核行为验证。

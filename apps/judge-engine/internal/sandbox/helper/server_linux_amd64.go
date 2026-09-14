@@ -8,14 +8,20 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"sync"
 	"time"
 
-	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
+
 	"golang.org/x/sys/unix"
+)
+
+// 分阶段设置期限，避免慢请求占槽；恢复和探测独立于已接纳请求的会话期限。
+const (
+	requestHeaderTimeout = 5 * time.Second  // 开始处理连接后读取请求控制帧。
+	deliveryTimeout      = 10 * time.Second // execution.Run 返回后单独刷新写端期限。
+	recoveryTimeout      = 5 * time.Second  // 服务启动时回收旧的自有环境。
 )
 
 // Serve 只接受配置中固定 UID，连接占用并发槽直到产物交付结束；超额立即拒绝。
@@ -25,6 +31,23 @@ func Serve(ctx context.Context, c Config) (result error) {
 	if err != nil {
 		return err
 	}
+	s := &service{config: c, executable: executable, slots: availableSlots(c.Parallelism), fatal: make(chan error, 1)}
+	return s.run(ctx)
+}
+
+// service 拥有监听、资源组管理器和接纳名额；单次执行的 FD 与状态不进入服务。
+type service struct {
+	config     Config
+	executable string
+	manager    *cgroup.Manager
+	listener   *net.UnixListener
+	slots      chan int
+	fatal      chan error
+}
+
+func (s *service) run(ctx context.Context) (result error) {
+	c := s.config
+	// 先持有服务锁再恢复遗留资源，避免两个 helper 同时回收或分配同一组槽位身份。
 	lock, err := os.OpenFile(filepath.Join(c.StateDir, "lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
 	if err != nil {
 		return err
@@ -40,19 +63,21 @@ func Serve(ctx context.Context, c Config) (result error) {
 	if err != nil {
 		return err
 	}
+	s.manager = manager
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 		defer cancel()
 		result = errors.Join(result, manager.Close(cleanup))
 	}()
-	cleanup, cancel := context.WithTimeout(ctx, 5*time.Second)
+	cleanup, cancel := context.WithTimeout(ctx, recoveryTimeout)
 	err = recoverOwned(cleanup, c)
 	cancel()
 	if err != nil {
 		return err
 	}
+	// 文件校验不能证明内核隔离能力；每组身份都走真实执行链，全部成功才开放 socket。
 	for slot := 0; slot < c.Parallelism; slot++ {
-		if err := probeInstallation(ctx, c.forSlot(slot), manager, executable); err != nil {
+		if err := probeInstallation(ctx, c.forSlot(slot), s.manager, s.executable); err != nil {
 			return fmt.Errorf("槽位%d启动探测: %w", slot, err)
 		}
 	}
@@ -60,7 +85,8 @@ func Serve(ctx context.Context, c Config) (result error) {
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	s.listener = listener
+	defer s.listener.Close()
 	// 文件权限与 SO_PEERCRED 双重约束，只有服务专用组可以建立连接。
 	if err = os.Chown(c.SocketPath, 0, c.ServiceGID); err != nil {
 		return err
@@ -73,13 +99,11 @@ func Serve(ctx context.Context, c Config) (result error) {
 	go func() { <-serveCtx.Done(); listener.Close() }()
 	var wg sync.WaitGroup
 	defer func() { stop(); wg.Wait() }()
-	slots := availableSlots(c.Parallelism)
-	fatal := make(chan error, 1)
 	for {
-		conn, err := listener.AcceptUnix()
+		conn, err := s.listener.AcceptUnix()
 		if err != nil {
 			select {
-			case e := <-fatal:
+			case e := <-s.fatal:
 				return e
 			default:
 			}
@@ -94,7 +118,7 @@ func Serve(ctx context.Context, c Config) (result error) {
 		}
 		var slot int
 		select {
-		case slot = <-slots:
+		case slot = <-s.slots:
 		default:
 			conn.Close()
 			continue
@@ -102,10 +126,11 @@ func Serve(ctx context.Context, c Config) (result error) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			serveInSlot(conn, slots, slot, func() {
-				if err := serveConn(serveCtx, conn, c.forSlot(slot), manager, executable); err != nil {
+			serveInSlot(conn, s.slots, slot, func() {
+				// 回收失败会让槽位是否可复用变得不确定，先停接单再退出当前处理函数。
+				if err := s.serveConn(serveCtx, conn, slot); err != nil {
 					select {
-					case fatal <- err:
+					case s.fatal <- err:
 					default:
 					}
 					stop()
@@ -141,9 +166,12 @@ func checkPeer(c *net.UnixConn, uid int) error {
 	}
 	return nil
 }
-func serveConn(ctx context.Context, conn *net.UnixConn, c Config, m *cgroup.Manager, executable string) (fatal error) {
-	// 总传输期限覆盖 header、输入、执行、清理和产物，不允许客户端无限占槽。
-	if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+
+// serveConn 返回的错误仅用于通知 Serve 停服；普通执行失败通过 Result 交付。
+// 交付失败仍由 defer 关闭产物，serveInSlot 最后归还槽位并关闭连接。
+func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (fatal error) {
+	// 先限制请求头读取；校验通过后才设置后续会话期限（见 sessionTimeout）。
+	if err := conn.SetDeadline(time.Now().Add(requestHeaderTimeout)); err != nil {
 		return nil
 	}
 	var req launcher.Request
@@ -153,21 +181,26 @@ func serveConn(ctx context.Context, conn *net.UnixConn, c Config, m *cgroup.Mana
 	if req.Validate() != nil {
 		return nil
 	}
-	if err := conn.SetDeadline(time.Now().Add(150 * time.Second)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(sessionTimeout)); err != nil {
 		return nil
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// execution 的输入读取阻塞在 socket；仅取消 ctx 不会唤醒它，必须推进读期限。
 	interrupt := context.AfterFunc(runCtx, func() { conn.SetReadDeadline(time.Now()) })
 	defer interrupt()
-	res, fatal := execute(runCtx, req, conn, c, func(l cgroup.Limits) (executionGroup, error) { return m.New(l) }, executable, cancel)
+	run := newExecution(req, executionOptions{
+		config: s.config.forSlot(slot), source: conn, executable: s.executable, cancelInput: cancel,
+		groups: func(l cgroup.Limits) (executionGroup, error) { return s.manager.New(l) },
+	})
+	res, fatal := run.Run(runCtx)
 	defer func() { fatal = errors.Join(fatal, res.Close()) }()
 	if ctx.Err() != nil {
 		return fatal
 	}
 	// 读取侧超时不妨碍给仍连接的调用方返回已取消/失败的资源事实。
-	_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-	if err := launcher.WriteFrame(conn, res.Result, 4<<20); err != nil {
+	_ = conn.SetWriteDeadline(time.Now().Add(deliveryTimeout))
+	if err := launcher.WriteFrame(conn, res.Result, maxResultFrameBytes); err != nil {
 		return fatal
 	}
 	if err := res.WriteFiles(conn); err != nil {
@@ -180,71 +213,6 @@ func serveConn(ctx context.Context, conn *net.UnixConn, c Config, m *cgroup.Mana
 		return fatal
 	}
 	// 资源句柄回收完成后才确认交付，客户端必须消费该尾帧。
-	_ = launcher.WriteFrame(conn, Completion{Version: launcher.Version, Complete: true}, 1024)
+	_ = launcher.WriteFrame(conn, Completion{Version: launcher.Version, Complete: true}, maxCompletionFrameBytes)
 	return fatal
-}
-
-// checkInstallation 只读校验安装可信性；成功不代表已经通过真实隔离启动。
-func checkInstallation(c Config) (string, error) {
-	if err := c.Validate(); err != nil {
-		return "", err
-	}
-	info, ok := debug.ReadBuildInfo()
-	pure := false
-	if ok {
-		for _, setting := range info.Settings {
-			if setting.Key == "CGO_ENABLED" && setting.Value == "0" {
-				pure = true
-			}
-		}
-	}
-	if !pure {
-		return "", fmt.Errorf("helper 必须使用 CGO_ENABLED=0 构建")
-	}
-	if os.Geteuid() != 0 {
-		return "", fmt.Errorf("helper 必须由 root 托管")
-	}
-	for _, p := range []string{c.StateDir, c.JobsDir} {
-		if err := securePath(p, true); err != nil {
-			return "", err
-		}
-	}
-	if err := verifyRoot(c); err != nil {
-		return "", err
-	}
-	executable, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	if err = securePath(executable, false); err != nil {
-		return "", err
-	}
-	binaryInfo, err := os.Stat(executable)
-	if err != nil {
-		return "", err
-	}
-	if !binaryInfo.Mode().IsRegular() || binaryInfo.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
-		return "", fmt.Errorf("helper 必须为不带 setuid/setgid 的普通可执行文件")
-	}
-
-	return executable, nil
-}
-
-// probeInstallation 在监听前通过真实执行链验证部署；不使用宿主 true。
-func probeInstallation(ctx context.Context, c Config, manager *cgroup.Manager, executable string) error {
-	probeCtx, probeCancel := context.WithTimeout(ctx, 5*time.Second)
-	defer probeCancel()
-	probeR, probeW := io.Pipe()
-	closeInput := sync.OnceValue(probeR.Close)
-	probeInputCancel := func() { probeCancel(); closeInput() }
-	probe := launcher.Request{Version: launcher.Version, Command: []string{"true"}, Limits: contract.ExplicitLimits(contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 128 << 20, MaxProcesses: 64, StdoutMaxBytes: 1024, StderrMaxBytes: 1024})}
-	facts, err := execute(probeCtx, probe, probeR, c, func(l cgroup.Limits) (executionGroup, error) { return manager.New(l) }, executable, probeInputCancel)
-	probeInputCancel()
-	if err = errors.Join(err, closeInput(), probeW.Close(), facts.Close()); err != nil {
-		return err
-	}
-	if facts.Reason != "" || facts.ExitCode != 0 || facts.Signal != 0 || facts.Usage.CPUNs <= 0 || facts.Usage.MemoryBytes <= 0 || len(facts.Stdout) != 0 || len(facts.Stderr) != 0 {
-		return fmt.Errorf("隔离启动能力冒烟失败: reason=%s error=%s stderr=%q", facts.Reason, facts.Error, facts.Stderr)
-	}
-	return nil
 }

@@ -8,7 +8,6 @@ import (
 )
 
 func (s *Server) handleBlobPut(w http.ResponseWriter, r *http.Request) {
-	// 限制 body 大小
 	body := http.MaxBytesReader(w, r.Body, s.opts.MaxBlobBytes)
 	ref, err := s.store.Put(body)
 	if err != nil {
@@ -29,10 +28,11 @@ func (s *Server) handleBlobGet(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	// 即使客户端中途断开也释放 reader，否则 Store 仍会把该文件计入在用容量。
 	defer rc.Close()
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, _ = io.Copy(w, rc) // 流式
+	_, _ = io.Copy(w, rc)
 }
 
 func (s *Server) handleBlobDelete(w http.ResponseWriter, r *http.Request) {

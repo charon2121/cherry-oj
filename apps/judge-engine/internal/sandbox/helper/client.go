@@ -12,61 +12,82 @@ import (
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
 
+const dialTimeout = 3 * time.Second // 本机 socket 建连期限，独立于建连后的会话。
+
 // Call 接管并关闭 input；其 Close 必须能解除 Read 阻塞（本地文件或有界内存流）。
 // Call 流式交付输入和产物。consume 必须同步处理每个受限 reader；不能保留 reader 异步读取。
-// 上层 TASK-097 负责解析 store ref、默认限额及状态映射；此处没有判题语义。
-func Call(ctx context.Context, socket string, r launcher.Request, input io.ReadCloser, consume func(Output, io.Reader) error) (result Result, resultErr error) {
+// 对端入口是 serveConn。只有 Completion 后的正常 EOF 才表示槽位已归还；
+// consume 即使已收到文件，也不能在 Call 成功前对外发布。
+func Call(ctx context.Context, socket string, r launcher.Request, input io.ReadCloser, consume func(Output, io.Reader) error) (Result, error) {
+	var result Result
 	if input == nil {
 		return result, fmt.Errorf("输入流不能为空")
 	}
 	closeInput := sync.OnceValue(input.Close)
-	defer func() { resultErr = errors.Join(resultErr, closeInput()) }()
+	defer closeInput()
 	if err := r.Validate(); err != nil {
-		return result, err
+		return result, errors.Join(err, closeInput())
 	}
-	d := net.Dialer{Timeout: 3 * time.Second}
-	conn, err := d.DialContext(ctx, "unix", socket)
+	conn, err := (&net.Dialer{Timeout: dialTimeout}).DialContext(ctx, "unix", socket)
 	if err != nil {
-		return result, err
+		return result, errors.Join(err, closeInput())
 	}
 	closeConn := sync.OnceValue(conn.Close)
-	defer func() { resultErr = errors.Join(resultErr, closeConn()) }()
+	defer closeConn()
 	stop := context.AfterFunc(ctx, func() { closeConn() })
 	defer stop()
-	if err = conn.SetDeadline(time.Now().Add(150 * time.Second)); err != nil {
-		return result, err
+
+	err = conn.SetDeadline(time.Now().Add(sessionTimeout))
+	if err == nil {
+		err = launcher.WriteFrame(conn, r, launcher.MaxFrameBytes)
 	}
-	if err = launcher.WriteFrame(conn, r, launcher.MaxFrameBytes); err != nil {
-		return result, err
+	if err == nil {
+		// helper 可能在读完输入前响应失败；上传与接收并行，避免双向堵塞。
+		sent := uploadInput(conn, input, r.InputBytes())
+		finishUpload := sync.OnceValue(func() error {
+			// 必须先解除两端阻塞再等上传，不能单独等待 sent。
+			closeConn()
+			closeInput()
+			return <-sent
+		})
+		defer finishUpload() // consume 等外部实现 panic 时仍回收上传任务。
+		result, err = receiveResult(conn, r.Outputs, consume)
+		if err == nil {
+			err = awaitCompletion(ctx, conn)
+		}
+		if uploadErr := finishUpload(); uploadErr != nil && result.Reason == "" {
+			err = errors.Join(err, uploadErr)
+		}
 	}
-	// 读响应与写输入并行：启动早期失败或低预算时 helper 可以提前响应，避免双向堵塞。
+	stop()
+	// 关闭错误属于本次调用结果；文件接收成功并不代表可以发布。
+	return result, errors.Join(err, closeConn(), closeInput())
+}
+
+func uploadInput(conn net.Conn, input io.Reader, bytes int64) <-chan error {
 	sent := make(chan error, 1)
 	go func() {
-		_, err := io.CopyN(conn, input, r.InputBytes())
+		_, err := io.CopyN(conn, input, bytes)
 		if err != nil {
-			if u, ok := conn.(*net.UnixConn); ok {
-				u.CloseWrite()
+			if unix, ok := conn.(*net.UnixConn); ok {
+				unix.CloseWrite()
 			}
 		}
 		sent <- err
 	}()
-	defer func() {
-		// 主 defer 保留关闭错误；这里先中断阻塞上传，再等待线程退出。
-		closeConn()
-		closeInput()
-		e := <-sent
-		if e != nil && result.Reason == "" {
-			resultErr = errors.Join(resultErr, e)
-		}
-	}()
-	if err = launcher.ReadFrame(conn, &result, 4<<20); err != nil {
+	return sent
+}
+
+func receiveResult(conn io.Reader, outputs []string, consume func(Output, io.Reader) error) (Result, error) {
+	var result Result
+	if err := launcher.ReadFrame(conn, &result, maxResultFrameBytes); err != nil {
 		return result, err
 	}
-	if result.Version != launcher.Version || len(result.Outputs) > 128 {
+	if result.Version != launcher.Version || len(result.Outputs) > launcher.MaxOutputs {
 		return result, fmt.Errorf("helper 响应版本/产物数无效")
 	}
 	allowed := map[string]bool{}
-	for _, p := range r.Outputs {
+	for _, p := range outputs {
 		allowed[p] = true
 	}
 	var total int64
@@ -76,36 +97,41 @@ func Call(ctx context.Context, socket string, r launcher.Request, input io.ReadC
 		}
 		delete(allowed, o.Path)
 		total += o.SizeBytes
+		// 每个产物必须消费到声明长度；即使调用者只读前缀，也不能让剩余内容冒充下一帧。
 		reader := &io.LimitedReader{R: conn, N: o.SizeBytes}
 		if consume != nil {
-			if err = consume(o, reader); err != nil {
+			if err := consume(o, reader); err != nil {
 				return result, err
 			}
 		}
-		if _, err = io.Copy(io.Discard, reader); err != nil {
+		if _, err := io.Copy(io.Discard, reader); err != nil {
 			return result, err
 		}
 		if reader.N != 0 {
 			return result, io.ErrUnexpectedEOF
 		}
 	}
+	return result, nil
+}
+
+func awaitCompletion(ctx context.Context, conn io.Reader) error {
 	var completion Completion
-	if err = launcher.ReadFrame(conn, &completion, 1024); err != nil {
-		return result, err
+	if err := launcher.ReadFrame(conn, &completion, maxCompletionFrameBytes); err != nil {
+		return err
 	}
 	if completion.Version != launcher.Version || !completion.Complete {
-		return result, fmt.Errorf("helper 没有确认完整回收与交付")
+		return fmt.Errorf("helper 没有确认完整回收与交付")
 	}
 	// Completion 确认执行资源和产物回收；正常 EOF 才确认连接收尾、槽位归还。
 	// 此读取仍受上面的总期限和 ctx 取消约束。reset 或多余字节不能当作成功。
 	var trailing [1]byte
 	if n, err := conn.Read(trailing[:]); n != 0 {
-		return result, fmt.Errorf("helper 完成帧后存在多余数据")
+		return fmt.Errorf("helper 完成帧后存在多余数据")
 	} else if err != io.EOF {
 		if err == nil {
 			err = io.ErrNoProgress
 		}
-		return result, fmt.Errorf("等待 helper 连接收尾: %w", err)
+		return fmt.Errorf("等待 helper 连接收尾: %w", err)
 	}
-	return result, ctx.Err()
+	return ctx.Err()
 }

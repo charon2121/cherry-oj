@@ -13,6 +13,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// recoverOwned 仅在 Serve 持有独占服务锁后调用。所有权标记绑定 JobsDir，
+// 无标记的非空目录或未知条目不能被当成上次任务残留清理。
 func recoverOwned(ctx context.Context, c Config) error {
 	entries, err := os.ReadDir(c.JobsDir)
 	if err != nil {
@@ -108,6 +110,9 @@ func recoverOwned(ctx context.Context, c Config) error {
 	}
 	return nil
 }
+
+// recoverGroup 处理失去 Go 对象的历史执行组；写 kill 只是请求，
+// 只有 populated=0 才允许调用者删除组目录，未知嵌套组会阻止恢复。
 func recoverGroup(ctx context.Context, g *os.Root) error {
 	d, err := g.Open(".")
 	if err != nil {

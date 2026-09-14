@@ -7,7 +7,21 @@ import (
 	"math"
 )
 
-var limitNames = [...]string{"cpuNs", "clockNs", "memoryBytes", "maxProcesses", "stdoutMaxBytes", "stderrMaxBytes"}
+// 字段编号同时索引值与 present 位；按字段名映射，不能靠调用者记住下标。
+const (
+	limitCPU = iota
+	limitClock
+	limitMemory
+	limitProcesses
+	limitStdout
+	limitStderr
+	limitFieldCount
+)
+
+var limitNames = [limitFieldCount]string{
+	limitCPU: "cpuNs", limitClock: "clockNs", limitMemory: "memoryBytes",
+	limitProcesses: "maxProcesses", limitStdout: "stdoutMaxBytes", limitStderr: "stderrMaxBytes",
+}
 
 // ExplicitLimits 将 Go literal 的所有值（包括 0）标为显式预算。
 // 普通 literal 中为 0 的字段视为缺省；已有调用者无需改成指针字段。
@@ -16,18 +30,18 @@ func ExplicitLimits(l Limits) Limits {
 	return l
 }
 
-func (l Limits) values() [6]int64 {
-	return [6]int64{l.CPUNs, l.ClockNs, l.MemoryBytes, int64(l.MaxProcesses), l.StdoutMaxBytes, l.StderrMaxBytes}
+func (l Limits) values() [limitFieldCount]int64 {
+	return [limitFieldCount]int64{limitCPU: l.CPUNs, limitClock: l.ClockNs, limitMemory: l.MemoryBytes, limitProcesses: int64(l.MaxProcesses), limitStdout: l.StdoutMaxBytes, limitStderr: l.StderrMaxBytes}
 }
 
-func limitsFrom(values [6]int64, present uint8) Limits {
-	return Limits{CPUNs: values[0], ClockNs: values[1], MemoryBytes: values[2], MaxProcesses: int(values[3]), StdoutMaxBytes: values[4], StderrMaxBytes: values[5], present: present}
+func limitsFrom(values [limitFieldCount]int64, present uint8) Limits {
+	return Limits{CPUNs: values[limitCPU], ClockNs: values[limitClock], MemoryBytes: values[limitMemory], MaxProcesses: int(values[limitProcesses]), StdoutMaxBytes: values[limitStdout], StderrMaxBytes: values[limitStderr], present: present}
 }
 
 // Validate 校验表示范围，0 的执行含义由执行入口处理，不能在这里替换默认值。
 func (l Limits) Validate() error {
 	for i, value := range l.values() {
-		if value < 0 || (i == 3 && value > math.MaxInt32) {
+		if value < 0 || (i == limitProcesses && value > math.MaxInt32) {
 			return fmt.Errorf("limits.%s 超出允许范围: %d", limitNames[i], value)
 		}
 	}
@@ -71,21 +85,21 @@ func (l *Limits) UnmarshalJSON(data []byte) error {
 	if err != nil || token != json.Delim('{') {
 		return fmt.Errorf("limits 必须是对象")
 	}
-	var values [6]int64
+	var values [limitFieldCount]int64
 	var present uint8
 	for decoder.More() {
 		token, err = decoder.Token()
 		if err != nil {
 			return fmt.Errorf("读取 limits 字段: %w", err)
 		}
-		index := -1
+		index := limitFieldCount
 		for i, name := range limitNames {
 			if name == token {
 				index = i
 				break
 			}
 		}
-		if index < 0 {
+		if index == limitFieldCount {
 			return fmt.Errorf("未知 limits 字段: %v", token)
 		}
 		if present&(1<<index) != 0 {
@@ -95,7 +109,7 @@ func (l *Limits) UnmarshalJSON(data []byte) error {
 		if err := decoder.Decode(&value); err != nil {
 			return fmt.Errorf("limits.%s: %w", limitNames[index], err)
 		}
-		if value == nil || *value < 0 || (index == 3 && *value > math.MaxInt32) {
+		if value == nil || *value < 0 || (index == limitProcesses && *value > math.MaxInt32) {
 			return fmt.Errorf("limits.%s 必须是允许范围内的非负整数", limitNames[index])
 		}
 		values[index] = *value

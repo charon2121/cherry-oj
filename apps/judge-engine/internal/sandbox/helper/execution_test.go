@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
+	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
 
 type lifecycleGroup struct {
@@ -40,7 +41,7 @@ func TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts(t *testing.T) {
 			injected := errors.New("injected " + failure)
 			req := testRequest()
 			req.Outputs = []string{"program"}
-			x := newExecution(req, func() { steps = append(steps, "cancel-input") })
+			x := newTestExecution(req, func() { steps = append(steps, "cancel-input") })
 			group := &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{CPUNs: 1}}
 			if failure == "stop" {
 				group.stopErr = injected
@@ -53,17 +54,17 @@ func TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			x.workspace = ownFile(dir)
-			x.waited = false
-			x.waitDone = make(chan error, 1)
+			x.process.(*isolatedProcess).workspace = &testArtifactSource{dir: ownFile(dir)}
+			x.process.(*isolatedProcess).initStopped = false
+			x.process.(*isolatedProcess).initExited = make(chan error, 1)
 			if failure == "wait" {
-				x.waitDone <- injected
+				x.process.(*isolatedProcess).initExited <- injected
 			} else {
-				x.waitDone <- nil
+				x.process.(*isolatedProcess).initExited <- nil
 			}
-			x.events = make(chan received)
-			close(x.events)
-			x.openOutput = func(_ *ownedFile, _ string) (*os.File, int64, error) {
+			x.process.(*isolatedProcess).events = make(chan received)
+			close(x.process.(*isolatedProcess).events)
+			x.process.(*isolatedProcess).workspace.(*testArtifactSource).open = func(_ string) (*os.File, int64, error) {
 				steps = append(steps, "open-output")
 				if failure == "output" {
 					return nil, 0, injected
@@ -107,7 +108,7 @@ func TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts(t *testing.T) {
 				if result.Reason != ReasonPlatform || !strings.Contains(result.Error, injected.Error()) {
 					t.Fatalf("lost failure: %+v", result)
 				}
-				if len(result.files) != 0 || len(result.Outputs) != 0 {
+				if result.artifacts != nil && len(result.artifacts.files) != 0 || len(result.Outputs) != 0 {
 					t.Fatal("published unsafe artifacts")
 				}
 				if failure != "output" && !errors.Is(fatal, injected) {
@@ -126,7 +127,7 @@ func TestFinishPreservesExecutionAndMultipleCleanupErrors(t *testing.T) {
 	runErr := errors.New("start failed")
 	stopErr := errors.New("stop failed")
 	closeErr := errors.New("close failed")
-	x := newExecution(testRequest(), func() {})
+	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps, stopErr: stopErr, closeErr: closeErr}
 	x.fail(runErr)
 	result, fatal := x.finish(context.Background())
@@ -168,15 +169,15 @@ func TestOwnedFileConcurrentCloseUnblocksReader(t *testing.T) {
 
 func TestFinishClosesUnconsumedReceivedFiles(t *testing.T) {
 	var steps []string
-	x := newExecution(testRequest(), func() {})
+	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps}
 	f, err := os.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	x.events = make(chan received, 1)
-	x.events <- received{dir: ownFile(f)}
-	close(x.events)
+	x.process.(*isolatedProcess).events = make(chan received, 1)
+	x.process.(*isolatedProcess).events <- received{dir: ownFile(f)}
+	close(x.process.(*isolatedProcess).events)
 	_, err = x.finish(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -191,7 +192,7 @@ func TestDeliveryRejectsTruncatedArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := executionResult{Result: Result{Outputs: []Output{{Path: "artifact", SizeBytes: 1}}}, files: []*ownedFile{ownFile(f)}}
+	r := executionResult{Result: Result{Outputs: []Output{{Path: "artifact", SizeBytes: 1}}}, artifacts: &artifactSet{files: []*ownedFile{ownFile(f)}}}
 	if err := r.WriteFiles(io.Discard); !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
@@ -206,20 +207,20 @@ func TestFinishCancelsBlockedInputBeforeWaiting(t *testing.T) {
 		t.Fatal(err)
 	}
 	var steps []string
-	x := newExecution(testRequest(), func() {
+	x := newTestExecution(testRequest(), func() {
 		if err := r.Close(); err != nil {
 			t.Error(err)
 		}
 	})
 	x.group = &lifecycleGroup{steps: &steps}
-	x.feedFinished = make(chan struct{})
-	go func() { defer close(x.feedFinished); var b [1]byte; _, _ = r.Read(b[:]) }()
+	x.process.(*isolatedProcess).inputFinished = make(chan struct{})
+	go func() { defer close(x.process.(*isolatedProcess).inputFinished); var b [1]byte; _, _ = r.Read(b[:]) }()
 	_, err = x.finish(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	select {
-	case <-x.feedFinished:
+	case <-x.process.(*isolatedProcess).inputFinished:
 	default:
 		t.Fatal("returned before input goroutine finished")
 	}
@@ -232,19 +233,19 @@ func TestFinishClosesEarlierArtifactsWhenLaterOpenFails(t *testing.T) {
 	var steps []string
 	req := testRequest()
 	req.Outputs = []string{"first", "second"}
-	x := newExecution(req, func() {})
+	x := newTestExecution(req, func() {})
 	x.group = &lifecycleGroup{steps: &steps}
 	dir, err := os.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	x.workspace = ownFile(dir)
+	x.process.(*isolatedProcess).workspace = &testArtifactSource{dir: ownFile(dir)}
 	file, err := os.CreateTemp(t.TempDir(), "artifact")
 	if err != nil {
 		t.Fatal(err)
 	}
 	denied := errors.New("unsafe second artifact")
-	x.openOutput = func(_ *ownedFile, name string) (*os.File, int64, error) {
+	x.process.(*isolatedProcess).workspace.(*testArtifactSource).open = func(name string) (*os.File, int64, error) {
 		if name == "first" {
 			return file, 0, nil
 		}
@@ -254,7 +255,7 @@ func TestFinishClosesEarlierArtifactsWhenLaterOpenFails(t *testing.T) {
 	if fatal != nil {
 		t.Fatal(fatal)
 	}
-	if result.Reason != ReasonPlatform || len(result.Outputs) != 0 || len(result.files) != 0 {
+	if result.Reason != ReasonPlatform || len(result.Outputs) != 0 || result.artifacts != nil && len(result.artifacts.files) != 0 {
 		t.Fatal(result)
 	}
 	if _, err := file.Stat(); !errors.Is(err, os.ErrClosed) {
@@ -264,7 +265,7 @@ func TestFinishClosesEarlierArtifactsWhenLaterOpenFails(t *testing.T) {
 
 func TestFinishOOMDoesNotHideIndependentFailure(t *testing.T) {
 	var steps []string
-	x := newExecution(testRequest(), func() {})
+	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{OOM: 1, OOMKill: 1}}
 	failure := errors.New("snapshot failed")
 	x.fail(failure)
@@ -279,17 +280,17 @@ func TestFinishOOMDoesNotHideIndependentFailure(t *testing.T) {
 
 func TestFinalOOMSurvivesInitExitDiagnostic(t *testing.T) {
 	var steps []string
-	x := newExecution(testRequest(), func() {})
+	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{OOM: 1, OOMKill: 1}}
-	x.initLost = true
-	x.waited = false
-	x.waitDone = make(chan error, 1)
+	x.initReportLost = true
+	x.process.(*isolatedProcess).initStopped = false
+	x.process.(*isolatedProcess).initExited = make(chan error, 1)
 	err := exec.Command("sh", "-c", "exit 1").Run()
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) {
 		t.Fatal(err)
 	}
-	x.waitDone <- err
+	x.process.(*isolatedProcess).initExited <- err
 	x.fail(io.EOF)
 	result, fatal := x.finish(context.Background())
 	if fatal != nil || result.Reason != "" || result.Error != "" || result.Signal != 9 {
@@ -298,12 +299,12 @@ func TestFinalOOMSurvivesInitExitDiagnostic(t *testing.T) {
 }
 
 func TestAncestorOOMPreservesPlatformFailure(t *testing.T) {
-	for _, initLost := range []bool{false, true} {
+	for _, initReportLost := range []bool{false, true} {
 		var steps []string
-		x := newExecution(testRequest(), func() {})
+		x := newTestExecution(testRequest(), func() {})
 		x.group = &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{OOMKill: 2}}
-		x.initLost = initLost
-		if initLost {
+		x.initReportLost = initReportLost
+		if initReportLost {
 			x.fail(io.EOF)
 		}
 		result, fatal := x.finish(context.Background())
@@ -312,3 +313,15 @@ func TestAncestorOOMPreservesPlatformFailure(t *testing.T) {
 		}
 	}
 }
+
+func newTestExecution(r launcher.Request, cancel context.CancelFunc) *execution {
+	return newExecution(r, executionOptions{source: strings.NewReader(""), cancelInput: cancel})
+}
+
+type testArtifactSource struct {
+	dir  *ownedFile
+	open func(string) (*os.File, int64, error)
+}
+
+func (s *testArtifactSource) Open(name string) (*os.File, int64, error) { return s.open(name) }
+func (s *testArtifactSource) Close() error                              { return s.dir.Close() }

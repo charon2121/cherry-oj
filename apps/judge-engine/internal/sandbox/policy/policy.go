@@ -21,6 +21,7 @@ const (
 	auditAMD64  = 0xc000003e
 )
 
+// Profile 是版本化的策略身份；增删允许项也会影响执行环境兼容性。
 type Profile string
 
 const (
@@ -43,10 +44,11 @@ func AMD64(profile Profile) ([]Instruction, error) {
 		{Code: jumpSet, JF: 1, K: 0x40000000}, // x32 ABI
 		{Code: ret, K: killProcess},
 	}
-	// clone3 的指针结构不能用 classic BPF 安全解引用；拒绝并允许已验证 libc 回退 clone。
+	// clone3 的指针结构不能用 classic BPF 安全解引用；用 ENOSYS 让 libc 回退到受检查的 clone。
 	p = append(p, Instruction{Code: jumpEqual, JF: 1, K: 435}, Instruction{Code: ret, K: errno | 38}) // ENOSYS
 	// pidfd_open 是 Go os/exec 的可选能力探测；返回 ENOSYS 令其使用既有 wait/kill 路径。
-	// 不开放 pidfd 访问，也不允许把宿主 FD 带进 payload。
+	// 只有支持的 libc/Go runtime 不再依赖这两条 ENOSYS 回退，且策略版本更新并通过回归后，
+	// 才能移除相应兼容规则；不能直接换成 kill 而破坏进程启动/等待。
 	p = append(p, Instruction{Code: jumpEqual, JF: 1, K: 434}, Instruction{Code: ret, K: errno | 38})
 	// isatty 不应导致程序被杀；所有 ioctl 都返回 ENOTTY，不向设备透传。
 	p = append(p, Instruction{Code: jumpEqual, JF: 1, K: 16}, Instruction{Code: ret, K: errno | 25})
@@ -218,12 +220,13 @@ func AMD64(profile Profile) ([]Instruction, error) {
 		{441, "epoll_pwait2"},
 		{452, "fchmodat2"},
 	}
+	// init 完成启动后只需监督和回收，不允许它再 exec；payload 保留自身执行能力。
 	if profile != Supervisor {
 		calls = append(calls, struct {
 			number uint32
 			name   string
 		}{59, "execve"})
-	} // execve：监督进程完成启动后不可再 exec。
+	}
 	for _, nr := range calls {
 		p = append(p, Instruction{Code: jumpEqual, JF: 1, K: nr.number}, Instruction{Code: ret, K: allow})
 	}

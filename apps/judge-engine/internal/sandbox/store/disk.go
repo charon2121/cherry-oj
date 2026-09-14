@@ -19,6 +19,7 @@ var ErrNotFound = errors.New("store reference not found")
 var ErrCapacity = errors.New("store capacity exceeded")
 var refPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
+// Options 控制持久文件预算和保留期；正在读取的过期文件仍计入容量直到 reader 关闭。
 type Options struct {
 	MaxBlobBytes  int64
 	MaxTotalBytes int64
@@ -42,6 +43,7 @@ type diskStore struct {
 	closed  bool
 }
 
+// NewDiskStore 创建使用默认预算的临时 Store；调用者负责 Close，它只释放句柄，不删除目录。
 func NewDiskStore() (*diskStore, error) {
 	root, e := os.MkdirTemp("", "cherry-store-")
 	if e != nil {
@@ -53,6 +55,8 @@ func NewDiskStore() (*diskStore, error) {
 	}
 	return s, e
 }
+
+// NewDiskStoreWithRoot 使用默认预算打开指定目录；生产入口通过 New 显式提供容量和保留期。
 func NewDiskStoreWithRoot(root string) (*diskStore, error) {
 	return New(root, Options{64 << 20, 512 << 20, 4096, time.Hour})
 }
@@ -111,6 +115,9 @@ func regular(f *os.File) error {
 	}
 	return nil
 }
+
+// load 只接管符合组件命名及所有权约束的条目；.pending 文件尚未发布，
+// 重启后可清理它们，但不能递归删除未知文件来让服务启动。
 func (s *diskStore) load() error {
 	directory, e := s.dir.Open(".")
 	if e != nil {
@@ -207,6 +214,7 @@ func (s *diskStore) Put(r io.Reader) (string, error) {
 		s.mu.Unlock()
 		return "", e
 	}
+	// 上传尚未发布：readers=1 阻止 Close 抢先释放根句柄，deleted=true 阻止 Get/Sweep 接管。
 	s.entries[ref] = &entry{size: s.opts.MaxBlobBytes, readers: 1, deleted: true}
 	s.used += s.opts.MaxBlobBytes
 	s.mu.Unlock()
@@ -220,12 +228,14 @@ func (s *diskStore) Put(r io.Reader) (string, error) {
 	if s.closed {
 		e = errors.Join(e, os.ErrClosed)
 	}
+	// 同目录 rename 后才发布 ref，读取者不会观察到正在上传的半个文件。
 	if e == nil {
 		e = s.dir.Rename(".pending-"+ref, ref)
 	}
 	if e != nil {
 		removeErr := s.dir.Remove(".pending-" + ref)
 		if removeErr != nil {
+			// 未确认文件删除就不能归还预留容量，否则残留文件会绕过总量限制。
 			return "", errors.Join(e, removeErr)
 		}
 		s.used -= s.entries[ref].size
@@ -290,6 +300,8 @@ func (s *diskStore) Delete(ref string) error {
 	}
 	return nil
 }
+
+// remove 先 unlink 阻止新打开；已有 FD 仍持有文件，容量必须等最后一个 reader 关闭才归还。
 func (s *diskStore) remove(ref string, x *entry) error {
 	if e := s.dir.Remove(ref); e != nil && !errors.Is(e, os.ErrNotExist) {
 		return e

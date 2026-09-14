@@ -26,6 +26,7 @@ func parseFields(data []byte) (map[string]uint64, error) {
 	return fields, nil
 }
 
+// 缺项必须是错误；零是合法的资源事实，不能用 map 零值掩盖内核接口缺失。
 func required(fields map[string]uint64, name string) (uint64, error) {
 	value, ok := fields[name]
 	if !ok {

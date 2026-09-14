@@ -7,22 +7,49 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
 )
 
 const Version = 1
-const MaxFrameBytes = 64 << 10
-const MaxInputBytes int64 = 64 << 20
-const MaxArtifactBytes int64 = 64 << 20
 
-// Request 是仅供本机 Go 服务调用的内部协议，不包含任何宿主路径或特权配置。
-// Inputs 后接 StdinBytes 个标准输入字节；数据不放进 JSON，避免 base64 全量缓冲。
+// 本机请求先限制条目及累计字节，避免客户端用小控制帧触发无界资源分配。
+// 输入与产物是两个独立累计预算；结果帧预算由 helper 协议单独维护。
+const (
+	MaxFrameBytes               = 64 << 10
+	MaxInputBytes         int64 = 64 << 20
+	MaxArtifactBytes      int64 = 64 << 20
+	MaxOutputs                  = 128 // 请求声明及 helper 响应允许的产物数量。
+	maxRequestInputs            = 128
+	maxRequestArgs              = 256
+	maxRequestEnvEntries        = 128
+	maxRequestStringBytes       = 32 << 10 // argv/env，包括各字符串结尾 NUL。
+	maxPathSegments             = 8
+	frameHeaderBytes            = 4 // uint32 大端长度；后面紧接 JSON，再后面可跟文件流。
+)
+
+// 已归一化请求的节点硬边界，不是 runner 填充的默认限额。
+const (
+	maxCPUNs       = int64(60 * time.Second)
+	maxClockNs     = int64(120 * time.Second)
+	maxMemoryBytes = 1 << 30
+	maxProcesses   = 256
+	maxStdoutBytes = 1 << 20
+	maxStderrBytes = 1 << 20
+)
+
+// Input 的 Path 是工作区逻辑路径；SizeBytes 用来划分随请求发送的连续文件流。
+// 不允许调用者指定宿主路径或文件所有者。
 type Input struct {
 	Path       string
 	SizeBytes  int64
 	Executable bool
 }
+
+// Request 是本机非特权服务发给 helper 的协议，不接受宿主路径或特权设置。
+// 控制帧后依 Inputs 顺序发送文件，最后发送 StdinBytes 个 stdin 字节；
+// 文件不放进 JSON，避免 base64 造成全量内存缓冲。
 type Request struct {
 	Version      int
 	Command, Env []string
@@ -32,13 +59,16 @@ type Request struct {
 	Limits       contract.Limits
 }
 
+// 名称最多 128 个 ASCII 字节：首字符一位，后续最多 127 位；两种字符集有意不同。
 var commandName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}$`)
 
 var segment = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 
+// ValidPath 只接受工作区相对名称，排除空段、点段和保留的点前缀内部文件。
+// 它不能替代打开文件时的链接/挂载边界校验。
 func ValidPath(name string) bool {
 	parts := strings.Split(name, "/")
-	if len(parts) > 8 {
+	if len(parts) > maxPathSegments {
 		return false
 	}
 	for _, p := range parts {
@@ -48,6 +78,8 @@ func ValidPath(name string) bool {
 	}
 	return true
 }
+
+// InputBytes 用于划分控制帧后的数据区，调用前必须 Validate 以确保总量未溢出。
 func (r Request) InputBytes() int64 {
 	n := r.StdinBytes
 	for _, f := range r.Inputs {
@@ -55,8 +87,11 @@ func (r Request) InputBytes() int64 {
 	}
 	return n
 }
+
+// Validate 不填充默认值；helper 不能自行猜测显式零预算的含义。
+// 请求须由 runner 归一化后交付，特权边界仍独立复查，不能只信客户端校验。
 func (r Request) Validate() error {
-	if r.Version != Version || len(r.Command) == 0 || len(r.Command) > 256 || len(r.Env) > 128 || len(r.Inputs) > 128 || len(r.Outputs) > 128 {
+	if r.Version != Version || len(r.Command) == 0 || len(r.Command) > maxRequestArgs || len(r.Env) > maxRequestEnvEntries || len(r.Inputs) > maxRequestInputs || len(r.Outputs) > MaxOutputs {
 		return fmt.Errorf("无效版本或条目数")
 	}
 	// 命令先在工作区，再在只读 rootfs 固定目录中解析；请求不能提供绝对路径。
@@ -72,7 +107,7 @@ func (r Request) Validate() error {
 			}
 		}
 	}
-	if total > 32<<10 {
+	if total > maxRequestStringBytes {
 		return fmt.Errorf("参数/环境过大")
 	}
 	for _, e := range r.Env {
@@ -105,7 +140,7 @@ func (r Request) Validate() error {
 	}
 	// 本机调用者必须已经完成默认值填充。零 CPU/内存由上层返回资源结论，不启动 helper。
 	l := r.Limits
-	if l.CPUNs <= 0 || l.ClockNs <= 0 || l.MemoryBytes <= 0 || l.MaxProcesses <= 0 || l.CPUNs > 60_000_000_000 || l.ClockNs > 120_000_000_000 || l.MemoryBytes > 1<<30 || l.MaxProcesses > 256 || l.StdoutMaxBytes > 1<<20 || l.StderrMaxBytes > 1<<20 {
+	if l.CPUNs <= 0 || l.ClockNs <= 0 || l.MemoryBytes <= 0 || l.MaxProcesses <= 0 || l.CPUNs > maxCPUNs || l.ClockNs > maxClockNs || l.MemoryBytes > maxMemoryBytes || l.MaxProcesses > maxProcesses || l.StdoutMaxBytes > maxStdoutBytes || l.StderrMaxBytes > maxStderrBytes {
 		return fmt.Errorf("执行限额未归一化或超出节点硬边界")
 	}
 	return nil
@@ -113,7 +148,7 @@ func (r Request) Validate() error {
 
 // ReadFrame 严格限制分配大小，拒绝未知字段与尾随 JSON；不缓冲后续文件字节流。
 func ReadFrame(r io.Reader, v any, max uint32) error {
-	var h [4]byte
+	var h [frameHeaderBytes]byte
 	if _, err := io.ReadFull(r, h[:]); err != nil {
 		return err
 	}
@@ -136,6 +171,8 @@ func ReadFrame(r io.Reader, v any, max uint32) error {
 	}
 	return nil
 }
+
+// WriteFrame 使用与 ReadFrame 相同的长度前缀；短写也必须处理完，避免后续文件流错位。
 func WriteFrame(w io.Writer, v any, max uint32) error {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -144,7 +181,7 @@ func WriteFrame(w io.Writer, v any, max uint32) error {
 	if len(b) == 0 || len(b) > int(max) {
 		return fmt.Errorf("控制帧过大")
 	}
-	var h [4]byte
+	var h [frameHeaderBytes]byte
 	binary.BigEndian.PutUint32(h[:], uint32(len(b)))
 	if err = writeAll(w, h[:]); err != nil {
 		return err
@@ -163,24 +200,4 @@ func writeAll(w io.Writer, b []byte) error {
 		b = b[n:]
 	}
 	return nil
-}
-
-// StageSpec 只通过 helper 创建的匿名管道传给可信 init，绝不从 socket 客户端解码。
-type StageSpec struct {
-	Request                                  Request
-	RootFS, MountPoint, Executable           string
-	PayloadUID, PayloadGID, InitUID, InitGID int
-	WorkspaceBytes                           int64
-	WorkspaceInodes                          int
-}
-
-type Event struct {
-	Errno            uint32 // 可信 init 失败的原始 errno；最终 exec 使用 ExecErrno。
-	Phase            string
-	ExecStage        byte
-	ExecErrno        uint32
-	Version          int
-	Kind             string
-	ExitCode, Signal int
-	ExecFailed       bool
 }

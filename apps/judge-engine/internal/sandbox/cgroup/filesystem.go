@@ -9,6 +9,7 @@ import (
 
 const maxControlBytes = 16 << 10
 
+// 根句柄把后续相对访问绑定到已核验的 cgroup2fs，不反复按宿主路径解析执行组。
 type diskFilesystem struct{ root *os.Root }
 
 func (d *diskFilesystem) read(name string) ([]byte, error) {

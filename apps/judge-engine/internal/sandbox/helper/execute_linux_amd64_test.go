@@ -50,7 +50,10 @@ func TestFailedStartAlwaysReclaimsOwnedResources(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			cancel()
-			result, fatal := execute(ctx, testRequest(), strings.NewReader(""), Config{StateDir: state}, func(cgroup.Limits) (executionGroup, error) { return g, nil }, "/nonexistent-cherry-test-executable", cancel)
+			result, fatal := newExecution(testRequest(), executionOptions{
+				config: Config{StateDir: state}, source: strings.NewReader(""), executable: "/nonexistent-cherry-test-executable", cancelInput: cancel,
+				groups: func(cgroup.Limits) (executionGroup, error) { return g, nil },
+			}).Run(ctx)
 			defer result.Close()
 			if result.Reason != "platform" {
 				t.Fatal(result)

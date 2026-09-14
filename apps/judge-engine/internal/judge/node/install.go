@@ -27,43 +27,43 @@ var wrapperPattern = regexp.MustCompile(`^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,127}$`)
 var errRejected = errors.New("NODE_DATA_REJECTED")
 var errConflict = errors.New("NODE_DATA_CONFLICT")
 
-// Install 不接受任意落盘路径。每个安装先写同文件系统 staging，回执随目录一起原子提交。
+// Install 用节点锁串行化提交；每次事务独占 staging，不把安装中间状态放进 Node。
 func (n *Node) Install(ctx context.Context, m contract.NodeInstall, archive io.Reader) (contract.NodeReceipt, error) {
 	n.installMu.Lock()
 	defer n.installMu.Unlock()
+	m.Manifest.Files = append([]contract.ManifestFile(nil), m.Manifest.Files...)
+	tx := installation{node: n, metadata: m}
+	return tx.run(ctx, archive)
+}
+
+type installation struct {
+	node          *Node
+	metadata      contract.NodeInstall
+	work, zipPath string
+}
+
+func (tx *installation) run(ctx context.Context, archive io.Reader) (contract.NodeReceipt, error) {
+	m := tx.metadata
+	// staging 与目标同文件系统，回执随目录原子提交；失败只移除本事务的 staging。
+	defer func() {
+		if tx.work != "" {
+			_ = os.RemoveAll(tx.work)
+		}
+	}()
 	empty := contract.NodeReceipt{}
-	if m.NodeID != n.registration.NodeID || m.EnvironmentFingerprint != n.registration.EnvironmentFingerprint || m.SessionID != n.registration.SessionID {
+	if m.NodeID != tx.node.registration.NodeID || m.EnvironmentFingerprint != tx.node.registration.EnvironmentFingerprint || m.SessionID != tx.node.registration.SessionID {
 		return empty, errConflict
 	}
 	if !uuidPattern.MatchString(m.TestDataVersionID) || !hashPattern.MatchString(m.ExpectedSHA256) {
 		return empty, errRejected
 	}
-	if err := n.validateManifest(m.Manifest); err != nil {
+	if err := tx.validateManifest(m.Manifest); err != nil {
 		return empty, err
 	}
-	work, err := os.MkdirTemp(n.root, ".install-")
-	if err != nil {
-		return empty, fmt.Errorf("create staging: %w", err)
-	}
-	defer os.RemoveAll(work)
-	zipPath := filepath.Join(work, "asset.zip")
-	f, err := os.OpenFile(zipPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
+	if err := tx.receiveArchive(ctx, archive); err != nil {
 		return empty, err
 	}
-	digest := sha256.New()
-	count, copyErr := io.Copy(io.MultiWriter(f, digest), io.LimitReader(&contextReader{ctx, archive}, n.cfg.MaxArchiveBytes+1))
-	closeErr := f.Close()
-	if copyErr != nil {
-		return empty, fmt.Errorf("receive archive: %w", copyErr)
-	}
-	if closeErr != nil {
-		return empty, closeErr
-	}
-	if count > n.cfg.MaxArchiveBytes || hex.EncodeToString(digest.Sum(nil)) != m.ExpectedSHA256 {
-		return empty, errRejected
-	}
-	target := filepath.Join(n.root, m.TestDataVersionID)
+	target := filepath.Join(tx.node.root, m.TestDataVersionID)
 	if stat, e := os.Lstat(target); e == nil {
 		if !stat.IsDir() || stat.Mode()&os.ModeSymlink != 0 {
 			return empty, errConflict
@@ -77,22 +77,22 @@ func (n *Node) Install(ctx context.Context, m contract.NodeInstall, archive io.R
 		if json.Unmarshal(saved, &receipt) != nil || receipt.SHA256 != m.ExpectedSHA256 || receipt.EnvironmentFingerprint != m.EnvironmentFingerprint || receipt.NodeID != m.NodeID || receipt.TestDataVersionID != m.TestDataVersionID || receipt.FileCount != len(m.Manifest.Files) {
 			return empty, errConflict
 		}
-		if err := n.verifyInstalled(ctx, target, m.Manifest); err != nil {
+		if err := tx.verifyInstalled(ctx, target, m.Manifest); err != nil {
 			return empty, err
 		}
-		receipt.SessionID = n.registration.SessionID
+		receipt.SessionID = tx.node.registration.SessionID
 		return receipt, nil
 	} else if !os.IsNotExist(e) {
 		return empty, e
 	}
-	data := filepath.Join(work, "data")
+	data := filepath.Join(tx.work, "data")
 	if err := os.Mkdir(data, 0700); err != nil {
 		return empty, err
 	}
-	if err := n.extract(ctx, zipPath, data, m.Manifest); err != nil {
+	if err := tx.extract(ctx, tx.zipPath, data, m.Manifest); err != nil {
 		return empty, err
 	}
-	receipt := contract.NodeReceipt{NodeID: n.registration.NodeID, EnvironmentFingerprint: n.registration.EnvironmentFingerprint, SessionID: n.registration.SessionID, TestDataVersionID: m.TestDataVersionID, SHA256: m.ExpectedSHA256, FileCount: len(m.Manifest.Files)}
+	receipt := contract.NodeReceipt{NodeID: tx.node.registration.NodeID, EnvironmentFingerprint: tx.node.registration.EnvironmentFingerprint, SessionID: tx.node.registration.SessionID, TestDataVersionID: m.TestDataVersionID, SHA256: m.ExpectedSHA256, FileCount: len(m.Manifest.Files)}
 	payload, err := json.Marshal(receipt)
 	if err != nil {
 		return empty, err
@@ -109,14 +109,40 @@ func (n *Node) Install(ctx context.Context, m contract.NodeInstall, archive io.R
 	}
 	return receipt, nil
 }
-func (n *Node) validateManifest(m contract.TestDataManifest) error {
-	if len(m.Files) < 2 || len(m.Files) > n.cfg.MaxFiles || m.CaseCount < 1 || m.CaseCount*2 != len(m.Files) || m.TotalBytes < 0 || m.TotalBytes > n.cfg.MaxExpandedBytes {
+func (tx *installation) receiveArchive(ctx context.Context, archive io.Reader) error {
+	work, err := os.MkdirTemp(tx.node.root, ".install-")
+	if err != nil {
+		return fmt.Errorf("create staging: %w", err)
+	}
+	tx.work = work
+	tx.zipPath = filepath.Join(work, "asset.zip")
+	f, err := os.OpenFile(tx.zipPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	digest := sha256.New()
+	count, copyErr := io.Copy(io.MultiWriter(f, digest), io.LimitReader(&contextReader{ctx, archive}, tx.node.cfg.MaxArchiveBytes+1))
+	closeErr := f.Close()
+	if copyErr != nil {
+		return fmt.Errorf("receive archive: %w", copyErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if count > tx.node.cfg.MaxArchiveBytes || hex.EncodeToString(digest.Sum(nil)) != tx.metadata.ExpectedSHA256 {
+		return errRejected
+	}
+
+	return nil
+}
+func (tx *installation) validateManifest(m contract.TestDataManifest) error {
+	if len(m.Files) < 2 || len(m.Files) > tx.node.cfg.MaxFiles || m.CaseCount < 1 || m.CaseCount*2 != len(m.Files) || m.TotalBytes < 0 || m.TotalBytes > tx.node.cfg.MaxExpandedBytes {
 		return errRejected
 	}
 	names := map[string]bool{}
 	var total int64
 	for _, f := range m.Files {
-		if !casePattern.MatchString(f.Name) || names[f.Name] || !hashPattern.MatchString(f.SHA256) || f.SizeBytes < 0 || f.SizeBytes > n.cfg.MaxEntryBytes || f.SizeBytes > n.cfg.MaxExpandedBytes-total {
+		if !casePattern.MatchString(f.Name) || names[f.Name] || !hashPattern.MatchString(f.SHA256) || f.SizeBytes < 0 || f.SizeBytes > tx.node.cfg.MaxEntryBytes || f.SizeBytes > tx.node.cfg.MaxExpandedBytes-total {
 			return errRejected
 		}
 		names[f.Name] = true
@@ -133,13 +159,13 @@ func (n *Node) validateManifest(m contract.TestDataManifest) error {
 	}
 	return nil
 }
-func (n *Node) extract(ctx context.Context, zipPath, data string, m contract.TestDataManifest) error {
+func (tx *installation) extract(ctx context.Context, zipPath, data string, m contract.TestDataManifest) error {
 	z, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return errRejected
 	}
 	defer z.Close()
-	if len(z.File) > n.cfg.MaxFiles {
+	if len(z.File) > tx.node.cfg.MaxFiles {
 		return errRejected
 	}
 	expected := map[string]contract.ManifestFile{}
@@ -198,7 +224,7 @@ func (n *Node) extract(ctx context.Context, zipPath, data string, m contract.Tes
 			return errRejected
 		}
 		seen[logical] = true
-		if f.UncompressedSize64 > uint64(n.cfg.MaxEntryBytes) || (f.UncompressedSize64 > 0 && (f.CompressedSize64 == 0 || float64(f.UncompressedSize64)/float64(f.CompressedSize64) > float64(n.cfg.MaxCompressionRatio))) {
+		if f.UncompressedSize64 > uint64(tx.node.cfg.MaxEntryBytes) || (f.UncompressedSize64 > 0 && (f.CompressedSize64 == 0 || float64(f.UncompressedSize64)/float64(f.CompressedSize64) > float64(tx.node.cfg.MaxCompressionRatio))) {
 			return errRejected
 		}
 		input, err := f.Open()
@@ -210,7 +236,7 @@ func (n *Node) extract(ctx context.Context, zipPath, data string, m contract.Tes
 			input.Close()
 			return err
 		}
-		err = n.copyCase(ctx, input, output, spec)
+		err = tx.copyCase(ctx, input, output, spec)
 		inputErr := input.Close()
 		outputErr := output.Close()
 		if err != nil {
@@ -241,9 +267,9 @@ func (n *Node) extract(ctx context.Context, zipPath, data string, m contract.Tes
 	}
 	return nil
 }
-func (n *Node) copyCase(ctx context.Context, input io.Reader, output io.Writer, spec contract.ManifestFile) error {
+func (tx *installation) copyCase(ctx context.Context, input io.Reader, output io.Writer, spec contract.ManifestFile) error {
 	h := sha256.New()
-	reader := bufio.NewReader(io.TeeReader(io.LimitReader(&contextReader{ctx, input}, n.cfg.MaxEntryBytes+1), io.MultiWriter(output, h)))
+	reader := bufio.NewReader(io.TeeReader(io.LimitReader(&contextReader{ctx, input}, tx.node.cfg.MaxEntryBytes+1), io.MultiWriter(output, h)))
 	var size int64
 	for {
 		r, width, err := reader.ReadRune()
@@ -257,7 +283,7 @@ func (n *Node) copyCase(ctx context.Context, input io.Reader, output io.Writer, 
 			return errRejected
 		}
 		size += int64(width)
-		if size > n.cfg.MaxEntryBytes {
+		if size > tx.node.cfg.MaxEntryBytes {
 			return errRejected
 		}
 	}
@@ -266,7 +292,7 @@ func (n *Node) copyCase(ctx context.Context, input io.Reader, output io.Writer, 
 	}
 	return nil
 }
-func (n *Node) verifyInstalled(ctx context.Context, dir string, m contract.TestDataManifest) error {
+func (tx *installation) verifyInstalled(ctx context.Context, dir string, m contract.TestDataManifest) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) != len(m.Files)+1 {
 		return errConflict
@@ -281,7 +307,7 @@ func (n *Node) verifyInstalled(ctx context.Context, dir string, m contract.TestD
 		if err != nil {
 			return err
 		}
-		err = n.copyCase(ctx, input, io.Discard, f)
+		err = tx.copyCase(ctx, input, io.Discard, f)
 		closeErr := input.Close()
 		if err != nil {
 			return err

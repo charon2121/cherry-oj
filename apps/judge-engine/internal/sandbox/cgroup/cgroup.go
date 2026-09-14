@@ -1,5 +1,4 @@
 // Package cgroup 管理已委派子树中的单次 v2 执行组，不理解判题状态。
-// 仅包含本项目实现；go-sandbox 的机制参考记录见 WORK-048 DESIGN-042。
 package cgroup
 
 import (
@@ -32,10 +31,12 @@ func (l Limits) validate() error {
 	return nil
 }
 
+// Snapshot 记录整组累计 CPU 和内存峰值。运行中各文件分别读取，不是跨文件原子快照；
+// Stop 确认组清空后再保存最终事实，不能拿单次轮询代替回收确认。
 type Snapshot struct {
 	CPUNs           int64
 	MemoryBytes     int64
-	OOM             uint64
+	OOM             uint64 // 本任务发生 OOM；与仅说明有受害进程的 OOMKill 分开。
 	OOMKill         uint64
 	MemoryMaxEvents uint64
 	PidsMaxEvents   uint64
@@ -53,6 +54,7 @@ type filesystem interface {
 	close() error
 }
 
+// Manager 独占管理自建执行组；任一组回收失败后，后续 New 拒绝继续分配。
 type Manager struct {
 	mu       sync.Mutex
 	fs       filesystem
@@ -121,7 +123,7 @@ func (m *Manager) New(l Limits) (*Group, error) {
 	if m.poisoned != nil {
 		return nil, fmt.Errorf("cgroup 管理器已隔离: %w", m.poisoned)
 	}
-	// 删除已经关闭的对象引用，避免 1000 次执行留下 1000 份控制面对象。
+	// 丢弃已关闭组的引用，使管理器内存不随历史执行次数增长；回收失败则保留故障。
 	for name, g := range m.groups {
 		g.mu.Lock()
 		removed := g.removed
@@ -177,6 +179,7 @@ func (m *Manager) Close(ctx context.Context) error {
 	return err
 }
 
+// Group 在 Stop 时冻结计量，Close 时删除目录；两步分开使交付前仍可取得最终资源事实。
 type Group struct {
 	mu         sync.Mutex
 	fs         filesystem
@@ -201,6 +204,8 @@ func (g *Group) File() (*os.File, error) {
 }
 
 func (g *Group) configure(l Limits) error {
+	// memory.oom.group 避免只杀某个子进程后其余进程继续运行；swap 另有独立的零预算。
+	// cpu.max 使用微秒，validate 已拒绝不能整除的 ns，转换不能默默损失精度。
 	settings := [][2]string{
 		{"memory.max", fmt.Sprint(l.MemoryBytes)},
 		{"memory.swap.max", "0"}, {"memory.oom.group", "1"},
@@ -228,10 +233,12 @@ func (g *Group) configure(l Limits) error {
 	if snap.Populated || snap.CPUNs != 0 || snap.MemoryBytes != 0 || snap.OOM != 0 || snap.OOMKill != 0 || snap.MemoryMaxEvents != 0 || snap.PidsMaxEvents != 0 {
 		return fmt.Errorf("新建 cgroup 已有进程或历史计量")
 	}
-	// 仅打开写句柄检查权限，不预写 kill。首站实测预写会使随后原子入组的子进程被杀。
+	// 仅打开写句柄检查权限；启动前写 cgroup.kill 可能杀死随后原子入组的进程。
+	// 真正的 kill 只能在 Stop/恢复阶段发起。
 	return g.fs.checkWritable(g.name + "/cgroup.kill")
 }
 
+// Snapshot 在确认组清空后返回缓存的最终值，避免重复采样把同一执行的事实改写。
 func (g *Group) Snapshot() (Snapshot, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -322,6 +329,8 @@ func (g *Group) stop(ctx context.Context) (Snapshot, error) {
 	}
 }
 
+// Close 可重试尚未完成的清理，但一旦出错仍保留 cleanupErr，
+// 让 Manager 阻止新执行；事后清理成功不代表可以忽略先前失去回收确认的风险。
 func (g *Group) Close(ctx context.Context) (result error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()

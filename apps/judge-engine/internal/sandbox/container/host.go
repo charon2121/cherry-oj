@@ -34,6 +34,8 @@ type hostProcess struct {
 	err    error
 }
 
+// NewHost 仅用于 trusted-host 模式，不提供 cgroup、namespace 或 seccomp 隔离。
+// Linux 隔离不可用时不能把它作为自动回退。
 func NewHost() (*hostContainer, error) {
 	dir, err := os.MkdirTemp("", "cherry-oj-*")
 	if err != nil {
@@ -56,7 +58,7 @@ func (p *hostProcess) wait() (Usage, error) {
 	err := p.cmd.Wait()
 	var ee *exec.ExitError
 
-	// 异常退出
+	// ExitError 是命令退出事实，不是等待失败；交给 runner 区分信号和非零退出。
 	if err != nil && !errors.As(err, &ee) && !(p.cmd.ProcessState != nil && errors.Is(err, p.ctx.Err())) {
 		return Usage{}, err
 	}
@@ -97,7 +99,7 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 	name := s.Command[0]
 
 	if !strings.Contains(name, "/") {
-		cand := filepath.Join(c.workDir, name) // 拼接工作目录
+		cand := filepath.Join(c.workDir, name)
 		if file, err := os.Stat(cand); err == nil && !file.IsDir() {
 			name = cand
 		}
@@ -116,12 +118,12 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 	cmd.Stdout = s.Stdout
 	cmd.Stderr = s.Stderr
 
-	// 设置父进程组
+	// 给本次命令独立进程组，使取消能覆盖仍留在该组的编译器等后代。
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
 
-	// 当 pid 参数为负数时，向一个进程组发送信号，而不是单个进程。
+	// 杀单个主进程会留下仍占用输出管道的后代，因此对整个进程组发信号。
 	cmd.Cancel = func() error {
 		pid := cmd.Process.Pid
 		if pid <= 0 {
@@ -142,7 +144,7 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 		return err
 	}
 
-	// 解决子进程退出后，Wait 无限等待的问题
+	// 后代可能持有 stdout/stderr 管道；主进程退出后仍要限制复制 goroutine 的等待。
 	cmd.WaitDelay = 2 * time.Second
 
 	start := time.Now()
@@ -155,7 +157,6 @@ func (c *hostContainer) Start(ctx context.Context, s Spec) (Process, error) {
 	return c.process, nil
 }
 
-// 往容器中放文件
 func (c *hostContainer) PutFile(name string, r io.Reader, mode os.FileMode) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -209,11 +210,10 @@ func (c *hostContainer) Close() error {
 }
 
 func (c *hostContainer) resolve(name string) (string, error) {
-	// 归一化文件名，避免出现文件逃逸的情况
+	// 这里只限制字符串路径；host 中的用户程序仍可创建链接，不能视为隔离安全边界。
 	clean := filepath.Clean("/" + name)
 	full := filepath.Join(c.workDir, clean)
 
-	// 确保 full 在 workdir 下
 	rel, err := filepath.Rel(c.workDir, full)
 
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -222,6 +222,7 @@ func (c *hostContainer) resolve(name string) (string, error) {
 	return full, nil
 }
 
+// getrusage 的 Maxrss 在 Linux 是 KiB、Darwin 是 bytes；契约统一为 bytes。
 func maxrssBytes(maxrss int64) int64 {
 	if runtime.GOOS == "linux" {
 		return maxrss * 1024

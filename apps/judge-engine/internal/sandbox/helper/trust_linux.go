@@ -14,18 +14,22 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// ManifestEntry 对应 rootfs 制作器的文件记录；模式、链接目标或内容任一变化都需重新固定摘要。
 type ManifestEntry struct {
 	Path   string
 	SHA256 string
 	Link   string
 	Mode   uint32
 }
+
+// Manifest 的可信性来自 Config 固定的整份清单摘要，不能只信清单自己声明的文件哈希。
 type Manifest struct {
 	Version int
 	Source  string
 	Entries []ManifestEntry
 }
 
+// securePath 同时核验祖先目录；只检查末端文件会遗漏可由其他身份替换路径的父目录。
 func securePath(p string, dir bool) error {
 	for cur := p; ; cur = filepath.Dir(cur) {
 		st, err := os.Lstat(cur)
@@ -85,6 +89,7 @@ func verifyRoot(c Config) error {
 		}
 		entries[e.Path] = e
 	}
+	// 同时拒绝额外文件和缺失文件；只检查清单列出的文件会漏掉 rootfs 中新增的内容。
 	err = filepath.WalkDir(c.RootFS, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -171,6 +176,7 @@ func verifyRoot(c Config) error {
 	if !st.Mode().IsRegular() {
 		return fmt.Errorf("启动器挂载点必须普通文件")
 	}
+	// root 专有目录保留可信 re-exec 启动器；降权后的 payload 不能访问该入口。
 	if st, err = os.Stat(filepath.Join(c.RootFS, ".sandbox")); err != nil || st.Mode().Perm() != 0700 {
 		return fmt.Errorf(".sandbox 目录必须 root 0700")
 	}

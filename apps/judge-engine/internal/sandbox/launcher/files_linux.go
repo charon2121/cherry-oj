@@ -10,11 +10,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// OpenOutput 在组清空后调用；同一 FD 完成类型/链接数校验和读取，不重新按字符串打开。
+// OpenOutput 必须在组清空后调用，避免用户进程边写边交付；调用者负责关闭返回文件。
+// 路径解析限定在工作区内且禁止链接/跨挂载，同一 FD 校验后直接读取，避免重新打开的竞态。
 func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 	if !ValidPath(name) {
 		return nil, 0, fmt.Errorf("非法产物路径")
 	}
+	// O_NONBLOCK 防止 FIFO 等特殊文件在 fstat 拒绝它之前就把 helper 阻塞在 open。
 	fd, err := unix.Openat2(int(dir.Fd()), name, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NONBLOCK, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS | unix.RESOLVE_NO_XDEV})
 	if err != nil {
 		return nil, 0, err
@@ -31,6 +33,9 @@ func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 	}
 	return f, st.Size, nil
 }
+
+// putInput 用目录 FD 逐层创建并打开；已有目录也不能只因 Mkdirat 返回 EEXIST 就信任。
+// O_EXCL 防止重复输入覆盖已交付文件，复制长度由请求声明限定。
 func putInput(dir *os.File, in Input, src io.Reader, uid, gid int) error {
 	if !ValidPath(in.Path) {
 		return fmt.Errorf("非法输入路径")
@@ -40,6 +45,7 @@ func putInput(dir *os.File, in Input, src io.Reader, uid, gid int) error {
 	if err != nil {
 		return err
 	}
+	// cur 随逐层遍历更换；闭包要关闭最后一层，不能在 defer 注册时捕获初始整数 FD。
 	defer func() { unix.Close(cur) }()
 	for _, p := range parts[:len(parts)-1] {
 		if err = unix.Mkdirat(cur, p, 0755); err != nil && !errors.Is(err, unix.EEXIST) {

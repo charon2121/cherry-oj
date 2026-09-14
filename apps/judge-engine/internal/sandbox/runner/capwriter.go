@@ -2,7 +2,8 @@ package runner
 
 import "bytes"
 
-// max 已由入口归一化；0严格表示不能保存任何输出。
+// capWriter 的 max 已由入口归一化；0 严格表示不能保存任何输出。
+// 超限时触发取消但仍接受全部写入，避免输出管道先堵塞，导致进程无法收尾。
 type capWriter struct {
 	buf          bytes.Buffer
 	max, current int64

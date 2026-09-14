@@ -160,3 +160,49 @@ func TestRunSchemaLimitsAndSignalAlign(t *testing.T) {
 		t.Fatal("signal missing from schema")
 	}
 }
+
+func TestEachLimitFieldKeepsItsOwnPresenceBit(t *testing.T) {
+	names := []string{"cpuNs", "clockNs", "memoryBytes", "maxProcesses", "stdoutMaxBytes", "stderrMaxBytes"}
+	defaults := contract.Limits{CPUNs: 11, ClockNs: 22, MemoryBytes: 33, MaxProcesses: 44, StdoutMaxBytes: 55, StderrMaxBytes: 66}
+	values := []int64{11, 22, 33, 44, 55, 66}
+	for i, name := range names {
+		t.Run(name, func(t *testing.T) {
+			data, err := json.Marshal(map[string]int64{name: 0})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var limit contract.Limits
+			if err = json.Unmarshal(data, &limit); err != nil {
+				t.Fatal(err)
+			}
+			encoded, err := json.Marshal(limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(encoded) != string(data) {
+				t.Fatalf("presence changed: %s", encoded)
+			}
+			merged, err := limit.WithDefaults(defaults)
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded, err = json.Marshal(merged)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]int64
+			if err = json.Unmarshal(encoded, &got); err != nil {
+				t.Fatal(err)
+			}
+			for j, field := range names {
+				want := values[j]
+				if i == j {
+					want = 0
+				}
+				if got[field] != want {
+					t.Fatalf("%s=%d want %d", field, got[field], want)
+				}
+			}
+		})
+	}
+}

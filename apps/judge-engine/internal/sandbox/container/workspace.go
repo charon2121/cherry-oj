@@ -19,6 +19,8 @@ type Workspace struct {
 var executionName = regexp.MustCompile(`^execution-[0-9]+$`)
 var dataName = regexp.MustCompile(`^data-[0-9]+$`)
 
+// OpenWorkspace 在独占锁下核验并恢复服务暂存根；失败时不接纳执行。
+// 成功后由调用者在所有 Container 关闭后释放 Workspace。
 func OpenWorkspace(root string) (*Workspace, error) {
 	if root == "" {
 		return nil, fmt.Errorf("暂存根不能为空")
@@ -98,6 +100,8 @@ func (w *Workspace) recover() error {
 	}
 	return nil
 }
+
+// New 为一次执行分配独立目录；不能用之前的工作区继续执行下一条命令。
 func (w *Workspace) New(socket string) (Container, error) { return NewIsolated(socket, w.root) }
 
 // Close 必须在容量池关闭之后；若仍有工作区残留，返回错误并保留证据。

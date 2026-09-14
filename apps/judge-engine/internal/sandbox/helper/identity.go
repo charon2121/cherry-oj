@@ -2,8 +2,8 @@ package helper
 
 import "fmt"
 
-// forSlot preserves the configured service identity while assigning a disjoint
-// payload/supervisor pair. Validate checks the entire reserved range beforehand.
+// forSlot 每槽保留两个身份位置，使并发任务的 payload/init 不共享 UID/GID。
+// 共享身份会扩大信号等同身份操作的范围；Validate 在接单前核对整段身份无重叠。
 func (c Config) forSlot(slot int) Config {
 	c.PayloadUID += 2 * slot
 	c.PayloadGID += 2 * slot
@@ -35,8 +35,8 @@ func (c Config) validateSlotIdentities() error {
 	return nil
 }
 
-// availableSlots carries identities, not reusable execution resources. A caller
-// returns the slot only after serveConn has closed every owned execution/file.
+// availableSlots 只分配身份槽位，不复用 cgroup 或工作区。
+// serveInSlot 等执行和交付收尾后归还槽位，避免下一次执行复用仍被占用的身份。
 func availableSlots(count int) chan int {
 	slots := make(chan int, count)
 	for slot := 0; slot < count; slot++ {

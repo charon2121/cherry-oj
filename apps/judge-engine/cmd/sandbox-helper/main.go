@@ -14,6 +14,8 @@ import (
 )
 
 func main() {
+	// re-exec 子进程只消费继承 FD；必须在服务配置、信号监听及其他 goroutine 建立前分流，
+	// 避免 init/exec 角色误入特权服务循环。
 	if launcher.Dispatch() {
 		return
 	}

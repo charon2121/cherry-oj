@@ -9,17 +9,15 @@ import (
 	"net/http"
 )
 
+// Executor 返回前必须完成影响结果的回收；HTTP 层无法补救已发布结果后的清理失败。
+// cmd/sandbox 将它绑定到 pool.Pool，普通命令失败通过 RunResult.Status 返回。
 type Executor interface {
 	Run(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error)
 }
 
-// Options 是 api 层的运行参数。
-//
-// 用结构体而不是裸参数，是为了让调用处自解释：
-// api.New(p, st, api.Options{MaxBlobBytes: ...}) 一眼看懂，
-// api.New(p, st, 67108864) 则要回来翻签名。
+// Options 约束 HTTP 请求的资源占用，与单次命令的 Limits 分开。
+// 容量字段 <=0 时 New 使用默认值；Isolation 只用于报告已配置的后端。
 type Options struct {
-	// MaxBlobBytes：POST /blobs 单次上传上限。<=0 用默认值。
 	MaxBlobBytes    int64
 	MaxRequestBytes int64
 	MaxConcurrent   int
@@ -28,6 +26,7 @@ type Options struct {
 
 const defaultMaxBlobBytes = 64 << 20
 
+// Server 借用执行器和 Store；它们的服务级生命周期由组装入口管理。
 type Server struct {
 	exec     Executor
 	store    store.Store
@@ -35,8 +34,9 @@ type Server struct {
 	requests chan struct{}
 }
 
+// New 不启动监听或接管依赖的关闭；调用者先准备好执行器和 Store。
 func New(exec Executor, st store.Store, opts Options) *Server {
-	if opts.MaxBlobBytes <= 0 { // 又一次零值兜底：没配 ≠ 不许上传
+	if opts.MaxBlobBytes <= 0 {
 		opts.MaxBlobBytes = defaultMaxBlobBytes
 	}
 	if opts.MaxRequestBytes <= 0 {
@@ -51,6 +51,8 @@ func New(exec Executor, st store.Store, opts Options) *Server {
 	return &Server{exec: exec, store: st, opts: opts, requests: make(chan struct{}, opts.MaxConcurrent)}
 }
 
+// Handler 的容量覆盖上传、下载和执行，避免慢传输绕过执行池的并发限制。
+// 超额立即拒绝；需要排队的命令由 Pool 在自己的有界队列中管理。
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /version", s.handleVersion)
@@ -79,7 +81,7 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code) // ★ 必须在写 body 之前，且只能调一次
+	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
 

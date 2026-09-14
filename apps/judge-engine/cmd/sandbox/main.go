@@ -28,18 +28,15 @@ func main() {
 	os.Exit(run())
 }
 
+// run 用返回值退出，使资源清理的 defer 在 main 调用 os.Exit 前执行。
 func run() (exitCode int) {
 	bootstrapLogger := enginelog.Console("sandbox", os.Stderr)
-	// 只有这一个 flag：配置文件路径。
-	// 每个配置项都配一个 flag 的话就有三套真源（flag / YAML / 环境变量），
-	// 谁覆盖谁得记一张表。一个 -config 指路，其余走「默认值 → YAML → 环境变量」。
+	// flag 只选择配置文件，避免为每个设置再引入一套覆盖顺序；配置值由 Load 统一合并。
 	configPath := flag.String("config", "", "配置文件路径；留空则只用默认值 + 环境变量")
 	flag.Parse()
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		// 配错了就别启动。一个 maxBlobBytes: 0 的配置能让服务正常起来、
-		// 然后每次上传都失败——宁可起不来，也别悄悄跑错。
 		bootstrapLogger.Error("process.config.load.failed", "event", "process.config.load.failed", "error", err)
 		return 1
 	}
@@ -61,6 +58,8 @@ func run() (exitCode int) {
 		return 1
 	}
 
+	// defer 逆序释放：先结束执行池，再关闭暂存根，最后释放共享 Store。
+	// 请求可能仍在回滚产物引用，不能先关闭 Store 或暂存根。
 	defer func() {
 		if err := st.Close(); err != nil {
 			logger.Error("process.store.close.failed", "error", err)
@@ -116,6 +115,8 @@ func run() (exitCode int) {
 	}()
 	defer func() { gcCancel(); <-gcDone }()
 
+	// HTTP 期限覆盖请求读取和响应传输，不能用用户命令的墙钟限额替代。
+	// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 helper 客户端工作区。
 	srv := &http.Server{
 		Addr:              cfg.Sandbox.HTTPAddr,
 		ReadHeaderTimeout: 5 * time.Second,
@@ -132,7 +133,6 @@ func run() (exitCode int) {
 	}
 	srv.Handler = tracecontext.Middleware(logger, srv.Handler)
 
-	// Ctrl-C / SIGTERM 时取消这个 ctx
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -162,7 +162,7 @@ func run() (exitCode int) {
 		logger.Error("process.pool.close.failed", "error", err)
 		exitCode = 1
 	}
-	// 给HTTP传输10秒收尾
+	// 执行已取消，HTTP 仍需写出失败结果；收尾期限不能继承已取消的信号上下文。
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutCtx); err != nil {
@@ -183,6 +183,9 @@ type managedStore interface {
 func newStore(c config.StoreConfig) (managedStore, error) {
 	return store.New(c.Root, store.Options{MaxBlobBytes: c.MaxBlobBytes, MaxTotalBytes: c.MaxTotalBytes, MaxEntries: c.MaxEntries, Retention: c.Retention.Std()})
 }
+
+// backend 同时交付逐请求工厂和服务级关闭函数；暂存根的锁跨请求持有。
+// 隔离后端启动失败必须暴露错误，不能悄悄切到没有隔离保证的 trusted-host。
 func backend(c config.SandboxConfig) (func() (container.Container, error), func() error, error) {
 	switch c.Backend {
 	case "trusted-host":
