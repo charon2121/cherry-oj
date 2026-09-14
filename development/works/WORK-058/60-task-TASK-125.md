@@ -2,7 +2,7 @@
 id: "TASK-125"
 type: "task"
 title: "S1 抽出本机执行协议并消除终止原因重复定义"
-status: "doing"
+status: "done"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["CHANGE-014", "DESIGN-051", "DECISION-035", "PLAN-041"]
@@ -68,14 +68,14 @@ updated_at: "2026-09-14"
 
 ## 完成标准
 
-- [ ] `internal/sandbox/container` 与 `internal/sandbox/runner` 的 import 列表中不再出现
+- [x] `internal/sandbox/container` 与 `internal/sandbox/runner` 的 import 列表中不再出现
       `internal/sandbox/helper`。
-- [ ] 全模块只有一处 `Reason` 类型定义，且不存在跨包的 `Reason` 字符串转换。
-- [ ] 新增覆盖测试：删除 `classify` 中任一 `Reason` 分支会使测试失败。
-- [ ] 协议常量、帧布局、FD 编号、握手字节与失败阶段编号与基线 `a611be3` 逐一相同，在执行记录中
+- [x] 全模块只有一处 `Reason` 类型定义，且不存在跨包的 `Reason` 字符串转换。
+- [x] 新增覆盖测试：删除 `classify` 中任一 `Reason` 分支会使测试失败。
+- [x] 协议常量、帧布局、FD 编号、握手字节与失败阶段编号与基线 `a611be3` 逐一相同，在执行记录中
       列出比对结果。
-- [ ] helper 客户端与服务端的改动在同一提交内完成。
-- [ ] `go.mod` / `go.sum` 未改动。
+- [x] helper 客户端与服务端的改动在同一提交内完成。
+- [x] `go.mod` / `go.sum` 未改动。
 
 ## 验证
 
@@ -170,8 +170,11 @@ go test -race ./...   # 全绿
   验证派生后保证未削弱：完整日志通过；少跑一个包、少跑一个测试、出现 skip 三种情况分别被拦住，
   且报错会指出具体是哪个包/哪个测试（旧实现只说「missing Linux unit package」）。
   `deploy/sandbox-linux/ci` 的 110 项 Python 自测全绿。
-- 2026-09-14：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归。该回归依赖 CI 的内核
-  虚拟机与软件包准备（`deploy/sandbox-linux/ci/kernel.py` 等），本机 macOS 无法运行，需推送后
-  由 CI 执行。在它通过之前，本任务不计完成。
+- 2026-09-14：CI run 34846624845（sourceSha e0cd1d9）全绿，12 个 job 全部成功。必需回归汇总
+  给出 `"status": "PASS"`，93 项必需用例全部通过：basic 5/5、kernel 63/63、native 10/10、
+  business 15/15。其中 kernel 与 native 两个 job 覆盖真实内核隔离、资源计量、1000 次回收、
+  并发、故障注入与服务恢复——即本任务「验证」一节要求而本机无法运行的那部分。
+  至此 TASK-125 的完成标准全部满足。
 - 2026-09-14：状态变更：todo → ready。原因：意图闸已签署，S1 可执行
 - 2026-09-14：状态变更：ready → doing。原因：开始抽出 internal/hostexec 并消除 Reason 重复定义
+- 2026-09-14：状态变更：doing → done。原因：S1 完成：协议归位、Reason 去重、覆盖与线格式测试；CI 34846624845 全绿，93 项必需回归通过

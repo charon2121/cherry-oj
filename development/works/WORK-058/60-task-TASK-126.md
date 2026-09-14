@@ -2,7 +2,7 @@
 id: "TASK-126"
 type: "task"
 title: "S2 重切为三棵服务子树并收薄命令行入口"
-status: "todo"
+status: "ready"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-125"]
@@ -88,3 +88,4 @@ go list -deps ./... | grep cherry-oj    # 人工核对依赖方向
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-14：状态变更：todo → ready。原因：意图闸已签署

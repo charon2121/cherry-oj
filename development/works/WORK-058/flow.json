@@ -53,7 +53,7 @@
     "stage": "plan",
     "label": "开发计划",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "PLAN-041"
@@ -61,8 +61,8 @@
     "checks": [
       {
         "name": "rollback",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "PLAN-041 已明确以 a611be3 为基线、逐阶段 git revert，只撤销本工作 diff，不触碰 WORK-049/050 与 apps/server 既有增量；S3 撤销后若已人工切过 ACTIVE 需按节点协议切回，该动作已标为人工；本工作不执行远端部署，无部署回退动作"
       }
     ],
     "source": "overlay:risk-impact",
@@ -72,7 +72,7 @@
     "stage": "tasks",
     "label": "开发任务",
     "requirement": "required",
-    "status": "pending",
+    "status": "ready",
     "status_source": "derived",
     "artifacts": [
       "TASK-125",
@@ -91,7 +91,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "doing",
+    "status": "pending",
     "status_source": "derived",
     "artifacts": [
       "TASK-125",

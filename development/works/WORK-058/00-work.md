@@ -49,9 +49,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 改动说明与边界 | ✔ 完成 | 必需 | CHANGE-014 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-051 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-035 `approved` |  |
-| 开发计划 | ▶ 进行中 | 必需 | PLAN-041 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | · 未开始 | 必需 | TASK-125 `doing`、TASK-126 `todo`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ▶ 进行中 | 必需 | TASK-125 `doing`、TASK-126 `todo`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 按任务实施，产出代码与测试 |
+| 开发计划 | ✔ 完成 | 必需 | PLAN-041 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
+| 开发任务 | ○ 就绪 | 必需 | TASK-125 `done`、TASK-126 `ready`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | · 未开始 | 必需 | TASK-125 `done`、TASK-126 `ready`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 回归验证 | · 未开始 | 必需 | VERIFY-059 `draft` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | · 未开始 | 必需 | MEMORY-044 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
@@ -78,3 +78,4 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
   修改范围，并要求在同一次提交里一起更新，使清单任何时候都不过期；同时明确只允许更新位置，
   不得增删检查项或放宽要求。已更新 PLAN-041 与 TASK-125～131 的范围说明。
 - 2026-09-14：意图闸：passed。原因：签署重构方案
+- 2026-09-14：检查项 rollback 记录结论：通过。原因：PLAN-041 已明确以 a611be3 为基线、逐阶段 git revert，只撤销本工作 diff，不触碰 WORK-049/050 与 apps/server 既有增量；S3 撤销后若已人工切过 ACTIVE 需按节点协议切回，该动作已标为人工；本工作不执行远端部署，无部署回退动作
