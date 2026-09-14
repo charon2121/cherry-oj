@@ -135,6 +135,20 @@ go test -race ./...   # 全绿
   `GOOS=linux GOARCH=amd64 go vet ./...` 均无输出；`go test -race ./...` 24 个包全绿。
   附带确认 `internal` 可见性规则已生效：模块外的临时程序 import `internal/hostexec` 被编译器
   拒绝（`use of internal package ... not allowed`）。
+- 2026-09-14：推送后 CI 红（run 34844844841）。`internal/sandbox/launcher` 的
+  `TestControlReceiveInterruptedOnce` 失败：`err=控制消息版本错误`。
+  两个 Linux job 也在同一步失败，同一根因。
+  原因：批量改写把 `Version` 当成标识符替换，误伤了控制消息测试里的 JSON 线格式字面量，
+  `{"Version":1}` 变成 `{"hostexec.Version":1}`，反序列化后 Version=0。
+  该文件是 `_linux_test.go`，macOS 上根本不编译，`gofmt`/`vet`/`go test` 三项本地全绿也发现不了。
+  已修复并与基线逐条比对该文件的线格式字面量，完全一致。
+  同时做了一次全面排查：比对本次全部改动文件在基线与现状的字符串字面量集合（去掉行注释后提取），
+  唯一差异是 `container/container.go` 中消失的五个终止原因取值，正是本次要去的重复定义。
+- 2026-09-14：补充本地验证手段。改用 `golang:1.26.3-bookworm` 容器跑 Linux 验证：
+  linux/arm64 下 `gofmt`/`go vet`/`go test ./...` 全绿（需挂载仓库根，否则 `internal/contract`
+  读不到 `contracts/*.json`）。linux/amd64 模拟下仅 `TestOutputRejectsLinksAndSpecialFiles`
+  报 `function not implemented`；用基线 `a611be3` 在同样模拟下做对照，失败方式完全一致，
+  确认是 QEMU 不支持该系统调用，非本次改动引入。
 - 2026-09-14：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归。该回归依赖 CI 的内核
   虚拟机与软件包准备（`deploy/sandbox-linux/ci/kernel.py` 等），本机 macOS 无法运行，需推送后
   由 CI 执行。在它通过之前，本任务不计完成。

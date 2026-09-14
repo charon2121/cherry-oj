@@ -69,7 +69,7 @@ func TestControlReceiveInterruptedOnce(t *testing.T) {
 			t.Fatal(err)
 		}
 		delivered++
-		n := copy(p, []byte(`{"hostexec.Version":1,"Kind":"workspace"}`))
+		n := copy(p, []byte(`{"Version":1,"Kind":"workspace"}`))
 		return n, copy(oob, unix.UnixRights(fd)), 0, nil, nil
 	}
 	event, fd, err := receiveEvent(c, receive)
@@ -122,11 +122,11 @@ func TestControlReceiveFailureClosesFDs(t *testing.T) {
 		flags, count int
 		err          error
 	}{
-		{"json", "!", 0, 1, nil}, {"version", `{"hostexec.Version":2}`, 0, 1, nil},
-		{"truncated", `{"hostexec.Version":1}`, unix.MSG_TRUNC, 1, nil},
-		{"control-truncated", `{"hostexec.Version":1}`, unix.MSG_CTRUNC, 1, nil},
-		{"multiple", `{"hostexec.Version":1}`, 0, 2, nil},
-		{"partial-eintr", `{"hostexec.Version":1}`, 0, 1, unix.EINTR},
+		{"json", "!", 0, 1, nil}, {"version", `{"Version":2}`, 0, 1, nil},
+		{"truncated", `{"Version":1}`, unix.MSG_TRUNC, 1, nil},
+		{"control-truncated", `{"Version":1}`, unix.MSG_CTRUNC, 1, nil},
+		{"multiple", `{"Version":1}`, 0, 2, nil},
+		{"partial-eintr", `{"Version":1}`, 0, 1, unix.EINTR},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c, dir := controlFile(t), controlFile(t)
