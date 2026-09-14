@@ -12,10 +12,14 @@ def linux_units(path):
     events = json_lines(path)
     if any(event.get('Action') in ('skip', 'fail') for event in events):
         raise ValueError('Linux unit suite contains skip/failure')
-    packages = {event['Package'].rsplit('/', 1)[-1] for event in events
+    # 期望的包集合从清单派生，不再单独抄一份：抄两份就会各自漂移，
+    # 而漂移的表现是「测试搬了家，两边都还以为跑过」。
+    packages = {event['Package'] for event in events
                 if event.get('Action') == 'pass' and 'Test' not in event}
-    if packages != {'cgroup', 'helper', 'launcher', 'policy'}:
-        raise ValueError('missing Linux unit package')
+    expected = set(manifest()['requiredGoTests'])
+    if packages != expected:
+        raise ValueError('missing Linux unit package: ' +
+                         ', '.join(sorted(expected - packages) or sorted(packages - expected)))
     tests = {(event.get('Package'), event.get('Test')) for event in events if event.get('Action') == 'pass'}
     for package, required in manifest()['requiredGoTests'].items():
         for name in required:

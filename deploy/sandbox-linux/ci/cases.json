@@ -1117,6 +1117,23 @@
     }
   ],
   "requiredGoTests": {
+    "cherry-oj/judge-engine/internal/hostexec": [
+      "TestCompilerCommandNamesPreservePathBoundary",
+      "TestFramePreservesFollowingStream",
+      "TestFrameRejectsInvalidWire",
+      "TestRequestRejectsEscapesAndUnboundedData"
+    ],
+    "cherry-oj/judge-engine/internal/hostexec/client": [
+      "TestClientCancellationAfterCompletion",
+      "TestClientCancellationReleasesBlockedInput",
+      "TestClientEarlyFailureClosesBlockedInput",
+      "TestClientRejectsInvalidCompletion",
+      "TestClientRejectsMissingCleanupAcknowledgement",
+      "TestClientRejectsTrailingData",
+      "TestClientRejectsUnrequestedArtifact",
+      "TestClientStreamsInputsAndOutputs",
+      "TestClientWaitsForConnectionRelease"
+    ],
     "cherry-oj/judge-engine/internal/sandbox/cgroup": [
       "TestCleanupTimeoutCanRetry",
       "TestConcurrentCreatesAndBoundedHistory",
@@ -1131,16 +1148,7 @@
     "cherry-oj/judge-engine/internal/sandbox/helper": [
       "TestAncestorOOMPreservesPlatformFailure",
       "TestCaptureBoundsAndDrains",
-      "TestClientCancellationAfterCompletion",
-      "TestClientCancellationReleasesBlockedInput",
-      "TestClientEarlyFailureClosesBlockedInput",
-      "TestClientRejectsInvalidCompletion",
-      "TestClientRejectsMissingCleanupAcknowledgement",
       "TestClientRejectsResetAfterCompletion",
-      "TestClientRejectsTrailingData",
-      "TestClientRejectsUnrequestedArtifact",
-      "TestClientStreamsInputsAndOutputs",
-      "TestClientWaitsForConnectionRelease",
       "TestConfigRejectsPrivilegeConfusion",
       "TestConnectionEOFReturnsCleanSlot",
       "TestCopyInputOwnsNoCachedFastPath",
@@ -1158,7 +1166,6 @@
       "TestSlowDeliveryHoldsSlotUntilDeadline"
     ],
     "cherry-oj/judge-engine/internal/sandbox/launcher": [
-      "TestCompilerCommandNamesPreservePathBoundary",
       "TestControlFDIsCloseOnExec",
       "TestControlInterruptChecksClosedFiles",
       "TestControlInterruptedSocketDelivery",
@@ -1169,10 +1176,7 @@
       "TestControlShutdownUnblocksIO",
       "TestExecSpecBoundary",
       "TestFailureErrnoPreservesCause",
-      "TestFramePreservesFollowingStream",
-      "TestFrameRejectsInvalidWire",
-      "TestOutputRejectsLinksAndSpecialFiles",
-      "TestRequestRejectsEscapesAndUnboundedData"
+      "TestOutputRejectsLinksAndSpecialFiles"
     ],
     "cherry-oj/judge-engine/internal/sandbox/policy": [
       "TestAMD64PolicyBoundary"

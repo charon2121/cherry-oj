@@ -10,9 +10,9 @@ related: ["CHANGE-014", "DESIGN-051", "PLAN-041"]
 implements: ["CHANGE-014#REQ-007", "CHANGE-014#REQ-008", "CHANGE-014#REQ-013"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architecture.md", "docs/engine.md", "development/README.md", "development/works/WORK-049", "development/works/WORK-050", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml"]
-write_paths: ["apps/judge-engine", "development/works/WORK-058"]
-forbidden_paths: ["contracts", "apps/server", "apps/web", "deploy", "scripts", ".github", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050"]
+read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architecture.md", "docs/engine.md", "development/README.md", "development/works/WORK-049", "development/works/WORK-050", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci"]
+write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci"]
+forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", ".github", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/tests", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh"]
 created_at: "2026-09-14"
 updated_at: "2026-09-14"
 ---
@@ -40,7 +40,10 @@ sandbox 客户端，删除模块内第三个 HTTP 客户端；把部署清单校
 
 ## 禁止修改
 
-以 front matter 的 `forbidden_paths` 为准。不改变节点控制协议与安装协议的线格式；不放宽部署
+以 front matter 的 `forbidden_paths` 为准。`deploy/sandbox-linux/ci/` 的必跑用例清单在
+可修改范围内，但**只允许更新 judge-engine 用例的包路径**：不得增删用例、改断言或放宽必需数量
+（Go 必跑固定 52 项）。报告 schema 与 `deploy/` 下其余内容仍然禁止修改。理由见
+[PLAN-041](50-plan-PLAN-041.md) §必跑用例清单随包路径同步。不改变节点控制协议与安装协议的线格式；不放宽部署
 校验的实际约束强度。
 
 ## 依赖

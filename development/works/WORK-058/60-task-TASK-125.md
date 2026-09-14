@@ -10,9 +10,9 @@ related: []
 implements: ["CHANGE-014#REQ-004", "CHANGE-014#REQ-013", "CHANGE-014#REQ-015"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architecture.md", "docs/engine.md", "development/README.md", "development/works/WORK-049", "development/works/WORK-050", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml"]
-write_paths: ["apps/judge-engine", "development/works/WORK-058"]
-forbidden_paths: ["contracts", "apps/server", "apps/web", "deploy", "scripts", ".github", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050"]
+read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architecture.md", "docs/engine.md", "development/README.md", "development/works/WORK-049", "development/works/WORK-050", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci"]
+write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci"]
+forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", ".github", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/tests", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh"]
 created_at: "2026-09-14"
 updated_at: "2026-09-14"
 ---
@@ -44,7 +44,10 @@ updated_at: "2026-09-14"
 
 ## 禁止修改
 
-以 front matter 的 `forbidden_paths` 为准。本阶段禁止修改任何协议常量取值、帧布局、FD 编号、
+以 front matter 的 `forbidden_paths` 为准。`deploy/sandbox-linux/ci/` 的必跑用例清单在
+可修改范围内，但**只允许更新 judge-engine 用例的包路径**：不得增删用例、改断言或放宽必需数量
+（Go 必跑固定 52 项）。报告 schema 与 `deploy/` 下其余内容仍然禁止修改。理由见
+[PLAN-041](50-plan-PLAN-041.md) §必跑用例清单随包路径同步。本阶段禁止修改任何协议常量取值、帧布局、FD 编号、
 握手字节与失败阶段编号。
 
 ## 依赖
@@ -149,6 +152,24 @@ go test -race ./...   # 全绿
   读不到 `contracts/*.json`）。linux/amd64 模拟下仅 `TestOutputRejectsLinksAndSpecialFiles`
   报 `function not implemented`；用基线 `a611be3` 在同样模拟下做对照，失败方式完全一致，
   确认是 QEMU 不支持该系统调用，非本次改动引入。
+- 2026-09-14：第二轮 CI（run 34845675223）：`judge-engine (Go)` 通过，Linux job 仍红，报
+  `required Linux test did not execute: .../internal/sandbox/helper/TestClientCancellationAfterCompletion`。
+  原因是必跑清单按「包路径 + 测试名」索引，而 S1 把 9 个 `TestClient*` 移到了 `hostexec/client`。
+  清单位于 `deploy/`，属 TASK-125 当时的 `forbidden_paths`，因此停止实施、向用户升级范围，
+  未先动文件。用户于同日同意方案 A（把清单纳入各阶段可修改范围，与搬包同提交更新）。
+- 2026-09-14：升级上游后排查发现这份「清单」实际有三份彼此独立的副本，S1 逐一踩中：
+  `ci/cases.json` 的 `requiredGoTests`（包路径 → 测试名）、`ci/prepare.py` 的 `go test` 包列表
+  （决定实际跑哪些包）、`ci/results.py` 的期望包名集合（精确相等断言）。
+  PLAN-041 初稿把它当成一个文件并写了「不改驱动」，与事实不符，已改正。
+  处置：保留 `cases.json` 为唯一真源，`prepare.py` 与 `results.py` 改为从它派生，不再各存一份。
+  三处都在已授权的 `deploy/sandbox-linux/ci/` 内。
+- 2026-09-14：清单更新完成。13 项换包：9 个 `TestClient*` → `internal/hostexec/client`，
+  4 个（`TestCompilerCommandNamesPreservePathBoundary`、`TestFramePreservesFollowingStream`、
+  `TestFrameRejectsInvalidWire`、`TestRequestRejectsEscapesAndUnboundedData`）→ `internal/hostexec`。
+  Go 必跑总数 52 项不变，只改位置，未增删用例或放宽断言。
+  验证派生后保证未削弱：完整日志通过；少跑一个包、少跑一个测试、出现 skip 三种情况分别被拦住，
+  且报错会指出具体是哪个包/哪个测试（旧实现只说「missing Linux unit package」）。
+  `deploy/sandbox-linux/ci` 的 110 项 Python 自测全绿。
 - 2026-09-14：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归。该回归依赖 CI 的内核
   虚拟机与软件包准备（`deploy/sandbox-linux/ci/kernel.py` 等），本机 macOS 无法运行，需推送后
   由 CI 执行。在它通过之前，本任务不计完成。
