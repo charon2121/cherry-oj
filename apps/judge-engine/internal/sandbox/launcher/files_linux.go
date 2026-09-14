@@ -8,12 +8,14 @@ import (
 	"strings"
 
 	"golang.org/x/sys/unix"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // OpenOutput 必须在组清空后调用，避免用户进程边写边交付；调用者负责关闭返回文件。
 // 路径解析限定在工作区内且禁止链接/跨挂载，同一 FD 校验后直接读取，避免重新打开的竞态。
 func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
-	if !ValidPath(name) {
+	if !hostexec.ValidPath(name) {
 		return nil, 0, fmt.Errorf("非法产物路径")
 	}
 	// O_NONBLOCK 防止 FIFO 等特殊文件在 fstat 拒绝它之前就把 helper 阻塞在 open。
@@ -27,7 +29,7 @@ func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 		f.Close()
 		return nil, 0, err
 	}
-	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Nlink != 1 || st.Size < 0 || st.Size > MaxArtifactBytes {
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Nlink != 1 || st.Size < 0 || st.Size > hostexec.MaxArtifactBytes {
 		f.Close()
 		return nil, 0, fmt.Errorf("产物不是唯一链接的有界普通文件")
 	}
@@ -36,8 +38,8 @@ func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 
 // putInput 用目录 FD 逐层创建并打开；已有目录也不能只因 Mkdirat 返回 EEXIST 就信任。
 // O_EXCL 防止重复输入覆盖已交付文件，复制长度由请求声明限定。
-func putInput(dir *os.File, in Input, src io.Reader, uid, gid int) error {
-	if !ValidPath(in.Path) {
+func putInput(dir *os.File, in hostexec.Input, src io.Reader, uid, gid int) error {
+	if !hostexec.ValidPath(in.Path) {
 		return fmt.Errorf("非法输入路径")
 	}
 	parts := strings.Split(in.Path, "/")

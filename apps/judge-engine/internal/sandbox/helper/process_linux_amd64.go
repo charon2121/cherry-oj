@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 
 	"golang.org/x/sys/unix"
@@ -78,7 +79,7 @@ func (p *isolatedProcess) prepareInitResources(group executionGroup) error {
 	return nil
 }
 
-func (p *isolatedProcess) startInit(r launcher.Request, executable string) error {
+func (p *isolatedProcess) startInit(r hostexec.Request, executable string) error {
 	p.overflow = make(chan struct{}, 1)
 	capture := func(f *ownedFile, limit int64) chan captureResult {
 		done := make(chan captureResult, 1)
@@ -121,7 +122,7 @@ func (p *isolatedProcess) startInit(r launcher.Request, executable string) error
 }
 
 // 通道由启动方创建，Wait 等待接收与输入任务退出后才释放环境。
-func (p *isolatedProcess) exchangeWithInit(r launcher.Request, source io.Reader) {
+func (p *isolatedProcess) exchangeWithInit(r hostexec.Request, source io.Reader) {
 	p.events = make(chan received, maxInitEvents)
 	go func() {
 		defer close(p.events)
@@ -138,7 +139,7 @@ func (p *isolatedProcess) exchangeWithInit(r launcher.Request, source io.Reader)
 	stage := p.plan.stage(p.mountpoint)
 	go func() {
 		defer close(p.inputFinished)
-		e := launcher.WriteFrame(p.dataW, stage, launcher.MaxFrameBytes)
+		e := hostexec.WriteFrame(p.dataW, stage, hostexec.MaxFrameBytes)
 		if e == nil {
 			e = copyInput(p.dataW, source, r.InputBytes())
 		}

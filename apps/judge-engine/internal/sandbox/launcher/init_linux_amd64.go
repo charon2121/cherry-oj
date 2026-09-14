@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // init 接受的工作区硬边界；helper 的实际工作区策略仍由 helper 决定。
@@ -64,7 +66,7 @@ func runInit() {
 	if err != nil {
 		var errno syscall.Errno
 		errors.As(err, &errno)
-		report := Event{Version: Version, Kind: "error", Phase: s.phase, Errno: uint32(errno)}
+		report := Event{Version: hostexec.Version, Kind: "error", Phase: s.phase, Errno: uint32(errno)}
 		if b, e := marshalEvent(report); e == nil {
 			_, _ = control.Write(b)
 		}
@@ -78,7 +80,7 @@ func (s *initSession) run() error {
 	// life 与 control 存活到 PID 1 退出，由内核关闭；主动关闭会触发断连监测。
 	go exitOnDisconnect(life)
 	var stage StageSpec
-	if err := ReadFrame(src, &stage, MaxFrameBytes); err != nil {
+	if err := hostexec.ReadFrame(src, &stage, hostexec.MaxFrameBytes); err != nil {
 		return err
 	}
 	if err := stage.Request.Validate(); err != nil {
@@ -134,7 +136,7 @@ func (s *initSession) reportExit() error {
 	if waitErr != nil && !errors.As(waitErr, &exit) {
 		return waitErr
 	}
-	report := Event{Version: Version, Kind: "exit", ExitCode: s.child.ProcessState.ExitCode()}
+	report := Event{Version: hostexec.Version, Kind: "exit", ExitCode: s.child.ProcessState.ExitCode()}
 	if ws, ok := s.child.ProcessState.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 		report.Signal = int(ws.Signal())
 	}

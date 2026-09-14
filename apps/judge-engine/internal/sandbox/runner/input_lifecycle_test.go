@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/container"
 )
 
@@ -72,7 +73,7 @@ func TestRunClosesInputOnEveryExitPath(t *testing.T) {
 			case "wait-error":
 				c.waitErr = errors.New("wait failed")
 			case "wall":
-				c.usage.Reason = container.ReasonWall
+				c.usage.Reason = hostexec.ReasonWall
 				want = contract.StatusTimeLimitExceeded
 			case "cancel":
 				c.cancel = cancel

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 func (x *execution) supervise(ctx context.Context) {
@@ -19,10 +21,10 @@ func (x *execution) supervise(ctx context.Context) {
 		event := x.process.Next(ctx, timers)
 		switch event.kind {
 		case executionCancelled:
-			x.result.Reason = ReasonCancelled
+			x.result.Reason = hostexec.ReasonCancelled
 			return
 		case executionWallExpired:
-			x.result.Reason = ReasonWall
+			x.result.Reason = hostexec.ReasonWall
 			return
 		case executionStartupExpired:
 			x.fail(fmt.Errorf("隔离启动握手超时"))
@@ -32,7 +34,7 @@ func (x *execution) supervise(ctx context.Context) {
 				return
 			}
 		case processOutputExceeded:
-			x.result.Reason = ReasonOutput
+			x.result.Reason = hostexec.ReasonOutput
 			return
 		case processFailure:
 			x.initReportLost = event.reportLost
@@ -51,11 +53,11 @@ func (x *execution) supervise(ctx context.Context) {
 		case processReady:
 			// ready 与超时可同时就绪，不能依据 select 的选择放行已超预算的命令。
 			if ctx.Err() != nil {
-				x.result.Reason = ReasonCancelled
+				x.result.Reason = hostexec.ReasonCancelled
 				return
 			}
 			if time.Since(x.started) >= time.Duration(x.plan.request.Limits.ClockNs) {
-				x.result.Reason = ReasonWall
+				x.result.Reason = hostexec.ReasonWall
 				return
 			}
 			if x.cpuBudgetExceeded() {
@@ -83,7 +85,7 @@ func (x *execution) cpuBudgetExceeded() bool {
 		return true
 	}
 	if snap.CPUNs >= x.plan.request.Limits.CPUNs {
-		x.result.Reason = ReasonCPU
+		x.result.Reason = hostexec.ReasonCPU
 		return true
 	}
 	return false

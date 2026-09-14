@@ -1,4 +1,4 @@
-package launcher_test
+package hostexec_test
 
 import (
 	"bytes"
@@ -6,26 +6,26 @@ import (
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
-func request() launcher.Request {
-	return launcher.Request{Version: 1, Command: []string{"main"}, Limits: contract.ExplicitLimits(contract.Limits{CPUNs: 1e9, ClockNs: 2e9, MemoryBytes: 64 << 20, MaxProcesses: 32, StdoutMaxBytes: 0, StderrMaxBytes: 0})}
+func request() hostexec.Request {
+	return hostexec.Request{Version: 1, Command: []string{"main"}, Limits: contract.ExplicitLimits(contract.Limits{CPUNs: 1e9, ClockNs: 2e9, MemoryBytes: 64 << 20, MaxProcesses: 32, StdoutMaxBytes: 0, StderrMaxBytes: 0})}
 }
 func TestRequestRejectsEscapesAndUnboundedData(t *testing.T) {
 	for _, path := range []string{"../x", "/etc/passwd", "a/../../b", "a//b", ".stdin", "a/./b", "a\\b", "a\x00b"} {
 		t.Run(path, func(t *testing.T) {
 			r := request()
-			r.Inputs = []launcher.Input{{Path: path, SizeBytes: 1}}
+			r.Inputs = []hostexec.Input{{Path: path, SizeBytes: 1}}
 			if r.Validate() == nil {
 				t.Fatal("接受不安全路径")
 			}
 		})
 	}
-	for name, change := range map[string]func(*launcher.Request){"zero CPU": func(r *launcher.Request) { r.Limits.CPUNs = 0 }, "memory": func(r *launcher.Request) { r.Limits.MemoryBytes = 2 << 30 }, "size": func(r *launcher.Request) {
-		r.StdinBytes = launcher.MaxInputBytes
-		r.Inputs = []launcher.Input{{Path: "main.cpp", SizeBytes: 1}}
-	}, "duplicate": func(r *launcher.Request) { r.Inputs = []launcher.Input{{Path: "x"}, {Path: "x"}} }, "absolute command": func(r *launcher.Request) { r.Command = []string{"/bin/sh"} }, "environment": func(r *launcher.Request) { r.Env = []string{"NO_EQUALS"} }} {
+	for name, change := range map[string]func(*hostexec.Request){"zero CPU": func(r *hostexec.Request) { r.Limits.CPUNs = 0 }, "memory": func(r *hostexec.Request) { r.Limits.MemoryBytes = 2 << 30 }, "size": func(r *hostexec.Request) {
+		r.StdinBytes = hostexec.MaxInputBytes
+		r.Inputs = []hostexec.Input{{Path: "main.cpp", SizeBytes: 1}}
+	}, "duplicate": func(r *hostexec.Request) { r.Inputs = []hostexec.Input{{Path: "x"}, {Path: "x"}} }, "absolute command": func(r *hostexec.Request) { r.Command = []string{"/bin/sh"} }, "environment": func(r *hostexec.Request) { r.Env = []string{"NO_EQUALS"} }} {
 		t.Run(name, func(t *testing.T) {
 			r := request()
 			change(&r)
@@ -35,7 +35,7 @@ func TestRequestRejectsEscapesAndUnboundedData(t *testing.T) {
 		})
 	}
 	r := request()
-	r.Inputs = []launcher.Input{{Path: "src/main.cpp", SizeBytes: 3}}
+	r.Inputs = []hostexec.Input{{Path: "src/main.cpp", SizeBytes: 3}}
 	if err := r.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -43,12 +43,12 @@ func TestRequestRejectsEscapesAndUnboundedData(t *testing.T) {
 func TestFramePreservesFollowingStream(t *testing.T) {
 	var b bytes.Buffer
 	r := request()
-	if err := launcher.WriteFrame(&b, r, launcher.MaxFrameBytes); err != nil {
+	if err := hostexec.WriteFrame(&b, r, hostexec.MaxFrameBytes); err != nil {
 		t.Fatal(err)
 	}
 	b.WriteString("payload\x00bytes")
-	var got launcher.Request
-	if err := launcher.ReadFrame(&b, &got, launcher.MaxFrameBytes); err != nil {
+	var got hostexec.Request
+	if err := hostexec.ReadFrame(&b, &got, hostexec.MaxFrameBytes); err != nil {
 		t.Fatal(err)
 	}
 	if b.String() != "payload\x00bytes" {
@@ -65,15 +65,15 @@ func TestFrameRejectsInvalidWire(t *testing.T) {
 		binary.BigEndian.PutUint32(h[:], uint32(len(body)))
 		b.Write(h[:])
 		b.WriteString(body)
-		var r launcher.Request
-		if err := launcher.ReadFrame(&b, &r, launcher.MaxFrameBytes); err == nil {
+		var r hostexec.Request
+		if err := hostexec.ReadFrame(&b, &r, hostexec.MaxFrameBytes); err == nil {
 			t.Fatalf("接受 %q", body)
 		}
 	}
 	var h [4]byte
-	binary.BigEndian.PutUint32(h[:], launcher.MaxFrameBytes+1)
-	var r launcher.Request
-	if launcher.ReadFrame(bytes.NewReader(h[:]), &r, launcher.MaxFrameBytes) == nil {
+	binary.BigEndian.PutUint32(h[:], hostexec.MaxFrameBytes+1)
+	var r hostexec.Request
+	if hostexec.ReadFrame(bytes.NewReader(h[:]), &r, hostexec.MaxFrameBytes) == nil {
 		t.Fatal("接受超大帧")
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // artifactSource 是已确认停止的工作区，Open 仍须验证链接、文件类型和挂载边界。
@@ -20,7 +20,7 @@ func (d workspaceDirectory) Close() error { return d.File.Close() }
 
 // artifactSet 聚合已验证的句柄及长度，部分打开失败也保留已取得的句柄供关闭。
 type artifactSet struct {
-	outputs  []Output
+	outputs  []hostexec.Output
 	files    []*ownedFile
 	closed   bool
 	closeErr error
@@ -38,11 +38,11 @@ func collectArtifacts(source artifactSource, names []string) (*artifactSet, erro
 		if err != nil {
 			return set, fmt.Errorf("打开产物 %s: %w", name, err)
 		}
-		if size < 0 || size > launcher.MaxArtifactBytes-total {
+		if size < 0 || size > hostexec.MaxArtifactBytes-total {
 			return set, errors.Join(fmt.Errorf("产物总量超限: %s", name), file.Close())
 		}
 		total += size
-		set.outputs = append(set.outputs, Output{Path: name, SizeBytes: size})
+		set.outputs = append(set.outputs, hostexec.Output{Path: name, SizeBytes: size})
 		set.files = append(set.files, ownFile(file))
 	}
 	return set, nil
@@ -59,10 +59,10 @@ func (s *artifactSet) Close() error {
 	return s.closeErr
 }
 
-// executionResult 接管已结束执行的产物；Result 自身只含可序列化事实。
-// 交付者必须成功关闭产物后才能发送 Completion。
+// executionResult 接管已结束执行的产物；hostexec.Result 自身只含可序列化事实。
+// 交付者必须成功关闭产物后才能发送 hostexec.Completion。
 type executionResult struct {
-	Result
+	hostexec.Result
 	artifacts *artifactSet
 }
 

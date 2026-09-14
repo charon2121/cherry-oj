@@ -1,4 +1,8 @@
-package helper
+// Package client 是本机执行协议的非特权侧实现。
+//
+// 它只会发起调用、校验响应并接收产物，不包含任何特权操作；helper 的服务端实现
+// 不在本包，也不被本包引用。
+package client
 
 import (
 	"context"
@@ -9,17 +13,17 @@ import (
 	"sync"
 	"time"
 
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 const dialTimeout = 3 * time.Second // 本机 socket 建连期限，独立于建连后的会话。
 
 // Call 接管并关闭 input；其 Close 必须能解除 Read 阻塞（本地文件或有界内存流）。
 // Call 流式交付输入和产物。consume 必须同步处理每个受限 reader；不能保留 reader 异步读取。
-// 对端入口是 serveConn。只有 Completion 后的正常 EOF 才表示槽位已归还；
+// 对端入口是 helper 的 serveConn。只有 Completion 后的正常 EOF 才表示槽位已归还；
 // consume 即使已收到文件，也不能在 Call 成功前对外发布。
-func Call(ctx context.Context, socket string, r launcher.Request, input io.ReadCloser, consume func(Output, io.Reader) error) (Result, error) {
-	var result Result
+func Call(ctx context.Context, socket string, r hostexec.Request, input io.ReadCloser, consume func(hostexec.Output, io.Reader) error) (hostexec.Result, error) {
+	var result hostexec.Result
 	if input == nil {
 		return result, fmt.Errorf("输入流不能为空")
 	}
@@ -37,9 +41,9 @@ func Call(ctx context.Context, socket string, r launcher.Request, input io.ReadC
 	stop := context.AfterFunc(ctx, func() { closeConn() })
 	defer stop()
 
-	err = conn.SetDeadline(time.Now().Add(sessionTimeout))
+	err = conn.SetDeadline(time.Now().Add(hostexec.SessionTimeout))
 	if err == nil {
-		err = launcher.WriteFrame(conn, r, launcher.MaxFrameBytes)
+		err = hostexec.WriteFrame(conn, r, hostexec.MaxFrameBytes)
 	}
 	if err == nil {
 		// helper 可能在读完输入前响应失败；上传与接收并行，避免双向堵塞。
@@ -78,12 +82,12 @@ func uploadInput(conn net.Conn, input io.Reader, bytes int64) <-chan error {
 	return sent
 }
 
-func receiveResult(conn io.Reader, outputs []string, consume func(Output, io.Reader) error) (Result, error) {
-	var result Result
-	if err := launcher.ReadFrame(conn, &result, maxResultFrameBytes); err != nil {
+func receiveResult(conn io.Reader, outputs []string, consume func(hostexec.Output, io.Reader) error) (hostexec.Result, error) {
+	var result hostexec.Result
+	if err := hostexec.ReadFrame(conn, &result, hostexec.MaxResultFrameBytes); err != nil {
 		return result, err
 	}
-	if result.Version != launcher.Version || len(result.Outputs) > launcher.MaxOutputs {
+	if result.Version != hostexec.Version || len(result.Outputs) > hostexec.MaxOutputs {
 		return result, fmt.Errorf("helper 响应版本/产物数无效")
 	}
 	allowed := map[string]bool{}
@@ -92,7 +96,7 @@ func receiveResult(conn io.Reader, outputs []string, consume func(Output, io.Rea
 	}
 	var total int64
 	for _, o := range result.Outputs {
-		if !allowed[o.Path] || o.SizeBytes < 0 || o.SizeBytes > launcher.MaxArtifactBytes-total {
+		if !allowed[o.Path] || o.SizeBytes < 0 || o.SizeBytes > hostexec.MaxArtifactBytes-total {
 			return result, fmt.Errorf("helper 返回未授权或超大产物")
 		}
 		delete(allowed, o.Path)
@@ -115,11 +119,11 @@ func receiveResult(conn io.Reader, outputs []string, consume func(Output, io.Rea
 }
 
 func awaitCompletion(ctx context.Context, conn io.Reader) error {
-	var completion Completion
-	if err := launcher.ReadFrame(conn, &completion, maxCompletionFrameBytes); err != nil {
+	var completion hostexec.Completion
+	if err := hostexec.ReadFrame(conn, &completion, hostexec.MaxCompletionFrameBytes); err != nil {
 		return err
 	}
-	if completion.Version != launcher.Version || !completion.Complete {
+	if completion.Version != hostexec.Version || !completion.Complete {
 		return fmt.Errorf("helper 没有确认完整回收与交付")
 	}
 	// Completion 确认执行资源和产物回收；正常 EOF 才确认连接收尾、槽位归还。

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 	"golang.org/x/sys/unix"
@@ -102,15 +103,15 @@ func TestStartupBoundaries(t *testing.T) {
 			require(t, dataR.Close())
 			require(t, lifeR.Close())
 			require(t, fd.Close())
-			stage := launcher.StageSpec{Request: launcher.Request{Version: 1, Command: []string{"probe", "identity"}, Limits: contract.Limits{CPUNs: 1_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 64 << 20, MaxProcesses: 64, StdoutMaxBytes: 8192, StderrMaxBytes: 8192}}, RootFS: filepath.Join(base, "rootfs"), MountPoint: mount, Executable: filepath.Join(base, "sandbox-helper"), PayloadUID: 61002, PayloadGID: 61002, InitUID: 61003, InitGID: 61003, WorkspaceBytes: 8 << 20, WorkspaceInodes: 128}
+			stage := launcher.StageSpec{Request: hostexec.Request{Version: 1, Command: []string{"probe", "identity"}, Limits: contract.Limits{CPUNs: 1_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 64 << 20, MaxProcesses: 64, StdoutMaxBytes: 8192, StderrMaxBytes: 8192}}, RootFS: filepath.Join(base, "rootfs"), MountPoint: mount, Executable: filepath.Join(base, "sandbox-helper"), PayloadUID: 61002, PayloadGID: 61002, InitUID: 61003, InitGID: 61003, WorkspaceBytes: 8 << 20, WorkspaceInodes: 128}
 			if mode == "missing-rootfs" {
 				stage.RootFS = filepath.Join(base, "absent-root")
 			}
 			if mode == "short-input" {
-				stage.Request.Inputs = []launcher.Input{{Path: "short", SizeBytes: 1}}
+				stage.Request.Inputs = []hostexec.Input{{Path: "short", SizeBytes: 1}}
 			}
 			if mode != "configuration-eof" {
-				require(t, launcher.WriteFrame(dataW, stage, launcher.MaxFrameBytes))
+				require(t, hostexec.WriteFrame(dataW, stage, hostexec.MaxFrameBytes))
 			}
 			require(t, dataW.Close())
 			event := func() launcher.Event {

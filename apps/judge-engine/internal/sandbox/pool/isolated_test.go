@@ -10,9 +10,8 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/container"
-	"cherry-oj/judge-engine/internal/sandbox/helper"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 	"cherry-oj/judge-engine/internal/sandbox/pool"
 	"cherry-oj/judge-engine/internal/sandbox/store"
 )
@@ -41,8 +40,8 @@ func TestIsolatedArtifactRoundTrip(t *testing.T) {
 			}
 			conn.SetDeadline(time.Now().Add(3 * time.Second))
 			e = func() error {
-				var request launcher.Request
-				if e := launcher.ReadFrame(conn, &request, launcher.MaxFrameBytes); e != nil {
+				var request hostexec.Request
+				if e := hostexec.ReadFrame(conn, &request, hostexec.MaxFrameBytes); e != nil {
 					return e
 				}
 				input, e := io.ReadAll(io.LimitReader(conn, request.InputBytes()))
@@ -56,13 +55,13 @@ func TestIsolatedArtifactRoundTrip(t *testing.T) {
 				if string(input) != expected {
 					t.Errorf("request %d input=%q", i, input)
 				}
-				result := helper.Result{Version: 1, ClockNs: 10}
+				result := hostexec.Result{Version: 1, ClockNs: 10}
 				if i == 0 {
-					result.Outputs = []helper.Output{{Path: "program", SizeBytes: 6}}
+					result.Outputs = []hostexec.Output{{Path: "program", SizeBytes: 6}}
 				} else {
 					result.Stdout = []byte("ok\n")
 				}
-				if e := launcher.WriteFrame(conn, result, 4<<20); e != nil {
+				if e := hostexec.WriteFrame(conn, result, 4<<20); e != nil {
 					return e
 				}
 				if i == 0 {
@@ -70,7 +69,7 @@ func TestIsolatedArtifactRoundTrip(t *testing.T) {
 						return e
 					}
 				}
-				return launcher.WriteFrame(conn, helper.Completion{Version: 1, Complete: true}, 1024)
+				return hostexec.WriteFrame(conn, hostexec.Completion{Version: 1, Complete: true}, 1024)
 			}()
 			conn.Close()
 			if e != nil {

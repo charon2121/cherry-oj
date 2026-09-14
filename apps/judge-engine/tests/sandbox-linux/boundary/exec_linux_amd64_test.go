@@ -12,6 +12,7 @@ import (
 	"time"
 	"unsafe"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 	"cherry-oj/judge-engine/internal/sandbox/policy"
@@ -28,7 +29,7 @@ func TestExecFailureChild(t *testing.T) {
 	fixture(t)
 	cfg := os.NewFile(3, "config")
 	var spec launcher.ExecSpec
-	require(t, launcher.ReadFrame(cfg, &spec, launcher.MaxFrameBytes))
+	require(t, hostexec.ReadFrame(cfg, &spec, hostexec.MaxFrameBytes))
 	require(t, cfg.Close())
 	var denied []uint32
 	switch mode {
@@ -142,7 +143,7 @@ func TestExecStageFailures(t *testing.T) {
 			if tc.stage == 7 {
 				spec.ReadyFD = 4
 			}
-			require(t, launcher.WriteFrame(configW, spec, launcher.MaxFrameBytes))
+			require(t, hostexec.WriteFrame(configW, spec, hostexec.MaxFrameBytes))
 			require(t, configW.Close())
 			if tc.stage == 7 {
 				poll := []unix.PollFd{{Fd: int32(ready.Fd()), Events: unix.POLLIN}}

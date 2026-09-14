@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 func TestInitReadyMessageMatchesEventProtocol(t *testing.T) {
@@ -14,7 +16,7 @@ func TestInitReadyMessageMatchesEventProtocol(t *testing.T) {
 	if err := decoder.Decode(&event); err != nil {
 		t.Fatal(err)
 	}
-	if want := (Event{Version: Version, Kind: "ready"}); event != want {
+	if want := (Event{Version: hostexec.Version, Kind: "ready"}); event != want {
 		t.Fatalf("过滤后发送的固定消息与事件协议不符: got=%+v want=%+v", event, want)
 	}
 }

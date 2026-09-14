@@ -11,8 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 
 	"golang.org/x/sys/unix"
 )
@@ -167,21 +167,21 @@ func checkPeer(c *net.UnixConn, uid int) error {
 	return nil
 }
 
-// serveConn 返回的错误仅用于通知 Serve 停服；普通执行失败通过 Result 交付。
+// serveConn 返回的错误仅用于通知 Serve 停服；普通执行失败通过 hostexec.Result 交付。
 // 交付失败仍由 defer 关闭产物，serveInSlot 最后归还槽位并关闭连接。
 func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (fatal error) {
-	// 先限制请求头读取；校验通过后才设置后续会话期限（见 sessionTimeout）。
+	// 先限制请求头读取；校验通过后才设置后续会话期限（见 hostexec.SessionTimeout）。
 	if err := conn.SetDeadline(time.Now().Add(requestHeaderTimeout)); err != nil {
 		return nil
 	}
-	var req launcher.Request
-	if err := launcher.ReadFrame(conn, &req, launcher.MaxFrameBytes); err != nil {
+	var req hostexec.Request
+	if err := hostexec.ReadFrame(conn, &req, hostexec.MaxFrameBytes); err != nil {
 		return nil
 	}
 	if req.Validate() != nil {
 		return nil
 	}
-	if err := conn.SetDeadline(time.Now().Add(sessionTimeout)); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(hostexec.SessionTimeout)); err != nil {
 		return nil
 	}
 	runCtx, cancel := context.WithCancel(ctx)
@@ -200,7 +200,7 @@ func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (
 	}
 	// 读取侧超时不妨碍给仍连接的调用方返回已取消/失败的资源事实。
 	_ = conn.SetWriteDeadline(time.Now().Add(deliveryTimeout))
-	if err := launcher.WriteFrame(conn, res.Result, maxResultFrameBytes); err != nil {
+	if err := hostexec.WriteFrame(conn, res.Result, hostexec.MaxResultFrameBytes); err != nil {
 		return fatal
 	}
 	if err := res.WriteFiles(conn); err != nil {
@@ -213,6 +213,6 @@ func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (
 		return fatal
 	}
 	// 资源句柄回收完成后才确认交付，客户端必须消费该尾帧。
-	_ = launcher.WriteFrame(conn, Completion{Version: launcher.Version, Complete: true}, maxCompletionFrameBytes)
+	_ = hostexec.WriteFrame(conn, hostexec.Completion{Version: hostexec.Version, Complete: true}, hostexec.MaxCompletionFrameBytes)
 	return fatal
 }

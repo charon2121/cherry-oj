@@ -4,6 +4,7 @@ import (
 	"slices"
 	"time"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
@@ -18,7 +19,7 @@ const (
 // isolationPlan 是已校验请求与受保护部署配置的私有快照，不拥有内核资源。
 // 内部字段不作为 wire 类型，客户端不能借它选择挂载来源或身份。
 type isolationPlan struct {
-	request    launcher.Request
+	request    hostexec.Request
 	namespaces namespacePlan
 	filesystem filesystemPlan
 	resources  cgroup.Limits
@@ -32,7 +33,7 @@ type filesystemPlan struct {
 }
 type identityPlan struct{ payloadUID, payloadGID, initUID, initGID int }
 
-func newIsolationPlan(r launcher.Request, c Config, executable string) isolationPlan {
+func newIsolationPlan(r hostexec.Request, c Config, executable string) isolationPlan {
 	return isolationPlan{
 		request: cloneRequest(r), namespaces: namespacePlan{cloneFlags: isolatedNamespaces()},
 		filesystem: filesystemPlan{c.RootFS, c.StateDir, executable, workspaceBytes, workspaceInodes},
@@ -40,7 +41,7 @@ func newIsolationPlan(r launcher.Request, c Config, executable string) isolation
 		identity:   identityPlan{c.PayloadUID, c.PayloadGID, c.InitUID, c.InitGID},
 	}
 }
-func cloneRequest(r launcher.Request) launcher.Request {
+func cloneRequest(r hostexec.Request) hostexec.Request {
 	r.Command = slices.Clone(r.Command)
 	r.Env = slices.Clone(r.Env)
 	r.Inputs = slices.Clone(r.Inputs)

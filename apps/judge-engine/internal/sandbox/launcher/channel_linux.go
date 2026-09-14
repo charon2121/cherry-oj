@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"golang.org/x/sys/unix"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // 接收缓冲有意大于协议允许的一个 FD，以便发现并关闭多传的句柄。
@@ -33,7 +35,7 @@ func SendEvent(c *os.File, e Event, dir *os.File) error {
 }
 
 func sendEvent(c *os.File, e Event, dir *os.File, send func(int, []byte, []byte, unix.Sockaddr, int) (int, error)) error {
-	e.Version = Version
+	e.Version = hostexec.Version
 	b, err := json.Marshal(e)
 	if err != nil {
 		return err
@@ -122,7 +124,7 @@ func receiveEvent(c *os.File, receive func(int, []byte, []byte, int) (int, int, 
 	if err := json.Unmarshal(b[:n], &e); err != nil {
 		return fail(err)
 	}
-	if e.Version != Version {
+	if e.Version != hostexec.Version {
 		return fail(fmt.Errorf("控制消息版本错误"))
 	}
 	if len(fds) == 1 {

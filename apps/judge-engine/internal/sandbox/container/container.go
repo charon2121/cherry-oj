@@ -6,6 +6,7 @@ import (
 	"io/fs"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // Container 是单次执行的工作区：先 PutFile，调用一次 Start，Wait 后读取产物，最后 Close。
@@ -39,24 +40,14 @@ type Process interface {
 }
 
 // Usage 是执行事实，不直接给出判题结论。
+// Reason 使用协议定义的终止原因，本包不再重复一份枚举。
 type Usage struct {
 	ExitCode        int
 	Signal          int
 	CPUNs           int64
 	MemoryBytes     int64
 	ClockNs         int64
-	Reason          Reason
+	Reason          hostexec.Reason
 	OOMKilled       bool // Linux 后端须同时有本任务 oom 与 oom_kill 证据，SIGKILL 本身不够。
 	GroupAccounting bool // 标识资源来自整组计量，runner 据此避免套用 host 的峰值推断。
 }
-
-// Reason 只表达执行事实，不携带判题状态。未知原因必须作为平台错误处理。
-type Reason string
-
-const (
-	ReasonCPU       Reason = "cpu"
-	ReasonWall      Reason = "wall"
-	ReasonOutput    Reason = "output"
-	ReasonCancelled Reason = "cancelled"
-	ReasonPlatform  Reason = "platform"
-)

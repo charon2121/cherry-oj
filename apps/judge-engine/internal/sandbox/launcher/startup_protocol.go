@@ -1,5 +1,7 @@
 package launcher
 
+import "cherry-oj/judge-engine/internal/hostexec"
+
 // os/exec 将 ExtraFiles[i] 映射到子进程 FD 3+i；0/1/2 是标准输入、输出、错误。
 // 两组 FD 属于不同进程，不能因为编号相同而复用角色名称。
 const (
@@ -53,7 +55,7 @@ const (
 
 // StageSpec 只通过 helper 创建的匿名管道传给可信 init，绝不从 socket 客户端解码。
 type StageSpec struct {
-	Request                                  Request
+	Request                                  hostexec.Request
 	RootFS, MountPoint, Executable           string
 	PayloadUID, PayloadGID, InitUID, InitGID int
 	WorkspaceBytes                           int64

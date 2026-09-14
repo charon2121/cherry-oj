@@ -12,10 +12,8 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/sandbox/cgroup"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/container"
-	"cherry-oj/judge-engine/internal/sandbox/helper"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
 
 func socketServer(t *testing.T, serve func(net.Conn)) string {
@@ -60,8 +58,8 @@ func TestIsolatedPublishesOnlyAfterCompletion(t *testing.T) {
 	for _, complete := range []bool{false, true} {
 		t.Run(map[bool]string{false: "missing completion", true: "complete"}[complete], func(t *testing.T) {
 			socket := socketServer(t, func(conn net.Conn) {
-				var r launcher.Request
-				if e := launcher.ReadFrame(conn, &r, launcher.MaxFrameBytes); e != nil {
+				var r hostexec.Request
+				if e := hostexec.ReadFrame(conn, &r, hostexec.MaxFrameBytes); e != nil {
 					t.Error(e)
 					return
 				}
@@ -72,7 +70,7 @@ func TestIsolatedPublishesOnlyAfterCompletion(t *testing.T) {
 				if len(r.Inputs) != 1 || r.Inputs[0].Path != "main.cpp" || r.StdinBytes != 5 {
 					t.Errorf("request=%+v", r)
 				}
-				if e := launcher.WriteFrame(conn, helper.Result{Version: 1, Outputs: []helper.Output{{Path: "program", SizeBytes: 3}}}, 4<<20); e != nil {
+				if e := hostexec.WriteFrame(conn, hostexec.Result{Version: 1, Outputs: []hostexec.Output{{Path: "program", SizeBytes: 3}}}, 4<<20); e != nil {
 					t.Error(e)
 					return
 				}
@@ -81,7 +79,7 @@ func TestIsolatedPublishesOnlyAfterCompletion(t *testing.T) {
 					return
 				}
 				if complete {
-					if e := launcher.WriteFrame(conn, helper.Completion{Version: 1, Complete: true}, 1024); e != nil {
+					if e := hostexec.WriteFrame(conn, hostexec.Completion{Version: 1, Complete: true}, 1024); e != nil {
 						t.Error(e)
 					}
 				}
@@ -139,8 +137,8 @@ func TestIsolatedPublishesOnlyAfterCompletion(t *testing.T) {
 func TestIsolatedCancellationClosesConnection(t *testing.T) {
 	disconnected := make(chan struct{})
 	socket := socketServer(t, func(c net.Conn) {
-		var r launcher.Request
-		if e := launcher.ReadFrame(c, &r, launcher.MaxFrameBytes); e != nil {
+		var r hostexec.Request
+		if e := hostexec.ReadFrame(c, &r, hostexec.MaxFrameBytes); e != nil {
 			return
 		}
 		io.Copy(io.Discard, c)
@@ -179,17 +177,17 @@ func TestIsolatedCancellationClosesConnection(t *testing.T) {
 func TestIsolatedRequiresTaskLocalOOM(t *testing.T) {
 	for _, taskOOM := range []uint64{0, 1} {
 		socket := socketServer(t, func(conn net.Conn) {
-			var r launcher.Request
-			if err := launcher.ReadFrame(conn, &r, launcher.MaxFrameBytes); err != nil {
+			var r hostexec.Request
+			if err := hostexec.ReadFrame(conn, &r, hostexec.MaxFrameBytes); err != nil {
 				t.Error(err)
 				return
 			}
-			result := helper.Result{Version: 1, Usage: cgroup.Snapshot{OOM: taskOOM, OOMKill: 1}}
-			if err := launcher.WriteFrame(conn, result, 4<<20); err != nil {
+			result := hostexec.Result{Version: 1, Usage: hostexec.Usage{OOM: taskOOM, OOMKill: 1}}
+			if err := hostexec.WriteFrame(conn, result, 4<<20); err != nil {
 				t.Error(err)
 				return
 			}
-			if err := launcher.WriteFrame(conn, helper.Completion{Version: 1, Complete: true}, launcher.MaxFrameBytes); err != nil {
+			if err := hostexec.WriteFrame(conn, hostexec.Completion{Version: 1, Complete: true}, hostexec.MaxFrameBytes); err != nil {
 				t.Error(err)
 			}
 		})

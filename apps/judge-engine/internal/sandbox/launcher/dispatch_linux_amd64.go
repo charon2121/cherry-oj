@@ -3,6 +3,8 @@ package launcher
 import (
 	"errors"
 	"os"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // Dispatch 必须在 main 读取配置、启动服务或建立 goroutine 之前调用。
@@ -18,7 +20,7 @@ func Dispatch() bool {
 	case "--isolated-exec":
 		config := os.NewFile(ExecConfigFD, "exec-config")
 		var s ExecSpec
-		err := ReadFrame(config, &s, MaxFrameBytes)
+		err := hostexec.ReadFrame(config, &s, hostexec.MaxFrameBytes)
 		if errors.Join(err, config.Close()) != nil {
 			os.Exit(launcherFailureExitCode)
 		}

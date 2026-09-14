@@ -1,4 +1,9 @@
-package launcher
+// Package hostexec 定义非特权 sandbox 与特权 helper 之间的本机执行协议。
+//
+// 它是两端唯一的共享词汇：请求、响应、终止原因与帧编解码只在此定义一次。
+// 本包不实现特权操作，也不理解判题；helper 的服务端实现与 sandbox 的客户端
+// 分别位于各自的包中，对同一份协议编程。
+package hostexec
 
 import (
 	"encoding/binary"
@@ -15,7 +20,7 @@ import (
 const Version = 1
 
 // 本机请求先限制条目及累计字节，避免客户端用小控制帧触发无界资源分配。
-// 输入与产物是两个独立累计预算；结果帧预算由 helper 协议单独维护。
+// 输入与产物是两个独立累计预算；结果帧预算见 result.go。
 const (
 	MaxFrameBytes               = 64 << 10
 	MaxInputBytes         int64 = 64 << 20

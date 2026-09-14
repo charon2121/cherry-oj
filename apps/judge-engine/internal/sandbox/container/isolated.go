@@ -8,8 +8,8 @@ import (
 	"os"
 	"sync"
 
-	"cherry-oj/judge-engine/internal/sandbox/helper"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/internal/hostexec/client"
 )
 
 // isolatedContainer 暂存的是服务自己创建的普通文件，用户代码从不接触此目录。
@@ -17,7 +17,7 @@ import (
 // PutFile/Start/GetFile 由一个调用者依序使用；Close 可与执行并发。
 type isolatedContainer struct {
 	socket, dir string
-	inputs      []launcher.Input
+	inputs      []hostexec.Input
 	files       []*os.File
 	outputs     map[string]string
 	bytes       int64
@@ -81,7 +81,7 @@ func (c *isolatedContainer) Start(ctx context.Context, s Spec) (Process, error) 
 	runCtx, cancel := context.WithCancel(ctx)
 	p := &isolatedProcess{cancel: cancel, done: make(chan struct{})}
 	c.process = p
-	// input.Close 由 helper.Call 接管；Container 仅在尚未启动时关闭输入FD。
+	// input.Close 由 client.Call 接管；Container 仅在尚未启动时关闭输入FD。
 	input := &inputStream{Reader: io.MultiReader(readers...), files: c.files}
 	c.files = nil
 	go c.execute(runCtx, p, s, r, input)
@@ -89,16 +89,16 @@ func (c *isolatedContainer) Start(ctx context.Context, s Spec) (Process, error) 
 }
 
 // execute 在临时文件中接收产物，只有 Call 确认完整交付及连接收尾后才允许 GetFile。
-func (c *isolatedContainer) execute(ctx context.Context, p *isolatedProcess, s Spec, r launcher.Request, input io.ReadCloser) {
+func (c *isolatedContainer) execute(ctx context.Context, p *isolatedProcess, s Spec, r hostexec.Request, input io.ReadCloser) {
 	defer close(p.done)
 	defer p.cancel()
-	result, err := helper.Call(ctx, c.socket, r, input, c.receiveOutput)
-	p.usage = Usage{ExitCode: result.ExitCode, Signal: result.Signal, CPUNs: result.Usage.CPUNs, MemoryBytes: result.Usage.MemoryBytes, ClockNs: result.ClockNs, Reason: Reason(result.Reason), GroupAccounting: true, OOMKilled: result.Usage.OOM > 0 && result.Usage.OOMKill > 0}
+	result, err := client.Call(ctx, c.socket, r, input, c.receiveOutput)
+	p.usage = Usage{ExitCode: result.ExitCode, Signal: result.Signal, CPUNs: result.Usage.CPUNs, MemoryBytes: result.Usage.MemoryBytes, ClockNs: result.ClockNs, Reason: result.Reason, GroupAccounting: true, OOMKilled: result.Usage.OOM > 0 && result.Usage.OOMKill > 0}
 	if result.Cancelled {
-		p.usage.Reason = ReasonCancelled
+		p.usage.Reason = hostexec.ReasonCancelled
 	}
 	if result.OutputExceeded && p.usage.Reason == "" {
-		p.usage.Reason = ReasonOutput
+		p.usage.Reason = hostexec.ReasonOutput
 	}
 	if result.Error != "" {
 		err = errors.Join(err, errors.New(result.Error))

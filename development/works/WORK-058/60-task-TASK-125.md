@@ -96,3 +96,47 @@ go test -race ./...   # 全绿
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-14：**范围收窄（与本任务「产出」一节原文不同，理由如下）。** 原文把「启动协议 FD 与
+  握手常量」列入 `internal/hostexec`。实际核对跨包引用后确认：`InitControlFD`/`InitInputFD`/
+  `InitLivenessFD`/`ExecConfigFD`/`ExecReadyFD`/`ExecErrorFD`、`PayloadReady`/`PayloadGo`、
+  `Event`、`StageSpec`、`execFailureStage` 只被 helper 与 launcher 的进程角色使用，非特权侧
+  （container / runner / api / pool）一个都没有引用。把它们放进非特权侧要 import 的包，正是
+  本工作要消除的那种泄漏，因此留在 `launcher`，随 S2 一并迁入 `helperd/internal/`。
+  DESIGN-051 未列举该项，方案未受影响。
+- 2026-09-14：完成搬运。新增 `internal/hostexec`（protocol.go / result.go）与
+  `internal/hostexec/client`；删除 `launcher/protocol.go`、`helper/protocol.go`、`helper/client.go`。
+  `cgroup.Snapshot` 与线格式解耦：新增 `hostexec.Usage` 作为协议类型，`helper/usage.go` 在交付
+  边界做一次字段映射，使非特权侧不再依赖 cgroup 的实现类型。
+- 2026-09-14：终止原因去重完成。`container.Reason` 已删除，全模块只剩
+  `internal/hostexec/result.go:60` 一处 `type Reason string`；`container/isolated.go` 原有的
+  `Reason(result.Reason)` 强转随之消失。
+- 2026-09-14：测试拆分。`helper/client_test.go` 中 9 个 `TestClient*` 迁至
+  `internal/hostexec/client/client_test.go`；`testRequest`/`fakeServer`/`writeTestCompletion`
+  三个夹具被 helper 的服务端测试依赖，留在 `helper/fixtures_test.go`，两侧各持一份副本。
+  `launcher/protocol_test.go` 迁至 `internal/hostexec/protocol_test.go`。
+  `helper/server_linux_amd64_test.go` 改用 `client.Call` 做协议往返。
+- 2026-09-14：新增 `runner/reason_test.go`（覆盖断言）与 `hostexec/wire_test.go`（线格式基准）。
+  覆盖测试做过三次变异验证，全部被拦截：① 新增 `ReasonNetwork` 而不登记结论 → 报
+  「终止原因 "network" 没有登记结论」；② 删除 `classify` 的 CPU/Wall 分支 → 报
+  `classify("cpu") = InternalError，期望 TimeLimitExceeded`；③ 把 `ReasonPlatform` 从首个分支
+  移除 → 报 `classify("platform") = MemoryLimitExceeded，期望 InternalError`。
+  第三项说明表里必须带「让结论可区分的执行状态」：只断言「原因 → 状态」时该变异不会被发现，
+  而它的真实后果是把平台故障报成 MLE。
+- 2026-09-14：完成标准逐条核对。
+  ① `go list` 确认 container / runner / api / pool / store 均不再引用 `sandbox/helper` 与
+  `sandbox/launcher`。
+  ② 全模块单一 `Reason` 定义，无跨包强转。
+  ③ 与基线 `a611be3` 比对 47 个协议常量，取值全部一致；仅 `maxResultFrameBytes`、
+  `maxCompletionFrameBytes`、`sessionTimeout` 三项因两端共用改为导出（`MaxResultFrameBytes`、
+  `MaxCompletionFrameBytes`、`SessionTimeout`），语义与取值未变。
+  ④ 客户端与服务端改动在同一工作区变更内，未分批。
+  ⑤ `go.mod` / `go.sum` 未改动。
+- 2026-09-14：本机验证通过：`gofmt -l .` 无输出；`go vet ./...` 与
+  `GOOS=linux GOARCH=amd64 go vet ./...` 均无输出；`go test -race ./...` 24 个包全绿。
+  附带确认 `internal` 可见性规则已生效：模块外的临时程序 import `internal/hostexec` 被编译器
+  拒绝（`use of internal package ... not allowed`）。
+- 2026-09-14：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归。该回归依赖 CI 的内核
+  虚拟机与软件包准备（`deploy/sandbox-linux/ci/kernel.py` 等），本机 macOS 无法运行，需推送后
+  由 CI 执行。在它通过之前，本任务不计完成。
+- 2026-09-14：状态变更：todo → ready。原因：意图闸已签署，S1 可执行
+- 2026-09-14：状态变更：ready → doing。原因：开始抽出 internal/hostexec 并消除 Reason 重复定义

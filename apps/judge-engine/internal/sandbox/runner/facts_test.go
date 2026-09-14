@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/container"
 	"cherry-oj/judge-engine/internal/sandbox/store"
 )
@@ -24,13 +25,13 @@ func TestFactsClassification(t *testing.T) {
 		{"sigkill", container.Usage{Signal: 9}, nil, contract.StatusSignalled},
 		{"oom equal limit", container.Usage{Signal: 9, OOMKilled: true, MemoryBytes: 128 << 20}, nil, contract.StatusMemoryLimitExceeded},
 		{"peak without oom", container.Usage{GroupAccounting: true, MemoryBytes: 129 << 20}, nil, contract.StatusOK},
-		{"cpu", container.Usage{Reason: container.ReasonCPU}, nil, contract.StatusTimeLimitExceeded},
-		{"wall", container.Usage{Reason: container.ReasonWall}, nil, contract.StatusTimeLimitExceeded},
-		{"output", container.Usage{Reason: container.ReasonOutput}, nil, contract.StatusOutputLimitExceeded},
+		{"cpu", container.Usage{Reason: hostexec.ReasonCPU}, nil, contract.StatusTimeLimitExceeded},
+		{"wall", container.Usage{Reason: hostexec.ReasonWall}, nil, contract.StatusTimeLimitExceeded},
+		{"output", container.Usage{Reason: hostexec.ReasonOutput}, nil, contract.StatusOutputLimitExceeded},
 		{"cancel", container.Usage{}, context.Canceled, contract.StatusInternalError},
 		{"caller deadline", container.Usage{}, context.DeadlineExceeded, contract.StatusInternalError},
 		{"unknown", container.Usage{Reason: "surprise"}, nil, contract.StatusInternalError},
-		{"platform despite oom", container.Usage{Reason: container.ReasonPlatform, OOMKilled: true}, nil, contract.StatusInternalError},
+		{"platform despite oom", container.Usage{Reason: hostexec.ReasonPlatform, OOMKilled: true}, nil, contract.StatusInternalError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

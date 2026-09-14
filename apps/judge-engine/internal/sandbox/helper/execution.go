@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
 
 const (
@@ -77,12 +77,12 @@ type executionOptions struct {
 	groups      groupFactory
 }
 
-func newExecution(r launcher.Request, options executionOptions) *execution {
+func newExecution(r hostexec.Request, options executionOptions) *execution {
 	// 计时覆盖计划构造、建组与启动，不能推迟到 ready 或用户 exec。
 	started := time.Now()
 	plan := newIsolationPlan(r, options.config, options.executable)
 	return &execution{plan: plan, process: newIsolatedProcess(plan, options.source, options.cancelInput), makeGroup: options.groups, started: started,
-		result: executionResult{Result: Result{Version: launcher.Version, ExitCode: -1}}}
+		result: executionResult{Result: hostexec.Result{Version: hostexec.Version, ExitCode: -1}}}
 }
 
 func (x *execution) Run(ctx context.Context) (executionResult, error) {
@@ -140,6 +140,6 @@ func (x *execution) takeResult() executionResult {
 func (x *execution) fail(err error) {
 	if err != nil {
 		x.runErr = errors.Join(x.runErr, err)
-		x.result.Reason = ReasonPlatform
+		x.result.Reason = hostexec.ReasonPlatform
 	}
 }

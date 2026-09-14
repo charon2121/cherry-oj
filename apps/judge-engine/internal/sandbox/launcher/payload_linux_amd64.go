@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/policy"
 )
 
@@ -60,7 +61,7 @@ func (s *initSession) startPayload(stage StageSpec, stdin *os.File) error {
 		return err
 	}
 	s.phase = "payload-config"
-	if err = WriteFrame(cfgW, spec, MaxFrameBytes); err != nil {
+	if err = hostexec.WriteFrame(cfgW, spec, hostexec.MaxFrameBytes); err != nil {
 		return err
 	}
 	return s.close(cfgW)

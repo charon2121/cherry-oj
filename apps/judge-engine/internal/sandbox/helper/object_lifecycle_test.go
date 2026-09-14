@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
 	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
@@ -18,7 +19,7 @@ import (
 func TestIsolationPlanOwnsRequestSnapshot(t *testing.T) {
 	req := testRequest()
 	req.Env = []string{"NAME=original"}
-	req.Inputs = []launcher.Input{{Path: "source", SizeBytes: 1}}
+	req.Inputs = []hostexec.Input{{Path: "source", SizeBytes: 1}}
 	req.Outputs = []string{"program"}
 	original := cloneRequest(req)
 	plan := newIsolationPlan(req, Config{RootFS: "/rootfs", PayloadUID: 101, InitUID: 102}, "/helper")
@@ -144,19 +145,19 @@ func TestExecutionRechecksBudgetsBeforeRelease(t *testing.T) {
 			x, p, _ := scriptedExecution(processEvent{kind: processReady})
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			want := ReasonCancelled
+			want := hostexec.ReasonCancelled
 			switch kind {
 			case "cancel":
 				cancel()
 			case "wall":
 				x.started = time.Now().Add(-time.Duration(x.plan.request.Limits.ClockNs))
-				want = ReasonWall
+				want = hostexec.ReasonWall
 			case "cpu":
 				x.makeGroup = func(cgroup.Limits) (executionGroup, error) {
 					steps := []string{}
 					return &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{CPUNs: x.plan.request.Limits.CPUNs}}, nil
 				}
-				want = ReasonCPU
+				want = hostexec.ReasonCPU
 			}
 			result, err := x.Run(ctx)
 			if err != nil || p.released || result.Reason != want {

@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
 )
 
@@ -14,9 +15,9 @@ import (
 // 回收错误单独返回给服务使其停止接单；普通启动错误仅使本次执行失败。
 func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	x.state = executionFinishing
-	x.result.Cancelled = ctx.Err() != nil || x.result.Reason == ReasonCancelled
+	x.result.Cancelled = ctx.Err() != nil || x.result.Reason == hostexec.ReasonCancelled
 	if x.result.Cancelled && x.result.Reason == "" {
-		x.result.Reason = ReasonCancelled
+		x.result.Reason = hostexec.ReasonCancelled
 	}
 	// 请求可能已经取消，但回收必须继续；先解除输入阻塞，再使用独立期限收尾。
 	x.process.CancelInput()
@@ -28,7 +29,7 @@ func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	if x.group != nil {
 		snap, stopErr = x.group.Stop(cleanup)
 	}
-	x.result.Usage = snap
+	x.result.Usage = usageOf(snap)
 	x.result.ClockNs = time.Since(x.started).Nanoseconds()
 	// oom_kill 只说明本组有受害进程，也可能来自祖先或全局 OOM；
 	// 缺少本任务 oom 证据时，不能把平台内存压力归为用户命令超限。
@@ -37,13 +38,13 @@ func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	}
 	// 本任务 OOM 可能连 init 一起杀死；最终计量可解释丢失的退出报告。
 	// 后面的 Wait/I/O/释放错误仍独立处理，不能被 OOM 掩盖。
-	if stopErr == nil && x.initReportLost && snap.OOM > 0 && snap.OOMKill > 0 && x.result.Reason == ReasonPlatform {
+	if stopErr == nil && x.initReportLost && snap.OOM > 0 && snap.OOMKill > 0 && x.result.Reason == hostexec.ReasonPlatform {
 		x.runErr = nil
 		x.result.Reason = ""
 		x.result.Signal = int(syscall.SIGKILL)
 	}
 	if stopErr == nil && x.result.Reason == "" && snap.CPUNs >= x.plan.request.Limits.CPUNs {
-		x.result.Reason = ReasonCPU
+		x.result.Reason = hostexec.ReasonCPU
 	}
 
 	completion, waitErr := x.process.Wait(cleanup)
@@ -54,7 +55,7 @@ func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	x.result.Stderr = completion.stderr
 	x.result.OutputExceeded = completion.outputExceeded
 	if completion.outputExceeded && x.result.Reason == "" {
-		x.result.Reason = ReasonOutput
+		x.result.Reason = hostexec.ReasonOutput
 	}
 	cleanupErr := errors.Join(wrapError("停止资源组", stopErr), waitErr)
 	// 只有停组和全部等待成功，才从进程取得工作区并打开受控产物。

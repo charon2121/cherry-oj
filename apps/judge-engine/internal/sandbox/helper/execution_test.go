@@ -13,8 +13,8 @@ import (
 	"sync"
 	"testing"
 
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
 
 type lifecycleGroup struct {
@@ -105,7 +105,7 @@ func TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts(t *testing.T) {
 					t.Fatal(output.String())
 				}
 			} else {
-				if result.Reason != ReasonPlatform || !strings.Contains(result.Error, injected.Error()) {
+				if result.Reason != hostexec.ReasonPlatform || !strings.Contains(result.Error, injected.Error()) {
 					t.Fatalf("lost failure: %+v", result)
 				}
 				if result.artifacts != nil && len(result.artifacts.files) != 0 || len(result.Outputs) != 0 {
@@ -192,7 +192,7 @@ func TestDeliveryRejectsTruncatedArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := executionResult{Result: Result{Outputs: []Output{{Path: "artifact", SizeBytes: 1}}}, artifacts: &artifactSet{files: []*ownedFile{ownFile(f)}}}
+	r := executionResult{Result: hostexec.Result{Outputs: []hostexec.Output{{Path: "artifact", SizeBytes: 1}}}, artifacts: &artifactSet{files: []*ownedFile{ownFile(f)}}}
 	if err := r.WriteFiles(io.Discard); !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestFinishClosesEarlierArtifactsWhenLaterOpenFails(t *testing.T) {
 	if fatal != nil {
 		t.Fatal(fatal)
 	}
-	if result.Reason != ReasonPlatform || len(result.Outputs) != 0 || result.artifacts != nil && len(result.artifacts.files) != 0 {
+	if result.Reason != hostexec.ReasonPlatform || len(result.Outputs) != 0 || result.artifacts != nil && len(result.artifacts.files) != 0 {
 		t.Fatal(result)
 	}
 	if _, err := file.Stat(); !errors.Is(err, os.ErrClosed) {
@@ -273,7 +273,7 @@ func TestFinishOOMDoesNotHideIndependentFailure(t *testing.T) {
 	if fatal != nil {
 		t.Fatal(fatal)
 	}
-	if result.Reason != ReasonPlatform || !strings.Contains(result.Error, failure.Error()) {
+	if result.Reason != hostexec.ReasonPlatform || !strings.Contains(result.Error, failure.Error()) {
 		t.Fatal(result)
 	}
 }
@@ -308,13 +308,13 @@ func TestAncestorOOMPreservesPlatformFailure(t *testing.T) {
 			x.fail(io.EOF)
 		}
 		result, fatal := x.finish(context.Background())
-		if fatal != nil || result.Reason != ReasonPlatform || !strings.Contains(result.Error, "without task-local OOM") || len(result.Outputs) != 0 {
+		if fatal != nil || result.Reason != hostexec.ReasonPlatform || !strings.Contains(result.Error, "without task-local OOM") || len(result.Outputs) != 0 {
 			t.Fatalf("ancestor OOM misattributed: %+v fatal=%v", result, fatal)
 		}
 	}
 }
 
-func newTestExecution(r launcher.Request, cancel context.CancelFunc) *execution {
+func newTestExecution(r hostexec.Request, cancel context.CancelFunc) *execution {
 	return newExecution(r, executionOptions{source: strings.NewReader(""), cancelInput: cancel})
 }
 

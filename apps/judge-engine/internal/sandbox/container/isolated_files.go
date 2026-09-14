@@ -1,14 +1,14 @@
 package container
 
 import (
-	"cherry-oj/judge-engine/internal/sandbox/helper"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"sync"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 func (c *isolatedContainer) PutFile(name string, r io.Reader, mode fs.FileMode) error {
@@ -17,7 +17,7 @@ func (c *isolatedContainer) PutFile(name string, r io.Reader, mode fs.FileMode) 
 	if c.closed || c.attempted {
 		return fmt.Errorf("工作区不再接受输入")
 	}
-	if !launcher.ValidPath(name) || len(c.inputs) >= 128 {
+	if !hostexec.ValidPath(name) || len(c.inputs) >= 128 {
 		return fmt.Errorf("输入路径/数量无效: %q", name)
 	}
 	for _, f := range c.inputs {
@@ -25,12 +25,12 @@ func (c *isolatedContainer) PutFile(name string, r io.Reader, mode fs.FileMode) 
 			return fmt.Errorf("重复输入: %q", name)
 		}
 	}
-	f, n, err := c.spool(r, launcher.MaxInputBytes-c.bytes)
+	f, n, err := c.spool(r, hostexec.MaxInputBytes-c.bytes)
 	if err != nil {
 		return err
 	}
 	c.files = append(c.files, f)
-	c.inputs = append(c.inputs, launcher.Input{Path: name, SizeBytes: n, Executable: mode&0o111 != 0})
+	c.inputs = append(c.inputs, hostexec.Input{Path: name, SizeBytes: n, Executable: mode&0o111 != 0})
 	c.bytes += n
 	return nil
 }
@@ -95,10 +95,10 @@ func (s *inputStream) Close() error {
 	return s.err
 }
 
-func (c *isolatedContainer) prepareRequest(s Spec) (launcher.Request, error) {
-	r := launcher.Request{Version: launcher.Version, Command: s.Command, Env: s.Env, Inputs: c.inputs, Outputs: s.Outputs, Limits: s.Limits}
+func (c *isolatedContainer) prepareRequest(s Spec) (hostexec.Request, error) {
+	r := hostexec.Request{Version: hostexec.Version, Command: s.Command, Env: s.Env, Inputs: c.inputs, Outputs: s.Outputs, Limits: s.Limits}
 	if s.Stdin != nil {
-		f, n, err := c.spool(s.Stdin, launcher.MaxInputBytes-c.bytes)
+		f, n, err := c.spool(s.Stdin, hostexec.MaxInputBytes-c.bytes)
 		if err != nil {
 			return r, err
 		}
@@ -111,7 +111,7 @@ func (c *isolatedContainer) prepareRequest(s Spec) (launcher.Request, error) {
 	return r, nil
 }
 
-func (c *isolatedContainer) receiveOutput(o helper.Output, reader io.Reader) error {
+func (c *isolatedContainer) receiveOutput(o hostexec.Output, reader io.Reader) error {
 	f, n, e := c.spool(reader, o.SizeBytes)
 	if e != nil {
 		return e

@@ -10,7 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/internal/hostexec/client"
 	"golang.org/x/sys/unix"
 )
 
@@ -59,7 +60,7 @@ func TestConnectionEOFReturnsCleanSlot(t *testing.T) {
 		close(release)
 		t.Fatal(err)
 	}
-	if err := launcher.WriteFrame(c, testRequest(), launcher.MaxFrameBytes); err != nil {
+	if err := hostexec.WriteFrame(c, testRequest(), hostexec.MaxFrameBytes); err != nil {
 		close(release)
 		t.Fatal(err)
 	}
@@ -71,12 +72,12 @@ func TestConnectionEOFReturnsCleanSlot(t *testing.T) {
 	default:
 	}
 	close(release)
-	var result Result
-	if err := launcher.ReadFrame(c, &result, 4<<20); err != nil {
+	var result hostexec.Result
+	if err := hostexec.ReadFrame(c, &result, 4<<20); err != nil {
 		t.Fatal(err)
 	}
-	var completion Completion
-	if err := launcher.ReadFrame(c, &completion, 1024); err != nil || !completion.Complete {
+	var completion hostexec.Completion
+	if err := hostexec.ReadFrame(c, &completion, 1024); err != nil || !completion.Complete {
 		t.Fatal(completion, err)
 	}
 	var b [1]byte
@@ -141,8 +142,8 @@ func TestSlowDeliveryHoldsSlotUntilDeadline(t *testing.T) {
 
 func TestClientRejectsResetAfterCompletion(t *testing.T) {
 	socket := fakeServer(t, func(c net.Conn) {
-		var request launcher.Request
-		if err := launcher.ReadFrame(c, &request, launcher.MaxFrameBytes); err != nil {
+		var request hostexec.Request
+		if err := hostexec.ReadFrame(c, &request, hostexec.MaxFrameBytes); err != nil {
 			t.Error(err)
 			return
 		}
@@ -161,17 +162,17 @@ func TestClientRejectsResetAfterCompletion(t *testing.T) {
 			t.Error(err, peekErr)
 			return
 		}
-		if err := launcher.WriteFrame(c, Result{Version: launcher.Version}, 4<<20); err != nil {
+		if err := hostexec.WriteFrame(c, hostexec.Result{Version: hostexec.Version}, 4<<20); err != nil {
 			t.Error(err)
 		}
-		if err := launcher.WriteFrame(c, Completion{Version: launcher.Version, Complete: true}, 1024); err != nil {
+		if err := hostexec.WriteFrame(c, hostexec.Completion{Version: hostexec.Version, Complete: true}, 1024); err != nil {
 			t.Error(err)
 		}
 	})
 	request := testRequest()
 	request.StdinBytes = 1
-	result, err := Call(context.Background(), socket, request, io.NopCloser(strings.NewReader("x")), nil)
-	if result.Version != launcher.Version || !errors.Is(err, unix.ECONNRESET) {
+	result, err := client.Call(context.Background(), socket, request, io.NopCloser(strings.NewReader("x")), nil)
+	if result.Version != hostexec.Version || !errors.Is(err, unix.ECONNRESET) {
 		t.Fatalf("reset 被当作正常完成或测试未交付响应: result=%+v err=%v", result, err)
 	}
 }

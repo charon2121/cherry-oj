@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/container"
 	"cherry-oj/judge-engine/internal/sandbox/store"
 )
@@ -50,13 +51,13 @@ func rejectArtifacts(st store.Store, result contract.RunResult, err error) contr
 // 峰值比较只用于没有组计量能力的 host 后端。
 func classify(lim contract.Limits, u container.Usage, outOverflow bool, ctxErr error) contract.Status {
 	switch {
-	case ctxErr != nil || u.Reason == container.ReasonPlatform:
+	case ctxErr != nil || u.Reason == hostexec.ReasonPlatform:
 		return contract.StatusInternalError
 	case u.OOMKilled:
 		return contract.StatusMemoryLimitExceeded
-	case u.Reason == container.ReasonCPU || u.Reason == container.ReasonWall:
+	case u.Reason == hostexec.ReasonCPU || u.Reason == hostexec.ReasonWall:
 		return contract.StatusTimeLimitExceeded
-	case outOverflow || u.Reason == container.ReasonOutput:
+	case outOverflow || u.Reason == hostexec.ReasonOutput:
 		return contract.StatusOutputLimitExceeded
 	case u.Reason != "":
 		return contract.StatusInternalError

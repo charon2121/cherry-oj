@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/sandbox/cgroup"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
 )
 
 const installationProbeTimeout = 5 * time.Second
@@ -71,7 +71,7 @@ func probeInstallation(ctx context.Context, c Config, manager *cgroup.Manager, e
 	closeInput := sync.OnceValue(probeR.Close)
 	probeInputCancel := func() { probeCancel(); closeInput() }
 	// 探测用固定限额走同一执行链，避免部署可用性被客户端请求默认值影响。
-	probe := launcher.Request{Version: launcher.Version, Command: []string{"true"}, Limits: contract.ExplicitLimits(contract.Limits{CPUNs: int64(2 * time.Second), ClockNs: int64(5 * time.Second), MemoryBytes: 128 << 20, MaxProcesses: 64, StdoutMaxBytes: 1024, StderrMaxBytes: 1024})}
+	probe := hostexec.Request{Version: hostexec.Version, Command: []string{"true"}, Limits: contract.ExplicitLimits(contract.Limits{CPUNs: int64(2 * time.Second), ClockNs: int64(5 * time.Second), MemoryBytes: 128 << 20, MaxProcesses: 64, StdoutMaxBytes: 1024, StderrMaxBytes: 1024})}
 	run := newExecution(probe, executionOptions{
 		config: c, source: probeR, executable: executable, cancelInput: probeInputCancel,
 		groups: func(l cgroup.Limits) (executionGroup, error) { return manager.New(l) },

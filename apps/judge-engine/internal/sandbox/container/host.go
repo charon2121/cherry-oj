@@ -13,6 +13,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 type hostContainer struct {
@@ -67,9 +69,9 @@ func (p *hostProcess) wait() (Usage, error) {
 
 	u := Usage{ExitCode: ps.ExitCode(), ClockNs: time.Since(p.start).Nanoseconds()}
 	if p.ctx.Err() == context.DeadlineExceeded {
-		u.Reason = ReasonWall
+		u.Reason = hostexec.ReasonWall
 	} else if p.ctx.Err() != nil {
-		u.Reason = ReasonCancelled
+		u.Reason = hostexec.ReasonCancelled
 	}
 
 	if ws, ok := ps.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
