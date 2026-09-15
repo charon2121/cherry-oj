@@ -7,38 +7,9 @@ import "fmt"
 // 这条教训在这个项目里反复出现：limits 的 cpuNs=0 会让每道题秒 TLE，
 // 而返回的结果看起来完全正常。配置也一样——宁可起不来，也别悄悄跑错。
 func (c Config) Validate() error {
-	if c.Logging.Path == "" {
-		return fmt.Errorf("logging.path 不能为空")
+	if err := c.Logging.Validate(); err != nil {
+		return err
 	}
-	switch c.Logging.Level {
-	case "DEBUG", "INFO", "WARN", "ERROR":
-	default:
-		return fmt.Errorf("logging.level 必须是 DEBUG、INFO、WARN 或 ERROR，得到 %q", c.Logging.Level)
-	}
-
-	if c.Sandbox.HTTPAddr == "" {
-		return fmt.Errorf("sandbox.httpAddr 不能为空")
-	}
-	if c.Sandbox.Parallelism <= 0 || c.Sandbox.Parallelism > 256 {
-		return fmt.Errorf("sandbox.parallelism 必须为1～256，得到 %d", c.Sandbox.Parallelism)
-	}
-	if c.Sandbox.Store.MaxBlobBytes <= 0 || c.Sandbox.Store.MaxBlobBytes > 64<<20 {
-		return fmt.Errorf("sandbox.store.maxBlobBytes 必须为1～64MiB，得到 %d", c.Sandbox.Store.MaxBlobBytes)
-	}
-
-	if c.Sandbox.Backend != "linux" && c.Sandbox.Backend != "trusted-host" {
-		return fmt.Errorf("sandbox.backend必须为linux或trusted-host")
-	}
-	if c.Sandbox.Backend == "linux" && (c.Sandbox.HelperSocket == "" || c.Sandbox.WorkspaceRoot == "" || c.Sandbox.Store.Root == "") {
-		return fmt.Errorf("linux后端需要helperSocket、workspaceRoot和store.root")
-	}
-	if c.Sandbox.QueueSize <= 0 || c.Sandbox.QueueSize > 1024 || c.Sandbox.MaxRequestBytes <= 0 || c.Sandbox.MaxRequestBytes > 8<<20 {
-		return fmt.Errorf("sandbox排队或请求体上限无效")
-	}
-	if c.Sandbox.Store.MaxTotalBytes < c.Sandbox.Store.MaxBlobBytes || c.Sandbox.Store.MaxEntries <= 0 || c.Sandbox.Store.Retention <= 0 {
-		return fmt.Errorf("sandbox.store总量/条目/保留期无效")
-	}
-
 	j := c.Judge
 	if err := j.Node.Validate(); err != nil {
 		return err

@@ -3,8 +3,8 @@ package node_test
 import (
 	"archive/zip"
 	"bytes"
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 	"cherry-oj/judge-engine/judge/internal/node"
 	"context"
 	"crypto/sha256"
@@ -17,13 +17,13 @@ import (
 )
 
 func hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
-func newNode(t *testing.T, root string) (*node.Node, config.JudgeConfig) {
+func newNode(t *testing.T, root string) (*node.Node, config.Settings) {
 	t.Helper()
 	c := config.Default().Judge
 	c.TestdataRoot = root
 	c.Node.Enabled = true
 	c.Node.ControlToken = "test-control-token"
-	n, err := node.New(c, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	n, err := node.New(c, node.Environment{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestInstallRetryRestartConflictAndCancellation(t *testing.T) {
 	if err := n.Close(); err != nil {
 		t.Fatal(err)
 	}
-	n, err = node.New(c, nil)
+	n, err = node.New(c, node.Environment{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestInstallRejectsLimitsAndArchiveHash(t *testing.T) {
 			case "ratio":
 				c.Node.MaxCompressionRatio = 1
 			}
-			n, err := node.New(c, nil)
+			n, err := node.New(c, node.Environment{}, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

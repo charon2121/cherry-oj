@@ -1,0 +1,42 @@
+# cherry-oj sandbox 服务配置示例
+#
+# 加载顺序：默认值 → 本文件 → 环境变量（后者覆盖前者）。
+# 只需要写要改的项，没写的保持默认——「不填」不等于「填 0」。
+#
+# 环境变量名由下面的路径推出来，全大写、下划线分隔，前缀 CHERRY_OJ_：
+#   sandbox.httpAddr           → CHERRY_OJ_SANDBOX_HTTP_ADDR
+#   sandbox.store.maxBlobBytes → CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES
+#
+# 这里只放**运行策略**（换个部署环境可能要改，但和某一次判题请求无关）。
+# 随请求变的东西——题目的时空限制、源码、测例——走 JudgeRequest，不在这里。
+
+
+# 每个服务只加载自己的配置：另一个服务的段配错了，本服务照样能启动。
+
+logging:
+  # judge 与 sandbox 分别写 <path>/<service>.YYYY-MM-DD.log（UTC），同时保留 stdout。
+  # 环境变量：CHERRY_OJ_LOGGING_PATH、CHERRY_OJ_LOGGING_LEVEL。
+  path: ./logs
+  level: INFO
+
+
+sandbox:
+  httpAddr: 127.0.0.1:5050
+
+  # 显式可信本地开发；Linux正式模式改为linux，helper不可用时拒绝启动。
+  backend: trusted-host
+  helperSocket: /run/cherry-sandbox/helper.sock
+  workspaceRoot: ./data/sandbox-work
+  parallelism: 1
+  queueSize: 8
+  maxRequestBytes: 2097152
+
+  store:
+    # 服务独占目录，权限0700；不与其他实例共享。
+    root: ./data/sandbox-blobs
+    # 单次上传上限。/dev/shm 是内存盘，没有上限一次大上传就能撑爆 RAM。
+    maxBlobBytes: 67108864 # 64 MiB
+    maxTotalBytes: 536870912 # 512 MiB，含在途预留和未关闭读者
+    maxEntries: 4096
+    retention: 1h
+

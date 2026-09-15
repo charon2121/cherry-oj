@@ -1,3 +1,5 @@
+// 这些用例同时覆盖装配机制（默认值 → YAML → 环境变量 → 校验）与 judge 自己的策略字段。
+// sandbox 段已不在本配置中，对应用例见 sandbox 包。
 package config
 
 import (
@@ -105,7 +107,6 @@ func TestEnvOverridesYAML(t *testing.T) {
 	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_ROOT", "/srv/from-env")
 	t.Setenv("CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT", "5s")
 	t.Setenv("CHERRY_OJ_JUDGE_ENVIRONMENT_FINGERPRINT", "sha256:test-environment")
-	t.Setenv("CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES", "123456")
 	t.Setenv("CHERRY_OJ_JUDGE_COMPILE_CPU_NS", "999")
 
 	cfg, err := Load(p)
@@ -127,9 +128,6 @@ func TestEnvOverridesYAML(t *testing.T) {
 	}
 	if cfg.Judge.EnvironmentFingerprint != "sha256:test-environment" {
 		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
-	}
-	if cfg.Sandbox.Store.MaxBlobBytes != 123456 {
-		t.Errorf("maxBlobBytes=%d", cfg.Sandbox.Store.MaxBlobBytes)
 	}
 	if cfg.Judge.Compile.CPUNs != 999 {
 		t.Errorf("compile.cpuNs=%d", cfg.Judge.Compile.CPUNs)
@@ -158,11 +156,9 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		{"clockRatio 为 0", func(c *Config) { c.Judge.ClockRatio = 0 }},
 		{"sandboxTimeout 为 0", func(c *Config) { c.Judge.SandboxTimeout = 0 }},
 		{"stdoutMaxBytes 为 0", func(c *Config) { c.Judge.Output.StdoutMaxBytes = 0 }},
-		{"maxBlobBytes 为 0", func(c *Config) { c.Sandbox.Store.MaxBlobBytes = 0 }},
 		{"testdataRoot 为空", func(c *Config) { c.Judge.TestdataRoot = "" }},
 		{"environmentFingerprint 为空", func(c *Config) { c.Judge.EnvironmentFingerprint = "" }},
-		{"compile 全零", func(c *Config) { c.Judge.Compile = CompileConfig{} }},
-		{"parallelism 为负", func(c *Config) { c.Sandbox.Parallelism = -1 }},
+		{"compile 全零", func(c *Config) { c.Judge.Compile = Compile{} }},
 		{"日志目录为空", func(c *Config) { c.Logging.Path = "" }},
 		{"日志级别非法", func(c *Config) { c.Logging.Level = "TRACE" }},
 	}
@@ -177,37 +173,10 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 	}
 }
 
-// 缺省已有正数默认值，显式0拒绝启动。
-func TestParallelismZeroIsRejected(t *testing.T) {
-	cfg := Default()
-	cfg.Sandbox.Parallelism = 0
-	if err := cfg.Validate(); err == nil {
-		t.Errorf("parallelism=0应拒绝")
-	}
-}
-
 // 默认不泄题 —— 商业部署直接用默认值就是安全的
 func TestRevealExpectedDefaultsOff(t *testing.T) {
 	if Default().Judge.RevealExpected {
 		t.Error("revealExpected 默认必须是 false，教学场景自己打开")
-	}
-}
-
-func TestCamelToUpperSnake(t *testing.T) {
-	tests := []struct{ in, want string }{
-		{"testdataRoot", "TESTDATA_ROOT"},
-		{"cpuNs", "CPU_NS"},
-		{"httpAddr", "HTTP_ADDR"},
-		{"maxBlobBytes", "MAX_BLOB_BYTES"},
-		{"sandboxURL", "SANDBOX_URL"},
-		{"judge", "JUDGE"},
-		{"revealExpected", "REVEAL_EXPECTED"},
-		{"inlineThresholdBytes", "INLINE_THRESHOLD_BYTES"},
-	}
-	for _, tt := range tests {
-		if got := camelToUpperSnake(tt.in); got != tt.want {
-			t.Errorf("camelToUpperSnake(%q)=%q want %q", tt.in, got, tt.want)
-		}
 	}
 }
 
@@ -241,22 +210,19 @@ func TestStrictWhitespaceFromEnv(t *testing.T) {
 	}
 }
 
-func TestSandboxHardeningConfig(t *testing.T) {
-	for _, mutate := range []func(*Config){
-		func(c *Config) { c.Sandbox.Backend = "auto" },
-		func(c *Config) { c.Sandbox.HelperSocket = "" },
-		func(c *Config) { c.Sandbox.QueueSize = 0 },
-		func(c *Config) { c.Sandbox.MaxRequestBytes = 0 },
-		func(c *Config) { c.Sandbox.Store.MaxTotalBytes = 1 },
-		func(c *Config) { c.Sandbox.Store.Retention = 0 },
-	} {
-		c := Default()
-		mutate(&c)
-		if e := c.Validate(); e == nil {
-			t.Fatal("unsafe config accepted")
-		}
+// 示例配置文件必须能被加载且合法——否则它只是篇文档，不是可用的配置。
+func TestExampleConfigLoads(t *testing.T) {
+	cfg, err := Load("../../../judge.example.yaml")
+	if err != nil {
+		t.Fatalf("示例配置加载失败: %v", err)
 	}
-	if c := Default(); c.Sandbox.Backend != "linux" || c.Sandbox.Parallelism <= 0 {
-		t.Fatal("unsafe default")
+	if cfg.Judge.StrictWhitespace {
+		t.Errorf("示例配置的 strictWhitespace 应为 false")
+	}
+	if cfg.Judge.ClockRatio != 10 {
+		t.Errorf("clockRatio=%d", cfg.Judge.ClockRatio)
+	}
+	if cfg.Judge.EnvironmentFingerprint != "local-development" {
+		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
 	}
 }

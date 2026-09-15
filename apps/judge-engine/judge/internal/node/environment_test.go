@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"cherry-oj/judge-engine/internal/config"
+	"cherry-oj/judge-engine/judge/internal/config"
 	"cherry-oj/judge-engine/judge/internal/node"
 )
 

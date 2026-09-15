@@ -14,8 +14,8 @@ import (
 	"strings"
 	"syscall"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 )
 
 // The root-owned installation record binds immutable release files and the
@@ -32,44 +32,44 @@ type deploymentFile struct {
 	SHA256 string `json:"sha256"`
 }
 
-func probeDeployment(ctx context.Context, j config.JudgeConfig, version string, request func(string, any, any) error) (config.JudgeConfig, error) {
+func probeDeployment(ctx context.Context, j config.Settings, version string, request func(string, any, any) error) (Environment, error) {
 	if j.SandboxURL != "http://127.0.0.1:15050" {
-		return j, fmt.Errorf("native deployment requires the local managed sandbox endpoint")
+		return Environment{}, fmt.Errorf("native deployment requires the local managed sandbox endpoint")
 	}
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		return j, fmt.Errorf("native deployment requires Linux/amd64")
+		return Environment{}, fmt.Errorf("native deployment requires Linux/amd64")
 	}
 	digest, err := verifyDeployment(ctx, j.Node.DeploymentManifest)
 	if err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	var result contract.RunResult
 	spec := contract.RunSpec{Command: []string{"g++", "--version"}, Limits: contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 128 << 20, MaxProcesses: 64, StdoutMaxBytes: 8192, StderrMaxBytes: 1024}}
 	if err = request("/run", spec, &result); err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	if result.Status != contract.StatusOK || result.ExitCode != 0 {
-		return j, fmt.Errorf("isolated compiler probe failed")
+		return Environment{}, fmt.Errorf("isolated compiler probe failed")
 	}
 	compiler := strings.SplitN(result.Stdout, "\n", 2)[0]
 	if compiler == "" || len(compiler) > 128 {
-		return j, fmt.Errorf("compiler identity invalid")
+		return Environment{}, fmt.Errorf("compiler identity invalid")
 	}
 	cpu, err := os.ReadFile("/proc/cpuinfo")
 	if err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	model, err := cpuIdentity(string(cpu))
 	if err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	kernel, err := os.ReadFile("/proc/sys/kernel/osrelease")
 	if err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	osRelease, err := os.ReadFile("/etc/os-release")
 	if err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	release := ""
 	for _, line := range strings.Split(string(osRelease), "\n") {
@@ -79,12 +79,17 @@ func probeDeployment(ctx context.Context, j config.JudgeConfig, version string, 
 		}
 	}
 	if release == "" || len(release) > 128 || len(strings.TrimSpace(string(kernel))) > 128 {
-		return j, fmt.Errorf("host environment metadata invalid")
+		return Environment{}, fmt.Errorf("host environment metadata invalid")
 	}
-	j.Node.Architecture, j.Node.CPUModel = runtime.GOARCH, model
-	j.Node.OSVersion, j.Node.KernelVersion = release, strings.TrimSpace(string(kernel))
-	j.Node.SandboxVersion, j.Node.ToolchainVersion, j.Node.RuntimeDigest = version+"/linux", compiler, digest
-	return j, nil
+	return Environment{
+		Architecture:     runtime.GOARCH,
+		CPUModel:         model,
+		OSVersion:        release,
+		KernelVersion:    strings.TrimSpace(string(kernel)),
+		SandboxVersion:   version + "/linux",
+		ToolchainVersion: compiler,
+		RuntimeDigest:    digest,
+	}, nil
 }
 
 func cpuIdentity(cpu string) (string, error) {

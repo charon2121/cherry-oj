@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 )
 
 // ProbeEnvironment reads the execution environment through sandbox's existing,
 // bounded /run interface. No user input is interpolated into the probe program.
-func ProbeEnvironment(ctx context.Context, j config.JudgeConfig) (config.JudgeConfig, error) {
+func ProbeEnvironment(ctx context.Context, j config.Settings) (Environment, error) {
 	c := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	get := func(path string, payload any, result any) error {
 		var body io.Reader
@@ -54,45 +54,46 @@ func ProbeEnvironment(ctx context.Context, j config.JudgeConfig) (config.JudgeCo
 		Isolation string `json:"isolation"`
 	}
 	if err := get("/version", nil, &version); err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	if version.Name != "cherry-oj-sandbox" || version.Version == "" || len(version.Version) > 128 {
-		return j, fmt.Errorf("sandbox version invalid")
+		return Environment{}, fmt.Errorf("sandbox version invalid")
 	}
 	if version.Isolation == "linux" || j.Node.DeploymentManifest != "" {
 		if version.Isolation != "linux" || j.Node.DeploymentManifest == "" {
-			return j, fmt.Errorf("Linux sandbox requires matching deployment manifest and isolation")
+			return Environment{}, fmt.Errorf("Linux sandbox requires matching deployment manifest and isolation")
 		}
 		return probeDeployment(ctx, j, version.Version, get)
 	}
 	var result contract.RunResult
 	spec := contract.RunSpec{Command: []string{"/usr/bin/python3", "-c", environmentProbe}, Limits: contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 134217728, MaxProcesses: 8, StdoutMaxBytes: 8192, StderrMaxBytes: 1024}}
 	if err := get("/run", spec, &result); err != nil {
-		return j, err
+		return Environment{}, err
 	}
 	if result.Status != contract.StatusOK || result.ExitCode != 0 {
-		return j, fmt.Errorf("sandbox environment probe failed")
+		return Environment{}, fmt.Errorf("sandbox environment probe failed")
 	}
 	var m struct{ Architecture, CPUModel, OSVersion, KernelVersion, ToolchainVersion, RuntimeDigest string }
 	if err := decodeJSON(strings.NewReader(result.Stdout), &m); err != nil {
-		return j, fmt.Errorf("sandbox environment metadata invalid")
+		return Environment{}, fmt.Errorf("sandbox environment metadata invalid")
 	}
 	for _, field := range []struct {
 		value string
 		limit int
 	}{{m.Architecture, 32}, {m.CPUModel, 256}, {m.OSVersion, 128}, {m.KernelVersion, 128}, {m.ToolchainVersion, 128}, {m.RuntimeDigest, 128}} {
 		if field.value == "" || len(field.value) > field.limit {
-			return j, fmt.Errorf("sandbox environment metadata missing or too long")
+			return Environment{}, fmt.Errorf("sandbox environment metadata missing or too long")
 		}
 	}
-	j.Node.Architecture = m.Architecture
-	j.Node.CPUModel = m.CPUModel
-	j.Node.OSVersion = m.OSVersion
-	j.Node.KernelVersion = m.KernelVersion
-	j.Node.ToolchainVersion = m.ToolchainVersion
-	j.Node.SandboxVersion = version.Version
-	j.Node.RuntimeDigest = m.RuntimeDigest
-	return j, nil
+	return Environment{
+		Architecture:     m.Architecture,
+		CPUModel:         m.CPUModel,
+		OSVersion:        m.OSVersion,
+		KernelVersion:    m.KernelVersion,
+		SandboxVersion:   version.Version,
+		ToolchainVersion: m.ToolchainVersion,
+		RuntimeDigest:    m.RuntimeDigest,
+	}, nil
 }
 
 // CPU features omit volatile per-core MHz/counters. Runtime digest covers actual

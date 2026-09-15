@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 )
 
-func compileLimits(cfg config.JudgeConfig) contract.Limits {
+func compileLimits(cfg config.Settings) contract.Limits {
 	return contract.Limits{
 		CPUNs:          cfg.Compile.CPUNs,
 		ClockNs:        cfg.Compile.ClockNs,

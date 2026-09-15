@@ -2,7 +2,7 @@
 id: "TASK-127"
 type: "task"
 title: "S3 拆分服务配置并显式化环境指纹输入"
-status: "ready"
+status: "doing"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-126"]
@@ -96,4 +96,45 @@ gofmt -l . && go vet ./... && go test -race ./...
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-15：完成配置拆分。`internal/platform/config` 只保留装配机制（`Duration`、
+  `Logging`、反射式环境变量覆盖、`KnownFields`、泛型 `Load[T Validatable]`），不认识任何业务
+  字段；`judge/internal/config` 与 `sandbox/config.go` 各自定义 `Config`/`Default`/`Validate`；
+  `helperd/config.go` 保留原有的 root 管理 JSON 装载，不并入这套机制（特权配置不能让环境变量
+  参与决定身份与并发槽位）。旧的 `internal/config` 已删除。
+  judge 的配置类型放在 `judge/internal/config` 而非 `judge` 包：flow 与 node 也要读它，
+  而它们不能引用父包，否则构成循环引用；`judge/config.go` 只做类型别名与入口转发。
+- 2026-09-15：**环境变量名保持不变**。实际部署（compose、部署清单）完全靠 `CHERRY_OJ_*`
+  注入，不挂配置文件，变量名即部署契约。因此各服务配置仍保留 `logging` 与本服务两个 YAML 小节，
+  使 `CHERRY_OJ_LOGGING_*`、`CHERRY_OJ_JUDGE_*`、`CHERRY_OJ_SANDBOX_*` 逐字不变。
+  配置**文件**相应拆成 `judge.example.yaml` 与 `sandbox.example.yaml`：单文件同时含两段时，
+  `KnownFields(true)` 会让两个服务都因对方的段而拒绝加载。
+- 2026-09-15：新增回归用例 `TestJudgeSettingsDoNotBlockSandbox`：把 judge 段的取值设成非法，
+  sandbox 仍能启动。这正是本阶段要换来的性质，此前 judge 会因 sandbox 段配错而拒绝启动，反之亦然。
+- 2026-09-15：三值分离完成。`node.Environment` 是探测得到的执行环境事实，与配置分开；
+  `config.Node` 去掉了 `Architecture` 与 `RuntimeDigest` 两个 `yaml:"-"` 回填字段；
+  `ProbeEnvironment` 与 `probeDeployment` 返回 `Environment` 而不再返回被回填的配置；
+  `node.New` 接收 `(Settings, Environment, Logger)`。`judge.Run` 中配置加载后只读。
+- 2026-09-15：环境指纹输入改为显式的 `policyFingerprint` 结构（带 JSON 字段名标注）。
+  收录标准是「改了它，同一份提交的判题结论会不会变」：空白严格度、是否回传标准答案、墙钟倍率、
+  输出与编译上限、回传截断长度，以及覆盖二进制与资源配额的运行时摘要。
+  **两项刻意不收录**并在代码中写明理由：`inlineThresholdBytes`（只决定测例走内联还是走 store，
+  纯传输优化）与 `sandboxTimeout`（调用方的等待上限，描述的不是环境能力）。旧实现序列化整个
+  配置结构，这两项都在其中。
+  配套三个测试：`TestConfigDigestIsPinned`（固定输入固定摘要）、
+  `TestUnrelatedSettingsDoNotAffectDigest`（六项无关配置不得改变摘要）、
+  `TestJudgingPolicyAffectsDigest`（十项判题策略必须改变摘要）。
+  基准测试做过变异验证：向 `policyFingerprint` 加入 `inlineThresholdBytes` 字段后立即失败，
+  并提示「若这次改动确实应当改变环境身份，请更新基准值并安排一次环境切换」。
+- 2026-09-15：语言清单改由注册表生成（新增 `language.All()`）。此前节点只向控制面声明 `cpp`，
+  而注册表有 cpp/python/java，两处长期对不上。
+- 2026-09-15：**更正上游的一处事实错误。** PLAN-041 初稿称「指纹轮换集中在 S3」，不成立：
+  判题可执行文件的摘要本来就参与环境身份（WORK-040 有意加入），因此任何改动判题二进制的提交
+  都会轮换指纹，本工作七个阶段都会。已实测确认（同一配置、不同二进制摘要 → 不同配置摘要）。
+  S3 的特殊之处是**输入结构**改变，此后新增服务配置项不再改变指纹。
+  PLAN-041 与 DECISION-035 决定一已同步更正；运维含义不变，全部阶段合入后做一次环境切换即可。
+- 2026-09-15：本地验证通过。darwin：`gofmt -l .` 无输出，`go vet ./...` 与
+  `GOOS=linux GOARCH=amd64 go vet ./...` 均无输出，`go test -race ./...` 全绿。
+  linux/arm64 原生容器：gofmt、vet、`go test ./...` 全绿。
+- 2026-09-15：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归，需推送后由 CI 执行。
 - 2026-09-15：状态变更：todo → ready。原因：前置 TASK-126 已完成
+- 2026-09-15：状态变更：ready → doing。原因：开始拆分服务配置与显式化环境指纹输入

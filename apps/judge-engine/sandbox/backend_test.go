@@ -3,12 +3,10 @@ package sandbox
 import (
 	"runtime"
 	"testing"
-
-	"cherry-oj/judge-engine/internal/config"
 )
 
 func TestBackendSelectionNeverFallsBack(t *testing.T) {
-	c := config.Default().Sandbox
+	c := DefaultConfig().Sandbox
 	c.Backend = "unknown"
 	if _, _, e := backend(c); e == nil {
 		t.Fatal("unknown accepted")

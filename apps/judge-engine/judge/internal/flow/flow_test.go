@@ -14,8 +14,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 	"cherry-oj/judge-engine/judge/internal/flow"
 )
 
@@ -69,7 +69,7 @@ func (f *fakeSandbox) Delete(ctx context.Context, ref string) error {
 	return nil
 }
 
-func judgeConfig() config.JudgeConfig {
+func judgeConfig() config.Settings {
 	return config.Default().Judge
 }
 
@@ -308,7 +308,7 @@ func TestJudgeCompileOutcomes(t *testing.T) {
 func TestJudgeValidatesBeforeCallingSandbox(t *testing.T) {
 	tests := []struct {
 		name string
-		cfg  config.JudgeConfig
+		cfg  config.Settings
 		req  contract.JudgeRequest
 	}{
 		{"invalid mode", judgeConfig(), func() contract.JudgeRequest {
@@ -323,7 +323,7 @@ func TestJudgeValidatesBeforeCallingSandbox(t *testing.T) {
 		}()},
 		{"unknown language", judgeConfig(), oneCaseRequest("brainfuck")},
 		{"no trial cases", judgeConfig(), trialRequest("python")},
-		{"invalid clock ratio", func() config.JudgeConfig {
+		{"invalid clock ratio", func() config.Settings {
 			c := judgeConfig()
 			c.ClockRatio = 0
 			return c

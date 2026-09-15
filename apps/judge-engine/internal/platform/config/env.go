@@ -1,20 +1,13 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 )
-
-// EnvPrefix 是所有配置环境变量的前缀。
-const EnvPrefix = "CHERRY_OJ"
-
-func bytesReader(b []byte) io.Reader { return bytes.NewReader(b) }
 
 // applyEnv 用环境变量覆盖已加载的配置。
 //
@@ -25,7 +18,7 @@ func bytesReader(b []byte) io.Reader { return bytes.NewReader(b) }
 //	sandbox.store.maxBlobBytes → CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES
 //
 // 名字是**算出来的**，不是手写一张映射表——加一个配置项不用记得同步改两处。
-func applyEnv(cfg *Config) error {
+func applyEnv(cfg any) error {
 	return walk(reflect.ValueOf(cfg).Elem(), EnvPrefix)
 }
 

@@ -5,13 +5,13 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/internal/checker"
+	"cherry-oj/judge-engine/judge/internal/config"
 	"cherry-oj/judge-engine/judge/internal/testcase"
 )
 
-func evalCase(idx int, tc testcase.TestCase, run contract.RunResult, cfg config.JudgeConfig) contract.CaseResult {
+func evalCase(idx int, tc testcase.TestCase, run contract.RunResult, cfg config.Settings) contract.CaseResult {
 	result := contract.CaseResult{
 		Idx:         idx,
 		Name:        tc.Name,

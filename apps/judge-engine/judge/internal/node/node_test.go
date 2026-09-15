@@ -2,8 +2,8 @@
 package node
 
 import (
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 	"context"
 	"encoding/json"
 	"io"
@@ -24,7 +24,7 @@ func TestRunRetriesRegistersHeartbeatsAndStops(t *testing.T) {
 	c.Node.Enabled = true
 	c.Node.ControlToken = "control"
 	c.TestdataRoot = t.TempDir()
-	n, err := New(c, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	n, err := New(c, Environment{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestRunRetriesRegistersHeartbeatsAndStops(t *testing.T) {
 func TestOldSessionConflictStopsRegistration(t *testing.T) {
 	c := config.Default().Judge
 	c.Node.Enabled, c.Node.ControlToken, c.TestdataRoot = true, "control", t.TempDir()
-	n, err := New(c, nil)
+	n, err := New(c, Environment{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,27 +85,48 @@ func TestOldSessionConflictStopsRegistration(t *testing.T) {
 func TestEnvironmentFingerprintChangesWithRuntimeButNotNodeIdentity(t *testing.T) {
 	c := config.Default().Judge
 	c.Node.Enabled, c.Node.ControlToken = true, "control"
-	fingerprint := func(c config.JudgeConfig) string {
+	env := Environment{Architecture: "amd64", CPUModel: "base CPU", OSVersion: "base os",
+		KernelVersion: "base kernel", SandboxVersion: "base sandbox",
+		ToolchainVersion: "base compiler", RuntimeDigest: "base quotas"}
+	fingerprint := func(c config.Settings, env Environment) string {
 		t.Helper()
 		c.TestdataRoot = t.TempDir()
-		n, e := New(c, nil)
+		n, e := New(c, env, nil)
 		if e != nil {
 			t.Fatal(e)
 		}
 		defer n.Close()
 		return n.Registration().EnvironmentFingerprint
 	}
-	original := fingerprint(c)
+	original := fingerprint(c, env)
+
+	// 节点位置属于「这台机器是谁」，不属于「这是什么环境」：同一环境的两个节点必须同指纹。
 	c.Node.ID = "another-node"
 	c.Node.AdvertiseURL = "http://127.0.0.1:9999"
-	if fingerprint(c) != original {
+	if fingerprint(c, env) != original {
 		t.Fatal("identity changed compatibility group")
 	}
-	for _, change := range []func(*config.JudgeConfig){func(c *config.JudgeConfig) { c.Node.CPUModel = "other CPU" }, func(c *config.JudgeConfig) { c.Node.KernelVersion = "other kernel" }, func(c *config.JudgeConfig) { c.Node.ToolchainVersion = "other compiler" }, func(c *config.JudgeConfig) { c.Node.RuntimeDigest = "other quotas" }, func(c *config.JudgeConfig) { c.StrictWhitespace = !c.StrictWhitespace }} {
-		changed := c
+
+	// 执行环境的事实变了，指纹必须变。
+	for name, change := range map[string]func(*Environment){
+		"CPU":     func(e *Environment) { e.CPUModel = "other CPU" },
+		"内核":      func(e *Environment) { e.KernelVersion = "other kernel" },
+		"工具链":     func(e *Environment) { e.ToolchainVersion = "other compiler" },
+		"运行时配额":   func(e *Environment) { e.RuntimeDigest = "other quotas" },
+		"架构":      func(e *Environment) { e.Architecture = "arm64" },
+		"sandbox": func(e *Environment) { e.SandboxVersion = "other sandbox" },
+	} {
+		changed := env
 		change(&changed)
-		if fingerprint(changed) == original {
-			t.Fatal("runtime change reused fingerprint")
+		if fingerprint(c, changed) == original {
+			t.Fatalf("%s 变化后仍复用了指纹", name)
 		}
+	}
+
+	// 判题策略变了，指纹同样必须变——同一份提交可能因此得到不同结论。
+	strict := c
+	strict.StrictWhitespace = !strict.StrictWhitespace
+	if fingerprint(strict, env) == original {
+		t.Fatal("空白严格度变化后仍复用了指纹")
 	}
 }

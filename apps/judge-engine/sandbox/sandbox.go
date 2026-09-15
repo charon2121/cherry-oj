@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"time"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/platform/tracing"
 	"cherry-oj/judge-engine/sandbox/internal/api"
@@ -22,7 +21,7 @@ import (
 
 // Run 启动执行服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成。
 // 返回的 result 汇总收尾错误：任何一处回收没有确认，整个进程都应以失败退出。
-func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) (result error) {
+func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 
 	st, err := newStore(cfg.Sandbox.Store)
 	if err != nil {
@@ -149,13 +148,13 @@ type managedStore interface {
 	Sweep() error
 }
 
-func newStore(c config.StoreConfig) (managedStore, error) {
+func newStore(c Store) (managedStore, error) {
 	return store.New(c.Root, store.Options{MaxBlobBytes: c.MaxBlobBytes, MaxTotalBytes: c.MaxTotalBytes, MaxEntries: c.MaxEntries, Retention: c.Retention.Std()})
 }
 
 // backend 同时交付逐请求工厂和服务级关闭函数；暂存根的锁跨请求持有。
 // 隔离后端启动失败必须暴露错误，不能悄悄切到没有隔离保证的 trusted-host。
-func backend(c config.SandboxConfig) (func() (container.Container, error), func() error, error) {
+func backend(c Settings) (func() (container.Container, error), func() error, error) {
 	switch c.Backend {
 	case "trusted-host":
 		return func() (container.Container, error) { return container.NewHost() }, func() error { return nil }, nil

@@ -11,14 +11,14 @@ import (
 	"sync"
 	"syscall"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 )
 
 var errIdentityConflict = errors.New("node identity conflict")
 
 type Node struct {
-	cfg          config.NodeConfig
+	cfg          config.Node
 	root         string
 	registration contract.NodeRegistration
 	client       *http.Client
@@ -27,7 +27,9 @@ type Node struct {
 	installMu    sync.Mutex
 }
 
-func New(j config.JudgeConfig, logger *slog.Logger) (*Node, error) {
+// New 接收配置与已探明的执行环境两个值：身份由两者共同决定，
+// 不再由配置结构兼任探测结果的容器。
+func New(j config.Settings, env Environment, logger *slog.Logger) (*Node, error) {
 	if err := j.Node.Validate(); err != nil {
 		return nil, err
 	}
@@ -57,7 +59,7 @@ func New(j config.JudgeConfig, logger *slog.Logger) (*Node, error) {
 		lock.Close()
 		return nil, fmt.Errorf("data root is already owned by a node: %w", err)
 	}
-	registration, err := newRegistration(j)
+	registration, err := newRegistration(j, env)
 	if err != nil {
 		lock.Close()
 		return nil, err

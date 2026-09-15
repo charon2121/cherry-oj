@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"time"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/platform/tracing"
 	"cherry-oj/judge-engine/judge/internal/api"
+	judgeconfig "cherry-oj/judge-engine/judge/internal/config"
 	"cherry-oj/judge-engine/judge/internal/flow"
 	"cherry-oj/judge-engine/judge/internal/node"
 	"cherry-oj/judge-engine/judge/internal/sandboxclient"
@@ -21,7 +21,7 @@ import (
 // 依赖保留为 flow.Sandbox，既能接真实客户端，也不把传输实现泄漏给 API 层。
 type judgeService struct {
 	sandbox flow.Sandbox
-	config  config.JudgeConfig
+	config  judgeconfig.Settings
 }
 
 func (s *judgeService) Judge(ctx context.Context, req contract.JudgeRequest) contract.JudgeResult {
@@ -30,11 +30,13 @@ func (s *judgeService) Judge(ctx context.Context, req contract.JudgeRequest) con
 
 // Run 启动判题服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成，
 // 使本函数不依赖进程级状态，测试可以直接驱动它。
-func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
+func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
+	// 配置、环境、身份是三个值：配置加载后只读，环境由探测得到，身份由两者推出。
 	var err error
+	env := node.DeclaredEnvironment(cfg.Judge)
 	if cfg.Judge.Node.Enabled {
 		probeCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		cfg.Judge, err = node.ProbeEnvironment(probeCtx, cfg.Judge)
+		env, err = node.ProbeEnvironment(probeCtx, cfg.Judge)
 		cancel()
 		if err != nil {
 			logger.Error("judge.node.environment.probe.failed", "error", err)
@@ -49,12 +51,13 @@ func Run(ctx context.Context, cfg config.Config, logger *slog.Logger) error {
 	handler := api.New(service).Handler()
 	var judgeNode *node.Node
 	if cfg.Judge.Node.Enabled {
-		judgeNode, err = node.New(cfg.Judge, logger)
+		judgeNode, err = node.New(cfg.Judge, env, logger)
 		if err != nil {
 			logger.Error("judge.node.init.failed")
 			return err
 		}
 		defer judgeNode.Close()
+		// 指纹以注册身份为准；配置里的声明值只在未启用节点链路时使用。
 		service.config.EnvironmentFingerprint = judgeNode.Registration().EnvironmentFingerprint
 		handler = judgeNode.Handler(handler)
 	}

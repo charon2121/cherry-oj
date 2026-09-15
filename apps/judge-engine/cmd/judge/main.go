@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/platform/logging"
 	"cherry-oj/judge-engine/judge"
 )
@@ -25,7 +24,7 @@ func run() int {
 	configPath := flag.String("config", "", "配置文件路径；留空则只用默认值 + 环境变量")
 	flag.Parse()
 
-	cfg, err := config.Load(*configPath)
+	cfg, err := judge.LoadConfig(*configPath)
 	if err != nil {
 		bootstrap.Error("process.config.load.failed", "event", "process.config.load.failed", "error", err)
 		return 1

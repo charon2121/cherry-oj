@@ -8,8 +8,8 @@ import (
 	"slices"
 	"strings"
 
-	"cherry-oj/judge-engine/internal/config"
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/config"
 	"cherry-oj/judge-engine/judge/internal/language"
 	"cherry-oj/judge-engine/judge/internal/testcase"
 )
@@ -22,7 +22,7 @@ type Sandbox interface {
 }
 
 // Judge 完成一次判题并释放引用；请求及基础设施错误归为 SE。
-func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract.JudgeRequest) contract.JudgeResult {
+func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.JudgeRequest) contract.JudgeResult {
 	req.Cases = slices.Clone(req.Cases)
 	job := judgment{sandbox: sb, config: cfg, request: req}
 	return job.run(ctx)
@@ -32,7 +32,7 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.JudgeConfig, req contract
 // 测例输入的临时引用由 runCase 在每点结束时释放，不累积到整次判题结束。
 type judgment struct {
 	sandbox                  Sandbox
-	config                   config.JudgeConfig
+	config                   config.Settings
 	request                  contract.JudgeRequest
 	language                 language.Language
 	cases                    []testcase.TestCase
@@ -111,7 +111,7 @@ func (j *judgment) close(ctx context.Context) {
 		j.sourceRef = ""
 	}
 }
-func loadCases(cfg config.JudgeConfig, req contract.JudgeRequest) ([]testcase.TestCase, error) {
+func loadCases(cfg config.Settings, req contract.JudgeRequest) ([]testcase.TestCase, error) {
 	if req.Mode.UsesVersionedTestdata() {
 		return testcase.Load(cfg.TestdataRoot, req.TestDataVersionID, testcase.Options{})
 	}
