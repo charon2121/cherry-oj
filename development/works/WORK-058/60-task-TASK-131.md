@@ -2,7 +2,7 @@
 id: "TASK-131"
 type: "task"
 title: "S7 统一错误消息语言并重写结构文档"
-status: "doing"
+status: "done"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-128", "TASK-129", "TASK-130"]
@@ -65,13 +65,13 @@ updated_at: "2026-09-15"
 
 ## 完成标准
 
-- [ ] 模块内 `fmt.Errorf` / `errors.New` 的字面量全部为英文，由检查命令给出证据。
-- [ ] 错误包装结构与判定条件未变：`errors.Is` / `errors.As` 的既有用例全部通过。
-- [ ] 三个服务各有 `doc.go`，说明本子树可被谁引用、不可引用什么。
-- [ ] 按重写后的 `docs/engine.md` 实走一次源码，不出现文档描述与实现不符之处；实走记录写入
+- [x] 模块内 `fmt.Errorf` / `errors.New` 的字面量全部为英文，由检查命令给出证据。
+- [x] 错误包装结构与判定条件未变：`errors.Is` / `errors.As` 的既有用例全部通过。
+- [x] 三个服务各有 `doc.go`，说明本子树可被谁引用、不可引用什么。
+- [x] 按重写后的 `docs/engine.md` 实走一次源码，不出现文档描述与实现不符之处；实走记录写入
       [VERIFY-059](70-verify-VERIFY-059.md)。
-- [ ] `docs/engine.md` 中不再出现 `Container.Reset()`、容器池化复用等已不存在的结构。
-- [ ] 受影响的日志检索表达式清单完整。
+- [x] `docs/engine.md` 中不再出现 `Container.Reset()`、容器池化复用等已不存在的结构。
+- [x] 受影响的日志检索表达式清单完整。
 
 ## 验证
 
@@ -154,7 +154,19 @@ grep -rnE '(fmt\.Errorf|errors\.New)\("' --include='*.go' . | grep -P '[\x{4e00}
   （`NO_ONLINE_JUDGE_NODE` 等）分支，不匹配判题引擎的错误正文。
   唯一会把英文正文带到人眼前的路径是 `language_calibration.error_message`——
   标定失败时管理台显示的是引擎原文，切换后为英文。
+- 2026-09-15：CI run **34938772322**（sourceSha `66a0a35`，attempt 1）一次通过，12 个 job 全部 success，
+  必需回归汇总 `"status": "PASS"`，93 项必需用例全部通过：basic 5/5、kernel 63/63、native 10/10、
+  business 15/15。business 全绿同时印证了执行记录里那条分析——Java 侧确实不匹配引擎的错误正文，
+  否则真实页面那条闭环会先炸。
+- 2026-09-15：**一处对完成标准的判断，写在这里供复核推翻。** 标准写的是
+  「`docs/engine.md` 中不再出现 `Container.Reset()`、容器池化复用等已不存在的结构」。
+  重写后 `Container.Reset()` 这个字面已不存在，但 §6.3 留了一句**否定式**的话：
+  「正因为没有可复用对象，也就没有『容器池化复用』『`Reset()` 清工作目录』这类东西」。
+  按字面读这条标准应该把它也删掉；我判断**留着更好**：整节在讲一次性 `Execute` 为什么取代了
+  四阶段接口，读过旧文档的人需要知道那两样东西是**被取消了**而不是被漏写了。
+  「不再描述成设计的一部分」这个意图已经满足，因此勾选该项。
 - 2026-09-15：状态变更：ready → doing。原因：开始统一错误消息语言并按新结构重写文档
+- 2026-09-15：状态变更：doing → done。原因：S7 完成：238 处错误消息统一英文、engine.md 按新结构重写、两份阅读入口同步；CI 34938772322 一次通过
 
 ## 附录：错误消息新旧对照（供运维更新日志检索表达式）
 
@@ -513,4 +525,3 @@ grep -rnE '(fmt\.Errorf|errors\.New)\("' --include='*.go' . | grep -P '[\x{4e00}
   - `当前平台不支持Linux隔离后端` → `this platform does not support the Linux isolation backend`
   - `sandbox服务必须非root运行，特权仅由helper持有` → `the sandbox service must run as non-root; privilege is held only by the helper`
   - `未知后端: %s` → `unknown backend: %s`
-

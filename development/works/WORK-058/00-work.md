@@ -2,7 +2,7 @@
 id: "WORK-058"
 type: "work"
 title: "按信任与部署边界重切判题引擎模块结构"
-status: "todo"
+status: "implemented"
 work: null
 owners: ["team/judge-engine"]
 risk: "high"
@@ -50,11 +50,11 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-051 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-035 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-041 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `doing` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ▶ 进行中 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `doing` | 按任务实施，产出代码与测试 |
-| 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | · 未开始 | 必需 | VERIFY-059 `draft` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | · 未开始 | 必需 | MEMORY-044 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ▶ 进行中 | 必需 | VERIFY-059 `review` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-044 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -86,3 +86,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
   TASK-125～131。
 - 2026-09-15：TASK-126 的两条完成标准按事实改写：顶层共享目录中 `config` 的下沉归 S3；
   命令行入口以「不含服务逻辑」为准，不再用行数作门槛。原写法与计划分期不一致，属文档缺陷。
+- 2026-09-15：根据文档、任务与验证事实刷新状态：todo → doing。
+- 2026-09-15：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-15：检查项 automated-tests 记录结论：通过。原因：CI run 34938772322（66a0a35，attempt 1）一次通过 12 个 job；必需回归汇总 PASS，93 项全过：basic 5/5、kernel 63/63、native 10/10、business 15/15。本机另跑 gofmt/go vet（darwin 与 linux-amd64 两个目标）/go test -race 全绿
+- 2026-09-15：检查项 reliability 记录结论：通过。原因：kernel 63 项覆盖隔离、计量与故障回收，native 10 项覆盖原生安装、权限与服务恢复，business 15 项走真实页面到 Kafka 的完整闭环，全部通过。S5 的取消顺序缺陷已有专门回归用例 TestCancelInputMustNotMakeNormalRunLookCancelled；S6 修复的 fault_batch ENODEV 守卫使故障批次不再误报
+- 2026-09-15：检查项 impact-analysis 记录结论：通过。原因：跨语言影响已逐条核对：Java 侧用户可见文案一律按错误码分支（NO_ONLINE_JUDGE_NODE 等），不匹配引擎错误正文，business 15 项全绿予以印证；结构化日志的 event 字段名一个未变，仅 error 字段取值变化，完整新旧对照见 TASK-131 附录；唯一把英文正文带到人眼前的是 language_calibration.error_message 在管理台的显示。contracts/、apps/server、apps/web、go.mod、go.sum 未改动
+- 2026-09-15：检查项 security 记录结论：通过。原因：信任边界改为编译期强制：sandbox 引用 helperd/internal、judge 引用 sandbox/internal、helperd 引用 judge/internal、cmd 引用任一服务 internal，四条均在 S2 构造验证为编译失败。零隔离的 devhost 默认拒绝启动，需显式 allowUnsafeBackend；linux 后端在开 HTTP 端口前做启动冒烟，S2 修复了该闸此前因错误处理 bug 而形同虚设的问题。helperd 的 root 自检（CGO_ENABLED=0、root 托管、无 setuid、manifest 摘要钉住、三身份分离）与 SO_PEERCRED + socket 权限双重认证未削弱。本次未改变任何特权、身份或网络暴露面

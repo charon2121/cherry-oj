@@ -91,7 +91,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-125",
@@ -110,14 +110,14 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
+    "status": "ready",
     "status_source": "derived",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "跨语言影响已逐条核对：Java 侧用户可见文案一律按错误码分支（NO_ONLINE_JUDGE_NODE 等），不匹配引擎错误正文，business 15 项全绿予以印证；结构化日志的 event 字段名一个未变，仅 error 字段取值变化，完整新旧对照见 TASK-131 附录；唯一把英文正文带到人眼前的是 language_calibration.error_message 在管理台的显示。contracts/、apps/server、apps/web、go.mod、go.sum 未改动"
       },
       {
         "name": "independent-review",
@@ -132,7 +132,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-059"
@@ -140,18 +140,18 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "CI run 34938772322（66a0a35，attempt 1）一次通过 12 个 job；必需回归汇总 PASS，93 项全过：basic 5/5、kernel 63/63、native 10/10、business 15/15。本机另跑 gofmt/go vet（darwin 与 linux-amd64 两个目标）/go test -race 全绿"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "kernel 63 项覆盖隔离、计量与故障回收，native 10 项覆盖原生安装、权限与服务恢复，business 15 项走真实页面到 Kafka 的完整闭环，全部通过。S5 的取消顺序缺陷已有专门回归用例 TestCancelInputMustNotMakeNormalRunLookCancelled；S6 修复的 fault_batch ENODEV 守卫使故障批次不再误报"
       },
       {
         "name": "security",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "信任边界改为编译期强制：sandbox 引用 helperd/internal、judge 引用 sandbox/internal、helperd 引用 judge/internal、cmd 引用任一服务 internal，四条均在 S2 构造验证为编译失败。零隔离的 devhost 默认拒绝启动，需显式 allowUnsafeBackend；linux 后端在开 HTTP 端口前做启动冒烟，S2 修复了该闸此前因错误处理 bug 而形同虚设的问题。helperd 的 root 自检（CGO_ENABLED=0、root 托管、无 setuid、manifest 摘要钉住、三身份分离）与 SO_PEERCRED + socket 权限双重认证未削弱。本次未改变任何特权、身份或网络暴露面"
       }
     ],
     "source": "profile:maintenance",
@@ -161,7 +161,7 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "MEMORY-044"

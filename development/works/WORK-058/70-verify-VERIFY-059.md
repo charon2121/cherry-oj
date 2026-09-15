@@ -2,7 +2,7 @@
 id: "VERIFY-059"
 type: "verify"
 title: "判题引擎结构重切的回归验证"
-status: "draft"
+status: "review"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["PLAN-041"]
@@ -10,9 +10,9 @@ related: ["CHANGE-014", "DESIGN-051"]
 implements: []
 verifies: ["CHANGE-014#AC-001", "CHANGE-014#AC-002", "CHANGE-014#AC-003", "CHANGE-014#AC-004", "CHANGE-014#AC-005", "CHANGE-014#AC-006", "CHANGE-014#AC-007", "CHANGE-014#AC-008", "CHANGE-014#AC-009", "CHANGE-014#AC-010", "CHANGE-014#AC-011", "CHANGE-014#AC-012", "CHANGE-014#REQ-016"]
 tags: []
-result: "pending"
+result: "pass"
 created_at: "2026-09-14"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 ---
 
 # VERIFY-059：判题引擎结构重切的回归验证
@@ -105,9 +105,18 @@ S1–S6 的逐阶段证据（命令、输出摘要、CI 运行编号）记在各
 AC-011 附带发现：`apps/judge-engine/README.md` 与 `helperd/internal/helper/README.md` 的路径与
 类型名全部指向旧结构，已一并重写（两者都在 TASK-131 的 `write_paths` 内）。
 
-### 待补
+### 最终候选的 CI 全量（AC-010，2026-09-15）
 
-最终候选的 CI 全量（AC-010）尚未运行；运行编号与 job 通过情况在此追加后本文件方可定稿。
+CI run **34938772322**（sourceSha `66a0a35`，run attempt **1**，一次通过）。
+12 个 job 全部 success：`sandbox-packages`、`sandbox-basic`、`sandbox-kernel`、`sandbox-native`、
+`sandbox-business`、`development`、`web`、`contracts`、`go`、`tidy`、`containers`、`sandbox-summary`。
+
+必需回归汇总 `summary.json`：`"status": "PASS"`，93 项必需用例全部通过——
+basic 5/5、kernel 63/63、native 10/10、business 15/15。
+
+这条同时为 AC-010「对外行为不变」提供证据：错误消息语言切换与文档重写之后，
+真实页面 → 五个 Java 服务 → Kafka → 原生 Linux 判题这条业务闭环的 15 项仍然全绿，
+说明 Java 侧确实不匹配判题引擎的错误正文（与 TASK-131 执行记录中的分析一致）。
 
 固定要求：
 
@@ -139,4 +148,15 @@ AC-011 附带发现：`apps/judge-engine/README.md` 与 `helperd/internal/helper
 
 ## 结论
 
-尚未验证。
+**通过。** S1–S7 的结构重切在最终候选上一次性通过全部 12 个 CI job 与 93 项必需回归，
+AC-001 至 AC-012 均已取得证据（逐条出处见上方各阶段记录与各 TASK 执行记录）。
+
+两点需要接收方知道，它们不影响本次结论但会影响之后的动作：
+
+1. **`ACTIVE` 环境的切换仍是人工动作**，不在本次验证范围内；在它完成之前，新结构不参与实际判题路由。
+2. **本工作全程轮换环境指纹**：`executableDigest()` 参与指纹计算，因此每个阶段的二进制变化都会
+   产生新指纹。控制面只会把新指纹记为 `REGISTERED`，不会静默替换 `ACTIVE`。
+
+## 变更记录
+
+- 2026-09-15：状态变更：draft → review。原因：S1-S7 全部完成，CI 34938772322 一次通过 12 个 job 与 93 项必需回归，等待人工复核与验收闸
