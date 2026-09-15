@@ -62,4 +62,5 @@
 | WORK-055 | 分离CI软件包准备与回归测试 | 工程改进 | 待确认 | 高 | 多个模块 | codex/root | [00-work.md](./works/WORK-055/00-work.md) |
 | WORK-056 | 固定沙箱软件包来源与长期留存 | 工程改进 | 待确认 | 高 | 多个模块 | team/judge-engine | [00-work.md](./works/WORK-056/00-work.md) |
 | WORK-057 | 修复认证数据库回归的时钟夹具漂移 | 问题修复 | 验证通过 | 中 | 局部 | team/server | [00-work.md](./works/WORK-057/00-work.md) |
-| WORK-058 | 按信任与部署边界重切判题引擎模块结构 | 整理维护 | 待确认 | 高 | 多个模块 | team/judge-engine | [00-work.md](./works/WORK-058/00-work.md) |
+| WORK-058 | 按信任与部署边界重切判题引擎模块结构 | 整理维护 | 实现完成 | 高 | 多个模块 | team/judge-engine | [00-work.md](./works/WORK-058/00-work.md) |
+| WORK-059 | 业务闭环中 PATCH /api/admin/problems/{id} 偶发 500 且证据不可定位 | 问题修复 | 待确认 | 中 | 多个模块 | team/server | [00-work.md](./works/WORK-059/00-work.md) |

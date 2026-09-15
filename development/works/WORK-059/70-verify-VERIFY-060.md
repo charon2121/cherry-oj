@@ -1,0 +1,57 @@
+---
+id: "VERIFY-060"
+type: "verify"
+title: "业务闭环中 PATCH /api/admin/problems/{id} 偶发 500 且证据不可定位"
+status: "draft"
+work: "WORK-059"
+owners: ["team/server"]
+depends_on: ["TASK-132"]
+related: []
+implements: []
+verifies: ["ISSUE-020", "TASK-132"]
+tags: []
+result: "pending"
+created_at: "2026-09-15"
+updated_at: "2026-09-15"
+---
+
+# VERIFY-060：业务闭环中 PATCH /api/admin/problems/{id} 偶发 500 且证据不可定位
+
+## 验证对象
+
+待补充。
+
+## 对应要求
+
+待补充：逐条列出本次验证覆盖了哪些验收标准，并把它们**锚定**进 front matter 的 `verifies`：
+
+```bash
+scripts/work link VERIFY-001 --relation verifies --to FEATURE-001#AC-001
+```
+
+只写文档级引用（`verifies: ["FEATURE-001"]`）说明这份定义有人验，但不保证逐条覆盖——
+「每条验收标准都验过了吗」这个问题就只能靠人读正文自己对。签验收闸时工具会提示还有哪些没锚定。
+
+## 检查与结果
+
+待补充实际执行的检查、环境、命令和结果。
+
+## 未通过项
+
+暂无。
+
+## 范围检查
+
+待补充是否只修改允许范围，以及是否存在实现偏差。
+
+## 遗留问题
+
+暂无。
+
+## 剩余风险
+
+待补充。
+
+## 结论
+
+尚未验证。
