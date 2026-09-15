@@ -99,7 +99,8 @@ func (c Config) Validate() error {
 	if s.Store.MaxTotalBytes < s.Store.MaxBlobBytes || s.Store.MaxEntries <= 0 || s.Store.Retention <= 0 {
 		return fmt.Errorf("sandbox.store总量/条目/保留期无效")
 	}
-	return nil
+	// 跨层期限的顺序关系也在启动时挡住：配错了不会报错，只会在某次长执行时表现成平台错误。
+	return budget()
 }
 
 // LoadConfig 按「默认值 → YAML → 环境变量」装配 sandbox 配置并校验。

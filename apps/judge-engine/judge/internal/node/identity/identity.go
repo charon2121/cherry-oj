@@ -1,4 +1,4 @@
-package node
+package identity
 
 import (
 	"crypto/rand"
@@ -79,7 +79,25 @@ func configDigest(p policyFingerprint) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+// Identity 是本节点这次进程的身份：环境指纹、会话与声明的能力。
+// 它由配置与已探明的执行环境共同决定，构造后不再变化。
+type Identity struct{ registration contract.NodeRegistration }
+
+// Registration 返回身份的副本。切片头是值、底层数组共享，因此语言清单要另行复制，
+// 否则调用方改一下就改了本节点的身份。
+func (i Identity) Registration() contract.NodeRegistration {
+	r := i.registration
+	r.Languages = append([]contract.NodeLanguage(nil), r.Languages...)
+	return r
+}
+
+// New 计算本次进程的身份。
 // 指纹字段、序列化顺序与身份脱敏规则必须同步；不包含节点位置和本次 session。
+func New(s config.Settings, env Environment) (Identity, error) {
+	registration, err := newRegistration(s, env)
+	return Identity{registration: registration}, err
+}
+
 func newRegistration(s config.Settings, env Environment) (contract.NodeRegistration, error) {
 	session, err := sessionID()
 	if err != nil {

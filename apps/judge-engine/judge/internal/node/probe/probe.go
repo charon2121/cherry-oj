@@ -1,91 +1,59 @@
-package node
+package probe
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
-	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/internal/config"
+	"cherry-oj/judge-engine/judge/internal/node/identity"
+	"cherry-oj/judge-engine/judge/internal/node/wire"
 )
 
-// ProbeEnvironment reads the execution environment through sandbox's existing,
-// bounded /run interface. No user input is interpolated into the probe program.
-func ProbeEnvironment(ctx context.Context, j config.Settings) (Environment, error) {
-	c := &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	get := func(path string, payload any, result any) error {
-		var body io.Reader
-		method := http.MethodGet
-		if payload != nil {
-			b, err := json.Marshal(payload)
-			if err != nil {
-				return err
-			}
-			body = bytes.NewReader(b)
-			method = http.MethodPost
-		}
-		r, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(j.SandboxURL, "/")+path, body)
-		if err != nil {
-			return err
-		}
-		r.Header.Set("Content-Type", "application/json")
-		response, err := c.Do(r)
-		if err != nil {
-			return fmt.Errorf("sandbox environment probe unavailable")
-		}
-		defer response.Body.Close()
-		if response.StatusCode != 200 {
-			return fmt.Errorf("sandbox environment probe rejected")
-		}
-		b, err := io.ReadAll(io.LimitReader(response.Body, 16385))
-		if err != nil || len(b) > 16384 {
-			return fmt.Errorf("sandbox environment probe response invalid")
-		}
-		return json.Unmarshal(b, result)
-	}
-	var version struct {
-		Name      string `json:"name"`
-		Version   string `json:"version"`
-		Isolation string `json:"isolation"`
-	}
-	if err := get("/version", nil, &version); err != nil {
-		return Environment{}, err
+// Sandbox 是环境探测所消费的能力。接口由消费方定义，实现是 judge 已有的 sandbox 客户端——
+// 探测不再自建第三个 HTTP 客户端，超时、trace 传播与错误正文截断都沿用同一套。
+type Sandbox interface {
+	Version(ctx context.Context) (contract.SandboxVersion, error)
+	Run(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error)
+}
+
+// Environment 通过 sandbox 已有的有界接口读取执行环境。探测程序中不插入任何用户输入。
+func Environment(ctx context.Context, j config.Settings, sandbox Sandbox) (identity.Environment, error) {
+	version, err := sandbox.Version(ctx)
+	if err != nil {
+		return identity.Environment{}, fmt.Errorf("sandbox environment probe unavailable: %w", err)
 	}
 	if version.Name != "cherry-oj-sandbox" || version.Version == "" || len(version.Version) > 128 {
-		return Environment{}, fmt.Errorf("sandbox version invalid")
+		return identity.Environment{}, fmt.Errorf("sandbox version invalid")
 	}
 	if version.Isolation == "linux" || j.Node.DeploymentManifest != "" {
 		if version.Isolation != "linux" || j.Node.DeploymentManifest == "" {
-			return Environment{}, fmt.Errorf("Linux sandbox requires matching deployment manifest and isolation")
+			return identity.Environment{}, fmt.Errorf("Linux sandbox requires matching deployment manifest and isolation")
 		}
-		return probeDeployment(ctx, j, version.Version, get)
+		return probeDeployment(ctx, j, version.Version, sandbox)
 	}
-	var result contract.RunResult
 	spec := contract.RunSpec{Command: []string{"/usr/bin/python3", "-c", environmentProbe}, Limits: contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 134217728, MaxProcesses: 8, StdoutMaxBytes: 8192, StderrMaxBytes: 1024}}
-	if err := get("/run", spec, &result); err != nil {
-		return Environment{}, err
+	result, err := sandbox.Run(ctx, spec)
+	if err != nil {
+		return identity.Environment{}, fmt.Errorf("sandbox environment probe unavailable: %w", err)
 	}
 	if result.Status != contract.StatusOK || result.ExitCode != 0 {
-		return Environment{}, fmt.Errorf("sandbox environment probe failed")
+		return identity.Environment{}, fmt.Errorf("sandbox environment probe failed")
 	}
 	var m struct{ Architecture, CPUModel, OSVersion, KernelVersion, ToolchainVersion, RuntimeDigest string }
-	if err := decodeJSON(strings.NewReader(result.Stdout), &m); err != nil {
-		return Environment{}, fmt.Errorf("sandbox environment metadata invalid")
+	if err := wire.Decode(strings.NewReader(result.Stdout), &m); err != nil {
+		return identity.Environment{}, fmt.Errorf("sandbox environment metadata invalid")
 	}
 	for _, field := range []struct {
 		value string
 		limit int
 	}{{m.Architecture, 32}, {m.CPUModel, 256}, {m.OSVersion, 128}, {m.KernelVersion, 128}, {m.ToolchainVersion, 128}, {m.RuntimeDigest, 128}} {
 		if field.value == "" || len(field.value) > field.limit {
-			return Environment{}, fmt.Errorf("sandbox environment metadata missing or too long")
+			return identity.Environment{}, fmt.Errorf("sandbox environment metadata missing or too long")
 		}
 	}
-	return Environment{
+	return identity.Environment{
 		Architecture:     m.Architecture,
 		CPUModel:         m.CPUModel,
 		OSVersion:        m.OSVersion,

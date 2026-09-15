@@ -33,17 +33,17 @@ func (s *judgeService) Judge(ctx context.Context, req contract.JudgeRequest) con
 func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	// 配置、环境、身份是三个值：配置加载后只读，环境由探测得到，身份由两者推出。
 	var err error
+	sandboxClient := sandboxclient.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std())
 	env := node.DeclaredEnvironment(cfg.Judge)
 	if cfg.Judge.Node.Enabled {
 		probeCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		env, err = node.ProbeEnvironment(probeCtx, cfg.Judge)
+		env, err = node.ProbeEnvironment(probeCtx, cfg.Judge, sandboxClient)
 		cancel()
 		if err != nil {
 			logger.Error("judge.node.environment.probe.failed", "error", err)
 			return err
 		}
 	}
-	sandboxClient := sandboxclient.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std())
 	service := &judgeService{
 		sandbox: sandboxClient,
 		config:  cfg.Judge,

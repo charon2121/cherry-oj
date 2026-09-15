@@ -1,15 +1,17 @@
-package node
+// Package install 接收控制面下发的测试数据并原子落盘。
+// 它持有节点数据根的独占锁：同一目录不能被两个节点同时安装。
+package install
 
 import (
 	"crypto/subtle"
 	"encoding/json"
-	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/judge/internal/node/wire"
 )
 
 const (
@@ -18,13 +20,13 @@ const (
 	installReadTimeout      = 5 * time.Minute
 )
 
-func (n *Node) Handler(fallback http.Handler) http.Handler {
+func (n *Installer) Handler(fallback http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", fallback)
 	mux.HandleFunc("POST /internal/judge-node/v1/install", n.handleInstall)
 	return mux
 }
-func (n *Node) handleInstall(w http.ResponseWriter, r *http.Request) {
+func (n *Installer) handleInstall(w http.ResponseWriter, r *http.Request) {
 	if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+n.cfg.ControlToken)) != 1 {
 		nodeError(w, 401, "NODE_UNAUTHORIZED")
 		return
@@ -43,7 +45,7 @@ func (n *Node) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var m contract.NodeInstall
-	err = decodeJSON(io.LimitReader(part, maxInstallMetadataBytes+1), &m)
+	err = wire.Decode(io.LimitReader(part, maxInstallMetadataBytes+1), &m)
 	part.Close()
 	if err != nil {
 		nodeError(w, 400, "NODE_INVALID_REQUEST")
@@ -75,18 +77,6 @@ func nodeError(w http.ResponseWriter, status int, code string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"code": code, "detail": "Node request could not be completed"})
-}
-func decodeJSON(r io.Reader, value any) error {
-	d := json.NewDecoder(r)
-	d.DisallowUnknownFields()
-	if err := d.Decode(value); err != nil {
-		return err
-	}
-	var extra any
-	if err := d.Decode(&extra); err != io.EOF {
-		return fmt.Errorf("trailing JSON")
-	}
-	return nil
 }
 
 // EOF 必须同时证明 archive 是最后一个 part，才能进入原子提交。

@@ -78,6 +78,28 @@ func (c *Client) Upload(ctx context.Context, body io.Reader) (string, error) {
 	return result.Ref, nil
 }
 
+// Version 读取 sandbox 的身份与隔离后端。judge 用它确认对端确实是 sandbox，
+// 且它的隔离配置与本节点声明的部署一致。
+func (c *Client) Version(ctx context.Context) (contract.SandboxVersion, error) {
+	var version contract.SandboxVersion
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint("/version"), nil)
+	if err != nil {
+		return version, fmt.Errorf("read sandbox version: create request: %w", err)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return version, fmt.Errorf("read sandbox version: %w", err)
+	}
+	defer drainAndClose(resp.Body)
+	if !isSuccess(resp.StatusCode) {
+		return version, responseError("read sandbox version", resp)
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, errorBodyMaxBytes+1)).Decode(&version); err != nil {
+		return version, fmt.Errorf("read sandbox version: decode response: %w", err)
+	}
+	return version, nil
+}
+
 // Run 请求 sandbox 执行一条命令。
 // RunResult.Status 不是 OK 仍是一次成功的 HTTP 对话，不会被转换成 error。
 func (c *Client) Run(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error) {

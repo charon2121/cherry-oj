@@ -1,6 +1,6 @@
 // White-box tests inject protected file and cgroup readers; no root privileges
 // or host cgroup mutation is needed to test identity validation failures.
-package node
+package probe
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func deploymentFixture() deploymentManifest {
 }
 
 func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
-	for _, kind := range []string{"valid", "missing-file", "changed-file", "read-error", "missing-limit", "unbounded", "swap", "changed-limit", "unknown-field"} {
+	for _, kind := range []string{"valid", "missing-file", "changed-file", "read-error", "missing-limit", "unbounded", "swap", "changed-limit", "unknown-field", "unverified-limit"} {
 		t.Run(kind, func(t *testing.T) {
 			m := deploymentFixture()
 			hash := func(string) (string, error) { return strings.Repeat("a", 64), nil }
@@ -48,10 +48,23 @@ func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
 				read = func(string) ([]byte, error) { return []byte("unexpected"), nil }
 			case "unknown-field":
 				m.Files["extra"] = deploymentFile{}
+			case "unverified-limit":
+				// 清单声明了一条从未被核对的上界。只比数量的话它会和「少一条」互相抵消。
+				m.Limits["/sys/fs/cgroup/elsewhere/pids.max"] = "1"
 			}
 			digest, err := verifyManifest(context.Background(), m, hash, read)
 			if (err == nil) != (kind == "valid") {
 				t.Fatalf("digest=%s err=%v", digest, err)
+			}
+			// 报错必须指出是哪一项，否则出问题时只知道「部署不合格」，不知道去看哪里。
+			named := map[string]string{
+				"unknown-field":    "extra",
+				"unverified-limit": "/sys/fs/cgroup/elsewhere/pids.max",
+				"missing-file":     "helper",
+				"missing-limit":    "/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/pids.max",
+			}
+			if want, ok := named[kind]; ok && !strings.Contains(err.Error(), want) {
+				t.Fatalf("错误信息 %q 中没有指出是哪一项（期望含 %q）", err, want)
 			}
 		})
 	}
@@ -113,5 +126,20 @@ func TestDeploymentRejectsUnprotectedPath(t *testing.T) {
 	if err == nil {
 		f.Close()
 		t.Fatal("writable metadata accepted")
+	}
+}
+
+// 原生部署要求 sandbox 就是本机同批安装的那一个：跨主机的端点不受这份清单约束，
+// 校验清单也就证明不了实际执行环境。端口由部署决定，不写死。
+func TestNativeDeploymentRequiresLoopbackSandbox(t *testing.T) {
+	for _, url := range []string{"http://127.0.0.1:15050", "http://127.0.0.1:5050", "http://[::1]:5050"} {
+		if err := requireLoopback(url); err != nil {
+			t.Errorf("回环端点被拒绝 %q: %v", url, err)
+		}
+	}
+	for _, url := range []string{"http://10.0.0.4:5050", "http://sandbox:5050", "http://example.com"} {
+		if err := requireLoopback(url); err == nil {
+			t.Errorf("非回环端点被接受: %q", url)
+		}
 	}
 }

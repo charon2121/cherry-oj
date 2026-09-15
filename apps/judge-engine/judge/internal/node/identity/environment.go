@@ -1,4 +1,4 @@
-package node
+package identity
 
 import "cherry-oj/judge-engine/judge/internal/config"
 
@@ -17,9 +17,9 @@ type Environment struct {
 	RuntimeDigest    string
 }
 
-// DeclaredEnvironment 取配置中声明的环境，供未启用节点链路时使用。
+// Declared 取配置中声明的环境，供未启用节点链路时使用。
 // 它不含实测成分，因此不带 Architecture 与 RuntimeDigest——这两项只能测出来。
-func DeclaredEnvironment(s config.Settings) Environment {
+func Declared(s config.Settings) Environment {
 	return Environment{
 		CPUModel:         s.Node.CPUModel,
 		OSVersion:        s.Node.OSVersion,

@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Validate 把「配错了」挡在启动时，而不是让它伪装成一个合理的判题结论。
 //
@@ -49,6 +52,14 @@ func (c Config) Validate() error {
 	}
 	if j.Compile.CPUNs <= 0 || j.Compile.MemoryBytes <= 0 || j.Compile.ClockNs <= 0 {
 		return fmt.Errorf("judge.compile 的三项都必须为正，得到 %+v", j.Compile)
+	}
+	// 跨层预算：调用期限必须覆盖本节点配置的最长一次 /run。编译是配置层面最长的那一次；
+	// 测试点的墙钟由请求给出（cpuNs × clockRatio），上界由节点硬界约束，不在这里。
+	// 设小了的表现是「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
+	if j.SandboxTimeout.Std() <= time.Duration(j.Compile.ClockNs) {
+		return fmt.Errorf("judge.sandboxTimeout（%s）必须大于 judge.compile.clockNs（%s）："+
+			"否则编译刚到墙钟上限，judge 这边已经先超时，结果被报成系统错误",
+			j.SandboxTimeout, time.Duration(j.Compile.ClockNs))
 	}
 	return nil
 }

@@ -5,8 +5,11 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	platform "cherry-oj/judge-engine/internal/platform/config"
 )
 
 func writeYAML(t *testing.T, body string) string {
@@ -105,7 +108,8 @@ func TestEnvOverridesYAML(t *testing.T) {
 	t.Setenv("CHERRY_OJ_JUDGE_CLOCK_RATIO", "7")
 	t.Setenv("CHERRY_OJ_JUDGE_REVEAL_EXPECTED", "true")
 	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_ROOT", "/srv/from-env")
-	t.Setenv("CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT", "5s")
+	// 取值要大于编译墙钟上限（默认 20s），否则会被跨层预算断言挡住——那正是它该做的。
+	t.Setenv("CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT", "25s")
 	t.Setenv("CHERRY_OJ_JUDGE_ENVIRONMENT_FINGERPRINT", "sha256:test-environment")
 	t.Setenv("CHERRY_OJ_JUDGE_COMPILE_CPU_NS", "999")
 
@@ -123,8 +127,8 @@ func TestEnvOverridesYAML(t *testing.T) {
 	if cfg.Judge.TestdataRoot != "/srv/from-env" {
 		t.Errorf("testdataRoot=%q", cfg.Judge.TestdataRoot)
 	}
-	if cfg.Judge.SandboxTimeout.Std() != 5*time.Second {
-		t.Errorf("sandboxTimeout=%s want 5s", cfg.Judge.SandboxTimeout)
+	if cfg.Judge.SandboxTimeout.Std() != 25*time.Second {
+		t.Errorf("sandboxTimeout=%s want 25s", cfg.Judge.SandboxTimeout)
 	}
 	if cfg.Judge.EnvironmentFingerprint != "sha256:test-environment" {
 		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
@@ -226,3 +230,25 @@ func TestExampleConfigLoads(t *testing.T) {
 		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
 	}
 }
+
+// 调用期限必须覆盖本节点配置的最长一次执行；设小了会出现「沙箱正常跑着、judge 先超时」，
+// 报出来是系统错误，查不到原因。
+func TestSandboxTimeoutMustCoverCompileWall(t *testing.T) {
+	cfg := Default()
+	cfg.Judge.SandboxTimeout = platformDuration(cfg.Judge.Compile.ClockNs)
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("调用期限不大于编译墙钟却被接受")
+	}
+	for _, want := range []string{"sandboxTimeout", "compile.clockNs"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("错误信息 %q 没有点明 %q", err, want)
+		}
+	}
+	cfg.Judge.SandboxTimeout = platformDuration(cfg.Judge.Compile.ClockNs + int64(time.Second))
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("留出余量后仍被拒绝: %v", err)
+	}
+}
+
+func platformDuration(ns int64) platform.Duration { return platform.Duration(ns) }

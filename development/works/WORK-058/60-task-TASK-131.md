@@ -10,9 +10,9 @@ related: ["CHANGE-014", "DESIGN-051", "DECISION-035", "PLAN-041"]
 implements: ["CHANGE-014#REQ-009", "CHANGE-014#REQ-010"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "CLAUDE.md", "docs", "development/README.md", "development/works/WORK-049", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests/README.md", "compose.yaml"]
-write_paths: ["apps/judge-engine", "docs/engine.md", "docs/coding-standards/languages/go.md", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md", "compose.yaml"]
-forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "docs/architecture.md", "docs/product.md", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml", "deploy/sandbox-linux/tests/acceptance"]
+read_paths: ["AGENTS.md", "CLAUDE.md", "docs", "development/README.md", "development/works/WORK-049", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests/README.md", "compose.yaml", "deploy/sandbox-linux/tests"]
+write_paths: ["apps/judge-engine", "docs/engine.md", "docs/coding-standards/languages/go.md", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md", "compose.yaml", "deploy/sandbox-linux/tests"]
+forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "docs/architecture.md", "docs/product.md", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml"]
 created_at: "2026-09-14"
 updated_at: "2026-09-14"
 ---

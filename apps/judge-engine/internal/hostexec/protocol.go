@@ -36,8 +36,11 @@ const (
 
 // 已归一化请求的节点硬边界，不是 runner 填充的默认限额。
 const (
-	maxCPUNs       = int64(60 * time.Second)
-	maxClockNs     = int64(120 * time.Second)
+	maxCPUNs = int64(60 * time.Second)
+	// MaxClockNs 是单次执行的墙钟硬界。它是跨层预算的下界：本机会话期限必须大于它，
+	// HTTP 写期限又必须大于会话期限，否则达到墙钟上限的命令会先被上层期限打断。
+	MaxClockNs     = int64(120 * time.Second)
+	maxClockNs     = MaxClockNs
 	maxMemoryBytes = 1 << 30
 	maxProcesses   = 256
 	maxStdoutBytes = 1 << 20

@@ -1,4 +1,4 @@
-package node
+package install
 
 import (
 	"archive/zip"
@@ -28,16 +28,16 @@ var errRejected = errors.New("NODE_DATA_REJECTED")
 var errConflict = errors.New("NODE_DATA_CONFLICT")
 
 // Install 用节点锁串行化提交；每次事务独占 staging，不把安装中间状态放进 Node。
-func (n *Node) Install(ctx context.Context, m contract.NodeInstall, archive io.Reader) (contract.NodeReceipt, error) {
-	n.installMu.Lock()
-	defer n.installMu.Unlock()
+func (n *Installer) Install(ctx context.Context, m contract.NodeInstall, archive io.Reader) (contract.NodeReceipt, error) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	m.Manifest.Files = append([]contract.ManifestFile(nil), m.Manifest.Files...)
 	tx := installation{node: n, metadata: m}
 	return tx.run(ctx, archive)
 }
 
 type installation struct {
-	node          *Node
+	node          *Installer
 	metadata      contract.NodeInstall
 	work, zipPath string
 }

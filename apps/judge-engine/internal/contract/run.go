@@ -45,6 +45,14 @@ const (
 	StatusInternalError       Status = "InternalError"
 )
 
+// SandboxVersion 是 sandbox 的 GET /version 响应。
+// Isolation 报告实际配置的后端，judge 据此判断这是不是一个有隔离保证的环境。
+type SandboxVersion struct {
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+	Isolation string `json:"isolation"`
+}
+
 type RunResult struct {
 	Status      Status            `json:"status"`
 	ExitCode    int               `json:"exitCode"`

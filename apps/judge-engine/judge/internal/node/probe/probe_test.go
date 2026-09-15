@@ -1,4 +1,4 @@
-package node_test
+package probe_test
 
 import (
 	"context"
@@ -6,9 +6,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/internal/config"
-	"cherry-oj/judge-engine/judge/internal/node"
+	"cherry-oj/judge-engine/judge/internal/node/probe"
+	"cherry-oj/judge-engine/judge/internal/sandboxclient"
 )
 
 func TestLinuxProbeRefusesMissingManifestOrWrongBackend(t *testing.T) {
@@ -26,9 +29,16 @@ func TestLinuxProbeRefusesMissingManifestOrWrongBackend(t *testing.T) {
 			if backend == "host" {
 				cfg.Node.DeploymentManifest = "/etc/cherry-sandbox/deployment.json"
 			}
-			if _, err := node.ProbeEnvironment(context.Background(), cfg); err == nil {
+			client := sandboxclient.New(server.URL, 5*time.Second)
+			if _, err := probe.Environment(context.Background(), cfg, client); err == nil {
 				t.Fatal("invalid deployment accepted")
 			}
 		})
 	}
 }
+
+// 探测消费的是 judge 已有的 sandbox 客户端能力，不再自建第三个 HTTP 客户端。
+var _ probe.Sandbox = (*sandboxclient.Client)(nil)
+
+// 未配置部署清单且后端不是 linux 时，探测走通用路径；这里只确认接口契约成立。
+var _ = contract.SandboxVersion{}

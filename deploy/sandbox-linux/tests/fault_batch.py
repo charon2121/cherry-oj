@@ -232,7 +232,9 @@ def capacity_cases():
                         uid = int(next(line for line in status.splitlines() if line.startswith('Uid:')).split()[1])
                         if uid in (61002, 61004): payload_ids.add(uid)
                         if uid in (61003, 61005): init_ids.add(uid)
-                except FileNotFoundError:
+                except OSError:
+                    # 执行组可能在枚举与读取之间被删除。cgroup v2 下这两步分别返回
+                    # ENOENT 与 ENODEV，只捕 FileNotFoundError 会漏掉后者。
                     pass
             time.sleep(.005)
         assert payload_ids == {61002, 61004} and init_ids == {61003, 61005}, (payload_ids, init_ids)

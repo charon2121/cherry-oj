@@ -91,11 +91,11 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 helper 客户端工作区。
 	srv := &http.Server{
 		Addr:              cfg.Sandbox.HTTPAddr,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      160 * time.Second,
-		IdleTimeout:       30 * time.Second,
-		MaxHeaderBytes:    16 << 10,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+		WriteTimeout:      httpWriteTimeout,
+		IdleTimeout:       httpIdleTimeout,
+		MaxHeaderBytes:    httpMaxHeaderBytes,
 		Handler: api.New(p, st, api.Options{
 			MaxBlobBytes:    cfg.Sandbox.Store.MaxBlobBytes,
 			MaxRequestBytes: cfg.Sandbox.MaxRequestBytes,
@@ -132,7 +132,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 		exitErr = errors.Join(exitErr, err)
 	}
 	// 执行已取消，HTTP 仍需写出失败结果；收尾期限不能继承已取消的信号上下文。
-	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutCtx, cancel := context.WithTimeout(context.Background(), httpShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutCtx); err != nil {
 		logger.Error("process.shutdown.failed", "event", "process.shutdown.failed", "error", err)

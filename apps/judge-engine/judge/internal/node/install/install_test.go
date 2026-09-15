@@ -1,29 +1,41 @@
-package node_test
+package install_test
 
 import (
 	"archive/zip"
 	"bytes"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/internal/config"
-	"cherry-oj/judge-engine/judge/internal/node"
+	"cherry-oj/judge-engine/judge/internal/node/install"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 )
 
 func hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
-func newNode(t *testing.T, root string) (*node.Node, config.Settings) {
+
+// testRegistration 只需与安装请求一致即可；身份怎么算出来是 identity 包的事。
+// 会话号每次调用都不同——它代表「这一次进程」，重启后旧回执正是靠它失效。
+var session atomic.Int64
+
+func testRegistration(c config.Settings) contract.NodeRegistration {
+	return contract.NodeRegistration{NodeID: c.Node.ID, EnvironmentFingerprint: "test-fingerprint",
+		SessionID: fmt.Sprintf("019c8e42-7f70-7000-8000-%012d", session.Add(1))}
+}
+
+func newNode(t *testing.T, root string) (*install.Installer, config.Settings) {
 	t.Helper()
 	c := config.Default().Judge
 	c.TestdataRoot = root
 	c.Node.Enabled = true
 	c.Node.ControlToken = "test-control-token"
-	n, err := node.New(c, node.Environment{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	n, err := install.Open(c.Node, root, testRegistration(c), slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +64,7 @@ func archive(t *testing.T, names []string, contents [][]byte, symlink bool) []by
 	}
 	return b.Bytes()
 }
-func metadata(n *node.Node, b []byte) contract.NodeInstall {
+func metadata(n *install.Installer, b []byte) contract.NodeInstall {
 	r := n.Registration()
 	return contract.NodeInstall{NodeID: r.NodeID, EnvironmentFingerprint: r.EnvironmentFingerprint, SessionID: r.SessionID, TestDataVersionID: "019c8e42-7f70-7000-8000-000000000002", ExpectedSHA256: hash(b), Manifest: contract.TestDataManifest{CaseCount: 1, TotalBytes: 6, Files: []contract.ManifestFile{{Name: "1.in", SizeBytes: 4, SHA256: hash([]byte("1 2\n"))}, {Name: "1.out", SizeBytes: 2, SHA256: hash([]byte("3\n"))}}}}
 }
@@ -123,7 +135,7 @@ func TestInstallRetryRestartConflictAndCancellation(t *testing.T) {
 	if err := n.Close(); err != nil {
 		t.Fatal(err)
 	}
-	n, err = node.New(c, node.Environment{}, nil)
+	n, err = install.Open(c.Node, c.TestdataRoot, testRegistration(c), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +180,7 @@ func TestInstallRejectsLimitsAndArchiveHash(t *testing.T) {
 			case "ratio":
 				c.Node.MaxCompressionRatio = 1
 			}
-			n, err := node.New(c, node.Environment{}, nil)
+			n, err := install.Open(c.Node, c.TestdataRoot, testRegistration(c), nil)
 			if err != nil {
 				t.Fatal(err)
 			}

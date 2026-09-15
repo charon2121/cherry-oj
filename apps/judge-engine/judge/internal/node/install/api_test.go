@@ -1,4 +1,4 @@
-package node_test
+package install_test
 
 import (
 	"bytes"
