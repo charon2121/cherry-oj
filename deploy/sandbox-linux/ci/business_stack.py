@@ -9,6 +9,7 @@ import urllib.error
 import urllib.request
 
 from business_config import IMAGES, PORTS, SERVICES, create
+from business_journal import journal
 from business_resources import Dependencies
 from command import run
 from owned import BASE, PREFIX
@@ -136,7 +137,14 @@ class Stack:
         raise TimeoutError('real web preview did not become ready')
 
     def diagnose(self):
-        # Only safe process state; no raw Java log, environment or container configuration.
+        # Only safe process state and allowlisted log fields; no raw Java log,
+        # environment or container configuration.
+        try:
+            (self.output / 'business-service-facts.json').write_text(
+                json.dumps(journal(PRIVATE, ('bootstrap', *SERVICES)), indent=2) + '\n')
+        except (OSError, ValueError, TypeError):
+            # A malformed log must not suppress the rest of the diagnosis or the original failure.
+            (self.output / 'business-service-facts.json').write_text('{"rejected": true}\n')
         self.dependencies.diagnose()
         units = [u for u in self.owned.data['units'] if 'business-' in u]
         if units:

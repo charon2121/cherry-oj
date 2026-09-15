@@ -13,6 +13,7 @@ import zipfile
 from business_api import API, MAX_BODY, failure_kind, fixture_zip
 from business_config import DATABASES, create, environment
 from business_evidence import Evidence, uuid
+from business_journal import MAX_ENTRIES, journal, service_facts
 from business_observer import Observer, verify_observations
 from business_resources import Dependencies
 from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authentication_results, browser_diagnostic,
@@ -361,6 +362,67 @@ class BusinessTests(unittest.TestCase):
             evidence.rows = Mock(return_value=[dict(status=status, attempt=attempt)])
             with self.assertRaises(ValueError):
                 evidence.formal({}, '00000000-0000-4000-8000-000000000001', 'source')
+
+    def test_service_facts_export_request_shape_without_any_log_text(self):
+        secret = 'private-token-must-not-export'
+        lines = [
+            json.dumps({'@timestamp': '2026-01-01T00:00:00Z', 'level': 'INFO', 'service': 'problem',
+                        'logger_name': 'com.cherryoj.logging.HttpLogEvent', 'message': secret,
+                        'event': 'http.server.completed', 'http_method': 'PATCH',
+                        'http_route': '/api/admin/problems/{problemId}', 'http_status': 500,
+                        'duration_ms': 2086, 'request_id': 'req_0123abcd', 'trace_id': 'beef01'}),
+            json.dumps({'level': 'ERROR', 'logger_name': 'org.apache.catalina.core.ContainerBase',
+                        'message': secret, 'mdc': {'user': secret},
+                        'stack_trace': ('java.lang.IllegalStateException: ' + secret
+                                        + '\n\tat com.cherryoj.problemservice.application.AdminProblemService'
+                                          '.updateProblem(AdminProblemService.java:111)'
+                                        + '\n\tat org.springframework.web.servlet.DispatcherServlet.doDispatch'
+                                          '(DispatcherServlet.java:1)'
+                                        + '\nCaused by: java.net.SocketTimeoutException: Read timed out ' + secret
+                                        + '\n\tat java.base/java.net.SocketInputStream.read(SocketInputStream.java:1)')}),
+            json.dumps({'level': 'INFO', 'event': 'http.server.completed', 'http_status': 200,
+                        'http_route': '/api/auth/csrf', 'message': secret}),
+            'Started ProblemServiceApplication ' + secret,
+            json.dumps(['not', 'an', 'object']),
+        ]
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'problem.log'
+            log.write_text('\n'.join(lines) + '\n')
+            result = service_facts(log)
+        self.assertNotIn(secret, json.dumps(result, ensure_ascii=False))
+        self.assertEqual(result['dropped'], 0)
+        self.assertEqual(result['facts'][0], dict(level='INFO', logger='com.cherryoj.logging.HttpLogEvent',
+            event='http.server.completed', method='PATCH', route='/api/admin/problems/{problemId}',
+            requestId='req_0123abcd', traceId='beef01', status=500, durationMs=2086))
+        # The exception chain and our own frames are the diagnosis; the messages beside them are not.
+        self.assertEqual(result['facts'][1]['thrown'], ['java.lang.IllegalStateException', 'java.net.SocketTimeoutException'])
+        self.assertEqual(result['facts'][1]['frames'],
+                         ['com.cherryoj.problemservice.application.AdminProblemService.updateProblem'])
+        self.assertEqual(len(result['facts']), 2)  # A 200 and unstructured startup output are not evidence.
+        self.assertEqual(result['scanned'], 3)  # Structured lines seen, so an empty result would mean a clean run.
+
+    def test_service_facts_drop_unexpected_field_shapes_instead_of_truncating(self):
+        secret = 'private token with spaces'
+        entry = {'level': 'ERROR', 'logger_name': secret, 'http_route': secret, 'request_id': secret,
+                 'trace_id': secret, 'http_method': secret, 'event': secret, 'http_status': '500',
+                 'duration_ms': True, 'stack_trace': 'no exception class here, only ' + secret}
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'gateway.log'
+            log.write_text(json.dumps(entry) + '\n')
+            result = service_facts(log)
+        self.assertEqual(result['facts'], [dict(level='ERROR')])
+
+    def test_service_facts_keep_the_newest_events_within_a_fixed_bound(self):
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'judging.log'
+            log.write_text(''.join(json.dumps(dict(level='INFO', event='http.server.completed',
+                http_status=500, duration_ms=index)) + '\n' for index in range(MAX_ENTRIES + 5)))
+            result = service_facts(log)
+            self.assertEqual(len(result['facts']), MAX_ENTRIES)
+            self.assertEqual(result['dropped'], 5)
+            self.assertEqual(result['facts'][-1]['durationMs'], MAX_ENTRIES + 4)
+            # A service that never started leaves no log; that must be a fact, not a crash.
+            self.assertEqual(journal(Path(temp), ('judging', 'user'))['user'], dict(unreadable=True))
 
 
 if __name__ == '__main__':
