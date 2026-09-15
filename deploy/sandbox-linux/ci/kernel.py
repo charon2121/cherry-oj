@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import socket
+import subprocess
 import time
 
 from command import install_signal_handlers, run
@@ -16,7 +17,7 @@ import results
 TESTS = ROOT / 'deploy/sandbox-linux/tests'
 
 
-def ready_socket(path):
+def ready_socket(path, unit=None):
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
         with socket.socket(socket.AF_UNIX) as connection:
@@ -26,7 +27,19 @@ def ready_socket(path):
                 return
             except OSError:
                 time.sleep(.05)
-    raise TimeoutError('helper socket did not become ready')
+    # helper 只有在每个槽位的启动冒烟都通过之后才开放 socket。冒烟不过时，外部只看得到
+    # 「socket 没就绪」，真正的原因留在 helper 自己的输出里；不带出来就无从判断是配置、
+    # 内核能力还是执行链的问题。
+    raise TimeoutError('helper socket did not become ready' + unit_output(unit))
+
+
+def unit_output(unit):
+    if not unit:
+        return ''
+    journal = subprocess.run(['journalctl', '--unit', unit, '--no-pager', '--lines', '60'],
+                             capture_output=True, text=True)
+    detail = (journal.stdout or journal.stderr or '').strip()
+    return '\n' + detail if detail else ''
 
 
 def verify_build(build):
@@ -90,7 +103,7 @@ class Kernel:
                           kind + '-helper.log', memory=768, tasks=192, seconds=180, delegate=True, wait=False)
         try:
             sock = Path('/run') / helper / 'helper.sock'
-            ready_socket(sock)
+            ready_socket(sock, helper)
             scripts = [('cpp_limits.py', 'cpp-limits', sock)] if cpp else [
                 ('inspect_threads.py', 'static-identity', base / 'helper.json'),
                 ('smoke.py', 'static-smoke', sock), ('extended.py', 'static-extended', sock)]
