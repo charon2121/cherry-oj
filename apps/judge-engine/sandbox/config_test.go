@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 )
 
 func writeYAML(t *testing.T, body string) string {
@@ -93,7 +95,7 @@ func TestExampleConfigLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("示例配置加载失败: %v", err)
 	}
-	if cfg.Sandbox.Backend != "trusted-host" {
+	if cfg.Sandbox.Backend != backend.NameDevHost {
 		t.Errorf("backend=%q", cfg.Sandbox.Backend)
 	}
 }

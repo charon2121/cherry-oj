@@ -11,12 +11,13 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/pool"
 	"cherry-oj/judge-engine/sandbox/internal/store"
+	"cherry-oj/judge-engine/sandbox/internal/workspace"
 )
 
-// 使用真实Unix协议、容量池、runner、Container与Store；只替代内核执行者。
+// 使用真实 Unix 协议、容量池、runner、执行后端与 Store；只替代内核执行者。
 // 两次执行证明编译产物发布后可用ref进入下一次全新执行，而不让runner理解helper协议。
 func TestIsolatedArtifactRoundTrip(t *testing.T) {
 	root, e := os.MkdirTemp("/tmp", "cherry-round-")
@@ -84,12 +85,16 @@ func TestIsolatedArtifactRoundTrip(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer st.Close()
-	workspace, e := container.OpenWorkspace(filepath.Join(root, "work"))
+	ws, e := workspace.OpenWorkspace(filepath.Join(root, "work"))
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer workspace.Close()
-	p, e := pool.New(st, pool.Options{Parallelism: 1, QueueSize: 1, Factory: func() (container.Container, error) { return workspace.New(socket) }})
+	defer ws.Close()
+	isolated, e := backend.NewIsolated(socket, ws)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := pool.New(st, isolated, pool.Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}

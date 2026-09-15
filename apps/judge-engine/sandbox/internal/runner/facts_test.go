@@ -5,33 +5,32 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/fs"
 	"strings"
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
 func TestFactsClassification(t *testing.T) {
 	tests := []struct {
 		name string
-		u    container.Usage
+		u    backend.Facts
 		ctx  error
 		want contract.Status
 	}{
-		{"sigkill", container.Usage{Signal: 9}, nil, contract.StatusSignalled},
-		{"oom equal limit", container.Usage{Signal: 9, OOMKilled: true, MemoryBytes: 128 << 20}, nil, contract.StatusMemoryLimitExceeded},
-		{"peak without oom", container.Usage{GroupAccounting: true, MemoryBytes: 129 << 20}, nil, contract.StatusOK},
-		{"cpu", container.Usage{Reason: hostexec.ReasonCPU}, nil, contract.StatusTimeLimitExceeded},
-		{"wall", container.Usage{Reason: hostexec.ReasonWall}, nil, contract.StatusTimeLimitExceeded},
-		{"output", container.Usage{Reason: hostexec.ReasonOutput}, nil, contract.StatusOutputLimitExceeded},
-		{"cancel", container.Usage{}, context.Canceled, contract.StatusInternalError},
-		{"caller deadline", container.Usage{}, context.DeadlineExceeded, contract.StatusInternalError},
-		{"unknown", container.Usage{Reason: "surprise"}, nil, contract.StatusInternalError},
-		{"platform despite oom", container.Usage{Reason: hostexec.ReasonPlatform, OOMKilled: true}, nil, contract.StatusInternalError},
+		{"sigkill", backend.Facts{Signal: 9}, nil, contract.StatusSignalled},
+		{"oom equal limit", backend.Facts{Signal: 9, OOMKilled: true, MemoryBytes: 128 << 20}, nil, contract.StatusMemoryLimitExceeded},
+		{"peak without oom", backend.Facts{GroupAccounting: true, MemoryBytes: 129 << 20}, nil, contract.StatusOK},
+		{"cpu", backend.Facts{Reason: hostexec.ReasonCPU}, nil, contract.StatusTimeLimitExceeded},
+		{"wall", backend.Facts{Reason: hostexec.ReasonWall}, nil, contract.StatusTimeLimitExceeded},
+		{"output", backend.Facts{Reason: hostexec.ReasonOutput}, nil, contract.StatusOutputLimitExceeded},
+		{"cancel", backend.Facts{}, context.Canceled, contract.StatusInternalError},
+		{"caller deadline", backend.Facts{}, context.DeadlineExceeded, contract.StatusInternalError},
+		{"unknown", backend.Facts{Reason: "surprise"}, nil, contract.StatusInternalError},
+		{"platform despite oom", backend.Facts{Reason: hostexec.ReasonPlatform, OOMKilled: true}, nil, contract.StatusInternalError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -42,27 +41,31 @@ func TestFactsClassification(t *testing.T) {
 	}
 }
 
-type failedWait struct{}
-
-func (failedWait) Wait(context.Context) (container.Usage, error) {
-	return container.Usage{}, errors.New("cleanup failed")
+// executeStub 记录是否真的执行过：显式零预算必须在启动之前就得出结论。
+type executeStub struct {
+	started bool
+	err     error
+	outputs int
 }
 
-type executionStub struct {
-	started   bool
-	waitError bool
+func (b *executeStub) Execute(_ context.Context, j backend.Job, sink backend.OutputSink) (backend.Facts, error) {
+	b.started = true
+	if b.err != nil {
+		return backend.Facts{}, b.err
+	}
+	if sink != nil {
+		for _, name := range j.Outputs {
+			b.outputs++
+			if err := sink(backend.Facts{}, name, strings.NewReader("data")); err != nil {
+				return backend.Facts{}, err
+			}
+		}
+	}
+	return backend.Facts{}, nil
 }
 
-func (c *executionStub) Start(context.Context, container.Spec) (container.Process, error) {
-	c.started = true
-	return failedWait{}, nil
-}
-func (*executionStub) PutFile(string, io.Reader, fs.FileMode) error { return nil }
-func (*executionStub) GetFile(string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader("data")), nil
-}
-func (*executionStub) Close() error { return nil }
-func TestExplicitZeroAndWaitFailure(t *testing.T) {
+// 显式零预算是执行结论，不是缺省：不能被后端的默认设置重新放宽，也不该启动命令。
+func TestExplicitZeroAndExecuteFailure(t *testing.T) {
 	st, e := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
 	if e != nil {
 		t.Fatal(e)
@@ -84,14 +87,15 @@ func TestExplicitZeroAndWaitFailure(t *testing.T) {
 				l.MaxProcesses = 0
 				want = contract.StatusInternalError
 			}
-			c := &executionStub{}
-			res := Run(context.Background(), c, st, contract.RunSpec{Command: []string{"true"}, Limits: l})
-			if c.started || res.Status != want {
-				t.Fatalf("started=%v res=%+v", c.started, res)
+			b := &executeStub{}
+			res, _ := Run(context.Background(), b, st, contract.RunSpec{Command: []string{"true"}, Limits: l})
+			if b.started || res.Status != want {
+				t.Fatalf("started=%v res=%+v", b.started, res)
 			}
 		})
 	}
-	res := Run(context.Background(), &executionStub{}, st, contract.RunSpec{Command: []string{"true"}, Artifacts: []string{"out"}})
+	b := &executeStub{err: errors.New("cleanup failed")}
+	res, _ := Run(context.Background(), b, st, contract.RunSpec{Command: []string{"true"}, Artifacts: []string{"out"}})
 	if res.Status != contract.StatusInternalError || res.Error != "cleanup failed" || len(res.Artifacts) > 0 {
 		t.Fatalf("%+v", res)
 	}
@@ -111,9 +115,12 @@ func (s *rollbackStore) Put(r io.Reader) (string, error) {
 }
 func (*rollbackStore) Get(string) (io.ReadCloser, error) { return nil, errors.New("unused") }
 func (s *rollbackStore) Delete(string) error             { s.deletes++; return nil }
+
+// 全部产物成功才发布 ref：中途失败要把已登记的引用回滚掉，不能留半套。
 func TestArtifactFailureRollsBackPublishedRefs(t *testing.T) {
 	st := &rollbackStore{}
-	res := collect(&executionStub{}, st, contract.RunSpec{Artifacts: []string{"a", "b"}}, contract.RunResult{Status: contract.StatusOK})
+	res, _ := Run(context.Background(), &executeStub{}, st,
+		contract.RunSpec{Command: []string{"true"}, Artifacts: []string{"a", "b"}})
 	if res.Status != contract.StatusInternalError || len(res.Artifacts) != 0 || st.deletes != 1 {
 		t.Fatalf("res=%+v deleted=%d", res, st.deletes)
 	}

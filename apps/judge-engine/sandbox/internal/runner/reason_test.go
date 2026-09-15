@@ -5,37 +5,37 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 )
 
 // 每个终止原因在这里登记一次结论，外加一个让该结论可区分的执行状态。
 // 只断言「原因 → 状态」不够：ReasonPlatform 与兜底分支都给出 InternalError，
 // 少了 OOMKilled 这个区分状态，删掉它的分支测试也不会失败。
 var reasonConclusions = map[hostexec.Reason]struct {
-	usage container.Usage
+	usage backend.Facts
 	want  contract.Status
 }{
 	hostexec.ReasonCPU: {
-		container.Usage{Reason: hostexec.ReasonCPU},
+		backend.Facts{Reason: hostexec.ReasonCPU},
 		contract.StatusTimeLimitExceeded,
 	},
 	hostexec.ReasonWall: {
-		container.Usage{Reason: hostexec.ReasonWall},
+		backend.Facts{Reason: hostexec.ReasonWall},
 		contract.StatusTimeLimitExceeded,
 	},
 	hostexec.ReasonOutput: {
-		container.Usage{Reason: hostexec.ReasonOutput},
+		backend.Facts{Reason: hostexec.ReasonOutput},
 		contract.StatusOutputLimitExceeded,
 	},
 	// 平台故障优先于内存结论：OOM 证据存在时仍然是 InternalError，不是 MLE。
 	hostexec.ReasonPlatform: {
-		container.Usage{Reason: hostexec.ReasonPlatform, OOMKilled: true},
+		backend.Facts{Reason: hostexec.ReasonPlatform, OOMKilled: true},
 		contract.StatusInternalError,
 	},
 	// 取消没有专用分支，落在「原因非空即平台错误」上。这是刻意的结论，不是遗漏：
 	// 取消后拿到的执行事实不足以支持任何资源判定，往严格方向倒。
 	hostexec.ReasonCancelled: {
-		container.Usage{Reason: hostexec.ReasonCancelled},
+		backend.Facts{Reason: hostexec.ReasonCancelled},
 		contract.StatusInternalError,
 	},
 }

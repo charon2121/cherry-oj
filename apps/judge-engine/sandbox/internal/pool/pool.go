@@ -1,4 +1,4 @@
-// Package pool 管理执行容量。每次执行独占一个 Container，不复用工作区或资源计量。
+// Package pool 管理执行容量：接纳、排队、限制并发。它不创建工作区，也不回收产物。
 package pool
 
 import (
@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
@@ -26,39 +26,40 @@ const (
 	maxQueueSize   = 1024
 )
 
-// Options 的 Factory 为每次获准执行创建新 Container；共享 Store 由调用者关闭。
 type Options struct {
 	Parallelism int
 	QueueSize   int
-	Factory     func() (container.Container, error)
 }
 
 // Pool 分别限制已接纳请求与实际执行，避免排队请求无限占用服务资源。
+// 后端可并发使用：每次执行在自己的工作区里完成，池只负责有多少次可以同时进行。
 type Pool struct {
-	sem       chan struct{} // 持有到 Container.Close 完成，防止清理中的执行与新任务重叠。
-	admitted  chan struct{} // 同时计入执行中和排队中的请求。
-	store     store.Store
-	factory   func() (container.Container, error)
-	ctx       context.Context
-	cancel    context.CancelFunc
-	mu        sync.Mutex
-	closed    bool
-	wg        sync.WaitGroup
-	closeOnce sync.Once
-	closeErr  error
+	sem      chan struct{} // 持有到 Execute 返回为止，防止清理中的执行与新任务重叠。
+	admitted chan struct{} // 同时计入执行中和排队中的请求。
+	store    store.Store
+	backend  backend.Backend
+	ctx      context.Context
+	cancel   context.CancelFunc
+	mu       sync.Mutex
+	closed   bool
+	wg       sync.WaitGroup
+	closeErr error
 }
 
-// New 不预创建容器；只有取得执行名额后才调用 Factory，排队不占工作区。
-func New(st store.Store, opts Options) (*Pool, error) {
-	if st == nil || opts.Factory == nil || opts.Parallelism <= 0 || opts.Parallelism > maxParallelism || opts.QueueSize <= 0 || opts.QueueSize > maxQueueSize {
-		return nil, fmt.Errorf("pool需要store、工厂及有界正数parallelism/queueSize")
+func New(st store.Store, b backend.Backend, opts Options) (*Pool, error) {
+	if st == nil || b == nil || opts.Parallelism <= 0 || opts.Parallelism > maxParallelism ||
+		opts.QueueSize <= 0 || opts.QueueSize > maxQueueSize {
+		return nil, fmt.Errorf("pool需要store、后端及有界正数parallelism/queueSize")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Pool{sem: make(chan struct{}, opts.Parallelism), admitted: make(chan struct{}, opts.Parallelism+opts.QueueSize), store: st, factory: opts.Factory, ctx: ctx, cancel: cancel}, nil
+	return &Pool{sem: make(chan struct{}, opts.Parallelism),
+		admitted: make(chan struct{}, opts.Parallelism+opts.QueueSize),
+		store:    st, backend: b, ctx: ctx, cancel: cancel}, nil
 }
 
-// Run 的结果在容器关闭后才定案；清理失败会撤销产物引用并停止池接单。
+// Run 排队、取得执行名额并执行一次命令。
 // 不接纳的请求返回 ErrBusy/ErrClosed，执行结论由 RunResult.Status 表达。
+// 回收未确认时停止整个池：无法判定残留资源，就不能把容量归还给下一条命令。
 func (p *Pool) Run(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error) {
 	var res contract.RunResult
 	if err := p.admit(); err != nil {
@@ -83,39 +84,23 @@ func (p *Pool) Run(ctx context.Context, spec contract.RunSpec) (contract.RunResu
 	if p.ctx.Err() != nil {
 		return res, ErrClosed
 	}
-	c, err := p.factory()
-	if err != nil {
-		return res, fmt.Errorf("创建容器: %w", err)
-	}
-	if c == nil {
-		return res, fmt.Errorf("工厂返回空Container")
-	}
-	closeContainer := sync.OnceValue(func() error { return p.closeContainer(c) })
-	// panic 时也要关闭容器并在清理失败时停止接单；正常路径显式处理关闭结果。
-	defer closeContainer()
-	res = runner.Run(runCtx, c, p.store, spec)
-	if closeErr := closeContainer(); closeErr != nil {
-		var rollback error
-		for _, ref := range res.Artifacts {
-			rollback = errors.Join(rollback, p.store.Delete(ref))
-		}
-		res.Artifacts, res.Outputs = nil, nil
-		res.Status = contract.StatusInternalError
-		res.Error = errors.Join(errors.New("容器清理失败"), closeErr, rollback).Error()
+	res, cleanupErr := runner.Run(runCtx, p.backend, p.store, spec)
+	if cleanupErr != nil {
+		p.poison(cleanupErr)
 	}
 	return res, nil
 }
 
 // Close 拒绝新请求，取消排队及在途执行，并等待各自的独立资源回收。
-// 可重复调用；调用者须等它返回后再关闭 Factory 依赖的暂存根和共享 Store。
+// 可重复调用；调用者须等它返回后再关闭后端依赖的暂存根和共享 Store。
 func (p *Pool) Close() error {
-	p.closeOnce.Do(func() {
-		p.mu.Lock()
+	p.mu.Lock()
+	if !p.closed {
 		p.closed = true
 		p.cancel()
-		p.mu.Unlock()
-		p.wg.Wait()
-	})
+	}
+	p.mu.Unlock()
+	p.wg.Wait()
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.closeErr
@@ -139,15 +124,12 @@ func (p *Pool) admit() error {
 	return nil
 }
 
-// 无法确认资源回收时停止整个池，防止归还容量后继续启动新命令。
-func (p *Pool) closeContainer(c container.Container) error {
-	err := c.Close()
-	if err != nil {
-		p.mu.Lock()
-		p.closed = true
-		p.closeErr = errors.Join(p.closeErr, err)
-		p.cancel()
-		p.mu.Unlock()
-	}
-	return err
+// poison 让池停止接单。回收未确认意味着残留的进程或挂载可能与后续执行重叠，
+// 继续启动新命令会把一次故障扩散成一串。
+func (p *Pool) poison(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.closed = true
+	p.closeErr = errors.Join(p.closeErr, err)
+	p.cancel()
 }

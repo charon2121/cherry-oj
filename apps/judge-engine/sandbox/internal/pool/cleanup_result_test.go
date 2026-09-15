@@ -11,33 +11,33 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
-type closeGateContainer struct {
-	controlled
-	closing chan struct{}
-	release chan struct{}
-	closes  atomic.Int32
+// gateBackend 在交付产物之后、返回之前停住，用来观察「回收还没结束时容量有没有被归还」。
+type gateBackend struct {
+	entered      chan struct{}
+	release      chan struct{}
+	cleanupError error
+	executes     atomic.Int32
 }
 
-func (c *closeGateContainer) Start(context.Context, container.Spec) (container.Process, error) {
-	return c, nil
-}
-
-func (c *closeGateContainer) Wait(context.Context) (container.Usage, error) {
-	return container.Usage{}, nil
-}
-func (c *closeGateContainer) GetFile(string) (io.ReadCloser, error) {
-	return io.NopCloser(strings.NewReader("artifact")), nil
-}
-func (c *closeGateContainer) Close() error {
-	if c.closes.Add(1) == 1 {
-		close(c.closing)
+func (b *gateBackend) Execute(_ context.Context, j backend.Job, sink backend.OutputSink) (backend.Facts, error) {
+	b.executes.Add(1)
+	if sink != nil {
+		for _, name := range j.Outputs {
+			if err := sink(backend.Facts{}, name, strings.NewReader("artifact")); err != nil {
+				return backend.Facts{}, err
+			}
+		}
 	}
-	<-c.release
-	return c.closeError
+	close(b.entered)
+	<-b.release
+	if b.cleanupError != nil {
+		return backend.Facts{}, &backend.CleanupError{Err: b.cleanupError}
+	}
+	return backend.Facts{}, nil
 }
 
 type recordingStore struct {
@@ -47,16 +47,16 @@ type recordingStore struct {
 
 func (s *recordingStore) Put(r io.Reader) (string, error) {
 	ref, err := s.Store.Put(r)
-	s.ref = ref
+	if err == nil {
+		s.ref = ref
+	}
 	return ref, err
 }
 
-func TestRunHoldsResultAndCapacityUntilContainerCloses(t *testing.T) {
-	for _, closeFails := range []bool{false, true} {
-		name := "success"
-		if closeFails {
-			name = "close-failure"
-		}
+// 结果和容量都必须等到回收结束才放出；回收未确认时既不能发布产物，也不能继续接单。
+func TestRunHoldsResultAndCapacityUntilCleanupFinishes(t *testing.T) {
+	for _, cleanupFails := range []bool{false, true} {
+		name := map[bool]string{false: "success", true: "cleanup-failure"}[cleanupFails]
 		t.Run(name, func(t *testing.T) {
 			disk, err := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
 			if err != nil {
@@ -64,16 +64,17 @@ func TestRunHoldsResultAndCapacityUntilContainerCloses(t *testing.T) {
 			}
 			defer disk.Close()
 			st := &recordingStore{Store: disk}
-			c := &closeGateContainer{controlled: controlled{entered: make(chan struct{})}, closing: make(chan struct{}), release: make(chan struct{})}
-			if closeFails {
-				c.closeError = errors.New("container close failed")
+			b := &gateBackend{entered: make(chan struct{}), release: make(chan struct{})}
+			if cleanupFails {
+				b.cleanupError = errors.New("workspace not reclaimed")
 			}
-			p, err := New(st, Options{Parallelism: 1, QueueSize: 1, Factory: func() (container.Container, error) { return c, nil }})
+			p, err := New(st, b, Options{Parallelism: 1, QueueSize: 1})
 			if err != nil {
 				t.Fatal(err)
 			}
-			release := sync.OnceFunc(func() { close(c.release) })
+			release := sync.OnceFunc(func() { close(b.release) })
 			defer func() { release(); p.Close() }()
+
 			type reply struct {
 				result contract.RunResult
 				err    error
@@ -84,41 +85,42 @@ func TestRunHoldsResultAndCapacityUntilContainerCloses(t *testing.T) {
 				done <- reply{result, err}
 			}()
 			select {
-			case <-c.closing:
+			case <-b.entered:
 			case <-time.After(time.Second):
-				t.Fatal("container close was not reached")
+				t.Fatal("回收阶段没有到达")
 			}
 			if len(p.sem) != 1 || len(p.admitted) != 1 {
-				t.Fatal("capacity returned before cleanup")
+				t.Fatal("回收结束前就归还了容量")
 			}
 			select {
 			case result := <-done:
-				t.Fatalf("result returned before cleanup: %+v", result)
+				t.Fatalf("回收结束前就返回了结果: %+v", result)
 			default:
 			}
+
 			release()
 			var got reply
 			select {
 			case got = <-done:
 			case <-time.After(time.Second):
-				t.Fatal("Run did not finish after cleanup")
+				t.Fatal("回收结束后 Run 没有返回")
 			}
-			if got.err != nil || c.closes.Load() != 1 || len(p.sem) != 0 || len(p.admitted) != 0 {
-				t.Fatalf("reply=%+v closes=%d sem=%d admitted=%d", got, c.closes.Load(), len(p.sem), len(p.admitted))
+			if got.err != nil || b.executes.Load() != 1 || len(p.sem) != 0 || len(p.admitted) != 0 {
+				t.Fatalf("reply=%+v executes=%d sem=%d admitted=%d", got, b.executes.Load(), len(p.sem), len(p.admitted))
 			}
-			if closeFails {
+			if cleanupFails {
 				if got.result.Status != contract.StatusInternalError || got.result.Artifacts != nil {
-					t.Fatalf("cleanup failure published success: %+v", got.result)
+					t.Fatalf("回收失败却发布了成功结果: %+v", got.result)
 				}
 				if _, err := p.Run(context.Background(), contract.RunSpec{}); !errors.Is(err, ErrClosed) {
-					t.Fatalf("pool still accepts work: %v", err)
+					t.Fatalf("回收未确认后仍在接单: %v", err)
 				}
 				if r, err := st.Get(st.ref); err == nil {
 					r.Close()
-					t.Fatal("artifact was not rolled back")
+					t.Fatal("产物没有回滚")
 				}
 			} else if got.result.Status != contract.StatusOK || got.result.Artifacts["out"] != st.ref || st.ref == "" {
-				t.Fatalf("lost successful artifact: %+v", got.result)
+				t.Fatalf("丢失了成功的产物: %+v", got.result)
 			}
 		})
 	}

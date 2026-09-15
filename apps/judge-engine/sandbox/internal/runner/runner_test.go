@@ -8,18 +8,14 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
-func setup(t *testing.T) (container.Container, store.Store) {
+func setup(t *testing.T) (backend.Backend, store.Store) {
 	t.Helper()
-	c, err := container.NewHost()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { c.Close() })
+	c := backend.NewDevHost()
 	st, err := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +30,7 @@ func setup(t *testing.T) (container.Container, store.Store) {
 
 func TestEcho(t *testing.T) {
 	c, st := setup(t)
-	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+	res, _ := runner.Run(context.Background(), c, st, contract.RunSpec{
 		Command: []string{"/bin/echo", "hello"},
 		Limits: contract.Limits{
 			ClockNs:        int64(2 * time.Second),
@@ -53,7 +49,7 @@ func TestEcho(t *testing.T) {
 func TestTimeout(t *testing.T) {
 	c, st := setup(t)
 	start := time.Now()
-	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+	res, _ := runner.Run(context.Background(), c, st, contract.RunSpec{
 		Command: []string{"/bin/sleep", "5"},
 		Limits: contract.Limits{
 			ClockNs:        int64(500 * time.Millisecond),
@@ -72,7 +68,7 @@ func TestTimeout(t *testing.T) {
 
 func TestNonzero(t *testing.T) {
 	c, st := setup(t)
-	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+	res, _ := runner.Run(context.Background(), c, st, contract.RunSpec{
 		Command: []string{"/bin/sh", "-c", "exit 3"},
 		Limits: contract.Limits{
 			ClockNs:        int64(2 * time.Second),
@@ -91,7 +87,7 @@ func TestNonzero(t *testing.T) {
 // Limits 全零 = 不限时、不限输出，不该被当成「限制为 0」
 func TestZeroLimits(t *testing.T) {
 	c, st := setup(t)
-	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+	res, _ := runner.Run(context.Background(), c, st, contract.RunSpec{
 		Command: []string{"/bin/echo", "hi"},
 		Limits:  contract.Limits{},
 	})
@@ -106,7 +102,7 @@ func TestZeroLimits(t *testing.T) {
 // 输出真的超限时要截断并报 OLE
 func TestOutputLimitExceeded(t *testing.T) {
 	c, st := setup(t)
-	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+	res, _ := runner.Run(context.Background(), c, st, contract.RunSpec{
 		Command: []string{"/bin/sh", "-c", "printf '0123456789'"},
 		Limits: contract.Limits{
 			ClockNs:        int64(2 * time.Second),
@@ -125,7 +121,7 @@ func TestOutputLimitExceeded(t *testing.T) {
 func TestArtifacts(t *testing.T) {
 	c, st := setup(t)
 	const body = "artifact-body"
-	res := runner.Run(context.Background(), c, st, contract.RunSpec{
+	res, _ := runner.Run(context.Background(), c, st, contract.RunSpec{
 		Command: []string{"/bin/cp", "in", "out"},
 		Inputs: map[string]contract.FileSource{
 			"in": {Text: body},

@@ -2,7 +2,7 @@
 id: "TASK-128"
 type: "task"
 title: "S4 执行后端改为一次性调用并回收容量池职责"
-status: "ready"
+status: "doing"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-126"]
@@ -10,8 +10,8 @@ related: ["CHANGE-014", "DESIGN-051", "DECISION-035", "PLAN-041"]
 implements: ["CHANGE-014#REQ-005", "CHANGE-014#REQ-011", "CHANGE-014#REQ-013"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architecture.md", "docs/engine.md", "development/README.md", "development/works/WORK-049", "development/works/WORK-050", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests/README.md"]
-write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md"]
+read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architecture.md", "docs/engine.md", "development/README.md", "development/works/WORK-049", "development/works/WORK-050", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests/README.md", "compose.yaml"]
+write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md", "compose.yaml"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml", "deploy/sandbox-linux/tests/acceptance"]
 created_at: "2026-09-14"
 updated_at: "2026-09-15"
@@ -44,8 +44,9 @@ updated_at: "2026-09-15"
 
 以 front matter 的 `forbidden_paths` 为准。`deploy/sandbox-linux/ci/` 的必跑用例清单在
 可修改范围内，但**只允许更新 judge-engine 用例的包路径**：不得增删用例、改断言或放宽必需数量
-（Go 必跑固定 52 项）。同理 `.github/workflows/ci.yml` 与 `deploy/sandbox-linux/tests/README.md`
-**只允许改路径**，不改 job 结构、触发条件、权限、步骤顺序与操作语义。报告 schema、
+（Go 必跑固定 52 项）。同理 `.github/workflows/ci.yml`、`deploy/sandbox-linux/tests/README.md`
+与 `compose.yaml` **只允许改因本工作而失效的路径或配置取值**，不改 job 结构、触发条件、
+权限、步骤顺序、服务定义、网络、卷与健康检查。报告 schema、
 `deploy/` 与 `.github/` 下其余内容仍然禁止修改。理由见
 [PLAN-041](50-plan-PLAN-041.md) §必跑用例清单随包路径同步。不改变本机执行协议的线格式、取消语义与回收顺序；
 不降低隔离强度。
@@ -94,4 +95,43 @@ gofmt -l . && go vet ./... && go test -race ./...
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-15：接口重写完成。`container.Container` 的四阶段时序协议改为
+  `backend.Backend` 的一次性 `Execute`。「只能执行一次」由「不存在可复用对象」保证，
+  两个实现中守护调用顺序的状态字段（`attempted`、`closed`、`closeOnce`、`process != nil`）
+  随之全部消失；`Execute` 返回即代表回收完成，调用方不再需要任何关闭方法。
+- 2026-09-15：`OutputSink` 的签名带上执行事实：`func(facts Facts, name string, r io.Reader) error`。
+  产物在执行结束、回收完成之后逐个交付，收集方在交付当场即可判断这次结果值不值得保留。
+  这一处刻意与旧实现不同：若只给名字和流，一次超时或非零退出的执行会把产物写进 Store 再删掉，
+  既多一次落盘，也可能在容量紧张时把一次超时变成平台错误。
+- 2026-09-15：回收失败从「看是哪个方法返回的错误」变成显式类型 `backend.CleanupError`。
+  普通执行失败只让本次执行失败，回收未确认则意味着容量不能归还给新任务；
+  `pool` 用 `errors.As` 识别并停止接单，语义与旧的「Container.Close 失败即停服」一致，
+  但不再依赖调用顺序来区分。
+- 2026-09-15：`pool` 回归纯容量管理：不再创建工作区、不再持有 Store、不再回滚产物引用。
+  产物回滚回到 `runner`——产物发布本来就在那里。`workspace`（暂存根的独占锁与启动恢复）
+  与 `backend`（执行）分成两个包，前者不理解执行，后者不管理暂存根生命周期。
+- 2026-09-15：零隔离后端改名 `devhost` 并要求显式承认。新增 `sandbox.allowUnsafeBackend`，
+  缺省即拒绝启动，配置校验与装配处各挡一次。包注释写明它**不强制** CPU/内存/进程数限额——
+  只有墙钟真正生效，其余数值仅作为事实回报供事后比较；旧名 `trusted-host` 听起来像一种可选的
+  信任模式，实际是「没有隔离」，这正是改名的理由。
+- 2026-09-15：测试按原断言迁移，一条未丢。原 `container` 包的用例重写到 `backend`；
+  `pool` 与 `runner` 的替身从假容器换成假后端。保留的关键断言：缺完成尾帧不得交付产物、
+  取消要让对端观察到断连、内存超限要求本任务 OOM 证据、回收结束前不归还容量也不返回结果、
+  回收未确认要停止接单并回滚产物、输入在每条退出路径恰好关闭一次、失败的执行不得发布产物、
+  panic 不泄漏容量、中途 Put 失败要回滚已登记的引用。
+  新增：`Execute` 返回后工作目录必须已不存在、墙钟超时要区别于请求取消、零隔离后端不得声称
+  整组计量、越界输入不能在宿主上落下文件、零隔离后端未显式承认时拒绝启用。
+- 2026-09-15：**范围再次扩充（用户已同意）。** 改名后 `compose.yaml` 的
+  `CHERRY_OJ_SANDBOX_BACKEND: trusted-host` 失效，legacy 回退 job 会起不来。该文件不在原
+  `write_paths` 内，且此前的扩充规则只写了「指向内部**路径**的引用」，未覆盖**配置取值**。
+  经用户确认，规则放宽为「任何因本工作而失效的 CI 或部署引用」，`compose.yaml` 纳入范围，
+  仍只改失效的那两项取值。PLAN-041 与 TASK-125～131 已同步更新。
+- 2026-09-15：本地验证通过。darwin 与 linux/arm64 原生容器：`gofmt -l .` 无输出，
+  `go vet ./...` 与 `GOOS=linux GOARCH=amd64 go vet ./...` 均无输出，`go test -race ./...` 全绿。
+  另用 CI 同款命令在本地完整复现容器联调：`docker compose config`、`docker compose build`、
+  起栈后调用 `/judge` 做 A+B，`verdict=AC`、3 个测试点全 AC、指纹 `local-compose`。
+- 2026-09-15：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归，需推送后由 CI 执行。
+  四条路径（正常完成、墙钟超时、请求取消、部分启动失败）中，前三条本地已有对应用例，
+  真实内核下的清理证据由 CI 的 kernel job 提供。
 - 2026-09-15：状态变更：todo → ready。原因：前置 TASK-126 已完成
+- 2026-09-15：状态变更：ready → doing。原因：开始把执行后端改为一次性调用并回收容量池职责

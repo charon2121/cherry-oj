@@ -24,7 +24,11 @@ sandbox:
   httpAddr: 127.0.0.1:5050
 
   # 显式可信本地开发；Linux正式模式改为linux，helper不可用时拒绝启动。
-  backend: trusted-host
+  # devhost 是**零隔离**的开发后端：跑在里面的程序能读宿主任意文件、能联网、能 fork 炸弹。
+  # 它只用于在非 Linux 平台开发整条链路，绝不能用来跑用户提交。
+  # 正式部署改为 linux，并去掉下面的 allowUnsafeBackend。
+  backend: devhost
+  allowUnsafeBackend: true
   helperSocket: /run/cherry-sandbox/helper.sock
   workspaceRoot: ./data/sandbox-work
   parallelism: 1

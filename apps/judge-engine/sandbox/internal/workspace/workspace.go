@@ -1,4 +1,6 @@
-package container
+// Package workspace 管理服务独占的暂存根：启动时核验并回收遗留目录，
+// 运行时为每次执行分配独立目录。它不理解执行本身。
+package workspace
 
 import (
 	"errors"
@@ -101,8 +103,8 @@ func (w *Workspace) recover() error {
 	return nil
 }
 
-// New 为一次执行分配独立目录；不能用之前的工作区继续执行下一条命令。
-func (w *Workspace) New(socket string) (Container, error) { return NewIsolated(socket, w.root) }
+// Root 返回暂存根路径，供执行后端在其中分配单次执行目录。
+func (w *Workspace) Root() string { return w.root }
 
 // Close 必须在容量池关闭之后；若仍有工作区残留，返回错误并保留证据。
 func (w *Workspace) Close() error {

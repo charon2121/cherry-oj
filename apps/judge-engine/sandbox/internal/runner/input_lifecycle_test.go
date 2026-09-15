@@ -10,7 +10,7 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 )
 
 type closingInput struct {
@@ -37,48 +37,54 @@ func (s *inputStore) Put(r io.Reader) (string, error) {
 }
 func (s *inputStore) Delete(string) error { s.deletes++; return s.deleteErr }
 
-type inputLifecycleContainer struct {
-	executionStub
-	startErr, waitErr error
-	usage             container.Usage
-	cancel            context.CancelFunc
-	panicStart        bool
+// lifecycleBackend 覆盖执行的各条退出路径；它总是交付一次声明过的产物，
+// 用来验证「失败的执行不得发布产物」。
+type lifecycleBackend struct {
+	execErr    error
+	facts      backend.Facts
+	cancel     context.CancelFunc
+	panicFirst bool
 }
 
-func (c *inputLifecycleContainer) Start(context.Context, container.Spec) (container.Process, error) {
-	if c.panicStart {
-		panic("start panic")
+func (b *lifecycleBackend) Execute(_ context.Context, j backend.Job, sink backend.OutputSink) (backend.Facts, error) {
+	if b.panicFirst {
+		panic("execute panic")
 	}
-	return c, c.startErr
-}
-func (c *inputLifecycleContainer) Wait(context.Context) (container.Usage, error) {
-	if c.cancel != nil {
-		c.cancel()
+	if b.cancel != nil {
+		b.cancel()
 	}
-	return c.usage, c.waitErr
+	if b.execErr != nil {
+		return b.facts, b.execErr
+	}
+	if sink != nil {
+		for _, name := range j.Outputs {
+			if err := sink(b.facts, name, strings.NewReader("artifact")); err != nil {
+				return b.facts, err
+			}
+		}
+	}
+	return b.facts, nil
 }
 
 func TestRunClosesInputOnEveryExitPath(t *testing.T) {
-	for _, path := range []string{"success", "start-error", "wait-error", "wall", "cancel", "panic"} {
+	for _, path := range []string{"success", "execute-error", "wall", "cancel", "panic"} {
 		t.Run(path, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			c := &inputLifecycleContainer{}
+			b := &lifecycleBackend{}
 			want := contract.StatusInternalError
 			switch path {
 			case "success":
 				want = contract.StatusOK
-			case "start-error":
-				c.startErr = errors.New("start failed")
-			case "wait-error":
-				c.waitErr = errors.New("wait failed")
+			case "execute-error":
+				b.execErr = errors.New("execute failed")
 			case "wall":
-				c.usage.Reason = hostexec.ReasonWall
+				b.facts.Reason = hostexec.ReasonWall
 				want = contract.StatusTimeLimitExceeded
 			case "cancel":
-				c.cancel = cancel
+				b.cancel = cancel
 			case "panic":
-				c.panicStart = true
+				b.panicFirst = true
 			}
 			input := &closingInput{Reader: strings.NewReader("stdin")}
 			st := &inputStore{input: input}
@@ -86,12 +92,12 @@ func TestRunClosesInputOnEveryExitPath(t *testing.T) {
 			var recovered any
 			func() {
 				defer func() { recovered = recover() }()
-				result = Run(ctx, c, st, contract.RunSpec{Command: []string{"true"}, Stdin: &contract.FileSource{Ref: "input"}, Artifacts: []string{"out"}})
+				result, _ = Run(ctx, b, st, contract.RunSpec{Command: []string{"true"}, Stdin: &contract.FileSource{Ref: "input"}, Artifacts: []string{"out"}})
 			}()
-			if (recovered != nil) != c.panicStart {
+			if (recovered != nil) != b.panicFirst {
 				t.Fatalf("unexpected panic: %v", recovered)
 			}
-			if !c.panicStart && result.Status != want {
+			if !b.panicFirst && result.Status != want {
 				t.Fatalf("result=%+v, want %s", result, want)
 			}
 			if input.closed.Load() != 1 {
@@ -108,7 +114,7 @@ func TestInputCloseFailureRevokesArtifactsAndPreservesErrors(t *testing.T) {
 	closeErr, deleteErr := errors.New("input close failed"), errors.New("artifact delete failed")
 	input := &closingInput{Reader: strings.NewReader("stdin"), err: closeErr}
 	st := &inputStore{input: input, deleteErr: deleteErr}
-	result := Run(context.Background(), &inputLifecycleContainer{}, st, contract.RunSpec{
+	result, _ := Run(context.Background(), &lifecycleBackend{}, st, contract.RunSpec{
 		Command: []string{"true"}, Stdin: &contract.FileSource{Ref: "input"}, Outputs: []string{"out"}, Artifacts: []string{"out"},
 	})
 	if result.Status != contract.StatusInternalError || result.Outputs != nil || result.Artifacts != nil {

@@ -1,49 +1,51 @@
-// 白盒断言等待队列已入列，避免用sleep猜测并发时序。
+// 白盒断言等待队列已入列，避免用 sleep 猜测并发时序。
 package pool
 
 import (
 	"context"
 	"errors"
-	"io"
-	"io/fs"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
-type controlled struct {
-	entered    chan struct{}
-	closeError error
-	closed     atomic.Bool
-	ctx        context.Context
+// blocking 一直执行到 ctx 取消为止，用来占住唯一的执行名额。
+type blocking struct {
+	entered      chan struct{}
+	cleanupError error
+	executes     atomic.Int32
+	once         atomic.Bool
 }
 
-func (c *controlled) Start(ctx context.Context, _ container.Spec) (container.Process, error) {
-	c.ctx = ctx
-	close(c.entered)
-	return c, nil
-}
-func (c *controlled) Wait(context.Context) (container.Usage, error) {
-	if c.closeError == nil {
-		<-c.ctx.Done()
+func (b *blocking) Execute(ctx context.Context, _ backend.Job, _ backend.OutputSink) (backend.Facts, error) {
+	b.executes.Add(1)
+	if b.once.CompareAndSwap(false, true) {
+		close(b.entered)
 	}
-	return container.Usage{}, nil
+	if b.cleanupError != nil {
+		return backend.Facts{}, &backend.CleanupError{Err: b.cleanupError}
+	}
+	<-ctx.Done()
+	return backend.Facts{}, nil
 }
-func (*controlled) PutFile(string, io.Reader, fs.FileMode) error { return nil }
-func (*controlled) GetFile(string) (io.ReadCloser, error)        { return nil, errors.New("unexpected file") }
-func (c *controlled) Close() error                               { c.closed.Store(true); return c.closeError }
-func TestQueueAndShutdown(t *testing.T) {
+
+func newStore(t *testing.T) store.Store {
+	t.Helper()
 	st, e := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
 	if e != nil {
 		t.Fatal(e)
 	}
-	defer st.Close()
-	c := &controlled{entered: make(chan struct{})}
-	p, e := New(st, Options{Parallelism: 1, QueueSize: 1, Factory: func() (container.Container, error) { return c, nil }})
+	t.Cleanup(func() { st.Close() })
+	return st
+}
+
+func TestQueueAndShutdown(t *testing.T) {
+	b := &blocking{entered: make(chan struct{})}
+	p, e := New(newStore(t), b, Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -51,7 +53,7 @@ func TestQueueAndShutdown(t *testing.T) {
 	done := make(chan struct{}, 2)
 	run := func() { p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}}); done <- struct{}{} }
 	go run()
-	<-c.entered
+	<-b.entered
 	go run()
 	deadline := time.After(time.Second)
 	for len(p.admitted) != 2 {
@@ -65,27 +67,25 @@ func TestQueueAndShutdown(t *testing.T) {
 	if _, e := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}}); !errors.Is(e, ErrBusy) {
 		t.Fatalf("got %v want busy", e)
 	}
+	// Close 取消在途执行并等它们收尾；返回后容量必须已经全部回到池里。
 	if e := p.Close(); e != nil {
 		t.Fatal(e)
 	}
 	<-done
 	<-done
-	if !c.closed.Load() {
-		t.Fatal("shutdown did not close container")
+	if len(p.sem) != 0 || len(p.admitted) != 0 {
+		t.Fatalf("shutdown leaked capacity: sem=%d admitted=%d", len(p.sem), len(p.admitted))
 	}
 	if _, e := p.Run(context.Background(), contract.RunSpec{}); !errors.Is(e, ErrClosed) {
 		t.Fatalf("got %v want closed", e)
 	}
 }
+
+// 回收未确认必须停止接单，并且 Close 要把原因原样带出来。
 func TestCleanupFailureStopsAdmission(t *testing.T) {
-	st, e := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer st.Close()
 	injected := errors.New("cannot remove workspace")
-	c := &controlled{entered: make(chan struct{}), closeError: injected}
-	p, e := New(st, Options{Parallelism: 1, QueueSize: 1, Factory: func() (container.Container, error) { return c, nil }})
+	b := &blocking{entered: make(chan struct{}), cleanupError: injected}
+	p, e := New(newStore(t), b, Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -101,19 +101,15 @@ func TestCleanupFailureStopsAdmission(t *testing.T) {
 	}
 }
 
-type panicContainer struct{ controlled }
+type panicking struct{ blocking }
 
-func (*panicContainer) Start(context.Context, container.Spec) (container.Process, error) {
+func (*panicking) Execute(context.Context, backend.Job, backend.OutputSink) (backend.Facts, error) {
 	panic("injected")
 }
-func TestPanicStillClosesContainer(t *testing.T) {
-	st, e := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
-	if e != nil {
-		t.Fatal(e)
-	}
-	defer st.Close()
-	c := &panicContainer{}
-	p, e := New(st, Options{Parallelism: 1, QueueSize: 1, Factory: func() (container.Container, error) { return c, nil }})
+
+// 后端 panic 时容量仍须归还，否则并发数只减不增，最后整个服务卡死。
+func TestPanicDoesNotLeakCapacity(t *testing.T) {
+	p, e := New(newStore(t), &panicking{}, Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -126,7 +122,7 @@ func TestPanicStillClosesContainer(t *testing.T) {
 		}()
 		p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}})
 	}()
-	if !c.closed.Load() || len(p.sem) != 0 || len(p.admitted) != 0 {
-		t.Fatal("panic leaked execution ownership")
+	if len(p.sem) != 0 || len(p.admitted) != 0 {
+		t.Fatalf("panic leaked capacity: sem=%d admitted=%d", len(p.sem), len(p.admitted))
 	}
 }

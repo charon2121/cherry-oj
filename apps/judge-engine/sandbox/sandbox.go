@@ -14,9 +14,10 @@ import (
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/platform/tracing"
 	"cherry-oj/judge-engine/sandbox/internal/api"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/pool"
 	"cherry-oj/judge-engine/sandbox/internal/store"
+	"cherry-oj/judge-engine/sandbox/internal/workspace"
 )
 
 // Run 启动执行服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成。
@@ -37,7 +38,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			result = errors.Join(result, err)
 		}
 	}()
-	factory, backendClose, err := backend(cfg.Sandbox)
+	executor, backendClose, err := selectBackend(cfg.Sandbox)
 	if err != nil {
 		logger.Error("process.backend.init.failed", "error", err)
 		return err
@@ -48,7 +49,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			result = errors.Join(result, err)
 		}
 	}()
-	p, err := pool.New(st, pool.Options{Parallelism: cfg.Sandbox.Parallelism, QueueSize: cfg.Sandbox.QueueSize, Factory: factory})
+	p, err := pool.New(st, executor, pool.Options{Parallelism: cfg.Sandbox.Parallelism, QueueSize: cfg.Sandbox.QueueSize})
 	if err != nil {
 		logger.Error("process.pool.init.failed", "error", err)
 		return err
@@ -59,7 +60,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			result = errors.Join(result, err)
 		}
 	}()
-	if cfg.Sandbox.Backend == "linux" {
+	if cfg.Sandbox.Backend == backend.NameLinux {
 		// 用完整Container链验证可用性，失败不开放HTTP端口。
 		probe, probeErr := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}})
 		if probeErr != nil || probe.Status != contract.StatusOK {
@@ -152,24 +153,32 @@ func newStore(c Store) (managedStore, error) {
 	return store.New(c.Root, store.Options{MaxBlobBytes: c.MaxBlobBytes, MaxTotalBytes: c.MaxTotalBytes, MaxEntries: c.MaxEntries, Retention: c.Retention.Std()})
 }
 
-// backend 同时交付逐请求工厂和服务级关闭函数；暂存根的锁跨请求持有。
-// 隔离后端启动失败必须暴露错误，不能悄悄切到没有隔离保证的 trusted-host。
-func backend(c Settings) (func() (container.Container, error), func() error, error) {
+// selectBackend 同时交付执行后端和服务级关闭函数；暂存根的锁跨请求持有。
+// 隔离后端启动失败必须暴露错误，不能悄悄切到没有隔离保证的 devhost。
+func selectBackend(c Settings) (backend.Backend, func() error, error) {
 	switch c.Backend {
-	case "trusted-host":
-		return func() (container.Container, error) { return container.NewHost() }, func() error { return nil }, nil
-	case "linux":
+	case backend.NameDevHost:
+		// 配置校验已经要求显式承认；这里再挡一次，避免绕过校验直接装配。
+		if !c.AllowUnsafeBackend {
+			return nil, nil, fmt.Errorf("%s 后端不提供任何隔离，需显式设置 allowUnsafeBackend", backend.NameDevHost)
+		}
+		return backend.NewDevHost(), func() error { return nil }, nil
+	case backend.NameLinux:
 		if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 			return nil, nil, fmt.Errorf("当前平台不支持Linux隔离后端")
 		}
 		if os.Geteuid() == 0 {
 			return nil, nil, fmt.Errorf("sandbox服务必须非root运行，特权仅由helper持有")
 		}
-		w, err := container.OpenWorkspace(c.WorkspaceRoot)
+		w, err := workspace.OpenWorkspace(c.WorkspaceRoot)
 		if err != nil {
 			return nil, nil, err
 		}
-		return func() (container.Container, error) { return w.New(c.HelperSocket) }, w.Close, nil
+		b, err := backend.NewIsolated(c.HelperSocket, w)
+		if err != nil {
+			return nil, nil, errors.Join(err, w.Close())
+		}
+		return b, w.Close, nil
 	default:
 		return nil, nil, fmt.Errorf("未知后端: %s", c.Backend)
 	}

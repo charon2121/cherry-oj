@@ -30,9 +30,9 @@ updated_at: "2026-09-14"
 - `docs/coding-standards/languages/go.md`：其中引用旧包路径的条目同步更新（不改变规则本身）。
 - `deploy/sandbox-linux/ci/` 的必跑用例清单：更新 judge-engine 用例的包路径，并消除该清单在
   驱动中的重复副本（见下节）。不改报告 schema、rootfs、install、systemd。
-- 仓库中指向 judge-engine 内部路径的 CI 与部署引用：`.github/workflows/ci.yml`、
-  `deploy/sandbox-linux/tests/README.md`。**只允许更新路径**，不改 job 结构、触发条件、
-  权限、步骤顺序与操作语义。
+- 仓库中随判题引擎改动而失效的 CI 与部署引用：`.github/workflows/ci.yml`、
+  `deploy/sandbox-linux/tests/README.md`、`compose.yaml`。**只允许更新失效的路径与配置取值**，
+  不改 job 结构、触发条件、权限、步骤顺序、服务定义、网络、卷与健康检查。
 
 不改动：`apps/server`、`apps/web`、`contracts/`、`scripts/`、`deploy/` 与 `.github/` 下除上述
 条目以外的内容、数据库、依赖版本。历史 WORK 文档中记录的旧路径是当时的事实，一律不改写。
@@ -80,9 +80,14 @@ S2 又暴露出同类引用不止在 `ci/` 内。完整扫描后，仓库中指�
 `deploy/sandbox-linux/tests/README.md` 中的手工操作路径（只影响文档准确性）。
 其余命中全部位于历史 WORK 文档，记录的是当时的事实，不改写。
 
-因此规则推广为：**任何指向 judge-engine 内部路径的 CI 或部署引用，都在搬动它的那个阶段同步
-更新，且只允许改路径。** 这类文件不因本工作获得其他改动授权——job 结构、触发条件、权限与
-步骤语义一律不动。不采用「只按测试名索引」——那会让测试挪进一个根本不跑的包也
+因此规则推广为：**任何因本工作而失效的 CI 或部署引用，都在造成失效的那个阶段同步更新，
+且只允许改失效的那一项。** 这类文件不因本工作获得其他改动授权——job 结构、触发条件、权限、
+步骤语义、服务定义与卷一律不动。
+
+2026-09-15 再次扩充：S4 把零隔离后端改名 `devhost` 并要求显式承认，`compose.yaml` 中的
+`CHERRY_OJ_SANDBOX_BACKEND: trusted-host` 随之失效。这不是路径引用而是**配置取值**，
+原先的规则只写了「路径」，未覆盖。规则按上面的措辞放宽到「失效的引用」，`compose.yaml`
+纳入可修改范围，仍然只改失效的那两项取值。不采用「只按测试名索引」——那会让测试挪进一个根本不跑的包也
 不被发现，用永久削弱保证换一次性省事。也不采用「另开一个任务统一收尾」——那会让 S1–S7 的中间
 提交全部 CI 红，违反本计划「每个提交独立可编译且回归通过」的前提。
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/container"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
@@ -23,7 +23,7 @@ func newTestPool(t *testing.T, parallelism int) *Pool {
 			t.Error(err)
 		}
 	})
-	p, err := New(st, Options{Parallelism: parallelism, QueueSize: 32, Factory: func() (container.Container, error) { return container.NewHost() }})
+	p, err := New(st, backend.NewDevHost(), Options{Parallelism: parallelism, QueueSize: 32})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,8 @@ func TestRunReleasesToken(t *testing.T) {
 	}
 }
 
-func TestNewContainerHasNoPreviousFiles(t *testing.T) {
+// 每次执行都在自己的工作区里进行：上一次留下的文件不能出现在下一次。
+func TestEachExecutionStartsFromACleanWorkspace(t *testing.T) {
 	// parallelism=1：两次顺序执行也必须拥有全新工作区。
 	p := newTestPool(t, 1)
 

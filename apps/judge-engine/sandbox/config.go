@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/platform/config"
+	"cherry-oj/judge-engine/sandbox/internal/backend"
 )
 
 // Config 是 sandbox 服务的全部运行配置。
@@ -27,6 +28,9 @@ type Settings struct {
 	WorkspaceRoot   string `yaml:"workspaceRoot"`
 	QueueSize       int    `yaml:"queueSize"`
 	MaxRequestBytes int64  `yaml:"maxRequestBytes"`
+	// AllowUnsafeBackend：显式承认使用零隔离后端。默认关闭，缺省即拒绝启动——
+	// devhost 不提供任何隔离，误用它跑用户提交等于没有沙箱，这一步必须是一次自觉的配置。
+	AllowUnsafeBackend bool `yaml:"allowUnsafeBackend"`
 }
 
 type Store struct {
@@ -49,7 +53,7 @@ func DefaultConfig() Config {
 		Sandbox: Settings{
 			HTTPAddr:        "127.0.0.1:5050",
 			Parallelism:     1,
-			Backend:         "linux",
+			Backend:         backend.NameLinux,
 			HelperSocket:    "/run/cherry-sandbox/helper.sock",
 			WorkspaceRoot:   "./data/sandbox-work",
 			QueueSize:       8,
@@ -80,10 +84,13 @@ func (c Config) Validate() error {
 	if s.Store.MaxBlobBytes <= 0 || s.Store.MaxBlobBytes > 64<<20 {
 		return fmt.Errorf("sandbox.store.maxBlobBytes 必须为1～64MiB，得到 %d", s.Store.MaxBlobBytes)
 	}
-	if s.Backend != "linux" && s.Backend != "trusted-host" {
-		return fmt.Errorf("sandbox.backend必须为linux或trusted-host")
+	if s.Backend != backend.NameLinux && s.Backend != backend.NameDevHost {
+		return fmt.Errorf("sandbox.backend必须为%s或%s", backend.NameLinux, backend.NameDevHost)
 	}
-	if s.Backend == "linux" && (s.HelperSocket == "" || s.WorkspaceRoot == "" || s.Store.Root == "") {
+	if s.Backend == backend.NameDevHost && !s.AllowUnsafeBackend {
+		return fmt.Errorf("%s 后端不提供任何隔离，启用它必须显式设置 sandbox.allowUnsafeBackend", backend.NameDevHost)
+	}
+	if s.Backend == backend.NameLinux && (s.HelperSocket == "" || s.WorkspaceRoot == "" || s.Store.Root == "") {
 		return fmt.Errorf("linux后端需要helperSocket、workspaceRoot和store.root")
 	}
 	if s.QueueSize <= 0 || s.QueueSize > 1024 || s.MaxRequestBytes <= 0 || s.MaxRequestBytes > 8<<20 {
