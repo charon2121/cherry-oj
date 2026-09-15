@@ -2,7 +2,7 @@
 id: "VERIFY-059"
 type: "verify"
 title: "判题引擎结构重切的回归验证"
-status: "review"
+status: "approved"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["PLAN-041"]
@@ -197,3 +197,4 @@ AC-001 至 AC-012 均已取得证据（逐条出处见上方各阶段记录与�
 ## 变更记录
 
 - 2026-09-15：状态变更：draft → review。原因：S1-S7 全部完成，CI 34938772322 一次通过 12 个 job 与 93 项必需回归，等待人工复核与验收闸
+- 2026-09-15：验收闸通过：review → approved。原因：CI 34938772322 一次通过，93 项必需回归全绿，AC-001 至 AC-012 均有证据。验收通过。

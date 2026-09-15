@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["change", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "reliability", "security"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -52,9 +52,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发计划 | ✔ 完成 | 必需 | PLAN-041 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ○ 就绪 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-059 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-044 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 复核 | ▶ 进行中 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-059 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-044 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -92,3 +92,4 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-15：检查项 reliability 记录结论：通过。原因：kernel 63 项覆盖隔离、计量与故障回收，native 10 项覆盖原生安装、权限与服务恢复，business 15 项走真实页面到 Kafka 的完整闭环，全部通过。S5 的取消顺序缺陷已有专门回归用例 TestCancelInputMustNotMakeNormalRunLookCancelled；S6 修复的 fault_batch ENODEV 守卫使故障批次不再误报
 - 2026-09-15：检查项 impact-analysis 记录结论：通过。原因：跨语言影响已逐条核对：Java 侧用户可见文案一律按错误码分支（NO_ONLINE_JUDGE_NODE 等），不匹配引擎错误正文，business 15 项全绿予以印证；结构化日志的 event 字段名一个未变，仅 error 字段取值变化，完整新旧对照见 TASK-131 附录；唯一把英文正文带到人眼前的是 language_calibration.error_message 在管理台的显示。contracts/、apps/server、apps/web、go.mod、go.sum 未改动
 - 2026-09-15：检查项 security 记录结论：通过。原因：信任边界改为编译期强制：sandbox 引用 helperd/internal、judge 引用 sandbox/internal、helperd 引用 judge/internal、cmd 引用任一服务 internal，四条均在 S2 构造验证为编译失败。零隔离的 devhost 默认拒绝启动，需显式 allowUnsafeBackend；linux 后端在开 HTTP 端口前做启动冒烟，S2 修复了该闸此前因错误处理 bug 而形同虚设的问题。helperd 的 root 自检（CGO_ENABLED=0、root 托管、无 setuid、manifest 摘要钉住、三身份分离）与 SO_PEERCRED + socket 权限双重认证未削弱。本次未改变任何特权、身份或网络暴露面
+- 2026-09-15：验收闸：passed。原因：CI 34938772322 一次通过，93 项必需回归全绿，AC-001 至 AC-012 均有证据。验收通过。

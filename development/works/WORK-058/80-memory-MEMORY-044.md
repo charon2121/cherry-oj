@@ -2,7 +2,7 @@
 id: "MEMORY-044"
 type: "memory"
 title: "判题引擎按边界重切的判断与教训"
-status: "review"
+status: "checked"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: []
@@ -180,3 +180,4 @@ JSON 字面量的教训，在这次 238 处错误消息改写上换了做法：�
 ## 变更记录
 
 - 2026-09-15：状态变更：draft → review。原因：S1-S7 全部完成，实施中的教训与两条待验证判断的结论已补齐；S3 那条记错的已知问题已更正
+- 2026-09-15：结构与内容校验通过，由工具置为 checked。
