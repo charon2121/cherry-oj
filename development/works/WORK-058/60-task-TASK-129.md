@@ -2,7 +2,7 @@
 id: "TASK-129"
 type: "task"
 title: "S5 提取执行结论纯函数与显式状态转移"
-status: "todo"
+status: "ready"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-128"]
@@ -14,7 +14,7 @@ read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architectu
 write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md", "compose.yaml"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml", "deploy/sandbox-linux/tests/acceptance"]
 created_at: "2026-09-14"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 ---
 
 # TASK-129：S5 提取执行结论纯函数与显式状态转移
@@ -90,3 +90,4 @@ gofmt -l . && go vet ./...
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-15：状态变更：todo → ready。原因：前置 TASK-128 已完成

@@ -2,7 +2,7 @@
 id: "TASK-128"
 type: "task"
 title: "S4 执行后端改为一次性调用并回收容量池职责"
-status: "doing"
+status: "done"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-126"]
@@ -66,14 +66,14 @@ updated_at: "2026-09-15"
 
 ## 完成标准
 
-- [ ] `Backend` 接口只有 `Execute` 一个方法；两个实现中不再存在 `attempted`、`closed`、
+- [x] `Backend` 接口只有 `Execute` 一个方法；两个实现中不再存在 `attempted`、`closed`、
       `process != nil` 之类用于守护调用顺序的状态字段。
-- [ ] `pool` 包不再引用 `store`。
-- [ ] `Execute` 返回 nil 时，资源回收已完成：正常完成、墙钟超时、请求取消、部分启动失败四条路径
+- [x] `pool` 包不再引用 `store`。
+- [x] `Execute` 返回 nil 时，资源回收已完成：正常完成、墙钟超时、请求取消、部分启动失败四条路径
       的 Linux 回归均无残留进程、挂载、cgroup 与临时文件。
-- [ ] 配置未显式允许不安全后端时，以 `devhost` 启动 sandbox 失败并给出明确原因。
-- [ ] `trusted-host` 字面量在代码中不再出现；配置迁移说明写入执行记录。
-- [ ] 对外 `/run` 响应字段与状态取值与基线 `a611be3` 相同。
+- [x] 配置未显式允许不安全后端时，以 `devhost` 启动 sandbox 失败并给出明确原因。
+- [x] `trusted-host` 字面量在代码中不再出现；配置迁移说明写入执行记录。
+- [x] 对外 `/run` 响应字段与状态取值与基线 `a611be3` 相同。
 
 ## 验证
 
@@ -130,8 +130,19 @@ gofmt -l . && go vet ./... && go test -race ./...
   `go vet ./...` 与 `GOOS=linux GOARCH=amd64 go vet ./...` 均无输出，`go test -race ./...` 全绿。
   另用 CI 同款命令在本地完整复现容器联调：`docker compose config`、`docker compose build`、
   起栈后调用 `/judge` 做 A+B，`verdict=AC`、3 个测试点全 AC、指纹 `local-compose`。
-- 2026-09-15：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归，需推送后由 CI 执行。
-  四条路径（正常完成、墙钟超时、请求取消、部分启动失败）中，前三条本地已有对应用例，
-  真实内核下的清理证据由 CI 的 kernel job 提供。
+- 2026-09-15：CI run 34925407839 首次运行时业务闭环 `business.calibrate` 失败。
+  取证后确认与本阶段无关：判题相关步骤全部通过（校准状态 VALID、发布前检查就绪、版本发布成功），
+  失败的是随后一次纯业务侧请求 `PATCH /api/admin/problems/{id}`（设置可见性）返回 500，
+  耗时 2.09 秒而同批其他请求均在 0.1～0.6 秒；`resources-after` 与 `native-resources-after`
+  均为空，`cleanup.confirmed=true`，沙箱侧没有任何残留。该请求路径不经过判题引擎。
+  以同一 commit 整条重跑（attempt 3）后全绿，因此判定为偶发，非本阶段引入的回归。
+- 2026-09-15：**遗留观察（不属于本工作，建议另行立项）**：上述 500 是一次未解释的偶发。
+  证据已保留在 run 34925407839 attempt 1 的业务产物中。重跑转绿不等于问题消失——
+  不记下来的话，这类偶发会被一次次「再跑一遍」养成常态。
+- 2026-09-15：CI run 34925407839（attempt 3，sourceSha 5555521）全绿，12 个 job 全部成功，
+  必需回归汇总 `"status": "PASS"`，93 项必需用例全部通过：basic 5/5、kernel 63/63、
+  native 10/10、business 15/15。其中 kernel job 覆盖真实内核下的隔离、计量与回收，
+  提供了四条路径中「部分启动失败」与真实清理的证据。至此 TASK-128 的完成标准全部满足。
 - 2026-09-15：状态变更：todo → ready。原因：前置 TASK-126 已完成
 - 2026-09-15：状态变更：ready → doing。原因：开始把执行后端改为一次性调用并回收容量池职责
+- 2026-09-15：状态变更：doing → done。原因：S4 完成：一次性 Execute 接口、容量池回归本职、devhost 改名与默认拒绝；CI 34925407839 全绿，93 项必需回归通过
