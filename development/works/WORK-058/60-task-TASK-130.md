@@ -2,7 +2,7 @@
 id: "TASK-130"
 type: "task"
 title: "S6 拆分节点能力并改造部署校验与预算断言"
-status: "todo"
+status: "ready"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-127"]
@@ -14,7 +14,7 @@ read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architectu
 write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml", "deploy/sandbox-linux/tests/acceptance"]
 created_at: "2026-09-14"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 ---
 
 # TASK-130：S6 拆分节点能力并改造部署校验与预算断言
@@ -90,3 +90,4 @@ gofmt -l . && go vet ./... && go test -race ./...
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-15：状态变更：todo → ready。原因：前置 TASK-127 已完成
