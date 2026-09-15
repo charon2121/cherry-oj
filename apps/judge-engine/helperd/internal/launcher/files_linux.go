@@ -16,7 +16,7 @@ import (
 // 路径解析限定在工作区内且禁止链接/跨挂载，同一 FD 校验后直接读取，避免重新打开的竞态。
 func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 	if !hostexec.ValidPath(name) {
-		return nil, 0, fmt.Errorf("非法产物路径")
+		return nil, 0, fmt.Errorf("illegal artifact path")
 	}
 	// O_NONBLOCK 防止 FIFO 等特殊文件在 fstat 拒绝它之前就把 helper 阻塞在 open。
 	fd, err := unix.Openat2(int(dir.Fd()), name, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NONBLOCK, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS | unix.RESOLVE_NO_XDEV})
@@ -31,7 +31,7 @@ func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 	}
 	if st.Mode&unix.S_IFMT != unix.S_IFREG || st.Nlink != 1 || st.Size < 0 || st.Size > hostexec.MaxArtifactBytes {
 		f.Close()
-		return nil, 0, fmt.Errorf("产物不是唯一链接的有界普通文件")
+		return nil, 0, fmt.Errorf("artifact is not a bounded regular file with exactly one link")
 	}
 	return f, st.Size, nil
 }
@@ -40,7 +40,7 @@ func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 // O_EXCL 防止重复输入覆盖已交付文件，复制长度由请求声明限定。
 func putInput(dir *os.File, in hostexec.Input, src io.Reader, uid, gid int) error {
 	if !hostexec.ValidPath(in.Path) {
-		return fmt.Errorf("非法输入路径")
+		return fmt.Errorf("illegal input path")
 	}
 	parts := strings.Split(in.Path, "/")
 	cur, err := unix.Dup(int(dir.Fd()))

@@ -23,10 +23,10 @@ type Limits struct {
 
 func (l Limits) validate() error {
 	if l.MemoryBytes <= 0 || l.MaxProcesses <= 0 || int64(l.MaxProcesses) > 2147483647 {
-		return fmt.Errorf("cgroup memoryBytes/maxProcesses 必须为允许范围内的正数")
+		return fmt.Errorf("cgroup memoryBytes/maxProcesses must be positive and within the allowed range")
 	}
 	if l.CPUQuotaNs < 1_000_000 || l.CPUPeriodNs < 1_000_000 || l.CPUPeriodNs > 1_000_000_000 || l.CPUQuotaNs%1000 != 0 || l.CPUPeriodNs%1000 != 0 {
-		return fmt.Errorf("cgroup CPU 配额/周期必须为整微秒，配额至少 1ms，周期 1ms～1s")
+		return fmt.Errorf("cgroup CPU quota/period must be whole microseconds, quota at least 1ms, period 1ms to 1s")
 	}
 	return nil
 }
@@ -81,7 +81,7 @@ func newManager(fs filesystem) (*Manager, error) {
 	for _, name := range []string{"cgroup.controllers", "cgroup.subtree_control"} {
 		data, err := fs.read(name)
 		if err != nil {
-			return nil, fmt.Errorf("读取 %s: %w", name, err)
+			return nil, fmt.Errorf("read %s: %w", name, err)
 		}
 		have := map[string]bool{}
 		for _, v := range strings.Fields(string(data)) {
@@ -89,7 +89,7 @@ func newManager(fs filesystem) (*Manager, error) {
 		}
 		for _, v := range []string{"cpu", "memory", "pids"} {
 			if !have[v] {
-				return nil, fmt.Errorf("%s 缺 %s", name, v)
+				return nil, fmt.Errorf("%s is missing %s", name, v)
 			}
 		}
 	}
@@ -98,14 +98,14 @@ func newManager(fs filesystem) (*Manager, error) {
 		return nil, err
 	}
 	if len(strings.TrimSpace(string(data))) != 0 {
-		return nil, fmt.Errorf("委派内部节点存在进程，监督进程必须位于独立叶子")
+		return nil, fmt.Errorf("delegated inner node has processes; the supervisor must live in its own leaf")
 	}
 	data, err = fs.read("cgroup.type")
 	if err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(string(data)) != "domain" {
-		return nil, fmt.Errorf("只支持 domain cgroup")
+		return nil, fmt.Errorf("only domain cgroups are supported")
 	}
 	return &Manager{fs: fs, groups: make(map[string]*Group)}, nil
 }
@@ -121,7 +121,7 @@ func (m *Manager) New(l Limits) (*Group, error) {
 		return nil, os.ErrClosed
 	}
 	if m.poisoned != nil {
-		return nil, fmt.Errorf("cgroup 管理器已隔离: %w", m.poisoned)
+		return nil, fmt.Errorf("cgroup manager is quarantined: %w", m.poisoned)
 	}
 	// 丢弃已关闭组的引用，使管理器内存不随历史执行次数增长；回收失败则保留故障。
 	for name, g := range m.groups {
@@ -131,7 +131,7 @@ func (m *Manager) New(l Limits) (*Group, error) {
 		g.mu.Unlock()
 		if cleanupErr != nil {
 			m.poisoned = cleanupErr
-			return nil, fmt.Errorf("任务组回收失败，拒绝新任务: %w", cleanupErr)
+			return nil, fmt.Errorf("job group reclaim failed; refusing new jobs: %w", cleanupErr)
 		}
 		if removed {
 			delete(m.groups, name)
@@ -143,7 +143,7 @@ func (m *Manager) New(l Limits) (*Group, error) {
 	}
 	name := "run-" + hex.EncodeToString(nonce[:])
 	if err := m.fs.mkdir(name); err != nil {
-		return nil, fmt.Errorf("独占创建 cgroup %s: %w", name, err)
+		return nil, fmt.Errorf("exclusively create cgroup %s: %w", name, err)
 	}
 	g := &Group{fs: m.fs, name: name}
 	m.groups[name] = g
@@ -154,7 +154,7 @@ func (m *Manager) New(l Limits) (*Group, error) {
 		if cleanupErr != nil {
 			m.poisoned = cleanupErr
 		}
-		return nil, errors.Join(fmt.Errorf("配置 cgroup %s: %w", name, err), cleanupErr)
+		return nil, errors.Join(fmt.Errorf("configure cgroup %s: %w", name, err), cleanupErr)
 	}
 	return g, nil
 }
@@ -215,14 +215,14 @@ func (g *Group) configure(l Limits) error {
 	for _, setting := range settings {
 		name := g.name + "/" + setting[0]
 		if err := g.fs.write(name, setting[1]); err != nil {
-			return fmt.Errorf("写入 %s: %w", setting[0], err)
+			return fmt.Errorf("write %s: %w", setting[0], err)
 		}
 		data, err := g.fs.read(name)
 		if err != nil {
 			return err
 		}
 		if strings.Join(strings.Fields(string(data)), " ") != setting[1] {
-			return fmt.Errorf("%s 限额读回不一致", setting[0])
+			return fmt.Errorf("%s limit read back differently than it was written", setting[0])
 		}
 	}
 	// 必需计量接口在用户进程启动前核验。
@@ -231,7 +231,7 @@ func (g *Group) configure(l Limits) error {
 		return err
 	}
 	if snap.Populated || snap.CPUNs != 0 || snap.MemoryBytes != 0 || snap.OOM != 0 || snap.OOMKill != 0 || snap.MemoryMaxEvents != 0 || snap.PidsMaxEvents != 0 {
-		return fmt.Errorf("新建 cgroup 已有进程或历史计量")
+		return fmt.Errorf("new cgroup already has processes or accounting history")
 	}
 	// 仅打开写句柄检查权限；启动前写 cgroup.kill 可能杀死随后原子入组的进程。
 	// 真正的 kill 只能在 Stop/恢复阶段发起。
@@ -296,7 +296,7 @@ func (g *Group) stop(ctx context.Context) (Snapshot, error) {
 	}
 	g.stopped = true
 	if err := g.fs.write(g.name+"/cgroup.kill", "1"); err != nil {
-		return Snapshot{}, fmt.Errorf("终止整组: %w", err)
+		return Snapshot{}, fmt.Errorf("kill whole group: %w", err)
 	}
 	ticker := time.NewTicker(5 * time.Millisecond)
 	defer ticker.Stop()
@@ -314,7 +314,7 @@ func (g *Group) stop(ctx context.Context) (Snapshot, error) {
 			return Snapshot{}, err
 		}
 		if populated > 1 {
-			return Snapshot{}, fmt.Errorf("无效 populated: %d", populated)
+			return Snapshot{}, fmt.Errorf("invalid populated: %d", populated)
 		}
 		if populated == 0 {
 			g.empty = true

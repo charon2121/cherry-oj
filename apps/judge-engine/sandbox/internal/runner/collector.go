@@ -73,7 +73,7 @@ func (c *collector) readInline(name string, r io.Reader) ([]byte, error) {
 		return nil, err
 	}
 	if int64(len(data)) > c.remaining {
-		return nil, fmt.Errorf("内联产物总量超过%d bytes", MaxInlineBytes)
+		return nil, fmt.Errorf("total inline artifact size exceeds %d bytes", MaxInlineBytes)
 	}
 	c.remaining -= int64(len(data))
 	c.outputs[name] = string(data)
@@ -96,12 +96,12 @@ func (c *collector) publish(spec contract.RunSpec, result contract.RunResult) co
 	err := c.err
 	for _, name := range spec.Outputs {
 		if _, ok := c.outputs[name]; !ok {
-			err = errors.Join(err, fmt.Errorf("未交付产物: %q", name))
+			err = errors.Join(err, fmt.Errorf("artifact not delivered: %q", name))
 		}
 	}
 	for _, name := range spec.Artifacts {
 		if _, ok := c.artifacts[name]; !ok {
-			err = errors.Join(err, fmt.Errorf("未交付产物: %q", name))
+			err = errors.Join(err, fmt.Errorf("artifact not delivered: %q", name))
 		}
 	}
 	if err != nil {

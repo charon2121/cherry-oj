@@ -28,7 +28,7 @@ func (f *rootFilesystem) at(path string) string { return filepath.Join(f.root, p
 
 func (f *rootFilesystem) Prepare(source io.Reader) (err error) {
 	if f.attempted {
-		return fmt.Errorf("rootfs 只能准备一次")
+		return fmt.Errorf("rootfs can only be prepared once")
 	}
 	f.attempted = true
 	defer func() {
@@ -78,7 +78,7 @@ func (f *rootFilesystem) Close() error {
 
 func (f *rootFilesystem) mountRoot() error {
 	if os.Getpid() != 1 || os.Geteuid() != 0 {
-		return fmt.Errorf("init 必须为新 PID namespace 中的 root PID 1")
+		return fmt.Errorf("init must be root PID 1 in a new PID namespace")
 	}
 	if err := unix.Mount("", "/", "", unix.MS_REC|unix.MS_PRIVATE, ""); err != nil {
 		return err
@@ -98,7 +98,7 @@ func (f *rootFilesystem) mountRoot() error {
 			return err
 		}
 		if st.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("rootfs 挂载点不能为链接")
+			return fmt.Errorf("rootfs mount point must not be a link")
 		}
 	}
 	if err := unix.Mount(f.stage.Executable, at(".sandbox/launcher"), "", unix.MS_BIND, ""); err != nil {

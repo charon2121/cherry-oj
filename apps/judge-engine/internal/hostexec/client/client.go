@@ -25,7 +25,7 @@ const dialTimeout = 3 * time.Second // 本机 socket 建连期限，独立于建
 func Call(ctx context.Context, socket string, r hostexec.Request, input io.ReadCloser, consume func(hostexec.Output, io.Reader) error) (hostexec.Result, error) {
 	var result hostexec.Result
 	if input == nil {
-		return result, fmt.Errorf("输入流不能为空")
+		return result, fmt.Errorf("the input stream must not be nil")
 	}
 	closeInput := sync.OnceValue(input.Close)
 	defer closeInput()
@@ -88,7 +88,7 @@ func receiveResult(conn io.Reader, outputs []string, consume func(hostexec.Outpu
 		return result, err
 	}
 	if result.Version != hostexec.Version || len(result.Outputs) > hostexec.MaxOutputs {
-		return result, fmt.Errorf("helper 响应版本/产物数无效")
+		return result, fmt.Errorf("invalid helper response version or artifact count")
 	}
 	allowed := map[string]bool{}
 	for _, p := range outputs {
@@ -97,7 +97,7 @@ func receiveResult(conn io.Reader, outputs []string, consume func(hostexec.Outpu
 	var total int64
 	for _, o := range result.Outputs {
 		if !allowed[o.Path] || o.SizeBytes < 0 || o.SizeBytes > hostexec.MaxArtifactBytes-total {
-			return result, fmt.Errorf("helper 返回未授权或超大产物")
+			return result, fmt.Errorf("helper returned an unauthorized or oversized artifact")
 		}
 		delete(allowed, o.Path)
 		total += o.SizeBytes
@@ -124,18 +124,18 @@ func awaitCompletion(ctx context.Context, conn io.Reader) error {
 		return err
 	}
 	if completion.Version != hostexec.Version || !completion.Complete {
-		return fmt.Errorf("helper 没有确认完整回收与交付")
+		return fmt.Errorf("helper did not confirm complete reclaim and delivery")
 	}
 	// Completion 确认执行资源和产物回收；正常 EOF 才确认连接收尾、槽位归还。
 	// 此读取仍受上面的总期限和 ctx 取消约束。reset 或多余字节不能当作成功。
 	var trailing [1]byte
 	if n, err := conn.Read(trailing[:]); n != 0 {
-		return fmt.Errorf("helper 完成帧后存在多余数据")
+		return fmt.Errorf("extra data after the helper completion frame")
 	} else if err != io.EOF {
 		if err == nil {
 			err = io.ErrNoProgress
 		}
-		return fmt.Errorf("等待 helper 连接收尾: %w", err)
+		return fmt.Errorf("wait for the helper to close the connection: %w", err)
 	}
 	return ctx.Err()
 }

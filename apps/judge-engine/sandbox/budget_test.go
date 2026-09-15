@@ -27,7 +27,7 @@ func TestConflictingBudgetIsRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("HTTP 写期限小于等于会话期限却被接受")
 	}
-	for _, want := range []string{"HTTP 写期限", "会话期限"} {
+	for _, want := range []string{"HTTP write deadline", "session deadline"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息 %q 没有点明 %q", err, want)
 		}
@@ -37,7 +37,7 @@ func TestConflictingBudgetIsRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("会话期限小于等于墙钟硬界却被接受")
 	}
-	for _, want := range []string{"会话期限", "墙钟硬界"} {
+	for _, want := range []string{"session deadline", "wall-clock hard limit"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息 %q 没有点明 %q", err, want)
 		}

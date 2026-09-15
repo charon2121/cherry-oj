@@ -26,7 +26,7 @@ const executionIDBytes = 16
 // Start 取得的每个句柄立即登记；失败后仍必须先停组，再 Wait/Close。
 func (p *isolatedProcess) Start(group executionGroup) error {
 	if p.started {
-		return fmt.Errorf("isolatedProcess 只能 Start 一次")
+		return fmt.Errorf("isolatedProcess can only Start once")
 	}
 	p.started = true
 	r, source := p.plan.request, p.source
@@ -167,7 +167,7 @@ func validateWorkspace(dir *ownedFile) error {
 	var fs unix.Statfs_t
 	st, err := dir.Stat()
 	if err != nil || !st.IsDir() || unix.Fstatfs(int(dir.Fd()), &fs) != nil || fs.Type != unix.TMPFS_MAGIC {
-		return fmt.Errorf("启动器交付的工作目录无效")
+		return fmt.Errorf("the launcher delivered an invalid working directory")
 	}
 	return nil
 }

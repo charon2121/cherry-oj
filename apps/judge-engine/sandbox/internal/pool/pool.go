@@ -49,7 +49,7 @@ type Pool struct {
 func New(st store.Store, b backend.Backend, opts Options) (*Pool, error) {
 	if st == nil || b == nil || opts.Parallelism <= 0 || opts.Parallelism > maxParallelism ||
 		opts.QueueSize <= 0 || opts.QueueSize > maxQueueSize {
-		return nil, fmt.Errorf("pool需要store、后端及有界正数parallelism/queueSize")
+		return nil, fmt.Errorf("pool requires a store, a backend and bounded positive parallelism/queueSize")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Pool{sem: make(chan struct{}, opts.Parallelism),

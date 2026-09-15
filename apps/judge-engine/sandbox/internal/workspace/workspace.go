@@ -25,7 +25,7 @@ var dataName = regexp.MustCompile(`^data-[0-9]+$`)
 // 成功后由调用者在所有 Container 关闭后释放 Workspace。
 func OpenWorkspace(root string) (*Workspace, error) {
 	if root == "" {
-		return nil, fmt.Errorf("暂存根不能为空")
+		return nil, fmt.Errorf("the staging root must not be empty")
 	}
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func OpenWorkspace(root string) (*Workspace, error) {
 		return nil, err
 	}
 	if !owned(info) || !info.IsDir() || info.Mode().Perm() != 0o700 {
-		return nil, fmt.Errorf("暂存根必须是服务所有的0700目录")
+		return nil, fmt.Errorf("the staging root must be a 0700 directory owned by the service")
 	}
 	lock, err := os.OpenFile(filepath.Join(root, ".lock"), os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0o600)
 	if err != nil {
@@ -43,7 +43,7 @@ func OpenWorkspace(root string) (*Workspace, error) {
 	}
 	info, err = lock.Stat()
 	if err == nil && (!owned(info) || !info.Mode().IsRegular() || info.Sys().(*syscall.Stat_t).Nlink != 1) {
-		err = fmt.Errorf("暂存锁文件不安全")
+		err = fmt.Errorf("the staging lock file is not safe")
 	}
 	if err == nil {
 		err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB)
@@ -77,7 +77,7 @@ func (w *Workspace) recover() error {
 			return e
 		}
 		if !executionName.MatchString(entry.Name()) || !info.IsDir() || !owned(info) || info.Mode().Perm() != 0o700 {
-			return fmt.Errorf("暂存根存在未知条目: %q", entry.Name())
+			return fmt.Errorf("unknown entry in the staging root: %q", entry.Name())
 		}
 		files, e := os.ReadDir(filepath.Join(w.root, entry.Name()))
 		if e != nil {
@@ -89,7 +89,7 @@ func (w *Workspace) recover() error {
 				return e
 			}
 			if !dataName.MatchString(file.Name()) || !owned(info) || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 || info.Sys().(*syscall.Stat_t).Nlink != 1 {
-				return fmt.Errorf("工作区存在未知文件: %q", file.Name())
+				return fmt.Errorf("unknown file in the workspace: %q", file.Name())
 			}
 		}
 	}
@@ -110,7 +110,7 @@ func (w *Workspace) Root() string { return w.root }
 func (w *Workspace) Close() error {
 	entries, err := os.ReadDir(w.root)
 	if err == nil && len(entries) != 1 {
-		err = fmt.Errorf("暂存根仍有未回收工作区")
+		err = fmt.Errorf("the staging root still has unreclaimed workspaces")
 	}
 	return errors.Join(err, w.lock.Close())
 }

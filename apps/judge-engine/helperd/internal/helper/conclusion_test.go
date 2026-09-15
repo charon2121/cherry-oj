@@ -103,7 +103,7 @@ func conclusionCases() []conclusionCase {
 			initReportLost: true,
 			waitErr:        errors.New("init exited"),
 			wantReason:     hostexec.ReasonPlatform,
-			wantErrPart:    "init 提前退出",
+			wantErrPart:    "init exited early",
 		},
 	}
 }

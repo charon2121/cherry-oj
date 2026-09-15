@@ -76,28 +76,28 @@ func (c Config) Validate() error {
 	}
 	s := c.Sandbox
 	if s.HTTPAddr == "" {
-		return fmt.Errorf("sandbox.httpAddr 不能为空")
+		return fmt.Errorf("sandbox.httpAddr must not be empty")
 	}
 	if s.Parallelism <= 0 || s.Parallelism > 256 {
-		return fmt.Errorf("sandbox.parallelism 必须为1～256，得到 %d", s.Parallelism)
+		return fmt.Errorf("sandbox.parallelism must be 1 to 256, got %d", s.Parallelism)
 	}
 	if s.Store.MaxBlobBytes <= 0 || s.Store.MaxBlobBytes > 64<<20 {
-		return fmt.Errorf("sandbox.store.maxBlobBytes 必须为1～64MiB，得到 %d", s.Store.MaxBlobBytes)
+		return fmt.Errorf("sandbox.store.maxBlobBytes must be 1 to 64MiB, got %d", s.Store.MaxBlobBytes)
 	}
 	if s.Backend != backend.NameLinux && s.Backend != backend.NameDevHost {
-		return fmt.Errorf("sandbox.backend必须为%s或%s", backend.NameLinux, backend.NameDevHost)
+		return fmt.Errorf("sandbox.backend must be %s or %s", backend.NameLinux, backend.NameDevHost)
 	}
 	if s.Backend == backend.NameDevHost && !s.AllowUnsafeBackend {
-		return fmt.Errorf("%s 后端不提供任何隔离，启用它必须显式设置 sandbox.allowUnsafeBackend", backend.NameDevHost)
+		return fmt.Errorf("the %s backend provides no isolation; enabling it requires setting sandbox.allowUnsafeBackend explicitly", backend.NameDevHost)
 	}
 	if s.Backend == backend.NameLinux && (s.HelperSocket == "" || s.WorkspaceRoot == "" || s.Store.Root == "") {
-		return fmt.Errorf("linux后端需要helperSocket、workspaceRoot和store.root")
+		return fmt.Errorf("the linux backend requires helperSocket, workspaceRoot and store.root")
 	}
 	if s.QueueSize <= 0 || s.QueueSize > 1024 || s.MaxRequestBytes <= 0 || s.MaxRequestBytes > 8<<20 {
-		return fmt.Errorf("sandbox排队或请求体上限无效")
+		return fmt.Errorf("invalid sandbox queue or request body limit")
 	}
 	if s.Store.MaxTotalBytes < s.Store.MaxBlobBytes || s.Store.MaxEntries <= 0 || s.Store.Retention <= 0 {
-		return fmt.Errorf("sandbox.store总量/条目/保留期无效")
+		return fmt.Errorf("invalid sandbox.store total/entry/retention")
 	}
 	// 跨层期限的顺序关系也在启动时挡住：配错了不会报错，只会在某次长执行时表现成平台错误。
 	return budget()

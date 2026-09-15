@@ -26,7 +26,7 @@ func recoverOwned(ctx context.Context, c Config) error {
 	if errors.Is(err, os.ErrNotExist) {
 		for _, e := range entries {
 			if e.IsDir() {
-				return fmt.Errorf("无所有权标记但 jobs 非空")
+				return fmt.Errorf("no ownership marker but jobs is not empty")
 			}
 		}
 		f, e := os.OpenFile(marker, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
@@ -42,7 +42,7 @@ func recoverOwned(ctx context.Context, c Config) error {
 	} else if err != nil {
 		return err
 	} else if string(data) != want {
-		return fmt.Errorf("所有权标记与 jobs 不符")
+		return fmt.Errorf("the ownership marker disagrees with jobs")
 	}
 	if err = securePath(marker, false); err != nil {
 		return err
@@ -57,7 +57,7 @@ func recoverOwned(ctx context.Context, c Config) error {
 			continue
 		}
 		if !runName(e.Name()) {
-			return fmt.Errorf("jobs 存在未知组 %s", e.Name())
+			return fmt.Errorf("jobs contains unknown group %s", e.Name())
 		}
 		if err = securePath(filepath.Join(c.JobsDir, e.Name()), true); err != nil {
 			return err
@@ -90,7 +90,7 @@ func recoverOwned(ctx context.Context, c Config) error {
 				return err
 			}
 			if st.Mode&unix.S_IFMT != unix.S_IFSOCK || st.Uid != 0 {
-				return fmt.Errorf("旧 socket 类型/所有权错误")
+				return fmt.Errorf("stale socket has the wrong type or ownership")
 			}
 			if err = os.Remove(p); err != nil {
 				return err
@@ -98,7 +98,7 @@ func recoverOwned(ctx context.Context, c Config) error {
 			continue
 		}
 		if !runName(e.Name()) || !e.IsDir() {
-			return fmt.Errorf("state 存在未知条目 %s", e.Name())
+			return fmt.Errorf("state contains unknown entry %s", e.Name())
 		}
 		if err = securePath(p, true); err != nil {
 			return err
@@ -125,7 +125,7 @@ func recoverGroup(ctx context.Context, g *os.Root) error {
 	}
 	for _, e := range entries {
 		if e.IsDir() {
-			return fmt.Errorf("遗留任务组出现未知嵌套组")
+			return fmt.Errorf("a leftover job group contains an unknown nested group")
 		}
 	}
 	kill, err := g.OpenFile("cgroup.kill", os.O_WRONLY, 0)
@@ -150,14 +150,14 @@ func recoverGroup(ctx context.Context, g *os.Root) error {
 			return err
 		}
 		if len(b) > 4096 {
-			return fmt.Errorf("events 过大")
+			return fmt.Errorf("events is too large")
 		}
 		value := ""
 		for _, line := range strings.Split(string(b), "\n") {
 			fields := strings.Fields(line)
 			if len(fields) == 2 && fields[0] == "populated" {
 				if value != "" {
-					return fmt.Errorf("重复 populated")
+					return fmt.Errorf("duplicate populated")
 				}
 				value = fields[1]
 			}
@@ -166,7 +166,7 @@ func recoverGroup(ctx context.Context, g *os.Root) error {
 			return nil
 		}
 		if value != "1" {
-			return fmt.Errorf("populated 无效")
+			return fmt.Errorf("invalid populated")
 		}
 		select {
 		case <-ctx.Done():

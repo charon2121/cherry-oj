@@ -94,7 +94,7 @@ func (f *fakeFilesystem) remove(n string) error {
 	return nil
 }
 func (f *fakeFilesystem) open(string) (*os.File, error) {
-	return nil, fmt.Errorf("fake 没有内核 FD")
+	return nil, fmt.Errorf("fake has no kernel FD")
 }
 func (f *fakeFilesystem) close() error    { f.mu.Lock(); defer f.mu.Unlock(); f.closeCount++; return nil }
 func (f *fakeFilesystem) set(n, v string) { f.mu.Lock(); defer f.mu.Unlock(); f.files[n] = v }

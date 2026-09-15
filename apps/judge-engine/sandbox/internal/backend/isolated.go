@@ -26,7 +26,7 @@ type Isolated struct {
 // 本构造不会自动退回零隔离后端。
 func NewIsolated(socket string, ws *workspace.Workspace) (*Isolated, error) {
 	if socket == "" || ws == nil {
-		return nil, fmt.Errorf("helper socket/暂存根不能为空")
+		return nil, fmt.Errorf("helper socket and staging root must not be empty")
 	}
 	return &Isolated{socket: socket, root: ws.Root()}, nil
 }
@@ -53,7 +53,7 @@ func (x *execution) close() error {
 // 不能在上限处伪装 EOF，否则被截断的源码会被当作完整输入交付。
 func (x *execution) spool(r io.Reader, limit int64) (*os.File, int64, error) {
 	if r == nil {
-		return nil, 0, fmt.Errorf("输入流为空")
+		return nil, 0, fmt.Errorf("the input stream is nil")
 	}
 	f, err := os.CreateTemp(x.dir, "data-")
 	if err != nil {
@@ -61,7 +61,7 @@ func (x *execution) spool(r io.Reader, limit int64) (*os.File, int64, error) {
 	}
 	n, err := io.Copy(f, io.LimitReader(r, limit+1))
 	if err == nil && n > limit {
-		err = fmt.Errorf("文件总量超过 %d bytes", limit)
+		err = fmt.Errorf("total file size exceeds %d bytes", limit)
 	}
 	if err == nil {
 		_, err = f.Seek(0, io.SeekStart)
@@ -111,7 +111,7 @@ func (b *Isolated) prepare(x *execution, j Job) (hostexec.Request, io.ReadCloser
 	seen := map[string]bool{}
 	for _, in := range j.Inputs {
 		if !hostexec.ValidPath(in.Name) || seen[in.Name] {
-			return request, nil, fmt.Errorf("输入路径无效或重复: %q", in.Name)
+			return request, nil, fmt.Errorf("invalid or duplicate input path: %q", in.Name)
 		}
 		seen[in.Name] = true
 		f, n, err := x.spool(in.Reader, hostexec.MaxInputBytes-x.bytes)
@@ -205,14 +205,14 @@ func checkResult(r hostexec.Result, j Job) error {
 		err = errors.Join(err, errors.New(r.Error))
 	}
 	if r.Usage.CPUNs < 0 || r.Usage.MemoryBytes < 0 || r.ClockNs < 0 {
-		err = errors.Join(err, fmt.Errorf("helper返回负资源事实"))
+		err = errors.Join(err, fmt.Errorf("helper returned negative resource facts"))
 	}
 	// 协议帧正确不等于执行组已经清空；残留后代时不能交付成功或复用容量。
 	if r.Usage.Populated {
-		err = errors.Join(err, fmt.Errorf("helper返回未清空的执行组"))
+		err = errors.Join(err, fmt.Errorf("helper returned an execution group that was not emptied"))
 	}
 	if int64(len(r.Stdout)) > j.Limits.StdoutMaxBytes || int64(len(r.Stderr)) > j.Limits.StderrMaxBytes {
-		err = errors.Join(err, fmt.Errorf("helper输出超过请求上限"))
+		err = errors.Join(err, fmt.Errorf("helper output exceeds the requested limit"))
 	}
 	return err
 }

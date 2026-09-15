@@ -20,7 +20,7 @@ func (d *diskFilesystem) read(name string) ([]byte, error) {
 	data, readErr := io.ReadAll(io.LimitReader(f, maxControlBytes+1))
 	closeErr := f.Close()
 	if len(data) > maxControlBytes {
-		return nil, errors.Join(fmt.Errorf("cgroup 文件 %s 超过控制面读取上限", name), closeErr)
+		return nil, errors.Join(fmt.Errorf("cgroup file %s exceeds the control-plane read limit", name), closeErr)
 	}
 	return data, errors.Join(readErr, closeErr)
 }

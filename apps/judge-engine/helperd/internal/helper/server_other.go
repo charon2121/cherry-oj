@@ -8,5 +8,5 @@ import (
 )
 
 func Serve(context.Context, Config) error {
-	return fmt.Errorf("特权 helper 首版仅支持 Linux amd64，禁止回退 host")
+	return fmt.Errorf("the privileged helper only supports Linux amd64 in this version; falling back to the host is forbidden")
 }

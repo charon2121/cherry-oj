@@ -36,7 +36,7 @@ func NewDevHost() *DevHost { return &DevHost{} }
 
 func (b *DevHost) Execute(ctx context.Context, j Job, sink OutputSink) (facts Facts, err error) {
 	if len(j.Command) == 0 {
-		return Facts{}, fmt.Errorf("命令不能为空")
+		return Facts{}, fmt.Errorf("command must not be empty")
 	}
 	dir, err := os.MkdirTemp("", "cherry-oj-*")
 	if err != nil {
@@ -95,7 +95,7 @@ func runCommand(ctx context.Context, dir string, j Job) (Facts, error) {
 	}
 	clock := j.Limits.ClockNs
 	if clock <= 0 {
-		return Facts{}, fmt.Errorf("墙钟上限必须为正，得到 %d", clock)
+		return Facts{}, fmt.Errorf("the wall-clock limit must be positive, got %d", clock)
 	}
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(clock))
 	defer cancel()

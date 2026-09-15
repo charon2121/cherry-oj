@@ -57,7 +57,7 @@ func (s *service) run(ctx context.Context) (result error) {
 		return err
 	}
 	if err = unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		return fmt.Errorf("helper 已运行: %w", err)
+		return fmt.Errorf("helper is already running: %w", err)
 	}
 	manager, err := cgroup.Open(c.JobsDir)
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *service) run(ctx context.Context) (result error) {
 	// 文件校验不能证明内核隔离能力；每组身份都走真实执行链，全部成功才开放 socket。
 	for slot := 0; slot < c.Parallelism; slot++ {
 		if err := probeInstallation(ctx, c.forSlot(slot), s.manager, s.executable); err != nil {
-			return fmt.Errorf("槽位%d启动探测: %w", slot, err)
+			return fmt.Errorf("slot %d startup probe: %w", slot, err)
 		}
 	}
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: c.SocketPath, Net: "unix"})
@@ -162,7 +162,7 @@ func checkPeer(c *net.UnixConn, uid int) error {
 		return inner
 	}
 	if cred == nil || cred.Uid != uint32(uid) {
-		return fmt.Errorf("helper 对端 UID 不匹配")
+		return fmt.Errorf("helper peer UID mismatch")
 	}
 	return nil
 }

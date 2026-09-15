@@ -100,38 +100,38 @@ func (r Request) InputBytes() int64 {
 // 请求须由 runner 归一化后交付，特权边界仍独立复查，不能只信客户端校验。
 func (r Request) Validate() error {
 	if r.Version != Version || len(r.Command) == 0 || len(r.Command) > maxRequestArgs || len(r.Env) > maxRequestEnvEntries || len(r.Inputs) > maxRequestInputs || len(r.Outputs) > MaxOutputs {
-		return fmt.Errorf("无效版本或条目数")
+		return fmt.Errorf("invalid version or entry count")
 	}
 	// 命令先在工作区，再在只读 rootfs 固定目录中解析；请求不能提供绝对路径。
 	if !commandName.MatchString(r.Command[0]) {
-		return fmt.Errorf("命令必须为裸名称")
+		return fmt.Errorf("command must be a bare name")
 	}
 	total := 0
 	for _, list := range [][]string{r.Command, r.Env} {
 		for _, s := range list {
 			total += len(s) + 1
 			if strings.ContainsRune(s, 0) {
-				return fmt.Errorf("参数包含 NUL")
+				return fmt.Errorf("arguments contain NUL")
 			}
 		}
 	}
 	if total > maxRequestStringBytes {
-		return fmt.Errorf("参数/环境过大")
+		return fmt.Errorf("arguments/environment are too large")
 	}
 	for _, e := range r.Env {
 		key, _, ok := strings.Cut(e, "=")
 		if !ok || key == "" {
-			return fmt.Errorf("环境变量格式错误")
+			return fmt.Errorf("malformed environment variable")
 		}
 	}
 	if r.StdinBytes < 0 || r.StdinBytes > MaxInputBytes {
-		return fmt.Errorf("stdin 大小无效")
+		return fmt.Errorf("invalid stdin size")
 	}
 	n := r.StdinBytes
 	seen := map[string]bool{}
 	for _, f := range r.Inputs {
 		if !ValidPath(f.Path) || seen[f.Path] || f.SizeBytes < 0 || f.SizeBytes > MaxInputBytes-n {
-			return fmt.Errorf("输入路径/大小无效")
+			return fmt.Errorf("invalid input path or size")
 		}
 		n += f.SizeBytes
 		seen[f.Path] = true
@@ -139,7 +139,7 @@ func (r Request) Validate() error {
 	seen = map[string]bool{}
 	for _, p := range r.Outputs {
 		if !ValidPath(p) || seen[p] {
-			return fmt.Errorf("产物路径无效")
+			return fmt.Errorf("invalid artifact path")
 		}
 		seen[p] = true
 	}
@@ -149,7 +149,7 @@ func (r Request) Validate() error {
 	// 本机调用者必须已经完成默认值填充。零 CPU/内存由上层返回资源结论，不启动 helper。
 	l := r.Limits
 	if l.CPUNs <= 0 || l.ClockNs <= 0 || l.MemoryBytes <= 0 || l.MaxProcesses <= 0 || l.CPUNs > maxCPUNs || l.ClockNs > maxClockNs || l.MemoryBytes > maxMemoryBytes || l.MaxProcesses > maxProcesses || l.StdoutMaxBytes > maxStdoutBytes || l.StderrMaxBytes > maxStderrBytes {
-		return fmt.Errorf("执行限额未归一化或超出节点硬边界")
+		return fmt.Errorf("execution limits are not normalized or exceed the node hard boundary")
 	}
 	return nil
 }
@@ -162,7 +162,7 @@ func ReadFrame(r io.Reader, v any, max uint32) error {
 	}
 	n := binary.BigEndian.Uint32(h[:])
 	if n == 0 || n > max {
-		return fmt.Errorf("控制帧大小无效")
+		return fmt.Errorf("invalid control frame size")
 	}
 	lr := &io.LimitedReader{R: r, N: int64(n)}
 	d := json.NewDecoder(lr)
@@ -172,7 +172,7 @@ func ReadFrame(r io.Reader, v any, max uint32) error {
 	}
 	var extra any
 	if err := d.Decode(&extra); err != io.EOF {
-		return fmt.Errorf("控制帧有尾随内容")
+		return fmt.Errorf("control frame has trailing content")
 	}
 	if lr.N != 0 {
 		return io.ErrUnexpectedEOF
@@ -187,7 +187,7 @@ func WriteFrame(w io.Writer, v any, max uint32) error {
 		return err
 	}
 	if len(b) == 0 || len(b) > int(max) {
-		return fmt.Errorf("控制帧过大")
+		return fmt.Errorf("control frame is too large")
 	}
 	var h [frameHeaderBytes]byte
 	binary.BigEndian.PutUint32(h[:], uint32(len(b)))

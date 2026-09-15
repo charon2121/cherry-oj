@@ -39,11 +39,11 @@ func (d Duration) String() string     { return time.Duration(d).String() }
 func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	var s string
 	if err := value.Decode(&s); err != nil {
-		return fmt.Errorf("时长应当写成字符串如 \"60s\": %w", err)
+		return fmt.Errorf("a duration should be written as a string such as \"60s\": %w", err)
 	}
 	parsed, err := time.ParseDuration(s)
 	if err != nil {
-		return fmt.Errorf("解析时长 %q: %w", s, err)
+		return fmt.Errorf("parse duration %q: %w", s, err)
 	}
 	*d = Duration(parsed)
 	return nil
@@ -59,12 +59,12 @@ type Logging struct {
 // Validate 供各服务的 Validate 调用；本类型自身不参与装配顺序。
 func (l Logging) Validate() error {
 	if l.Path == "" {
-		return fmt.Errorf("logging.path 不能为空")
+		return fmt.Errorf("logging.path must not be empty")
 	}
 	switch l.Level {
 	case "DEBUG", "INFO", "WARN", "ERROR":
 	default:
-		return fmt.Errorf("logging.level 必须是 DEBUG、INFO、WARN 或 ERROR，得到 %q", l.Level)
+		return fmt.Errorf("logging.level must be DEBUG, INFO, WARN or ERROR, got %q", l.Level)
 	}
 	return nil
 }
@@ -87,12 +87,12 @@ func Load[T Validatable](path string, defaults T) (T, error) {
 			dec := yaml.NewDecoder(bytes.NewReader(b))
 			dec.KnownFields(true)
 			if err := dec.Decode(&cfg); err != nil {
-				return zero, fmt.Errorf("解析配置文件 %s: %w", path, err)
+				return zero, fmt.Errorf("parse configuration file %s: %w", path, err)
 			}
 		case os.IsNotExist(err):
 			// 不存在就算了，用默认值 + 环境变量
 		default:
-			return zero, fmt.Errorf("读取配置文件 %s: %w", path, err)
+			return zero, fmt.Errorf("read configuration file %s: %w", path, err)
 		}
 	}
 

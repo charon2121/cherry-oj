@@ -110,12 +110,12 @@ func (p *isolatedProcess) Next(ctx context.Context, timers supervisionTimers) pr
 		return processEvent{kind: executionSampleDue}
 	case <-p.overflow:
 		if p.phase < executing {
-			return processEvent{kind: processFailure, err: fmt.Errorf("可信启动器在放行前产生超限输出")}
+			return processEvent{kind: processFailure, err: fmt.Errorf("the trusted launcher produced oversized output before handing over")}
 		}
 		return processEvent{kind: processOutputExceeded}
 	case err := <-p.inputCopied:
 		if err != nil {
-			return processEvent{kind: processFailure, err: fmt.Errorf("输入交付: %w", err)}
+			return processEvent{kind: processFailure, err: fmt.Errorf("deliver input: %w", err)}
 		}
 		p.inputCopied = nil
 		return processEvent{kind: processProgress}
@@ -128,7 +128,7 @@ func (p *isolatedProcess) Next(ctx context.Context, timers supervisionTimers) pr
 		return processEvent{kind: processInitExited, err: err}
 	case ev, ok := <-p.events:
 		if !ok {
-			return processEvent{kind: processFailure, err: fmt.Errorf("启动控制通道提前关闭")}
+			return processEvent{kind: processFailure, err: fmt.Errorf("the startup control channel closed early")}
 		}
 		return p.acceptEvent(ev)
 	}
@@ -147,10 +147,10 @@ func (p *isolatedProcess) acceptEvent(ev received) processEvent {
 		return processEvent{kind: processProgress}
 	}
 	if ev.dir != nil {
-		return processEvent{kind: processFailure, err: errors.Join(fmt.Errorf("意外控制 FD"), ev.dir.Close())}
+		return processEvent{kind: processFailure, err: errors.Join(fmt.Errorf("unexpected control FD"), ev.dir.Close())}
 	}
 	if ev.event.Kind == "error" {
-		return processEvent{kind: processFailure, err: fmt.Errorf("可信 init 阶段失败: %s errno=%d", ev.event.Phase, ev.event.Errno)}
+		return processEvent{kind: processFailure, err: fmt.Errorf("trusted init stage failed: %s errno=%d", ev.event.Phase, ev.event.Errno)}
 	}
 	if ev.event.Kind == "ready" && p.phase == awaitingReady {
 		p.phase = awaitingGo
@@ -159,17 +159,17 @@ func (p *isolatedProcess) acceptEvent(ev received) processEvent {
 	if ev.event.Kind == "exit" && p.phase == executing {
 		event := processEvent{kind: processExited, exitCode: ev.event.ExitCode, signal: ev.event.Signal}
 		if ev.event.ExecFailed {
-			event.err = fmt.Errorf("payload exec 启动失败: stage=%d errno=%d", ev.event.ExecStage, ev.event.ExecErrno)
+			event.err = fmt.Errorf("payload exec failed to start: stage=%d errno=%d", ev.event.ExecStage, ev.event.ExecErrno)
 		}
 		return event
 	}
-	return processEvent{kind: processFailure, err: fmt.Errorf("启动协议阶段错误")}
+	return processEvent{kind: processFailure, err: fmt.Errorf("startup protocol stage error")}
 }
 
 // Release 只能在 ready 后由预算监督者调用，写成功才进入 executing。
 func (p *isolatedProcess) Release() error {
 	if p.phase != awaitingGo {
-		return fmt.Errorf("启动协议阶段错误")
+		return fmt.Errorf("startup protocol stage error")
 	}
 	if _, err := p.control.Write([]byte{launcher.PayloadGo}); err != nil {
 		return err

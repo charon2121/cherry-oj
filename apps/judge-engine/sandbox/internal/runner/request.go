@@ -42,7 +42,7 @@ func validateRequest(ctx context.Context, spec contract.RunSpec) (contract.Limit
 		return limits, reject(contract.StatusInternalError, err)
 	}
 	if len(spec.Command) == 0 || len(spec.Inputs) > maxFilesPerRun || len(spec.Outputs)+len(spec.Artifacts) > maxFilesPerRun {
-		return limits, reject(contract.StatusWorkspaceError, fmt.Errorf("命令或文件数量无效"))
+		return limits, reject(contract.StatusWorkspaceError, fmt.Errorf("invalid command or file count"))
 	}
 	if err := ctx.Err(); err != nil {
 		return limits, reject(contract.StatusInternalError, err)
@@ -55,11 +55,11 @@ func validateRequest(ctx context.Context, spec contract.RunSpec) (contract.Limit
 		return limits, &contract.RunResult{Status: contract.StatusMemoryLimitExceeded}
 	}
 	if limits.MaxProcesses == 0 {
-		return limits, reject(contract.StatusInternalError, fmt.Errorf("maxProcesses=0无法启动"))
+		return limits, reject(contract.StatusInternalError, fmt.Errorf("maxProcesses=0 cannot start anything"))
 	}
 	// 所有后端都限制服务侧内存；Linux更严格的硬界由适配器校验，绝不悄悄截小预算。
 	if limits.StdoutMaxBytes > maxStdoutBytes || limits.StderrMaxBytes > maxStderrBytes {
-		return limits, reject(contract.StatusInternalError, fmt.Errorf("输出预算超过服务硬界"))
+		return limits, reject(contract.StatusInternalError, fmt.Errorf("the output budget exceeds the service hard boundary"))
 	}
 	return limits, nil
 }

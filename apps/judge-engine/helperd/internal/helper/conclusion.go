@@ -83,7 +83,7 @@ func conclude(f executionFacts) conclusion {
 	}
 	// 既没有 OOM 证据又丢了退出报告，init 提前退出就只能算平台故障。
 	if f.supervision.reportLost && f.completion.waitErr != nil && f.group.OOMKill == 0 {
-		c.fail(fmt.Errorf("init 提前退出: %w", f.completion.waitErr))
+		c.fail(fmt.Errorf("init exited early: %w", f.completion.waitErr))
 	}
 	if f.completion.outputExceeded && c.reason == "" {
 		c.reason = hostexec.ReasonOutput

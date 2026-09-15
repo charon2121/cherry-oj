@@ -19,7 +19,7 @@ const (
 	cleanupTimeout    = 5 * time.Second
 )
 
-var errInitLost = errors.New("init 未报告退出事实")
+var errInitLost = errors.New("init did not report the exit facts")
 
 type executionGroup interface {
 	File() (*os.File, error)
@@ -77,11 +77,11 @@ func newExecution(r hostexec.Request, options executionOptions) *execution {
 
 func (x *execution) Run(ctx context.Context) (executionResult, error) {
 	if !x.lifecycle.TryLock() {
-		return executionResult{}, fmt.Errorf("execution Run 已在进行")
+		return executionResult{}, fmt.Errorf("execution Run is already in progress")
 	}
 	defer x.lifecycle.Unlock()
 	if x.state != executionNew {
-		return executionResult{}, fmt.Errorf("execution 只能 Run 一次")
+		return executionResult{}, fmt.Errorf("execution can only Run once")
 	}
 	if err := x.transition(executionStarting); err != nil {
 		return executionResult{}, err
@@ -89,7 +89,7 @@ func (x *execution) Run(ctx context.Context) (executionResult, error) {
 	// panic 时也尝试结束已取得的资源；正常路径显式检查 finish 的错误。
 	defer func() {
 		if x.state != executionFinished && x.state != executionCleanupFailed {
-			x.supervision.fail(fmt.Errorf("执行流程异常中断"))
+			x.supervision.fail(fmt.Errorf("the execution flow was interrupted unexpectedly"))
 			_, x.cleanupErr = x.finish(context.Background())
 		}
 	}()

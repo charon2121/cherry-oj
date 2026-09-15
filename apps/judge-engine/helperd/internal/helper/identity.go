@@ -26,7 +26,7 @@ func (c Config) validateSlotIdentities() error {
 		} {
 			for _, id := range set.ids {
 				if id <= 0 || uint64(id) >= 1<<32-1 || set.used[id] {
-					return fmt.Errorf("槽位身份重叠或越界: slot=%d id=%d", slot, id)
+					return fmt.Errorf("slot identities overlap or are out of range: slot=%d id=%d", slot, id)
 				}
 				set.used[id] = true
 			}

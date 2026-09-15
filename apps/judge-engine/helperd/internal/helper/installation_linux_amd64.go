@@ -32,10 +32,10 @@ func checkInstallation(c Config) (string, error) {
 		}
 	}
 	if !pure {
-		return "", fmt.Errorf("helper 必须使用 CGO_ENABLED=0 构建")
+		return "", fmt.Errorf("helper must be built with CGO_ENABLED=0")
 	}
 	if os.Geteuid() != 0 {
-		return "", fmt.Errorf("helper 必须由 root 托管")
+		return "", fmt.Errorf("helper must be owned by root")
 	}
 	for _, p := range []string{c.StateDir, c.JobsDir} {
 		if err := securePath(p, true); err != nil {
@@ -57,7 +57,7 @@ func checkInstallation(c Config) (string, error) {
 		return "", err
 	}
 	if !binaryInfo.Mode().IsRegular() || binaryInfo.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
-		return "", fmt.Errorf("helper 必须为不带 setuid/setgid 的普通可执行文件")
+		return "", fmt.Errorf("helper must be a regular executable without setuid/setgid")
 	}
 
 	return executable, nil
@@ -82,7 +82,7 @@ func probeInstallation(ctx context.Context, c Config, manager *cgroup.Manager, e
 		return err
 	}
 	if facts.Reason != "" || facts.ExitCode != 0 || facts.Signal != 0 || facts.Usage.CPUNs <= 0 || facts.Usage.MemoryBytes <= 0 || len(facts.Stdout) != 0 || len(facts.Stderr) != 0 {
-		return fmt.Errorf("隔离启动能力冒烟失败: reason=%s error=%s stderr=%q", facts.Reason, facts.Error, facts.Stderr)
+		return fmt.Errorf("isolated startup capability smoke test failed: reason=%s error=%s stderr=%q", facts.Reason, facts.Error, facts.Stderr)
 	}
 	return nil
 }

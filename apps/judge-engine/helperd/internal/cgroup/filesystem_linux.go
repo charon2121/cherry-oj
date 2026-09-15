@@ -10,7 +10,7 @@ import (
 
 func openFilesystem(path string) (filesystem, error) {
 	if !filepath.IsAbs(path) {
-		return nil, fmt.Errorf("cgroup 委派目录必须是绝对路径")
+		return nil, fmt.Errorf("cgroup delegation directory must be an absolute path")
 	}
 	root, err := os.OpenRoot(path)
 	if err != nil {
@@ -30,7 +30,7 @@ func openFilesystem(path string) (filesystem, error) {
 	// cgroup2fs 的文件系统魔数；仅目录名和控制文件名称相似不能证明它是内核控制器。
 	const cgroup2Magic = 0x63677270
 	if stat.Type != cgroup2Magic {
-		return fail(fmt.Errorf("目录不在 cgroup v2 文件系统中"))
+		return fail(fmt.Errorf("directory is not on a cgroup v2 filesystem"))
 	}
 	return &diskFilesystem{root: root}, nil
 }

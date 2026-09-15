@@ -55,5 +55,5 @@ func (x *execution) transition(to executionState) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("执行状态非法转移: %s → %s", x.state, to)
+	return fmt.Errorf("illegal execution state transition: %s -> %s", x.state, to)
 }

@@ -87,7 +87,7 @@ func (s *initSession) run() error {
 		return err
 	}
 	if stage.PayloadUID <= 0 || stage.InitUID <= 0 || stage.PayloadUID == stage.InitUID || stage.PayloadGID <= 0 || stage.InitGID <= 0 || stage.PayloadGID == stage.InitGID || stage.WorkspaceBytes <= 0 || stage.WorkspaceBytes > maxWorkspaceBytes || stage.WorkspaceInodes <= 0 || stage.WorkspaceInodes > maxWorkspaceInodes {
-		return fmt.Errorf("无效的受信启动配置")
+		return fmt.Errorf("invalid trusted startup configuration")
 	}
 	s.phase = "rootfs-input"
 	filesystem := newRootFilesystem(stage)
@@ -171,7 +171,7 @@ func reapDescendants() error {
 		case errors.Is(err, syscall.ECHILD):
 			select {} // 存活管道仍在监测 helper。
 		default:
-			return fmt.Errorf("回收 namespace 后代: %w", err)
+			return fmt.Errorf("reclaim namespace descendants: %w", err)
 		}
 	}
 }

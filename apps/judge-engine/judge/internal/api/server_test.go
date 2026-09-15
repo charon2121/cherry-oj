@@ -112,9 +112,9 @@ func TestJudgeRejectsMalformedOrIncompleteJSON(t *testing.T) {
 		body string
 		want string
 	}{
-		{"empty body", "", "解析 JudgeRequest"},
-		{"invalid JSON", "{", "解析 JudgeRequest"},
-		{"multiple values", `{}` + `{}`, "多余"},
+		{"empty body", "", "parse JudgeRequest"},
+		{"invalid JSON", "{", "parse JudgeRequest"},
+		{"multiple values", `{}` + `{}`, "extra JSON value"},
 		{"unknown field", `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1},"codeMode":"CORE"}`, "unknown field"},
 		{"missing submissionId", `{"problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "submissionId"},
 		{"missing problemId", `{"submissionId":"s","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`, "problemId"},

@@ -47,13 +47,13 @@ func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, err
 	log := opts.logger()
 
 	if !idPattern.MatchString(testDataVersionID) {
-		return nil, fmt.Errorf("非法 testDataVersionId: %q", testDataVersionID)
+		return nil, fmt.Errorf("illegal testDataVersionId: %q", testDataVersionID)
 	}
 
 	dir := filepath.Join(testdataRoot, testDataVersionID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, fmt.Errorf("读测试数据目录 %q: %w", dir, err)
+		return nil, fmt.Errorf("read test data directory %q: %w", dir, err)
 	}
 
 	var cases []TestCase
@@ -73,7 +73,7 @@ func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, err
 		if err != nil {
 			if os.IsNotExist(err) {
 				// 出题人少传一个文件是常见事故：跳过这个点，但必须留痕。
-				log.Warn("测试点缺少对应的 .out，已跳过",
+				log.Warn("test case has no matching .out, skipped",
 					"testDataVersionID", testDataVersionID, "case", name, "expect", outPath)
 				continue
 			}
@@ -94,7 +94,7 @@ func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, err
 	}
 
 	if len(cases) == 0 {
-		return nil, fmt.Errorf("测试数据版本 %q 没有配对的测试点", testDataVersionID)
+		return nil, fmt.Errorf("test data version %q has no paired test cases", testDataVersionID)
 	}
 	sort.Slice(cases, func(i, j int) bool {
 		return lessName(cases[i].Name, cases[j].Name)

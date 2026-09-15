@@ -48,13 +48,13 @@ type JudgeLimits struct {
 // 零值必须挡在入口：CPUNs=0 会让每个测试点秒 TLE，MemoryBytes=0 会秒 MLE
 func (l JudgeLimits) Validate() error {
 	if l.CPUNs <= 0 {
-		return fmt.Errorf("limits.cpuNs 必须为正，得到 %d", l.CPUNs)
+		return fmt.Errorf("limits.cpuNs must be positive, got %d", l.CPUNs)
 	}
 	if l.MemoryBytes <= 0 {
-		return fmt.Errorf("limits.memoryBytes 必须为正，得到 %d", l.MemoryBytes)
+		return fmt.Errorf("limits.memoryBytes must be positive, got %d", l.MemoryBytes)
 	}
 	if l.ClockNs < 0 {
-		return fmt.Errorf("limits.clockNs 不能为负，得到 %d", l.ClockNs)
+		return fmt.Errorf("limits.clockNs must not be negative, got %d", l.ClockNs)
 	}
 	return nil
 }

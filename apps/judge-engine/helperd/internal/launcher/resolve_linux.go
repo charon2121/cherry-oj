@@ -22,5 +22,5 @@ func resolveCommand(name string) (string, error) {
 			return "", err
 		}
 	}
-	return "", fmt.Errorf("隔离根中没有可执行命令")
+	return "", fmt.Errorf("no executable command in the isolation root")
 }

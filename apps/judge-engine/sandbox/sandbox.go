@@ -65,7 +65,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 		probe, probeErr := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}})
 		if probeErr != nil || probe.Status != contract.StatusOK {
 			logger.Error("process.backend.probe.failed", "error", probeErr, "result", probe)
-			return errors.Join(fmt.Errorf("隔离后端启动探测失败: status=%s", probe.Status), probeErr)
+			return errors.Join(fmt.Errorf("isolated backend startup probe failed: status=%s", probe.Status), probeErr)
 		}
 	}
 	gcCtx, gcCancel := context.WithCancel(context.Background())
@@ -160,15 +160,15 @@ func selectBackend(c Settings) (backend.Backend, func() error, error) {
 	case backend.NameDevHost:
 		// 配置校验已经要求显式承认；这里再挡一次，避免绕过校验直接装配。
 		if !c.AllowUnsafeBackend {
-			return nil, nil, fmt.Errorf("%s 后端不提供任何隔离，需显式设置 allowUnsafeBackend", backend.NameDevHost)
+			return nil, nil, fmt.Errorf("the %s backend provides no isolation; it requires setting allowUnsafeBackend explicitly", backend.NameDevHost)
 		}
 		return backend.NewDevHost(), func() error { return nil }, nil
 	case backend.NameLinux:
 		if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-			return nil, nil, fmt.Errorf("当前平台不支持Linux隔离后端")
+			return nil, nil, fmt.Errorf("this platform does not support the Linux isolation backend")
 		}
 		if os.Geteuid() == 0 {
-			return nil, nil, fmt.Errorf("sandbox服务必须非root运行，特权仅由helper持有")
+			return nil, nil, fmt.Errorf("the sandbox service must run as non-root; privilege is held only by the helper")
 		}
 		w, err := workspace.OpenWorkspace(c.WorkspaceRoot)
 		if err != nil {
@@ -180,6 +180,6 @@ func selectBackend(c Settings) (backend.Backend, func() error, error) {
 		}
 		return b, w.Close, nil
 	default:
-		return nil, nil, fmt.Errorf("未知后端: %s", c.Backend)
+		return nil, nil, fmt.Errorf("unknown backend: %s", c.Backend)
 	}
 }

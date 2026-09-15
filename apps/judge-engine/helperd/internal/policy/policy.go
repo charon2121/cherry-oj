@@ -34,7 +34,7 @@ const (
 // 两种用户策略目前具有相同的宿主安全边界，后续收紧须变更版本和环境身份。
 func AMD64(profile Profile) ([]Instruction, error) {
 	if profile != Command && profile != Toolchain && profile != Supervisor {
-		return nil, fmt.Errorf("未知 seccomp 策略 %q", profile)
+		return nil, fmt.Errorf("unknown seccomp policy %q", profile)
 	}
 	p := []Instruction{
 		{Code: loadWord, K: 4}, // seccomp_data.arch

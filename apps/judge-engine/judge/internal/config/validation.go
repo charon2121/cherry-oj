@@ -18,47 +18,46 @@ func (c Config) Validate() error {
 		return err
 	}
 	if j.HTTPAddr == "" {
-		return fmt.Errorf("judge.httpAddr 不能为空")
+		return fmt.Errorf("judge.httpAddr must not be empty")
 	}
 	if j.SandboxURL == "" {
-		return fmt.Errorf("judge.sandboxURL 不能为空")
+		return fmt.Errorf("judge.sandboxURL must not be empty")
 	}
 	if j.SandboxTimeout <= 0 {
-		return fmt.Errorf("judge.sandboxTimeout 必须为正，得到 %s", j.SandboxTimeout)
+		return fmt.Errorf("judge.sandboxTimeout must be positive, got %s", j.SandboxTimeout)
 	}
 	if j.EnvironmentFingerprint == "" {
-		return fmt.Errorf("judge.environmentFingerprint 不能为空")
+		return fmt.Errorf("judge.environmentFingerprint must not be empty")
 	}
 	if j.TestdataRoot == "" {
-		return fmt.Errorf("judge.testdataRoot 不能为空")
+		return fmt.Errorf("judge.testdataRoot must not be empty")
 	}
 	if j.ClockRatio <= 0 {
-		return fmt.Errorf("judge.clockRatio 必须为正，得到 %d", j.ClockRatio)
+		return fmt.Errorf("judge.clockRatio must be positive, got %d", j.ClockRatio)
 	}
 	if j.InlineThresholdBytes < 0 {
-		return fmt.Errorf("judge.inlineThresholdBytes 不能为负，得到 %d", j.InlineThresholdBytes)
+		return fmt.Errorf("judge.inlineThresholdBytes must not be negative, got %d", j.InlineThresholdBytes)
 	}
 	if j.OutputExcerptBytes < 0 {
-		return fmt.Errorf("judge.outputExcerptBytes 不能为负，得到 %d", j.OutputExcerptBytes)
+		return fmt.Errorf("judge.outputExcerptBytes must not be negative, got %d", j.OutputExcerptBytes)
 	}
 	if j.MessageExcerptBytes < 0 {
-		return fmt.Errorf("judge.messageExcerptBytes 不能为负，得到 %d", j.MessageExcerptBytes)
+		return fmt.Errorf("judge.messageExcerptBytes must not be negative, got %d", j.MessageExcerptBytes)
 	}
 	if j.Output.StdoutMaxBytes <= 0 {
-		return fmt.Errorf("judge.output.stdoutMaxBytes 必须为正，得到 %d", j.Output.StdoutMaxBytes)
+		return fmt.Errorf("judge.output.stdoutMaxBytes must be positive, got %d", j.Output.StdoutMaxBytes)
 	}
 	if j.Output.StderrMaxBytes <= 0 {
-		return fmt.Errorf("judge.output.stderrMaxBytes 必须为正，得到 %d", j.Output.StderrMaxBytes)
+		return fmt.Errorf("judge.output.stderrMaxBytes must be positive, got %d", j.Output.StderrMaxBytes)
 	}
 	if j.Compile.CPUNs <= 0 || j.Compile.MemoryBytes <= 0 || j.Compile.ClockNs <= 0 {
-		return fmt.Errorf("judge.compile 的三项都必须为正，得到 %+v", j.Compile)
+		return fmt.Errorf("all three judge.compile values must be positive, got %+v", j.Compile)
 	}
 	// 跨层预算：调用期限必须覆盖本节点配置的最长一次 /run。编译是配置层面最长的那一次；
 	// 测试点的墙钟由请求给出（cpuNs × clockRatio），上界由节点硬界约束，不在这里。
 	// 设小了的表现是「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
 	if j.SandboxTimeout.Std() <= time.Duration(j.Compile.ClockNs) {
-		return fmt.Errorf("judge.sandboxTimeout（%s）必须大于 judge.compile.clockNs（%s）："+
-			"否则编译刚到墙钟上限，judge 这边已经先超时，结果被报成系统错误",
+		return fmt.Errorf("judge.sandboxTimeout (%s) must be greater than judge.compile.clockNs (%s): otherwise judge times out first when a compile reaches its wall-clock limit, and the result is reported as a system error",
 			j.SandboxTimeout, time.Duration(j.Compile.ClockNs))
 	}
 	return nil

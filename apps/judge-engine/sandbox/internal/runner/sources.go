@@ -90,7 +90,7 @@ func (r *budgetReader) Read(p []byte) (int, error) {
 		var b [1]byte
 		n, e := r.r.Read(b[:])
 		if n > 0 {
-			return 0, fmt.Errorf("输入总量超限")
+			return 0, fmt.Errorf("total input size exceeds the limit")
 		}
 		return 0, e
 	}
@@ -105,7 +105,7 @@ func (r *budgetReader) Read(p []byte) (int, error) {
 func resolve(st store.Store, src contract.FileSource) (io.ReadCloser, error) {
 	switch {
 	case src.Ref != "" && src.Text != "":
-		return nil, fmt.Errorf("file source: ref & text只能二选一")
+		return nil, fmt.Errorf("file source: ref and text are mutually exclusive")
 	case src.Ref != "":
 		rc, e := st.Get(src.Ref)
 		if e != nil {

@@ -21,7 +21,7 @@ func main() {
 	path := flag.String("config", "", "root 管理的 helper JSON 配置绝对路径")
 	flag.Parse()
 	if *path == "" {
-		fmt.Fprintln(os.Stderr, "必须提供 --config")
+		fmt.Fprintln(os.Stderr, "--config is required")
 		os.Exit(2)
 	}
 	c, err := helperd.LoadConfig(*path)

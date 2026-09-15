@@ -22,7 +22,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	// 第一次 Decode 只读取一个 JSON 值，必须再读到 EOF 才能拒绝拼接的第二个请求。
 	var extra any
 	if err := decoder.Decode(&extra); err != io.EOF {
-		writeError(w, http.StatusBadRequest, errors.New("JSON有尾随内容"))
+		writeError(w, http.StatusBadRequest, errors.New("JSON has trailing content"))
 		return
 	}
 	if err := spec.Limits.Validate(); err != nil {
@@ -30,7 +30,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(spec.Command) == 0 {
-		writeError(w, http.StatusBadRequest, errors.New("command 不能为空"))
+		writeError(w, http.StatusBadRequest, errors.New("command must not be empty"))
 		return
 	}
 

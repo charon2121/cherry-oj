@@ -46,7 +46,7 @@ func walk(v reflect.Value, prefix string) error {
 			continue
 		}
 		if err := setScalar(fv, raw); err != nil {
-			return fmt.Errorf("环境变量 %s=%q: %w", name, raw, err)
+			return fmt.Errorf("environment variable %s=%q: %w", name, raw, err)
 		}
 	}
 	return nil
@@ -57,7 +57,7 @@ func setScalar(fv reflect.Value, raw string) error {
 	if fv.Type() == reflect.TypeOf(Duration(0)) {
 		d, err := time.ParseDuration(raw)
 		if err != nil {
-			return fmt.Errorf("应当是时长如 \"60s\": %w", err)
+			return fmt.Errorf("should be a duration such as \"60s\": %w", err)
 		}
 		fv.Set(reflect.ValueOf(Duration(d)))
 		return nil
@@ -69,20 +69,20 @@ func setScalar(fv reflect.Value, raw string) error {
 	case reflect.Bool:
 		b, err := strconv.ParseBool(raw)
 		if err != nil {
-			return fmt.Errorf("应当是 true/false: %w", err)
+			return fmt.Errorf("should be true/false: %w", err)
 		}
 		fv.SetBool(b)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		n, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
-			return fmt.Errorf("应当是整数: %w", err)
+			return fmt.Errorf("should be an integer: %w", err)
 		}
 		if fv.OverflowInt(n) {
-			return fmt.Errorf("超出 %s 的范围", fv.Kind())
+			return fmt.Errorf("out of range for %s", fv.Kind())
 		}
 		fv.SetInt(n)
 	default:
-		return fmt.Errorf("不支持的字段类型 %s", fv.Kind())
+		return fmt.Errorf("unsupported field type %s", fv.Kind())
 	}
 	return nil
 }

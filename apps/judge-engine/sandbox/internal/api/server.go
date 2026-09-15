@@ -66,7 +66,7 @@ func (s *Server) Handler() http.Handler {
 			defer func() { <-s.requests }()
 			mux.ServeHTTP(w, r)
 		default:
-			writeError(w, http.StatusServiceUnavailable, fmt.Errorf("sandbox HTTP容量已满"))
+			writeError(w, http.StatusServiceUnavailable, fmt.Errorf("sandbox HTTP capacity is full"))
 		}
 	})
 }

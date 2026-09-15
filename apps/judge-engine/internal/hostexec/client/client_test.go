@@ -183,7 +183,7 @@ func TestClientWaitsForConnectionRelease(t *testing.T) {
 	if err == nil {
 		t.Fatal("完成帧之后没有 EOF，客户端仍返回成功")
 	}
-	if result.Version != hostexec.Version || !strings.Contains(err.Error(), "等待 helper 连接收尾") || ctx.Err() != context.DeadlineExceeded {
+	if result.Version != hostexec.Version || !strings.Contains(err.Error(), "wait for the helper to close the connection") || ctx.Err() != context.DeadlineExceeded {
 		t.Fatalf("未到达 EOF 等待期限: result=%+v err=%v ctx=%v", result, err, ctx.Err())
 	}
 }

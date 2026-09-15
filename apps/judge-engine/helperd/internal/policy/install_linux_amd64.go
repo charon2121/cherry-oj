@@ -24,10 +24,10 @@ func Install(profile Profile) error {
 	result, _, errno := unix.RawSyscall(unix.SYS_SECCOMP, unix.SECCOMP_SET_MODE_FILTER, unix.SECCOMP_FILTER_FLAG_TSYNC, uintptr(unsafe.Pointer(&program)))
 	runtime.KeepAlive(filters)
 	if errno != 0 {
-		return fmt.Errorf("加载 seccomp: %w", errno)
+		return fmt.Errorf("load seccomp: %w", errno)
 	}
 	if result != 0 {
-		return fmt.Errorf("seccomp TSYNC 未覆盖线程 %d", result)
+		return fmt.Errorf("seccomp TSYNC did not cover thread %d", result)
 	}
 	return nil
 }

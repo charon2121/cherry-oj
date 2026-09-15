@@ -65,7 +65,7 @@ func sendEvent(c *os.File, e Event, dir *os.File, send func(int, []byte, []byte,
 			return sendErr
 		}
 		if n != len(b) {
-			return fmt.Errorf("控制消息短写")
+			return fmt.Errorf("short write on control message")
 		}
 		return nil
 	}
@@ -119,13 +119,13 @@ func receiveEvent(c *os.File, receive func(int, []byte, []byte, int) (int, int, 
 		return e, nil, io.EOF
 	}
 	if flags&(unix.MSG_TRUNC|unix.MSG_CTRUNC) != 0 || len(fds) > 1 {
-		return fail(fmt.Errorf("控制通道关闭或消息/FD 无效"))
+		return fail(fmt.Errorf("control channel closed, or invalid message/FD"))
 	}
 	if err := json.Unmarshal(b[:n], &e); err != nil {
 		return fail(err)
 	}
 	if e.Version != hostexec.Version {
-		return fail(fmt.Errorf("控制消息版本错误"))
+		return fail(fmt.Errorf("wrong control message version"))
 	}
 	if len(fds) == 1 {
 		return e, os.NewFile(uintptr(fds[0]), "workspace"), nil

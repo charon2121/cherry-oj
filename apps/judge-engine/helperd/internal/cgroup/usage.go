@@ -12,14 +12,14 @@ func parseFields(data []byte) (map[string]uint64, error) {
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
 		pair := strings.Fields(line)
 		if len(pair) != 2 {
-			return nil, fmt.Errorf("无效 cgroup 统计行 %q", line)
+			return nil, fmt.Errorf("invalid cgroup statistics line %q", line)
 		}
 		if _, ok := fields[pair[0]]; ok {
-			return nil, fmt.Errorf("重复 cgroup 统计项 %q", pair[0])
+			return nil, fmt.Errorf("duplicate cgroup statistics entry %q", pair[0])
 		}
 		value, err := strconv.ParseUint(pair[1], 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("无效 %s 计量: %w", pair[0], err)
+			return nil, fmt.Errorf("invalid %s measurement: %w", pair[0], err)
 		}
 		fields[pair[0]] = value
 	}
@@ -30,7 +30,7 @@ func parseFields(data []byte) (map[string]uint64, error) {
 func required(fields map[string]uint64, name string) (uint64, error) {
 	value, ok := fields[name]
 	if !ok {
-		return 0, fmt.Errorf("缺少 cgroup 统计项 %s", name)
+		return 0, fmt.Errorf("missing cgroup statistics entry %s", name)
 	}
 	return value, nil
 }
@@ -46,12 +46,12 @@ func parseSnapshot(cpu, peak, memory, pids, events []byte) (Snapshot, error) {
 		return s, err
 	}
 	if usage > math.MaxInt64/1000 {
-		return s, fmt.Errorf("CPU 微秒换纳秒溢出")
+		return s, fmt.Errorf("CPU microsecond to nanosecond conversion overflowed")
 	}
 	s.CPUNs = int64(usage) * 1000
 	s.MemoryBytes, err = strconv.ParseInt(strings.TrimSpace(string(peak)), 10, 64)
 	if err != nil || s.MemoryBytes < 0 {
-		return Snapshot{}, fmt.Errorf("无效 memory.peak %q", peak)
+		return Snapshot{}, fmt.Errorf("invalid memory.peak %q", peak)
 	}
 	m, err := parseFields(memory)
 	if err != nil {
@@ -82,7 +82,7 @@ func parseSnapshot(cpu, peak, memory, pids, events []byte) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	if populated > 1 {
-		return Snapshot{}, fmt.Errorf("无效 populated: %d", populated)
+		return Snapshot{}, fmt.Errorf("invalid populated: %d", populated)
 	}
 	s.Populated = populated == 1
 	return s, nil

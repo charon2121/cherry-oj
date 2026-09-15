@@ -42,7 +42,7 @@ func limitsFrom(values [limitFieldCount]int64, present uint8) Limits {
 func (l Limits) Validate() error {
 	for i, value := range l.values() {
 		if value < 0 || (i == limitProcesses && value > math.MaxInt32) {
-			return fmt.Errorf("limits.%s 超出允许范围: %d", limitNames[i], value)
+			return fmt.Errorf("limits.%s is out of the allowed range: %d", limitNames[i], value)
 		}
 	}
 	return nil
@@ -55,7 +55,7 @@ func (l Limits) WithDefaults(defaults Limits) (Limits, error) {
 		return Limits{}, err
 	}
 	if err := defaults.Validate(); err != nil {
-		return Limits{}, fmt.Errorf("默认限额无效: %w", err)
+		return Limits{}, fmt.Errorf("invalid default limits: %w", err)
 	}
 	values, fallback := l.values(), defaults.values()
 	for i := range values {
@@ -83,14 +83,14 @@ func (l *Limits) UnmarshalJSON(data []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	token, err := decoder.Token()
 	if err != nil || token != json.Delim('{') {
-		return fmt.Errorf("limits 必须是对象")
+		return fmt.Errorf("limits must be an object")
 	}
 	var values [limitFieldCount]int64
 	var present uint8
 	for decoder.More() {
 		token, err = decoder.Token()
 		if err != nil {
-			return fmt.Errorf("读取 limits 字段: %w", err)
+			return fmt.Errorf("read limits field: %w", err)
 		}
 		index := limitFieldCount
 		for i, name := range limitNames {
@@ -100,23 +100,23 @@ func (l *Limits) UnmarshalJSON(data []byte) error {
 			}
 		}
 		if index == limitFieldCount {
-			return fmt.Errorf("未知 limits 字段: %v", token)
+			return fmt.Errorf("unknown limits field: %v", token)
 		}
 		if present&(1<<index) != 0 {
-			return fmt.Errorf("重复 limits 字段: %v", token)
+			return fmt.Errorf("duplicate limits field: %v", token)
 		}
 		var value *int64
 		if err := decoder.Decode(&value); err != nil {
 			return fmt.Errorf("limits.%s: %w", limitNames[index], err)
 		}
 		if value == nil || *value < 0 || (index == limitProcesses && *value > math.MaxInt32) {
-			return fmt.Errorf("limits.%s 必须是允许范围内的非负整数", limitNames[index])
+			return fmt.Errorf("limits.%s must be a non-negative integer within the allowed range", limitNames[index])
 		}
 		values[index] = *value
 		present |= 1 << index
 	}
 	if _, err := decoder.Token(); err != nil {
-		return fmt.Errorf("limits 对象未结束: %w", err)
+		return fmt.Errorf("limits object was not terminated: %w", err)
 	}
 	*l = limitsFrom(values, present)
 	return nil

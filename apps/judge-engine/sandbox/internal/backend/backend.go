@@ -79,7 +79,7 @@ type Backend interface {
 // 新任务——残留的进程或挂载会与后续执行重叠。调用方据此停止接单，而不是继续跑下一条命令。
 type CleanupError struct{ Err error }
 
-func (e *CleanupError) Error() string { return "回收未确认: " + e.Err.Error() }
+func (e *CleanupError) Error() string { return "reclaim unconfirmed: " + e.Err.Error() }
 func (e *CleanupError) Unwrap() error { return e.Err }
 
 func cleanupFailed(format string, args ...any) error {

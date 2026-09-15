@@ -36,10 +36,10 @@ func collectArtifacts(source artifactSource, names []string) (*artifactSet, erro
 			continue
 		}
 		if err != nil {
-			return set, fmt.Errorf("打开产物 %s: %w", name, err)
+			return set, fmt.Errorf("open artifact %s: %w", name, err)
 		}
 		if size < 0 || size > hostexec.MaxArtifactBytes-total {
-			return set, errors.Join(fmt.Errorf("产物总量超限: %s", name), file.Close())
+			return set, errors.Join(fmt.Errorf("artifact total exceeds the limit: %s", name), file.Close())
 		}
 		total += size
 		set.outputs = append(set.outputs, hostexec.Output{Path: name, SizeBytes: size})
@@ -75,11 +75,11 @@ func (r *executionResult) WriteFiles(w io.Writer) error {
 		files = r.artifacts.files
 	}
 	if len(files) != len(r.Outputs) {
-		return fmt.Errorf("产物句柄与元数据不一致")
+		return fmt.Errorf("artifact handle disagrees with its metadata")
 	}
 	for i, file := range files {
 		if _, err := io.CopyN(w, file, r.Outputs[i].SizeBytes); err != nil {
-			return fmt.Errorf("交付产物 %s: %w", r.Outputs[i].Path, err)
+			return fmt.Errorf("deliver artifact %s: %w", r.Outputs[i].Path, err)
 		}
 	}
 	return nil

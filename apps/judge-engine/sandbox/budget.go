@@ -23,12 +23,10 @@ const (
 // 而不是只在正确取值下跑一遍等于没测。
 func checkBudget(httpWrite, session, maxWall time.Duration) error {
 	if httpWrite <= session {
-		return fmt.Errorf("HTTP 写期限（%s）必须大于本机会话期限（%s）："+
-			"否则连接会先被切断，调用方看到的是传输失败而不是执行结论", httpWrite, session)
+		return fmt.Errorf("the HTTP write deadline (%s) must be greater than the local session deadline (%s): otherwise the connection is cut first and the caller sees a transport failure instead of an execution conclusion", httpWrite, session)
 	}
 	if session <= maxWall {
-		return fmt.Errorf("本机会话期限（%s）必须大于单次执行墙钟硬界（%s）："+
-			"否则达到墙钟上限的命令会先被会话期限打断，超时被报成平台错误", session, maxWall)
+		return fmt.Errorf("the local session deadline (%s) must be greater than the single-execution wall-clock hard limit (%s): otherwise a command that reaches its wall-clock limit is interrupted by the session deadline first, and the timeout is reported as a platform error", session, maxWall)
 	}
 	return nil
 }

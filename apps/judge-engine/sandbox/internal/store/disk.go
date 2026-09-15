@@ -64,7 +64,7 @@ func NewDiskStoreWithRoot(root string) (*diskStore, error) {
 // New 只接管显式私有目录；独占锁防止两个服务绕过各自的总量统计。
 func New(root string, opts Options) (*diskStore, error) {
 	if root == "" || opts.MaxBlobBytes <= 0 || opts.MaxBlobBytes > 64<<20 || opts.MaxTotalBytes < opts.MaxBlobBytes || opts.MaxEntries <= 0 || opts.Retention <= 0 {
-		return nil, fmt.Errorf("store目录/容量/保留期无效")
+		return nil, fmt.Errorf("invalid store directory/capacity/retention")
 	}
 	abs, e := filepath.Abs(root)
 	if e != nil {
@@ -78,7 +78,7 @@ func New(root string, opts Options) (*diskStore, error) {
 		return nil, e
 	}
 	if !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
-		return nil, fmt.Errorf("store必须是私有目录: %s", abs)
+		return nil, fmt.Errorf("store must be a private directory: %s", abs)
 	}
 	dir, e := os.OpenRoot(abs)
 	if e != nil {
@@ -95,7 +95,7 @@ func New(root string, opts Options) (*diskStore, error) {
 	if e != nil {
 		lock.Close()
 		dir.Close()
-		return nil, fmt.Errorf("store独占锁: %w", e)
+		return nil, fmt.Errorf("store exclusive lock: %w", e)
 	}
 	s := &diskStore{root: abs, dir: dir, lock: lock, opts: opts, entries: map[string]*entry{}}
 	if e = s.load(); e != nil {
@@ -111,7 +111,7 @@ func regular(f *os.File) error {
 	}
 	st, ok := info.Sys().(*syscall.Stat_t)
 	if !info.Mode().IsRegular() || !ok || st.Nlink != 1 || int(st.Uid) != os.Geteuid() {
-		return fmt.Errorf("store拒绝非独占普通文件: %s", f.Name())
+		return fmt.Errorf("store refuses a non-exclusive regular file: %s", f.Name())
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (s *diskStore) load() error {
 		}
 		pending := strings.HasPrefix(name, ".pending-") && refPattern.MatchString(strings.TrimPrefix(name, ".pending-"))
 		if !refPattern.MatchString(name) && !pending {
-			return fmt.Errorf("store未知条目: %q", name)
+			return fmt.Errorf("unknown store entry: %q", name)
 		}
 		f, e := s.dir.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 		if e != nil {
@@ -207,7 +207,7 @@ func (s *diskStore) Put(r io.Reader) (string, error) {
 	}
 	if _, err := s.dir.Lstat(ref); !errors.Is(err, os.ErrNotExist) {
 		s.mu.Unlock()
-		return "", fmt.Errorf("store目标ref冲突或不可检查: %s: %v", ref, err)
+		return "", fmt.Errorf("store target ref conflicts or cannot be checked: %s: %v", ref, err)
 	}
 	f, e := s.dir.OpenFile(".pending-"+ref, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if e != nil {
@@ -273,7 +273,7 @@ func (s *diskStore) Get(ref string) (io.ReadCloser, error) {
 	info, e := f.Stat()
 	if e != nil || info.Size() != x.size {
 		f.Close()
-		return nil, fmt.Errorf("store条目大小改变: %s", ref)
+		return nil, fmt.Errorf("store entry changed size: %s", ref)
 	}
 	x.readers++
 	return &reader{File: f, release: func() {
@@ -343,7 +343,7 @@ func (s *diskStore) Close() error {
 	}
 	for _, x := range s.entries {
 		if x.readers > 0 {
-			return fmt.Errorf("store仍有在途文件操作")
+			return fmt.Errorf("the store still has file operations in flight")
 		}
 	}
 	s.closed = true

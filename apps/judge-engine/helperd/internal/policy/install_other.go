@@ -4,4 +4,6 @@ package policy
 
 import "fmt"
 
-func Install(Profile) error { return fmt.Errorf("seccomp 首版仅实现 Linux/amd64 原生 ABI") }
+func Install(Profile) error {
+	return fmt.Errorf("seccomp in this version only implements the Linux/amd64 native ABI")
+}

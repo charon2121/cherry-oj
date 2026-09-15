@@ -19,28 +19,28 @@ type Config struct {
 func (c Config) Validate() error {
 	for _, p := range []string{c.SocketPath, c.StateDir, c.JobsDir, c.RootFS, c.ManifestPath} {
 		if !filepath.IsAbs(p) || filepath.Clean(p) != p || p == "/" {
-			return fmt.Errorf("helper 路径必须为明确的绝对路径")
+			return fmt.Errorf("helper paths must be explicit absolute paths")
 		}
 	}
 	if filepath.Dir(c.SocketPath) != c.StateDir {
-		return fmt.Errorf("socket 必须位于独占 state 目录")
+		return fmt.Errorf("the socket must live in the exclusive state directory")
 	}
 	if c.ServiceGID <= 0 || c.ServiceUID <= 0 || c.PayloadUID <= 0 || c.PayloadGID <= 0 || c.InitUID <= 0 || c.InitGID <= 0 || c.ServiceUID == c.PayloadUID || c.ServiceUID == c.InitUID || c.PayloadUID == c.InitUID || c.PayloadGID == c.InitGID || c.ServiceGID == c.PayloadGID || c.ServiceGID == c.InitGID {
-		return fmt.Errorf("服务、init、payload 必须使用分离的非 root 身份")
+		return fmt.Errorf("service, init and payload must use separate non-root identities")
 	}
 	for _, id := range []int{c.ServiceUID, c.ServiceGID, c.PayloadUID, c.PayloadGID, c.InitUID, c.InitGID} {
 		if uint64(id) >= 1<<32-1 {
-			return fmt.Errorf("身份越界")
+			return fmt.Errorf("identity out of range")
 		}
 	}
 	if c.Parallelism < 1 || c.Parallelism > 4 {
-		return fmt.Errorf("并发必须为 1～4")
+		return fmt.Errorf("concurrency must be 1 to 4")
 	}
 	if err := c.validateSlotIdentities(); err != nil {
 		return err
 	}
 	if len(c.ManifestSHA256) != 64 {
-		return fmt.Errorf("必须固定 rootfs manifest 摘要")
+		return fmt.Errorf("the rootfs manifest digest must be pinned")
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func (c Config) Validate() error {
 func LoadConfig(path string) (Config, error) {
 	var c Config
 	if !filepath.IsAbs(path) {
-		return c, fmt.Errorf("配置需要绝对路径")
+		return c, fmt.Errorf("configuration requires an absolute path")
 	}
 	if err := checkConfigPath(path); err != nil {
 		return c, err
@@ -65,7 +65,7 @@ func LoadConfig(path string) (Config, error) {
 		return c, err
 	}
 	if !st.Mode().IsRegular() || st.Size() > 64<<10 {
-		return c, fmt.Errorf("配置不是有界普通文件")
+		return c, fmt.Errorf("configuration is not a bounded regular file")
 	}
 	d := json.NewDecoder(f)
 	d.DisallowUnknownFields()
@@ -74,7 +74,7 @@ func LoadConfig(path string) (Config, error) {
 	}
 	var extra any
 	if d.Decode(&extra) != io.EOF {
-		return c, fmt.Errorf("配置有尾随内容")
+		return c, fmt.Errorf("configuration has trailing content")
 	}
 	return c, c.Validate()
 }

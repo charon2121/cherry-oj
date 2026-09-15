@@ -70,7 +70,7 @@ type RunResult struct {
 func (f *FileSource) UnmarshalJSON(data []byte) error {
 	// json 把 null 解成空串且 err==nil，先挡掉
 	if s := strings.TrimSpace(string(data)); s == "" || s == "null" {
-		return fmt.Errorf("stdin/inputs 必须是字符串或 {ref|text} 对象")
+		return fmt.Errorf("stdin/inputs must be a string or a {ref|text} object")
 	}
 
 	// 形态 1：裸字符串
@@ -91,11 +91,11 @@ func (f *FileSource) UnmarshalJSON(data []byte) error {
 	type alias FileSource
 	var a alias
 	if err := json.Unmarshal(data, &a); err != nil {
-		return fmt.Errorf("stdin/inputs 必须是字符串或 {ref|text} 对象: %w", err)
+		return fmt.Errorf("stdin/inputs must be a string or a {ref|text} object: %w", err)
 	}
 	if (a.Ref == "") == (a.Text == "") {
 		// 都空（{} / 未知字段）或都有 → 不是合法的二选一
-		return fmt.Errorf("stdin/inputs 对象必须且只能提供 ref 或 text 之一")
+		return fmt.Errorf("a stdin/inputs object must provide exactly one of ref or text")
 	}
 	*f = FileSource(a)
 	return nil

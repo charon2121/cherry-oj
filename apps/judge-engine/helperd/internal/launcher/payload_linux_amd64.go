@@ -117,7 +117,7 @@ func readHandshake(r io.Reader, want byte) error {
 		return err
 	}
 	if value[0] != want {
-		return fmt.Errorf("无效握手字节")
+		return fmt.Errorf("invalid handshake byte")
 	}
 	return nil
 }

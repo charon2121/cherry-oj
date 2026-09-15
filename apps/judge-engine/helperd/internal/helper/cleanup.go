@@ -53,7 +53,7 @@ func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	x.result.Stderr = completion.stderr
 	x.result.OutputExceeded = completion.outputExceeded
 
-	cleanupErr := errors.Join(wrapError("停止资源组", facts.groupErr), waitErr)
+	cleanupErr := errors.Join(wrapError("stop resource group", facts.groupErr), waitErr)
 	// 只有停组和全部等待成功，才从进程取得工作区并打开受控产物。
 	var workspace artifactSource
 	if cleanupErr == nil && completion.stopped && x.runErr == nil {
@@ -70,7 +70,7 @@ func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	}
 	cleanupErr = errors.Join(cleanupErr, x.process.Close())
 	if x.group != nil {
-		cleanupErr = errors.Join(cleanupErr, wrapError("删除资源组", x.group.Close(cleanup)))
+		cleanupErr = errors.Join(cleanupErr, wrapError("remove resource group", x.group.Close(cleanup)))
 	}
 	// 无法确认整组及 init 停止时保留宿主目录，不用递归删除掩盖残留。
 	if facts.groupErr == nil && completion.stopped {

@@ -41,10 +41,10 @@ func securePath(p string, dir bool) error {
 			return err
 		}
 		if stat.Uid != 0 || st.Mode()&0022 != 0 || st.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("路径必须 root 所有且非 root 不可写: %s", cur)
+			return fmt.Errorf("path must be owned by root and not writable by non-root: %s", cur)
 		}
 		if cur == p && dir && !st.IsDir() {
-			return fmt.Errorf("需要目录: %s", cur)
+			return fmt.Errorf("a directory is required: %s", cur)
 		}
 		if cur == "/" {
 			break
@@ -69,23 +69,23 @@ func verifyRoot(c Config) error {
 		return err
 	}
 	if len(data) > 8<<20 {
-		return fmt.Errorf("manifest 过大")
+		return fmt.Errorf("manifest is too large")
 	}
 	h := sha256.Sum256(data)
 	if hex.EncodeToString(h[:]) != c.ManifestSHA256 {
-		return fmt.Errorf("manifest 摘要不匹配")
+		return fmt.Errorf("manifest digest mismatch")
 	}
 	var m Manifest
 	if err = json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 	if m.Version != 1 || m.Source == "" || len(m.Entries) == 0 {
-		return fmt.Errorf("manifest 缺版本/来源/文件")
+		return fmt.Errorf("manifest is missing version, source or files")
 	}
 	entries := map[string]ManifestEntry{}
 	for _, e := range m.Entries {
 		if e.Path == "." || !fs.ValidPath(e.Path) || entries[e.Path].Path != "" {
-			return fmt.Errorf("manifest 路径错误")
+			return fmt.Errorf("invalid manifest path")
 		}
 		entries[e.Path] = e
 	}
@@ -103,7 +103,7 @@ func verifyRoot(c Config) error {
 		}
 		entry, ok := entries[rel]
 		if !ok {
-			return fmt.Errorf("rootfs 出现未登记文件 %s", rel)
+			return fmt.Errorf("rootfs contains unlisted file %s", rel)
 		}
 		delete(entries, rel)
 		var st unix.Stat_t
@@ -111,15 +111,15 @@ func verifyRoot(c Config) error {
 			return err
 		}
 		if st.Uid != 0 || st.Mode&0022 != 0 && st.Mode&unix.S_IFMT != unix.S_IFLNK {
-			return fmt.Errorf("rootfs 权限错误 %s", rel)
+			return fmt.Errorf("wrong rootfs permissions %s", rel)
 		}
 		if st.Mode&07777 != entry.Mode {
-			return fmt.Errorf("rootfs mode 不匹配 %s", rel)
+			return fmt.Errorf("rootfs mode mismatch %s", rel)
 		}
 		switch st.Mode & unix.S_IFMT {
 		case unix.S_IFDIR:
 			if entry.SHA256 != "" || entry.Link != "" {
-				return fmt.Errorf("目录 manifest 错误")
+				return fmt.Errorf("invalid directory manifest")
 			}
 		case unix.S_IFLNK:
 			link, err := os.Readlink(p)
@@ -127,11 +127,11 @@ func verifyRoot(c Config) error {
 				return err
 			}
 			if link != entry.Link {
-				return fmt.Errorf("链接不匹配")
+				return fmt.Errorf("link mismatch")
 			}
 		case unix.S_IFREG:
 			if st.Nlink != 1 {
-				return fmt.Errorf("rootfs 拒绝硬链接")
+				return fmt.Errorf("rootfs refuses hard links")
 			}
 			f, err := os.Open(p)
 			if err != nil {
@@ -147,10 +147,10 @@ func verifyRoot(c Config) error {
 				return ce
 			}
 			if hex.EncodeToString(hash.Sum(nil)) != entry.SHA256 {
-				return fmt.Errorf("rootfs 文件摘要错误 %s", rel)
+				return fmt.Errorf("wrong rootfs file digest %s", rel)
 			}
 		default:
-			return fmt.Errorf("rootfs 拒绝特殊文件")
+			return fmt.Errorf("rootfs refuses special files")
 		}
 		return nil
 	})
@@ -158,7 +158,7 @@ func verifyRoot(c Config) error {
 		return err
 	}
 	if len(entries) != 0 {
-		return fmt.Errorf("rootfs 缺 manifest 文件")
+		return fmt.Errorf("rootfs is missing manifest file")
 	}
 	for _, p := range []string{"work", "tmp", "proc", "dev", ".oldroot", ".sandbox"} {
 		st, err := os.Lstat(filepath.Join(c.RootFS, p))
@@ -166,7 +166,7 @@ func verifyRoot(c Config) error {
 			return err
 		}
 		if !st.IsDir() {
-			return fmt.Errorf("挂载点不是目录")
+			return fmt.Errorf("mount point is not a directory")
 		}
 	}
 	st, err := os.Lstat(filepath.Join(c.RootFS, ".sandbox/launcher"))
@@ -174,11 +174,11 @@ func verifyRoot(c Config) error {
 		return err
 	}
 	if !st.Mode().IsRegular() {
-		return fmt.Errorf("启动器挂载点必须普通文件")
+		return fmt.Errorf("launcher mount point must be a regular file")
 	}
 	// root 专有目录保留可信 re-exec 启动器；降权后的 payload 不能访问该入口。
 	if st, err = os.Stat(filepath.Join(c.RootFS, ".sandbox")); err != nil || st.Mode().Perm() != 0700 {
-		return fmt.Errorf(".sandbox 目录必须 root 0700")
+		return fmt.Errorf(".sandbox directory must be root 0700")
 	}
 	return nil
 }

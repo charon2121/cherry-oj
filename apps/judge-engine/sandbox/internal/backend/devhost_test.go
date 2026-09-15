@@ -220,7 +220,7 @@ func TestCleanupErrorIsDistinguishable(t *testing.T) {
 	if !errors.As(err, &target) {
 		t.Fatal("回收失败没有被识别为 CleanupError")
 	}
-	if !strings.Contains(err.Error(), "回收未确认") {
+	if !strings.Contains(err.Error(), "reclaim unconfirmed") {
 		t.Fatalf("错误信息没有点明回收未确认: %v", err)
 	}
 }

@@ -37,35 +37,35 @@ type ExecSpec struct {
 
 func (s ExecSpec) validate() error {
 	if s.UID <= 0 || s.GID <= 0 || uint64(s.UID) >= invalidLinuxID || uint64(s.GID) >= invalidLinuxID {
-		return fmt.Errorf("payload 必须使用有效的专用非 root UID/GID")
+		return fmt.Errorf("payload must use a valid dedicated non-root UID/GID")
 	}
 	if s.Path == "" || !strings.HasPrefix(s.Path, "/") || strings.IndexByte(s.Path, 0) >= 0 {
-		return fmt.Errorf("payload 路径必须是隔离根内已解析的绝对路径")
+		return fmt.Errorf("payload path must be a resolved absolute path inside the isolation root")
 	}
 	if len(s.Args) == 0 || len(s.Args) > maxExecArgs || len(s.Env) > maxExecEnvEntries {
-		return fmt.Errorf("payload 参数/环境条目数无效")
+		return fmt.Errorf("invalid payload argument/environment entry count")
 	}
 	total := len(s.Path)
 	for _, v := range append(append([]string(nil), s.Args...), s.Env...) {
 		total += len(v) + 1
 		if strings.IndexByte(v, 0) >= 0 {
-			return fmt.Errorf("payload 参数/环境不能包含 NUL")
+			return fmt.Errorf("payload arguments/environment must not contain NUL")
 		}
 	}
 	if total > maxExecStringBytes {
-		return fmt.Errorf("payload 参数/环境超过 64KiB")
+		return fmt.Errorf("payload arguments/environment exceed 64KiB")
 	}
 	if s.NoFile < minExecNoFile || s.NoFile > maxExecNoFile || s.FileSizeBytes == 0 || s.FileSizeBytes > maxExecFileSizeBytes {
-		return fmt.Errorf("payload rlimit 超过节点启动器边界")
+		return fmt.Errorf("payload rlimit exceeds the node launcher boundary")
 	}
 	if s.ErrorFD < ExtraFilesBaseFD || uint64(s.ErrorFD) >= s.NoFile {
-		return fmt.Errorf("payload 错误 FD 无效")
+		return fmt.Errorf("invalid payload error FD")
 	}
 	if s.ReadyFD != 0 && (s.ReadyFD < ExtraFilesBaseFD || uint64(s.ReadyFD) >= s.NoFile || s.ReadyFD == s.ErrorFD) {
-		return fmt.Errorf("payload READY FD 无效")
+		return fmt.Errorf("invalid payload READY FD")
 	}
 	if s.Profile != policy.Command && s.Profile != policy.Toolchain {
-		return fmt.Errorf("payload 策略无效")
+		return fmt.Errorf("invalid payload policy")
 	}
 	return nil
 }

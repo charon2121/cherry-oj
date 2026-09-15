@@ -30,7 +30,7 @@ func (x *execution) supervise(ctx context.Context) supervisionOutcome {
 			out.reason = hostexec.ReasonWall
 			return out
 		case executionStartupExpired:
-			out.fail(fmt.Errorf("隔离启动握手超时"))
+			out.fail(fmt.Errorf("isolated startup handshake timed out"))
 			return out
 		case executionSampleDue:
 			if reason, err := x.cpuBudget(); reason != "" {
@@ -52,7 +52,7 @@ func (x *execution) supervise(ctx context.Context) supervisionOutcome {
 			// 快照成功且本组确有受害进程时，退出报告的丢失可能由 OOM 解释，留给 conclude 判定。
 			out.reportLost = err == nil
 			if err != nil || snap.OOMKill == 0 {
-				out.fail(fmt.Errorf("可信 init 在报告退出事实前终止: %w", errors.Join(errInitLost, err)))
+				out.fail(fmt.Errorf("trusted init died before reporting the exit facts: %w", errors.Join(errInitLost, err)))
 			}
 			return out
 		case processReady:

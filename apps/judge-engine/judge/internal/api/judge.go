@@ -53,16 +53,16 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 	decoder := json.NewDecoder(body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&wire); err != nil {
-		return contract.JudgeRequest{}, fmt.Errorf("解析 JudgeRequest: %w", err)
+		return contract.JudgeRequest{}, fmt.Errorf("parse JudgeRequest: %w", err)
 	}
 
 	// 一个请求体只能有一个 JSON 值。否则 `{} {}` 会悄悄忽略后半段。
 	var trailing json.RawMessage
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		if err == nil {
-			return contract.JudgeRequest{}, fmt.Errorf("JudgeRequest 后还有多余的 JSON 值")
+			return contract.JudgeRequest{}, fmt.Errorf("extra JSON value after JudgeRequest")
 		}
-		return contract.JudgeRequest{}, fmt.Errorf("解析 JudgeRequest 尾部: %w", err)
+		return contract.JudgeRequest{}, fmt.Errorf("parse the tail after JudgeRequest: %w", err)
 	}
 
 	if wire.SubmissionID == nil {
@@ -126,5 +126,5 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 }
 
 func missing(field string) error {
-	return fmt.Errorf("缺少必填字段 %s", field)
+	return fmt.Errorf("missing required field %s", field)
 }
