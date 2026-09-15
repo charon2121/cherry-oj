@@ -2,7 +2,7 @@
 id: "TASK-129"
 type: "task"
 title: "S5 提取执行结论纯函数与显式状态转移"
-status: "doing"
+status: "done"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-128"]
@@ -64,12 +64,12 @@ updated_at: "2026-09-15"
 
 ## 完成标准
 
-- [ ] `Conclude` 不含任何输入输出调用，不接收指针接收者，不写任何包级或结构体字段。
-- [ ] `supervise` 与 `finish` 中不再存在对同一结论字段的先写后撤销。
-- [ ] 表驱动测试在 macOS 上通过，且每条用例的期望结论与基线 `a611be3` 的实际行为一致，对照结果
+- [x] `Conclude` 不含任何输入输出调用，不接收指针接收者，不写任何包级或结构体字段。
+- [x] `supervise` 与 `finish` 中不再存在对同一结论字段的先写后撤销。
+- [x] 表驱动测试在 macOS 上通过，且每条用例的期望结论与基线 `a611be3` 的实际行为一致，对照结果
       写入执行记录。
-- [ ] 状态机的每一条合法转移都有用例；至少一条非法转移用例断言返回错误。
-- [ ] Linux 回归中的结论与重构前逐条一致。
+- [x] 状态机的每一条合法转移都有用例；至少一条非法转移用例断言返回错误。
+- [x] Linux 回归中的结论与重构前逐条一致。
 
 ## 验证
 
@@ -120,6 +120,33 @@ gofmt -l . && go vet ./...
   逐一拒绝且错误信息指出是哪一步。
 - 2026-09-15：本地验证通过。darwin 与 linux/arm64 原生容器：`gofmt -l .` 无输出，
   `go vet ./...` 与 `GOOS=linux GOARCH=amd64 go vet ./...` 均无输出，`go test -race ./...` 全绿。
-- 2026-09-15：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归，需推送后由 CI 执行。
+- 2026-09-15：推送后 CI 的 Linux 隔离 job 失败且**稳定复现**，但失败消息只有
+  「helper socket did not become ready」——helper 要等每个槽位的启动冒烟都通过才开放 socket，
+  冒烟不过时真正的原因留在 helper 自己的输出里，外部看不到。本地又因真实链路需要 systemd
+  无法复现。因此先补一条诊断（`deploy/sandbox-linux/ci/kernel.py`）：socket 超时时把该单元
+  最近的日志一并带出。**这是一处刻意的范围外改动**——PLAN-041 允许改的是「因本工作而失效的
+  引用」，这条是新增诊断；理由是不加它就无法定位，且它只加输出、不改任何断言与流程。
+- 2026-09-15：诊断随即给出原因：`隔离启动能力冒烟失败: reason=cancelled`。
+  **缺陷由本阶段引入**：重排 `finish` 时把 `x.process.CancelInput()` 挪到了读取 `ctx.Err()`
+  之前。helper 的启动冒烟把 `probeCancel` 一并接进 `cancelInput`，于是解除输入阻塞的同时也
+  取消了这次执行自己的上下文，每次正常执行都被判成已取消。原实现先算 `Cancelled` 再
+  `CancelInput`，顺序是必要的，只是没有任何东西说明它必要。
+  已修复，并补与冒烟同样接线的回归用例；把该用例还原成有缺陷的写法会立刻失败，报
+  `reason="cancelled"`，与 CI 的现象逐字一致。
+- 2026-09-15：另修一处本阶段引入的缺陷：状态转移表漏了 `starting → cleanup-failed`。
+  资源组都没建起来时 Run 会直接走这一步，被表拒绝后错误里会混进一条无关的「非法转移」，
+  掩盖真正的建组失败原因。
+- 2026-09-15：**遗留观察（不属于本工作，建议另行立项）**：故障批次的容量用例
+  （`deploy/sandbox-linux/tests/fault_batch.py`）在枚举执行组并读取 `cgroup.procs` 时
+  存在竞态——组可能在枚举与读取之间被删除。该处已经预期到这种情况并捕获了
+  `FileNotFoundError`，但 cgroup v2 删除后读取返回的是 `ENODEV`，守卫漏了这个 errno，
+  于是抛出 `OSError: [Errno 19] No such device`。
+  同一提交重跑后通过，确认是偶发而非本阶段回归。
+  VERIFY-051 记录过同类问题（观测器把 cgroup 控制文件当成子目录），已在 4b5df32 修过业务侧；
+  这次是故障批次的同类遗漏。该文件在本任务的禁止修改范围内，未改动。
+- 2026-09-15：CI run 34928218217（attempt 2，sourceSha 2e90640）全绿，必需回归汇总
+  `"status": "PASS"`，93 项必需用例全部通过：basic 5/5、kernel 63/63、native 10/10、
+  business 15/15。至此 TASK-129 的完成标准全部满足。
 - 2026-09-15：状态变更：todo → ready。原因：前置 TASK-128 已完成
 - 2026-09-15：状态变更：ready → doing。原因：开始提取执行结论纯函数与显式状态转移
+- 2026-09-15：状态变更：doing → done。原因：S5 完成：结论纯函数、显式状态转移、对照表；CI 34928218217 全绿，93 项必需回归通过
