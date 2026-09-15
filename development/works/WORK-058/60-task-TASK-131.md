@@ -2,7 +2,7 @@
 id: "TASK-131"
 type: "task"
 title: "S7 统一错误消息语言并重写结构文档"
-status: "todo"
+status: "ready"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-128", "TASK-129", "TASK-130"]
@@ -14,7 +14,7 @@ read_paths: ["AGENTS.md", "CLAUDE.md", "docs", "development/README.md", "develop
 write_paths: ["apps/judge-engine", "docs/engine.md", "docs/coding-standards/languages/go.md", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md", "compose.yaml", "deploy/sandbox-linux/tests"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "docs/architecture.md", "docs/product.md", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml"]
 created_at: "2026-09-14"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 ---
 
 # TASK-131：S7 统一错误消息语言并重写结构文档
@@ -94,3 +94,4 @@ grep -rnE '(fmt\.Errorf|errors\.New)\("' --include='*.go' . | grep -P '[\x{4e00}
 ## 执行记录
 
 - 2026-09-14：创建任务。
+- 2026-09-15：状态变更：todo → ready。原因：前置 TASK-128/129/130 已全部完成
