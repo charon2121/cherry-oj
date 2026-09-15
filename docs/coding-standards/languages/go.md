@@ -43,7 +43,7 @@ go test -race ./...     # 全绿
 例子本来就取自本模块。这里只补 Go 特有的：
 
 - **别让名字结巴。** Go 的调用处自带包名，`pool.NewPool()` 读起来是「池池」。
-  用 `pool.New()`。同理 `container` 包里的文件叫 `host.go`，不是 `host_container.go`。
+  用 `pool.New()`。同理 `backend` 包里的文件叫 `devhost.go`，不是 `devhost_backend.go`。
 - **缩写全大写或全小写，不要驼峰**：`URL`、`ID`、`HTTP`——`Url`、`Id` 不是 Go 风格。
   非导出时全小写：`url`、`id`。
 - **`Get` 前缀只在真的有「取」的语义时用。** 单纯的字段访问器叫 `Name()` 而不是
@@ -102,9 +102,9 @@ func New(exec Executor, st store.Store, opts Options) *Server {
   `unexpected status 400` 会让人调试到怀疑人生。
 - **未知情况往严格的方向倒。** `worse()` 查不到的 verdict 当成最严重——
   写成「查不到返回 a」的话，某天加了新 verdict 忘了进表，结果是**错题判成 AC**。
-- **别把「业务失败」当成 error。** `client.Run` 返回 `(RunResult{TLE}, nil)` 是
+- **别把「业务失败」当成 error。** `sandboxclient.Run` 返回 `(RunResult{TLE}, nil)` 是
   完全正常的：HTTP 对话成功了，只是被跑的程序超时了。混了会把 TLE 报成 SE。
-- **外部字符串拼进路径前先用正则关死。** 已出现三次：`container.resolve`、
+- **外部字符串拼进路径前先用正则关死。** 已出现三次：`hostexec.ValidPath`、
   `store.refPattern`、`testcase.idPattern`。`filepath.Join(root, "../../etc")`
   会老老实实跳出去。
 
@@ -208,8 +208,10 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
 - **命令一律写裸名字走 PATH**（`g++`、`python3`、`sh`），别硬编码
   `/usr/bin/python3`——那会绕过部署环境的选择（macOS 上 `/usr/bin/python3` 是
   系统自带的 3.9，而机器上装的可能是 3.12）。
-- 工作目录内的可执行文件也**直接写名字**，不要 `./x`：container 的规则是
-  「命令名不含 `/` 且该文件存在于 workDir 时才解析成绝对路径」，`./x` 绕过了它。
+- 工作目录内的可执行文件也**直接写名字**，不要 `./x`：`backend.devhost` 的规则是
+  「命令名不含 `/` 且该文件存在于工作目录时才解析成绝对路径」，`./x` 绕过了它；
+  隔离侧的 `launcher.resolveCommand` 同样只接受裸名称，在隔离根内按 `/work`、
+  `/usr/bin`、`/bin` 依次解析，不理会请求里的 `PATH`。
 - **`os/exec` 不会像 shell 那样帮你回退到 `/bin/sh`。** 脚本必须带 shebang
   （`#!/bin/sh`），否则 `execve` 直接报 `exec format error`。权限要 `0o755`
   （可读**且**可执行），只给 `0o111` 解释器读不到内容。
@@ -236,6 +238,6 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
   `fakeSandbox` 假装整个执行层。判题逻辑的单测不该需要真起一个沙箱。
 - **黑盒（`package foo_test`）优先**；只有当断言必须读非导出字段或遍历非导出
   注册表时才用白盒，并在文件头注明理由（`language` 的一致性检查、
-  `container` 要读 `workDir`）。
+  `backend.devhost` 要读临时工作目录、`node/probe` 要注入受保护文件与 cgroup 读取器）。
 - **依赖本机工具链的集成测试用 `t.Skip`** 优雅退化，并在 CI 里打印工具链版本
   ——否则某天镜像变了、测试静默跳过也没人发现。

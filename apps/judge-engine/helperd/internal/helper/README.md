@@ -1,6 +1,6 @@
 # 特权 helper 的本地接口
 
-此组件由 WORK-048 实现并接入 sandbox 的 Linux Container 后端；首站验收范围见该工作记录。WORK-051 修正本机连接完成顺序，其回归证据单独记录。
+此组件由 WORK-048 实现并接入 sandbox 的 `linux` 隔离后端；首站验收范围见该工作记录。WORK-051 修正本机连接完成顺序，其回归证据单独记录。
 
 `cmd/sandbox-helper` 以 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64` 构建，使用 `--config /absolute/path/helper.json`。配置文件及祖先路径必须 root 所有且非 root 不可写；不支持 setuid 安装。示意配置（账号、摘要及 cgroup 路径必须来自独立节点部署，不能直接启动）：
 
@@ -26,11 +26,11 @@
 
 启动依次核验 rootfs 清单、取得进程独占锁、核对资源所有权标记、清理遗留资源，再使用真实隔离链运行只读 rootfs 中的 `true`。冒烟未通过不创建监听 socket。socket 为 root:ServiceGID / 0660，连接在解析请求前核验 SO_PEERCRED 的固定 ServiceUID；连接数受 Parallelism 限制，无内部排队。不得将此 Unix socket 暴露为公网代理。
 
-内部 Go 协议由 launcher.Request 定义：4 字节大端长度 + 最多 64 KiB JSON 元数据，随后按 Inputs 顺序及 StdinBytes 交付原始字节流。文件总输入上限 64 MiB，文件条目最多 128，拒绝宿主路径、UID、策略、挂载参数和用户传入 FD。参数使用已归一化的 Limits；CPU/墙钟/内存/进程零预算由上层 TASK-097 处理。元数据 5 秒期限；后续连接总期限 150 秒。客户端不主动半关闭写端，断线或多余数据取消执行。
+内部 Go 协议由 `internal/hostexec` 的 Request 定义（两端唯一的共享词汇，服务端与客户端互相看不见对方的实现）：4 字节大端长度 + 最多 64 KiB JSON 元数据，随后按 Inputs 顺序及 StdinBytes 交付原始字节流。文件总输入上限 64 MiB，文件条目最多 128，拒绝宿主路径、UID、策略、挂载参数和用户传入 FD。参数使用已归一化的 Limits；CPU/墙钟/内存/进程零预算由上层 TASK-097 处理。元数据 5 秒期限；后续连接总期限 150 秒。客户端不主动半关闭写端，断线或多余数据取消执行。
 
-返回有界 Result 事实帧，随后按 Outputs 顺序流式交付最多 64 MiB 产物。产物 FD 全部关闭后才发送 Completion 尾帧；连接处理的取消与清理返回后归还槽位，最后关闭 socket。helper.Call 必须验证尾帧并读到正常 EOF 后才返回成功，保证下一次调用不会撞上上一请求尚未归还的槽位。缺尾帧、尾部额外字节、reset、取消及超时均不能认定交付成功，EOF 等待沿用总期限和调用者上下文。客户端与 helper 按同一构建配套交付，不混用旧新版本。
+返回有界 Result 事实帧，随后按 Outputs 顺序流式交付最多 64 MiB 产物。产物 FD 全部关闭后才发送 Completion 尾帧；连接处理的取消与清理返回后归还槽位，最后关闭 socket。`hostexec/client.Call` 必须验证尾帧并读到正常 EOF 后才返回成功，保证下一次调用不会撞上上一请求尚未归还的槽位。缺尾帧、尾部额外字节、reset、取消及超时均不能认定交付成功，EOF 等待沿用总期限和调用者上下文。客户端与 helper 按同一构建配套交付，不混用旧新版本。
 
-产物交付全程占槽，慢读者仍受服务端 10 秒写期限和连接总期限限制；归还槽位后只执行本地 Unix socket 关闭，不再发送可能阻塞的数据。helper.Call 接管输入 ReadCloser，其 Close 必须可解除读取阻塞；产物消费回调同步处理受限 reader。没有 RunResult 判题/状态映射、blob 持久化或旧 pool 复用。
+产物交付全程占槽，慢读者仍受服务端 10 秒写期限和连接总期限限制；归还槽位后只执行本地 Unix socket 关闭，不再发送可能阻塞的数据。`Call` 接管输入 ReadCloser，其 Close 必须可解除读取阻塞；产物消费回调同步处理受限 reader。没有 RunResult 判题/状态映射、blob 持久化，也没有任何可复用的执行环境对象。
 
 接线层应先暂存产物，Call 成功后发布；返回错误时清理暂存内容。分发 helper 时须携带 Go 标准库及 golang.org/x/sys 的相应许可，具体交付包由 TASK-099 完成。
 
@@ -44,12 +44,15 @@
 
 ## 结构与所有权
 
-sandbox 使用 `api → pool → runner → Container`，Store 独立管理文件引用。Linux Container 负责与此处的单次输入/指定输出协议衔接；helper 只实现特权执行部分，runner 沿用 Container 接口。
+sandbox 使用 `api → pool → runner → backend.Backend`，Store 独立管理文件引用。`backend.Isolated` 负责与此处的单次输入/指定输出协议衔接；helper 只实现特权执行部分。
+
+`Backend.Execute` 是**一次性**调用：铺输入、跑命令、交付产物、回收资源，返回即代表回收完成。因此不存在「借一个环境、用完归还」的对象，也就没有复用带来的残留问题——上面这份「结束顺序」描述的正是这一次调用内部的收尾。
 
 - `server_linux_amd64.go` 的 service 持有监听、管理器和槽位；调用 execution.Run 后交付和关闭结果。
 - `execution.go` 的 execution 独占本次 cgroup 与终止状态。`Run` 统一启动、监督和 `cleanup.go` 中的最终回收；重复或并发 Run 被拒绝。
 - `isolation_plan.go` 持有经过复制的请求与固定 namespace、文件系统、资源和身份策略，不持有 FD，也不改变协议类型。
 - `process.go` 的 isolatedProcess 拥有握手、工作区目录、FD 与输入输出任务；`process_linux_amd64.go` 实际以 namespace + UseCgroupFD 启动 P4，`process_cleanup.go` 返回等待事实。execution 不访问这些原始通道。
+- `conclusion.go` 的 `conclude` 是纯函数：一组执行事实进去，一个结论出来，不掺任何 I/O；合法的状态转移写在 `state.go` 的显式转移表里。`cleanup.go` 里 `ctx.Err()` 必须在 `CancelInput()` 之前读，否则每次正常执行都会被判成已取消。
 - `delivery.go` 的 artifactSet 聚合受控产物，executionResult 接管后负责交付和关闭；重复关闭保留首次错误。
 - launcher 的 initSession 在 P4 调用 rootFilesystem.Prepare，再启动/放行 P5；rootFilesystem 负责挂载准备与局部 FD，无法替 P3 停组。最终 exec 的线程和系统调用限制保持原样。
 

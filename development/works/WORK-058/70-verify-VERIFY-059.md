@@ -45,8 +45,69 @@ updated_at: "2026-09-14"
 
 ## 检查与结果
 
-尚未执行。每阶段完成后在此追加：阶段、日期、环境（操作系统、架构、Go 版本、CI 运行编号）、
-实际命令、实际输出摘要、结论。
+S1–S6 的逐阶段证据（命令、输出摘要、CI 运行编号）记在各自的 TASK 执行记录里
+（[TASK-125](60-task-TASK-125.md) 至 [TASK-130](60-task-TASK-130.md)）；本文件不复制，
+只登记 S7 的独立检查，以及最终候选的合并结论。
+
+### S7：错误消息语言与文档实走（2026-09-15）
+
+环境：macOS（darwin/arm64），Go 版本取 `apps/judge-engine/go.mod`；交叉检查目标 linux/amd64。
+
+| 检查 | 命令 | 结果 |
+|---|---|---|
+| 格式 | `gofmt -l .` | 无输出 |
+| 静态检查（本机） | `go vet ./...` | 无输出 |
+| 静态检查（交叉） | `GOOS=linux GOARCH=amd64 go vet ./...` | 无输出（覆盖 `_linux_test.go` 与 `helperd/tests/boundary`） |
+| 测试 | `go test -race ./...` | 全部通过 |
+| AC-009 英文错误消息 | `grep -rnE '(fmt\.Errorf\|errors\.New)\(`?"' --include='*.go' . \| grep -P '[\x{4e00}-\x{9fff}]'` | 无输出（改写前 238 处） |
+| AC-009 动词序列不变 | 改写前后逐条比对 `%w`/`%s`/`%d`/`%q`/`%+v` 序列 | 238 处全部相等 |
+| AC-009 改动仅限消息 | 整份 diff 的删除行是否全部含汉字 | 241 行删除，全部含汉字 |
+| 文档链接 | `python3 scripts/docs_test.py` | 573 份文档入口与本地链接全部有效 |
+| 夹具自测 | `python3 deploy/sandbox-linux/ci/basic.py` | 5/5 PASS（含新增的 `business_journal` 三项） |
+| 工作文档 | `python3 scripts/work check` | 499 份通过（1 个与本工作无关的 WORK-033 提示） |
+
+关于 `go vet` 的边界：它能查出格式动词与实参**类型**不匹配，查不出 `%q` 被改写成 `%s`
+这类同类型替换。因此动词序列相等这一条是独立于 `vet` 的检查，不能用「vet 过了」代替。
+
+### AC-011 文档实走记录（2026-09-15）
+
+按重写后的 `docs/engine.md` 逐节对照源码。**发现两处文档与实现不符，均已改文档**：
+
+| 节 | 文档原先怎么写 | 实现是什么 | 处置 |
+|---|---|---|---|
+| §6.2 一次 `/run` 的内部顺序 | 先归一化限额，再由 `pool` 排队、打开 store、调用 `Execute` | 归一化在**排队之后**，发生在 `runner.Run` 里；打开 store 与调用 `Execute` 的也是 `runner` | 改文档为实际顺序，并补上「输出超限取消 `runCtx`、判定用原始 `ctx`」这条实走中确认的细节 |
+| §1.2 helperd 如何认对端 | 「用 `SO_PEERCRED`，不是靠 socket 文件权限」 | **双重约束**：socket 为 `root:ServiceGID / 0660` 先放行服务专用组，建立连接后再核对 `SO_PEERCRED` 的 UID | 改文档为双重约束 |
+
+逐节核对通过的部分：
+
+- §1.4 四条跨边界 import 均为编译期错误（S2 已构造验证，本次复核结论未变）。
+- §2 目录树与 `find` 输出一致；顶层 `internal/` 只有 `contract`、`hostexec`、`platform`。
+- §4 契约表与 `contracts/` 目录、`internal/hostexec` 的注释一致；黄金用例
+  `internal/hostexec/wire_test.go` 确实钉住三种帧的字节输出。
+- §5.1 judge 端点与 `judge/internal/api/server.go`、`node/install/api.go` 的路由一致。
+- §5.2 宽松配对与排序规则与 `testcase.Load` / `lessName` 一致（可转整数的按数值在前，其余按字符串在后，
+  落单 `.in` 跳过并记 warning）。
+- §5.3「只声明 cpp 不是遗漏」与 `identity` 的注释、Java 侧 `@Pattern(regexp="cpp")` 一致。
+- §6.1 sandbox 五个端点与 `sandbox/internal/api/server.go` 一致；`GET /version` 的隔离字段确实是
+  judge 节点模式的启动闸，且失败发生在 `net.Listen` 之前。
+- §6.3 `Job`/`OutputSink`/`Backend`/`Facts` 字段与 `backend.go` 逐字段一致。
+- §6.4 `NameLinux`/`NameDevHost` 常量、`allowUnsafeBackend` 默认拒绝、启动冒烟闸均与实现一致。
+- §6.6 `CleanupError` 的文案与 `pool.poison` 的行为一致。
+- §7.1 helperd 的自检项（`CGO_ENABLED=0`、root 托管、无 setuid、manifest 摘要钉住、三身份分离、
+  启动冒烟、恢复检查）逐条见于 `installation_linux_amd64.go` 与 `recovery_linux.go`。
+- §7.2 线格式与 `hostexec/protocol.go`、`result.go` 的常量与注释一致；
+  `Completion` 与正常 EOF 的分工与 `client.awaitCompletion` 一致。
+- §7.3 限额写后读回比对、新建 cgroup 不得有进程或历史计量，见 `cgroup.go`。
+- §7.5 `conclude` 为纯函数、`executionTransitions` 为显式表、`ctx.Err()` 必须早于 `CancelInput()`，
+  三条与 `conclusion.go` / `state.go` / `cleanup.go` 一致。
+- §8 三道期限的顺序与 `sandbox/budget.go` 的 `checkBudget`、`judge/internal/config/validation.go` 一致。
+
+AC-011 附带发现：`apps/judge-engine/README.md` 与 `helperd/internal/helper/README.md` 的路径与
+类型名全部指向旧结构，已一并重写（两者都在 TASK-131 的 `write_paths` 内）。
+
+### 待补
+
+最终候选的 CI 全量（AC-010）尚未运行；运行编号与 job 通过情况在此追加后本文件方可定稿。
 
 固定要求：
 
