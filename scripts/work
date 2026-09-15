@@ -214,6 +214,41 @@ FLOW_SECTION = "流程"
 FLOW_FILENAME = "flow.json"
 DEFINITION_KINDS = {"product", "feature", "capability", "issue", "change", "improvement"}
 PLACEHOLDER_MARKERS = ("TODO", "待补充", "待填写", "示例内容")
+# 占位检查原先是裸子串匹配，于是一份验证记录写「没有新增 TODO/FIXME 或注释掉的旧代码」
+# ——一条实打实的复核结论——会被判成「仍含占位内容」，把闸卡住。它惩罚的恰好是写得更具体的
+# 文档。判据改成两条：
+#   1. 引用性内容不算散文。围栏代码块与行内 `代码` 里的词是被引用的，不是留下的待办。
+#   2. 占位符出现在**该说内容的位置**，并且是个独立的词：它前面只有行首标记或字段标签的冒号，
+#      后面紧跟标点或行尾。「没有新增 TODO」前面有字，「待补充的部分已经补完」后面接着「的」，
+#      两者都是在提这个词，不是留了个待办。
+# 代价是漏判：真写成「这一节的内容待补充。」的占位符不会被发现。相比之下，
+# 挡住一份正确文档的代价更大——它会让人把正确的话改成迁就工具的话。
+FENCED_CODE = re.compile(r"(?ms)^```.*?^```\s*?$")
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+# 行首的 markdown 标记，以及可选的一个短字段标签（`- AC-001：待补充……`）。
+PLACEHOLDER_PREFIX = re.compile(r"[\s\-*>#\d.)\]]*(?:[^：:\n]{0,40}[：:]\s*)?$")
+# 占位符后面只会跟标点或行尾；跟着别的字说明它是句子的一部分。
+PLACEHOLDER_SUFFIX = re.compile(r"[\s：:。.，,、；;！!？?）)】\]」』\"\'/\\|]|$")
+
+
+def prose_of(body):
+    """去掉引用性内容后剩下的散文，供占位检查使用。"""
+    return INLINE_CODE.sub("", FENCED_CODE.sub("", body))
+
+
+def placeholder_markers(body):
+    """返回散文中真正作为占位符出现的标记。"""
+    found = []
+    for line in prose_of(body).splitlines():
+        for marker in PLACEHOLDER_MARKERS:
+            if marker in found:
+                continue
+            index = line.find(marker)
+            if index < 0 or not PLACEHOLDER_PREFIX.fullmatch(line[:index]):
+                continue
+            if PLACEHOLDER_SUFFIX.match(line[index + len(marker):]):
+                found.append(marker)
+    return [marker for marker in PLACEHOLDER_MARKERS if marker in found]
 FINAL_DOCUMENT_STATUSES = {"approved", "checked", "deprecated", "superseded", "archived"}
 SATISFIED_DEPENDENCY_STATUSES = {
     "approved",
@@ -1404,7 +1439,7 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
                 f"当前是 `## {headings[0]}`"
             )
     if metadata["status"] in FINAL_DOCUMENT_STATUSES | {"ready", "doing", "done", "verified", "implemented"}:
-        markers = [marker for marker in PLACEHOLDER_MARKERS if marker in document.body]
+        markers = placeholder_markers(document.body)
         if markers:
             errors.append(f"{prefix}: 稳定状态文档仍含占位内容：{', '.join(markers)}")
     if kind == "task" and metadata["status"] in {"ready", "doing", "done", "verified"}:

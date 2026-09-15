@@ -571,6 +571,28 @@ class WorkToolTest(unittest.TestCase):
         path = next(self.one_work_directory().glob(f"*-{document_id}.md"))
         return str(self.metadata(path)["status"])
 
+    def test_mentioning_a_marker_is_not_leaving_a_placeholder(self) -> None:
+        # 一份验证记录写「没有新增 TODO/FIXME」是复核结论，不是待办。裸子串匹配会把它判成占位，
+        # 于是正确的话反而要改成迁就工具的话——判据是位置，不是这个词出现过没有。
+        self.create_fast_work()
+        self.fill("CHANGE-001")
+        path = next(self.one_work_directory().glob("*-CHANGE-001.md"))
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + "\n## 复核结论\n\n没有新增 TODO/FIXME 或注释掉的旧代码。\n"
+            + "待补充的部分已经在上一轮补完。\n\n```\nTODO: 代码块里的词是被引用的\n```\n",
+            encoding="utf-8",
+        )
+        self.run_work("gate", "WORK-001", "intent", "--reason", "审核通过")
+
+        # 真正留在该写内容的位置上的占位符，仍然要被抓出来。
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\n## 影响\n\n待补充：这一节还没写。\n",
+            encoding="utf-8",
+        )
+        result = self.run_work("check", success=False)
+        self.assertIn("仍含占位内容：待补充", result.stderr)
+
     def test_intent_gate_settles_every_decision_document_at_once(self) -> None:
         self.create_full_work()
         self.fill("CHANGE-001", "DESIGN-001", "DECISION-001")
