@@ -138,6 +138,14 @@ go list -deps ./... | grep cherry-oj    # 人工核对依赖方向
   注：先前在 amd64 模拟下 `TestOutputRejectsLinksAndSpecialFiles` 报
   `function not implemented`，用上一提交 473144e 在同一容器做对照，失败方式完全一致，
   确认是 QEMU 未实现该系统调用，非本次引入。
+- 2026-09-15：推送后 CI（run 34921700536）「judge + sandbox（legacy 回退）」失败：镜像构建报
+  `package cherry-oj/judge-engine/judge is not in std`。原因在 `.dockerignore`：其中的
+  `judge` 与 `sandbox` 两条原本用于排除同名的**构建产物二进制**，新建的服务**目录**同名，
+  于是整棵源码树被挡在构建上下文之外。这两条现已失效——`judge`/`sandbox` 位置已是目录，
+  `go build -o judge` 不可能再产出同名文件——故直接删除。
+  本地用 CI 同款命令复现并验证：`docker compose build` 两个镜像构建成功；
+  `docker compose up --wait` 后调用 `/judge` 做 A+B 联调，`verdict=AC`、3 个测试点全 AC、
+  指纹 `local-compose`，与 CI 断言一致。
 - 2026-09-15：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归，需推送后由 CI 执行。
 - 2026-09-14：状态变更：todo → ready。原因：意图闸已签署
 - 2026-09-15：状态变更：ready → doing。原因：开始按信任与部署边界重排目录
