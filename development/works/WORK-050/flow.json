@@ -116,7 +116,7 @@
     "stage": "development",
     "label": "开发",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "TASK-109",
@@ -134,19 +134,19 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "pending",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [],
     "checks": [
       {
         "name": "impact-analysis",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "仅已记录CI/测试适配，生产修复由独立WORK审批，原服务器与用户数据未操作，重构未开始"
       },
       {
         "name": "independent-review",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "task113_review完成实现及取消/两轮基线独立复验，无阻断；前置任务复核记录保留"
       }
     ],
     "source": "profile:infra",
@@ -156,7 +156,7 @@
     "stage": "verification",
     "label": "验证",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-051"
@@ -164,18 +164,18 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "fail",
-        "note": "3a74fc7本地82基础及Web168测试通过；CI两次尝试均有三个Linux准备阶段TLS超时，浏览器诊断未实跑，TASK-112环境阻断，TASK-113未实施"
+        "result": "pass",
+        "note": "8fe6e41完整冷34703661410和热34703991365各12job、93项成功，152项本地基础与反例通过"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "1000次/并发/故障/原生恢复两轮通过，真实取消清理且汇总失败，未补造PASS"
       },
       {
         "name": "security",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "隔离/权限/资源/文件/回收断言两轮通过，同批次有界证据及独立复核无阻断"
       }
     ],
     "source": "profile:infra",
@@ -185,7 +185,7 @@
     "stage": "memory",
     "label": "项目记忆",
     "requirement": "required",
-    "status": "doing",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "MEMORY-037"

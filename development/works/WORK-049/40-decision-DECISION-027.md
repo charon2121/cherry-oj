@@ -2,7 +2,7 @@
 id: "DECISION-027"
 type: "decision"
 title: "按命令执行顺序重构 Go 判题引擎源码"
-status: "review"
+status: "approved"
 work: "WORK-049"
 owners: ["codex/root"]
 depends_on: ["DESIGN-043"]
@@ -11,7 +11,7 @@ implements: []
 verifies: []
 tags: []
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-13"
 ---
 
 # DECISION-027：阅读性重构与进程架构变更的边界
@@ -60,3 +60,4 @@ updated_at: "2026-09-10"
 ## 变更记录
 
 - 2026-09-10：状态变更：draft → review。原因：已完成执行主线、数字语义与等价边界的文档提案，提交人工审核；不授权实施
+- 2026-09-13：意图闸通过：review → approved。原因：确认基于已冻结的 CI 基线开展 judge-engine 重构，允许实施

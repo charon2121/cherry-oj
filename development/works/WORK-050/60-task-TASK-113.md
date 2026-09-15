@@ -2,7 +2,7 @@
 id: "TASK-113"
 type: "task"
 title: "验证CI汇总失败处理并交付重构基线"
-status: "doing"
+status: "done"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-112"]
@@ -14,7 +14,7 @@ read_paths: ["CLAUDE.md", "AGENTS.md", "development/README.md", "development/wor
 write_paths: ["deploy/sandbox-linux/tests/inspect_threads.py", "development/works/WORK-050", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "development/works/WORK-049"]
 forbidden_paths: ["apps/judge-engine/internal", "apps/judge-engine/cmd", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "contracts", "compose.yaml", "compose.legacy.yaml", "deploy/backend", "development/works/WORK-048", "AGETNTS.local.md", "apps/server", "apps/web"]
 created_at: "2026-09-10"
-updated_at: "2026-09-12"
+updated_at: "2026-09-13"
 ---
 
 # TASK-113：验证CI汇总失败处理并交付重构基线
@@ -49,11 +49,11 @@ ci.yml必需汇总、清单完整性/取消测试、脱敏产物策略、VERIFY-
 
 ## 完成标准
 
-- [ ] 所有必需job成功且同SHA报告完整、每case唯一且执行、清理成功才通过；独立复核/重启不冒充PASS。
-- [ ] 可控断言失败、缺case/报告、能力缺失、取消分别使汇总不成功；失败证据不被重跑覆盖。
-- [ ] 未参与实现者核对工作流权限、公开PR隔离、产物脱敏和资源回收，无未解决阻断；委派须符合现有授权规则。
-- [ ] 当前代码连续两次完整自动运行通过，至少一次冷缓存；归档源码/harness/环境/工具链摘要和实际运行链接。
-- [ ] WORK-049记录基线和同清单验证入口，源码重构开始依赖此结果，最终候选提交重新全量通过后才能声称回归无问题。
+- [x] 所有必需job成功且同SHA报告完整、每case唯一且执行、清理成功才通过；独立复核/重启不冒充PASS。
+- [x] 可控断言失败、缺case/报告、能力缺失、取消分别使汇总不成功；失败证据不被重跑覆盖。
+- [x] 未参与实现者核对工作流权限、公开PR隔离、产物脱敏和资源回收，无未解决阻断；委派须符合现有授权规则。
+- [x] 当前代码连续两次完整自动运行通过，至少一次冷缓存；归档源码/harness/环境/工具链摘要和实际运行链接。
+- [x] WORK-049记录基线和同清单验证入口，源码重构开始依赖此结果，最终候选提交重新全量通过后才能声称回归无问题。
 
 ## 验证
 
@@ -72,3 +72,6 @@ ci.yml必需汇总、清单完整性/取消测试、脱敏产物策略、VERIFY-
 - 2026-09-12：完成本地必需汇总、v2批次身份、保留历史artifact与完整冷缓存开关。147项基础回归、YAML/接线与文档校验通过。独立复核及本批发布/真实Actions取消/两轮完整基线尚未执行，任务保持doing；历史static-identity采样竞态仍需精确边界处理。
 
 - 2026-09-12：用户明确授权本批独立复核、修正后commit/push及真实Actions运行/取消；按此前已披露采样竞态，先追加唯一测试文件inspect_threads.py写边界。只把全部只读事实置于原2秒重试快照内，进程消失丢弃整份样本；不重试隔离断言失败、不延长期限或修改probe/生产实现。
+
+- 2026-09-13：8fe6e41真实取消正确拒绝汇总；同SHA冷34703661410/热34703991365各12job和93项成功且完整清理，独立复验通过。MEMORY-037冻结基线与WORK-049 PLAN-033交接完成，人工验收仍待用户。
+- 2026-09-13：状态变更：doing → done。原因：8fe6e41同SHA冷/热12job及93项连续全通过，真实取消和独立复验通过，MEMORY-037与WORK-049基线交接完成

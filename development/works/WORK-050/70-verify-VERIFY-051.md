@@ -2,17 +2,17 @@
 id: "VERIFY-051"
 type: "verify"
 title: "将沙箱已验收回归固化为重构 CI"
-status: "review"
+status: "approved"
 work: "WORK-050"
 owners: ["codex/root"]
 depends_on: ["TASK-109", "TASK-110", "TASK-111", "TASK-112", "TASK-113", "TASK-115"]
 related: []
 implements: []
-verifies: ["CAPABILITY-008#AC-001", "CAPABILITY-008#AC-002", "CAPABILITY-008#AC-003", "CAPABILITY-008#AC-004", "CAPABILITY-008#AC-005", "CAPABILITY-008#AC-006"]
+verifies: ["CAPABILITY-008#REQ-001", "CAPABILITY-008#REQ-002", "CAPABILITY-008#REQ-003", "CAPABILITY-008#REQ-004", "CAPABILITY-008#REQ-005", "CAPABILITY-008#REQ-006", "CAPABILITY-008#AC-001", "CAPABILITY-008#AC-002", "CAPABILITY-008#AC-003", "CAPABILITY-008#AC-004", "CAPABILITY-008#AC-005", "CAPABILITY-008#AC-006"]
 tags: []
-result: "pending"
+result: "pass"
 created_at: "2026-09-10"
-updated_at: "2026-09-10"
+updated_at: "2026-09-13"
 ---
 
 # VERIFY-051：回归 CI 验证记录
@@ -23,7 +23,7 @@ CAPABILITY-008 的用例映射、真实内核/原生部署/业务自动化、汇
 
 ## 对应要求
 
-AC-001～006分别对应清单、内核、部署、业务、失败/清理汇总以及两次基线。基础与Linux内核Actions已有实际执行证据；最新9ce5670的9项CI全部通过，原生部署10项及内核63项已执行；之前出现的内核EINTR另由已签署意图闸的WORK-052承接，业务与汇总尚未完成。下方按轮次保留历史状态与失败，不把旧记录视为当前结论。
+AC-001～006已满足技术验证。冻结提交8fe6e413a4cc0291204c298705403462ac4ed0d4，冷34703661410与热34703991365同SHA各12job、93项全部通过；详细摘要见[冻结基线](./80-memory-MEMORY-037.md#冻结基线)。下文历史轮次按原事实保留，不代表当前状态。
 
 ## 检查与结果
 
@@ -33,7 +33,7 @@ AC-001～006分别对应清单、内核、部署、业务、失败/清理汇总�
 
 ## 未通过项
 
-AC-001清单与基础接线已实现；AC-002已有63项内核测试及回收证据，WORK-051已独立复核并人工验收，TASK-110完成。AC-003的原生10项已在CI34504378807通过，TASK-111完成；已观察内核EINTR待WORK-052处理，AC-004～006尚未满足，不能从WORK-048旧报告复制PASS。
+本工作范围内无未通过的必需项。人工验收尚待用户签署；重构尚未开始。
 
 ## 范围检查
 
@@ -41,7 +41,7 @@ TASK-115按用户条件授权完成多轮诊断后，仅将可信语言功能测
 
 ## 遗留问题
 
-93个case已细化，Linux内核套件已运行；语言首次编译5秒不稳定已有复现，测试专用15秒已按条件授权实施并完成本轮验证；仍不承诺所有托管VM永不超时。原生部署自动化已发布且10项实跑通过；独立内核中断问题仍待处理，完整业务环境与总汇总尚未实现。
+重启恢复、其他Linux发行版/架构仍按原约定留置。真实取消实验覆盖已启动依赖和Java服务阶段，不宣称所有取消时点；在途沙箱故障回收另有内核/原生套件断言。GitHub原始产物保留14天，仓库基线摘要长期保存；重构候选必须重新执行整套CI，不能复用旧报告。
 
 ## 剩余风险
 
@@ -49,11 +49,12 @@ TASK-115按用户条件授权完成多轮诊断后，仅将可信语言功能测
 
 ## 结论
 
-result=pending；用户已签署意图闸并允许实施，验收闸未签署；完整CI仍在实现。
+result=pass：技术验证与独立复核通过，基线已交接WORK-049。WORK-050验收闸由用户签署，AI不代签。
 
 ## 变更记录
 
 - 2026-09-10：状态变更：draft → review。原因：已盘点既有验收与CI缺口，补齐分层方案、边界及验收条件供人工审核；尚未实施
+- 2026-09-13：验收闸通过：review → approved。原因：确认完整CI及冷热基线通过，接受已记录的取消验证范围与平台限制
 
 ## TASK-109 本地实施证据
 
@@ -360,3 +361,26 @@ TASK-112技术完成，可交回TASK-113汇总失败/取消/缺报告验证与�
 按PLAN先扩唯一测试文件边界后修正inspect_threads.py：namespace及mountinfo随线程/控制值在同一快照内读取，丢弃进程退出导致的不完整快照；原2秒期限和全部隔离断言不变。故障注入覆盖namespace与mountinfo中途消失、PermissionError立即失败、无完整样本超时及权限/namespace/挂载/资源违规不重试。历史竞态机制已修正且本地验证，仍待真实Linux回归，不以此声称原轮内核行为无问题。
 
 发布后先在本批一次性CI业务栈运行中调用GitHub取消，检查取消结果、汇总不通过及所有权清理产物；随后同SHA完整冷/热两轮。取消样本不计入成功基线，已有生产/用户环境不参与。
+
+## TASK-113 真实取消与首轮冷基线（2026-09-13）
+
+发布源码8fe6e413a4cc0291204c298705403462ac4ed0d4。取消样本[34703154825/1](https://github.com/charon2121/cherry-oj/actions/runs/34703154825)在业务步骤开始61.19秒后实际gh run cancel；run cancelled、业务job cancelled、必需汇总failure，其余10前置job成功。Java启动日志和MySQL/Redis/Kafka记录证明资源已创建；always清理成功，resources-after与dependencies-after均为空。原业务report保持finishedAt=null、15NOT_RUN、cleanupNOT_RUN，严格校验拒绝unfinished report；事后清理没有被改写成业务PASS。证据/private/tmp/cherry-task113-cancel-artifacts，状态与检查点同前缀JSON。task113_review独立复验通过；此时尚未开始native安装，结论仅覆盖已启动资源，不声称验证所有取消时点。
+
+随后[完整冷基线34703661410/1](https://github.com/charon2121/cherry-oj/actions/runs/34703661410)同SHA全部12job通过；basic5/kernel63/native10/business15合计93/93且四套件cleanup PASS。summary.py重新聚合与原summary完全一致，validate/verify_files全部通过；harness=d17e8e55a889d410839c6dab9a78fe610a7ce0405d98a28283794f52243d563f。cold_packages=true使缓存restore/save均skipped（此处为显式实验选项，不是必需测试跳过），cacheHit=false且实际下载/校验成功。来源固定快照与包锁不变。证据/private/tmp/cherry-task113-cold-artifacts。第二轮完整热基线34703991365仍运行中，不提前填写通过。
+
+## TASK-113 最终技术交付（2026-09-13）
+
+第二轮[34703991365/1](https://github.com/charon2121/cherry-oj/actions/runs/34703991365)同SHA全部12job成功，完整93/93和四套件清理PASS，cacheHit=true。两轮无失败job拼接、无重试，全部业务环境/节点/会话/题目版本/数据版本/校准为新身份。工具链实测Temurin21.0.12.1+1、Node24.20.0、npm11.19.0；Go由go.mod锁1.26.3，判题rootfs包锁与manifest摘要见MEMORY-037冻结基线。实际Linux6.17.0-1022-azure、x86_64、Ubuntu24.04系列runner镜像20260907.300.1。
+
+独立task113_review分别重跑summary聚合、validate和verify_files，确认93项及全空回收、冷/热差异和新身份；取消报告也独立复验，无新增阻断。历史ns/mnt采样竞态已有精确测试修正、5项故障注入和两轮真实Linux回归，不再以偶然重跑通过代替修正。真实Actions内运行同一CLI及负例，前置failure/cancelled/skipped、缺报告/用例、能力不足等全部不能绿；受控真实取消另有明确时点证据。
+
+| 验收条目 | 最终证据 |
+|---|---|
+| AC-001 | cases.json冻结93项映射及来源选择器，summary/manifest校验 |
+| AC-002 | 两轮kernel各63项，含1000次/并发/故障及cleanup PASS |
+| AC-003 | 两轮native各10项，权限/24限额/缺文件/崩溃/卸载恢复及全空资源 |
+| AC-004 | 两轮business各15项，真实8类运行、AC/WA/Kafka、原文回看和新身份 |
+| AC-005 | 6项汇总正反例、命令行退出码、真实取消运行及失败汇总 |
+| AC-006 | 同8fe6e41连续冷/热完整成功，WORK-049 PLAN-033交接及MEMORY-037冻结基线 |
+
+要求映射：REQ-001对应AC-001清单，REQ-002对应AC-002内核，REQ-003对应AC-003部署，REQ-004对应AC-004业务，REQ-005对应AC-005/006报告与基线，REQ-006由一次性VM/新身份/所有权清理及独立复核覆盖；均使用上述实际证据。
