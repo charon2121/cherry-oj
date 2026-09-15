@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: true
 user_visible: false
 created_at: "2026-09-14"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 work_type: "maintenance"
 ---
 
@@ -50,8 +50,8 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-051 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-035 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-041 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ○ 就绪 | 必需 | TASK-125 `done`、TASK-126 `ready`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | · 未开始 | 必需 | TASK-125 `done`、TASK-126 `ready`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 按任务实施，产出代码与测试 |
+| 开发任务 | ○ 就绪 | 必需 | TASK-125 `done`、TASK-126 `doing`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ▶ 进行中 | 必需 | TASK-125 `done`、TASK-126 `doing`、TASK-127 `todo`、TASK-128 `todo`、TASK-129 `todo`、TASK-130 `todo`、TASK-131 `todo` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
 | 回归验证 | · 未开始 | 必需 | VERIFY-059 `draft` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | · 未开始 | 必需 | MEMORY-044 `draft` | 留下未来仍有参考价值的判断、教训与重审条件 |
@@ -79,3 +79,10 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
   不得增删检查项或放宽要求。已更新 PLAN-041 与 TASK-125～131 的范围说明。
 - 2026-09-14：意图闸：passed。原因：签署重构方案
 - 2026-09-14：检查项 rollback 记录结论：通过。原因：PLAN-041 已明确以 a611be3 为基线、逐阶段 git revert，只撤销本工作 diff，不触碰 WORK-049/050 与 apps/server 既有增量；S3 撤销后若已人工切过 ACTIVE 需按节点协议切回，该动作已标为人工；本工作不执行远端部署，无部署回退动作
+- 2026-09-15：**范围再次扩充（用户已同意）。** S2 搬动目录后发现，指向判题引擎内部位置的引用
+  不止自动检查清单一处：持续集成的工作流配置里有一处测试数据目录，指向旧位置后会让「judge +
+  sandbox 回退」那条检查失败；另有一份手工操作说明里的路径会过时。经用户确认，把这两处纳入
+  各阶段可修改范围，同样只允许改路径，不改流程结构与操作语义。已更新 PLAN-041 与
+  TASK-125～131。
+- 2026-09-15：TASK-126 的两条完成标准按事实改写：顶层共享目录中 `config` 的下沉归 S3；
+  命令行入口以「不含服务逻辑」为准，不再用行数作门槛。原写法与计划分期不一致，属文档缺陷。

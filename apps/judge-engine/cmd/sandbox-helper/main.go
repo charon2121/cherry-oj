@@ -9,14 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"cherry-oj/judge-engine/internal/sandbox/helper"
-	"cherry-oj/judge-engine/internal/sandbox/launcher"
+	"cherry-oj/judge-engine/helperd"
 )
 
 func main() {
 	// re-exec 子进程只消费继承 FD；必须在服务配置、信号监听及其他 goroutine 建立前分流，
 	// 避免 init/exec 角色误入特权服务循环。
-	if launcher.Dispatch() {
+	if helperd.Dispatch() {
 		return
 	}
 	path := flag.String("config", "", "root 管理的 helper JSON 配置绝对路径")
@@ -25,14 +24,14 @@ func main() {
 		fmt.Fprintln(os.Stderr, "必须提供 --config")
 		os.Exit(2)
 	}
-	c, err := helper.LoadConfig(*path)
+	c, err := helperd.LoadConfig(*path)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-	if err = helper.Serve(ctx, c); err != nil {
+	if err = helperd.Run(ctx, c); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}

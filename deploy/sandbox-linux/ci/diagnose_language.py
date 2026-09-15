@@ -22,7 +22,7 @@ from command import install_signal_handlers, run
 
 ROOT = Path(__file__).resolve().parents[3]
 ENGINE = ROOT / 'apps/judge-engine'
-SOURCE = ENGINE / 'internal/judge/language/languages_e2e_test.go'
+SOURCE = ENGINE / 'judge/internal/language/languages_e2e_test.go'
 USAGE = re.compile(r'compile language=java usage=\{ExitCode:(-?\d+) Signal:(\d+) CPUNs:(\d+) '
                    r'MemoryBytes:(\d+) ClockNs:(\d+) Reason:(\w*) .*?\} waitError=(.*)')
 
@@ -219,7 +219,7 @@ def main():
             host_temp.mkdir()
             baseline_env = dict(os.environ, TMPDIR=str(host_temp))
             binary = work / 'language.test'
-            run(['go', 'test', '-race', '-c', '-o', binary, './internal/judge/language'],
+            run(['go', 'test', '-race', '-c', '-o', binary, './judge/internal/language'],
                 output / 'build.log', 180, cwd=ENGINE, env=baseline_env)
             # The intervention only reads files. Both groups first execute the JVM here.
             prepared = time.monotonic()

@@ -29,10 +29,13 @@ updated_at: "2026-09-14"
 - `docs/engine.md`：按新结构重写。
 - `docs/coding-standards/languages/go.md`：其中引用旧包路径的条目同步更新（不改变规则本身）。
 - `deploy/sandbox-linux/ci/` 的必跑用例清单：更新 judge-engine 用例的包路径，并消除该清单在
-  驱动中的重复副本（见下节）。不改报告 schema、rootfs、install、systemd 与工作流本身。
+  驱动中的重复副本（见下节）。不改报告 schema、rootfs、install、systemd。
+- 仓库中指向 judge-engine 内部路径的 CI 与部署引用：`.github/workflows/ci.yml`、
+  `deploy/sandbox-linux/tests/README.md`。**只允许更新路径**，不改 job 结构、触发条件、
+  权限、步骤顺序与操作语义。
 
-不改动：`apps/server`、`apps/web`、`contracts/`、`scripts/`、`.github/`、`deploy/` 下除上述清单
-以外的内容、数据库、依赖版本。
+不改动：`apps/server`、`apps/web`、`contracts/`、`scripts/`、`deploy/` 与 `.github/` 下除上述
+条目以外的内容、数据库、依赖版本。历史 WORK 文档中记录的旧路径是当时的事实，一律不改写。
 
 ## 阶段与顺序
 
@@ -52,7 +55,7 @@ updated_at: "2026-09-14"
 S1–S2 完成后，CHANGE-014 的根因（信任边界不可见）即已消除；S3–S6 处理阅读成本与职责混合；S7 使
 文档与实现重新一致。
 
-### 必跑用例清单随包路径同步（2026-09-14 追加）
+### CI 与部署引用随包路径同步（2026-09-14 追加，2026-09-15 扩充）
 
 WORK-050 冻结的 93 项必跑用例清单按「包路径 + 测试名」索引，用于防止必跑测试静默消失。它分不出
 「测试被删除」与「测试换了包」，而本工作改变的恰恰是包路径：S1 移动 9 个 `TestClient*` 即已触发
@@ -69,7 +72,17 @@ WORK-050 冻结的 93 项必跑用例清单按「包路径 + 测试名」索引�
 处置：**保留 `cases.json` 作为唯一真源，让驱动与校验从它派生包列表**，不再各存一份；
 每个阶段在搬动包的同一个提交内更新 `cases.json`，使清单在任何一个提交上都不陈旧。
 派生不削弱保证：跑的包集合仍然必须与清单声明的完全相等，每个声明的测试仍然必须真的执行过，
-skip 与 fail 仍然一律不通过。不采用「只按测试名索引」——那会让测试挪进一个根本不跑的包也
+skip 与 fail 仍然一律不通过。
+
+S2 又暴露出同类引用不止在 `ci/` 内。完整扫描后，仓库中指向 judge-engine 内部路径的功能性引用
+共两处落在 `ci/` 之外：`.github/workflows/ci.yml` 的 `TESTDATA_PATH`（`compose.legacy.yaml`
+以它作 bind mount 源，路径失效会让 legacy 回退 job 失败），以及
+`deploy/sandbox-linux/tests/README.md` 中的手工操作路径（只影响文档准确性）。
+其余命中全部位于历史 WORK 文档，记录的是当时的事实，不改写。
+
+因此规则推广为：**任何指向 judge-engine 内部路径的 CI 或部署引用，都在搬动它的那个阶段同步
+更新，且只允许改路径。** 这类文件不因本工作获得其他改动授权——job 结构、触发条件、权限与
+步骤语义一律不动。不采用「只按测试名索引」——那会让测试挪进一个根本不跑的包也
 不被发现，用永久削弱保证换一次性省事。也不采用「另开一个任务统一收尾」——那会让 S1–S7 的中间
 提交全部 CI 红，违反本计划「每个提交独立可编译且回归通过」的前提。
 

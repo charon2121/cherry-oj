@@ -10,9 +10,9 @@ related: ["CHANGE-014", "DESIGN-051", "DECISION-035", "PLAN-041"]
 implements: ["CHANGE-014#REQ-009", "CHANGE-014#REQ-010"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "CLAUDE.md", "docs", "development/README.md", "development/works/WORK-049", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci"]
-write_paths: ["apps/judge-engine", "docs/engine.md", "docs/coding-standards/languages/go.md", "development/works/WORK-058", "deploy/sandbox-linux/ci"]
-forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", ".github", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "docs/architecture.md", "docs/product.md", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/tests", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh"]
+read_paths: ["AGENTS.md", "CLAUDE.md", "docs", "development/README.md", "development/works/WORK-049", "development/works/WORK-058", "apps/judge-engine", "contracts", ".github/workflows/ci.yml", "deploy/sandbox-linux/ci", "deploy/sandbox-linux/tests/README.md"]
+write_paths: ["apps/judge-engine", "docs/engine.md", "docs/coding-standards/languages/go.md", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md"]
+forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "docs/architecture.md", "docs/product.md", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml", "deploy/sandbox-linux/tests/acceptance"]
 created_at: "2026-09-14"
 updated_at: "2026-09-14"
 ---
@@ -42,7 +42,9 @@ updated_at: "2026-09-14"
 
 以 front matter 的 `forbidden_paths` 为准。`deploy/sandbox-linux/ci/` 的必跑用例清单在
 可修改范围内，但**只允许更新 judge-engine 用例的包路径**：不得增删用例、改断言或放宽必需数量
-（Go 必跑固定 52 项）。报告 schema 与 `deploy/` 下其余内容仍然禁止修改。理由见
+（Go 必跑固定 52 项）。同理 `.github/workflows/ci.yml` 与 `deploy/sandbox-linux/tests/README.md`
+**只允许改路径**，不改 job 结构、触发条件、权限、步骤顺序与操作语义。报告 schema、
+`deploy/` 与 `.github/` 下其余内容仍然禁止修改。理由见
 [PLAN-041](50-plan-PLAN-041.md) §必跑用例清单随包路径同步。改写错误消息时只改字面量，不改 `%w` 包装结构、
 `errors.Is`/`errors.As` 判定条件与错误值身份；不改变 `docs/architecture.md` 的系统级结论。
 

@@ -443,7 +443,7 @@ jobs:
     env:
       # 纯 Go smoke 不启动 Java 控制面；显式覆盖 legacy 回退，节点链路见 node-e2e.py。
       COMPOSE_FILE: compose.yaml:compose.legacy.yaml
-      TESTDATA_PATH: ${{ github.workspace }}/apps/judge-engine/internal/judge/testcase/testdata
+      TESTDATA_PATH: ${{ github.workspace }}/apps/judge-engine/judge/internal/testcase/testdata
     steps:
       - uses: actions/checkout@v7
 
