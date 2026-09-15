@@ -78,7 +78,7 @@ func TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts(t *testing.T) {
 			}
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
-			result, fatal := x.finish(ctx)
+			result, fatal := finishFrom(t, x, ctx)
 			if !result.Cancelled {
 				t.Fatal("lost cancellation")
 			}
@@ -129,8 +129,8 @@ func TestFinishPreservesExecutionAndMultipleCleanupErrors(t *testing.T) {
 	closeErr := errors.New("close failed")
 	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps, stopErr: stopErr, closeErr: closeErr}
-	x.fail(runErr)
-	result, fatal := x.finish(context.Background())
+	x.supervision.fail(runErr)
+	result, fatal := finishFrom(t, x, context.Background())
 	for _, err := range []error{stopErr, closeErr} {
 		if !errors.Is(fatal, err) {
 			t.Fatal("lost cleanup cause", fatal)
@@ -251,7 +251,7 @@ func TestFinishClosesEarlierArtifactsWhenLaterOpenFails(t *testing.T) {
 		}
 		return nil, 0, denied
 	}
-	result, fatal := x.finish(context.Background())
+	result, fatal := finishFrom(t, x, context.Background())
 	if fatal != nil {
 		t.Fatal(fatal)
 	}
@@ -268,8 +268,8 @@ func TestFinishOOMDoesNotHideIndependentFailure(t *testing.T) {
 	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{OOM: 1, OOMKill: 1}}
 	failure := errors.New("snapshot failed")
-	x.fail(failure)
-	result, fatal := x.finish(context.Background())
+	x.supervision.fail(failure)
+	result, fatal := finishFrom(t, x, context.Background())
 	if fatal != nil {
 		t.Fatal(fatal)
 	}
@@ -282,7 +282,7 @@ func TestFinalOOMSurvivesInitExitDiagnostic(t *testing.T) {
 	var steps []string
 	x := newTestExecution(testRequest(), func() {})
 	x.group = &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{OOM: 1, OOMKill: 1}}
-	x.initReportLost = true
+	x.supervision.reportLost = true
 	x.process.(*isolatedProcess).initStopped = false
 	x.process.(*isolatedProcess).initExited = make(chan error, 1)
 	err := exec.Command("sh", "-c", "exit 1").Run()
@@ -291,8 +291,8 @@ func TestFinalOOMSurvivesInitExitDiagnostic(t *testing.T) {
 		t.Fatal(err)
 	}
 	x.process.(*isolatedProcess).initExited <- err
-	x.fail(io.EOF)
-	result, fatal := x.finish(context.Background())
+	x.supervision.fail(io.EOF)
+	result, fatal := finishFrom(t, x, context.Background())
 	if fatal != nil || result.Reason != "" || result.Error != "" || result.Signal != 9 {
 		t.Fatalf("OOM overwritten: %+v %v", result, fatal)
 	}
@@ -303,11 +303,11 @@ func TestAncestorOOMPreservesPlatformFailure(t *testing.T) {
 		var steps []string
 		x := newTestExecution(testRequest(), func() {})
 		x.group = &lifecycleGroup{steps: &steps, snapshot: cgroup.Snapshot{OOMKill: 2}}
-		x.initReportLost = initReportLost
+		x.supervision.reportLost = initReportLost
 		if initReportLost {
-			x.fail(io.EOF)
+			x.supervision.fail(io.EOF)
 		}
-		result, fatal := x.finish(context.Background())
+		result, fatal := finishFrom(t, x, context.Background())
 		if fatal != nil || result.Reason != hostexec.ReasonPlatform || !strings.Contains(result.Error, "without task-local OOM") || len(result.Outputs) != 0 {
 			t.Fatalf("ancestor OOM misattributed: %+v fatal=%v", result, fatal)
 		}

@@ -9,7 +9,10 @@ import (
 	"cherry-oj/judge-engine/internal/hostexec"
 )
 
-func (x *execution) supervise(ctx context.Context) {
+// supervise 观察这次执行怎么停下来，并返回初步结论。
+// 它不写 execution 的结果字段：最终结论要等停组计量和等待结果一起判定，见 conclude。
+func (x *execution) supervise(ctx context.Context) supervisionOutcome {
+	var out supervisionOutcome
 	ticker := time.NewTicker(cpuSampleInterval)
 	defer ticker.Stop()
 	wall := time.NewTimer(time.Until(x.started.Add(time.Duration(x.plan.request.Limits.ClockNs))))
@@ -21,72 +24,78 @@ func (x *execution) supervise(ctx context.Context) {
 		event := x.process.Next(ctx, timers)
 		switch event.kind {
 		case executionCancelled:
-			x.result.Reason = hostexec.ReasonCancelled
-			return
+			out.reason = hostexec.ReasonCancelled
+			return out
 		case executionWallExpired:
-			x.result.Reason = hostexec.ReasonWall
-			return
+			out.reason = hostexec.ReasonWall
+			return out
 		case executionStartupExpired:
-			x.fail(fmt.Errorf("隔离启动握手超时"))
-			return
+			out.fail(fmt.Errorf("隔离启动握手超时"))
+			return out
 		case executionSampleDue:
-			if x.cpuBudgetExceeded() {
-				return
+			if reason, err := x.cpuBudget(); reason != "" {
+				out.reason, out.failure = reason, err
+				return out
 			}
 		case processOutputExceeded:
-			x.result.Reason = hostexec.ReasonOutput
-			return
+			out.reason = hostexec.ReasonOutput
+			return out
 		case processFailure:
-			x.initReportLost = event.reportLost
-			x.fail(event.err)
-			return
+			out.reportLost = event.reportLost
+			out.fail(event.err)
+			return out
 		case processInitExited:
 			snap, err := x.group.Snapshot()
 			if !isProcessExit(event.err) {
 				err = errors.Join(err, event.err)
 			}
-			x.initReportLost = err == nil
+			// 快照成功且本组确有受害进程时，退出报告的丢失可能由 OOM 解释，留给 conclude 判定。
+			out.reportLost = err == nil
 			if err != nil || snap.OOMKill == 0 {
-				x.fail(fmt.Errorf("可信 init 在报告退出事实前终止: %w", errors.Join(errInitLost, err)))
+				out.fail(fmt.Errorf("可信 init 在报告退出事实前终止: %w", errors.Join(errInitLost, err)))
 			}
-			return
+			return out
 		case processReady:
 			// ready 与超时可同时就绪，不能依据 select 的选择放行已超预算的命令。
 			if ctx.Err() != nil {
-				x.result.Reason = hostexec.ReasonCancelled
-				return
+				out.reason = hostexec.ReasonCancelled
+				return out
 			}
 			if time.Since(x.started) >= time.Duration(x.plan.request.Limits.ClockNs) {
-				x.result.Reason = hostexec.ReasonWall
-				return
+				out.reason = hostexec.ReasonWall
+				return out
 			}
-			if x.cpuBudgetExceeded() {
-				return
+			if reason, err := x.cpuBudget(); reason != "" {
+				out.reason, out.failure = reason, err
+				return out
 			}
 			if err := x.process.Release(); err != nil {
-				x.fail(err)
-				return
+				out.fail(err)
+				return out
 			}
-			x.state = executionRunning
+			if err := x.transition(executionRunning); err != nil {
+				out.fail(err)
+				return out
+			}
 			startup.Stop()
 			timers.startup = nil
 		case processExited:
-			x.result.ExitCode = event.exitCode
-			x.result.Signal = event.signal
-			x.fail(event.err)
-			return
+			out.exited, out.exitCode, out.signal = true, event.exitCode, event.signal
+			out.fail(event.err)
+			return out
 		}
 	}
 }
-func (x *execution) cpuBudgetExceeded() bool {
+
+// cpuBudget 采样累计 CPU。取不到快照时按平台故障停止——拿不准预算就继续跑，
+// 等于让一条已经超时的命令继续占着名额。
+func (x *execution) cpuBudget() (hostexec.Reason, error) {
 	snap, err := x.group.Snapshot()
 	if err != nil {
-		x.fail(err)
-		return true
+		return hostexec.ReasonPlatform, err
 	}
 	if snap.CPUNs >= x.plan.request.Limits.CPUNs {
-		x.result.Reason = hostexec.ReasonCPU
-		return true
+		return hostexec.ReasonCPU, nil
 	}
-	return false
+	return "", nil
 }

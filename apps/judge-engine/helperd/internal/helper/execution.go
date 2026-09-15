@@ -42,17 +42,6 @@ type executionProcess interface {
 	RemoveMountpoint() error
 }
 
-type executionState uint8
-
-const (
-	executionNew executionState = iota
-	executionStarting
-	executionRunning
-	executionFinishing
-	executionFinished
-	executionCleanupFailed
-)
-
 // execution 独占一次命令的资源组与终止结论。Run 返回前完成回收；
 // 成功移交的产物由 executionResult 持有，后续 Close 不再访问它们。
 // lifecycle 锁拒绝并发 Run，并使异常兜底 Close 不与执行线程争抢资源。
@@ -66,7 +55,8 @@ type execution struct {
 	started            time.Time
 	result             executionResult
 	runErr, cleanupErr error
-	initReportLost     bool
+	// supervision 是监督循环的初步结论；最终结论由 conclude 结合停组计量与等待结果给出。
+	supervision supervisionOutcome
 }
 
 type executionOptions struct {
@@ -93,28 +83,35 @@ func (x *execution) Run(ctx context.Context) (executionResult, error) {
 	if x.state != executionNew {
 		return executionResult{}, fmt.Errorf("execution 只能 Run 一次")
 	}
-	x.state = executionStarting
+	if err := x.transition(executionStarting); err != nil {
+		return executionResult{}, err
+	}
 	// panic 时也尝试结束已取得的资源；正常路径显式检查 finish 的错误。
 	defer func() {
 		if x.state != executionFinished && x.state != executionCleanupFailed {
-			x.fail(fmt.Errorf("执行流程异常中断"))
+			x.supervision.fail(fmt.Errorf("执行流程异常中断"))
 			_, x.cleanupErr = x.finish(context.Background())
 		}
 	}()
 	g, err := x.makeGroup(x.plan.resources)
 	if err != nil {
+		// 连资源组都没建起来，没有可回收的执行环境，也就没有 finish 要走的顺序。
 		x.fail(err)
 		x.result.Error = err.Error()
 		x.process.CancelInput()
 		x.cleanupErr = err
-		x.state = executionCleanupFailed
+		if e := x.transition(executionCleanupFailed); e != nil {
+			x.cleanupErr = errors.Join(x.cleanupErr, e)
+		}
 		return x.takeResult(), err
 	}
 	x.group = g
+	// 启动失败也是「这条命令怎么停下来的」的一种，和监督得出的结论走同一条路，
+	// 否则它记下的平台故障会被最终结论覆盖掉。
 	if err = x.process.Start(g); err != nil {
-		x.fail(err)
+		x.supervision.fail(err)
 	} else {
-		x.supervise(ctx)
+		x.supervision = x.supervise(ctx)
 	}
 	return x.finish(ctx)
 }

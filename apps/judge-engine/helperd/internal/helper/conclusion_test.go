@@ -126,11 +126,11 @@ func applyFacts(t *testing.T, x *execution, tc conclusionCase) {
 	t.Helper()
 	var steps []string
 	x.group = &lifecycleGroup{steps: &steps, snapshot: tc.snapshot}
-	x.initReportLost = tc.initReportLost
+	x.supervision.reportLost = tc.initReportLost
 	if tc.failure != nil {
-		x.fail(tc.failure) // fail 同时把结论置为平台故障
+		x.supervision.fail(tc.failure) // fail 同时把初步结论置为平台故障
 	} else if tc.reason != "" {
-		x.result.Reason = tc.reason
+		x.supervision.reason = tc.reason
 	}
 	if tc.waitErr != nil {
 		injectInitExit(t, x)
@@ -160,11 +160,97 @@ func TestConclusionFromFacts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			x := newTestExecution(testRequest(), func() {})
 			applyFacts(t, x, tc)
-			result, fatal := x.finish(context.Background())
+			result, fatal := finishFrom(t, x, context.Background())
 			if fatal != nil {
 				t.Fatalf("回收失败: %v", fatal)
 			}
 			checkConclusion(t, tc, result.Reason, result.Signal, result.Error)
 		})
+	}
+}
+
+// finishFrom 模拟 Run 的前半段：启动已经发生，剩下的是回收。
+// 直接调 finish 会被状态表拒绝（new → finishing 不是合法转移），这正是它该做的。
+func finishFrom(t *testing.T, x *execution, ctx context.Context) (executionResult, error) {
+	t.Helper()
+	if err := x.transition(executionStarting); err != nil {
+		t.Fatal(err)
+	}
+	return x.finish(ctx)
+}
+
+// 同一张表直接跑在纯函数上：不需要资源组、进程、FD 或任何平台能力。
+// 提取之前这些分支只能通过整台执行机器间接触发，且多数要在 Linux 上才跑得到。
+func TestConcludeIsPureAndTableComplete(t *testing.T) {
+	for _, tc := range conclusionCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			facts := executionFacts{
+				supervision: supervisionOutcome{reason: tc.reason, reportLost: tc.initReportLost},
+				group:       tc.snapshot,
+				budget:      testRequest().Limits,
+				completion:  processCompletion{waitErr: tc.waitErr},
+			}
+			if tc.failure != nil {
+				facts.supervision.fail(tc.failure)
+			}
+			// 同一份事实连续判定两次必须得出同样的结论——纯函数不该依赖调用次序。
+			first := conclude(facts)
+			second := conclude(facts)
+			if first.reason != second.reason || first.signal != second.signal {
+				t.Fatalf("重复判定给出不同结论: %+v vs %+v", first, second)
+			}
+			var errText string
+			if first.failure != nil {
+				errText = first.failure.Error()
+			}
+			checkConclusion(t, tc, first.reason, first.signal, errText)
+		})
+	}
+}
+
+// 停组失败时计量不可信：不能拿一份读不出来的快照去推断资源结论。
+func TestConcludeIgnoresAccountingWhenGroupStopFailed(t *testing.T) {
+	facts := executionFacts{
+		groupErr: errors.New("stop failed"),
+		group:    cgroup.Snapshot{OOMKill: 2, CPUNs: 1_000_000_000},
+		budget:   testRequest().Limits,
+	}
+	if got := conclude(facts); got.reason != "" || got.failure != nil {
+		t.Fatalf("停组失败时仍用了计量: %+v", got)
+	}
+}
+
+// 状态转移表拒绝非法转移，而不是碰巧没撞上。
+func TestExecutionStateTransitions(t *testing.T) {
+	legal := [][2]executionState{
+		{executionNew, executionStarting},
+		{executionNew, executionFinished},
+		{executionStarting, executionRunning},
+		{executionStarting, executionFinishing},
+		{executionRunning, executionFinishing},
+		{executionFinishing, executionFinished},
+		{executionFinishing, executionCleanupFailed},
+	}
+	for _, pair := range legal {
+		x := &execution{state: pair[0]}
+		if err := x.transition(pair[1]); err != nil {
+			t.Errorf("合法转移被拒绝 %s → %s: %v", pair[0], pair[1], err)
+		}
+	}
+	illegal := [][2]executionState{
+		{executionNew, executionRunning},      // 没有启动就在跑
+		{executionNew, executionFinishing},    // 没有可回收的执行环境
+		{executionRunning, executionStarting}, // 回到启动阶段
+		{executionFinished, executionFinishing},
+		{executionFinished, executionStarting}, // 复用已结束的执行
+		{executionCleanupFailed, executionFinished},
+	}
+	for _, pair := range illegal {
+		x := &execution{state: pair[0]}
+		if err := x.transition(pair[1]); err == nil {
+			t.Errorf("非法转移被接受 %s → %s", pair[0], pair[1])
+		} else if !strings.Contains(err.Error(), pair[0].String()) || !strings.Contains(err.Error(), pair[1].String()) {
+			t.Errorf("错误信息没有指出是哪一步: %v", err)
+		}
 	}
 }
