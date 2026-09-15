@@ -58,20 +58,3 @@ func Get(name string) (Language, bool) {
 }
 
 func (l Language) NeedsCompile() bool { return len(l.Compile) > 0 }
-
-// All 按名字排序返回全部语言配置，每个都是独立副本（理由同 Get）。
-// 节点向控制面声明支持的语言时遍历它，而不是各处手写一份清单——
-// 手写的那份和注册表长期对不上：注册表有 cpp/python/java，声明里却只有 cpp。
-func All() []Language {
-	names := make([]string, 0, len(registry))
-	for name := range registry {
-		names = append(names, name)
-	}
-	slices.Sort(names)
-	all := make([]Language, 0, len(names))
-	for _, name := range names {
-		lang, _ := Get(name)
-		all = append(all, lang)
-	}
-	return all
-}

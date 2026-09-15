@@ -125,8 +125,17 @@ gofmt -l . && go vet ./... && go test -race ./...
   `TestJudgingPolicyAffectsDigest`（十项判题策略必须改变摘要）。
   基准测试做过变异验证：向 `policyFingerprint` 加入 `inlineThresholdBytes` 字段后立即失败，
   并提示「若这次改动确实应当改变环境身份，请更新基准值并安排一次环境切换」。
-- 2026-09-15：语言清单改由注册表生成（新增 `language.All()`）。此前节点只向控制面声明 `cpp`，
-  而注册表有 cpp/python/java，两处长期对不上。
+- 2026-09-15：**判断错误并已撤回：语言清单不应由注册表生成。** 本轮曾把节点声明的语言从 `cpp`
+  改为遍历注册表（cpp/python/java），理由是「两处长期对不上」。推送后 CI 的业务闭环
+  `business.new-environment` 立即失败。查证后确认只声明 `cpp` 是刻意约束，不是遗漏：
+  judging-service 的 `TrialController`、`SubmissionExecutionProfileController` 与 `FormalWorker`
+  都把 `languageId` 限死为 `cpp`；`EnvironmentProvisioningRunner` 每次只 provision 一种语言；
+  而 `JudgeNodeRepository.compatible` 要求注册声明的语言集合与控制面登记的环境逐条精确匹配，
+  多声明一种就永远不兼容，新环境无法建立。
+  已改回只声明 `cpp`，并在 `declaredLanguages` 上写明「这不是遗漏」及其跨服务依据，
+  避免下一个人重复这个判断；顺带删除不再使用的 `language.All()`，不留死代码。
+  注册表中的 python/java 供语言配置的功能测试使用；要真正支持它们需要先在 judging-service
+  放开约束并提供标定，属跨服务产品变更，不能从判题机单方面声明。
 - 2026-09-15：**更正上游的一处事实错误。** PLAN-041 初稿称「指纹轮换集中在 S3」，不成立：
   判题可执行文件的摘要本来就参与环境身份（WORK-040 有意加入），因此任何改动判题二进制的提交
   都会轮换指纹，本工作七个阶段都会。已实测确认（同一配置、不同二进制摘要 → 不同配置摘要）。

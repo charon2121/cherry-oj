@@ -128,23 +128,31 @@ func environmentFingerprint(r contract.NodeRegistration) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
-// declaredLanguages 遍历语言注册表，不手写清单——手写的那份迟早和注册表对不上。
+// declaredLanguages 只声明 cpp，**这不是遗漏**。
+//
+// 语言注册表里还有 python 和 java，但整条业务链路目前只支持 cpp：judging-service 的
+// TrialController、SubmissionExecutionProfileController 与 FormalWorker 都把 languageId
+// 限死为 cpp，而节点注册的兼容性检查要求声明的语言集合与控制面登记的环境逐条精确匹配
+// （JudgeNodeRepository.compatible）。多声明一种语言，注册就不再兼容既有环境，
+// 新环境无法建立——本工作实施时曾按「注册表有三种就声明三种」改过一次，CI 的业务闭环立即失败。
+//
+// 注册表里的 python/java 供语言配置的功能测试使用。要真正支持它们，必须先在 judging-service
+// 放开语言约束并提供对应的标定，那是一次跨服务的产品变更，不能从判题机这一侧单方面声明。
 func declaredLanguages(toolchain string) ([]contract.NodeLanguage, error) {
-	all := language.All()
-	declared := make([]contract.NodeLanguage, 0, len(all))
-	for _, lang := range all {
-		encoded, err := json.Marshal(lang)
-		if err != nil {
-			return nil, err
-		}
-		sum := sha256.Sum256(encoded)
-		declared = append(declared, contract.NodeLanguage{
-			LanguageID:           lang.Name,
-			ToolchainVersion:     toolchain,
-			LanguageConfigDigest: hex.EncodeToString(sum[:]),
-		})
+	cpp, ok := language.Get("cpp")
+	if !ok {
+		return nil, fmt.Errorf("language registry is missing cpp")
 	}
-	return declared, nil
+	encoded, err := json.Marshal(cpp)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.Sum256(encoded)
+	return []contract.NodeLanguage{{
+		LanguageID:           cpp.Name,
+		ToolchainVersion:     toolchain,
+		LanguageConfigDigest: hex.EncodeToString(sum[:]),
+	}}, nil
 }
 
 func sessionID() (string, error) {
