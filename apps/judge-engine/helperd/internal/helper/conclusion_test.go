@@ -279,3 +279,24 @@ func TestNormalRunSatisfiesStartupProbe(t *testing.T) {
 		t.Fatalf("状态=%s", x.state)
 	}
 }
+
+// CancelInput 的实现可以取消调用方自己的上下文——helper 的启动冒烟正是这样接线的：
+// 它把 probeCancel 一并放进 cancelInput。因此「请求是否已被取消」必须在解除输入阻塞之前读取，
+// 否则每次正常执行都会被判成已取消，helper 永远开不了 socket。
+func TestCancelInputMustNotMakeNormalRunLookCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	x, _, _ := scriptedExecution(processEvent{kind: processReady}, processEvent{kind: processExited, exitCode: 0})
+	// 与 probeInstallation 相同的接线：解除输入阻塞的同时取消本次执行的上下文。
+	x.process.(*scriptedProcess).isolatedProcess.cancelInput = cancel
+	x.makeGroup = func(cgroup.Limits) (executionGroup, error) {
+		return &lifecycleGroup{steps: new([]string), snapshot: cgroup.Snapshot{CPUNs: 1_500_000, MemoryBytes: 4 << 20}}, nil
+	}
+	result, fatal := x.Run(ctx)
+	if fatal != nil {
+		t.Fatalf("回收失败: %v", fatal)
+	}
+	if result.Reason != "" || result.Cancelled {
+		t.Fatalf("正常执行被判成取消: reason=%q cancelled=%v error=%q", result.Reason, result.Cancelled, result.Error)
+	}
+}

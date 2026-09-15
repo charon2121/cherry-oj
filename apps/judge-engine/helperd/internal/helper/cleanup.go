@@ -19,13 +19,16 @@ func (x *execution) finish(ctx context.Context) (executionResult, error) {
 	if err := x.transition(executionFinishing); err != nil {
 		x.fail(err)
 	}
+	// 「请求是否已被取消」必须在解除输入阻塞**之前**读取。
+	// CancelInput 的实现可以取消调用方自己的上下文——启动冒烟正是这样接线的——
+	// 读晚一步，每次正常执行都会被判成已取消。
+	facts := executionFacts{supervision: x.supervision, cancelled: ctx.Err() != nil,
+		budget: x.plan.request.Limits}
+
 	// 请求可能已经取消，但回收必须继续；先解除输入阻塞，再使用独立期限收尾。
 	x.process.CancelInput()
 	cleanup, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
-
-	facts := executionFacts{supervision: x.supervision, cancelled: ctx.Err() != nil,
-		budget: x.plan.request.Limits}
 	var snap cgroup.Snapshot
 	if x.group != nil {
 		snap, facts.groupErr = x.group.Stop(cleanup)
