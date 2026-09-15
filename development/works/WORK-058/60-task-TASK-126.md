@@ -2,7 +2,7 @@
 id: "TASK-126"
 type: "task"
 title: "S2 重切为三棵服务子树并收薄命令行入口"
-status: "doing"
+status: "done"
 work: "WORK-058"
 owners: ["team/judge-engine"]
 depends_on: ["TASK-125"]
@@ -64,15 +64,15 @@ updated_at: "2026-09-15"
 
 ## 完成标准
 
-- [ ] `go list` 显示 `sandbox/...` 不引用 `helperd/...`，`judge/...` 不引用 `sandbox/...` 与
+- [x] `go list` 显示 `sandbox/...` 不引用 `helperd/...`，`judge/...` 不引用 `sandbox/...` 与
       `helperd/...`，`helperd/...` 不引用 `judge/...` 与 `sandbox/...`。
-- [ ] 人为构造一处从 `sandbox/internal` 引用 `helperd/internal` 的改动，`go build ./...` 失败；
+- [x] 人为构造一处从 `sandbox/internal` 引用 `helperd/internal` 的改动，`go build ./...` 失败；
       在执行记录中保留报错原文，随后撤销该改动。
-- [ ] 顶层 `internal/` 下只剩跨服务共享的 `contract`、`hostexec`、`platform` 与尚未拆分的
+- [x] 顶层 `internal/` 下只剩跨服务共享的 `contract`、`hostexec`、`platform` 与尚未拆分的
       `config`；`config` 的下沉属于 S3（[TASK-127](60-task-TASK-127.md)），不在本阶段完成。
-- [ ] 三个 `cmd/*/main.go` 只做参数解析、配置加载、日志初始化与信号监听，不含任何服务逻辑；
+- [x] 三个 `cmd/*/main.go` 只做参数解析、配置加载、日志初始化与信号监听，不含任何服务逻辑；
       服务编排全部位于对应服务包的 `Run`。
-- [ ] `git log --follow` 可追溯每个被移动文件的历史。移动之外的改动仅限于目录重切直接要求的
+- [x] `git log --follow` 可追溯每个被移动文件的历史。移动之外的改动仅限于目录重切直接要求的
       部分（cmd 与服务包的切分、被新边界禁止的测试依赖），每一处在执行记录中单独说明。
 
 ## 验证
@@ -146,6 +146,9 @@ go list -deps ./... | grep cherry-oj    # 人工核对依赖方向
   本地用 CI 同款命令复现并验证：`docker compose build` 两个镜像构建成功；
   `docker compose up --wait` 后调用 `/judge` 做 A+B 联调，`verdict=AC`、3 个测试点全 AC、
   指纹 `local-compose`，与 CI 断言一致。
-- 2026-09-15：**尚未执行**：WORK-050 固化的 Linux 隔离与故障回收回归，需推送后由 CI 执行。
+- 2026-09-15：CI run 34922304154（sourceSha 9e99f72）全绿，12 个 job 全部成功。必需回归汇总
+  给出 `"status": "PASS"`，93 项必需用例全部通过：basic 5/5、kernel 63/63、native 10/10、
+  business 15/15。至此 TASK-126 的完成标准全部满足。
 - 2026-09-14：状态变更：todo → ready。原因：意图闸已签署
 - 2026-09-15：状态变更：ready → doing。原因：开始按信任与部署边界重排目录
+- 2026-09-15：状态变更：doing → done。原因：S2 完成：三棵服务子树、编译期边界、cmd 收薄；CI 34922304154 全绿，93 项必需回归通过
