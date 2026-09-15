@@ -2,7 +2,7 @@
 id: "MEMORY-036"
 type: "memory"
 title: "按命令执行顺序重构 Go 判题引擎源码"
-status: "review"
+status: "checked"
 work: "WORK-049"
 owners: ["codex/root"]
 depends_on: ["VERIFY-050"]
@@ -11,7 +11,7 @@ implements: []
 verifies: []
 tags: []
 created_at: "2026-09-10"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 ---
 
 # MEMORY-036：源码阅读问题与待验证的改进方向
@@ -68,3 +68,4 @@ Linux 测试目录属于 harness 摘要范围，因此移动测试也会改变�
 ## 变更记录
 
 - 2026-09-14：状态变更：draft → review。原因：记录已证实的所有权设计、独立阅读与同候选完整 Linux 回归所得，保留规范全局化的人决策边界
+- 2026-09-15：结构与内容校验通过，由工具置为 checked。

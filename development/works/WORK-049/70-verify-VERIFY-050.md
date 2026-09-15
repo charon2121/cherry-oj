@@ -2,7 +2,7 @@
 id: "VERIFY-050"
 type: "verify"
 title: "按命令执行顺序重构 Go 判题引擎源码"
-status: "review"
+status: "approved"
 work: "WORK-049"
 owners: ["codex/root"]
 depends_on: ["TASK-104", "TASK-105", "TASK-106", "TASK-107"]
@@ -12,7 +12,7 @@ verifies: ["CHANGE-013#AC-001", "CHANGE-013#AC-002", "CHANGE-013#AC-003", "CHANG
 tags: []
 result: "pass"
 created_at: "2026-09-10"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 ---
 
 # VERIFY-050：阅读性重构验证记录
@@ -363,3 +363,4 @@ C-01/02/03/07/09/10/11 暂保留为候选：本轮实际对象与测试提供了
 - 2026-09-14：状态变更：draft → review。原因：独立阅读通过，最终候选完整 Linux 93/93 和全部必需检查通过，同批报告及清理复验通过；提交用户验收，未签闸
 
 最终范围核对：与 R8 起点 before.patch 逐段比较，WORK-049 和工具生成 WORKS 之外的既有 tracked diff 完全不变；模块快照、main HEAD、CHANGE/DECISION 人签文件摘要一致。scripts/work check 的 485 份文档通过，仅保留既有 WORK-033 提示；git diff --check 通过。TASK-107=done，WORK-049=implemented，VERIFY-050=review/result=pass，人工 acceptance=pending。
+- 2026-09-15：验收闸通过：review → approved。原因：功能通过验收

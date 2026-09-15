@@ -2,7 +2,7 @@
 id: "WORK-049"
 type: "work"
 title: "按命令执行顺序重构 Go 判题引擎源码"
-status: "implemented"
+status: "verified"
 work: null
 owners: ["codex/root"]
 risk: "high"
@@ -15,7 +15,7 @@ verifies: []
 tags: []
 required_documents: ["change", "design", "decision", "plan", "task", "verify", "memory"]
 required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "reliability"]
-gates: {"intent": "passed", "acceptance": "pending"}
+gates: {"intent": "passed", "acceptance": "passed"}
 blocking_items: []
 reversible: true
 data_change: false
@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: true
 user_visible: false
 created_at: "2026-09-10"
-updated_at: "2026-09-14"
+updated_at: "2026-09-15"
 work_type: "maintenance"
 ---
 
@@ -52,9 +52,9 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 开发计划 | ✔ 完成 | 必需 | PLAN-033 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
 | 开发任务 | ✔ 完成 | 必需 | TASK-104 `done`、TASK-105 `done`、TASK-106 `done`、TASK-107 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
 | 开发 | ✔ 完成 | 必需 | TASK-104 `done`、TASK-105 `done`、TASK-106 `done`、TASK-107 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ▶ 进行中 | 必需 | VERIFY-050 `review` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ▶ 进行中 | 必需 | MEMORY-036 `review` | 留下未来仍有参考价值的判断、教训与重审条件 |
+| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✔ 完成 | 必需 | VERIFY-050 `approved` | 用可复现的证据确认要求逐条满足 |
+| 项目记忆 | ✔ 完成 | 必需 | MEMORY-036 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
@@ -84,3 +84,5 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-14：检查项 reliability 记录结论：通过。原因：真实 Linux namespace/mount/CPU/OOM、1000 次、并发、故障与服务恢复通过，整组/挂载/账户等清理无残留
 - 2026-09-14：根据文档、任务与验证事实刷新状态：todo → implemented。
 - 2026-09-14：流程阶段 复核：doing → done。原因：impact-analysis 与 independent-review 已登记通过，七問四路径和最终候选核对完成，无待处理审查项
+- 2026-09-15：验收闸：passed。原因：功能通过验收
+- 2026-09-15：根据文档、任务与验证事实刷新状态：implemented → verified。
