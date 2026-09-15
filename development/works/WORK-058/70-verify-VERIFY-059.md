@@ -130,9 +130,36 @@ basic 5/5、kernel 63/63、native 10/10、business 15/15。
 
 ## 范围检查
 
-待补充：确认改动只落在 `apps/judge-engine`、`docs/engine.md` 与
-`docs/coding-standards/languages/go.md`；确认 `contracts/`、`apps/server`、`apps/web`、`deploy/`、
-`.github/`、`go.mod`、`go.sum` 未被修改；确认 WORK-049 与 WORK-050 的既有增量未被覆盖。
+比较区间 `a611be3..bb2f0a7`（基线为 WORK-049 最终候选，终点为本工作的收尾提交）。
+
+**禁止修改的路径全部为 0 个文件改动**，逐条核对：`contracts/`、`apps/server`、`apps/web`、
+`apps/judge-engine/go.mod`、`apps/judge-engine/go.sum`、`docs/architecture.md`、`docs/product.md`、
+`deploy/sandbox-linux/{install,rootfs,systemd,build-release.sh,probe.sh}`、
+`.github/workflows/{language-diagnostic.yml,sandbox-download-cold.yml}`、`scripts/`。
+
+**WORK-049 与 WORK-050 的既有增量未被覆盖**：区间内 `development/works/WORK-049` 与
+`development/works/WORK-050` 下 0 个文件改动。
+
+**实际改动面**：`apps/judge-engine` 228 个文件、`development` 23 个、`deploy/sandbox-linux` 11 个、
+`docs` 2 个、`.github` 1 个、`compose.yaml` 1 个。
+
+其中**模块之外的改动是实施过程中经用户逐次同意扩充的范围**，逐个登记如下——它们都落在各 TASK 的
+`write_paths` 内，但比立项时设想的多，因此在这里单列：
+
+| 路径 | 为什么动 |
+|---|---|
+| `deploy/sandbox-linux/ci/cases.json` 等 5 个 | 必跑用例清单随包路径同步。清单原先散在三处（`cases.json`、`prepare.py` 的 go test 参数、`results.py` 的硬编码包集合），已收敛成以 `cases.json` 为单一来源、另两处派生 |
+| `deploy/sandbox-linux/ci/kernel.py` | helper socket 超时时带出 helper 自己的输出——S5 的诊断缺陷，不补它就只能靠猜 |
+| `deploy/sandbox-linux/tests/fault_batch.py` | 既有缺陷：读被删除 cgroup 的 `cgroup.procs` 时只捕获 `FileNotFoundError`，而 cgroup v2 返回 `ENODEV`。留着会持续污染本工作后续每一轮回归的信号 |
+| `deploy/sandbox-linux/ci/business_{journal,stack,test}.py` | 业务请求失败时导出服务端自己的结构化字段。新增 `business_journal.py`（白名单导出，不读 message 正文） |
+| `deploy/sandbox-linux/tests/README.md` | 同步失效的包路径 |
+| `.github/workflows/ci.yml` | 1 行：`TESTDATA_PATH` 指向移动后的测试数据目录。job 结构、触发条件、权限、步骤顺序均未动 |
+| `compose.yaml` | 5 行：后端名 `trusted-host` → `devhost`，并补 `allowUnsafeBackend`。服务定义、网络、卷与健康检查均未动 |
+| `docs/engine.md`、`docs/coding-standards/languages/go.md` | TASK-131 的既定产出 |
+
+另有两份文档在 `apps/judge-engine` 内、但不在立项时的设想里：`apps/judge-engine/README.md` 与
+`helperd/internal/helper/README.md`。它们的链接与类型名全部指向旧结构，属于「结构变更的影响面」
+而非新增范围，已一并重写（理由见 TASK-131 执行记录）。
 
 ## 遗留问题
 
@@ -140,11 +167,21 @@ basic 5/5、kernel 63/63、native 10/10、business 15/15。
 
 ## 剩余风险
 
-待补充。实施前已知的剩余风险见 [DESIGN-051](30-design-DESIGN-051.md) 「风险与重审条件」与
-[PLAN-041](50-plan-PLAN-041.md) 「风险」，验证完成后在此更新为实际剩余项。
+实施前已知的风险见 [DESIGN-051](30-design-DESIGN-051.md) 「风险与重审条件」与
+[PLAN-041](50-plan-PLAN-041.md) 「风险」。验证完成后的实际剩余项如下。
 
-需要注意的一项：本工作完成后，`ACTIVE` 环境的切换仍是人工动作，不在本次验证范围内，但在它完成
-之前新结构不参与实际判题路由。
+1. **`ACTIVE` 环境的切换仍是人工动作**，不在本次验证范围内。在它完成之前，新结构不参与实际判题
+   路由——也就是说 CI 全绿并不等于新结构已经在生产路径上跑过。
+2. **环境指纹已全量轮换。** `executableDigest()` 参与指纹计算，因此本工作每个阶段的二进制变化都
+   产生了新指纹，历史标定对新指纹不成立。控制面只会把新指纹记为 `REGISTERED`，不会静默替换
+   `ACTIVE`，所以这是一次需要人工确认的切换，而不是风险事件——但**切换前必须重新做一次标定**。
+3. **顶层 `internal/` 是绕过信任边界的潜在通道。** `contract`、`hostexec`、`platform` 三个包对三棵
+   子树同时可见，这是必要的；但新增顶层共享包等于在编译器守着的边界上开一个口子。已在
+   MEMORY-044 记明：新增顶层共享包必须在 DECISION-035 上追加记录。目前没有自动化手段拦住它。
+4. **`independent-review` 未执行。** 本工作的复核阶段只完成了 `impact-analysis`；
+   跨越 228 个文件的结构重切没有第二个人独立看过，这一项的缺失由签闸人自行承担或另行安排。
+5. **业务闭环曾观测到一次与本工作无关的偶发 500**（`PATCH /api/admin/problems/{id}`），
+   已另行立项为 [WORK-059](../WORK-059/00-work.md) / ISSUE-020，不阻塞本工作验收。
 
 ## 结论
 
