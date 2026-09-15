@@ -38,11 +38,12 @@ func (s executionState) String() string {
 //	new        → finished / cleanup-failed（从未启动就被 Close）
 //	starting   → running（握手完成并放行 payload）
 //	starting   → finishing（启动失败或监督提前结束，仍要走完回收）
+//	starting   → cleanup-failed（连资源组都没建起来，没有可回收的执行环境）
 //	running    → finishing
 //	finishing  → finished / cleanup-failed
 var executionTransitions = map[executionState][]executionState{
 	executionNew:       {executionStarting, executionFinished, executionCleanupFailed},
-	executionStarting:  {executionRunning, executionFinishing},
+	executionStarting:  {executionRunning, executionFinishing, executionCleanupFailed},
 	executionRunning:   {executionFinishing},
 	executionFinishing: {executionFinished, executionCleanupFailed},
 }

@@ -227,6 +227,7 @@ func TestExecutionStateTransitions(t *testing.T) {
 		{executionNew, executionFinished},
 		{executionStarting, executionRunning},
 		{executionStarting, executionFinishing},
+		{executionStarting, executionCleanupFailed},
 		{executionRunning, executionFinishing},
 		{executionFinishing, executionFinished},
 		{executionFinishing, executionCleanupFailed},
@@ -252,5 +253,29 @@ func TestExecutionStateTransitions(t *testing.T) {
 		} else if !strings.Contains(err.Error(), pair[0].String()) || !strings.Contains(err.Error(), pair[1].String()) {
 			t.Errorf("错误信息没有指出是哪一步: %v", err)
 		}
+	}
+}
+
+// 照 probeInstallation 的断言走一遍完整的 Run：这是 helper 开放 socket 的前置条件，
+// 它不通过就没有 socket，表现为「helper socket did not become ready」而看不到真正的原因。
+func TestNormalRunSatisfiesStartupProbe(t *testing.T) {
+	x, _, _ := scriptedExecution(processEvent{kind: processReady}, processEvent{kind: processExited, exitCode: 0})
+	// 冒烟用固定限额，且要求最终计量为正数。
+	x.group = nil
+	x.makeGroup = func(cgroup.Limits) (executionGroup, error) {
+		return &lifecycleGroup{steps: new([]string), snapshot: cgroup.Snapshot{CPUNs: 1_500_000, MemoryBytes: 4 << 20}}, nil
+	}
+	result, fatal := x.Run(context.Background())
+	if fatal != nil {
+		t.Fatalf("回收失败: %v", fatal)
+	}
+	if result.Reason != "" || result.ExitCode != 0 || result.Signal != 0 ||
+		result.Usage.CPUNs <= 0 || result.Usage.MemoryBytes <= 0 ||
+		len(result.Stdout) != 0 || len(result.Stderr) != 0 {
+		t.Fatalf("启动冒烟条件不满足: reason=%q exit=%d signal=%d usage=%+v error=%q",
+			result.Reason, result.ExitCode, result.Signal, result.Usage, result.Error)
+	}
+	if x.state != executionFinished {
+		t.Fatalf("状态=%s", x.state)
 	}
 }
