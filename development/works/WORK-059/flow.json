@@ -91,8 +91,8 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "Python 124项通过；Java全量verify及最终修改模块160项通过，既有真实Linux测试限制已记录；CI 35707446283的12个job与93项必需回归全绿。原故障根因仍未知，AC-003未满足。"
       },
       {
         "name": "observability",

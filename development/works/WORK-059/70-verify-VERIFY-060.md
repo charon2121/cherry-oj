@@ -29,7 +29,7 @@ updated_at: "2026-09-22"
 | AC-001 | 结构化与精确旧模板导出、requestId 关联和 controller 前后诊断已修复，本地测试通过 |
 | AC-002 | 三种公开码已有固定分类；题目服务未知异常返回稳定 code，既有状态与鉴权组件回归通过 |
 | AC-003 | 历史 PATCH 的异常类名与触发条件未知，没有根因修复证据 |
-| AC-004 | Python 124 项通过；Java verify 成功，229 项中 228 通过、1 项既有真实 Linux 测试未运行；完整 CI 尚未执行 |
+| AC-004 | Python 124 项通过；Java 全量 verify 与最终修改模块的 verify 通过，既有真实 Linux 测试未运行的限制见下；本次候选前两轮 CI 各 12 个 job、93 项必需回归通过 |
 
 ## 检查与结果
 
@@ -84,7 +84,7 @@ python3 scripts/docs_test.py 的 583 份 Markdown 入口与本地链接通过；
 
 ## 未通过项
 
-AC-003 无定位证据；AC-004 尚缺本次候选的完整 CI。
+AC-003 无定位证据。AC-004 已补入本次候选的完整 CI，不能据此认定 AC-003 通过。
 
 ## 实施验证
 
@@ -106,8 +106,8 @@ AC-003 无定位证据；AC-004 尚缺本次候选的完整 CI。
 |---|---|---|
 | Python 日志与分类器 | 新增反例触发 20 个失败、3 个错误 | business_test 32 项通过；完整 CI Python 自测 124 项通过 |
 | 网关未知异常日志 | 2 个新增测试均因缺少结构化事实失败 | 请求/响应/事件关联、循环与深原因链、实际 JSON 编码通过 |
-| 题目服务未知异常 | 首轮 17 项中 10 项错误，异常穿出 Servlet | 最新组件测试 19 项通过，包括实际 PATCH 和安全过滤器 |
-| controller 前诊断 | 同一测试关闭 observer 时没有安全事件且 advice 未触发 | 启用后能关联请求，7 项 WebFlux 组件测试通过 |
+| 题目服务未知异常 | 首轮 17 项中 10 项错误，异常穿出 Servlet | 最终组件测试 22 项通过，包括实际 PATCH、安全过滤器及三种 RequestRejectedException 包装 |
+| controller 前诊断 | 同一测试关闭 observer 时没有安全事件且 advice 未触发 | 启用后能关联请求，最终 14 项 WebFlux 组件测试通过 |
 
 Python 新测试首次把合法 Java 标识符后缀 `$` 当成非法，已改为真正非法的 `@` 后缀；
 Java 日志编码测试最初缺少测试用 Spring Environment，后已用独立 logger context 修正；
@@ -147,6 +147,40 @@ gateway 85、problem 67、identity 8，共 160 项全部通过，无跳过，打
 这轮覆盖最终修改的模块，其他模块沿用上方全量 clean verify 的实际结果。
 独立复核只评价已实现的诊断补丁，不声称原事故已经定位。
 
+### 完整 CI 与有限复现
+
+候选实现提交为 bd7fec836c33465a52b762b0e6249f9f2a6daf49。每轮独立运行，保留各自 runId 和
+attempt，不自动重发写请求。以下状态来自下载的 summary.json、business report.json 和
+preparation-requests.json，已核对 sourceSha、runId、runAttempt。
+
+| 轮次 | CI / attempt | 结果 | 目标公开 PATCH |
+|---|---|---|---|
+| 1 | [35707446283](https://github.com/charon2121/cherry-oj/actions/runs/35707446283) / 1 | 12 个 job 全绿；basic 5、kernel 63、native 10、business 15 均通过 | HTTP 200，51,989,874 ns；requestId=req_8cf7347c5d6d4c978cfa78707ba3581b |
+| 2 | [35708448036](https://github.com/charon2121/cherry-oj/actions/runs/35708448036) / 1 | 12 个 job 全绿；basic 5、kernel 63、native 10、business 15 均通过 | HTTP 200，45,206,472 ns；requestId=req_c5c607850d7e4a709bb2dd808f84d301 |
+
+两轮 preparation-requests.json 各 21 条记录，全部为 2xx；每轮目标 PATCH 只有一次，后续公开题目 GET
+也为 200。两轮 business cleanup.status=PASS、cleanup.json confirmed=true，均没有 failure.json 或
+business-service-facts.json；成功路径未触发失败诊断，不能把文件缺失描述为「服务没有异常日志」。
+同提交的 [冷下载检查 35707446284](https://github.com/charon2121/cherry-oj/actions/runs/35707446284)
+也通过，该独立工作流不计入三轮完整 CI。
+
+首轮产物为 sandbox-summary-35707446283-1 与 sandbox-business-35707446283-1，SHA-256：
+
+- summary.json：e4e7b9eac817035a9381914b9325d4cf3b89068facbee244fa2c14fe6217f4c0。
+- report.json：482c45d87b202cc36bbfbf353263dca25434d8725af81eac4ac93361d3e8452e。
+- preparation-requests.json：eafb0cd526d6d70236eec26f0c3c6bc65b84db003f3dcb9cbe6df8f5e0676ddb。
+
+第二轮产物为 sandbox-summary-35708448036-1 与 sandbox-business-35708448036-1，SHA-256：
+
+- summary.json：e2915dcc81fc229520bcd9e4edcbf619322268dc0ee3a4ee2d038a1251fbc01b。
+- report.json：1af498bc432eb5fb6153ec5066059f9c208894a9a7096d97b951a83050e5f80d。
+- preparation-requests.json：2859d45afcf221e3e757f084a3b2238f46282db3c8366171dfccd7adfad1a56c。
+
+第二轮通过 workflow_dispatch 独立启动。第三轮由本次证据文档提交的 push 触发，代码保持 bd7fec8
+的实现；运行结果在交付时核对并报告。不再为单纯补记第三轮结果继续推送、触发第四轮。
+第三轮未复现时停止主动重跑，后续同类真实失败再按本方案分析，不自动启动后台监控。
+前两轮全绿只能证明本次运行通过，不能满足 AC-003，不自动签署验收。
+
 ## 范围检查
 
 方案准备阶段只改文档，原有 Python 增量保持原样；
@@ -166,9 +200,10 @@ business_test.py 为 fa82ea152d28a9751ba4efd2e0b746f1fb2111d2e017455753f528a4578
 
 ## 结论
 
-诊断与异常边界修复完成，本地验证通过并记录真实 Linux 测试的限制。原故障根因尚未确认，
-整体 partial，TASK-132 保持 doing；完整 CI 证据单独记录。
+诊断与异常边界修复完成，本地验证和前两轮完整 CI 通过，并记录真实 Linux Java 测试的限制。
+原故障根因尚未确认，整体 partial，TASK-132 保持 doing；本次文档提交只再触发最后一轮主动复现。
 
 ## 变更记录
 
 - 2026-09-22：状态变更：draft → review。原因：本地修复与复核证据已写完，原故障根因与完整 CI 仍待验证
+- 2026-09-22：补入 bd7fec8 的两轮完整 CI、目标 PATCH 请求事实与产物摘要；回归要求满足，根因要求未满足，整体保持 partial。
