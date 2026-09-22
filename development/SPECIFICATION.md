@@ -1,8 +1,8 @@
 # 智能体协作开发文档系统规范
 
-版本：0.2
+版本：0.3
 
-状态：草案
+状态：当前规则（精简工作默认，历史分层格式兼容）
 
 本规范定义一套适合人和智能体共同开发软件的项目文档系统，也作为后续文档管理工具的需求依据。
 
@@ -29,28 +29,21 @@
 
 ## 全局约定
 
-以下几条贯穿全部章节，改动任何一章都不能与它们冲突。
-
-- **工作项是唯一入口。** 所有开发从 WORK 开始，工作类型决定主流程，风险、影响面和 concern 只追加
-  阶段与关卡，不另起一套流程。
-- **流程是控制面，文档是产物面。** 阶段与文档是零到多、多到多的关系，一份文档可以支撑多个阶段，
-  阶段也可以没有文档。不要为了填满阶段而制造文档。
-- **状态由事实推导。** 工作和阶段的进度来自文档、TASK 与 VERIFY 的真实状态，不由人手工声明。
-- **人工确认收拢到两道闸。** 每个工作只保留意图闸与验收闸两次人工确认；智能体不能代签任何一道，
-  也不能从格式校验通过、测试全绿或最初的完成请求中推断授权。详见
-  [第 8 章](./specification/08-responsibilities.md)。
-- **永久编号不回收。** 文档删除、废弃、替代或归档后编号仍然保留，用于维持历史链接。
-- **实现完成不等于验证通过。** 代码写完只是 `implemented`，必须有 approved 且 `result=pass` 的 VERIFY
-  才是 `verified`；MVP 阶段没有生产环境，`verified` 就是终态。
+- 默认主文档加证据，信息职责用章节区分，独立附件按实际用途拆分。
+- 人审核目标、边界、取舍与结果；Agent 负责执行与证据；脚本维护确定性约束。
+- 两道闸仍只能由人签署，批准主文档不代表审查全部技术细节。
+- 风险增加验证强度，不自动增加文档种类。
+- 进度只有一个来源，视图自动生成；实现完成不等于人工验收。
+- ID 与历史路径保留，旧工作不批量迁移。
 
 ## 术语速查
 
 | 术语 | 含义 | 详见 |
 |---|---|---|
 | WORK | 工作项，整个体系的入口，`00-work.md` | [2](./specification/02-work-item.md)、[5](./specification/05-documents.md) |
-| 工作类型 | product / infra / fix / maintenance / improvement，决定主流程 | [2](./specification/02-work-item.md) |
-| concern | 额外关注（安全、隐私、数据、性能…），只追加阶段与关卡 | [2](./specification/02-work-item.md) |
-| 风险 / 影响面 | low…critical / local…system，与 concern 共同决定流程增量 | [2](./specification/02-work-item.md) |
+| 工作类型 | product / infra / fix / maintenance / improvement，明确工作语义 | [2](./specification/02-work-item.md) |
+| concern | 额外关注（安全、隐私、数据、性能…），增加专项检查 | [2](./specification/02-work-item.md) |
+| 风险 / 影响面 | low…critical / local…system，与 concern 共同决定验证强度 | [2](./specification/02-work-item.md) |
 | 阶段 | 控制面上的一步，带 requirement 与 progress 两个维度 | [4](./specification/04-workflows.md) |
 | artifacts | 阶段关联的文档，零到多、多到多 | [4](./specification/04-workflows.md) |
 | 意图闸 / 验收闸 | 每个工作仅有的两次人工确认 | [6](./specification/06-status-and-gates.md)、[8](./specification/08-responsibilities.md) |

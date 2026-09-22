@@ -1,0 +1,75 @@
+[
+  {
+    "stage": "definition",
+    "label": "确认目标与边界",
+    "requirement": "required",
+    "status": "ready",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-060"
+    ],
+    "checks": [
+      {
+        "name": "definition",
+        "result": "pending",
+        "note": ""
+      },
+      {
+        "name": "scope",
+        "result": "pending",
+        "note": ""
+      }
+    ],
+    "source": "profile:compact",
+    "reason": "主文档承载决定与执行，风险增加检查，不增加文档"
+  },
+  {
+    "stage": "development",
+    "label": "实施",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [
+      "WORK-060"
+    ],
+    "checks": [],
+    "source": "profile:compact",
+    "reason": "主文档承载决定与执行，风险增加检查，不增加文档"
+  },
+  {
+    "stage": "review",
+    "label": "复核",
+    "requirement": "required",
+    "status": "pending",
+    "status_source": "derived",
+    "artifacts": [],
+    "checks": [
+      {
+        "name": "impact-analysis",
+        "result": "pass",
+        "note": "见 VERIFY-061 的历史兼容及范围复核，未改产品服务或既有工作记录"
+      }
+    ],
+    "source": "profile:compact",
+    "reason": "主文档承载决定与执行，风险增加检查，不增加文档"
+  },
+  {
+    "stage": "verification",
+    "label": "验证与验收",
+    "requirement": "required",
+    "status": "doing",
+    "status_source": "derived",
+    "artifacts": [
+      "VERIFY-061"
+    ],
+    "checks": [
+      {
+        "name": "automated-tests",
+        "result": "pass",
+        "note": "见 VERIFY-061 的51项端到端回归与文档校验"
+      }
+    ],
+    "source": "profile:compact",
+    "reason": "主文档承载决定与执行，风险增加检查，不增加文档"
+  }
+]

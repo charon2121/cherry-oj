@@ -151,6 +151,7 @@ COMMON_FIELDS = {
     "work_type",
     "gates",
     "outcome",
+    "format",
 }
 COMMON_REQUIRED = {
     "id",
@@ -731,6 +732,8 @@ def replace_section(body: str, title: str, value: str) -> str:
 
 
 def append_log(document: Document, message: str) -> None:
+    if is_compact(document) and message.startswith("检查项 "):
+        return  # 检查结论与理由已在 flow.json 中记录，不再复制进正文。
     title = "执行记录" if document.kind == "task" else "变更记录"
     current = section(document.body, title)
     entry = f"- {today()}：{message}"
@@ -772,6 +775,8 @@ def effective_risk(
 
 
 def select_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
+    if metadata.get("format") == "compact":
+        return compact_workflow(metadata)
     kind = metadata["type"]
     risk = metadata["risk"]
     impact = metadata["impact"]
@@ -973,6 +978,14 @@ def document_path(work_directory: Path, kind: str, document_id: str) -> Path:
 
 
 def stages_for_document(document: Document, work: Document) -> tuple[str, ...]:
+    if is_compact(work):
+        if document.kind == "work":
+            return ("definition", "development")
+        if document.kind == "verify":
+            return ("verification",)
+        if document.kind == "task":
+            return ("development",)
+        return ("definition",) if document.kind != "memory" else ()
     if document.kind == "work":
         return ("clarify",)
     definition = {
@@ -1054,6 +1067,9 @@ def apply_flow_section(work: "Document", documents: dict[str, "Document"]) -> No
 def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None:
     """根据文档、任务、验证和 WORK 状态刷新阶段进度。"""
 
+    if is_compact(work):
+        synchronize_compact(work, documents)
+        return
     workflow = work.metadata["workflow"]
     stage_by_name = {stage["stage"]: stage for stage in workflow}
 
@@ -1184,6 +1200,264 @@ def synchronize_workflow(work: Document, documents: dict[str, Document]) -> None
     apply_flow_section(work, documents)
 
 
+COMPACT_INTENT_SECTIONS = ("变化", "边界", "取舍", "未知", "验收")
+COMPACT_WORK_SECTIONS = (*COMPACT_INTENT_SECTIONS, "执行方案", "流程", "变更记录")
+COMPACT_VERIFY_SECTIONS = ("实际结果", "承诺差异", "验证情况", "遗留问题", "检查与结果")
+INACTIVE_DOCUMENT_STATUSES = {"deprecated", "superseded", "archived", "cancelled"}
+
+
+def is_compact(document: Document) -> bool:
+    return document.metadata.get("format") == "compact"
+
+
+def required_sections(document: Document) -> tuple[str, ...]:
+    if is_compact(document):
+        if document.kind == "work":
+            return COMPACT_WORK_SECTIONS
+        if document.kind == "verify":
+            return COMPACT_VERIFY_SECTIONS
+    return REQUIRED_SECTIONS[document.kind]
+
+
+def is_record(document: Document, documents: dict[str, Document]) -> bool:
+    work = documents.get(document.metadata.get("work"))
+    if work and is_compact(work):
+        return document.kind not in {"work", "task", "verify"}
+    return document.kind in RECORD_DOCUMENT_KINDS
+
+
+def dependency_satisfied(document: Document) -> bool:
+    if document.kind == "work" and is_compact(document):
+        return gate_passed(document, "intent") and document.metadata["status"] != "cancelled"
+    return document.metadata["status"] in SATISFIED_DEPENDENCY_STATUSES
+
+
+def compact_workflow(metadata: dict[str, Any]) -> dict[str, Any]:
+    checks = {"definition": ["definition", "scope"], "development": [],
+              "review": [], "verification": ["automated-tests"]}
+    if metadata["risk"] != "low" or metadata["impact"] != "local":
+        checks["review"].append("impact-analysis")
+    if metadata["risk"] in {"high", "critical"}:
+        checks["review"].extend(("independent-review", "rollback"))
+    if metadata["impact"] == "system":
+        checks["verification"].append("cross-module-regression")
+    checks["verification"].extend(sorted(metadata["concerns"]))
+    workflow = [
+        {"stage": name, "label": label, "requirement": "required", "status": "pending",
+         "status_source": "derived", "artifacts": [],
+         "checks": [{"name": check, "result": "pending", "note": ""} for check in checks[name]],
+         "source": "profile:compact", "reason": "主文档承载决定与执行，风险增加检查，不增加文档"}
+        for name, label in (("definition", "确认目标与边界"), ("development", "实施"),
+                            ("review", "复核"), ("verification", "验证与验收"))
+    ]
+    return {"workflow": workflow, "required_documents": ["verify"],
+            "required_checks": [check for values in checks.values() for check in values], "fast": True}
+
+
+def active_children(work: Document, documents: dict[str, Document]) -> list[Document]:
+    return [d for d in work_documents(work.id, documents)
+            if d.metadata["status"] not in INACTIVE_DOCUMENT_STATUSES]
+
+
+def synchronize_compact(work: Document, documents: dict[str, Document]) -> None:
+    children = active_children(work, documents)
+    tasks = [d for d in children if d.kind == "task"]
+    verifies = [d for d in children if d.kind == "verify"]
+    status = work.metadata["status"]
+    implemented = status in {"implemented", "verified"} and all(
+        d.metadata["status"] in {"done", "verified"} for d in tasks)
+    for stage in work.metadata["workflow"]:
+        name = stage["stage"]
+        if name == "definition":
+            state = "done" if gate_passed(work, "intent") else "ready"
+            if work.metadata.get("blocking_items"):
+                state = "blocked"
+        elif name == "development":
+            state = "done" if implemented else "doing" if status == "doing" else "ready" if gate_passed(work, "intent") else "pending"
+            if any(d.metadata["status"] == "blocked" for d in tasks):
+                state = "blocked"
+        elif name == "review":
+            # 低风险复核也需要显式记录；签验收不能倒推复核做过。
+            state = stage["status"] if stage["status_source"] == "manual" else "ready" if implemented else "pending"
+        else:
+            passed = verifies and all(d.metadata["status"] == "approved" and d.metadata["result"] == "pass" for d in verifies)
+            state = "done" if gate_passed(work, "acceptance") and passed else "doing" if any(d.metadata["status"] == "review" for d in verifies) else "pending"
+        results = [check_result(check) for check in stage["checks"]]
+        if "fail" in results:
+            state = "blocked"
+        elif state == "done" and any(result not in {"pass", "not-applicable"} for result in results):
+            state = "doing"
+        stage["status"] = state
+    apply_flow_section(work, documents)
+
+
+def complete_sections(document: Document, titles: Iterable[str]) -> list[str]:
+    return [f"{document.id} 的「{title}」尚未写完" for title in titles
+            if not section(document.body, title) or placeholder_markers(section(document.body, title) or "")]
+
+
+def scope_errors(document: Document) -> list[str]:
+    errors = []
+    for field in ("read_paths", "write_paths", "forbidden_paths"):
+        paths = document.metadata.get(field)
+        if not isinstance(paths, list) or (field != "forbidden_paths" and not paths):
+            errors.append(f"{document.id} 必须声明 {field}（forbidden_paths 可显式为空）")
+            continue
+        if any(not isinstance(path, str) or not path.strip() or path.startswith("/")
+               or ".." in Path(path).parts or "补充" in path for path in paths):
+            errors.append(f"{document.id} 的 {field} 必须使用明确的仓库相对路径")
+    return errors
+
+
+def compact_gate_blockers(work: Document, documents: dict[str, Document], gate: str) -> list[str]:
+    if work.metadata["status"] == "cancelled":
+        return ["已取消的工作不能签署"]
+    children = active_children(work, documents)
+    blockers = []
+    if gate == "intent":
+        blockers.extend(complete_sections(work, (*COMPACT_INTENT_SECTIONS, "执行方案")))
+        blockers.extend(scope_errors(work))
+        if work.metadata.get("blocking_items"):
+            blockers.append("仍有 blocking_items：" + "; ".join(work.metadata["blocking_items"]))
+        for document in children:
+            if document.kind not in {"task", "verify", "memory"}:
+                if document.metadata["status"] == "draft":
+                    blockers.append(f"{document.id} 尚未写完；关键取舍必须呈现在主文档")
+                blockers.extend(complete_sections(document, required_sections(document)))
+        if not any(item.startswith("AC-") for item in local_requirements(work)):
+            blockers.append("验收需要至少一个 AC-xxx 条目，供证据引用")
+        return blockers
+    if not gate_passed(work, "intent"):
+        blockers.append("意图闸尚未通过")
+    if work.metadata["status"] not in {"implemented", "verified"}:
+        blockers.append("主工作尚未记录 implemented")
+    for task in children:
+        if task.kind == "task" and task.metadata["status"] not in {"done", "verified"}:
+            blockers.append(f"{task.id} 尚未完成")
+    verifies = [d for d in children if d.kind == "verify"]
+    if not verifies:
+        blockers.append("缺少验证证据")
+    for document in verifies:
+        if document.metadata["status"] not in {"review", "approved"} or document.metadata.get("result") != "pass":
+            blockers.append(f"{document.id} 必须写完并记录 result=pass；失败或部分通过不能完成验收")
+        blockers.extend(complete_sections(document, required_sections(document)))
+    for requirement in local_requirements(work):
+        if requirement.startswith("AC-") and reference_coverage(verifies, "verifies", work.id, requirement)[0] != "anchored":
+            blockers.append(f"{work.id}#{requirement} 缺少锚定验证证据")
+    for stage in work.metadata["workflow"]:
+        if stage["stage"] == "review" and stage["status"] != "done":
+            blockers.append("复核尚未完成")
+        for check in stage["checks"]:
+            if check_result(check) not in {"pass", "not-applicable"}:
+                blockers.append(f"检查 {check_name(check)} 未通过或未记录结论")
+    return blockers
+
+
+def validate_compact(work: Document, documents: dict[str, Document]) -> list[str]:
+    errors = []
+    status = work.metadata["status"]
+    active = status in {"ready", "doing", "implemented", "verified"}
+    if gate_passed(work, "acceptance") and not gate_passed(work, "intent"):
+        errors.append(f"{work.id}: 验收不能先于意图确认")
+    if active or gate_passed(work, "intent"):
+        errors.extend(complete_sections(work, (*COMPACT_INTENT_SECTIONS, "执行方案")))
+        errors.extend(scope_errors(work))
+    if active and not gate_passed(work, "intent"):
+        errors.append(f"{work.id}: 实施前必须由人签署意图闸")
+    children = active_children(work, documents)
+    for child in children:
+        if child.kind == "task" and child.metadata["status"] in {"ready", "doing", "done", "verified"}:
+            if not gate_passed(work, "intent"):
+                errors.append(f"{child.id}: 实施前必须由人签署 {work.id} 意图闸")
+            errors.extend(scope_errors(child))
+            # TASK 可以收窄主工作范围，不能借拆分扩大授权。
+            for field in ("read_paths", "write_paths"):
+                parent_paths = work.metadata.get(field, [])
+                for path in child.metadata.get(field, []):
+                    if not any(Path(path).is_relative_to(Path(parent)) for parent in parent_paths):
+                        errors.append(f"{child.id}: {field} 越出主工作范围：{path}")
+            if not set(work.metadata.get("forbidden_paths", [])).issubset(child.metadata.get("forbidden_paths", [])):
+                errors.append(f"{child.id}: 必须继承主工作 forbidden_paths")
+    if status in {"implemented", "verified"}:
+        if any(d.kind == "task" and d.metadata["status"] not in {"done", "verified"} for d in children):
+            errors.append(f"{work.id}: 尚有未完成 TASK，不能声明 implemented")
+    if status == "verified":
+        if not gate_passed(work, "acceptance"):
+            errors.append(f"{work.id}: verified 必须经过人工验收闸")
+        errors.extend(compact_gate_blockers(work, documents, "acceptance"))
+    return errors
+
+
+def print_compact_review(work: Document, children: list[Document]) -> None:
+    print("\n你要确认的内容（主文档原文；不代表审查全部技术细节）")
+    for title in COMPACT_INTENT_SECTIONS:
+        print(f"\n{title}\n{section(work.body, title) or '尚未填写'}")
+    for document in children:
+        if document.kind == "verify" and document.metadata["status"] not in INACTIVE_DOCUMENT_STATUSES | {"draft"}:
+            print(f"\n交付：{document.id} [{document.metadata['status']}/{document.metadata.get('result')}]")
+            if is_compact(document):
+                for title in COMPACT_VERIFY_SECTIONS[:-1]:
+                    print(f"\n{title}\n{section(document.body, title) or '尚未填写'}")
+            print(f"详细证据：{document.path}")
+    if work.metadata.get("blocking_items"):
+        print("\n阻塞：" + "; ".join(work.metadata["blocking_items"]))
+
+
+def command_compact_gate(args: argparse.Namespace, work: Document,
+                         documents: dict[str, Document], index: dict[str, Any]) -> None:
+    gate = args.gate
+    gates = work_gates(work)
+    changed = []
+    if args.revoke:
+        if gates[gate] != "passed":
+            raise WorkError("该闸尚未通过，无需撤回")
+        if gate == "intent" and (work.metadata["status"] != "todo" or gate_passed(work, "acceptance")):
+            raise WorkError("先撤回验收闸，并将工作退回 todo，再撤回意图闸")
+        if gate == "acceptance" and work.metadata["status"] == "verified":
+            # 撤验收直接回到技术完成，无须先伪造一次重新实施。
+            work.metadata["status"] = "implemented"
+        gates[gate] = "pending"
+        if gate == "acceptance":
+            for document in gate_covered_documents(work.id, documents, gate):
+                if document.metadata["status"] == "approved":
+                    document.metadata["status"] = "review"
+                    changed.append(document)
+    else:
+        if gates[gate] == "passed":
+            raise WorkError("该闸已通过；如需重新审核请先 --revoke")
+        blockers = compact_gate_blockers(work, documents, gate)
+        if blockers:
+            raise WorkError("该闸还不能签署：\n- " + "\n- ".join(blockers))
+        gates[gate] = "passed"
+        if gate == "intent":
+            for stage in work.metadata["workflow"]:
+                for check in stage["checks"]:
+                    if check_name(check) in GATE_OWNED_CHECKS[gate]:
+                        check.update(result="pass", note=f"意图闸确认：{args.reason}")
+        else:
+            for document in gate_covered_documents(work.id, documents, gate):
+                document.metadata["status"] = "approved"
+                changed.append(document)
+    work.metadata["gates"] = gates
+    # 附件是执行记录，checked 不冒充用户逐份批准。
+    while True:
+        batch = unsettle_record_documents(work.id, documents) if args.revoke else settle_record_documents(work.id, documents)
+        if not batch:
+            break
+        changed.extend(batch)
+    append_log(work, f"{GATE_LABELS[gate]}：{gates[gate]}。确认范围与理由：{args.reason}")
+    work.metadata["updated_at"] = today()
+    synchronize_workflow(work, documents)
+    errors, _ = validate_documents(documents, args.root, index)
+    if errors:
+        raise WorkError("闸状态变化不满足约束：\n- " + "\n- ".join(errors))
+    write_document(work)
+    for document in changed:
+        document.metadata["updated_at"] = today()
+        write_document(document)
+    print(f"✓ {work.id} {GATE_LABELS[gate]}：{gates[gate]}")
+
+
 def new_metadata(
     document_id: str,
     kind: str,
@@ -1264,11 +1538,13 @@ def generate_work_documents(
             )
         elif kind == "memory" and by_type.get("verify"):
             upstream = [by_type["verify"].id]
+        if is_compact(work) and kind == "verify":
+            metadata.update(format="compact", verifies=[work.id])
         metadata["depends_on"] = upstream
         document = Document(
             path=document_path(work.path.parent, kind, document_id),
             metadata=metadata,
-            body=template_body(root, kind, document_id, title),
+            body=template_body(root, "verify-compact" if is_compact(work) and kind == "verify" else kind, document_id, title),
         )
         created.append(document)
         by_type[kind] = document
@@ -1280,7 +1556,7 @@ def reference_target(value: str) -> str | None:
     return match.group(1) if match else None
 
 
-def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]]:
+def validate_shape(document: Document, root: Path, compact_scope: bool = False) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     metadata = document.metadata
@@ -1310,6 +1586,14 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
     expected_filename = document_filename(kind, str(metadata["id"]))
     if document.path.name != expected_filename:
         errors.append(f"{prefix}: {kind} 文档文件名必须是 {expected_filename}")
+    if "format" in metadata and metadata["format"] not in {"compact", "layered"}:
+        errors.append(f"{prefix}: format 必须是 compact 或 layered")
+    if is_compact(document) and kind == "work":
+        headings = re.findall(r"(?m)^## (.+?)\s*$", document.body)
+        if tuple(headings[:5]) != COMPACT_INTENT_SECTIONS:
+            errors.append(f"{prefix}: 精简 WORK 前五节必须依次为变化、边界、取舍、未知、验收")
+    if is_compact(document) and kind not in {"work", "verify"}:
+        errors.append(f"{prefix}: compact 格式只用于 WORK 与 VERIFY")
     valid_statuses = WORK_STATUSES if kind == "work" else TASK_STATUSES if kind == "task" else DOCUMENT_STATUSES
     if metadata["status"] not in valid_statuses:
         errors.append(f"{prefix}: {kind} 状态无效：{metadata['status']}")
@@ -1427,7 +1711,7 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
     if isinstance(metadata.get("created_at"), str) and isinstance(metadata.get("updated_at"), str):
         if metadata["updated_at"] < metadata["created_at"]:
             errors.append(f"{prefix}: updated_at 不能早于 created_at")
-    for title in REQUIRED_SECTIONS[kind]:
+    for title in required_sections(document):
         if section(document.body, title) is None:
             errors.append(f"{prefix}: 缺少正文段落 `## {title}`")
     if kind in DEFINITION_KINDS:
@@ -1445,7 +1729,7 @@ def validate_shape(document: Document, root: Path) -> tuple[list[str], list[str]
     if kind == "task" and metadata["status"] in {"ready", "doing", "done", "verified"}:
         for field in ("read_paths", "write_paths", "forbidden_paths"):
             values = metadata.get(field)
-            if not isinstance(values, list) or not values:
+            if not isinstance(values, list) or (not values and not (compact_scope and field == "forbidden_paths")):
                 errors.append(f"{prefix}: {metadata['status']} 任务必须声明 {field}")
         if metadata["status"] in {"done", "verified"}:
             total, completed = checkbox_state(document.body, "完成标准")
@@ -1464,7 +1748,8 @@ def validate_documents(
     errors = validate_repository_layout(root)
     warnings: list[str] = []
     for document in documents.values():
-        document_errors, document_warnings = validate_shape(document, root)
+        parent = documents.get(document.metadata.get("work"))
+        document_errors, document_warnings = validate_shape(document, root, bool(parent and is_compact(parent)))
         errors.extend(document_errors)
         warnings.extend(document_warnings)
 
@@ -1496,7 +1781,7 @@ def validate_documents(
             unsatisfied = []
             for value in document.metadata.get("depends_on", []):
                 target = reference_target(value)
-                if target in documents and documents[target].metadata.get("status") not in SATISFIED_DEPENDENCY_STATUSES:
+                if target in documents and not dependency_satisfied(documents[target]):
                     unsatisfied.append(target)
             if unsatisfied:
                 errors.append(f"{prefix}: approved 文档依赖尚未完成：{', '.join(unsatisfied)}")
@@ -1658,6 +1943,9 @@ def validate_documents(
                 )
         tasks = [document for document in by_work[work_id] if document.kind == "task"]
         verifies = [document for document in by_work[work_id] if document.kind == "verify"]
+        if is_compact(work):
+            errors.extend(validate_compact(work, documents))
+            continue
         if work.metadata.get("status") in {"ready", "doing", "implemented", "verified"}:
             prep_types = expected - {"task", "verify", "memory"}
             unfinished_prep = [
@@ -1706,7 +1994,7 @@ def validate_documents(
         unsatisfied = []
         for value in document.metadata.get("depends_on", []):
             target = reference_target(value)
-            if target in documents and documents[target].metadata.get("status") not in SATISFIED_DEPENDENCY_STATUSES:
+            if target in documents and not dependency_satisfied(documents[target]):
                 unsatisfied.append(target)
         if unsatisfied:
             errors.append(f"{document.path.relative_to(root)}: 活跃任务依赖尚未完成：{', '.join(unsatisfied)}")
@@ -1792,6 +2080,13 @@ def command_check(args: argparse.Namespace) -> None:
         for title in REQUIRED_SECTIONS[kind]:
             if f"## {title}\n" not in template:
                 raise WorkError(f"{template_path}: 缺少 `## {title}`")
+    for kind, titles in (("work-compact", COMPACT_WORK_SECTIONS), ("verify-compact", COMPACT_VERIFY_SECTIONS)):
+        template_path = args.root / "development" / "templates" / f"{kind}.md"
+        if not template_path.is_file():
+            raise WorkError(f"缺少模板：{template_path}")
+        for title in titles:
+            if section(template_path.read_text(encoding="utf-8"), title) is None:
+                raise WorkError(f"{template_path}: 缺少 `## {title}`")
     index = load_index(args.root)
     documents = load_documents(args.root)
     if not any(document.kind == "work" for document in documents.values()):
@@ -1822,6 +2117,7 @@ def command_new(args: argparse.Namespace) -> None:
     metadata = new_metadata(work_id, "work", args.title, None, args.owner)
     metadata.update(
         {
+            "format": args.format,
             "work_type": args.work_type,
             "risk": risk,
             "impact": args.impact,
@@ -1835,13 +2131,15 @@ def command_new(args: argparse.Namespace) -> None:
             "gates": {name: "pending" for name in GATE_NAMES},
         }
     )
+    if args.format == "compact":
+        metadata.update(read_paths=args.read_path, write_paths=args.write_path, forbidden_paths=args.forbidden_path)
     workflow_metadata = select_workflow({**metadata, "type": args.work_type})
     metadata.update({key: value for key, value in workflow_metadata.items() if key != "fast"})
     work_directory = work_directory_path(args.root, work_id)
     work = Document(
         path=document_path(work_directory, "work", work_id),
         metadata=metadata,
-        body=template_body(args.root, "work", work_id, args.title),
+        body=template_body(args.root, "work-compact" if args.format == "compact" else "work", work_id, args.title),
     )
     generated = generate_work_documents(
         args.root, index, work, workflow_metadata["required_documents"]
@@ -1861,11 +2159,11 @@ def command_new(args: argparse.Namespace) -> None:
     write_index(args.root, index)
     if risk != args.risk:
         print(f"注意：风险已按影响规则从 {args.risk} 自动升级为 {risk}")
-    mode = "快速流程" if workflow_metadata["fast"] else "标准/完整流程"
+    mode = "精简流程" if is_compact(work) else "快速流程" if workflow_metadata["fast"] else "标准/完整流程"
     print(f"✓ 已创建 {work_id}（{mode}）")
     print("已生成：" + ", ".join(document.id for document in generated))
     print(
-        f"下一步：补全 {generated[0].id} 和所需上游文档，提交人工审核；"
+        f"下一步：补全 {work.id if is_compact(work) else generated[0].id} 的审核内容与执行范围，提交人工审核；"
         f"获得明确执行授权前不要开始实施。可用 `scripts/work flow {work_id}` 查看推进条件。"
     )
 
@@ -1891,10 +2189,12 @@ def command_new_doc(args: argparse.Namespace) -> None:
         )
     if args.type == "verify":
         metadata["result"] = "pending"
+        if is_compact(work):
+            metadata["format"] = "compact"
     document = Document(
         path=document_path(work.path.parent, args.type, document_id),
         metadata=metadata,
-        body=template_body(args.root, args.type, document_id, args.title),
+        body=template_body(args.root, "verify-compact" if is_compact(work) and args.type == "verify" else args.type, document_id, args.title),
     )
     prospective = dict(documents)
     prospective[document.id] = document
@@ -2019,8 +2319,13 @@ def rebuild_workflow(work: Document, documents: dict[str, Document]) -> None:
         for check in stage.get("checks") or []
         if isinstance(check, dict) and check.get("result") != "pending"
     }
+    manual = {stage["stage"]: stage for stage in work.metadata.get("workflow", [])
+              if stage["status_source"] == "manual"}
     generated = select_workflow({**work.metadata, "type": work.metadata["work_type"]})
     for stage in generated["workflow"]:
+        if is_compact(work) and stage["stage"] in manual:
+            stage["status"] = manual[stage["stage"]]["status"]
+            stage["status_source"] = "manual"
         for index, check in enumerate(stage["checks"]):
             previous = recorded.get((stage["stage"], check["name"]))
             if previous is not None:
@@ -2089,6 +2394,8 @@ def command_flow(args: argparse.Namespace) -> None:
 
 def next_step_for(work: "Document", documents: dict[str, "Document"]) -> str:
     """把「现在该做什么」集中到一处，避免每个视图各算一遍、算出不同答案。"""
+    if work.metadata["status"] == "cancelled":
+        return "无"
     if work.metadata.get("blocking_items"):
         return "解决 blocking 待确认项并更新上游定义"
     for gate in GATE_NAMES:
@@ -2114,6 +2421,12 @@ def next_step_for(work: "Document", documents: dict[str, "Document"]) -> str:
 
 def derive_work_status(work: Document, children: list[Document]) -> str:
     current = work.metadata["status"]
+    if is_compact(work):
+        if current == "cancelled":
+            return current
+        if gate_passed(work, "acceptance") and all(s["status"] == "done" for s in work.metadata["workflow"]):
+            return "verified"
+        return current
     if current in {"cancelled"}:
         return current
     if work.metadata.get("blocking_items"):
@@ -2144,7 +2457,7 @@ def settle_record_documents(
     """记录类文档写完（review）且依赖已满足时，由工具置为 checked，不占用人的判断。"""
     settled: list[Document] = []
     for document in work_documents(work_id, documents):
-        if document.kind not in RECORD_DOCUMENT_KINDS:
+        if not is_record(document, documents):
             continue
         if document.metadata.get("status") != "review":
             continue
@@ -2208,12 +2521,15 @@ def command_refresh(args: argparse.Namespace) -> None:
 def status_dependencies_satisfied(document: Document, documents: dict[str, Document]) -> bool:
     for value in document.metadata.get("depends_on", []):
         target = reference_target(value)
-        if target in documents and documents[target].metadata.get("status") not in SATISFIED_DEPENDENCY_STATUSES:
+        if target in documents and not dependency_satisfied(documents[target]):
             return False
     return True
 
 
 def gate_covered_documents(work_id: str, documents: dict[str, "Document"], gate: str) -> list["Document"]:
+    work = documents[work_id]
+    if is_compact(work) and gate == "intent":
+        return [work]
     kinds = gate_kinds(gate)
     return sorted(
         (
@@ -2228,6 +2544,8 @@ def gate_covered_documents(work_id: str, documents: dict[str, "Document"], gate:
 
 def gate_blockers(work: "Document", documents: dict[str, "Document"], gate: str) -> list[str]:
     """闸能不能签，取决于事实是否齐备；这里只检查人做判断前必须成立的前提。"""
+    if is_compact(work):
+        return compact_gate_blockers(work, documents, gate)
     blockers: list[str] = []
     covered = gate_covered_documents(work.id, documents, gate)
     if not covered:
@@ -2279,7 +2597,7 @@ def unsettle_record_documents(
     """撤闸的逆操作：依赖重新变得不确定时，工具给出的 checked 也必须收回。"""
     reopened: list[Document] = []
     for document in work_documents(work_id, documents):
-        if document.kind not in RECORD_DOCUMENT_KINDS:
+        if not is_record(document, documents):
             continue
         if document.metadata.get("status") != "checked":
             continue
@@ -2354,6 +2672,12 @@ def command_board(args: argparse.Namespace) -> None:
             state = "○ 可以签" if not blockers else f"· 未就绪（{blockers[0]}）"
         print(f"  {GATE_LABELS[gate]:<4} {state}")
 
+    if is_compact(work):
+        print_compact_review(work, children)
+        if not args.all:
+            print(f"\n下一步: {next_step_for(work, documents)}")
+            print("详细流程、检查与要求覆盖：board " + work.id + " --all")
+            return
     print("\n流程")
     parts = []
     for stage in meta.get("workflow", []):
@@ -2386,7 +2710,7 @@ def command_board(args: argparse.Namespace) -> None:
     tasks = [d for d in children if d.kind == "task"]
     verifies = [d for d in children if d.kind == "verify"]
     # 只看定义层：EXPERIENCE 与 DECISION 也归意图闸，但它们不声明要求条目。
-    definitions = [d for d in children if d.kind in DEFINITION_KINDS]
+    definitions = ([work] if is_compact(work) else []) + [d for d in children if d.kind in DEFINITION_KINDS]
     print("\n要求")
     if not definitions:
         print("  无定义文档")
@@ -2421,6 +2745,8 @@ def command_board(args: argparse.Namespace) -> None:
         print(f"    小计：锚定认领 {claimed}/{len(requirements)} · 锚定验证 {verified}/{len(requirements)}")
         print("    （~ 表示只有文档级引用，没有锚定到具体条目）")
 
+    if is_compact(work) and not tasks:
+        print("\n实施由主工作直接承接，无需独立 TASK 认领。")
     if tasks:
         print("\n任务")
         for task in tasks:
@@ -2548,7 +2874,8 @@ def command_audit(args: argparse.Namespace) -> None:
         children = work_documents(work.id, documents)
         tasks = [d for d in children if d.kind == "task"]
         verifies = [d for d in children if d.kind == "verify"]
-        for definition in (d for d in children if d.kind in DEFINITION_KINDS):
+        definitions = ([work] if is_compact(work) else []) + [d for d in children if d.kind in DEFINITION_KINDS]
+        for definition in definitions:
             for requirement in local_requirements(definition):
                 total += 1
                 anchored_claim += reference_coverage(tasks, "implements", definition.id, requirement)[0] == "anchored"
@@ -2708,6 +3035,9 @@ def command_gate(args: argparse.Namespace) -> None:
     work = require_document(documents, args.work_id)
     if work.kind != "work":
         raise WorkError(f"{args.work_id} 不是工作项")
+    if is_compact(work):
+        command_compact_gate(args, work, documents, index)
+        return
     gate = args.gate
     label = GATE_LABELS[gate]
     gates = work_gates(work)
@@ -2828,6 +3158,12 @@ def command_set_status(args: argparse.Namespace) -> None:
     if args.status not in allowed:
         raise WorkError(f"{document.kind} 不支持状态 {args.status}")
     old = document.metadata["status"]
+    related_work = document if document.kind == "work" else documents[document.metadata["work"]]
+    if is_compact(related_work):
+        if args.status == "approved" and is_record(document, documents):
+            raise WorkError("精简工作附件使用 checked，不代表用户逐份批准")
+        if gate_passed(related_work, "acceptance") and args.status in {"todo", "ready", "doing", "blocked"}:
+            raise WorkError("重新实施前请先由人撤回旧验收闸")
     transitions = WORK_TRANSITIONS if document.kind == "work" else TASK_TRANSITIONS if document.kind == "task" else DOCUMENT_TRANSITIONS
     if args.status not in transitions[old]:
         targets = ", ".join(sorted(transitions[old])) or "无"
@@ -2838,7 +3174,7 @@ def command_set_status(args: argparse.Namespace) -> None:
             f"{document.id} 属于{GATE_LABELS[gate]}覆盖的文档，不再逐份审批。\n"
             f"请改用：scripts/work gate {document.metadata['work']} {gate} --reason \"...\""
         )
-    if args.status == "checked" and document.kind not in RECORD_DOCUMENT_KINDS:
+    if args.status == "checked" and not is_record(document, documents):
         raise WorkError(
             f"checked 只用于记录类文档（{', '.join(sorted(RECORD_DOCUMENT_KINDS))}）；"
             f"{document.id} 是 {document.kind}"
@@ -2992,16 +3328,16 @@ def command_trace(args: argparse.Namespace) -> None:
 def command_context(args: argparse.Namespace) -> None:
     documents, _ = checked_documents(args.root)
     task = require_document(documents, args.task_id)
-    if task.kind != "task":
-        raise WorkError("context 入口必须是 TASK")
-    work = require_document(documents, task.metadata["work"])
+    if task.kind != "task" and not (task.kind == "work" and is_compact(task)):
+        raise WorkError("context 入口必须是 TASK 或精简 WORK")
+    work = task if task.kind == "work" else require_document(documents, task.metadata["work"])
     selected: dict[str, Document] = {work.id: work, task.id: task}
     for value in task.metadata.get("depends_on", []) + task.metadata.get("implements", []) + task.metadata.get("related", []):
         target = reference_target(value)
         if target in documents:
             selected[target] = documents[target]
     for document in work_documents(work.id, documents):
-        if document.kind in {"decision", "memory"} and document.metadata.get("status") in FINAL_DOCUMENT_STATUSES:
+        if task is work or document.kind in {"decision", "memory"} and document.metadata.get("status") in FINAL_DOCUMENT_STATUSES:
             selected[document.id] = document
     print("# 智能体任务上下文包")
     print()
@@ -3126,6 +3462,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     new_parser = subparsers.add_parser("new", help="创建工作项并生成所需文档")
+    new_parser.add_argument("--format", choices=("compact", "layered"), default="compact", help="默认精简；layered 仅用于历史格式兼容")
+    new_parser.add_argument("--read-path", action="append", default=[])
+    new_parser.add_argument("--write-path", action="append", default=[])
+    new_parser.add_argument("--forbidden-path", action="append", default=[])
     new_parser.add_argument("--title", required=True)
     new_parser.add_argument("--type", dest="work_type", choices=sorted(WORK_TYPES), required=True)
     new_parser.add_argument("--risk", choices=RISKS, required=True)

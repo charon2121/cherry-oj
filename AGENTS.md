@@ -10,12 +10,12 @@
    **验收闸**，只能由人执行 `scripts/work gate <WORK> intent|acceptance`。格式检查通过、测试
    全绿、你自己认为内容完整，都不构成授权。智能体可以准备材料、说明前置条件已满足、列出待
    确认项，但不能签闸。
-2. **文档与实施是两个回合。** 用户第一次说明意图时，只整理 WORK、定义、体验、设计、计划和
-   TASK 文档，做完只读检查后**停下来请人审核**。「完成这个功能」不能同时充当文档通过和实施
+2. **文档与实施是两个回合。** 用户第一次说明意图时，先整理 WORK 主文档与确有必要的
+   附件，做完只读检查后**停下来请人审核**。「完成这个功能」不能同时充当文档通过和实施
    授权；只有用户在看到文档后、于后续消息中明确表示通过并允许执行，才能改业务代码、迁移数据
    或部署。用户只要求改文档时，交付文档后停止。
-3. **不越过任务边界。** TASK 的 `read_paths` / `write_paths` / `forbidden_paths` 是硬边界。
-   需要越界时先升级上游计划或设计、写明理由，不要先动文件——扩大路径列表是改变范围，不是
+3. **不越过任务边界。** 精简 WORK 与独立 TASK 的 `read_paths` / `write_paths` / `forbidden_paths` 是硬边界。
+   需要越界时先升级主文档或上游方案、写明理由，不要先动文件——扩大路径列表是改变范围，不是
    实现细节。
 4. **改动前先问清楚。** 本项目的很多设计（命名、契约字段、职责边界）是反复讨论定下来的，
    不是随手写成这样的。拿不准就先问，别先改。
@@ -32,16 +32,16 @@
 | 你要做什么                                 | 先读                                                                                                                      |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | 开发、修复、重构                           | [`development/README.md`](./development/README.md)，并运行 `scripts/work overview`                                        |
-| 承接某个任务                               | `scripts/work context TASK-xxx`，它给出上游依据与代码读写边界                                                             |
+| 承接某个任务                               | `scripts/work context WORK-xxx`（精简工作）或 `context TASK-xxx`（独立任务），取得依据与代码边界                                                             |
 | 了解某个工作的全貌                         | `scripts/work board WORK-xxx`（闸、流程、要求覆盖、任务、下一步）                                                         |
-| 改动涉及用户能力、流程、权限或可见信息     | [`docs/product.md`](./docs/product.md) 与关联 FEATURE；存在 blocking 未知或定义未确认时，**不要把假设固化进代码**          |
+| 改动涉及用户能力、流程、权限或可见信息     | [`docs/product.md`](./docs/product.md) 与关联 WORK 定义或 FEATURE；存在 blocking 未知或定义未确认时，**不要把假设固化进代码**          |
 | 需要知道服务职责、数据所有权、消息与接口边界 | [`docs/architecture.md`](./docs/architecture.md)：拓扑图、逐服务数据所有权、Kafka 与 HTTP 契约                            |
 | 写 Go（judge / sandbox）                   | [`coding-standards/languages/go.md`](./docs/coding-standards/languages/go.md)                                                       |
 | 写 Java（`apps/server`）                   | [`coding-standards/languages/java.md`](./docs/coding-standards/languages/java.md) + [`coding-standards/frameworks/spring.md`](./docs/coding-standards/frameworks/spring.md) + [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md) |
 | 写 TypeScript                              | [`coding-standards/languages/typescript.md`](./docs/coding-standards/languages/typescript.md) + [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
 | 写 Python（`scripts/`、`deploy/`）         | [`coding-standards/languages/python.md`](./docs/coding-standards/languages/python.md)                                               |
 | 动任何 Web UI、组件、样式或主题            | 上一行，**外加** [`coding-standards/frameworks/react.md`](./docs/coding-standards/frameworks/react.md) 和 [`docs/design-system/PROMPT.md`](./docs/design-system/PROMPT.md)：先选页面模板，再按页面语法写，交付前逐条回答自检七问。规则全文见 [`docs/design-system.md`](./docs/design-system.md)；设计值只在 `apps/web/design-system/` 手写一次，禁止把来源 demo 直接当生产代码 |
-| 写 WORK / 定义 / DESIGN / TASK 等过程文档  | [`development/README.md`](./development/README.md)：层级、状态机、证据要求、信息优先级，以及定义层第一节的通俗语言要求和 `00-work.md` 只有三节的边界 |
+| 写 WORK / 定义 / DESIGN / TASK 等过程文档  | [`development/README.md`](./development/README.md)：精简主文档、按需拆分、状态与证据、信息优先级、前五节的人工审核内容及历史格式兼容 |
 | 写任何代码前                               | [`coding-standards/general.md`](./docs/coding-standards/general.md)：通用编码指令与优先级规则                              |
 | 本项目自己踩出来的跨语言约定               | [`coding-standards/project-conventions.md`](./docs/coding-standards/project-conventions.md)：命名、单位与契约、零值陷阱、错误边界、资源、依赖方向、待办锚点、测试 |
 | 提交、hooks、CI 细节                       | [`docs/coding-standards/git-workflow.md`](./docs/git-workflow.md)                                                  |

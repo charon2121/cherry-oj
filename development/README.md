@@ -1,336 +1,161 @@
 # 开发文档系统
 
-`development/` 是功能开发过程中产生的结构化文档中心。它以一个 `WORK` 为入口，把功能定义、
-体验、技术方案、计划、任务、验证和长期记忆放在同一条追踪链中。
+这套系统帮助人确认目标与取舍，帮助 Agent 在明确边界内实现，并留下可信的验证证据。
+人的默认阅读入口是一份主文档；文档数量不代表工程质量。
 
-项目文档只有两层：
+`docs/` 保存已经确认、跨工作长期有效的事实；`development/` 保存具体工作的决定与证据。
+全部工作见 [WORKS.md](./WORKS.md)，完整规则索引见 [SPECIFICATION.md](./SPECIFICATION.md)。
 
-- [`docs/`](../docs/README.md) 保存已经确认、跨工作项长期有效的全局事实；
-- `development/` 保存具体工作从提出到验证和沉淀记忆的过程文档。
+## 日常使用
 
-完整规范与术语依据保存在 [`SPECIFICATION.md`](./SPECIFICATION.md)（总览与索引）及其
-[`specification/`](./specification/) 分章。本 README 只保留仓库当前实现
-和开发者需要执行的规则；两者必须一致，出现差异就是需要修复并由测试约束的文档系统错误。
-全部工作项的人类可读总览见 [`WORKS.md`](./WORKS.md)；它从各 `00-work.md` 的元数据生成，使用
-`scripts/work sync-works` 刷新，不手工维护。
-
-开发过程中形成的结论在仍然只属于一个工作项时留在这里。只有经过确认、会约束多个未来工作项的
-事实，才整理进 `docs/`；迁入后，原工作项保留决定与来源链接，不能用改全局文档来掩盖实现偏差。
-若改动让读者的操作步骤发生变化，同一轮里同步 `tutorial/`——教程与实现不一致时，
-照着教程做的人会先怀疑自己而不是怀疑文档。
-
-## 统一模型
-
-每项工作先分类，再由风险、影响面和额外关注选择流程：
+新工作默认采用 `format: "compact"`，生成两份 Markdown：
 
 ```text
-WORK
-  ├─ FEATURE / CAPABILITY / ISSUE / CHANGE / IMPROVEMENT
-  ├─ EXPERIENCE
-  ├─ DESIGN / DECISION
-  ├─ PLAN
-  ├─ TASK
-  ├─ VERIFY
-  └─ MEMORY
+works/WORK-xxx/
+├── 00-work.md                  # 主文档：前五节给人审核，后面给 Agent 执行
+├── 70-verify-VERIFY-xxx.md      # 交付结果与证据，实施后填写
+└── flow.json                   # 工具维护的状态，不需要人工阅读
 ```
 
-五种工作类型：
-
-- `product`：用户能直接感受到的新能力或行为变化；
-- `infra`：给系统、开发者、运维或其他模块使用的能力；
-- `fix`：实际行为和预期不一致；
-- `maintenance`：外部行为原则上不变的重构和维护；
-- `improvement`：性能、稳定性、安全、成本或质量等系统性改进。
-
-流程是控制面，文档是产物面，两者不是一一对应：一个阶段可以没有 Markdown 文档，例如开发与复核；一个阶段可以关联多份 TASK 或 VERIFY；同一份 TASK 也同时支撑“任务拆分”和“开发”
-阶段。`00-work.md` 的 `workflow` 使用 `artifacts` 保存这种零到多、多到多关系。
-
-五种 WORK 使用独立流程模板：产品使用 FEATURE 与用户 EXPERIENCE；基建使用 CAPABILITY 与开发/
-运维 EXPERIENCE；修复使用 ISSUE；重构维护使用 CHANGE，其中包含当前问题、目标状态、不变条件和
-影响检查；工程改进使用 IMPROVEMENT。TASK 不重新决定主流程，它继承所属 WORK 的类型与边界。
-
-风险为 `low / medium / high / critical`，影响面为 `local / multi-module / system`。数据库、持久化
-格式、公共接口、安全、隐私和不可快速回退的改动会由工具自动提高最低风险；高风险与系统级工作
-自动插入技术决策、显式计划、长期记忆、独立复核和回退检查；系统级工作增加跨模块回归。数据、
-关键风险仍会留下人工确认项。
-
-流程里**没有上线与线上观察阶段**：项目处于 MVP 开发阶段，没有生产环境，这两个阶段无论怎样推进都
-无法完成，只会让「完成定义」对绝大多数工作永远无法闭合。交付与回退方式在开发计划阶段确定，
-性能、可靠性、可观测与成本关注在验证阶段用实际证据覆盖。
-
-## 目录
-
-```text
-development/
-├── README.md
-├── SPECIFICATION.md           # 规范总览与索引
-├── specification/             # 规范正文，按九章拆分
-├── WORKS.md                   # 全部 WORK 的人类可读总览与入口
-├── index.json                 # 永不回退的 ID 计数器
-├── schema/                    # 统一元数据 Schema
-├── templates/                 # 各文档模板
-└── works/
-    └── WORK-001/              # 目录名只使用永久编号
-        ├── flow.json          # 控制面状态，由 scripts/work 维护
-        ├── 00-work.md         # 控制面入口：流程视图 / 待确认项 / 变更记录
-        ├── 10-feature-FEATURE-001.md
-        ├── 20-experience-EXPERIENCE-001.md
-        ├── 30-design-DESIGN-001.md
-        ├── 40-decision-DECISION-001.md
-        ├── 50-plan-PLAN-001.md
-        ├── 60-task-TASK-001.md
-        ├── 70-verify-VERIFY-001.md
-        └── 80-memory-MEMORY-001.md
-```
-
-每个 `WORK` 及其全部附属文档必须放在同一个工作项目录中，不再按文档类型拆到全局目录。文件名前两
-位是信息层级：`00` 工作入口，`10` 定义（PRODUCT / FEATURE / CAPABILITY / ISSUE / CHANGE /
-IMPROVEMENT），`20` 体验，`30` 设计，`40` 决策，`50` 计划，`60` 任务，`70` 验证，`80` 记忆。
-同层文件按类型名和永久 ID 获得稳定顺序。层级前缀只负责文档产物的阅读顺序，不表示流程阶段，也
-不要求所有层级都出现；文档永久 ID 仍由 `index.json` 分配。
-
-工作项目录固定为 `WORK-<永久编号>`，不附加标题短名或其他 slug。标题与阅读语义统一放在
-`WORKS.md` 和 `00-work.md`，因此标题变化不会再造成目录改名、链接变化或任务路径更新。
-
-小型工作可以只使用 `WORK + 定义 + TASK + VERIFY`。工具不会为了凑齐层级生成不适用的文档；同一
-层内容需要独立复核或复用时，可以通过 `new-doc` 在所属工作项目录中继续拆分。
-
-## 创建与推进
+保留既有文件名和永久编号，避免为了简化阅读改变链接。
+普通工作不再强制创建 FEATURE、DESIGN、PLAN 或 TASK。五种类型仍表达不同工作语义：
+product 写使用场景，infra 写接入与失败行为，fix 写实际/预期与复现，maintenance 写不变量，
+improvement 写基线、目标和验证方法；这些内容先写进主文档，需要时再拆分。
 
 ```bash
-scripts/work new \
-  --title "增加题目搜索" \
-  --type product \
-  --risk medium \
-  --impact multi-module \
-  --concern performance \
-  --owner team/web
-
-scripts/work flow WORK-003
-scripts/work list --work WORK-003
-scripts/work show FEATURE-002
+scripts/work new --title "调整页脚" --type product --risk low --impact local \
+  --owner team/web --read-path apps/web --write-path apps/web --forbidden-path contracts
+scripts/work board WORK-060           # 审核内容与交付结果，直接读取原文
+scripts/work board WORK-060 --all     # 展开流程、检查、任务与要求覆盖
+scripts/work context WORK-060         # 没有独立 TASK 时，以 WORK 交接
 scripts/work overview
 ```
 
-创建命令会：
+示例编号应替换为实际创建的 WORK。主文档的 `read_paths`、`write_paths`、`forbidden_paths`
+使用仓库相对路径；没有额外禁区时显式写 `forbidden_paths: []`，不能省略范围。
 
-1. 分配永久 ID；
-2. 执行风险自动升级；
-3. 选择快速、标准或完整流程；
-4. 叠加风险、影响面和 concern 产生的额外阶段与检查；
-5. 生成必需文档与依赖；
-6. 将阶段关联到零份、一份或多份 `artifacts`；
-7. 在独立工作项目录中按层级命名文件。
+## 你需要审核的内容
 
-创建和状态命令会同步更新 `WORKS.md`。手工改过 WORK 元数据后使用 `scripts/work sync-works`；
-`scripts/work check` 会拒绝缺失或已经过期的总览。
+`00-work.md` 的前五节是本工作的人工判断依据，不另建需要同步的摘要：
+
+| 章节 | 人要判断什么 |
+|---|---|
+| 变化 | 谁遇到了什么，完成前后有什么不同 |
+| 边界 | 做什么、不做什么、不能破坏什么 |
+| 取舍 | 推荐方案及需要接受的代价，没有重要取舍时明确说明 |
+| 未知 | 当前假设、未解决问题及对开工的影响 |
+| 验收 | 怎样直接判断结果符合预期，使用 `AC-001` 等条目 |
+
+普通工作以一屏为目标，不设为了字数截断风险的硬限制。关键风险、代价与不可逆影响必须呈现，
+不能藏在附件链接里。实现步骤、文件路径与测试命令放到「执行方案」或证据中。
+第一节使用日常语言；专业词仅在帮助理解结果或取舍时使用。
+
+人的批准只覆盖明确呈现的目标、边界与重要取舍，不表示逐份审查全部技术细节。
+附件用于解释与执行；附件中出现新的重要决定，必须先更新主文档并重新取得对应确认。
+默认规则没有增加常设实施授权。
 
 ## 文档审核与执行授权
 
-人的初始意图只授权智能体整理和修改文档，不自动授权编码、运行迁移、发布或执行其他实施任务。
-协作必须分成两个明确回合：
-
-1. 智能体读取上下文，完成本次需要的 WORK、定义、体验、设计、计划和 TASK 文档；上游文档保持
-   `draft` 或 `review`，WORK 与 TASK 保持 `todo`，然后停止实施并请人审核；
-2. 人在后续消息中明确表示文档通过并允许执行后，**由人签署意图闸**，智能体才把 TASK 推进到可执行
-   状态，并开始编码或其他实施动作。
-
-“请完成这个功能”“按这个意图修改”等初始表达不能同时充当文档审核和执行授权。只读检查、文档
-校验和为了完成文档本身而运行的管理命令可以在第一回合执行；会修改产品实现、数据、部署或外部
-状态的动作必须等待第二回合授权。若人明确只要求改文档，交付文档后就停止。
+初次提出需求授权 Agent 整理主文档、调查和做只读检查。Agent 展示前五节与必要的方案说明后，
+由人在后续消息确认并允许执行；意图闸仍只能由人签署。不能从沉默、校验通过或最初的完成请求
+推断授权。用户明确只要求文档时，到交付文档为止。
 
 ### 人工确认只有两个点
 
-每个工作只有两次人工签署，其余文档由工具定稿：
+```bash
+# 以下两条只由人执行，Agent 可以准备材料，不能代签。
+scripts/work gate WORK-060 intent --reason "确认目标、边界与取舍"
+scripts/work gate WORK-060 acceptance --reason "确认结果与差异，接受遗留问题"
+```
+
+精简工作意图闸要求主文档内容齐备、路径明确、无 blocking_items、至少一个 AC 条目；已经拆出的
+上游附件也必须写完。签署记录在 WORK 的 gates 与变更记录中，WORK 保持进度状态，不标成 approved。
+附件从 review 经工具校验进入 checked；checked 不表示技术方案已被人逐份批准或已被证明正确。
+
+验收闸要求意图闸通过、WORK 已 implemented、所有有效 TASK 完成、复核完成、全部必需检查通过或有理由地
+不适用、所有有效 VERIFY 为 review/approved 且 result=pass，以及主文档的每个 AC 都有锚定证据。
+失败、部分通过、未运行的验证不能靠签字变成通过。
+
+撤回仍使用 `gate ... --revoke --reason "..."`。精简工作撤回验收会把 verified 退为 implemented，
+证据退为 review；撤回意图前需先撤回验收并将工作退为 todo。实质改变已确认的目标、边界或代价时，
+先暂停相关工作并重新确认，不能用修改附件绕开人工判断。
+
+## 执行与交付
+
+没有 TASK 时，直接记录主工作的进度，不再维护另一套相同的任务状态：
 
 ```bash
-scripts/work gate WORK-003 intent      --reason "确认这就是要做的事和边界"   # 开工前
-scripts/work gate WORK-003 acceptance  --reason "确认已完成，遗留项可接受"   # 收束时
+scripts/work set-status WORK-060 ready --reason "意图闸已通过，准备开工"
+scripts/work set-status WORK-060 doing --reason "开始实施"
+scripts/work set-status WORK-060 implemented --reason "实际实现完成"
 ```
 
-| 文档 | 终态 | 谁给出 |
-|---|---|---|
-| PRODUCT / FEATURE / CAPABILITY / ISSUE / CHANGE / IMPROVEMENT / EXPERIENCE / DECISION | `approved` | 人，意图闸一次覆盖 |
-| VERIFY | `approved` | 人，验收闸一次覆盖 |
-| DESIGN / PLAN / MEMORY | `checked` | 工具，`refresh` 时校验通过后置位 |
+这几个状态由 Agent 按实际事实记录；它们不会签署任何闸。存在独立 TASK 时仍逐个推进任务，
+未完成的任务会阻止主工作声明 implemented。
 
-`approved` 表示人已经确认，不是智能体对自己文档质量的自评。这两类文档**不能**再逐份
-`set-status ... approved`，工具会直接拒绝并提示改用 `gate`。智能体可以准备材料、说明前置条件
-已满足、列出待确认项，但不能执行 `gate`，也不能因为测试或格式检查通过就推断已获授权。
-
-闸有前置条件（意图闸：无未澄清 `blocking_items`、覆盖文档已脱离 `draft`；验收闸：意图闸已过、
-TASK 全部完成、VERIFY 已记录结论）。不满足时工具拒绝签署并列出原因；**满足也不代表自动通过**。
-签错了可以撤回：`scripts/work gate WORK-003 acceptance --revoke --reason "..."`，被覆盖的文档会退回
-`review`；若工作状态正建立在该闸之上，需先用 `set-status` 退回工作状态。
-
-`workflow` 中每个阶段同时记录：`label`、`requirement=required|optional`、实际 `status`、进度来源
-`status_source=derived|manual`、关联 `artifacts`、阶段 `checks`、规则 `source` 和选择 `reason`。阶段进度使用：
-
-```text
-pending → ready → doing → done
-             ↘ blocked
-optional 阶段还可以是 skipped
-```
-
-不适用的阶段不会塞进该 WORK 的流程。文档、TASK、VERIFY、WORK 状态变化后，工具会同步可以由事实
-推导的阶段；`refresh` 同时刷新阶段进度与工作状态。修改类型、风险或影响规则后，可执行：
+VERIFY 前四节向人交付「实际结果、承诺差异、验证情况、遗留问题」，最后的「检查与结果」保存
+实际命令、环境、输出结论与限制。UI 优先给实际页面效果，修复给复现与前后对比。
+证据只保存一次，其他地方引用，不复制测试流水账。
 
 ```bash
-scripts/work rebuild-flow WORK-003
-```
-
-补充一个独立任务：
-
-```bash
-scripts/work new-doc \
-  --work WORK-003 \
-  --type task \
-  --title "实现搜索接口" \
-  --implements FEATURE-002#REQ-001 \
-  --depends-on DESIGN-002 \
-  --read-path apps/server/problem-service \
-  --write-path apps/server/problem-service \
-  --forbidden-path contracts
-```
-
-任务进入 `ready` 前必须明确 `read_paths`、`write_paths` 和 `forbidden_paths`。发现必须越界时先更新
-上游设计或计划，不能用扩大路径列表偷偷改变范围。
-
-## 状态与证据
-
-工作项状态：
-
-```text
-todo → ready → doing → implemented → verified      # verified 是终态
-```
-
-任务状态：
-
-```text
-todo → ready → doing → done → verified
-             ↘ blocked
-```
-
-其他文档状态：
-
-```text
-draft → review → checked    # 记录类：工具校验通过
-              ↘  approved   # 决定类与 VERIFY：人在闸上签署
-                 ├─ deprecated
-                 ├─ superseded
-                 └─ archived
-```
-
-状态变化必须带理由：
-
-```bash
-scripts/work set-status DESIGN-002 approved --reason "架构复核通过"
-scripts/work set-status VERIFY-002 approved --result pass --reason "验收场景和回归检查通过"
-scripts/work set-stage WORK-003 review done --reason "复核确认边界未被越过"
-scripts/work refresh WORK-003
-```
-
-有 artifacts 的阶段由对应文档、TASK 或 VERIFY 状态推进；`clarify` 由 `blocking_items` 推进。只有复核等没有独立
-artifact 的操作阶段使用 `set-stage` 手工推进，必做阶段不能跳过。
-
-`refresh` 只根据已经存在的文档、任务和验证事实推导状态，不代替人工产品判断或关键风险确认。
-`implemented` 只代表实现完成；只有存在 `result=pass` 的已确认 `VERIFY`，工作项才会变成 `verified`。
-WORK 进入 `ready / implemented / verified` 时，对应边界之前的全部必做阶段必须已经完成。
-
-## 校验、查询和上下文
-
-```bash
+scripts/work link VERIFY-061 --relation verifies --to WORK-060#AC-001
+scripts/work set-status VERIFY-061 review --result pass --reason "已记录实际证据"
+scripts/work check-result WORK-060 automated-tests pass --reason "见 VERIFY-061"
+scripts/work check-result WORK-060 impact-analysis pass --reason "见 VERIFY-061 的范围复核"
+scripts/work set-stage WORK-060 review done --reason "已核对实现与定义、边界和证据"
+# 人签署验收闸后：
+scripts/work refresh WORK-060
 scripts/work check
-scripts/work overview                 # 全部工作：状态分布、卡点、待签的闸
-scripts/work board WORK-021           # 单个工作：闸、流程、要求覆盖、任务、下一步
-scripts/work board WORK-021 --all     # 展开全部要求条目
-scripts/work list --type work
-scripts/work list --needs-human
-scripts/work trace FEATURE-002
-scripts/work context TASK-004
-scripts/work audit                    # 对流程自身体检：哪些门禁从未拦过东西
 ```
 
-`board` 是**以项目管理方式看单个工作项的入口**。`00-work.md` 里的流程表是静态快照，`board` 才是
-视图：它额外回答文件回答不了的那个问题——**这个工作要成立哪些事，成立了几件**。
+只记录工作实际声明的检查项，查看 `board --all`。没有独立 TASK 也需要复核；不能把同一个 Agent
+换个角色称作独立复核。高风险要求独立复核与回退检查，系统级影响要求跨模块回归，concerns 增加专项检查。
+风险提高验证强度，不再自动增加 DECISION、PLAN、MEMORY。项目没有生产环境，不生成上线与线上观察阶段。
 
-要求覆盖分三种状态，不能混为一谈：`✔` 有 TASK / VERIFY 锚定到具体条目（`ISSUE-004#AC-001`）；
-`~` 只有文档级引用（`ISSUE-004`），说明这份定义有人管，但不保证每条要求都被覆盖；`✖` 无人认领。
-把后两者当成一回事的话，追踪链看起来永远是满的。
+## 什么时候拆分
 
-`check` 是 CI 边界，校验元数据、永久编号、文件位置、状态、引用、局部要求编号、依赖环、类型流程
-模板、风险增量、阶段进度、artifact 归属、流程必需文档、任务范围和验证证据。它还会拒绝旧类型
-目录、带 slug 的工作项目录、过期的 `WORKS.md`、错误的层级前缀、不在所属工作项目录中的附属文档，
-以及工作项目录内的嵌套目录或非 Markdown 文件。进行中工作缺少后续文档会给提示；一旦进入
-`ready` 或更后状态，同样的断链会成为错误。
-
-`trace` 深度优先展开引用关系，关系与它指向的文档打在同一行；重复出现的节点折成一行摘要，
-避免结构被回边淹没。
-
-`context` 从一个 TASK 组装恰好够用的智能体上下文：项目规则入口、工作项、上游定义与设计、相关
-决定和记忆，以及该任务的代码读写边界。它不把整个仓库无差别塞给智能体。
-
-`audit` 是这套系统对自己的检验。§1.3 要求「复杂度应当来自工作本身，而不是来自管理工具」，但此前
-没有任何机制检查这句话有没有被违反——流程只能增生，不能收缩。它回答：哪个维度已经不产生信息、
-哪些阶段从未产生过分支、哪些检查项从来没有记录过结论、追踪链断在哪、哪些 PLAN 在空转。
-
-## 结论不再成立的工作
-
-工作状态表达「进展到哪」，`outcome` 表达「结论还算不算数」。这两件事必须分开：一个被后续工作
-撤回的工作**确实**走完过流程、**确实**通过过验证，把它改成 `cancelled` 是篡改历史。
+| 附件 | 拆分条件 |
+|---|---|
+| 定义 / EXPERIENCE | 需求或交互较长，需要完整场景或原型；主文档仍保留可供判断的变化与边界 |
+| DESIGN | 复杂方案妨碍阅读，或需要独立技术评审 |
+| DECISION | 有实质代价、未来需要理解理由的选择 |
+| PLAN | 存在多个任务依赖、分批交付或迁移顺序 |
+| TASK | 需要独立委派、并行执行或分别验收 |
+| MEMORY | 出现会影响未来工作的教训或新结论 |
 
 ```bash
-scripts/work outcome WORK-010 superseded --by WORK-012 --reason "运行时实现已整体撤回"
-scripts/work outcome WORK-007 invalidated --reason "前提被证伪"      # 必须留下 MEMORY
-scripts/work outcome WORK-010 --clear --reason "撤回判断有误"
+scripts/work new-doc --work WORK-060 --type task --title "独立子任务" \
+  --depends-on WORK-060 --implements WORK-060#AC-001 \
+  --read-path apps/web --write-path apps/web/components --forbidden-path contracts
+scripts/work context TASK-133
 ```
 
-`superseded` 必须用 `--by` 指出接替者；`invalidated` 用于没有接替者的证伪，且**强制要求该工作有一份
-MEMORY**——「当时为什么判断错」是这类工作唯一的产出。没有产出的工作（还没到 implemented）不能标记
-outcome，那种情况用 `cancelled`。
+精简工作中，TASK 只能收窄主工作的可读写范围并继承禁区。需要扩大范围时，先更新主文档的方案与边界，
+说明理由并取得适用确认，不能先动文件。没有真正的拆分需要时，继续使用主文档。
 
-标记会出现在 `WORKS.md` 的状态列、`overview` 的独立分节、`board` 的顶部提示和 `trace` 的关系图里。
-不进视图的字段等于不存在。
+## 单一来源与长期记忆
 
-关系管理与历史操作：
+状态以元数据与 flow.json 为准，「流程」表、board 和 WORKS.md 都是生成视图。
+不要在定义、方案和证据中重复写“当前待验收”等会过期的进度描述。
 
-```bash
-scripts/work link TASK-004 --relation implements --to FEATURE-002
-scripts/work archive DESIGN-001 --reason "工作已结束，设计仅保留历史参考"
-scripts/work deprecate DESIGN-001 --reason "基础假设不再成立"
-scripts/work supersede DESIGN-001 --by DESIGN-003 --reason "新方案覆盖旧方案"
-```
+信息优先级：人工明确确认的决定 → 主文档的目标/边界/验收 → 执行方案及附件 → TASK → 代码与测试
+→ 注释 → Agent 推断。实现不能偷偷改写需求。长期、跨工作的事实确认后再进入 docs/；普通日志不强制变成 MEMORY。
 
-编号由 `index.json` 单调分配。文档删除、废弃、替代或归档后，旧编号都不会复用。
-归档只改变文档状态，文件仍保留在原工作项目录中，以免破坏上下文聚合和层级顺序。
+`outcome superseded --by WORK-xxx` 标记被替代的结论，`outcome invalidated` 标记被证伪的结论并要求 MEMORY。
+它们不改写历史进度。归档、废弃与替代文档仍保留原路径，ID 永不复用。
 
-## 信息优先级与权限边界
+## 历史格式兼容
 
-发生冲突时按以下顺序处理：
+没有 format 字段或显式 `format: "layered"` 的工作继续使用原分层规则：00-work.md 只有流程、待确认项、
+变更记录；定义与 TASK 独立；意图闸覆盖决定类文档，验收闸覆盖 VERIFY。
+旧工作、旧签署和旧证据不批量迁移，也不要求补签。`new --format layered` 仅用于历史格式兼容，日常创建不使用它。
+`rebuild-flow` 保持所属格式，不将历史工作隐式改为精简格式。
 
-```text
-人工确认的决定
-→ 功能/能力/问题/改动/改进定义
-→ 体验、技术方案和技术决策
-→ 开发计划
-→ 开发任务
-→ 代码与测试
-→ 代码注释
-→ 智能体推断
-```
+## 校验与试用
 
-下游发现上游定义错误时提出改动升级：技术路线变化先更新 `DESIGN`，用户可观察行为变化先暂停实现
-并更新 `FEATURE`。复核默认只报告问题；验证必须记录实际命令、环境、结果、遗留问题和剩余风险。
+`check` 检查结构、引用、边界与状态一致性；它不能证明需求正确、日志真实或人认真读过材料。
+`trace` 查上下游；`audit` 查看检查结论、追踪链和可能多余的拆分；`sync-works` 刷新总览。
 
-产品面的入口是**定义层文档**（FEATURE / CAPABILITY / ISSUE / CHANGE / IMPROVEMENT），主要读者
-是产品经理及其他不需要了解实现细节的人。每份定义文档的**第一节**用日常语言说明谁遇到了什么、
-为什么值得做；能用通俗语言说清楚时不使用专业词，确实需要专业词时在第一次出现时用一句话解释它
-对使用者意味着什么。报错原文、依赖坐标、类名、字段名、框架、协议、数据库表、代码路径和命令从
-第二节起才出现，实现细节放到 `DESIGN`、`PLAN` 或 `TASK`。写作要求见
-[`specification/05-documents.md`](./specification/05-documents.md) §5.3。
-
-`00-work.md` 是控制面入口，**不写产品面内容**。它只有三节：工具生成的「流程」视图、「待确认项」
-和「变更记录」。“为什么做、完成后会有什么变化、怎样算成功、可能影响谁”全部归定义层——同一个
-问题在两处各自表述一定会漂移，而 WORK 既不在上面的优先级链上，也不携带 REQ / AC 锚点，冲突时
-无法判定以谁为准。`00-work.md` 和 `WORKS.md` 里由人写的部分（待确认项、变更记录、标题）同样要
-让非技术读者读得懂。
+先在一个小修复、一个界面变化和一个跨模块工作中试用。观察人能否快速说清“批准了什么”、
+能否直接判断交付结果，以及后续 Agent 能否找到正确边界与证据。不要为了试用另外建立日报或评分表。
+若改动让现有教程的操作步骤变化，同轮更新实际存在的关联教程。

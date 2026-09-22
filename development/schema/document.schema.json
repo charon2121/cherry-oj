@@ -67,6 +67,7 @@
     "tags": { "type": "array", "items": { "type": "string" } },
     "created_at": { "type": "string", "format": "date" },
     "updated_at": { "type": "string", "format": "date" },
+    "format": { "enum": ["compact", "layered"] },
     "work_type": { "enum": ["product", "infra", "fix", "maintenance", "improvement"] },
     "risk": { "enum": ["low", "medium", "high", "critical"] },
     "impact": { "enum": ["local", "multi-module", "system"] },

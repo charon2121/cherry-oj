@@ -16,7 +16,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = PROJECT_ROOT / "scripts" / "work"
 
 
-class WorkToolTest(unittest.TestCase):
+class WorkToolFixture(unittest.TestCase):
+    work_format = "compact"
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -60,6 +62,8 @@ class WorkToolTest(unittest.TestCase):
         self.temporary.cleanup()
 
     def run_work(self, *arguments: str, success: bool = True) -> subprocess.CompletedProcess[str]:
+        if arguments and arguments[0] == "new" and self.work_format == "layered":
+            arguments = (*arguments, "--format", "layered")
         result = subprocess.run(
             [sys.executable, str(SCRIPT), "--root", str(self.root), *arguments],
             check=False,
@@ -111,6 +115,11 @@ class WorkToolTest(unittest.TestCase):
             key: json.loads(value)
             for key, value in (line.split(": ", 1) for line in lines[1:end])
         }
+
+class WorkToolTest(WorkToolFixture):
+    """原分层格式的兼容回归；不要求重写历史工作。"""
+
+    work_format = "layered"
 
     def test_fast_work_generates_only_needed_documents(self) -> None:
         self.create_fast_work()
@@ -973,6 +982,183 @@ class WorkToolTest(unittest.TestCase):
         )
         self.assertIn("没有声明检查项", result.stderr)
         self.assertIn("已声明的是", result.stderr)
+
+
+class CompactWorkTest(WorkToolFixture):
+    def prepare_work(self, risk: str = "low", impact: str = "local") -> None:
+        self.run_work("new", "--title", "收敛页脚", "--type", "product", "--risk", risk,
+                      "--impact", impact, "--owner", "agent/test", "--read-path", "apps/web",
+                      "--write-path", "apps/web", "--forbidden-path", "contracts")
+        path = self.one_work_file("00-work.md")
+        text = path.read_text()
+        text = text[:text.index('# WORK-001：')] + '''# WORK-001：收敛页脚
+
+## 变化
+
+管理端移除页脚，用户端保持内容。
+
+## 边界
+
+不修改权限与导航。
+
+## 取舍
+
+释放管理端的页面空间。
+
+## 未知
+
+没有阻塞问题。
+
+## 验收
+
+- AC-001：管理端没有页脚，用户端保留内容。
+
+## 执行方案
+
+修改应用布局，检查两端效果；异常时回退布局改动。
+
+## 流程
+
+由工具生成。
+
+## 变更记录
+
+测试夹具。
+'''
+        path.write_text(text)
+        self.run_work("refresh", "WORK-001")
+
+    def implement(self) -> None:
+        self.run_work("gate", "WORK-001", "intent", "--reason", "确认变化与边界")
+        for status in ("ready", "doing", "implemented"):
+            self.run_work("set-status", "WORK-001", status, "--reason", "记录实际进度")
+
+    def evidence(self, result: str = "pass") -> None:
+        path = self.one_work_file("70-verify-VERIFY-001.md")
+        text = path.read_text()
+        text = text[:text.index('# VERIFY-001：')] + '''# VERIFY-001：收敛页脚
+
+## 实际结果
+
+管理端无页脚，用户端内容保留。
+
+## 承诺差异
+
+无。
+
+## 验证情况
+
+测试夹具完成布局检查，未验证真实产品。
+
+## 遗留问题
+
+无。
+
+## 检查与结果
+
+AC-001：fixture 布局断言通过，命令与输出保存在本临时测试中。
+'''
+        path.write_text(text)
+        self.run_work("link", "VERIFY-001", "--relation", "verifies", "--to", "WORK-001#AC-001")
+        self.run_work("set-status", "VERIFY-001", "review", "--result", result, "--reason", "记录证据")
+
+    def test_default_is_two_documents_even_for_system_risk(self) -> None:
+        self.prepare_work("high", "system")
+        self.assertEqual(["00-work.md", "70-verify-VERIFY-001.md", "flow.json"],
+                         sorted(p.name for p in self.one_work_directory().iterdir()))
+        metadata = self.metadata(self.one_work_file("00-work.md"))
+        for check in ("independent-review", "rollback", "cross-module-regression"):
+            self.assertIn(check, metadata["required_checks"])
+        report = self.run_work("board", "WORK-001").stdout
+        self.assertIn("管理端移除页脚", report)
+        self.assertNotIn("\n检查\n", report)
+        self.assertIn("\n检查\n", self.run_work("board", "WORK-001", "--all").stdout)
+        context = self.run_work("context", "WORK-001").stdout
+        self.assertIn("可修改：apps/web", context)
+        self.run_work("check")
+
+    def test_cannot_start_before_human_intent_or_without_scope(self) -> None:
+        self.prepare_work()
+        refused = self.run_work("set-status", "WORK-001", "ready", "--reason", "不能代签", success=False)
+        self.assertIn("意图闸", refused.stderr)
+        path = self.one_work_file("00-work.md")
+        path.write_text(path.read_text().replace('write_paths: ["apps/web"]', 'write_paths: []'))
+        refused = self.run_work("gate", "WORK-001", "intent", "--reason", "不完整", success=False)
+        self.assertIn("write_paths", refused.stderr)
+
+    def test_work_without_task_completes_and_acceptance_can_be_revoked(self) -> None:
+        self.prepare_work()
+        self.implement()
+        self.evidence()
+        self.run_work("check-result", "WORK-001", "automated-tests", "pass", "--reason", "见 VERIFY-001")
+        self.run_work("set-stage", "WORK-001", "review", "done", "--reason", "符合定义与边界")
+        self.run_work("gate", "WORK-001", "acceptance", "--reason", "接受结果")
+        self.run_work("refresh", "WORK-001")
+        self.assertEqual("verified", self.metadata(self.one_work_file("00-work.md"))["status"])
+        self.run_work("rebuild-flow", "WORK-001")
+        self.run_work("check")
+        refused = self.run_work("set-status", "WORK-001", "doing", "--reason", "重新实施", success=False)
+        self.assertIn("撤回旧验收闸", refused.stderr)
+        self.run_work("gate", "WORK-001", "acceptance", "--revoke", "--reason", "重新核对")
+        self.assertEqual("implemented", self.metadata(self.one_work_file("00-work.md"))["status"])
+        self.assertEqual("review", self.metadata(self.one_work_file("70-verify-VERIFY-001.md"))["status"])
+        self.run_work("gate", "WORK-001", "acceptance", "--reason", "核对通过")
+        self.run_work("refresh", "WORK-001")
+        self.run_work("check")
+
+    def test_acceptance_rejects_failed_or_missing_checks_and_unanchored_evidence(self) -> None:
+        self.prepare_work("high", "system")
+        self.implement()
+        self.evidence()
+        self.run_work("check-result", "WORK-001", "independent-review", "fail", "--reason", "发现越界")
+        refused = self.run_work("gate", "WORK-001", "acceptance", "--reason", "不能覆盖失败", success=False)
+        self.assertIn("independent-review", refused.stderr)
+        self.assertIn("rollback", refused.stderr)
+        self.assertEqual("blocked", next(s for s in self.workflow() if s['stage'] == 'review')['status'])
+        checks = self.metadata(self.one_work_file("00-work.md"))["required_checks"]
+        for check in checks:
+            if check not in {"definition", "scope"}:
+                self.run_work("check-result", "WORK-001", check, "pass", "--reason", "见测试证据")
+        self.run_work("set-stage", "WORK-001", "review", "done", "--reason", "复核完成")
+        path = self.one_work_file("70-verify-VERIFY-001.md")
+        original = path.read_text()
+        path.write_text(original.replace('"WORK-001#AC-001"', '"WORK-001"'))
+        refused = self.run_work("gate", "WORK-001", "acceptance", "--reason", "缺证据", success=False)
+        self.assertIn("AC-001", refused.stderr)
+        path.write_text(original.replace('result: "pass"', 'result: "fail"'))
+        refused = self.run_work("gate", "WORK-001", "acceptance", "--reason", "失败不算通过", success=False)
+        self.assertIn("result=pass", refused.stderr)
+
+    def test_optional_decision_is_checked_not_human_approved(self) -> None:
+        self.prepare_work()
+        self.run_work("new-doc", "--work", "WORK-001", "--type", "decision", "--title", "独立取舍",
+                      "--depends-on", "WORK-001")
+        path = self.one_work_file("40-decision-DECISION-001.md")
+        path.write_text(path.read_text().replace("待补充", "已记录"))
+        self.run_work("set-status", "DECISION-001", "review", "--reason", "写完")
+        self.run_work("gate", "WORK-001", "intent", "--reason", "批准主文档")
+        self.assertEqual("checked", self.metadata(path)["status"])
+        self.run_work("gate", "WORK-001", "intent", "--revoke", "--reason", "重新评估")
+        self.assertEqual("review", self.metadata(path)["status"])
+        self.run_work("check")
+
+    def test_split_task_cannot_expand_scope(self) -> None:
+        self.prepare_work()
+        self.run_work("gate", "WORK-001", "intent", "--reason", "确认")
+        self.run_work("new-doc", "--work", "WORK-001", "--type", "task", "--title", "独立任务",
+                      "--depends-on", "WORK-001", "--read-path", "apps/web", "--write-path", "apps/server",
+                      "--forbidden-path", "contracts")
+        path = self.one_work_file("60-task-TASK-001.md")
+        path.write_text(path.read_text().replace("待补充", "已记录"))
+        refused = self.run_work("set-status", "TASK-001", "ready", "--reason", "越界", success=False)
+        self.assertIn("越出主工作范围", refused.stderr)
+        path.write_text(path.read_text().replace('write_paths: ["apps/server"]', 'write_paths: ["apps/web/components"]'))
+        self.run_work("set-status", "TASK-001", "ready", "--reason", "范围收窄")
+        self.run_work("set-status", "WORK-001", "ready", "--reason", "开工")
+        self.run_work("set-status", "WORK-001", "doing", "--reason", "实施")
+        refused = self.run_work("set-status", "WORK-001", "implemented", "--reason", "任务未做", success=False)
+        self.assertIn("未完成 TASK", refused.stderr)
+        self.run_work("check")
 
 
 if __name__ == "__main__":
