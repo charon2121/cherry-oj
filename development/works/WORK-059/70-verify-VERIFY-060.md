@@ -29,7 +29,7 @@ updated_at: "2026-09-22"
 | AC-001 | 结构化与精确旧模板导出、requestId 关联和 controller 前后诊断已修复，本地测试通过 |
 | AC-002 | 三种公开码已有固定分类；题目服务未知异常返回稳定 code，既有状态与鉴权组件回归通过 |
 | AC-003 | 历史 PATCH 的异常类名与触发条件未知，没有根因修复证据 |
-| AC-004 | Python 124 项通过；Java 全量 verify 与最终修改模块的 verify 通过，既有真实 Linux 测试未运行的限制见下；本次候选前两轮 CI 各 12 个 job、93 项必需回归通过 |
+| AC-004 | Python 124 项通过；Java 全量 verify 与最终修改模块的 verify 通过，既有真实 Linux 测试未运行的限制见下；三轮 CI 各 12 个 job、93 项必需回归通过 |
 
 ## 检查与结果
 
@@ -157,9 +157,10 @@ preparation-requests.json，已核对 sourceSha、runId、runAttempt。
 |---|---|---|---|
 | 1 | [35707446283](https://github.com/charon2121/cherry-oj/actions/runs/35707446283) / 1 | 12 个 job 全绿；basic 5、kernel 63、native 10、business 15 均通过 | HTTP 200，51,989,874 ns；requestId=req_8cf7347c5d6d4c978cfa78707ba3581b |
 | 2 | [35708448036](https://github.com/charon2121/cherry-oj/actions/runs/35708448036) / 1 | 12 个 job 全绿；basic 5、kernel 63、native 10、business 15 均通过 | HTTP 200，45,206,472 ns；requestId=req_c5c607850d7e4a709bb2dd808f84d301 |
+| 3 | [35709349742](https://github.com/charon2121/cherry-oj/actions/runs/35709349742) / 1 | 12 个 job 全绿；basic 5、kernel 63、native 10、business 15 均通过 | HTTP 200，81,584,785 ns；requestId=req_0f058188ce404ca8b443667e71231ade |
 
-两轮 preparation-requests.json 各 21 条记录，全部为 2xx；每轮目标 PATCH 只有一次，后续公开题目 GET
-也为 200。两轮 business cleanup.status=PASS、cleanup.json confirmed=true，均没有 failure.json 或
+三轮 preparation-requests.json 各 21 条记录，全部为 2xx；每轮目标 PATCH 只有一次，后续公开题目 GET
+也为 200。三轮 business cleanup.status=PASS、cleanup.json confirmed=true，均没有 failure.json 或
 business-service-facts.json；成功路径未触发失败诊断，不能把文件缺失描述为「服务没有异常日志」。
 同提交的 [冷下载检查 35707446284](https://github.com/charon2121/cherry-oj/actions/runs/35707446284)
 也通过，该独立工作流不计入三轮完整 CI。
@@ -176,10 +177,17 @@ business-service-facts.json；成功路径未触发失败诊断，不能把文�
 - report.json：1af498bc432eb5fb6153ec5066059f9c208894a9a7096d97b951a83050e5f80d。
 - preparation-requests.json：2859d45afcf221e3e757f084a3b2238f46282db3c8366171dfccd7adfad1a56c。
 
-第二轮通过 workflow_dispatch 独立启动。第三轮由本次证据文档提交的 push 触发，代码保持 bd7fec8
-的实现；运行结果在交付时核对并报告。不再为单纯补记第三轮结果继续推送、触发第四轮。
-第三轮未复现时停止主动重跑，后续同类真实失败再按本方案分析，不自动启动后台监控。
-前两轮全绿只能证明本次运行通过，不能满足 AC-003，不自动签署验收。
+第二轮通过 workflow_dispatch 独立启动。第三轮由证据文档提交的 push 触发，sourceSha 为
+9f17b95f24d1f5ad15d26354880f3d02bf825695，代码保持 bd7fec8 的实现；已下载并核对产物后报告结果。
+第三轮产物为 sandbox-summary-35709349742-1 与 sandbox-business-35709349742-1，SHA-256：
+
+- summary.json：3195e2e034bf50ecebff410fd32478938ed6b6d6ca995e6f8f6ad95c16dc41e1。
+- report.json：6b24ae80a5a1f872e7d89de7d76f1001ac4fb5f0832dbd323124e5d4a537b701。
+- preparation-requests.json：665c10500e861ef38737cc50d0556c4f480edab58518d4104ac181743c8f1caf。
+
+三轮主动复现已结束；第三轮结果随用户本次封存要求补记。用户随后要求提交并推送封存记录，
+该推送按仓库既有流程运行 CI，不恢复本问题的主动复现或排查。
+三轮全绿只能证明本次运行通过，不能满足 AC-003，不签署验收。
 
 ## 范围检查
 
@@ -191,7 +199,8 @@ business_test.py 为 fa82ea152d28a9751ba4efd2e0b746f1fb2111d2e017455753f528a4578
 
 ## 遗留问题
 
-根因待带证据的失败定位；前两步诊断修复不能替代整项 AC-003。
+根因待带证据的失败定位；前两步诊断修复不能替代整项 AC-003。用户已要求暂时封存，停止本轮排查；
+将来有新的同类失败证据或用户明确要求重新调查时，由后续工作引用本记录接续。
 
 ## 剩余风险
 
@@ -200,10 +209,12 @@ business_test.py 为 fa82ea152d28a9751ba4efd2e0b746f1fb2111d2e017455753f528a4578
 
 ## 结论
 
-诊断与异常边界修复完成，本地验证和前两轮完整 CI 通过，并记录真实 Linux Java 测试的限制。
-原故障根因尚未确认，整体 partial，TASK-132 保持 doing；本次文档提交只再触发最后一轮主动复现。
+诊断与异常边界修复完成，本地验证和三轮完整 CI 通过，并记录真实 Linux Java 测试的限制。
+原故障根因尚未确认，整体 partial。用户要求暂时封存，WORK-059 与 TASK-132 按现有工具规则
+记为 cancelled，已完成的实现与验证结论保留；本次封存不代表根因已修，也不代表通过验收。
 
 ## 变更记录
 
 - 2026-09-22：状态变更：draft → review。原因：本地修复与复核证据已写完，原故障根因与完整 CI 仍待验证
 - 2026-09-22：补入 bd7fec8 的两轮完整 CI、目标 PATCH 请求事实与产物摘要；回归要求满足，根因要求未满足，整体保持 partial。
+- 2026-09-22：按用户要求暂时封存，补记已核对的第三轮 CI；停止本轮跟进，保留 partial 与未确认根因。

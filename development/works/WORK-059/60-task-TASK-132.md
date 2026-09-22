@@ -2,7 +2,7 @@
 id: "TASK-132"
 type: "task"
 title: "业务闭环中 PATCH /api/admin/problems/{id} 偶发 500 且证据不可定位"
-status: "doing"
+status: "cancelled"
 work: "WORK-059"
 owners: ["team/server"]
 depends_on: ["ISSUE-020", "DESIGN-052"]
@@ -27,7 +27,8 @@ updated_at: "2026-09-22"
 ## 依据
 
 [ISSUE-020](./10-issue-ISSUE-020.md) 的 AC-001 至 AC-004，
-[DESIGN-052](./30-design-DESIGN-052.md) 的三步方案。用户已签署意图闸，当前实施诊断修复与根因定位。
+[DESIGN-052](./30-design-DESIGN-052.md) 的三步方案。用户已签署意图闸；随后要求暂时封存，
+本任务结束本轮执行，已完成项和未满足的 AC-003 如实保留。
 
 ## 可查看范围
 
@@ -86,3 +87,4 @@ updated_at: "2026-09-22"
 - 2026-09-22：状态变更：ready → doing。原因：开始诊断与异常边界修复
 - 2026-09-22：诊断与异常边界修复提交 bd7fec8，首轮 CI 35707446283 的 12 个 job、93 项必需回归全绿；原 PATCH 500 未复现，AC-003 仍未满足。
 - 2026-09-22：第二轮 CI 35708448036 同样 12 个 job、93 项必需回归全绿，目标 PATCH 为 200；证据提交的 push 作为最后一轮主动复现，未复现也不声明根因已修。
+- 2026-09-22：状态变更：doing → cancelled。原因：随WORK-059暂时封存；已完成诊断和回归保留，AC-003未满足，不再主动复现。
