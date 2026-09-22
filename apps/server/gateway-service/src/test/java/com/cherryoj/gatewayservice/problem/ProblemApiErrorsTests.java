@@ -8,6 +8,17 @@ import org.springframework.http.HttpStatus;
 class ProblemApiErrorsTests {
 
 	@Test
+	void internalProblemFailureKeepsThePublicUnavailableMapping() {
+		for (boolean publicApi : new boolean[] {true, false}) {
+			var failure = ProblemApiErrors.map(new ProblemServiceClientException(
+					HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "private-token"), publicApi);
+			assertThat(failure.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+			assertThat(failure.code()).isEqualTo("SERVICE_UNAVAILABLE");
+			assertThat(failure.getMessage()).doesNotContain("private-token", "INTERNAL_ERROR");
+		}
+	}
+
+	@Test
 	void distinguishesIdentityInvariantFromAuthorizationAndBusinessErrors() {
 		var identity = ProblemApiErrors.map(
 				new ProblemServiceClientException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN"), false);

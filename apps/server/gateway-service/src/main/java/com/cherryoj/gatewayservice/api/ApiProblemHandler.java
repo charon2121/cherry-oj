@@ -112,10 +112,14 @@ public final class ApiProblemHandler {
 	@ExceptionHandler(Throwable.class)
 	ResponseEntity<ProblemDetail> handleUnexpected(Throwable error, ServerWebExchange exchange) {
 		String requestId = ApiRequestContext.requestId(exchange);
-		LOGGER.error(
-				"Unhandled browser API error requestId={} errorType={}",
-				requestId,
-				error.getClass().getName());
+		UnexpectedErrorFacts facts = UnexpectedErrorFacts.from(error);
+		LOGGER.atError()
+				.addKeyValue("event", "api.unexpected_error")
+				.addKeyValue("request_id", requestId)
+				.addKeyValue("error_type", facts.errorType())
+				.addKeyValue("exception_types", facts.exceptionTypes())
+				.addKeyValue("application_frames", facts.applicationFrames())
+				.log("Unhandled browser API error");
 		return response(
 				HttpStatus.INTERNAL_SERVER_ERROR,
 				"INTERNAL_ERROR",

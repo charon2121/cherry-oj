@@ -1,4 +1,6 @@
-"""Normal authenticated preparation. Mutating requests are sent exactly once."""
+"""执行正常认证与业务准备；每个写请求只发送一次。"""
+from __future__ import annotations
+
 import hashlib
 import http.cookiejar
 import io
@@ -17,7 +19,7 @@ FIXTURES = ROOT / 'deploy/sandbox-linux/tests/acceptance'
 MAX_BODY = 1 << 20
 
 
-def failure_kind(data):
+def failure_kind(data: bytes | str) -> str:
     # Classify only exact, fixed public errors; never export an arbitrary response field.
     try:
         value = json.loads(data)
@@ -25,11 +27,19 @@ def failure_kind(data):
         return 'UNCLASSIFIED'
     if not isinstance(value, dict):
         return 'UNCLASSIFIED'
-    if value.get('code') != 'SERVICE_UNAVAILABLE':
+    code = value.get('code')
+    if not isinstance(code, str):
+        return 'UNCLASSIFIED'
+    known = {'INTERNAL_ERROR': 'INTERNAL_ERROR', 'BAD_GATEWAY': 'BAD_GATEWAY',
+             'GATEWAY_TIMEOUT': 'GATEWAY_TIMEOUT'}
+    if code in known:
+        return known[code]
+    detail = value.get('detail')
+    if code != 'SERVICE_UNAVAILABLE' or not isinstance(detail, str):
         return 'UNCLASSIFIED'
     return {'身份服务配置不一致，请联系管理员。': 'IDENTITY_CONFIGURATION_MISMATCH',
             '身份信任状态暂时不一致，请稍后重试。': 'IDENTITY_TRUST_MISMATCH',
-            '服务暂时不可用，请稍后重试。': 'UPSTREAM_UNAVAILABLE'}.get(value.get('detail'), 'UNCLASSIFIED')
+            '服务暂时不可用，请稍后重试。': 'UPSTREAM_UNAVAILABLE'}.get(detail, 'UNCLASSIFIED')
 
 
 def fixture_zip():

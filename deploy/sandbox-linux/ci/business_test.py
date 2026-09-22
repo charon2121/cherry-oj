@@ -13,7 +13,7 @@ import zipfile
 from business_api import API, MAX_BODY, failure_kind, fixture_zip
 from business_config import DATABASES, create, environment
 from business_evidence import Evidence, uuid
-from business_journal import MAX_ENTRIES, journal, service_facts
+from business_journal import MAX_ENTRIES, fact, journal, service_facts
 from business_observer import Observer, verify_observations
 from business_resources import Dependencies
 from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authentication_results, browser_diagnostic,
@@ -204,6 +204,16 @@ class BusinessTests(unittest.TestCase):
         for raw in ('private-password', '{}', '[]', '{"code":"PRIVATE_SECRET"}',
                     '{"code":"SERVICE_UNAVAILABLE","detail":"private-token"}'):
             self.assertEqual(failure_kind(raw), 'UNCLASSIFIED')
+
+    def test_public_failure_codes_are_classified_without_exporting_detail(self):
+        for code in ('INTERNAL_ERROR', 'BAD_GATEWAY', 'GATEWAY_TIMEOUT'):
+            with self.subTest(code=code):
+                self.assertEqual(failure_kind(json.dumps(dict(code=code, detail='private-token'))), code)
+        for value in (None, [], {}, True, 500):
+            with self.subTest(value=value):
+                self.assertEqual(failure_kind(json.dumps(dict(code=value))), 'UNCLASSIFIED')
+                self.assertEqual(failure_kind(json.dumps(dict(code='SERVICE_UNAVAILABLE', detail=value))),
+                                 'UNCLASSIFIED')
 
     def test_bootstrap_selects_one_shot_lifecycle_without_password_in_argv(self):
         import business_service
@@ -411,6 +421,89 @@ class BusinessTests(unittest.TestCase):
             log.write_text(json.dumps(entry) + '\n')
             result = service_facts(log)
         self.assertEqual(result['facts'], [dict(level='ERROR')])
+
+    def test_error_without_a_throwable_still_names_what_was_caught(self):
+        # The gateway catch-all is the line that explains a 500, and it attaches no throwable:
+        # it logs the class name into the message and nothing else. Dropping it would leave the
+        # most diagnostic line in the file unexported.
+        request_id = 'req_' + 'a' * 32
+        entry = {'level': 'ERROR', 'logger_name': 'com.cherryoj.gatewayservice.api.ApiProblemHandler',
+                 'message': ('Unhandled browser API error requestId=' + request_id +
+                             ' errorType=java.lang.IllegalStateException')}
+        with tempfile.TemporaryDirectory() as temp:
+            log = Path(temp) / 'gateway.log'
+            log.write_text(json.dumps(entry) + '\n')
+            result = service_facts(log)
+        self.assertEqual(result['facts'], [dict(level='ERROR',
+            logger='com.cherryoj.gatewayservice.api.ApiProblemHandler',
+            requestId=request_id,
+            thrown=['java.lang.IllegalStateException'])])
+
+    def test_legacy_error_requires_exact_source_and_complete_template(self):
+        logger = 'com.cherryoj.gatewayservice.api.ApiProblemHandler'
+        message = ('Unhandled browser API error requestId=req_' + 'a' * 32 +
+                   ' errorType=java.lang.IllegalStateException')
+        entries = [dict(level='ERROR', logger_name='example.OtherLogger', message=message),
+                   dict(level='WARN', logger_name=logger, message=message)]
+        for suffix in ('/private-token', ' private-token', '\n', '@', '.bad-prefix!'):
+            entries.append(dict(level='ERROR', logger_name=logger, message=message + suffix))
+        entries.append(dict(level='ERROR', logger_name=logger, message=message.replace('a' * 32, 'invalid')))
+        for entry in entries:
+            with self.subTest(entry=entry):
+                self.assertNotIn('thrown', fact(entry))
+                self.assertNotIn('requestId', fact(entry))
+
+    def test_structured_failure_preserves_request_and_bounded_safe_facts(self):
+        request_id = 'req_' + 'b' * 32
+        frame = 'com.cherryoj.gatewayservice.problem.AdminProblemsController.update'
+        for logger in ('com.cherryoj.gatewayservice.api.ApiProblemHandler',
+                       'com.cherryoj.gatewayservice.api.UnhandledApiErrorObserver',
+                       'com.cherryoj.problemservice.api.ProblemExceptionHandler'):
+            entry = dict(level='ERROR', logger_name=logger, event='api.unexpected_error',
+                         request_id=request_id, error_type='java.lang.IllegalStateException',
+                         exception_types=['java.lang.IllegalStateException', 'java.net.SocketTimeoutException'],
+                         application_frames=[frame, 'org.example.Other.call', '/private/path'],
+                         message='private-token', stack_trace='private-token')
+            result = fact(entry)
+            self.assertEqual(result['requestId'], request_id)
+            self.assertEqual(result['thrown'], ['java.lang.IllegalStateException', 'java.net.SocketTimeoutException'])
+            self.assertEqual(result['frames'], [frame])
+            self.assertNotIn('private', json.dumps(result))
+        entry['exception_types'] = ['example.Error' + str(i) for i in range(20)]
+        entry['application_frames'] = [frame + str(i) for i in range(20)]
+        self.assertEqual(len(fact(entry)['thrown']), 8)
+        self.assertEqual(len(fact(entry)['frames']), 12)
+
+    def test_structured_failure_does_not_fall_back_to_message_or_accept_untrusted_fields(self):
+        entry = dict(level='ERROR', logger_name='com.cherryoj.gatewayservice.api.ApiProblemHandler',
+                     event='api.unexpected_error', request_id='req_' + 'b' * 32,
+                     error_type='java.lang.IllegalStateException',
+                     message=('Unhandled browser API error requestId=req_' + 'a' * 32 +
+                              ' errorType=java.lang.IllegalArgumentException'))
+        self.assertEqual(fact(entry)['requestId'], 'req_' + 'b' * 32)
+        for changes in (dict(logger_name='example.OtherLogger'), dict(event='other'), dict(level='WARN'),
+                        dict(error_type='java.lang.Exception/private-token'), dict(error_type='a.' + 'b' * 201),
+                        dict(error_type=[]), dict(error_type=None)):
+            with self.subTest(changes=changes):
+                self.assertNotIn('thrown', fact(entry | changes))
+        for value in ('private-token', {}, None, [42, None, 'java.lang.Exception/private-token']):
+            result = fact(entry | dict(exception_types=value, application_frames=value))
+            self.assertEqual(result['thrown'], ['java.lang.IllegalStateException'])
+            self.assertNotIn('frames', result)
+
+    def test_message_yields_nothing_unless_a_fixed_key_introduces_a_class_name(self):
+        # Only `errorType=`-style keys are read back, and only when what follows is class-name
+        # shaped. Everything else in a message stays unexported, including text that merely
+        # contains dots.
+        for message in ('connection to db.internal.corp refused for user private-token',
+                        'errorType=not a class', 'errorType=Short.Name',
+                        'path=/home/runner/private/keys/active-private.pem',
+                        'errorType=' + 'a' * 300,
+                        'errorType=' + '.'.join(['seg'] * 80)):
+            with tempfile.TemporaryDirectory() as temp:
+                log = Path(temp) / 'user.log'
+                log.write_text(json.dumps({'level': 'ERROR', 'message': message}) + '\n')
+                self.assertEqual(service_facts(log)['facts'], [dict(level='ERROR')], message)
 
     def test_service_facts_keep_the_newest_events_within_a_fixed_bound(self):
         with tempfile.TemporaryDirectory() as temp:
