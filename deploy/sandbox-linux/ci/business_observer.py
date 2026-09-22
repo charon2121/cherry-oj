@@ -1,5 +1,8 @@
 """Read execution-group facts alongside live HTTP calls; never infer run wall time from HTTP."""
+from __future__ import annotations
+
 from contextlib import AbstractContextManager
+import errno
 import json
 import os
 from pathlib import Path
@@ -23,6 +26,8 @@ class Observer(AbstractContextManager):
         self.directory, self.output = Path(directory), Path(output)
         self.stop = threading.Event()
         self.failure = None
+        self.failure_errno = None
+        self.failure_operation = None
         self.records = []
         self.max_sample_gap_ns = 0
         self.thread = threading.Thread(target=self.watch, daemon=True)
@@ -38,15 +43,18 @@ class Observer(AbstractContextManager):
             raise RuntimeError('execution observer failed to stop')
         (self.output / 'execution-observations.json').write_text(json.dumps(dict(
             sampleIntervalNs=1000000, maxSampleGapNs=self.max_sample_gap_ns,
-            records=self.records, error=self.failure), indent=2) + '\n')
+            records=self.records, error=self.failure, errorErrno=self.failure_errno,
+            errorOperation=self.failure_operation), indent=2) + '\n')
         if self.failure:
             raise RuntimeError('execution observation failed')
 
     def watch(self):
         active = {}
         previous = time.monotonic_ns()
+        operation = 'case-marker'
         try:
             while not self.stop.wait(.001):
+                operation = 'case-marker'
                 marker = self.directory / 'observed-case'
                 case = marker.read_text().strip() if marker.exists() else ''
                 if case not in {'cpu', 'memory', ''}:
@@ -55,19 +63,24 @@ class Observer(AbstractContextManager):
                 if case or active:
                     self.max_sample_gap_ns = max(self.max_sample_gap_ns, now - previous)
                 previous = now
+                operation = 'scan-groups'
                 for group in JOBS.glob('*'):
+                    operation = 'scan-groups'
                     # cgroupfs exposes controller files alongside execution directories.
                     if not group.is_dir() or group.name in active or not case:
                         continue
                     try:
+                        operation = 'cgroup-procs'
                         pids = (group / 'cgroup.procs').read_text().split()
                         for pid in pids:
+                            operation = 'process'
                             proc = Path('/proc') / pid
                             uid = next(line.split()[1:] for line in (proc / 'status').read_text().splitlines() if line.startswith('Uid:'))
                             argv = (proc / 'cmdline').read_bytes().split(b'\0')[0]
                             if uid == ['61002'] * 4 and Path(os.fsdecode(argv)).name == 'Main':
                                 files = {}
                                 try:
+                                    operation = 'open-counters'
                                     for name in ('cpu.stat', 'memory.events'):
                                         files[name] = os.open(group / name, os.O_RDONLY)
                                 except BaseException:
@@ -80,16 +93,23 @@ class Observer(AbstractContextManager):
                                 if len(self.records) > 4:
                                     raise ValueError('unexpected extra CPU/memory executions')
                                 break
-                    except (FileNotFoundError, ProcessLookupError):
-                        continue
+                    except OSError as error:
+                        # 删除 cgroup 与发现新执行并发时可能返回 ENODEV，proc 消失则是 ENOENT/ESRCH。
+                        if operation in ('cgroup-procs', 'open-counters') and error.errno in (errno.ENOENT, errno.ENODEV):
+                            continue
+                        if operation == 'process' and error.errno in (errno.ENOENT, errno.ESRCH):
+                            continue
+                        raise
                 for name, (files, row) in list(active.items()):
                     try:
+                        operation = 'read-counters'
                         row['cpu'] = counters(read_fd(files['cpu.stat']))
                         row['memoryEvents'] = counters(read_fd(files['memory.events']))
-                    except OSError:
-                        # A deleted cgroup can reject reads even from an existing descriptor.
-                        if (JOBS / name).exists():
+                    except OSError as error:
+                        # 旧 FD 也可能因 cgroup 消失而失效；不能把权限或 I/O 错误当成成功回收。
+                        if error.errno not in (errno.ENOENT, errno.ENODEV):
                             raise
+                    operation = 'check-exit'
                     if (Path('/proc') / str(row['pid'])).exists() and (JOBS / name).exists():
                         row['lastSeenNs'] = now
                     else:
@@ -99,6 +119,9 @@ class Observer(AbstractContextManager):
                         del active[name]
         except BaseException as error:
             self.failure = type(error).__name__
+            self.failure_operation = operation
+            if isinstance(error, OSError) and type(error.errno) is int and 0 < error.errno < 4096:
+                self.failure_errno = error.errno
         finally:
             for files, _ in active.values():
                 for fd in files.values():

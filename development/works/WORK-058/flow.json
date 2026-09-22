@@ -142,8 +142,8 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pending",
-        "note": "当前候选 Go 全量 race、darwin/arm64 与 linux/amd64 vet、Python basic 五项通过；真实 Linux kernel/native/business CI 未执行，历史 34938772322 只保留为历史证据。"
+        "result": "fail",
+        "note": "首次提交 CI 35698867685 的 Linux/kernel/native 均通过，业务采样器 OSError 导致 business 与 summary 失败；已修复确定的采样边界缺陷并等待新候选复跑，见 VERIFY-059。"
       },
       {
         "name": "reliability",

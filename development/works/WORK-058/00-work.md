@@ -59,7 +59,7 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 ## 待确认项
 
 - 2026-09-22 独立复核的 R1–R10 已由 TASK-133 修复，本地回归及三位独立 Agent 复审通过。
-  当前修复候选仍需真实 Linux 隔离、原生部署与业务闭环 CI；VERIFY-059 保持 partial。
+  首次 CI 的真实 Linux 隔离与原生部署通过，业务采样器失败已补修，等待新候选完整复跑；VERIFY-059 保持 partial。
   2026-09-15 的两道人工闸记录保留为历史事实，不表示本候选已经验收。
 - 用户已就四件事给出结论，已记录进 DECISION-035：接受全量轮换环境指纹；零隔离后端改名 devhost
   并默认拒绝启动；错误消息统一为英文；结构说明文档按新结构重写。这些结论在意图闸上一次性确认。
@@ -109,3 +109,4 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-22：检查项 automated-tests 记录结论：待检查。原因：当前候选 Go 全量 race、darwin/arm64 与 linux/amd64 vet、Python basic 五项通过；真实 Linux kernel/native/business CI 未执行，历史 34938772322 只保留为历史证据。
 - 2026-09-22：检查项 reliability 记录结论：待检查。原因：R1/R2/R3/R6 生命周期反例已修复并经独立复审与定向 race 测试通过；真实 Linux 资源回收和故障恢复回归仍需本候选 CI 确认。
 - 2026-09-22：根据文档、任务与验证事实刷新状态：doing → implemented。
+- 2026-09-22：检查项 automated-tests 记录结论：未通过。原因：首次提交 CI 35698867685 的 Linux/kernel/native 均通过，业务采样器 OSError 导致 business 与 summary 失败；已修复确定的采样边界缺陷并等待新候选复跑，见 VERIFY-059。

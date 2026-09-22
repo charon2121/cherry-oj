@@ -10,7 +10,7 @@ related: ["VERIFY-059"]
 implements: ["CHANGE-014#REQ-003", "CHANGE-014#REQ-005", "CHANGE-014#REQ-008", "CHANGE-014#REQ-010", "CHANGE-014#REQ-013"]
 verifies: []
 tags: []
-read_paths: ["AGENTS.md", "docs", "development", "apps/judge-engine", "contracts", "deploy/sandbox-linux"]
+read_paths: ["AGENTS.md", "docs", "development", "apps/judge-engine", "apps/web/e2e-live", "contracts", "deploy/sandbox-linux"]
 write_paths: ["apps/judge-engine", "docs/engine.md", "development/works/WORK-058", "deploy/sandbox-linux/tests", "deploy/sandbox-linux/ci"]
 forbidden_paths: ["apps/server", "apps/web", "contracts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "scripts", ".github"]
 created_at: "2026-09-22"
@@ -38,6 +38,10 @@ CHANGE-014、DESIGN-051、PLAN-041 与 VERIFY-059 的 R1–R10。用户在阅读
 
 deploy 范围仅限 R5 的故障采样与对应纯 Python 回归；允许将该回归接入现有 basic.ci 测试发现，
 不改变必跑用例数量、报告 schema 或放宽任何断言。WORK-059 的 business 日志增量保持原状。
+
+2026-09-22 CI 范围补充：首次提交验证在 business_observer 记录 OSError 后失败。为完成用户要求的
+CI 验证，允许同类 cgroup 消失竞态的业务采样修复、精确错误诊断及纯 Python 回归；只读查看
+apps/web/e2e-live 以区分浏览器失败与采样器失败，不修改 Web/Java，不放宽计量与清理验收条件。
 
 ## 禁止修改
 

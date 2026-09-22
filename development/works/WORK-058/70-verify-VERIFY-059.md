@@ -18,7 +18,8 @@ updated_at: "2026-09-22"
 # VERIFY-059：判题引擎结构重切的回归验证
 
 **当前结论（2026-09-22）：R1–R10 已修复，本地回归与三位独立 Agent 的复审通过。**
-本次未重跑真实 Linux/systemd 隔离与业务闭环，`result` 保持 `partial`。修复及验证见下方
+首次 CI 的真实 Linux 隔离与原生部署通过，业务采样器失败；同类消失竞态已补回归与修复，等待复跑，
+`result` 保持 `partial`。修复及验证见下方
 「TASK-133 修复验证」；初次独立复核的两项 P1、八项 P2 与原始反例保留为历史证据。
 2026-09-15 的人工签署与测试记录不代表本次修复候选已验收。
 
@@ -131,8 +132,9 @@ basic 5/5、kernel 63/63、native 10/10、business 15/15。
 
 ## 未通过项
 
-当前修复候选尚缺真实 Linux 隔离、原生部署与业务闭环的 CI 结果。初次复核的 R1–R10 已有处置和
-回归，不能用历史 CI 34938772322 代替本次验证。WORK-060 的未跟踪入口问题已在提交整理时解决。
+首次 CI run 35698867685 的业务采样失败，整体未通过。初次复核的 R1–R10 已有处置和回归，
+真实 Linux 的 kernel 63 项、native 10 项通过；仍须补齐修复后的完整业务闭环与汇总。
+WORK-060 的未跟踪入口问题已在提交整理时解决。
 
 ## TASK-133 修复验证（2026-09-22）
 
@@ -193,6 +195,38 @@ WORK-060 的工具、规范与入口以独立提交 `c9b2407` 纳入；本次 R1
 ci 116 个测试含那两项独立工作的测试，不能混称为本次提交的覆盖数量。
 候选的 507 份工作文档、583 份 Markdown 入口与链接检查通过，WORK-060 未跟踪入口阻塞已消除；
 WORK-033 的既有进度提示保留。没有提交 WORK-059 的两处脚本改动，也没有改动其文件内容。
+
+### 首次提交 CI 与业务采样补修
+
+[CI run 35698867685](https://github.com/charon2121/cherry-oj/actions/runs/35698867685)，attempt 1，
+sourceSha `35d1d1c5e3a3440854e4cd9588cd3421da1a5416`。10 个 job 成功，business 和 summary 失败。
+basic 5/5、kernel 63/63、native 10/10 全 PASS，三套资源清理也 PASS。
+
+业务报告确认新环境、部署、校准通过；`browser-diagnostic.json` 的最终状态为 passed，
+`execution-observations.json` 的 error 为 OSError，只有 CPU 样本，缺少内存执行证据。
+Observer.__exit__ 因采样线程失败而拒绝整批验证，failure.json 的 history 只是最后浏览器阶段。
+浏览器记录的 business.spec.ts:143 是 poll 内临时断言位置，不能据此把 passed 解释成浏览器整体失败。
+该次采样错误没有导出 errno 与操作位置，因此不能断言该次异常必定是 ENODEV。
+
+源码与注入测试另确认两项采样缺陷：发现执行组时只捕获 ENOENT/ESRCH，未处理 cgroup 消失的
+ENODEV；读取已打开计数器时，目录消失会让 EACCES/EIO/EMFILE 也被吞掉。现在逐读取位置限定允许的
+消失 errno，并增加固定操作名与有界 errno 诊断，不导出异常正文、凭据或任意路径；CPU/OOM/墙钟与
+清理的验收条件不变。最初 3 项定向测试在原实现上出现 4 个失败和 1 个缺字段错误；补全到
+4 项测试后，在修复实现上全部通过。
+准确暂存快照的 Python basic 五项全过：install 15、rootfs 27、ci 118 项测试，无跳过。
+
+Gibbs（Agent `01a0c7e9-e341-7f00-bba9-c14bc6528f5b`）独立复审采样补修，未发现可操作缺陷。
+独立重跑完整四项回归：旧实现 8 个失败子项和 1 个错误，新实现通过；另运行 54 组错误注入，
+核验已取得的 FD 均恰好关闭一次，敏感异常正文不被导出。verify_observations 的 AST 与旧提交相同，
+15 组计量、时序、记录数量和消失确认反例仍被拒绝。纯 Python 验证不替代下面的真实 CI 复跑。
+
+原始报告保存在本机 `/tmp/work058-ci-35698867685`；关键文件 SHA-256：
+
+| 文件 | SHA-256 |
+|---|---|
+| execution-observations.json | `4a332264e80a3629731d1851b09b74230f0d31dbc7b06ea6f09ee7d53c679ff4` |
+| browser-diagnostic.json | `dac8b147b2ad7201babfd62dd3e5064118a2543eb54e024442e52770e5ddc896` |
+| summary.json | `d0ce1d060cb1d5d31b1ed27b5e95eec0555a0d4da84aa6372bd58179eddfe3f8` |
 
 ## 独立复核（2026-09-22）
 
