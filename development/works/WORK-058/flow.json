@@ -113,7 +113,7 @@
     "label": "复核",
     "requirement": "required",
     "status": "done",
-    "status_source": "manual",
+    "status_source": "derived",
     "artifacts": [],
     "checks": [
       {
@@ -134,7 +134,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "blocked",
+    "status": "done",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-059"
@@ -142,13 +142,13 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "fail",
-        "note": "首次提交 CI 35698867685 的 Linux/kernel/native 均通过，业务采样器 OSError 导致 business 与 summary 失败；已修复确定的采样边界缺陷并等待新候选复跑，见 VERIFY-059。"
+        "result": "pass",
+        "note": "CI 35700329069，c32b87f，attempt 1：12 个 job、93 项必需回归全部通过；本地与独立复审证据见 VERIFY-059。"
       },
       {
         "name": "reliability",
-        "result": "pending",
-        "note": "R1/R2/R3/R6 生命周期反例已修复并经独立复审与定向 race 测试通过；真实 Linux 资源回收和故障恢复回归仍需本候选 CI 确认。"
+        "result": "pass",
+        "note": "本候选 kernel 63/native 10/business 15 均通过，CPU/OOM 采样完整、采样错误为 null、清理通过；R1/R2/R3/R6 定向 race 回归与独立复审通过。"
       },
       {
         "name": "security",

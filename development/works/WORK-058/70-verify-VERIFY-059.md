@@ -10,18 +10,17 @@ related: ["CHANGE-014", "DESIGN-051"]
 implements: []
 verifies: ["CHANGE-014#AC-001", "CHANGE-014#AC-002", "CHANGE-014#AC-003", "CHANGE-014#AC-004", "CHANGE-014#AC-005", "CHANGE-014#AC-006", "CHANGE-014#AC-007", "CHANGE-014#AC-008", "CHANGE-014#AC-009", "CHANGE-014#AC-010", "CHANGE-014#AC-011", "CHANGE-014#AC-012", "CHANGE-014#REQ-016"]
 tags: []
-result: "partial"
+result: "pass"
 created_at: "2026-09-14"
 updated_at: "2026-09-22"
 ---
 
 # VERIFY-059：判题引擎结构重切的回归验证
 
-**当前结论（2026-09-22）：R1–R10 已修复，本地回归与三位独立 Agent 的复审通过。**
-首次 CI 的真实 Linux 隔离与原生部署通过，业务采样器失败；同类消失竞态已补回归与修复，等待复跑，
-`result` 保持 `partial`。修复及验证见下方
-「TASK-133 修复验证」；初次独立复核的两项 P1、八项 P2 与原始反例保留为历史证据。
-2026-09-15 的人工签署与测试记录不代表本次修复候选已验收。
+**当前结论（2026-09-22）：R1–R10 与 CI 采样补修均已完成，独立复审和完整 CI 通过。**
+CI 35700329069 对 `c32b87f` 的 12 个 job、93 项必需回归全部通过。技术验证 result=pass；
+本记录保留 2026-09-15 的签署元数据，仅补充本次证据，本轮未执行签闸或将工作自动标为已验收。
+初次独立复核的两项 P1、八项 P2、首轮 CI 失败与原始反例均保留为历史证据。
 
 ## 验证对象
 
@@ -132,9 +131,9 @@ basic 5/5、kernel 63/63、native 10/10、business 15/15。
 
 ## 未通过项
 
-首次 CI run 35698867685 的业务采样失败，整体未通过。初次复核的 R1–R10 已有处置和回归，
-真实 Linux 的 kernel 63 项、native 10 项通过；仍须补齐修复后的完整业务闭环与汇总。
-WORK-060 的未跟踪入口问题已在提交整理时解决。
+当前技术验证无未通过项。首次 CI 的采样失败已补修，后续完整 CI 35700329069 全绿；
+WORK-060 的未跟踪入口问题也已解决。原 WORK-033 的进度提示与 WORK-059 两处未提交诊断增量
+属于其他工作，保持原状。
 
 ## TASK-133 修复验证（2026-09-22）
 
@@ -157,6 +156,8 @@ WORK-060 的未跟踪入口问题已在提交整理时解决。
 R7 的固定指纹基准显式更新为 `410c0b0549709ebbaa508baa841ce82750eef714ae036735abd872a9e6947c74`。
 调用期限仍不能由 judge 配置证明覆盖排队、传输和回收耗时；因此保留超时对身份的影响，并在文档中
 说明部署余量，不宣称已实现全链路总预算推导。不改契约、不切换 ACTIVE 环境。
+
+以下为首次推送前的本地检查，后续真实 CI 见本节末尾。
 
 | 检查 | 命令与结果 |
 |---|---|
@@ -227,6 +228,23 @@ Gibbs（Agent `01a0c7e9-e341-7f00-bba9-c14bc6528f5b`）独立复审采样补修�
 | execution-observations.json | `4a332264e80a3629731d1851b09b74230f0d31dbc7b06ea6f09ee7d53c679ff4` |
 | browser-diagnostic.json | `dac8b147b2ad7201babfd62dd3e5064118a2543eb54e024442e52770e5ddc896` |
 | summary.json | `d0ce1d060cb1d5d31b1ed27b5e95eec0555a0d4da84aa6372bd58179eddfe3f8` |
+
+### 修复后完整 CI 通过
+
+[CI run 35700329069](https://github.com/charon2121/cherry-oj/actions/runs/35700329069)，attempt 1，
+sourceSha `c32b87f8b25c3af1de2bc2a040fee98dfa0717c0`。12 个 job 全部 success；必需回归汇总
+status=PASS：basic 5/5、kernel 63/63、native 10/10、business 15/15，共 93/93，无失败、跳过或未运行项。
+这是一轮新提交上的完整运行，没有借用首轮成功 job 的旧报告。
+
+业务 execution-observations 的 error、errorErrno、errorOperation 均为 null；CPU 与内存各有一个
+完整样本并确认消失。CPU usage_usec=1001462；内存组 oom_kill=3、oom_group_kill=1；
+maxSampleGapNs=10857892，计量与采样间隔断言通过。业务报告的 15 项包括实际页面、正式 AC/WA、
+Kafka 流程、历史记录与最终清理，均 PASS。没有降低任何验收阈值。
+
+报告保存在本机 `/tmp/work058-ci-35700329069`；summary.json 的 SHA-256 为
+`1d2173f323f84a7deca9a1699a073b4b2c8f3a0f11d7b0d88a0fe44503afadc4`，execution-observations.json 为
+`e121c36e5734986cafa02dc14ab96d499c01cb0a23d9aa4cd344a6c2626cf87c`。
+CI 页面与上述编号、提交 SHA、attempt 和固定结果足以定位本次验证；历史失败不被回写为成功。
 
 ## 独立复核（2026-09-22）
 
@@ -385,6 +403,7 @@ AC-001 至 AC-012 均已取得证据（逐条出处见上方各阶段记录与�
   定向实验及原始材料，将当前 result 由 pass 改为 partial。人工签署记录保留，未修改业务实现。
 - 2026-09-15：状态变更：draft → review。原因：S1-S7 全部完成，CI 34938772322 一次通过 12 个 job 与 93 项必需回归，等待人工复核与验收闸
 - 2026-09-15：验收闸通过：review → approved。原因：CI 34938772322 一次通过，93 项必需回归全绿，AC-001 至 AC-012 均有证据。验收通过。
+- 2026-09-22：CI 35700329069 对 c32b87f 的 12 个 job、93 项回归全部通过，技术验证 partial → pass；签署元数据保持原状。
 
 ## 独立复核原始证据附录
 
