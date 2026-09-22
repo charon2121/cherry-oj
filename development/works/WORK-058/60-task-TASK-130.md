@@ -14,7 +14,7 @@ read_paths: ["AGENTS.md", "CLAUDE.md", "docs/coding-standards", "docs/architectu
 write_paths: ["apps/judge-engine", "development/works/WORK-058", "deploy/sandbox-linux/ci", ".github/workflows/ci.yml", "deploy/sandbox-linux/tests/README.md", "compose.yaml", "deploy/sandbox-linux/tests"]
 forbidden_paths: ["contracts", "apps/server", "apps/web", "scripts", "apps/judge-engine/go.mod", "apps/judge-engine/go.sum", "development/works/WORK-049", "development/works/WORK-050", "deploy/sandbox-linux/install", "deploy/sandbox-linux/rootfs", "deploy/sandbox-linux/systemd", "deploy/sandbox-linux/build-release.sh", "deploy/sandbox-linux/probe.sh", ".github/workflows/language-diagnostic.yml", ".github/workflows/sandbox-download-cold.yml"]
 created_at: "2026-09-14"
-updated_at: "2026-09-15"
+updated_at: "2026-09-22"
 ---
 
 # TASK-130：S6 拆分节点能力并改造部署校验与预算断言
@@ -71,8 +71,9 @@ sandbox 客户端，删除模块内第三个 HTTP 客户端；把部署清单校
       把它变成配置会让被校验者自己决定校验目标。
 - [x] 部署校验对「清单声明未被校验」与「被校验项无声明」两类情况分别报错，并指出是哪一条；
       两类情况各有一个测试用例。
-- [x] 人为把 HTTP 写期限配成小于会话期限，sandbox 拒绝启动并说明是哪两项冲突；judge 侧调用期限
-      与 sandbox 端总预算的关系同样断言。
+- [x] 人为把 HTTP 写期限配成小于会话期限，sandbox 拒绝启动并说明是哪两项冲突；judge 侧检查
+      调用期限大于编译墙钟。2026-09-22 复核更正：原记录声称同时断言 sandbox 总预算，实际未实现，
+      修复与能力边界见 TASK-133 和 VERIFY-059 的 R7。
 - [x] 节点控制协议与安装协议的线格式与基线 `a611be3` 相同。
 
 ## 验证

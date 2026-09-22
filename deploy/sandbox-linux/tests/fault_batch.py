@@ -10,6 +10,8 @@ import subprocess
 import sys
 import time
 
+from identity_sample import sample
+
 BASE = Path(sys.argv[1])
 assert BASE.parent == Path('/var/lib/cherry-sandbox-test')
 assert BASE.name.startswith('work048-fault-') and not BASE.is_symlink()
@@ -225,17 +227,9 @@ def capacity_cases():
         paired = [pool.submit(isolated, token) for token in ('left', 'right')]
         payload_ids, init_ids = set(), set()
         while not all(future.done() for future in paired):
-            for group in group_paths():
-                try:
-                    for pid in (group / 'cgroup.procs').read_text().split():
-                        status = Path('/proc', pid, 'status').read_text()
-                        uid = int(next(line for line in status.splitlines() if line.startswith('Uid:')).split()[1])
-                        if uid in (61002, 61004): payload_ids.add(uid)
-                        if uid in (61003, 61005): init_ids.add(uid)
-                except OSError:
-                    # 执行组可能在枚举与读取之间被删除。cgroup v2 下这两步分别返回
-                    # ENOENT 与 ENODEV，只捕 FileNotFoundError 会漏掉后者。
-                    pass
+            payload, init = sample(group_paths())
+            payload_ids.update(payload)
+            init_ids.update(init)
             time.sleep(.005)
         assert payload_ids == {61002, 61004} and init_ids == {61003, 61005}, (payload_ids, init_ids)
         for token, future in zip(('left', 'right'), paired):

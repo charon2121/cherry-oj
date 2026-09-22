@@ -53,7 +53,7 @@ func openSources(ctx context.Context, st store.Store, spec contract.RunSpec) (*s
 		s.stdin = &backend.Source{Reader: &budgetReader{r: rc, budget: budget}}
 	}
 	// 取消后关闭句柄，解除仍阻塞的读取；close 时撤销回调，避免在收尾后重复触发。
-	s.stop = context.AfterFunc(ctx, func() { s.close() })
+	s.stop = context.AfterFunc(ctx, func() { s.closeResources() })
 	return s, nil
 }
 
@@ -62,10 +62,16 @@ func (s *sources) track(rc io.ReadCloser) {
 }
 
 func (s *sources) close() error {
+	if s.stop != nil {
+		s.stop()
+	}
+	return s.closeResources()
+}
+
+// 回调可能在 AfterFunc 返回前启动，不能读取仍在登记中的 s.stop。
+// Once 同时让正常收尾等待已经开始的关闭回调，保证错误与句柄关闭结果可见。
+func (s *sources) closeResources() error {
 	s.once.Do(func() {
-		if s.stop != nil {
-			s.stop()
-		}
 		for _, closeFn := range s.closes {
 			s.err = errors.Join(s.err, closeFn())
 		}

@@ -12,10 +12,10 @@ import (
 )
 
 // Sandbox 是环境探测所消费的能力。接口由消费方定义，实现是 judge 已有的 sandbox 客户端——
-// 探测不再自建第三个 HTTP 客户端，超时、trace 传播与错误正文截断都沿用同一套。
+// 探测共用 transport、超时与 trace；Version/Probe 都必须拒绝重定向并限制响应大小。
 type Sandbox interface {
 	Version(ctx context.Context) (contract.SandboxVersion, error)
-	Run(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error)
+	Probe(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error)
 }
 
 // Environment 通过 sandbox 已有的有界接口读取执行环境。探测程序中不插入任何用户输入。
@@ -34,7 +34,7 @@ func Environment(ctx context.Context, j config.Settings, sandbox Sandbox) (ident
 		return probeDeployment(ctx, j, version.Version, sandbox)
 	}
 	spec := contract.RunSpec{Command: []string{"/usr/bin/python3", "-c", environmentProbe}, Limits: contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 134217728, MaxProcesses: 8, StdoutMaxBytes: 8192, StderrMaxBytes: 1024}}
-	result, err := sandbox.Run(ctx, spec)
+	result, err := sandbox.Probe(ctx, spec)
 	if err != nil {
 		return identity.Environment{}, fmt.Errorf("sandbox environment probe unavailable: %w", err)
 	}

@@ -38,7 +38,7 @@ const (
 //     以及覆盖二进制与资源配额的运行时摘要。
 //   - 不收录 inlineThresholdBytes：它只决定测例走内联还是走 store，是纯传输优化，
 //     改它不改变任何判题结论。
-//   - 不收录 sandboxTimeout：它是调用方的等待上限，描述的不是这个环境的能力。
+//   - 收录 sandboxTimeout：调用提前超时会把执行结论变为 SE，必须区分这类环境。
 type policyFingerprint struct {
 	StrictWhitespace    bool   `json:"strictWhitespace"`
 	RevealExpected      bool   `json:"revealExpected"`
@@ -50,6 +50,7 @@ type policyFingerprint struct {
 	CompileCPUNs        int64  `json:"compileCpuNs"`
 	CompileMemoryBytes  int64  `json:"compileMemoryBytes"`
 	CompileClockNs      int64  `json:"compileClockNs"`
+	SandboxTimeoutNs    int64  `json:"sandboxTimeoutNs"`
 	RuntimeDigest       string `json:"runtimeDigest"`
 }
 
@@ -65,6 +66,7 @@ func policyOf(s config.Settings, runtimeDigest string) policyFingerprint {
 		CompileCPUNs:        s.Compile.CPUNs,
 		CompileMemoryBytes:  s.Compile.MemoryBytes,
 		CompileClockNs:      s.Compile.ClockNs,
+		SandboxTimeoutNs:    int64(s.SandboxTimeout),
 		RuntimeDigest:       runtimeDigest,
 	}
 }

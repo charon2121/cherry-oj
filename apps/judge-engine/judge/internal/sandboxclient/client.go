@@ -18,6 +18,7 @@ import (
 const (
 	defaultTimeout    = 60 * time.Second
 	errorBodyMaxBytes = 4 << 10
+	probeBodyMaxBytes = 16 << 10
 )
 
 // Client 是 sandbox 的 HTTP 客户端。
@@ -82,22 +83,59 @@ func (c *Client) Upload(ctx context.Context, body io.Reader) (string, error) {
 // 且它的隔离配置与本节点声明的部署一致。
 func (c *Client) Version(ctx context.Context) (contract.SandboxVersion, error) {
 	var version contract.SandboxVersion
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint("/version"), nil)
+	err := c.probeJSON(ctx, http.MethodGet, "/version", nil, &version)
+	return version, err
+}
+
+// Probe 执行环境探测：拒绝重定向和超过 16 KiB 的响应，防止把其他地址的身份当成本节点。
+// 普通 Run 的输出可能更大，因此这些限制只应用于身份探测。
+func (c *Client) Probe(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error) {
+	body, err := json.Marshal(spec)
 	if err != nil {
-		return version, fmt.Errorf("read sandbox version: create request: %w", err)
+		return contract.RunResult{}, fmt.Errorf("probe sandbox: encode request: %w", err)
 	}
-	resp, err := c.http.Do(req)
+	var result contract.RunResult
+	if err := c.probeJSON(ctx, http.MethodPost, "/run", body, &result); err != nil {
+		return contract.RunResult{}, err
+	}
+	if result.Status == "" {
+		return contract.RunResult{}, fmt.Errorf("probe sandbox: response status is empty")
+	}
+	return result, nil
+}
+
+func (c *Client) probeJSON(ctx context.Context, method, path string, body []byte, result any) error {
+	req, err := http.NewRequestWithContext(ctx, method, c.endpoint(path), bytes.NewReader(body))
 	if err != nil {
-		return version, fmt.Errorf("read sandbox version: %w", err)
+		return fmt.Errorf("probe sandbox %s: create request: %w", path, err)
 	}
-	defer drainAndClose(resp.Body)
-	if !isSuccess(resp.StatusCode) {
-		return version, responseError("read sandbox version", resp)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, errorBodyMaxBytes+1)).Decode(&version); err != nil {
-		return version, fmt.Errorf("read sandbox version: decode response: %w", err)
+	// 保留同一 transport、超时与 trace，不修改与正常执行共享的客户端。
+	client := *c.http
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("probe sandbox %s: %w", path, err)
 	}
-	return version, nil
+	// 拒绝超大响应后直接关闭；drain 会继续读完不可信正文，破坏有界读取。
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return responseError("probe sandbox "+path, resp)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, probeBodyMaxBytes+1))
+	if err != nil {
+		return fmt.Errorf("probe sandbox %s: read response: %w", path, err)
+	}
+	if len(data) > probeBodyMaxBytes {
+		return fmt.Errorf("probe sandbox %s: response exceeds %d bytes", path, probeBodyMaxBytes)
+	}
+	// 一次完整 JSON 文档；Decoder.Decode 一次会放过尾随垃圾或第二个对象。
+	if err := json.Unmarshal(data, result); err != nil {
+		return fmt.Errorf("probe sandbox %s: decode response: %w", path, err)
+	}
+	return nil
 }
 
 // Run 请求 sandbox 执行一条命令。

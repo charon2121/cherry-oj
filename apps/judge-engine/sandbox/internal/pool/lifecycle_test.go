@@ -10,6 +10,7 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/sandbox/internal/backend"
+	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
@@ -45,7 +46,7 @@ func newStore(t *testing.T) store.Store {
 
 func TestQueueAndShutdown(t *testing.T) {
 	b := &blocking{entered: make(chan struct{})}
-	p, e := New(newStore(t), b, Options{Parallelism: 1, QueueSize: 1})
+	p, e := New(runner.New(b, newStore(t)), Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -85,7 +86,7 @@ func TestQueueAndShutdown(t *testing.T) {
 func TestCleanupFailureStopsAdmission(t *testing.T) {
 	injected := errors.New("cannot remove workspace")
 	b := &blocking{entered: make(chan struct{}), cleanupError: injected}
-	p, e := New(newStore(t), b, Options{Parallelism: 1, QueueSize: 1})
+	p, e := New(runner.New(b, newStore(t)), Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -109,7 +110,7 @@ func (*panicking) Execute(context.Context, backend.Job, backend.OutputSink) (bac
 
 // 后端 panic 时容量仍须归还，否则并发数只减不增，最后整个服务卡死。
 func TestPanicDoesNotLeakCapacity(t *testing.T) {
-	p, e := New(newStore(t), &panicking{}, Options{Parallelism: 1, QueueSize: 1})
+	p, e := New(runner.New(&panicking{}, newStore(t)), Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}

@@ -51,7 +51,7 @@ func probeDeployment(ctx context.Context, j config.Settings, version string, san
 		return identity.Environment{}, err
 	}
 	spec := contract.RunSpec{Command: []string{"g++", "--version"}, Limits: contract.Limits{CPUNs: 2_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 128 << 20, MaxProcesses: 64, StdoutMaxBytes: 8192, StderrMaxBytes: 1024}}
-	result, err := sandbox.Run(ctx, spec)
+	result, err := sandbox.Probe(ctx, spec)
 	if err != nil {
 		return identity.Environment{}, err
 	}

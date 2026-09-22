@@ -12,7 +12,7 @@ import (
 //
 // 真要改：先确认这次变化确实应当让同一份提交得到不同判题结论，再更新下面的值，
 // 并按节点协议安排一次环境切换（新指纹只会以 REGISTERED 出现，不会静默替换 ACTIVE）。
-const pinnedConfigDigest = "4dd1c3e0ed0a7e1fcdb09489622cb5a8aaa40cc0e37cff112d7fc596c5689e6c"
+const pinnedConfigDigest = "410c0b0549709ebbaa508baa841ce82750eef714ae036735abd872a9e6947c74"
 
 func samplePolicy() policyFingerprint {
 	return policyFingerprint{
@@ -20,7 +20,8 @@ func samplePolicy() policyFingerprint {
 		OutputExcerptBytes: 4096, MessageExcerptBytes: 8192,
 		StdoutMaxBytes: 1 << 20, StderrMaxBytes: 1 << 20,
 		CompileCPUNs: 10_000_000_000, CompileMemoryBytes: 1 << 30, CompileClockNs: 20_000_000_000,
-		RuntimeDigest: "sha256:example/judge/sha256:example",
+		SandboxTimeoutNs: 60_000_000_000,
+		RuntimeDigest:    "sha256:example/judge/sha256:example",
 	}
 }
 
@@ -46,7 +47,6 @@ func TestUnrelatedSettingsDoNotAffectDigest(t *testing.T) {
 	}
 	for name, mutate := range map[string]func(*config.Settings){
 		"inlineThresholdBytes": func(s *config.Settings) { s.InlineThresholdBytes = 1 },
-		"sandboxTimeout":       func(s *config.Settings) { s.SandboxTimeout *= 2 },
 		"sandboxURL":           func(s *config.Settings) { s.SandboxURL = "http://elsewhere:5050" },
 		"httpAddr":             func(s *config.Settings) { s.HTTPAddr = "0.0.0.0:1" },
 		"testdataRoot":         func(s *config.Settings) { s.TestdataRoot = "/elsewhere" },
@@ -80,6 +80,7 @@ func TestJudgingPolicyAffectsDigest(t *testing.T) {
 		"compile.cpuNs":    func(s *config.Settings) { s.Compile.CPUNs++ },
 		"compile.memory":   func(s *config.Settings) { s.Compile.MemoryBytes++ },
 		"compile.clockNs":  func(s *config.Settings) { s.Compile.ClockNs++ },
+		"sandboxTimeout":   func(s *config.Settings) { s.SandboxTimeout *= 2 },
 		"输出截断长度":           func(s *config.Settings) { s.OutputExcerptBytes++ },
 		"消息截断长度":           func(s *config.Settings) { s.MessageExcerptBytes++ },
 	} {

@@ -13,6 +13,7 @@ import (
 	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/pool"
+	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 	"cherry-oj/judge-engine/sandbox/internal/workspace"
 )
@@ -94,7 +95,7 @@ func TestIsolatedArtifactRoundTrip(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	p, e := pool.New(st, isolated, pool.Options{Parallelism: 1, QueueSize: 1})
+	p, e := pool.New(runner.New(isolated, st), pool.Options{Parallelism: 1, QueueSize: 1})
 	if e != nil {
 		t.Fatal(e)
 	}

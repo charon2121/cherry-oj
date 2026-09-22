@@ -9,6 +9,7 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/sandbox/internal/backend"
+	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
@@ -23,7 +24,7 @@ func newTestPool(t *testing.T, parallelism int) *Pool {
 			t.Error(err)
 		}
 	})
-	p, err := New(st, backend.NewDevHost(), Options{Parallelism: parallelism, QueueSize: 32})
+	p, err := New(runner.New(backend.NewDevHost(), st), Options{Parallelism: parallelism, QueueSize: 32})
 	if err != nil {
 		t.Fatal(err)
 	}

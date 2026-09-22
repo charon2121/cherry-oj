@@ -10,10 +10,19 @@ import (
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
-// Run 借用 b 和 st。返回的 error 只表示**回收未确认**：这次执行留下的资源无法判定，
+// Runner 借用可并发调用的后端与 Store；每次 Run 的输入、产物和取消状态仍是局部值。
+type Runner struct {
+	backend backend.Backend
+	store   store.Store
+}
+
+func New(b backend.Backend, st store.Store) *Runner { return &Runner{backend: b, store: st} }
+
+// Run 返回的 error 只表示**回收未确认**：这次执行留下的资源无法判定，
 // 容量不能归还给新任务。普通的执行失败（超时、非零退出、平台故障）都通过 RunResult.Status
 // 表达，error 仍是 nil。
-func Run(ctx context.Context, b backend.Backend, st store.Store, spec contract.RunSpec) (contract.RunResult, error) {
+func (r *Runner) Run(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error) {
+	b, st := r.backend, r.store
 	limits, rejection := validateRequest(ctx, spec)
 	if rejection != nil {
 		return *rejection, nil

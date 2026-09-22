@@ -53,8 +53,8 @@ func (c Config) Validate() error {
 	if j.Compile.CPUNs <= 0 || j.Compile.MemoryBytes <= 0 || j.Compile.ClockNs <= 0 {
 		return fmt.Errorf("all three judge.compile values must be positive, got %+v", j.Compile)
 	}
-	// 跨层预算：调用期限必须覆盖本节点配置的最长一次 /run。编译是配置层面最长的那一次；
-	// 测试点的墙钟由请求给出（cpuNs × clockRatio），上界由节点硬界约束，不在这里。
+	// 启动时只能比较已知的编译墙钟；测例墙钟（显式值或 cpuNs × clockRatio）由 flow 检查。
+	// 这不是 sandbox 总耗时的上界：排队、回收和网络还会消耗调用期限。
 	// 设小了的表现是「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
 	if j.SandboxTimeout.Std() <= time.Duration(j.Compile.ClockNs) {
 		return fmt.Errorf("judge.sandboxTimeout (%s) must be greater than judge.compile.clockNs (%s): otherwise judge times out first when a compile reaches its wall-clock limit, and the result is reported as a system error",

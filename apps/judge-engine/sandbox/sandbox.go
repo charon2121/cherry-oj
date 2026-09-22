@@ -1,6 +1,7 @@
 package sandbox
 
 import (
+	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"context"
 	"errors"
 	"fmt"
@@ -49,7 +50,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			result = errors.Join(result, err)
 		}
 	}()
-	p, err := pool.New(st, executor, pool.Options{Parallelism: cfg.Sandbox.Parallelism, QueueSize: cfg.Sandbox.QueueSize})
+	p, err := pool.New(runner.New(executor, st), pool.Options{Parallelism: cfg.Sandbox.Parallelism, QueueSize: cfg.Sandbox.QueueSize})
 	if err != nil {
 		logger.Error("process.pool.init.failed", "error", err)
 		return err

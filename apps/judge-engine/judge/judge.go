@@ -74,19 +74,26 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	}
 	defer listener.Close()
 
+	var runNode func(context.Context)
 	if judgeNode != nil {
+		runNode = judgeNode.Run
+	}
+	logger.Info("process.started", "event", "process.started", "http_addr", cfg.Judge.HTTPAddr, "sandbox_url", cfg.Judge.SandboxURL)
+	return serve(ctx, srv, listener, runNode, logger)
+}
+
+// 服务异常退出与外部取消都必须结束心跳；等待之前先取消本服务拥有的生命周期。
+func serve(ctx context.Context, srv *http.Server, listener net.Listener, runNode func(context.Context), logger *slog.Logger) error {
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
+	if runNode != nil {
 		done := make(chan struct{})
-		go func() { defer close(done); judgeNode.Run(ctx) }()
-		defer func() { <-done }()
+		go func() { defer close(done); runNode(ctx) }()
+		defer func() { stop(); <-done }()
 	}
 
 	serveErr := make(chan error, 1)
 	go func() {
-		logger.Info("process.started",
-			"event", "process.started",
-			"http_addr", cfg.Judge.HTTPAddr,
-			"sandbox_url", cfg.Judge.SandboxURL,
-		)
 		serveErr <- srv.Serve(listener)
 	}()
 
@@ -99,6 +106,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 			exitErr = err
 		}
 	}
+	stop()
 	logger.Info("process.stopping", "event", "process.stopping")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

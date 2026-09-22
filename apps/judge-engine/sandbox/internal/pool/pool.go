@@ -8,9 +8,6 @@ import (
 	"sync"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/backend"
-	"cherry-oj/judge-engine/sandbox/internal/runner"
-	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
 type admissionError string
@@ -31,13 +28,18 @@ type Options struct {
 	QueueSize   int
 }
 
+// Executor 在返回前完成本次执行的收尾。error 只表示回收未确认，池必须停止接单。
+// 普通执行失败通过 RunResult 返回；依赖的后端与 Store 由装配层绑定。
+type Executor interface {
+	Run(context.Context, contract.RunSpec) (contract.RunResult, error)
+}
+
 // Pool 分别限制已接纳请求与实际执行，避免排队请求无限占用服务资源。
 // 后端可并发使用：每次执行在自己的工作区里完成，池只负责有多少次可以同时进行。
 type Pool struct {
 	sem      chan struct{} // 持有到 Execute 返回为止，防止清理中的执行与新任务重叠。
 	admitted chan struct{} // 同时计入执行中和排队中的请求。
-	store    store.Store
-	backend  backend.Backend
+	executor Executor
 	ctx      context.Context
 	cancel   context.CancelFunc
 	mu       sync.Mutex
@@ -46,15 +48,15 @@ type Pool struct {
 	closeErr error
 }
 
-func New(st store.Store, b backend.Backend, opts Options) (*Pool, error) {
-	if st == nil || b == nil || opts.Parallelism <= 0 || opts.Parallelism > maxParallelism ||
+func New(executor Executor, opts Options) (*Pool, error) {
+	if executor == nil || opts.Parallelism <= 0 || opts.Parallelism > maxParallelism ||
 		opts.QueueSize <= 0 || opts.QueueSize > maxQueueSize {
-		return nil, fmt.Errorf("pool requires a store, a backend and bounded positive parallelism/queueSize")
+		return nil, fmt.Errorf("pool requires an executor and bounded positive parallelism/queueSize")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Pool{sem: make(chan struct{}, opts.Parallelism),
 		admitted: make(chan struct{}, opts.Parallelism+opts.QueueSize),
-		store:    st, backend: b, ctx: ctx, cancel: cancel}, nil
+		executor: executor, ctx: ctx, cancel: cancel}, nil
 }
 
 // Run 排队、取得执行名额并执行一次命令。
@@ -84,7 +86,7 @@ func (p *Pool) Run(ctx context.Context, spec contract.RunSpec) (contract.RunResu
 	if p.ctx.Err() != nil {
 		return res, ErrClosed
 	}
-	res, cleanupErr := runner.Run(runCtx, p.backend, p.store, spec)
+	res, cleanupErr := p.executor.Run(runCtx, spec)
 	if cleanupErr != nil {
 		p.poison(cleanupErr)
 	}

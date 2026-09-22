@@ -118,6 +118,14 @@ func runCommand(ctx context.Context, dir string, j Job) (Facts, error) {
 	var exitErr *exec.ExitError
 	// ExitError 是命令退出事实，不是等待失败；交给调用方区分信号和非零退出。
 	if err != nil && !errors.As(err, &exitErr) && !(cmd.ProcessState != nil && errors.Is(err, runCtx.Err())) {
+		if cmd.Process != nil {
+			// 等待输出失败时后代可能仍存活。尽力停组，但信号发送成功不等于已确认回收。
+			killErr := killGroup(cmd)
+			if errors.Is(killErr, os.ErrProcessDone) {
+				killErr = nil
+			}
+			return Facts{}, cleanupFailed("wait for command: %w", errors.Join(err, killErr))
+		}
 		return Facts{}, err
 	}
 	state := cmd.ProcessState

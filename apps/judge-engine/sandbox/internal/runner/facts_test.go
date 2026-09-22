@@ -88,14 +88,14 @@ func TestExplicitZeroAndExecuteFailure(t *testing.T) {
 				want = contract.StatusInternalError
 			}
 			b := &executeStub{}
-			res, _ := Run(context.Background(), b, st, contract.RunSpec{Command: []string{"true"}, Limits: l})
+			res, _ := New(b, st).Run(context.Background(), contract.RunSpec{Command: []string{"true"}, Limits: l})
 			if b.started || res.Status != want {
 				t.Fatalf("started=%v res=%+v", b.started, res)
 			}
 		})
 	}
 	b := &executeStub{err: errors.New("cleanup failed")}
-	res, _ := Run(context.Background(), b, st, contract.RunSpec{Command: []string{"true"}, Artifacts: []string{"out"}})
+	res, _ := New(b, st).Run(context.Background(), contract.RunSpec{Command: []string{"true"}, Artifacts: []string{"out"}})
 	if res.Status != contract.StatusInternalError || res.Error != "cleanup failed" || len(res.Artifacts) > 0 {
 		t.Fatalf("%+v", res)
 	}
@@ -119,7 +119,7 @@ func (s *rollbackStore) Delete(string) error             { s.deletes++; return n
 // 全部产物成功才发布 ref：中途失败要把已登记的引用回滚掉，不能留半套。
 func TestArtifactFailureRollsBackPublishedRefs(t *testing.T) {
 	st := &rollbackStore{}
-	res, _ := Run(context.Background(), &executeStub{}, st,
+	res, _ := New(&executeStub{}, st).Run(context.Background(),
 		contract.RunSpec{Command: []string{"true"}, Artifacts: []string{"a", "b"}})
 	if res.Status != contract.StatusInternalError || len(res.Artifacts) != 0 || st.deletes != 1 {
 		t.Fatalf("res=%+v deleted=%d", res, st.deletes)

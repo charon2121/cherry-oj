@@ -73,15 +73,15 @@ helperd 是三个进程里唯一持有特权的。它和 sandbox 之间的那条
 
 ### 1.3 部署边界：三个独立交付的二进制
 
-三个程序可以装在不同机器上，也可以只装其中一个：
+三个程序分别构建、启动，各自拥有服务生命周期。部署位置还受当前节点探测方式约束：
 
-- 生产的 Linux 原生部署把 sandbox 和 helperd 装在同一台机器（它们之间是本机 socket，
-  不能跨主机），judge 可以在别处。
+- 当前生产的 Linux 原生节点模式要求 judge、sandbox 和 helperd **在同一台机器**。
+  sandbox 与 helperd 使用本机 socket；judge 要求 sandbox 地址为回环地址，并核验本机部署清单、
+  二进制摘要和 cgroup 事实。将 judge 移到远端会使这些检查失败。
 - 开发机上可以只跑 judge + sandbox（`devhost` 后端），完全没有 helperd。
 
-所以**它们之间只能通过协议说话，不能互相 import 实现**。这不是风格偏好：一旦 judge 里出现
-`sandbox/internal/...` 的 import，"judge 可以单独部署"这句话就不再成立了，而且没有任何东西会
-提醒你——直到某天有人想把 judge 挪走。
+服务之间通过协议交互，各自实现保持私有；同机部署也不改变这个边界。独立二进制让它们能分别
+启动、退出与排障，不能据此推导出当前节点模式支持跨主机部署。
 
 ### 1.4 边界由编译器把守，不是由约定
 
@@ -715,11 +715,16 @@ HTTP 写期限  >  本机会话期限(SessionTimeout)  >  单次执行墙钟硬�
 - 会话期限 ≤ 墙钟硬界：达到墙钟上限的命令先被会话期限打断，**一次正常的 TLE 被报成平台错误**。
 
 judge 侧还有一条同源的断言：`judge.sandboxTimeout` 必须大于 `judge.compile.clockNs`。
-设小了的表现是「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
+测例墙钟可能比编译更长，因此 flow 在上传源码前还会检查每次请求的有效墙钟
+（显式 `clockNs` 或 `cpuNs × clockRatio`）严格小于 `judge.sandboxTimeout`，冲突时返回带原因的 SE。
 
-这些关系都写成了**参数化的断言函数**（`sandbox/budget.go` 的 `checkBudget`），
-既在服务启动时用真实取值跑一遍，也在测试里直接喂冲突取值验证它确实会拒绝——
-只在正确取值下跑一遍等于没测。
+这些是必要条件，**不能证明调用期限覆盖了整个 sandbox 操作**。排队、输入输出传输和回收都会
+消耗时间；当前 judge 配置不能推导这些耗时的总上界，部署时仍须为它们留出余量。
+`sandboxTimeout` 会影响调用是得到执行结论还是超时成为 SE，所以它以 `sandboxTimeoutNs`
+显式进入环境指纹；调整它会轮换环境身份。
+
+sandbox 侧的三道期限由 `sandbox/budget.go` 的 `checkBudget` 在启动时检查；judge 的编译期限由
+配置校验检查，测例期限由 flow 在请求时检查。测试分别覆盖合法、相等和越界值。
 
 ---
 

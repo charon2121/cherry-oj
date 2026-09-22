@@ -92,7 +92,7 @@ func TestRunClosesInputOnEveryExitPath(t *testing.T) {
 			var recovered any
 			func() {
 				defer func() { recovered = recover() }()
-				result, _ = Run(ctx, b, st, contract.RunSpec{Command: []string{"true"}, Stdin: &contract.FileSource{Ref: "input"}, Artifacts: []string{"out"}})
+				result, _ = New(b, st).Run(ctx, contract.RunSpec{Command: []string{"true"}, Stdin: &contract.FileSource{Ref: "input"}, Artifacts: []string{"out"}})
 			}()
 			if (recovered != nil) != b.panicFirst {
 				t.Fatalf("unexpected panic: %v", recovered)
@@ -114,7 +114,7 @@ func TestInputCloseFailureRevokesArtifactsAndPreservesErrors(t *testing.T) {
 	closeErr, deleteErr := errors.New("input close failed"), errors.New("artifact delete failed")
 	input := &closingInput{Reader: strings.NewReader("stdin"), err: closeErr}
 	st := &inputStore{input: input, deleteErr: deleteErr}
-	result, _ := Run(context.Background(), &lifecycleBackend{}, st, contract.RunSpec{
+	result, _ := New(&lifecycleBackend{}, st).Run(context.Background(), contract.RunSpec{
 		Command: []string{"true"}, Stdin: &contract.FileSource{Ref: "input"}, Outputs: []string{"out"}, Artifacts: []string{"out"},
 	})
 	if result.Status != contract.StatusInternalError || result.Outputs != nil || result.Artifacts != nil {

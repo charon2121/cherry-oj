@@ -72,7 +72,7 @@ func (x *execution) spool(r io.Reader, limit int64) (*os.File, int64, error) {
 	return f, n, nil
 }
 
-func (b *Isolated) Execute(ctx context.Context, j Job, sink OutputSink) (Facts, error) {
+func (b *Isolated) Execute(ctx context.Context, j Job, sink OutputSink) (facts Facts, err error) {
 	dir, err := os.MkdirTemp(b.root, "execution-")
 	if err != nil {
 		return Facts{}, err
@@ -92,7 +92,7 @@ func (b *Isolated) Execute(ctx context.Context, j Job, sink OutputSink) (Facts, 
 	result, callErr := client.Call(ctx, b.socket, request, input,
 		func(o hostexec.Output, r io.Reader) error { return x.receive(o, r) })
 
-	facts := factsOf(result)
+	facts = factsOf(result)
 	callErr = errors.Join(callErr, checkResult(result, j))
 	if callErr != nil {
 		return facts, callErr

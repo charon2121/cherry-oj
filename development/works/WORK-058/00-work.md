@@ -9,7 +9,7 @@ risk: "high"
 impact: "multi-module"
 concerns: ["reliability", "security"]
 depends_on: []
-related: ["CHANGE-014", "DESIGN-051", "DECISION-035", "PLAN-041", "TASK-125", "VERIFY-059", "MEMORY-044", "TASK-126", "TASK-127", "TASK-128", "TASK-129", "TASK-130", "TASK-131"]
+related: ["CHANGE-014", "DESIGN-051", "DECISION-035", "PLAN-041", "TASK-125", "VERIFY-059", "MEMORY-044", "TASK-126", "TASK-127", "TASK-128", "TASK-129", "TASK-130", "TASK-131", "TASK-133"]
 implements: []
 verifies: []
 tags: []
@@ -23,7 +23,7 @@ public_api_change: false
 security_sensitive: true
 user_visible: false
 created_at: "2026-09-14"
-updated_at: "2026-09-15"
+updated_at: "2026-09-22"
 work_type: "maintenance"
 ---
 
@@ -50,15 +50,17 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 | 技术方案 | ✔ 完成 | 必需 | DESIGN-051 `checked` | 确定技术方案、边界与取舍 |
 | 技术决策 | ✔ 完成 | 必需 | DECISION-035 `approved` |  |
 | 开发计划 | ✔ 完成 | 必需 | PLAN-041 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ▶ 进行中 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ✔ 完成 | 必需 | VERIFY-059 `approved` | 用可复现的证据确认要求逐条满足 |
+| 开发任务 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done`、TASK-133 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
+| 开发 | ✔ 完成 | 必需 | TASK-125 `done`、TASK-126 `done`、TASK-127 `done`、TASK-128 `done`、TASK-129 `done`、TASK-130 `done`、TASK-131 `done`、TASK-133 `done` | 按任务实施，产出代码与测试 |
+| 复核 | ✔ 完成（手动） | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
+| 回归验证 | ✖ 受阻 | 必需 | VERIFY-059 `approved` | 用可复现的证据确认要求逐条满足 |
 | 项目记忆 | ✔ 完成 | 必需 | MEMORY-044 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
 
 ## 待确认项
 
-- 本轮只交付文档，尚未开始实施。意图闸需由用户签署，智能体不代签。
+- 2026-09-22 独立复核的 R1–R10 已由 TASK-133 修复，本地回归及三位独立 Agent 复审通过。
+  当前修复候选仍需真实 Linux 隔离、原生部署与业务闭环 CI；VERIFY-059 保持 partial。
+  2026-09-15 的两道人工闸记录保留为历史事实，不表示本候选已经验收。
 - 用户已就四件事给出结论，已记录进 DECISION-035：接受全量轮换环境指纹；零隔离后端改名 devhost
   并默认拒绝启动；错误消息统一为英文；结构说明文档按新结构重写。这些结论在意图闸上一次性确认。
 - 实施会改变全部判题节点的环境标识。新标识只会以「已登记」状态出现，需要有人显式把它切换为
@@ -93,3 +95,17 @@ CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自
 - 2026-09-15：检查项 impact-analysis 记录结论：通过。原因：跨语言影响已逐条核对：Java 侧用户可见文案一律按错误码分支（NO_ONLINE_JUDGE_NODE 等），不匹配引擎错误正文，business 15 项全绿予以印证；结构化日志的 event 字段名一个未变，仅 error 字段取值变化，完整新旧对照见 TASK-131 附录；唯一把英文正文带到人眼前的是 language_calibration.error_message 在管理台的显示。contracts/、apps/server、apps/web、go.mod、go.sum 未改动
 - 2026-09-15：检查项 security 记录结论：通过。原因：信任边界改为编译期强制：sandbox 引用 helperd/internal、judge 引用 sandbox/internal、helperd 引用 judge/internal、cmd 引用任一服务 internal，四条均在 S2 构造验证为编译失败。零隔离的 devhost 默认拒绝启动，需显式 allowUnsafeBackend；linux 后端在开 HTTP 端口前做启动冒烟，S2 修复了该闸此前因错误处理 bug 而形同虚设的问题。helperd 的 root 自检（CGO_ENABLED=0、root 托管、无 setuid、manifest 摘要钉住、三身份分离）与 SO_PEERCRED + socket 权限双重认证未削弱。本次未改变任何特权、身份或网络暴露面
 - 2026-09-15：验收闸：passed。原因：CI 34938772322 一次通过，93 项必需回归全绿，AC-001 至 AC-012 均有证据。验收通过。
+- 2026-09-22：检查项 independent-review 记录结论：未通过。原因：三位独立 Agent 对照 a611be3 与 26eddff 完成复核，确认 R1–R10（两项 P1、八项 P2），定向反例及原始证据见 VERIFY-059；修复后须复审。
+- 2026-09-22：检查项 reliability 记录结论：未通过。原因：独立实验确认清理失败仍发布产物并接单、取消回调数据竞争、devhost 回收未确认后接单及 judge 异常退出等待不结束，见 VERIFY-059 的 R1/R2/R3/R6；原有 CI 通过不能覆盖这些反例。
+- 2026-09-22：流程阶段 复核：ready → blocked。原因：独立复核已完成但存在未修复问题，修复并复审通过后解除。
+- 2026-09-22：状态变更：implemented → doing。原因：用户已阅读独立复核记录并明确要求修复 R1–R10，按原工作边界继续实施。
+- 2026-09-22：状态变更：doing → todo。原因：补充复核修复任务定义，保留已有意图与验收历史。
+- 2026-09-22：状态变更：todo → ready。原因：复核修复任务已就绪。
+- 2026-09-22：状态变更：ready → doing。原因：执行 TASK-133。
+- 2026-09-22：检查项 independent-review 记录结论：通过。原因：三位新会话独立复审当前修复候选，R1–R10 无残留或新缺陷；各自定向回归通过，范围与限制见 VERIFY-059。
+- 2026-09-22：流程阶段 复核：blocked → ready。原因：修复与独立复审完成，解除原 R1–R10 阻塞。
+- 2026-09-22：流程阶段 复核：ready → doing。原因：登记独立复审结果。
+- 2026-09-22：流程阶段 复核：doing → done。原因：三位独立 Agent 复审通过，详见 VERIFY-059。
+- 2026-09-22：检查项 automated-tests 记录结论：待检查。原因：当前候选 Go 全量 race、darwin/arm64 与 linux/amd64 vet、Python basic 五项通过；真实 Linux kernel/native/business CI 未执行，历史 34938772322 只保留为历史证据。
+- 2026-09-22：检查项 reliability 记录结论：待检查。原因：R1/R2/R3/R6 生命周期反例已修复并经独立复审与定向 race 测试通过；真实 Linux 资源回收和故障恢复回归仍需本候选 CI 确认。
+- 2026-09-22：根据文档、任务与验证事实刷新状态：doing → implemented。

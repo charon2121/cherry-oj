@@ -12,6 +12,7 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/sandbox/internal/backend"
+	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
@@ -68,7 +69,7 @@ func TestRunHoldsResultAndCapacityUntilCleanupFinishes(t *testing.T) {
 			if cleanupFails {
 				b.cleanupError = errors.New("workspace not reclaimed")
 			}
-			p, err := New(st, b, Options{Parallelism: 1, QueueSize: 1})
+			p, err := New(runner.New(b, st), Options{Parallelism: 1, QueueSize: 1})
 			if err != nil {
 				t.Fatal(err)
 			}

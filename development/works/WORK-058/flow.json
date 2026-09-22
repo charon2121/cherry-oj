@@ -81,7 +81,8 @@
       "TASK-128",
       "TASK-129",
       "TASK-130",
-      "TASK-131"
+      "TASK-131",
+      "TASK-133"
     ],
     "checks": [],
     "source": "profile:maintenance",
@@ -100,7 +101,8 @@
       "TASK-128",
       "TASK-129",
       "TASK-130",
-      "TASK-131"
+      "TASK-131",
+      "TASK-133"
     ],
     "checks": [],
     "source": "profile:maintenance",
@@ -110,8 +112,8 @@
     "stage": "review",
     "label": "复核",
     "requirement": "required",
-    "status": "doing",
-    "status_source": "derived",
+    "status": "done",
+    "status_source": "manual",
     "artifacts": [],
     "checks": [
       {
@@ -121,8 +123,8 @@
       },
       {
         "name": "independent-review",
-        "result": "pending",
-        "note": ""
+        "result": "pass",
+        "note": "三位新会话独立复审当前修复候选，R1–R10 无残留或新缺陷；各自定向回归通过，范围与限制见 VERIFY-059。"
       }
     ],
     "source": "profile:maintenance",
@@ -132,7 +134,7 @@
     "stage": "verification",
     "label": "回归验证",
     "requirement": "required",
-    "status": "done",
+    "status": "blocked",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-059"
@@ -140,13 +142,13 @@
     "checks": [
       {
         "name": "automated-tests",
-        "result": "pass",
-        "note": "CI run 34938772322（66a0a35，attempt 1）一次通过 12 个 job；必需回归汇总 PASS，93 项全过：basic 5/5、kernel 63/63、native 10/10、business 15/15。本机另跑 gofmt/go vet（darwin 与 linux-amd64 两个目标）/go test -race 全绿"
+        "result": "pending",
+        "note": "当前候选 Go 全量 race、darwin/arm64 与 linux/amd64 vet、Python basic 五项通过；真实 Linux kernel/native/business CI 未执行，历史 34938772322 只保留为历史证据。"
       },
       {
         "name": "reliability",
-        "result": "pass",
-        "note": "kernel 63 项覆盖隔离、计量与故障回收，native 10 项覆盖原生安装、权限与服务恢复，business 15 项走真实页面到 Kafka 的完整闭环，全部通过。S5 的取消顺序缺陷已有专门回归用例 TestCancelInputMustNotMakeNormalRunLookCancelled；S6 修复的 fault_batch ENODEV 守卫使故障批次不再误报"
+        "result": "pending",
+        "note": "R1/R2/R3/R6 生命周期反例已修复并经独立复审与定向 race 测试通过；真实 Linux 资源回收和故障恢复回归仍需本候选 CI 确认。"
       },
       {
         "name": "security",
