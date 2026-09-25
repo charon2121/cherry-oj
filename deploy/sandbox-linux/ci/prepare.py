@@ -39,8 +39,8 @@ def main():
         logs / 'go-linux.log', 180, cwd=go)
     linux_units(logs / 'go-linux.log')
     env = dict(os.environ, CGO_ENABLED='0', GOOS='linux', GOARCH='amd64')
-    for name, command in [('probe', ['go', 'build', '-o', str(output / 'probe'), './helperd/tests/probe']),
-                          ('boundary', ['go', 'test', '-c', '-o', str(output / 'boundary.test'), './helperd/tests/boundary'])]:
+    for name, command in [('probe', ['go', 'build', '-o', str(output / 'probe'), './isolator/tests/probe']),
+                          ('boundary', ['go', 'test', '-c', '-o', str(output / 'boundary.test'), './isolator/tests/boundary'])]:
         run(command, logs / (name + '.log'), 120, cwd=go, env=env)
     lock = output / 'release/packages.lock.json'
     if args.packages is not None:

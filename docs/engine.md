@@ -92,7 +92,6 @@ Go 有一条规则：**`internal/` 目录下的包，只有它的父目录子树
 ```
 judge/internal/...     ← 只有 judge/ 子树能 import
 sandbox/internal/...   ← 只有 sandbox/ 子树能 import
-helperd/internal/...   ← 只有 helperd/ 子树能 import
 internal/...           ← 整个 module 都能 import（顶层共享）
 ```
 
@@ -100,14 +99,19 @@ internal/...           ← 整个 module 都能 import（顶层共享）
 
 | 想写的 import | 结果 |
 |---|---|
-| sandbox 里 import `helperd/internal/helper` | **编译失败**。非特权进程够不到特权实现 |
 | judge 里 import `sandbox/internal/pool` | **编译失败**。judge 只能通过 HTTP 用 sandbox |
 | helperd 里 import `judge/internal/flow` | **编译失败**。特权进程不理解判题 |
 | `cmd/judge` 里 import `judge/internal/api` | **编译失败**。入口只能调 `judge.Run` |
+| sandbox 里 import `isolator/daemon` | **测试失败**。见下 |
 
-最后一条容易被忽略但同样重要：`cmd/` 下的三个 `main` 只做**解析 flag、读配置、建 logger、
-接信号**，然后调用 `judge.Run` / `sandbox.Run` / `helperd.Run`。一旦 `main` 能直接摸到内部包，
-「服务的装配顺序」就会慢慢渗进入口文件，而入口文件是最没人读的地方。
+特权子树 `isolator/` 是例外：它不放在 `internal/` 下，少一层目录，`cmd/sandbox-helper`
+直接按三个进程角色调用 `daemon`、`initproc`、`execstage`，不需要门面文件。代价是编译器不再拦
+「非特权进程引用特权实现」，改由 `isolator` 包的 `TestUnprivilegedBinariesDoNotLinkIsolator`
+用 `go list -deps` 检查 sandbox 与 judge 二进制的完整依赖闭包，间接引用也算。
+
+`cmd/judge`、`cmd/sandbox` 只做**解析 flag、读配置、建 logger、接信号**，然后调用
+`judge.Run` / `sandbox.Run`。一旦 `main` 能直接摸到内部包，「服务的装配顺序」就会慢慢渗进
+入口文件，而入口文件是最没人读的地方。
 
 > **这一条是整份设计的地基**：边界写在注释里靠自觉，写成目录结构靠编译器。
 
@@ -138,7 +142,7 @@ apps/judge-engine/
 ├── cmd/
 │   ├── judge/main.go           # 只做 flag + 配置 + logger + 信号，然后 judge.Run
 │   ├── sandbox/main.go         #   同上 → sandbox.Run
-│   └── sandbox-helper/main.go  #   同上 → helperd.Dispatch / Run
+│   └── sandbox-helper/main.go  #   按进程角色分流 → initproc.Run / execstage.Run / daemon.Serve
 │
 ├── internal/                   # ★ 整个 module 共享：只放「协议与平台设施」
 │   ├── contract/               #   judge ↔ sandbox 的 HTTP DTO、Limits、Verdict/Status
@@ -181,15 +185,16 @@ apps/judge-engine/
 │       ├── workspace/          #   每次执行独占的临时工作区
 │       └── store/              #   ref ↔ 磁盘文件
 │
-└── helperd/                    # ★ 服务三：特权执行助手（root）
-    ├── doc.go
-    ├── helperd.go              #   Dispatch / LoadConfig / Run
-    ├── config.go
-    ├── internal/
-    │   ├── helper/             #   会话、槽位、监督、结论、回收
-    │   ├── launcher/           #   建隔离环境、把命令 exec 起来（隔离轴）
-    │   ├── cgroup/             #   限额与计量（限量轴）
-    │   └── policy/             #   seccomp 策略
+└── isolator/                   # ★ 服务三：特权执行助手（root），按进程角色切包
+    ├── doc.go                  #   引用边界；boundary_test.go 守住它
+    ├── daemon/                 #   P3 常驻：socket、对端认证、槽位、配置、残留回收、安装自检
+    ├── execution/              #   P3 内一次执行：计划、状态机、监督、结论、回收、交付
+    ├── startup/                #   P3↔P4↔P5 握手协议：FD 约定、事件、READY/GO
+    ├── initproc/               #   P4：namespace 内 PID 1，准备 rootfs 并放行 P5
+    ├── execstage/              #   P5：降权、seccomp、execve
+    ├── privilege/              #   P4 与 P5 共用的降权步骤
+    ├── cgroup/                 #   限额与计量（限量轴）
+    ├── seccomp/                #   seccomp 策略
     └── tests/boundary/         #   需要真实内核的边界测试
 ```
 
@@ -617,7 +622,7 @@ helperd 以 root 运行，监听一个 Unix socket，**没有网络端口**。�
 
 | 轴 | 回答的问题 | 内核机制 | 归谁管 |
 |---|---|---|---|
-| **隔离 Isolation** | 进程能**看见/碰到**什么？ | namespaces、pivot_root、seccomp、capabilities | **`launcher`** + **`policy`** |
+| **隔离 Isolation** | 进程能**看见/碰到**什么？ | namespaces、pivot_root、seccomp、capabilities | **`initproc`**、**`execstage`**、**`privilege`**、**`seccomp`** |
 | **限量 Resource control** | 能**用多少** CPU/内存/进程，实际**用了多少**？ | cgroup v2、（弱）rlimits | **`cgroup`** |
 
 **它俩可以单独存在**，这是理解边界的关键：
@@ -659,7 +664,7 @@ cgroup v2 在**一组进程**层面控制 + 计量：`memory.max`/`memory.peak`�
 所以启动器得**拿着已经建好的 cgroup 句柄**，在孩子 exec 用户代码**之前**就把它关进笼子，
 否则有竞态窗口让它先 fork 炸弹。
 
-但 cgroup 的**建立 / 写上限 / 读峰值**仍然全在 `cgroup` 包——`launcher` 只是「起进程时把孩子
+但 cgroup 的**建立 / 写上限 / 读峰值**仍然全在 `cgroup` 包——`execution` 只是「起 P4 时把它
 塞进已建好的笼子」。这是两条轴唯一交汇的地方，也仅此一处。
 
 ### 7.5 结论是纯函数，状态转移是一张表
@@ -669,7 +674,7 @@ cgroup v2 在**一组进程**层面控制 + 计量：`memory.max`/`memory.peak`�
 这个判断**不掺任何 I/O**：
 
 ```go
-// helperd/internal/helper
+// isolator/execution
 type executionFacts struct {
     supervision supervisionOutcome  // 进程怎么结束的
     cancelled   bool                // 请求是否已被取消
@@ -750,7 +755,7 @@ server              judge                sandbox              helperd(root)
 ```
 
 单独测 sandbox 时，用 `curl` 打 `/blobs`、`/run` 即可；helperd 不对外暴露端口，
-要单独验证它得走 `helperd/tests/boundary` 那组需要真实内核的测试。
+要单独验证它得走 `isolator/tests/boundary` 那组需要真实内核的测试。
 
 ---
 

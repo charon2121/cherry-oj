@@ -81,10 +81,10 @@
       "id": "kernel.go-linux",
       "suite": "kernel",
       "execution": "go-unit",
-      "assertion": "真实Linux专属helper/launcher/cgroup/policy包测试执行，无隐式skip",
+      "assertion": "真实Linux专属isolator各包测试执行，无隐式skip",
       "sources": [
         {
-          "path": "apps/judge-engine/helperd/internal/helper/execute_linux_amd64_test.go"
+          "path": "apps/judge-engine/isolator/execution/execute_linux_amd64_test.go"
         }
       ]
     },
@@ -95,7 +95,7 @@
       "assertion": "八类启动边界与合法GO对照，未授权payload无输出",
       "sources": [
         {
-          "path": "apps/judge-engine/helperd/tests/boundary/start_linux_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/start_linux_test.go",
           "selector": "TestStartupBoundaries"
         }
       ]
@@ -107,7 +107,7 @@
       "assertion": "恶意链接/硬链接/magic link/FIFO/设备/1000次路径交换及安全FD",
       "sources": [
         {
-          "path": "apps/judge-engine/helperd/tests/boundary/files_linux_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/files_linux_test.go",
           "selector": "TestOutputPathBoundary"
         }
       ]
@@ -119,7 +119,7 @@
       "assertion": "逐项缺控制器及非cgroup文件系统拒绝启动",
       "sources": [
         {
-          "path": "apps/judge-engine/helperd/tests/boundary/capability_linux_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/capability_linux_test.go",
           "selector": "TestCgroupCapabilityRefusal"
         }
       ]
@@ -131,7 +131,7 @@
       "assertion": "真实exec失败阶段、errno保留与READY/GO失败关闭",
       "sources": [
         {
-          "path": "apps/judge-engine/helperd/tests/boundary/exec_linux_amd64_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/exec_linux_amd64_test.go",
           "selector": "TestExecStageFailures"
         }
       ]
@@ -1117,53 +1117,6 @@
     }
   ],
   "requiredGoTests": {
-    "cherry-oj/judge-engine/helperd/internal/cgroup": [
-      "TestCleanupTimeoutCanRetry",
-      "TestConcurrentCreatesAndBoundedHistory",
-      "TestFailedCloseStopsNewWorkEvenAfterRecovery",
-      "TestFreshGroupsAndFinalAccounting",
-      "TestKillAndAccountingFailureNeverBecomeSuccess",
-      "TestNewGroupDoesNotIssueKillBeforeFirstProcess",
-      "TestPartialCreateFailureQuarantinesManager",
-      "TestRejectWrongHierarchyAndNameCollision",
-      "TestUsageRejectsMalformedAndOverflow"
-    ],
-    "cherry-oj/judge-engine/helperd/internal/helper": [
-      "TestAncestorOOMPreservesPlatformFailure",
-      "TestCaptureBoundsAndDrains",
-      "TestClientRejectsResetAfterCompletion",
-      "TestConfigRejectsPrivilegeConfusion",
-      "TestConnectionEOFReturnsCleanSlot",
-      "TestCopyInputOwnsNoCachedFastPath",
-      "TestDeliveryRejectsTruncatedArtifact",
-      "TestFailedStartAlwaysReclaimsOwnedResources",
-      "TestFinalOOMSurvivesInitExitDiagnostic",
-      "TestFinishCancelsBlockedInputBeforeWaiting",
-      "TestFinishClosesEarlierArtifactsWhenLaterOpenFails",
-      "TestFinishClosesUnconsumedReceivedFiles",
-      "TestFinishOOMDoesNotHideIndependentFailure",
-      "TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts",
-      "TestFinishPreservesExecutionAndMultipleCleanupErrors",
-      "TestOwnedFileConcurrentCloseUnblocksReader",
-      "TestSlotIdentityRange",
-      "TestSlowDeliveryHoldsSlotUntilDeadline"
-    ],
-    "cherry-oj/judge-engine/helperd/internal/launcher": [
-      "TestControlFDIsCloseOnExec",
-      "TestControlInterruptChecksClosedFiles",
-      "TestControlInterruptedSocketDelivery",
-      "TestControlReceiveFailureClosesFDs",
-      "TestControlReceiveInterruptedOnce",
-      "TestControlSendInterruptedOnce",
-      "TestControlSendPreservesErrors",
-      "TestControlShutdownUnblocksIO",
-      "TestExecSpecBoundary",
-      "TestFailureErrnoPreservesCause",
-      "TestOutputRejectsLinksAndSpecialFiles"
-    ],
-    "cherry-oj/judge-engine/helperd/internal/policy": [
-      "TestAMD64PolicyBoundary"
-    ],
     "cherry-oj/judge-engine/internal/hostexec": [
       "TestCompilerCommandNamesPreservePathBoundary",
       "TestFramePreservesFollowingStream",
@@ -1180,6 +1133,60 @@
       "TestClientRejectsUnrequestedArtifact",
       "TestClientStreamsInputsAndOutputs",
       "TestClientWaitsForConnectionRelease"
+    ],
+    "cherry-oj/judge-engine/isolator": [
+      "TestUnprivilegedBinariesDoNotLinkIsolator"
+    ],
+    "cherry-oj/judge-engine/isolator/cgroup": [
+      "TestCleanupTimeoutCanRetry",
+      "TestConcurrentCreatesAndBoundedHistory",
+      "TestFailedCloseStopsNewWorkEvenAfterRecovery",
+      "TestFreshGroupsAndFinalAccounting",
+      "TestKillAndAccountingFailureNeverBecomeSuccess",
+      "TestNewGroupDoesNotIssueKillBeforeFirstProcess",
+      "TestPartialCreateFailureQuarantinesManager",
+      "TestRejectWrongHierarchyAndNameCollision",
+      "TestUsageRejectsMalformedAndOverflow"
+    ],
+    "cherry-oj/judge-engine/isolator/daemon": [
+      "TestClientRejectsResetAfterCompletion",
+      "TestConfigRejectsPrivilegeConfusion",
+      "TestConnectionEOFReturnsCleanSlot",
+      "TestSlotIdentityRange",
+      "TestSlowDeliveryHoldsSlotUntilDeadline"
+    ],
+    "cherry-oj/judge-engine/isolator/execstage": [
+      "TestExecSpecBoundary",
+      "TestFailureErrnoPreservesCause"
+    ],
+    "cherry-oj/judge-engine/isolator/execution": [
+      "TestAncestorOOMPreservesPlatformFailure",
+      "TestCaptureBoundsAndDrains",
+      "TestCopyInputOwnsNoCachedFastPath",
+      "TestDeliveryRejectsTruncatedArtifact",
+      "TestFailedStartAlwaysReclaimsOwnedResources",
+      "TestFinalOOMSurvivesInitExitDiagnostic",
+      "TestFinishCancelsBlockedInputBeforeWaiting",
+      "TestFinishClosesEarlierArtifactsWhenLaterOpenFails",
+      "TestFinishClosesUnconsumedReceivedFiles",
+      "TestFinishOOMDoesNotHideIndependentFailure",
+      "TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts",
+      "TestFinishPreservesExecutionAndMultipleCleanupErrors",
+      "TestOutputRejectsLinksAndSpecialFiles",
+      "TestOwnedFileConcurrentCloseUnblocksReader"
+    ],
+    "cherry-oj/judge-engine/isolator/seccomp": [
+      "TestAMD64PolicyBoundary"
+    ],
+    "cherry-oj/judge-engine/isolator/startup": [
+      "TestControlFDIsCloseOnExec",
+      "TestControlInterruptChecksClosedFiles",
+      "TestControlInterruptedSocketDelivery",
+      "TestControlReceiveFailureClosesFDs",
+      "TestControlReceiveInterruptedOnce",
+      "TestControlSendInterruptedOnce",
+      "TestControlSendPreservesErrors",
+      "TestControlShutdownUnblocksIO"
     ]
   }
 }

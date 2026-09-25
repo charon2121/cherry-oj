@@ -2,7 +2,7 @@
 
 本目录验证静态 Go 与独立 C++ 夹具下的 helper 有界隔离链；连续1000次、并发、完整故障恢复和跨架构支持仍待后续测试。运行前读 WORK-048/TASK-096；远端目录/单元、资源封顶及清理边界见该任务。不得直接用作正式节点 rootfs。
 
-在 `apps/judge-engine` 使用 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o <独立目录>/sandbox-helper ./cmd/sandbox-helper`，同样构建 `./helperd/tests/probe` 与 `./helperd/tests/cloneprobe`；`go test -c` 构建 helper/launcher/cgroup/policy 四包 Linux 测试二进制。用 `prepare_fixture.py <独立目录>` 生成 rootfs 和 manifest。静态探针为项目自编；下述C++夹具保留包内许可证与固定来源。
+在 `apps/judge-engine` 使用 `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o <独立目录>/sandbox-helper ./cmd/sandbox-helper`，同样构建 `./isolator/tests/probe` 与 `./isolator/tests/cloneprobe`；`go test -c` 构建 isolator 各包 Linux 测试二进制。用 `prepare_fixture.py <独立目录>` 生成 rootfs 和 manifest。静态探针为项目自编；下述C++夹具保留包内许可证与固定来源。
 
 上传仅限 `/var/lib/cherry-sandbox-test/` 内新建的本次独占目录。从 macOS 打包时移除扩展属性；Linux 解包使用 `tar --no-same-owner`，否则会保留本地 UID 导致 helper 拒绝启动。整个测试目录必须 root 所有且非 root 不可写；不要绕过可信性检查。
 
@@ -44,7 +44,7 @@ http_chain.py通过公开/run隔离编译C++、取artifact ref并用于新执行
 
 ## TASK-098 启动协议与文件边界
 
-交叉构建 `go test -c ./helperd/tests/boundary` 为boundary.test，连同sandbox-helper、静态probe和prepare_fixture.py生成的rootfs/manifest、boundary_batch.py上传全新work048-boundary目录。在独立Delegate单元运行boundary_batch.py：768MiB/swap0/192任务/CPU100%/60s；驱动再封顶supervisor128MiB/swap0/16任务/CPU50%，每个启动子组64MiB/64任务/CPU100%，test.timeout45s。
+交叉构建 `go test -c ./isolator/tests/boundary` 为boundary.test，连同sandbox-helper、静态probe和prepare_fixture.py生成的rootfs/manifest、boundary_batch.py上传全新work048-boundary目录。在独立Delegate单元运行boundary_batch.py：768MiB/swap0/192任务/CPU100%/60s；驱动再封顶supervisor128MiB/swap0/16任务/CPU50%，每个启动子组64MiB/64任务/CPU100%，test.timeout45s。
 
 测试直接控制真实launcher协议，七种中断+合法GO对照；直接OpenOutput检查已创建的恶意链接/特殊文件及1000次路径交换；只在本批空jobs移除并恢复各控制器，验证缺委派拒绝。没有helper累计CPU监测，此夹具仅运行固定静态探针，不能拿去执行外部不可信代码。显式环境变量只由驱动传入，缺少时普通测试skip，不能计为Linux运行验证。每例独立清理组/挂载点，单元退出后仍需保存日志并扫描进程、挂载、组和目录，确认无本次引用再删除独占夹具。
 
