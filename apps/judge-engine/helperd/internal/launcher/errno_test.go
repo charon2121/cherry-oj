@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // White-box check of the fixed-size terminal record's errno conversion.
 package launcher
 

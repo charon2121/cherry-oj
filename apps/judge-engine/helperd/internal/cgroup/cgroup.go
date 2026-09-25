@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // Package cgroup 管理已委派子树中的单次 v2 执行组，不理解判题状态。
 package cgroup
 

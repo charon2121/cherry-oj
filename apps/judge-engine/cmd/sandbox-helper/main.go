@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // sandbox-helper 只能由本机服务管理器启动；配置由 root 管理，不接受远端特权参数。
 package main
 

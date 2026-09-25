@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package launcher
 
 import "cherry-oj/judge-engine/internal/hostexec"

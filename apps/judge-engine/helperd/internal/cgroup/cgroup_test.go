@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 使用包内测试以注入伪控制文件和写入/回收故障；不把伪文件测试视为内核行为验证。
 package cgroup
 

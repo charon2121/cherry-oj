@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // Package launcher 保存独立 re-exec 进程的可信启动步骤，不能在 HTTP 服务进程内调用。
 package launcher
 

@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package helper
 
 // boundedCapture 持续 drain，但只保存上限内的字节；提前停读会让子进程堵在写管道。

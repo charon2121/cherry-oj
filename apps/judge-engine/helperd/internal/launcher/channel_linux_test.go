@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package launcher
 
 // White-box tests inject individual syscall outcomes without global hooks.

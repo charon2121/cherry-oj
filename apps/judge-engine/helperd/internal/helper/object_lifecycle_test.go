@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package helper
 
 // 白盒检查对象边界和一次移交；内核隔离仍由 Linux 回归证明。

@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // White-box checks of reserved identity validation and slot ownership.
 package helper
 

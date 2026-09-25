@@ -1,9 +1,11 @@
+//go:build linux && amd64
+
 // Package policy 构造固定版本的 seccomp BPF。调用者不能通过请求扩展规则。
 package policy
 
 import "fmt"
 
-// Instruction 的布局对应 Linux sock_filter；使用纯数据类型使策略可在非 Linux 上测试。
+// Instruction 的布局对应 Linux sock_filter；用纯数据类型表达，策略构造可以脱离内核单独测试。
 type Instruction struct {
 	Code   uint16
 	JT, JF uint8

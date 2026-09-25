@@ -55,6 +55,14 @@ if [ -n "$go_files" ]; then
         printf '%s\n' "$vet_out" | sed 's/^/    /'
         fail=1
     fi
+
+    # helperd 只在 linux/amd64 编译，在 macOS 上 go vet ./... 会整棵跳过它；
+    # 交叉 vet 一次，改错的类型不用等 CI 才发现
+    if ! vet_out=$(cd "$ENGINE" && GOOS=linux GOARCH=amd64 go vet ./... 2>&1); then
+        echo "✗ go vet（linux/amd64）失败："
+        printf '%s\n' "$vet_out" | sed 's/^/    /'
+        fail=1
+    fi
 fi
 
 # ── Web：Prettier / ESLint ────────────────────────────────

@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 白盒测试需验证helper不调用带缓存FD的可选复制快路径。
 package helper
 

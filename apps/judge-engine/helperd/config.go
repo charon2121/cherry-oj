@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package helperd
 
 import "cherry-oj/judge-engine/helperd/internal/helper"

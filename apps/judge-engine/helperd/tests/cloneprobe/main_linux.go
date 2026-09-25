@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 对照空组 cgroup.kill 与 CLONE_INTO_CGROUP 的交互，仅在独占封顶测试单元运行。
 package main
 

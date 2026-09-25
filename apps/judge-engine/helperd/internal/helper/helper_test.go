@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 白盒用于验证有界 drain 的字节保留和非阻塞溢出信号。
 package helper
 

@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 这些夹具供 helper 的服务端与执行生命周期测试共用。
 // 非特权侧 Call 的用例在 internal/hostexec/client，两侧各自持有夹具副本。
 package helper

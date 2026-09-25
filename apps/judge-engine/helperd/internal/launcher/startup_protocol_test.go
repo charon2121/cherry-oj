@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 使用包内测试核对不能在 seccomp 后动态编码的私有 ready 消息。
 package launcher
 

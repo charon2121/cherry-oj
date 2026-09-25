@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 // 静态测试夹具，仅验证最小 Linux 链，不代表 C++ 工具链 rootfs。
 package main
 

@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package helper
 
 // 白盒测试生命周期顺序和句柄所有权；不创建 namespace/cgroup，不证明 Linux 内核行为。

@@ -1,3 +1,5 @@
+//go:build linux && amd64
+
 package boundary_test
 
 import (
@@ -16,6 +18,7 @@ import (
 	"cherry-oj/judge-engine/helperd/internal/launcher"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/hostexec"
+
 	"golang.org/x/sys/unix"
 )
 
