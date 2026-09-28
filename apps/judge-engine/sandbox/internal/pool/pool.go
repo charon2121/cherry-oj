@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"cherry-oj/judge-engine/internal/contract"
@@ -26,6 +27,8 @@ const (
 type Options struct {
 	Parallelism int
 	QueueSize   int
+	// Logger 记录池因回收未确认而停止接单；nil 使用 slog.Default。
+	Logger *slog.Logger
 }
 
 // Executor 在返回前完成本次执行的收尾。error 只表示回收未确认，池必须停止接单。
@@ -46,6 +49,7 @@ type Pool struct {
 	closed   bool
 	wg       sync.WaitGroup
 	closeErr error
+	log      *slog.Logger
 }
 
 func New(executor Executor, opts Options) (*Pool, error) {
@@ -53,8 +57,11 @@ func New(executor Executor, opts Options) (*Pool, error) {
 		opts.QueueSize <= 0 || opts.QueueSize > maxQueueSize {
 		return nil, fmt.Errorf("pool requires an executor and bounded positive parallelism/queueSize")
 	}
+	if opts.Logger == nil {
+		opts.Logger = slog.Default()
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Pool{sem: make(chan struct{}, opts.Parallelism),
+	return &Pool{log: opts.Logger, sem: make(chan struct{}, opts.Parallelism),
 		admitted: make(chan struct{}, opts.Parallelism+opts.QueueSize),
 		executor: executor, ctx: ctx, cancel: cancel}, nil
 }
@@ -131,6 +138,8 @@ func (p *Pool) admit() error {
 func (p *Pool) poison(err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	// 此后所有请求都返回 503，judge 只看得到一连串 SE；这条日志是唯一记录原因的地方。
+	p.log.Error("sandbox.pool.stopped", "reason", "cleanup not confirmed", "alreadyClosing", p.closed, "error", err)
 	p.closed = true
 	p.closeErr = errors.Join(p.closeErr, err)
 	p.cancel()

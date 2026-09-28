@@ -1,7 +1,11 @@
 package pool
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -146,5 +150,32 @@ func TestEachExecutionStartsFromACleanWorkspace(t *testing.T) {
 	}
 	if res.Status != contract.StatusOK {
 		t.Fatalf("marker 泄漏到新工作区status=%s stderr=%q", res.Status, res.Stderr)
+	}
+}
+
+type cleanupFailingExecutor struct{}
+
+func (cleanupFailingExecutor) Run(context.Context, contract.RunSpec) (contract.RunResult, error) {
+	return contract.RunResult{Status: contract.StatusInternalError}, errors.New("workspace not reclaimed")
+}
+
+// 回收未确认后池停止接单，之后每个请求都是 503；原因只在这条日志里，不能静默。
+func TestCleanupFailureStopsPoolAndIsLogged(t *testing.T) {
+	var logs bytes.Buffer
+	p, err := New(cleanupFailingExecutor{}, Options{Parallelism: 1, QueueSize: 1,
+		Logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if _, err := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}}); err != nil {
+		t.Fatalf("回收失败不该作为本次请求的错误返回: %v", err)
+	}
+	if _, err := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}}); !errors.Is(err, ErrClosed) {
+		t.Fatalf("回收未确认后仍在接单: %v", err)
+	}
+	out := logs.String()
+	if !strings.Contains(out, `"msg":"sandbox.pool.stopped"`) || !strings.Contains(out, "workspace not reclaimed") {
+		t.Fatalf("停止接单没有留下原因: %s", out)
 	}
 }
