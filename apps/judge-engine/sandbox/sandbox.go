@@ -24,7 +24,6 @@ import (
 // Run 启动执行服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成。
 // 返回的 result 汇总收尾错误：任何一处回收没有确认，整个进程都应以失败退出。
 func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
-
 	st, err := newStore(cfg.Sandbox.Store)
 	if err != nil {
 		logger.Error("process.store.init.failed", "event", "process.store.init.failed", "error", err)
@@ -61,14 +60,28 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			result = errors.Join(result, err)
 		}
 	}()
-	if cfg.Sandbox.Backend == backend.NameLinux {
-		// 用完整Container链验证可用性，失败不开放HTTP端口。
-		probe, probeErr := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}})
-		if probeErr != nil || probe.Status != contract.StatusOK {
-			logger.Error("process.backend.probe.failed", "error", probeErr, "result", probe)
-			return errors.Join(fmt.Errorf("isolated backend startup probe failed: status=%s", probe.Status), probeErr)
-		}
+	if err := probeBackend(p, cfg.Sandbox.Backend, logger); err != nil {
+		return err
 	}
+	defer startSweeper(st, logger)()
+	return serve(ctx, newHTTPServer(cfg.Sandbox, p, st, logger), p, cfg.Sandbox, logger)
+}
+
+// probeBackend 用完整Container链验证可用性，失败不开放HTTP端口。
+func probeBackend(p *pool.Pool, name string, logger *slog.Logger) error {
+	if name != backend.NameLinux {
+		return nil
+	}
+	probe, probeErr := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}})
+	if probeErr != nil || probe.Status != contract.StatusOK {
+		logger.Error("process.backend.probe.failed", "error", probeErr, "result", probe)
+		return errors.Join(fmt.Errorf("isolated backend startup probe failed: status=%s", probe.Status), probeErr)
+	}
+	return nil
+}
+
+// startSweeper 每分钟清理一次过期 blob，返回的函数停止它并等待退出。
+func startSweeper(st managedStore, logger *slog.Logger) (stop func()) {
 	gcCtx, gcCancel := context.WithCancel(context.Background())
 	gcDone := make(chan struct{})
 	go func() {
@@ -86,32 +99,38 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			}
 		}
 	}()
-	defer func() { gcCancel(); <-gcDone }()
+	return func() { gcCancel(); <-gcDone }
+}
 
-	// HTTP 期限覆盖请求读取和响应传输，不能用用户命令的墙钟限额替代。
-	// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 isolator 客户端工作区。
+// newHTTPServer 装配 HTTP 服务。期限覆盖请求读取和响应传输，不能用用户命令的墙钟限额替代。
+// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 isolator 客户端工作区。
+func newHTTPServer(c Settings, p *pool.Pool, st managedStore, logger *slog.Logger) *http.Server {
 	srv := &http.Server{
-		Addr:              cfg.Sandbox.HTTPAddr,
+		Addr:              c.HTTPAddr,
 		ReadHeaderTimeout: httpReadHeaderTimeout,
 		ReadTimeout:       httpReadTimeout,
 		WriteTimeout:      httpWriteTimeout,
 		IdleTimeout:       httpIdleTimeout,
 		MaxHeaderBytes:    httpMaxHeaderBytes,
 		Handler: api.New(p, st, api.Options{
-			MaxBlobBytes:    cfg.Sandbox.Store.MaxBlobBytes,
-			MaxRequestBytes: cfg.Sandbox.MaxRequestBytes,
-			MaxConcurrent:   cfg.Sandbox.Parallelism + cfg.Sandbox.QueueSize + 4,
-			Isolation:       cfg.Sandbox.Backend,
+			MaxBlobBytes:    c.Store.MaxBlobBytes,
+			MaxRequestBytes: c.MaxRequestBytes,
+			MaxConcurrent:   c.Parallelism + c.QueueSize + 4,
+			Isolation:       c.Backend,
 		}).Handler(),
 	}
 	srv.Handler = tracing.Middleware(logger, srv.Handler)
+	return srv
+}
 
+// serve 开放端口直到 ctx 取消或监听失败，然后按顺序收尾：先取消执行并确认回收，再停止 HTTP。
+func serve(ctx context.Context, srv *http.Server, p *pool.Pool, c Settings, logger *slog.Logger) error {
 	serveErr := make(chan error, 1)
 	go func() {
 		logger.Info("process.started",
 			"event", "process.started",
-			"http_addr", cfg.Sandbox.HTTPAddr,
-			"parallelism", cfg.Sandbox.Parallelism,
+			"http_addr", c.HTTPAddr,
+			"parallelism", c.Parallelism,
 		)
 		serveErr <- srv.ListenAndServe()
 	}()
@@ -127,7 +146,6 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	}
 	logger.Info("process.stopping", "event", "process.stopping")
 
-	// 先取消执行并确认回收，再停止HTTP和Store。
 	if err := p.Close(); err != nil {
 		logger.Error("process.pool.close.failed", "error", err)
 		exitErr = errors.Join(exitErr, err)
@@ -140,7 +158,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 		exitErr = errors.Join(exitErr, err)
 		srv.Close()
 	}
-	return errors.Join(result, exitErr)
+	return exitErr
 }
 
 // Store生命周期由入口拥有，HTTP和Pool不擅自关闭共享Store。
