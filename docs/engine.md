@@ -639,9 +639,13 @@ isolator 以 root 运行，监听一个 Unix socket，**没有网络端口**。�
 | pid namespace | 内部成 PID 1，看不见宿主进程 |
 | net namespace | 空网络栈＝断网（最便宜的安全收益） |
 | ipc / uts namespace | 独立共享内存 / hostname |
-| user namespace | 宿主普通用户在内部当 root → 内部 uid 0 也不是宿主 root |
+| cgroup namespace | 进程看到的 cgroup 根是自己的执行组，看不到宿主的 cgroup 树 |
 | **seccomp-bpf** | 过滤/禁用系统调用（`ptrace`/`mount`/`reboot`…），装载后用 TSYNC 覆盖全部线程 |
-| capabilities drop | 即使内部 uid 0，也砍掉 `CAP_SYS_ADMIN` 等特权 |
+| 降权 | 清空全部 capability、切到每个槽位专用的非 root UID/GID、设置 no_new_privs（`privilege` 包） |
+
+**不使用 user namespace。** 用户程序从来不以 uid 0 运行，而是直接以宿主上真实存在的专用非 root
+身份运行（每个槽位一组，互不重叠），所以不需要靠 user namespace 把「内部 root」映射成宿主普通用户。
+isolator 在 clone P4 时实际新建的是上表的 mount、pid、net、ipc、uts、cgroup 六个 namespace。
 
 这些**全和 cgroup 无关**——它们回答「能看见/能干什么」，不是「能用多少」。
 
