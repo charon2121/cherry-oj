@@ -15,7 +15,7 @@ unit='cherry-sandbox-test-work048-chain-'+mode+'-v5'
 if len(sys.argv) == 4:
     unit = sys.argv[3]
     assert re.fullmatch('cherry-sandbox-test-work048-chain-' + mode + '-[a-z0-9-]+', unit)
-helper=unit+'-helper';server=unit+'-http';driver=unit+'-driver'
+isolator=unit+'-isolator';server=unit+'-http';driver=unit+'-driver'
 
 def launch(name,props,args,wait=False):
     cmd=['systemd-run','--unit='+name,'--collect']
@@ -25,15 +25,15 @@ def launch(name,props,args,wait=False):
 
 assert not subprocess.check_output(['systemctl','list-units','--all','--no-legend',unit+'-*'],text=True).strip()
 service=base/'service';service.mkdir(mode=0o700,exist_ok=True);os.chown(service,61001,61001)
-config=dict(logging=dict(path=str(service/'logs')),sandbox=dict(backend='linux',httpAddr='127.0.0.1:15050',helperSocket='/run/'+helper+'/helper.sock',workspaceRoot=str(service/'work'),parallelism=2 if mode=='concurrency' else 1,queueSize=4,maxRequestBytes=2<<20,store=dict(root=str(service/'blobs'),maxBlobBytes=64<<20,maxTotalBytes=256<<20,maxEntries=128,retention='1h')))
+config=dict(logging=dict(path=str(service/'logs')),sandbox=dict(backend='linux',httpAddr='127.0.0.1:15050',isolatorSocket='/run/'+isolator+'/isolator.sock',workspaceRoot=str(service/'work'),parallelism=2 if mode=='concurrency' else 1,queueSize=4,maxRequestBytes=2<<20,store=dict(root=str(service/'blobs'),maxBlobBytes=64<<20,maxTotalBytes=256<<20,maxEntries=128,retention='1h')))
 # JSON是YAML子集，避免远端安装YAML库。
 (base/'sandbox.yaml').write_text(json.dumps(config))
 common=['MemorySwapMax=0','RuntimeMaxSec=180','KillMode=control-group','CPUQuota=100%']
 try:
-    launch(helper,common+['MemoryMax=768M','TasksMax=192','Delegate=yes'],['python3',str(base/'bootstrap.py'),str(base),helper,'cpp']+(['parallel2'] if mode=='concurrency' else []))
+    launch(isolator,common+['MemoryMax=768M','TasksMax=192','Delegate=yes'],['python3',str(base/'bootstrap.py'),str(base),isolator,'cpp']+(['parallel2'] if mode=='concurrency' else []))
     deadline=time.monotonic()+20
-    while not Path('/run',helper,'helper.sock').exists():
-        assert time.monotonic()<deadline,'helper startup timeout'
+    while not Path('/run',isolator,'isolator.sock').exists():
+        assert time.monotonic()<deadline,'isolator startup timeout'
         time.sleep(.1)
     launch(server,['MemoryMax=256M','MemorySwapMax=0','TasksMax=96','CPUQuota=50%','RuntimeMaxSec=180','KillMode=control-group','NoNewPrivileges=yes'],['setpriv','--reuid=61001','--regid=61001','--clear-groups','--bounding-set=-all','--no-new-privs',str(base/'sandbox'),'-config',str(base/'sandbox.yaml')])
     while True:
@@ -43,17 +43,17 @@ try:
         except OSError:pass
         assert time.monotonic()<deadline,'HTTP startup timeout'
         time.sleep(.1)
-    for name in (helper,server):
+    for name in (isolator,server):
         subprocess.run(['systemctl','show',name,'-p','MemoryMax','-p','TasksMax','-p','CPUQuotaPerSecUSec','-p','MainPID'],check=True)
     launch(driver,['MemoryMax=128M','MemorySwapMax=0','TasksMax=16','CPUQuota=50%','RuntimeMaxSec=150'],['python3',str(base/'http_chain.py'),str(base),mode,unit],wait=True)
 except BaseException:
-    # Preserve service state before finally stops it; a reset is not proof that helper crashed.
-    for name in (helper,server):
+    # Preserve service state before finally stops it; a reset is not proof that isolator crashed.
+    for name in (isolator,server):
         subprocess.run(['systemctl','show',name,'-p','ActiveState','-p','MainPID','-p','Result','-p','ExecMainStatus'],check=False,timeout=5)
         subprocess.run(['journalctl','--unit='+name,'--no-pager','-n','80'],check=False,timeout=5)
     raise
 finally:
-    subprocess.run(['systemctl','stop',server,helper],check=False)
-    for name in (server,helper):
+    subprocess.run(['systemctl','stop',server,isolator],check=False)
+    for name in (server,isolator):
         path=Path('/sys/fs/cgroup/system.slice')/(name+'.service')
         assert not path.exists(),('remaining group',path)

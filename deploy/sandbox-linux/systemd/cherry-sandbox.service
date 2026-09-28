@@ -1,14 +1,14 @@
 [Unit]
 Description=Cherry OJ unprivileged command API
-Requires=cherry-sandbox-helper.service
-After=cherry-sandbox-helper.service
-BindsTo=cherry-sandbox-helper.service
+Requires=cherry-sandbox-isolator.service
+After=cherry-sandbox-isolator.service
+BindsTo=cherry-sandbox-isolator.service
 
 [Service]
 Type=exec
 Slice=cherry-sandbox.slice
 ExecStartPre=/usr/bin/test -f /etc/cherry-sandbox/sandbox.json
-ExecStartPre=/usr/bin/python3 /etc/cherry-sandbox/health.py helper
+ExecStartPre=/usr/bin/python3 /etc/cherry-sandbox/health.py isolator
 ExecStart=/var/lib/cherry-sandbox/current/bin/sandbox -config /etc/cherry-sandbox/sandbox.json
 User=cherry-sandbox
 Group=cherry-sandbox

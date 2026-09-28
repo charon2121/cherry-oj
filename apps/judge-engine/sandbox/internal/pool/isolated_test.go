@@ -19,7 +19,7 @@ import (
 )
 
 // 使用真实 Unix 协议、容量池、runner、执行后端与 Store；只替代内核执行者。
-// 两次执行证明编译产物发布后可用ref进入下一次全新执行，而不让runner理解helper协议。
+// 两次执行证明编译产物发布后可用ref进入下一次全新执行，而不让runner理解isolator协议。
 func TestIsolatedArtifactRoundTrip(t *testing.T) {
 	root, e := os.MkdirTemp("/tmp", "cherry-round-")
 	if e != nil {

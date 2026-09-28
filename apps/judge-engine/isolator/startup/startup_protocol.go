@@ -19,18 +19,18 @@ const (
 	ExtraFilesBaseFD = 3
 
 	// execution 启动 P4（InitArg）时的继承 FD。
-	InitControlFD  = 3 // seqpacket：workspace FD、ready/exit 事件与 helper 的 GO。
+	InitControlFD  = 3 // seqpacket：workspace FD、ready/exit 事件与 isolator 的 GO。
 	InitInputFD    = 4 // StageSpec 控制帧，随后是输入文件与 stdin 字节流。
-	InitLivenessFD = 5 // helper 持有写端；断连使 namespace PID 1 退出。
+	InitLivenessFD = 5 // isolator 持有写端；断连使 namespace PID 1 退出。
 
 	// P4 启动 P5（ExecArg）时的继承 FD。
 	ExecConfigFD = 3 // ExecSpec 控制帧。
-	ExecReadyFD  = 4 // exec 写 READY，init 在收到 helper 放行后转发 GO。
+	ExecReadyFD  = 4 // exec 写 READY，init 在收到 isolator 放行后转发 GO。
 	ExecErrorFD  = 5 // 最终 exec 失败记录；成功 exec 时由 CLOEXEC 关闭。
 )
 
 // READY/GO 是单字节握手，不是 JSON Event：
-// exec READY → init ready Event → helper GO → init GO → execve。
+// exec READY → init ready Event → isolator GO → init GO → execve。
 const (
 	PayloadReady   byte = 'R'
 	PayloadGo      byte = 'G'
@@ -64,7 +64,7 @@ const (
 	FailureExitCode        = 125 // 可信启动器自身失败；不覆盖 payload 的实际退出码。
 )
 
-// StageSpec 只通过 helper 创建的匿名管道传给可信 init，绝不从 socket 客户端解码。
+// StageSpec 只通过 isolator 创建的匿名管道传给可信 init，绝不从 socket 客户端解码。
 type StageSpec struct {
 	Request                                  hostexec.Request
 	RootFS, MountPoint, Executable           string
@@ -74,7 +74,7 @@ type StageSpec struct {
 }
 
 // Event 经 seqpacket 保留消息边界；workspace 事件可附一个目录 FD。
-// exit 只报告 payload 退出，helper 仍须停止整组并等待 init/I/O，不能据此发布结果。
+// exit 只报告 payload 退出，isolator 仍须停止整组并等待 init/I/O，不能据此发布结果。
 type Event struct {
 	Errno            uint32 // 可信 init 失败的原始 errno；最终 exec 使用 ExecErrno。
 	Phase            string

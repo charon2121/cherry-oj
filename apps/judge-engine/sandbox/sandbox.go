@@ -89,7 +89,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	defer func() { gcCancel(); <-gcDone }()
 
 	// HTTP 期限覆盖请求读取和响应传输，不能用用户命令的墙钟限额替代。
-	// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 helper 客户端工作区。
+	// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 isolator 客户端工作区。
 	srv := &http.Server{
 		Addr:              cfg.Sandbox.HTTPAddr,
 		ReadHeaderTimeout: httpReadHeaderTimeout,
@@ -169,13 +169,13 @@ func selectBackend(c Settings) (backend.Backend, func() error, error) {
 			return nil, nil, fmt.Errorf("this platform does not support the Linux isolation backend")
 		}
 		if os.Geteuid() == 0 {
-			return nil, nil, fmt.Errorf("the sandbox service must run as non-root; privilege is held only by the helper")
+			return nil, nil, fmt.Errorf("the sandbox service must run as non-root; privilege is held only by the isolator")
 		}
 		w, err := workspace.OpenWorkspace(c.WorkspaceRoot)
 		if err != nil {
 			return nil, nil, err
 		}
-		b, err := backend.NewIsolated(c.HelperSocket, w)
+		b, err := backend.NewIsolated(c.IsolatorSocket, w)
 		if err != nil {
 			return nil, nil, errors.Join(err, w.Close())
 		}

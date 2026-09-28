@@ -81,8 +81,8 @@ func payloadSpec(stage startup.StageSpec, path string) startup.ExecSpec {
 	return spec
 }
 
-// releasePayload 必须先收到 exec 的 READY，再完成 init 自身降权并通知 helper。
-// 用户命令只有在 helper 核对状态及剩余预算后才能拿到 GO；init 不能自行放行。
+// releasePayload 必须先收到 exec 的 READY，再完成 init 自身降权并通知 isolator。
+// 用户命令只有在 isolator 核对状态及剩余预算后才能拿到 GO；init 不能自行放行。
 func (s *initSession) releasePayload(stage startup.StageSpec) error {
 	s.phase = "payload-ready"
 	if err := readHandshake(s.parentSync, startup.PayloadReady); err != nil {

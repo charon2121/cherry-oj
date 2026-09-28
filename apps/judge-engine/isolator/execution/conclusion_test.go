@@ -258,8 +258,8 @@ func TestExecutionStateTransitions(t *testing.T) {
 	}
 }
 
-// 照 probeInstallation 的断言走一遍完整的 Run：这是 helper 开放 socket 的前置条件，
-// 它不通过就没有 socket，表现为「helper socket did not become ready」而看不到真正的原因。
+// 照 probeInstallation 的断言走一遍完整的 Run：这是 isolator 开放 socket 的前置条件，
+// 它不通过就没有 socket，表现为「isolator socket did not become ready」而看不到真正的原因。
 func TestNormalRunSatisfiesStartupProbe(t *testing.T) {
 	x, _, _ := scriptedExecution(processEvent{kind: processReady}, processEvent{kind: processExited, exitCode: 0})
 	// 冒烟用固定限额，且要求最终计量为正数。
@@ -282,9 +282,9 @@ func TestNormalRunSatisfiesStartupProbe(t *testing.T) {
 	}
 }
 
-// CancelInput 的实现可以取消调用方自己的上下文——helper 的启动冒烟正是这样接线的：
+// CancelInput 的实现可以取消调用方自己的上下文——isolator 的启动冒烟正是这样接线的：
 // 它把 probeCancel 一并放进 cancelInput。因此「请求是否已被取消」必须在解除输入阻塞之前读取，
-// 否则每次正常执行都会被判成已取消，helper 永远开不了 socket。
+// 否则每次正常执行都会被判成已取消，isolator 永远开不了 socket。
 func TestCancelInputMustNotMakeNormalRunLookCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

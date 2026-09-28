@@ -15,13 +15,13 @@ def states():
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',required=True,choices=('helper-config','rootfs-manifest','helper-binary'))
+    parser.add_argument('--case',required=True,choices=('isolator-config','rootfs-manifest','isolator-binary'))
     args=parser.parse_args()
     receipt=manage.owned()
     manifest_path=manage.ETC/'deployment.json'
     identity=manage.digest(manifest_path)
     manifest=json.loads(manifest_path.read_text())
-    key={'helper-config':'helperConfig','rootfs-manifest':'rootfsManifest','helper-binary':'helper'}[args.case]
+    key={'isolator-config':'isolatorConfig','rootfs-manifest':'rootfsManifest','isolator-binary':'isolator'}[args.case]
     path=Path(manifest['files'][key]['path'])
     assert manage.digest(path)==manifest['files'][key]['sha256']
     saved=path.with_name(path.name+'.work048-missing-test')
@@ -34,7 +34,7 @@ def main():
         deadline=time.monotonic()+35
         while time.monotonic()<deadline:
             result=states()
-            if result['cherry-sandbox-helper.service']=='failed' and all(result[u] in ('inactive','failed') for u in manage.UNITS[2:]):break
+            if result['cherry-sandbox-isolator.service']=='failed' and all(result[u] in ('inactive','failed') for u in manage.UNITS[2:]):break
             time.sleep(.2)
         else:raise AssertionError(('services did not fail closed',states()))
         print(json.dumps(dict(case=args.case,result='PASS',states=result)),flush=True)

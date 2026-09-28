@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Probe a reduced helper capability set without registering a changed environment."""
+"""Probe a reduced isolator capability set without registering a changed environment."""
 import importlib.util
 import json
 from pathlib import Path
@@ -15,7 +15,7 @@ import health
 
 CAPS = ('CAP_SYS_ADMIN', 'CAP_SETUID', 'CAP_SETGID', 'CAP_SETPCAP',
         'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD')
-DIRECTORY = Path('/run/systemd/system/cherry-sandbox-helper.service.d')
+DIRECTORY = Path('/run/systemd/system/cherry-sandbox-isolator.service.d')
 DROPIN = DIRECTORY / '90-work048-capability-test.conf'
 
 
@@ -34,12 +34,12 @@ def configure(caps):
     return content
 
 
-def helper_state():
-    return manage.run('systemctl', 'show', 'cherry-sandbox-helper.service', '-p', 'ActiveState', '--value')
+def isolator_state():
+    return manage.run('systemctl', 'show', 'cherry-sandbox-isolator.service', '-p', 'ActiveState', '--value')
 
 
 def start_observation():
-    raw = manage.run('systemctl', 'show', 'cherry-sandbox-helper.service', '-p', 'InvocationID',
+    raw = manage.run('systemctl', 'show', 'cherry-sandbox-isolator.service', '-p', 'InvocationID',
                      '-p', 'ExecMainStartTimestampMonotonic')
     values = dict(line.split('=', 1) for line in raw.splitlines())
     return dict(invocationID=values.get('InvocationID', ''),
@@ -57,10 +57,10 @@ def require_new_start(before, after):
 def reset_failure():
     # Inactive successful units may already be garbage-collected by systemd; reset-failed
     # then returns "not loaded". They have no retained failed attempt to clear.
-    state = helper_state()
+    state = isolator_state()
     assert state in ('inactive', 'failed'), state
     if state == 'failed':
-        manage.run('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
+        manage.run('systemctl', 'reset-failed', 'cherry-sandbox-isolator.service')
 
 
 def probe():
@@ -68,20 +68,20 @@ def probe():
     # These are independent deliberate-failure fixtures, not automatic retries of a failed run.
     # Keep the deployed rate-limit configuration intact; clear only this owned unit's history.
     reset_failure()
-    subprocess.run(['systemctl', 'start', 'cherry-sandbox-helper.service'],
+    subprocess.run(['systemctl', 'start', 'cherry-sandbox-isolator.service'],
                    capture_output=True, timeout=10)
     deadline = time.monotonic() + 10
     while time.monotonic() < deadline:
-        if helper_state() == 'failed':
+        if isolator_state() == 'failed':
             observation = start_observation()
             require_new_start(before, observation)
             return False, observation
-        if health.ready('helper'):
+        if health.ready('isolator'):
             observation = start_observation()
             require_new_start(before, observation)
             return True, observation
         time.sleep(.05)
-    raise AssertionError('helper did not reach a definitive state')
+    raise AssertionError('isolator did not reach a definitive state')
 
 
 def main():
@@ -120,7 +120,7 @@ def main():
             content = configure(tuple(cap for cap in CAPS if cap != excluded))
             ready, observation = probe()
             assert not ready, 'capability may be redundant: ' + excluded
-            result = manage.run('systemctl', 'show', 'cherry-sandbox-helper.service', '-p', 'Result', '--value')
+            result = manage.run('systemctl', 'show', 'cherry-sandbox-isolator.service', '-p', 'Result', '--value')
             assert result != 'start-limit-hit', result
             print(json.dumps(dict(test='remove-capability', removed=excluded, startup='REFUSED', **observation)), flush=True)
             stopped()

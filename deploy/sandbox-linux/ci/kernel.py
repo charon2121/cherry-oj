@@ -27,10 +27,10 @@ def ready_socket(path, unit=None):
                 return
             except OSError:
                 time.sleep(.05)
-    # helper 只有在每个槽位的启动冒烟都通过之后才开放 socket。冒烟不过时，外部只看得到
-    # 「socket 没就绪」，真正的原因留在 helper 自己的输出里；不带出来就无从判断是配置、
+    # isolator 只有在每个槽位的启动冒烟都通过之后才开放 socket。冒烟不过时，外部只看得到
+    # 「socket 没就绪」，真正的原因留在 isolator 自己的输出里；不带出来就无从判断是配置、
     # 内核能力还是执行链的问题。
-    raise TimeoutError('helper socket did not become ready' + unit_output(unit))
+    raise TimeoutError('isolator socket did not become ready' + unit_output(unit))
 
 
 def unit_output(unit):
@@ -50,7 +50,7 @@ def verify_build(build):
              'probe': build / 'probe', 'boundary': build / 'boundary.test'}
     if any(digest(path) != data[key] for key, path in paths.items()):
         raise ValueError('build artifact digest mismatch')
-    for name in ('sandbox-helper', 'sandbox', 'judge'):
+    for name in ('isolator', 'sandbox', 'judge'):
         if digest(build / 'release/bin' / name) != data['binaries'][name]:
             raise ValueError('binary digest mismatch')
     return data
@@ -71,7 +71,7 @@ class Kernel:
     def fixture(self, kind, cpp=False):
         base = BASE / ('work048-' + kind + '-' + self.owned.identity)
         base.mkdir(mode=0o755)
-        for name in ('sandbox-helper', 'sandbox'):
+        for name in ('isolator', 'sandbox'):
             shutil.copy2(self.build / 'release/bin' / name, base / name)
         shutil.copy2(self.build / 'probe', base / 'probe')
         shutil.copy2(self.build / 'boundary.test', base / 'boundary.test')
@@ -97,15 +97,15 @@ class Kernel:
         self.active = 'cpp-limits' if cpp else 'static-identity'
         kind = 'cpp' if cpp else 'static'
         base = self.fixture(kind, cpp)
-        helper = 'cherry-sandbox-test-' + base.name + '-helper'
-        self.owned.register(helper)
-        self.owned.launch(helper, ['python3', TESTS / 'bootstrap.py', base, helper] + (['cpp'] if cpp else []),
-                          kind + '-helper.log', memory=768, tasks=192, seconds=180, delegate=True, wait=False)
+        isolator = 'cherry-sandbox-test-' + base.name + '-isolator'
+        self.owned.register(isolator)
+        self.owned.launch(isolator, ['python3', TESTS / 'bootstrap.py', base, isolator] + (['cpp'] if cpp else []),
+                          kind + '-isolator.log', memory=768, tasks=192, seconds=180, delegate=True, wait=False)
         try:
-            sock = Path('/run') / helper / 'helper.sock'
-            ready_socket(sock, helper)
+            sock = Path('/run') / isolator / 'isolator.sock'
+            ready_socket(sock, isolator)
             scripts = [('cpp_limits.py', 'cpp-limits', sock)] if cpp else [
-                ('inspect_threads.py', 'static-identity', base / 'helper.json'),
+                ('inspect_threads.py', 'static-identity', base / 'isolator.json'),
                 ('smoke.py', 'static-smoke', sock), ('extended.py', 'static-extended', sock)]
             for script, group, argument in scripts:
                 self.active = group
@@ -123,27 +123,27 @@ class Kernel:
                     results.markers(path, sentinel=sentinel)
                 self.record(group, log)
         finally:
-            self.owned.stop(helper)
+            self.owned.stop(isolator)
 
     def chain(self, mode):
         self.active = 'chain-' + mode
         base = self.fixture('chain-' + mode, cpp=True)
         unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(*(unit + '-' + suffix for suffix in ('helper', 'http', 'driver')))
+        self.owned.register(*(unit + '-' + suffix for suffix in ('isolator', 'http', 'driver')))
         log = 'chain-' + mode + '.log'
         try:
             run(['python3', TESTS / 'chain_batch.py', base, mode, unit], self.report.output / log, 190)
             results.chain(self.report.output / log, mode)
             self.record('chain-' + mode, log)
         finally:
-            self.owned.stop(unit + '-driver', unit + '-http', unit + '-helper')
+            self.owned.stop(unit + '-driver', unit + '-http', unit + '-isolator')
 
     def fault(self, capacity=False):
         mode = 'capacity' if capacity else 'fault'
         self.active = mode
         base = self.fixture('fault-' + mode)
         unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(*(unit + '-' + suffix for suffix in ('helper', 'http', 'driver')))
+        self.owned.register(*(unit + '-' + suffix for suffix in ('isolator', 'http', 'driver')))
         log = mode + '.log'
         try:
             self.owned.launch(unit + '-driver', ['python3', TESTS / 'fault_batch.py', base] +
@@ -151,11 +151,11 @@ class Kernel:
             results.markers(self.report.output / log, sentinel='PASS fault chain', required=('before', 'after'))
             required = ('pool-saturation', 'peer-isolation-and-privilege', 'handler-saturation', 'aggregate-memory',
                         'task-local-memory') if capacity else ('missing-command', 'invalid-executable', 'queued-disconnect',
-                        'init-SIGKILL', 'HTTP-SIGKILL-restart', 'helper-SIGKILL-restart', 'HTTP-graceful-stop-restart')
+                        'init-SIGKILL', 'HTTP-SIGKILL-restart', 'isolator-SIGKILL-restart', 'HTTP-graceful-stop-restart')
             results.markers(self.report.output / log, required=required)
             self.record(mode, log)
         finally:
-            self.owned.stop(unit + '-driver', unit + '-http', unit + '-helper')
+            self.owned.stop(unit + '-driver', unit + '-http', unit + '-isolator')
 
     def execute(self):
         self.active = 'go-unit'

@@ -95,7 +95,7 @@ func TestStartupBoundaries(t *testing.T) {
 			fd, err := group.File()
 			require(t, err)
 			defer fd.Close()
-			cmd = exec.Command(filepath.Join(base, "sandbox-helper"), "--isolated-init")
+			cmd = exec.Command(filepath.Join(base, "isolator"), "--isolated-init")
 			cmd.Env = []string{"GOMAXPROCS=1"}
 			cmd.Stdout = output
 			cmd.Stderr = io.Discard
@@ -106,7 +106,7 @@ func TestStartupBoundaries(t *testing.T) {
 			require(t, dataR.Close())
 			require(t, lifeR.Close())
 			require(t, fd.Close())
-			stage := startup.StageSpec{Request: hostexec.Request{Version: 1, Command: []string{"probe", "identity"}, Limits: contract.Limits{CPUNs: 1_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 64 << 20, MaxProcesses: 64, StdoutMaxBytes: 8192, StderrMaxBytes: 8192}}, RootFS: filepath.Join(base, "rootfs"), MountPoint: mount, Executable: filepath.Join(base, "sandbox-helper"), PayloadUID: 61002, PayloadGID: 61002, InitUID: 61003, InitGID: 61003, WorkspaceBytes: 8 << 20, WorkspaceInodes: 128}
+			stage := startup.StageSpec{Request: hostexec.Request{Version: 1, Command: []string{"probe", "identity"}, Limits: contract.Limits{CPUNs: 1_000_000_000, ClockNs: 5_000_000_000, MemoryBytes: 64 << 20, MaxProcesses: 64, StdoutMaxBytes: 8192, StderrMaxBytes: 8192}}, RootFS: filepath.Join(base, "rootfs"), MountPoint: mount, Executable: filepath.Join(base, "isolator"), PayloadUID: 61002, PayloadGID: 61002, InitUID: 61003, InitGID: 61003, WorkspaceBytes: 8 << 20, WorkspaceInodes: 128}
 			if mode == "missing-rootfs" {
 				stage.RootFS = filepath.Join(base, "absent-root")
 			}

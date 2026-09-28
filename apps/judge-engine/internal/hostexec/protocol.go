@@ -1,7 +1,7 @@
-// Package hostexec 定义非特权 sandbox 与特权 helper 之间的本机执行协议。
+// Package hostexec 定义非特权 sandbox 与特权 isolator 之间的本机执行协议。
 //
 // 它是两端唯一的共享词汇：请求、响应、终止原因与帧编解码只在此定义一次。
-// 本包不实现特权操作，也不理解判题；helper 的服务端实现与 sandbox 的客户端
+// 本包不实现特权操作，也不理解判题；isolator 的服务端实现与 sandbox 的客户端
 // 分别位于各自的包中，对同一份协议编程。
 package hostexec
 
@@ -25,7 +25,7 @@ const (
 	MaxFrameBytes               = 64 << 10
 	MaxInputBytes         int64 = 64 << 20
 	MaxArtifactBytes      int64 = 64 << 20
-	MaxOutputs                  = 128 // 请求声明及 helper 响应允许的产物数量。
+	MaxOutputs                  = 128 // 请求声明及 isolator 响应允许的产物数量。
 	maxRequestInputs            = 128
 	maxRequestArgs              = 256
 	maxRequestEnvEntries        = 128
@@ -55,7 +55,7 @@ type Input struct {
 	Executable bool
 }
 
-// Request 是本机非特权服务发给 helper 的协议，不接受宿主路径或特权设置。
+// Request 是本机非特权服务发给 isolator 的协议，不接受宿主路径或特权设置。
 // 控制帧后依 Inputs 顺序发送文件，最后发送 StdinBytes 个 stdin 字节；
 // 文件不放进 JSON，避免 base64 造成全量内存缓冲。
 type Request struct {
@@ -96,7 +96,7 @@ func (r Request) InputBytes() int64 {
 	return n
 }
 
-// Validate 不填充默认值；helper 不能自行猜测显式零预算的含义。
+// Validate 不填充默认值；isolator 不能自行猜测显式零预算的含义。
 // 请求须由 runner 归一化后交付，特权边界仍独立复查，不能只信客户端校验。
 func (r Request) Validate() error {
 	if r.Version != Version || len(r.Command) == 0 || len(r.Command) > maxRequestArgs || len(r.Env) > maxRequestEnvEntries || len(r.Inputs) > maxRequestInputs || len(r.Outputs) > MaxOutputs {
@@ -146,7 +146,7 @@ func (r Request) Validate() error {
 	if err := r.Limits.Validate(); err != nil {
 		return err
 	}
-	// 本机调用者必须已经完成默认值填充。零 CPU/内存由上层返回资源结论，不启动 helper。
+	// 本机调用者必须已经完成默认值填充。零 CPU/内存由上层返回资源结论，不启动 isolator。
 	l := r.Limits
 	if l.CPUNs <= 0 || l.ClockNs <= 0 || l.MemoryBytes <= 0 || l.MaxProcesses <= 0 || l.CPUNs > maxCPUNs || l.ClockNs > maxClockNs || l.MemoryBytes > maxMemoryBytes || l.MaxProcesses > maxProcesses || l.StdoutMaxBytes > maxStdoutBytes || l.StderrMaxBytes > maxStderrBytes {
 		return fmt.Errorf("execution limits are not normalized or exceed the node hard boundary")

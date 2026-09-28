@@ -22,8 +22,8 @@ func TestUnprivilegedBinariesDoNotLinkIsolator(t *testing.T) {
 		}
 	}
 	// 反向对照：特权二进制确实依赖本子树，证明上面的查询真的看到了依赖。
-	if !slices.Contains(dependencies(t, "./cmd/sandbox-helper"), isolatorPath+"/daemon") {
-		t.Fatal("go list 没有列出 sandbox-helper 对 daemon 的依赖，检查本身失效")
+	if !slices.Contains(dependencies(t, "./cmd/isolator"), isolatorPath+"/daemon") {
+		t.Fatal("go list 没有列出 isolator 对 daemon 的依赖，检查本身失效")
 	}
 }
 

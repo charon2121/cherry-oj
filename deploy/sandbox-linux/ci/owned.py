@@ -56,7 +56,7 @@ def preflight():
         raise RuntimeError('systemd host required')
     if BASE.exists() or BASE.is_symlink():
         raise RuntimeError('existing fixture directory; refusing adoption')
-    for name in ('/etc/cherry-sandbox', '/var/lib/cherry-sandbox', '/run/cherry-sandbox-helper'):
+    for name in ('/etc/cherry-sandbox', '/var/lib/cherry-sandbox', '/run/cherry-sandbox-isolator'):
         if Path(name).exists() or Path(name).is_symlink():
             raise RuntimeError('existing native sandbox installation')
     for uid in range(61001, 61011):

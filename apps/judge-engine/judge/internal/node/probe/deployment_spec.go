@@ -10,9 +10,9 @@ const (
 
 // requiredFiles 是部署必须声明并逐一核对摘要的文件。
 var requiredFiles = []string{
-	"sandbox", "helper", "rootfsManifest", "toolchainLock",
-	"helperConfig", "sandboxConfig", "slice",
-	"helperUnit", "sandboxUnit", "judgeUnit", "bootstrap",
+	"sandbox", "isolator", "rootfsManifest", "toolchainLock",
+	"isolatorConfig", "sandboxConfig", "slice",
+	"isolatorUnit", "sandboxUnit", "judgeUnit", "bootstrap",
 }
 
 // requiredGroups 是必须有资源上界的 cgroup 节点，requiredLimits 是每个节点必须设的控制文件。
@@ -20,11 +20,11 @@ var requiredFiles = []string{
 // 多一项少一项还会互相抵消。
 var requiredGroups = []string{
 	"cherry.slice/cherry-sandbox.slice",
-	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service",
+	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-isolator.service",
 	"cherry.slice/cherry-sandbox.slice/cherry-sandbox.service",
 	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service",
-	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service/supervisor",
-	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service/jobs",
+	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-isolator.service/supervisor",
+	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-isolator.service/jobs",
 }
 
 var requiredLimits = []string{"cpu.max", "memory.max", "memory.swap.max", "pids.max"}

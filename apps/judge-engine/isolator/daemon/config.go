@@ -21,7 +21,7 @@ type Config struct {
 func (c Config) Validate() error {
 	for _, p := range []string{c.SocketPath, c.StateDir, c.JobsDir, c.RootFS, c.ManifestPath} {
 		if !filepath.IsAbs(p) || filepath.Clean(p) != p || p == "/" {
-			return fmt.Errorf("helper paths must be explicit absolute paths")
+			return fmt.Errorf("isolator paths must be explicit absolute paths")
 		}
 	}
 	if filepath.Dir(c.SocketPath) != c.StateDir {

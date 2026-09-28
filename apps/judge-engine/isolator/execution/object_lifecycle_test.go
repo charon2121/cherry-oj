@@ -24,7 +24,7 @@ func TestIsolationPlanOwnsRequestSnapshot(t *testing.T) {
 	req.Inputs = []hostexec.Input{{Path: "source", SizeBytes: 1}}
 	req.Outputs = []string{"program"}
 	original := cloneRequest(req)
-	plan := newIsolationPlan(req, Environment{RootFS: "/rootfs", Executable: "/helper", PayloadUID: 101, InitUID: 102})
+	plan := newIsolationPlan(req, Environment{RootFS: "/rootfs", Executable: "/isolator", PayloadUID: 101, InitUID: 102})
 	req.Command[0] = "changed"
 	req.Env[0] = "NAME=changed"
 	req.Inputs[0].Path = "changed"

@@ -13,7 +13,7 @@ import (
 	"cherry-oj/judge-engine/sandbox/internal/workspace"
 )
 
-// Isolated 通过本机执行协议把命令交给特权 helper。本进程不持有任何特权。
+// Isolated 通过本机执行协议把命令交给特权 isolator。本进程不持有任何特权。
 //
 // 它可以并发使用：每次 Execute 在暂存根下分配自己的目录，彼此不共享状态。
 type Isolated struct {
@@ -26,7 +26,7 @@ type Isolated struct {
 // 本构造不会自动退回零隔离后端。
 func NewIsolated(socket string, ws *workspace.Workspace) (*Isolated, error) {
 	if socket == "" || ws == nil {
-		return nil, fmt.Errorf("helper socket and staging root must not be empty")
+		return nil, fmt.Errorf("isolator socket and staging root must not be empty")
 	}
 	return &Isolated{socket: socket, root: ws.Root()}, nil
 }
@@ -49,7 +49,7 @@ func (x *execution) close() error {
 	return errors.Join(err, os.RemoveAll(x.dir))
 }
 
-// spool 先取得长度，使 helper 可按声明大小划分连续输入流；limit+1 用于发现超限，
+// spool 先取得长度，使 isolator 可按声明大小划分连续输入流；limit+1 用于发现超限，
 // 不能在上限处伪装 EOF，否则被截断的源码会被当作完整输入交付。
 func (x *execution) spool(r io.Reader, limit int64) (*os.File, int64, error) {
 	if r == nil {
@@ -169,7 +169,7 @@ func (x *execution) deliver(facts Facts, names []string, sink OutputSink) error 
 	for _, name := range names {
 		path, ok := x.outputs[name]
 		if !ok {
-			continue // helper 未交付该产物；是否算失败由调用方按 Outputs 判断
+			continue // isolator 未交付该产物；是否算失败由调用方按 Outputs 判断
 		}
 		f, err := os.Open(path)
 		if err != nil {
@@ -205,14 +205,14 @@ func checkResult(r hostexec.Result, j Job) error {
 		err = errors.Join(err, errors.New(r.Error))
 	}
 	if r.Usage.CPUNs < 0 || r.Usage.MemoryBytes < 0 || r.ClockNs < 0 {
-		err = errors.Join(err, fmt.Errorf("helper returned negative resource facts"))
+		err = errors.Join(err, fmt.Errorf("isolator returned negative resource facts"))
 	}
 	// 协议帧正确不等于执行组已经清空；残留后代时不能交付成功或复用容量。
 	if r.Usage.Populated {
-		err = errors.Join(err, fmt.Errorf("helper returned an execution group that was not emptied"))
+		err = errors.Join(err, fmt.Errorf("isolator returned an execution group that was not emptied"))
 	}
 	if int64(len(r.Stdout)) > j.Limits.StdoutMaxBytes || int64(len(r.Stderr)) > j.Limits.StderrMaxBytes {
-		err = errors.Join(err, fmt.Errorf("helper output exceeds the requested limit"))
+		err = errors.Join(err, fmt.Errorf("isolator output exceeds the requested limit"))
 	}
 	return err
 }

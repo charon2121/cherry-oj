@@ -101,7 +101,7 @@ func main() {
 			panic(err)
 		}
 		fmt.Println("background-started", child.Process.Pid)
-		// 故意不 Wait：测试主进程结束后的后代由 helper 整组回收。
+		// 故意不 Wait：测试主进程结束后的后代由 isolator 整组回收。
 	case "processes":
 		var children []*exec.Cmd
 		for i := 0; i < 80; i++ {

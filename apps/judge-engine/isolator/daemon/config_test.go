@@ -8,7 +8,7 @@ import (
 )
 
 func TestConfigRejectsPrivilegeConfusion(t *testing.T) {
-	good := Config{SocketPath: "/run/cherry-test/helper.sock", StateDir: "/run/cherry-test", JobsDir: "/sys/fs/cgroup/cherry-test/jobs", RootFS: "/opt/cherry-test/rootfs", ManifestPath: "/opt/cherry-test/manifest.json", ManifestSHA256: string(bytes.Repeat([]byte{'a'}, 64)), ServiceUID: 1001, ServiceGID: 1001, PayloadUID: 1002, PayloadGID: 1002, InitUID: 1003, InitGID: 1003, Parallelism: 1}
+	good := Config{SocketPath: "/run/cherry-test/isolator.sock", StateDir: "/run/cherry-test", JobsDir: "/sys/fs/cgroup/cherry-test/jobs", RootFS: "/opt/cherry-test/rootfs", ManifestPath: "/opt/cherry-test/manifest.json", ManifestSHA256: string(bytes.Repeat([]byte{'a'}, 64)), ServiceUID: 1001, ServiceGID: 1001, PayloadUID: 1002, PayloadGID: 1002, InitUID: 1003, InitGID: 1003, Parallelism: 1}
 	if err := good.Validate(); err != nil {
 		t.Fatal(err)
 	}

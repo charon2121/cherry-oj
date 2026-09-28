@@ -33,10 +33,10 @@ func checkInstallation(c Config) (string, error) {
 		}
 	}
 	if !pure {
-		return "", fmt.Errorf("helper must be built with CGO_ENABLED=0")
+		return "", fmt.Errorf("isolator must be built with CGO_ENABLED=0")
 	}
 	if os.Geteuid() != 0 {
-		return "", fmt.Errorf("helper must be owned by root")
+		return "", fmt.Errorf("isolator must be owned by root")
 	}
 	for _, p := range []string{c.StateDir, c.JobsDir} {
 		if err := securePath(p, true); err != nil {
@@ -58,7 +58,7 @@ func checkInstallation(c Config) (string, error) {
 		return "", err
 	}
 	if !binaryInfo.Mode().IsRegular() || binaryInfo.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
-		return "", fmt.Errorf("helper must be a regular executable without setuid/setgid")
+		return "", fmt.Errorf("isolator must be a regular executable without setuid/setgid")
 	}
 
 	return executable, nil

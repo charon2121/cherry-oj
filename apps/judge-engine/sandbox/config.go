@@ -24,7 +24,7 @@ type Settings struct {
 	Parallelism     int    `yaml:"parallelism"`
 	Store           Store  `yaml:"store"`
 	Backend         string `yaml:"backend"`
-	HelperSocket    string `yaml:"helperSocket"`
+	IsolatorSocket  string `yaml:"isolatorSocket"`
 	WorkspaceRoot   string `yaml:"workspaceRoot"`
 	QueueSize       int    `yaml:"queueSize"`
 	MaxRequestBytes int64  `yaml:"maxRequestBytes"`
@@ -43,7 +43,7 @@ type Store struct {
 	Retention     config.Duration `yaml:"retention"`
 }
 
-// DefaultConfig 返回 sandbox 的有界默认配置；Linux 隔离仍需先准备 helper 和权限。
+// DefaultConfig 返回 sandbox 的有界默认配置；Linux 隔离仍需先准备 isolator 和权限。
 func DefaultConfig() Config {
 	return Config{
 		Logging: config.Logging{
@@ -54,7 +54,7 @@ func DefaultConfig() Config {
 			HTTPAddr:        "127.0.0.1:5050",
 			Parallelism:     1,
 			Backend:         backend.NameLinux,
-			HelperSocket:    "/run/cherry-sandbox/helper.sock",
+			IsolatorSocket:  "/run/cherry-sandbox-isolator/isolator.sock",
 			WorkspaceRoot:   "./data/sandbox-work",
 			QueueSize:       8,
 			MaxRequestBytes: 2 << 20,
@@ -90,8 +90,8 @@ func (c Config) Validate() error {
 	if s.Backend == backend.NameDevHost && !s.AllowUnsafeBackend {
 		return fmt.Errorf("the %s backend provides no isolation; enabling it requires setting sandbox.allowUnsafeBackend explicitly", backend.NameDevHost)
 	}
-	if s.Backend == backend.NameLinux && (s.HelperSocket == "" || s.WorkspaceRoot == "" || s.Store.Root == "") {
-		return fmt.Errorf("the linux backend requires helperSocket, workspaceRoot and store.root")
+	if s.Backend == backend.NameLinux && (s.IsolatorSocket == "" || s.WorkspaceRoot == "" || s.Store.Root == "") {
+		return fmt.Errorf("the linux backend requires isolatorSocket, workspaceRoot and store.root")
 	}
 	if s.QueueSize <= 0 || s.QueueSize > 1024 || s.MaxRequestBytes <= 0 || s.MaxRequestBytes > 8<<20 {
 		return fmt.Errorf("invalid sandbox queue or request body limit")

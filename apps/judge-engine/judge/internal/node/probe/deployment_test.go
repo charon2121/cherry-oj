@@ -13,11 +13,11 @@ import (
 
 func deploymentFixture() deploymentManifest {
 	m := deploymentManifest{Version: 1, Backend: "linux", Architecture: "amd64", Files: map[string]deploymentFile{}, Limits: map[string]string{}}
-	for _, key := range []string{"sandbox", "helper", "rootfsManifest", "toolchainLock", "helperConfig", "sandboxConfig", "slice", "helperUnit", "sandboxUnit", "judgeUnit", "bootstrap"} {
+	for _, key := range []string{"sandbox", "isolator", "rootfsManifest", "toolchainLock", "isolatorConfig", "sandboxConfig", "slice", "isolatorUnit", "sandboxUnit", "judgeUnit", "bootstrap"} {
 		m.Files[key] = deploymentFile{Path: "/release/" + key, SHA256: strings.Repeat("a", 64)}
 	}
 	base := "/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice"
-	for _, group := range []string{"", "/cherry-sandbox-helper.service", "/cherry-sandbox.service", "/cherry-sandbox-judge.service", "/cherry-sandbox-helper.service/supervisor", "/cherry-sandbox-helper.service/jobs"} {
+	for _, group := range []string{"", "/cherry-sandbox-isolator.service", "/cherry-sandbox.service", "/cherry-sandbox-judge.service", "/cherry-sandbox-isolator.service/supervisor", "/cherry-sandbox-isolator.service/jobs"} {
 		for name, value := range map[string]string{"cpu.max": "100000 100000", "memory.max": "1024", "memory.swap.max": "0", "pids.max": "64"} {
 			m.Limits[base+group+"/"+name] = value
 		}
@@ -33,7 +33,7 @@ func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
 			read := func(path string) ([]byte, error) { return []byte(m.Limits[path] + "\n"), nil }
 			switch kind {
 			case "missing-file":
-				delete(m.Files, "helper")
+				delete(m.Files, "isolator")
 			case "changed-file":
 				hash = func(string) (string, error) { return strings.Repeat("b", 64), nil }
 			case "read-error":
@@ -60,7 +60,7 @@ func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
 			named := map[string]string{
 				"unknown-field":    "extra",
 				"unverified-limit": "/sys/fs/cgroup/elsewhere/pids.max",
-				"missing-file":     "helper",
+				"missing-file":     "isolator",
 				"missing-limit":    "/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/pids.max",
 			}
 			if want, ok := named[kind]; ok && !strings.Contains(err.Error(), want) {
@@ -88,7 +88,7 @@ func TestDeploymentIdentityChangesWithRootfsAndPolicy(t *testing.T) {
 		return digest
 	}
 	original := fingerprint(deploymentFixture())
-	for _, key := range []string{"rootfsManifest", "helper", "sandbox", "helperConfig", "slice", "bootstrap"} {
+	for _, key := range []string{"rootfsManifest", "isolator", "sandbox", "isolatorConfig", "slice", "bootstrap"} {
 		m := deploymentFixture()
 		entry := m.Files[key]
 		entry.SHA256 = strings.Repeat("b", 64)

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Prepare only the helper unit's delegated tree, then exec the root-owned binary."""
+"""Prepare only the isolator unit's delegated tree, then exec the root-owned binary."""
 import json
 import os
 from pathlib import Path
 
-CONFIG = Path('/etc/cherry-sandbox/helper.json')
-GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service')
+CONFIG = Path('/etc/cherry-sandbox/isolator.json')
+GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-isolator.service')
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
                         'pids.max': '160', 'cpu.max': '100000 100000',
                         'memory.oom.group': '1'}.items():
         (GROUP / 'jobs' / name).write_text(value)
-    binary = '/var/lib/cherry-sandbox/current/bin/sandbox-helper'
+    binary = '/var/lib/cherry-sandbox/current/bin/isolator'
     os.execv(binary, [binary, '--config', str(CONFIG)])
 
 

@@ -26,7 +26,7 @@ func TestLimitsPreserveOmissionAndZero(t *testing.T) {
 			if err := json.Unmarshal([]byte(tc.body), &spec); err != nil {
 				t.Fatal(err)
 			}
-			// 经过再次序列化仍应保持缺省和显式 0，防止 helper 传输时丢失语义。
+			// 经过再次序列化仍应保持缺省和显式 0，防止 isolator 传输时丢失语义。
 			encoded, err := json.Marshal(spec)
 			if err != nil {
 				t.Fatal(err)

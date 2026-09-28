@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""一次 helper SIGKILL：只定位当前测试单元，使用 pidfd 避免 PID 复用误杀。"""
+"""一次 isolator SIGKILL：只定位当前测试单元，使用 pidfd 避免 PID 复用误杀。"""
 import json
 import os
 from pathlib import Path
@@ -38,7 +38,7 @@ try:
     assert len(pids)==1,pids
     pid=int(pids[0]);fd=os.pidfd_open(pid)
     try:
-        assert os.readlink(f'/proc/{pid}/exe')==str(config_path.parent/'sandbox-helper')
+        assert os.readlink(f'/proc/{pid}/exe')==str(config_path.parent/'isolator')
         signal.pidfd_send_signal(fd,signal.SIGKILL)
     finally:os.close(fd)
 finally:
@@ -48,4 +48,4 @@ for _ in range(200):
     if not unit.exists():break
     time.sleep(.01)
 assert not unit.exists(),'systemd did not remove the entire test unit cgroup'
-print('helper SIGKILL: client failed closed; complete test unit cgroup removed',flush=True)
+print('isolator SIGKILL: client failed closed; complete test unit cgroup removed',flush=True)

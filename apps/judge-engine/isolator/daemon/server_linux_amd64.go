@@ -49,7 +49,7 @@ type service struct {
 
 func (s *service) run(ctx context.Context) (result error) {
 	c := s.config
-	// 先持有服务锁再恢复遗留资源，避免两个 helper 同时回收或分配同一组槽位身份。
+	// 先持有服务锁再恢复遗留资源，避免两个 isolator 同时回收或分配同一组槽位身份。
 	lock, err := os.OpenFile(filepath.Join(c.StateDir, "lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func (s *service) run(ctx context.Context) (result error) {
 		return err
 	}
 	if err = unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		return fmt.Errorf("helper is already running: %w", err)
+		return fmt.Errorf("isolator is already running: %w", err)
 	}
 	manager, err := cgroup.Open(c.JobsDir)
 	if err != nil {
@@ -164,7 +164,7 @@ func checkPeer(c *net.UnixConn, uid int) error {
 		return inner
 	}
 	if cred == nil || cred.Uid != uint32(uid) {
-		return fmt.Errorf("helper peer UID mismatch")
+		return fmt.Errorf("isolator peer UID mismatch")
 	}
 	return nil
 }

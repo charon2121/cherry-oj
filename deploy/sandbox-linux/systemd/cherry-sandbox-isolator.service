@@ -1,11 +1,11 @@
 [Unit]
-Description=Cherry OJ privileged isolation helper
+Description=Cherry OJ privileged isolator
 Before=cherry-sandbox.service
 
 [Service]
 Type=exec
 Slice=cherry-sandbox.slice
-ExecStart=/usr/bin/python3 /etc/cherry-sandbox/helper-start.py
+ExecStart=/usr/bin/python3 /etc/cherry-sandbox/isolator-start.py
 User=root
 Group=root
 UMask=0022
@@ -13,7 +13,7 @@ Delegate=cpu memory pids
 KillMode=control-group
 TimeoutStopSec=15s
 Restart=no
-RuntimeDirectory=cherry-sandbox-helper
+RuntimeDirectory=cherry-sandbox-isolator
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes
 MemoryMax=768M
@@ -27,7 +27,7 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN 
 AmbientCapabilities=CAP_SETUID
 NoNewPrivileges=yes
 ProtectSystem=strict
-ReadWritePaths=/run/cherry-sandbox-helper /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service
+ReadWritePaths=/run/cherry-sandbox-isolator /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-isolator.service
 ProtectHome=yes
 PrivateTmp=yes
 ProtectKernelModules=yes

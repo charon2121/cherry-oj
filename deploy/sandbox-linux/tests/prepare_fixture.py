@@ -25,5 +25,5 @@ for name in ('true','probe'):
     target.chmod(0o755)
 manifest=builder.seal(root,'WORK-048 static Go test fixture; probe-sha256='+builder.digest(args.bundle/'probe'))
 (args.bundle/'manifest.json').write_text(json.dumps(manifest))
-print('helper-sha256='+builder.digest(args.bundle/'sandbox-helper'))
+print('isolator-sha256='+builder.digest(args.bundle/'isolator'))
 print('manifest-sha256='+builder.digest(args.bundle/'manifest.json'))

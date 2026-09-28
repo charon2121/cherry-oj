@@ -65,7 +65,7 @@ def preflight(plan, source):
             raise ValueError('missing tool: ' + tool)
     if int(run('systemctl','--version').splitlines()[0].split()[1]) < 255:
         raise ValueError('initial deployment requires systemd >= 255; other versions unvalidated')
-    for path in (ETC, STATE, Path('/run/cherry-sandbox-helper')):
+    for path in (ETC, STATE, Path('/run/cherry-sandbox-isolator')):
         if path.exists() or path.is_symlink():
             raise ValueError('initial install refuses existing path: ' + str(path))
         protected(path.parent)
@@ -95,7 +95,7 @@ def preflight(plan, source):
         for row in rows:
             if row.startswith(('Uid:','Gid:')) and set(map(int,row.split()[1:])) & set(ACCOUNTS.values()):
                 raise ValueError('reserved identity still has processes')
-    for name in ('sandbox','sandbox-helper','judge'):
+    for name in ('sandbox','isolator','judge'):
         regular(source/'bin'/name)
         with (source/'bin'/name).open('rb') as f:
             header=f.read(20)
@@ -150,7 +150,7 @@ def install(review, source, token_file):
     for name, uid in (('service',61001),('judge',61010)):
         path=STATE/name;path.mkdir(mode=0o700);os.chown(path,uid,uid)
     ETC.mkdir(mode=0o755)
-    for name in ('helper.json','sandbox.json','helper-start.py','health.py'):
+    for name in ('isolator.json','sandbox.json','isolator-start.py','health.py'):
         shutil.copyfile(review/name,ETC/name);(ETC/name).chmod(0o644)
     judge=json.loads((review/'judge.json').read_text())
     judge['judge']['node']['controlToken']=token

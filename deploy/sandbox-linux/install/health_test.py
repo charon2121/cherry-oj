@@ -7,7 +7,7 @@ import health
 
 
 class ReadinessTests(unittest.TestCase):
-    path = '/run/cherry-sandbox-helper/helper.sock'
+    path = '/run/cherry-sandbox-isolator/isolator.sock'
     header = 'Num RefCount Protocol Flags Type St Inode Path\n'
 
     def test_accepts_live_stream_listener_only(self):
@@ -25,11 +25,11 @@ class ReadinessTests(unittest.TestCase):
     def test_leftover_inode_without_kernel_listener_is_not_ready(self):
         with patch.object(Path, 'is_socket', return_value=True), \
              patch.object(Path, 'read_text', return_value=self.header):
-            self.assertFalse(health.ready('helper'))
+            self.assertFalse(health.ready('isolator'))
 
     def test_missing_socket_is_not_ready(self):
         with patch.object(Path, 'is_socket', return_value=False):
-            self.assertFalse(health.ready('helper'))
+            self.assertFalse(health.ready('isolator'))
 
 
 if __name__ == '__main__':

@@ -18,7 +18,7 @@ def exact(sock,n):
     data=b''
     while len(data)<n:
         chunk=sock.recv(n-len(data))
-        if not chunk: raise EOFError('incomplete helper response')
+        if not chunk: raise EOFError('incomplete isolator response')
         data+=chunk
     return data
 
@@ -39,7 +39,7 @@ for mode in ['identity','cpu','memory','output','identity','network','identity']
         assert not result.get('Outputs')
         completion=frame(sock)
         assert completion==dict(Version=1,Complete=True)
-        assert sock.recv(1)==b'', 'helper sent data after completion'
+        assert sock.recv(1)==b'', 'isolator sent data after completion'
         stdout=base64.b64decode(result.get('Stdout') or '')
         result['StdoutBytes']=len(stdout)
         result.pop('Stdout',None)

@@ -26,7 +26,7 @@
 
 3. **真的建出一个受限环境并把命令关进去**
    namespace、chroot、cgroup、seccomp——这些动作**需要 root**。
-   → 这叫 **helperd（特权执行助手）**。它像只有主管才有钥匙的那间通风柜。
+   → 这叫 **isolator（特权隔离执行器）**。它像只有主管才有钥匙的那间通风柜。
 
 **为什么必须拆成三个而不是两个？**
 
@@ -37,7 +37,7 @@
 
 一句话记住边界：
 
-> **helperd 只说「进程怎么退出的、用了多少资源」；sandbox 只说「这条命令执行完了」；
+> **isolator 只说「进程怎么退出的、用了多少资源」；sandbox 只说「这条命令执行完了」；
 > judge 才说「算不算对」。**
 
 ---
@@ -50,35 +50,35 @@
 |---|---|---|---|
 | **judge** | 普通用户 | 这份提交是 AC 还是 WA？ | `127.0.0.1:5051`（HTTP） |
 | **sandbox** | 普通用户，**非 root** | 这条命令跑完了吗？产物在哪？ | `127.0.0.1:5050`（HTTP） |
-| **helperd** | **root** | 进程退出码是多少？整组用了多少 CPU/内存？ | Unix socket（无网络端口） |
+| **isolator** | **root** | 进程退出码是多少？整组用了多少 CPU/内存？ | Unix socket（无网络端口） |
 
 产品从上到下是：
 
 ```
-浏览器 → server(Java) → judge(Go) → sandbox(Go) → helperd(Go, root)
+浏览器 → server(Java) → judge(Go) → sandbox(Go) → isolator(Go, root)
 ```
 
 `server` 侧的职责见 [architecture.md](./architecture.md)；本文只讲后三个。
 
 ### 1.2 信任边界：root 与非 root 之间
 
-helperd 是三个进程里唯一持有特权的。它和 sandbox 之间的那条线是**信任边界**：
+isolator 是三个进程里唯一持有特权的。它和 sandbox 之间的那条线是**信任边界**：
 
-- helperd **不信任** sandbox 发来的任何东西。请求里不接受宿主路径、不接受 uid/gid、不接受
-  rlimit 越界值；所有路径都是工作区内的逻辑路径，由 helperd 自己解析。
+- isolator **不信任** sandbox 发来的任何东西。请求里不接受宿主路径、不接受 uid/gid、不接受
+  rlimit 越界值；所有路径都是工作区内的逻辑路径，由 isolator 自己解析。
 - 谁能连是**双重约束**：socket 文件权限只放行服务专用组，建立连接后再用 `SO_PEERCRED`
   核对对端的 UID。只靠文件权限等于假设「目录权限从来没被改过」。
-- 两端唯一的共享词汇是 `internal/hostexec` 里的协议定义。**helperd 的服务端实现和 sandbox 的
+- 两端唯一的共享词汇是 `internal/hostexec` 里的协议定义。**isolator 的服务端实现和 sandbox 的
   客户端实现互相看不见对方**，只对同一份协议编程。
 
 ### 1.3 部署边界：三个独立交付的二进制
 
 三个程序分别构建、启动，各自拥有服务生命周期。部署位置还受当前节点探测方式约束：
 
-- 当前生产的 Linux 原生节点模式要求 judge、sandbox 和 helperd **在同一台机器**。
-  sandbox 与 helperd 使用本机 socket；judge 要求 sandbox 地址为回环地址，并核验本机部署清单、
+- 当前生产的 Linux 原生节点模式要求 judge、sandbox 和 isolator **在同一台机器**。
+  sandbox 与 isolator 使用本机 socket；judge 要求 sandbox 地址为回环地址，并核验本机部署清单、
   二进制摘要和 cgroup 事实。将 judge 移到远端会使这些检查失败。
-- 开发机上可以只跑 judge + sandbox（`devhost` 后端），完全没有 helperd。
+- 开发机上可以只跑 judge + sandbox（`devhost` 后端），完全没有 isolator。
 
 服务之间通过协议交互，各自实现保持私有；同机部署也不改变这个边界。独立二进制让它们能分别
 启动、退出与排障，不能据此推导出当前节点模式支持跨主机部署。
@@ -100,11 +100,11 @@ internal/...           ← 整个 module 都能 import（顶层共享）
 | 想写的 import | 结果 |
 |---|---|
 | judge 里 import `sandbox/internal/pool` | **编译失败**。judge 只能通过 HTTP 用 sandbox |
-| helperd 里 import `judge/internal/flow` | **编译失败**。特权进程不理解判题 |
+| isolator 里 import `judge/internal/flow` | **编译失败**。特权进程不理解判题 |
 | `cmd/judge` 里 import `judge/internal/api` | **编译失败**。入口只能调 `judge.Run` |
 | sandbox 里 import `isolator/daemon` | **测试失败**。见下 |
 
-特权子树 `isolator/` 是例外：它不放在 `internal/` 下，少一层目录，`cmd/sandbox-helper`
+特权子树 `isolator/` 是例外：它不放在 `internal/` 下，少一层目录，`cmd/isolator`
 直接按三个进程角色调用 `daemon`、`initproc`、`execstage`，不需要门面文件。代价是编译器不再拦
 「非特权进程引用特权实现」，改由 `isolator` 包的 `TestUnprivilegedBinariesDoNotLinkIsolator`
 用 `go list -deps` 检查 sandbox 与 judge 二进制的完整依赖闭包，间接引用也算。
@@ -120,7 +120,7 @@ internal/...           ← 整个 module 都能 import（顶层共享）
 早先的目录是按「这是什么种类的代码」切的——`internal/judge/`、`internal/sandbox/`、
 `internal/sandbox/container/`、`internal/config/`……问题不在于名字难听，而在于**它切错了轴**：
 
-- 一个 `internal/config` 同时装着 judge 的配置、sandbox 的配置和 helper 的配置，于是
+- 一个 `internal/config` 同时装着 judge 的配置、sandbox 的配置和 isolator 的配置，于是
   「加一个 judge 的配置项」会让 sandbox 的包重新编译，也会让**每个节点的环境指纹发生轮换**
   （指纹曾经把整份配置摘要算进去）。
 - `container` 这个名字暗示「有个容器对象，可以复用」，于是接口长成了「放输入 → 启动 → 等待 →
@@ -142,11 +142,11 @@ apps/judge-engine/
 ├── cmd/
 │   ├── judge/main.go           # 只做 flag + 配置 + logger + 信号，然后 judge.Run
 │   ├── sandbox/main.go         #   同上 → sandbox.Run
-│   └── sandbox-helper/main.go  #   按进程角色分流 → initproc.Run / execstage.Run / daemon.Serve
+│   └── isolator/main.go  #   按进程角色分流 → initproc.Run / execstage.Run / daemon.Serve
 │
 ├── internal/                   # ★ 整个 module 共享：只放「协议与平台设施」
 │   ├── contract/               #   judge ↔ sandbox 的 HTTP DTO、Limits、Verdict/Status
-│   ├── hostexec/               #   sandbox ↔ helperd 的本机执行协议（帧、请求、结果）
+│   ├── hostexec/               #   sandbox ↔ isolator 的本机执行协议（帧、请求、结果）
 │   │   └── client/             #     该协议的客户端实现
 │   └── platform/
 │       ├── config/             #   泛型配置加载：默认值 → YAML → 环境变量
@@ -208,8 +208,8 @@ apps/judge-engine/
 **不可以放**：任何一个服务的业务逻辑。一旦某个服务的实现搬进顶层 `internal/`，它就同时对另外两个
 服务可见——§1.4 建立的编译期边界，就是从这里被绕过去的。
 
-判断方法很简单：**问「另外两个服务读它是合理的吗」**。`hostexec` 定义 sandbox 和 helperd 的共同
-词汇，judge 读它没意义但也无害；而 `flow` 如果搬上去，helperd 就能 import 判题逻辑了。
+判断方法很简单：**问「另外两个服务读它是合理的吗」**。`hostexec` 定义 sandbox 和 isolator 的共同
+词汇，judge 读它没意义但也无害；而 `flow` 如果搬上去，isolator 就能 import 判题逻辑了。
 
 ---
 
@@ -263,8 +263,8 @@ sandbox 返回 TimeLimitExceeded
   → CE
 ```
 
-**设计禁令**：不要把 `WA` 放进 sandbox 的 Status 里，也不要把 Status 放进 helperd。
-helperd 连 Status 都不判——它只报退出码、信号、cgroup 读数和主动终止原因，
+**设计禁令**：不要把 `WA` 放进 sandbox 的 Status 里，也不要把 Status 放进 isolator。
+isolator 连 Status 都不判——它只报退出码、信号、cgroup 读数和主动终止原因，
 「这算不算超时」是 `runner` 的策略。
 
 ---
@@ -277,7 +277,7 @@ helperd 连 Status 都不判——它只报退出码、信号、cgroup 读数和
 | server(Java) ↔ judge(Go) | `contracts/judge.schema.json` | **这份 schema 是唯一真源** |
 | judging-service ↔ judge 节点 | `contracts/judge-node.schema.json` | schema 是真源 |
 | judge ↔ sandbox | `contracts/run.schema.json` | 实现以 `internal/contract` 为准，schema 当文档 |
-| sandbox ↔ helperd | `internal/hostexec` | **只有 Go 定义，没有 schema** |
+| sandbox ↔ isolator | `internal/hostexec` | **只有 Go 定义，没有 schema** |
 | 全链路 verdict | `contracts/verdict.json` | 已有 |
 
 最后两行的差别值得说明：`hostexec` 是**本机的、同一份代码同批部署的两端**之间的协议，没有跨语言
@@ -512,7 +512,7 @@ type Backend interface {
 
 | 后端 | 隔离 | 用在哪 |
 |---|---|---|
-| `linux` | 全套：namespace、只读 rootfs、cgroup、seccomp，**由 helperd 执行** | 生产 |
+| `linux` | 全套：namespace、只读 rootfs、cgroup、seccomp，**由 isolator 执行** | 生产 |
 | `devhost` | **零隔离**：临时工作目录里一个普通子进程 | 只在开发机 |
 
 `devhost` 存在的理由只有一个：namespace/cgroup 是 Linux-only，但你要在 mac 上开发
@@ -574,11 +574,11 @@ func (e *CleanupError) Error() string { return "reclaim unconfirmed: " + e.Err.E
 
 ---
 
-## 7. helperd 详解
+## 7. isolator 详解
 
 ### 7.1 它是唯一持有特权的进程
 
-helperd 以 root 运行，监听一个 Unix socket，**没有网络端口**。它做的事只有一件：
+isolator 以 root 运行，监听一个 Unix socket，**没有网络端口**。它做的事只有一件：
 按协议收一个请求，建出隔离环境，跑一条命令，把进程与资源事实还回去。
 
 它启动时对自己也很苛刻：必须由 root 托管、必须是不带 setuid/setgid 的普通可执行文件、
@@ -701,8 +701,8 @@ x.process.CancelInput()
 ```
 
 `CancelInput` 的实现可以取消调用方自己的上下文——启动冒烟正是这样接线的。
-读晚一步，**每次正常执行都会被判成已取消**，于是冒烟永远失败，helper 永远不开 socket，
-而外部看到的现象只是一句「helper socket did not become ready」。
+读晚一步，**每次正常执行都会被判成已取消**，于是冒烟永远失败，isolator 永远不开 socket，
+而外部看到的现象只是一句「isolator socket did not become ready」。
 
 ---
 
@@ -736,7 +736,7 @@ sandbox 侧的三道期限由 `sandbox/budget.go` 的 `checkBudget` 在启动时
 ## 9. 端到端时间线
 
 ```
-server              judge                sandbox              helperd(root)
+server              judge                sandbox              isolator(root)
   |                   |                     |                      |
   |-- POST /judge --->|                     |                      |
   |                   |-- POST /blobs ----->|                      |
@@ -754,18 +754,18 @@ server              judge                sandbox              helperd(root)
   |<-- JudgeResult ---|                     |                      |
 ```
 
-单独测 sandbox 时，用 `curl` 打 `/blobs`、`/run` 即可；helperd 不对外暴露端口，
+单独测 sandbox 时，用 `curl` 打 `/blobs`、`/run` 即可；isolator 不对外暴露端口，
 要单独验证它得走 `isolator/tests/boundary` 那组需要真实内核的测试。
 
 ---
 
 ## 10. 设计原则
 
-1. **信任边界**：特权只在 helperd 里；sandbox 和 judge 都是普通用户进程。
+1. **信任边界**：特权只在 isolator 里；sandbox 和 judge 都是普通用户进程。
 2. **部署边界**：三个二进制各自独立交付，彼此只认协议，不认对方的实现。
 3. **编译期强制**：上面两条写成 `internal/` 目录结构，越界就编译失败——不靠 code review 把关。
 4. **一次性执行**：没有可复用的执行环境对象，「只能执行一次」由「没有对象可复用」保证。
-5. **结论与事实分离**：helperd 给事实，runner 给 status，judge 给 verdict；三层谁都不越权。
+5. **结论与事实分离**：isolator 给事实，runner 给 status，judge 给 verdict；三层谁都不越权。
 6. **接口由消费方定义**：`flow.Sandbox`、`probe.Sandbox` 声明在使用方，实现不反向依赖。
 7. **学习边界**：复用参考项目的**思路**，命名与实现按场景自己写；先打通，再硬化。
 
@@ -775,7 +775,7 @@ server              judge                sandbox              helperd(root)
 
 - Windows/macOS 上的「真沙箱」
 - gRPC、WebSocket、FFI
-- sandbox 里出现 WA，helperd 里出现 status
+- sandbox 里出现 WA，isolator 里出现 status
 - 复用跑过用户代码的隔离环境
 - MVP 的多程序管道、交互题、special judge
 - 直接依赖 go-judge/go-sandbox 库

@@ -22,7 +22,7 @@ func testRequest() hostexec.Request {
 func fakeServer(t *testing.T, serve func(net.Conn)) string {
 	t.Helper()
 	// macOS 的 t.TempDir 路径可能超过 sockaddr_un 上限，使用独占短目录。
-	dir, err := os.MkdirTemp("/tmp", "cherry-helper-")
+	dir, err := os.MkdirTemp("/tmp", "cherry-isolator-")
 	if err != nil {
 		t.Fatal(err)
 	}

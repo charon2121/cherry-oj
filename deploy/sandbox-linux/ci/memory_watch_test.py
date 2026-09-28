@@ -68,8 +68,8 @@ class MemoryWatchTest(unittest.TestCase):
         obj = native.Native(self.root, report, owned)
         with patch.object(native, 'observe', return_value=MagicMock()) as observe:
             obj.command('install', ['python3', 'manage.py'])
-            for name in ('start', 'native', 'helper-config', 'rootfs-manifest', 'helper-binary',
-                         'kill-judge', 'kill-sandbox', 'kill-helper', 'caps', 'uninstall'):
+            for name in ('start', 'native', 'isolator-config', 'rootfs-manifest', 'isolator-binary',
+                         'kill-judge', 'kill-sandbox', 'kill-isolator', 'caps', 'uninstall'):
                 obj.command(name, ['python3', 'verify.py'], 120 if name == 'caps' else 90)
         observe.assert_called_once_with(native.CGROUP / 'cherry-sandbox-test-work048-native-install-123-1.service',
                                         self.root / 'install-memory.json')

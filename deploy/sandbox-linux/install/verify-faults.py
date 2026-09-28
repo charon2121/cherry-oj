@@ -15,7 +15,7 @@ sys.path.insert(0, '/var/lib/cherry-sandbox/operations')
 import manage
 
 GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
-JOBS = GROUP / 'cherry-sandbox-helper.service/jobs'
+JOBS = GROUP / 'cherry-sandbox-isolator.service/jobs'
 BLOBS = manage.STATE / 'service/blobs'
 
 
@@ -83,7 +83,7 @@ def kill_service(unit):
     fd = os.pidfd_open(pid)
     try:
         exe, uid = {
-            'cherry-sandbox-helper.service': ('sandbox-helper', 0),
+            'cherry-sandbox-isolator.service': ('isolator', 0),
             'cherry-sandbox.service': ('sandbox', 61001),
             'cherry-sandbox-judge.service': ('judge', 61010),
         }[unit]
@@ -93,7 +93,7 @@ def kill_service(unit):
         assert values == [str(uid)] * 4
         expected = str(GROUP / unit).removeprefix('/sys/fs/cgroup')
         actual = (proc / 'cgroup').read_text().strip().removeprefix('0::')
-        assert actual == expected or (exe == 'sandbox-helper' and actual == expected + '/supervisor')
+        assert actual == expected or (exe == 'isolator' and actual == expected + '/supervisor')
         signal.pidfd_send_signal(fd, signal.SIGKILL)
         return pid
     finally:
@@ -102,7 +102,7 @@ def kill_service(unit):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('judge', 'sandbox', 'helper'), required=True)
+    parser.add_argument('--case', choices=('judge', 'sandbox', 'isolator'), required=True)
     args = parser.parse_args()
     manage.owned()
     assert not groups() and not task_processes(), 'node must be idle'
@@ -111,7 +111,7 @@ def main():
     before = {p.name for p in BLOBS.iterdir()}
     manifest_hash = manage.digest(manage.ETC / 'deployment.json')
     unit = {'judge': 'cherry-sandbox-judge.service', 'sandbox': 'cherry-sandbox.service',
-            'helper': 'cherry-sandbox-helper.service'}[args.case]
+            'isolator': 'cherry-sandbox-isolator.service'}[args.case]
     started = time.monotonic()
     outcome = None
     try:

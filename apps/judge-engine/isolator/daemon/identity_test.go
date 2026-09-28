@@ -9,7 +9,7 @@ import (
 )
 
 func TestSlotIdentityRange(t *testing.T) {
-	c := Config{SocketPath: "/run/cherry/helper.sock", StateDir: "/run/cherry", JobsDir: "/sys/fs/cgroup/cherry/jobs", RootFS: "/opt/cherry/rootfs", ManifestPath: "/opt/cherry/manifest", ManifestSHA256: strings.Repeat("a", 64), ServiceUID: 61001, ServiceGID: 61001, PayloadUID: 61002, PayloadGID: 61002, InitUID: 61003, InitGID: 61003, Parallelism: 4}
+	c := Config{SocketPath: "/run/cherry/isolator.sock", StateDir: "/run/cherry", JobsDir: "/sys/fs/cgroup/cherry/jobs", RootFS: "/opt/cherry/rootfs", ManifestPath: "/opt/cherry/manifest", ManifestSHA256: strings.Repeat("a", 64), ServiceUID: 61001, ServiceGID: 61001, PayloadUID: 61002, PayloadGID: 61002, InitUID: 61003, InitGID: 61003, Parallelism: 4}
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}

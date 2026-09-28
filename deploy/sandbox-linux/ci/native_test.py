@@ -46,24 +46,24 @@ class NativeEvidenceTest(unittest.TestCase):
         for after in (before, dict(invocationID='b'*32, mainStartedNs=1000), dict(invocationID='', mainStartedNs=2000)):
             with self.assertRaises(AssertionError):
                 module.require_new_start(before, after)
-        with patch.object(module, 'helper_state', return_value='inactive'), patch.object(module.manage, 'run') as run:
+        with patch.object(module, 'isolator_state', return_value='inactive'), patch.object(module.manage, 'run') as run:
             module.reset_failure()
             run.assert_not_called()
-        with patch.object(module, 'helper_state', return_value='failed'), patch.object(module.manage, 'run') as run:
+        with patch.object(module, 'isolator_state', return_value='failed'), patch.object(module.manage, 'run') as run:
             module.reset_failure()
-            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox-helper.service')
-        with patch.object(module, 'helper_state', return_value='active'), patch.object(module.manage, 'run') as run:
+            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox-isolator.service')
+        with patch.object(module, 'isolator_state', return_value='active'), patch.object(module.manage, 'run') as run:
             with self.assertRaises(AssertionError):
                 module.reset_failure()
             run.assert_not_called()
 
     def test_failure_or_missing_recovery_marker_cannot_pass(self):
-        self.log.write_text(json.dumps(dict(case='helper-binary', result='PASS')) + '\n')
+        self.log.write_text(json.dumps(dict(case='isolator-binary', result='PASS')) + '\n')
         with self.assertRaises(ValueError):
-            results.check('helper-binary', self.log, 'unused')
-        self.log.write_text(json.dumps(dict(test='helper', result='PASS', recovered='RAN', fingerprint='old', killedPID=25, observedPayload=26, requestOutcome='SE')) + '\n')
+            results.check('isolator-binary', self.log, 'unused')
+        self.log.write_text(json.dumps(dict(test='isolator', result='PASS', recovered='RAN', fingerprint='old', killedPID=25, observedPayload=26, requestOutcome='SE')) + '\n')
         with self.assertRaises(ValueError):
-            results.check('kill-helper', self.log, 'new')
+            results.check('kill-isolator', self.log, 'new')
 
     def test_native_requires_thread_and_resource_observations(self):
         row = dict(result='PASS', taskUIDs=[61002, 61003], capabilities=0, noNewPrivileges=1, namespaces=6,

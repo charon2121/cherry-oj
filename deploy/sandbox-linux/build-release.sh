@@ -8,7 +8,7 @@ mkdir "$output"
 mkdir "$output/bin"
 cd "$root/apps/judge-engine"
 export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-for name in sandbox-helper sandbox judge; do
+for name in isolator sandbox judge; do
   go build -o "$output/bin/$name" "./cmd/$name"
 done
 cp "$root/deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json" "$output/packages.lock.json"

@@ -103,6 +103,6 @@ judge:
     maxFiles: 2000
     maxCompressionRatio: 100
 
-# Linux helper当前stdout/stderr每路硬界为1MiB；启用linux后端时同时把
+# Linux isolator当前stdout/stderr每路硬界为1MiB；启用linux后端时同时把
 # judge.output.stdoutMaxBytes、stderrMaxBytes设为1048576，并使用新节点身份重新校准。
 # 不沿用local-development或旧环境指纹。其他Linux节点部署材料见WORK-048/TASK-099。

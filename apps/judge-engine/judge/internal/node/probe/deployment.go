@@ -140,7 +140,7 @@ func verifyDeployment(ctx context.Context, path string) (string, error) {
 	}
 	// 服务实际启动的是 releaseBinDir 下的符号链接；它指向的文件必须就是清单声明的那一个，
 	// 否则校验的是清单里那份、跑的是另一份。
-	for key, name := range map[string]string{"sandbox": "sandbox", "helper": "sandbox-helper"} {
+	for key, name := range map[string]string{"sandbox": "sandbox", "isolator": "isolator"} {
 		active, err := filepath.EvalSymlinks(filepath.Join(releaseBinDir, name))
 		if err != nil || active != manifest.Files[key].Path {
 			return "", fmt.Errorf("active release differs from deployment file %s", key)

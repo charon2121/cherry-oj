@@ -53,7 +53,7 @@ def main():
          '--packages', output / 'packages', '--output', output / 'cpp-rootfs'], logs / 'rootfs.log', 120)
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(), architecture=platform.machine(),
                     packageLock=digest(lock), rootfsManifest=digest(output / 'cpp-rootfs/manifest.json'),
-                    binaries={name: digest(output / 'release/bin' / name) for name in ('sandbox-helper', 'sandbox', 'judge')},
+                    binaries={name: digest(output / 'release/bin' / name) for name in ('isolator', 'sandbox', 'judge')},
                     probe=digest(output / 'probe'), boundary=digest(output / 'boundary.test'))
     (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')
 

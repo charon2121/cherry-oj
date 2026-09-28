@@ -19,7 +19,7 @@ def check(kind, path, fingerprint):
         if any(row.get(k, 0) <= 0 for k in ('compileCpuNs', 'compileMemoryBytes', 'runCpuNs', 'runMemoryBytes')):
             raise ValueError('missing native resource measurements')
         markers(path, sentinel='No task processes, execution cgroups or workspace files remain.')
-    elif kind in ('helper-config', 'rootfs-manifest', 'helper-binary'):
+    elif kind in ('isolator-config', 'rootfs-manifest', 'isolator-binary'):
         if len(rows) != 1 or rows[0].get('case') != kind or rows[0].get('result') != 'PASS':
             raise ValueError('missing lifecycle refusal')
         markers(path, sentinel='Original files/identity restored; all three services healthy.')

@@ -23,7 +23,7 @@ func recoverOwned(ctx context.Context, c Config) error {
 		return err
 	}
 	marker := filepath.Join(c.StateDir, "owner-v1")
-	want := "cherry-sandbox-helper-v1\n" + c.JobsDir + "\n"
+	want := "cherry-sandbox-isolator-v1\n" + c.JobsDir + "\n"
 	data, err := os.ReadFile(marker)
 	if errors.Is(err, os.ErrNotExist) {
 		for _, e := range entries {

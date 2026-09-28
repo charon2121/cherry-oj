@@ -35,7 +35,7 @@ func TestParallelismZeroIsRejected(t *testing.T) {
 func TestSandboxHardeningConfig(t *testing.T) {
 	for _, mutate := range []func(*Config){
 		func(c *Config) { c.Sandbox.Backend = "auto" },
-		func(c *Config) { c.Sandbox.HelperSocket = "" },
+		func(c *Config) { c.Sandbox.IsolatorSocket = "" },
 		func(c *Config) { c.Sandbox.QueueSize = 0 },
 		func(c *Config) { c.Sandbox.MaxRequestBytes = 0 },
 		func(c *Config) { c.Sandbox.Store.MaxTotalBytes = 1 },

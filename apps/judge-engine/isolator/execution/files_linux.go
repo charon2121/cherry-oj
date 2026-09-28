@@ -17,7 +17,7 @@ func OpenOutput(dir *os.File, name string) (*os.File, int64, error) {
 	if !hostexec.ValidPath(name) {
 		return nil, 0, fmt.Errorf("illegal artifact path")
 	}
-	// O_NONBLOCK 防止 FIFO 等特殊文件在 fstat 拒绝它之前就把 helper 阻塞在 open。
+	// O_NONBLOCK 防止 FIFO 等特殊文件在 fstat 拒绝它之前就把 isolator 阻塞在 open。
 	fd, err := unix.Openat2(int(dir.Fd()), name, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NONBLOCK, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS | unix.RESOLVE_NO_XDEV})
 	if err != nil {
 		return nil, 0, err

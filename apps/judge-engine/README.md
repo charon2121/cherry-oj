@@ -14,7 +14,7 @@
 | 请求隔离执行 | [backend/isolated.go](sandbox/internal/backend/isolated.go) `Execute` → [hostexec/client/client.go](internal/hostexec/client/client.go) `Call` | 一次调用覆盖整次执行；返回即代表回收完成 |
 | 接收本机请求 | [daemon/server_linux_amd64.go](isolator/daemon/server_linux_amd64.go) `Serve` → `service.run` → `service.serveConn` | 认证对端（文件权限 + SO_PEERCRED）、取得槽位并读取命令 |
 | 启动隔离环境 | [execution/execution.go](isolator/execution/execution.go) `execution.Run` → [process_linux_amd64.go](isolator/execution/process_linux_amd64.go) `isolatedProcess.Start` | 建立 cgroup、启动可信 init 进程以及输入、输出、控制消息任务 |
-| 启动 payload | [cmd/sandbox-helper](cmd/sandbox-helper/main.go) 按参数分流 → [initproc/init_linux_amd64.go](isolator/initproc/init_linux_amd64.go) `initSession.run` → [payload_linux_amd64.go](isolator/initproc/payload_linux_amd64.go) `startPayload` | init 准备文件环境，启动同一二进制的 exec 角色；用户命令仍未放行 |
+| 启动 payload | [cmd/isolator](cmd/isolator/main.go) 按参数分流 → [initproc/init_linux_amd64.go](isolator/initproc/init_linux_amd64.go) `initSession.run` → [payload_linux_amd64.go](isolator/initproc/payload_linux_amd64.go) `startPayload` | init 准备文件环境，启动同一二进制的 exec 角色；用户命令仍未放行 |
 | 最终执行 | [execstage/exec_linux_amd64.go](isolator/execstage/exec_linux_amd64.go) `Exec` | 设置权限和过滤策略，完成握手后 execve 用户命令 |
 | 等待和监督 | init 的 `reportExit`；[execution/supervise.go](isolator/execution/supervise.go) `supervise` | 命令退出，或达到超时、取消、资源终止条件 |
 | 判定结论 | [execution/conclusion.go](isolator/execution/conclusion.go) `conclude`；转移表在 [state.go](isolator/execution/state.go) | 纯函数：一组事实进去，一个结论出来，不掺 I/O |
@@ -41,7 +41,7 @@ proc/dev 挂载和 pivot_root，再由 initSession 启动 P5。P5 的最终 exec
 
 正常完成时，沿表格读到 HTTP 返回。墙钟超时时，从 `supervise` 的 wall 分支进入同一个 `finish`，
 `conclude` 判成超时，runner 归类为 TLE。请求取消时，客户端会主动断开连接并等待本地上传结束；
-helper 感知断连后使用独立清理期限停止执行组，槽位要等 `serveInSlot` 收尾后才归还。取消的客户端
+isolator 感知断连后使用独立清理期限停止执行组，槽位要等 `serveInSlot` 收尾后才归还。取消的客户端
 不保证还能收到 Completion，不能用客户端的错误返回推断远端回收已完成。
 
 > `finish` 里有一处**顺序**不能动：`ctx.Err()` 必须在 `CancelInput()` **之前**读。
@@ -51,12 +51,12 @@ helper 感知断连后使用独立清理期限停止执行组，槽位要等 `se
 
 ## 三个执行角色为什么来回握手
 
-HTTP sandbox 使用非特权身份；helperd 承担建立隔离环境所需的特权操作。init 与 exec 是 helper 二进制
+HTTP sandbox 使用非特权身份；isolator 承担建立隔离环境所需的特权操作。init 与 exec 是 isolator 二进制
 重新启动后的不同进程角色，入口由 `main` 按参数选择。这个进程边界承担权限隔离，Go 包本身不提供该隔离
 ——但**依赖检查提供另一半**：`isolator` 的 `TestUnprivilegedBinariesDoNotLinkIsolator` 保证 sandbox 不链接特权代码。
 
 实际顺序是：exec 写 `READY` → init 等到它并完成自身权限设置 → init 写 `ready` 事件 →
-helper 检查状态和预算并写 `GO` → init 转发 `GO` → execve。最终 exec 线程持续锁定，不能在过滤器安装后随意加入 Go 调用。
+isolator 检查状态和预算并写 `GO` → init 转发 `GO` → execve。最终 exec 线程持续锁定，不能在过滤器安装后随意加入 Go 调用。
 
 FD、握手字节和失败阶段的两端映射见
 [startup_protocol.go](isolator/startup/startup_protocol.go)。
@@ -76,7 +76,7 @@ FD、握手字节和失败阶段的两端映射见
 
 `flow.Sandbox` 这个接口声明在 flow 自己这里，实现是
 [sandboxclient](judge/internal/sandboxclient)，通过 HTTP 调用上面的 `/run`。
-flow 无需处理 helper 的 FD 或权限，判题逻辑的单测也不需要启动任何沙箱。
+flow 无需处理 isolator 的 FD 或权限，判题逻辑的单测也不需要启动任何沙箱。
 
 ## 节点与配置的旁路
 

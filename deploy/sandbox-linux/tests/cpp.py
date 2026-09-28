@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""真实 g++ 编译、产物读取和新执行组运行；输入和产物都经过 helper。"""
+"""真实 g++ 编译、产物读取和新执行组运行；输入和产物都经过 isolator。"""
 import json
 import os
 import sys

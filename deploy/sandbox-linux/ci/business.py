@@ -76,7 +76,7 @@ def verify_parent_events(before):
     after = parent_events()
     for path, old in before.items():
         if any(after[path].get(key, 0) != old.get(key, 0) for key in ('oom', 'oom_kill', 'oom_group_kill')):
-            raise ValueError('node/helper exhausted its own memory budget')
+            raise ValueError('node/isolator exhausted its own memory budget')
     return after
 
 

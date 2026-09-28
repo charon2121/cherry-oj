@@ -20,10 +20,10 @@ def unix_listener_present(table, path):
 
 
 def ready(mode):
-    if mode == 'helper':
-        # A crash leaves an inode before the replacement helper finishes its probes.
+    if mode == 'isolator':
+        # A crash leaves an inode before the replacement isolator finishes its probes.
         # Check the kernel listener table without consuming a protocol slot.
-        path = '/run/cherry-sandbox-helper/helper.sock'
+        path = '/run/cherry-sandbox-isolator/isolator.sock'
         return (Path(path).is_socket() and
                 unix_listener_present(Path('/proc/net/unix').read_text(), path))
     port = {'sandbox': 15050, 'judge': 15051}[mode]
@@ -45,7 +45,7 @@ def ready(mode):
 
 def main():
     mode = sys.argv[1]
-    if mode not in ('helper', 'sandbox', 'judge'):
+    if mode not in ('isolator', 'sandbox', 'judge'):
         raise ValueError('unknown health target')
     deadline = time.monotonic() + 25
     while time.monotonic() < deadline:

@@ -9,7 +9,7 @@ import subprocess
 import time
 
 GROUP=Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
-JOBS=GROUP/'cherry-sandbox-helper.service/jobs'
+JOBS=GROUP/'cherry-sandbox-isolator.service/jobs'
 CAPS=('CapInh','CapPrm','CapEff','CapBnd','CapAmb')
 LIMITS=dict(cpuNs=1_000_000_000,clockNs=5_000_000_000,memoryBytes=64<<20,
             maxProcesses=64,stdoutMaxBytes=8192,stderrMaxBytes=8192)

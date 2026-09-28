@@ -9,7 +9,7 @@ from pathlib import Path
 import threading
 import time
 
-JOBS = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-helper.service/jobs')
+JOBS = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-isolator.service/jobs')
 
 
 def counters(text):

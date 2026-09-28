@@ -1,5 +1,5 @@
 // 与被测代码同包：这些用例覆盖 Call 的连接生命周期，需要真实 Unix socket 夹具。
-// helper 的服务端测试有一份自己的同名夹具，两侧各自独立，不跨包共享测试代码。
+// isolator 的服务端测试有一份自己的同名夹具，两侧各自独立，不跨包共享测试代码。
 package client
 
 import (
@@ -24,7 +24,7 @@ func testRequest() hostexec.Request {
 func fakeServer(t *testing.T, serve func(net.Conn)) string {
 	t.Helper()
 	// macOS 的 t.TempDir 路径可能超过 sockaddr_un 上限，使用独占短目录。
-	dir, err := os.MkdirTemp("/tmp", "cherry-helper-")
+	dir, err := os.MkdirTemp("/tmp", "cherry-isolator-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestClientWaitsForConnectionRelease(t *testing.T) {
 	if err == nil {
 		t.Fatal("完成帧之后没有 EOF，客户端仍返回成功")
 	}
-	if result.Version != hostexec.Version || !strings.Contains(err.Error(), "wait for the helper to close the connection") || ctx.Err() != context.DeadlineExceeded {
+	if result.Version != hostexec.Version || !strings.Contains(err.Error(), "wait for the isolator to close the connection") || ctx.Err() != context.DeadlineExceeded {
 		t.Fatalf("未到达 EOF 等待期限: result=%+v err=%v ctx=%v", result, err, ctx.Err())
 	}
 }

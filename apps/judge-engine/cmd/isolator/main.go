@@ -1,6 +1,6 @@
 //go:build linux && amd64
 
-// sandbox-helper 只能由本机服务管理器启动；配置由 root 管理，不接受远端特权参数。
+// isolator 只能由本机服务管理器启动；配置由 root 管理，不接受远端特权参数。
 package main
 
 import (
@@ -29,7 +29,7 @@ func main() {
 			execstage.Run()
 		}
 	}
-	path := flag.String("config", "", "root 管理的 helper JSON 配置绝对路径")
+	path := flag.String("config", "", "root 管理的 isolator JSON 配置绝对路径")
 	flag.Parse()
 	if *path == "" {
 		fmt.Fprintln(os.Stderr, "--config is required")

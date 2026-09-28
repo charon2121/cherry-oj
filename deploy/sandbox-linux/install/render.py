@@ -39,16 +39,16 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
     source = Path(__file__).resolve().parent
     for name in UNITS:
         shutil.copyfile(source.parent / 'systemd' / name, output / name)
-    for name in ('helper-start.py', 'health.py'):
+    for name in ('isolator-start.py', 'health.py'):
         shutil.copyfile(source / name, output / name)
     root = STATE / 'releases' / release
-    helper = dict(SocketPath='/run/cherry-sandbox-helper/helper.sock',
-                  StateDir='/run/cherry-sandbox-helper', JobsDir=GROUP+'/cherry-sandbox-helper.service/jobs',
+    isolator = dict(SocketPath='/run/cherry-sandbox-isolator/isolator.sock',
+                  StateDir='/run/cherry-sandbox-isolator', JobsDir=GROUP+'/cherry-sandbox-isolator.service/jobs',
                   RootFS=str(root/'rootfs'), ManifestPath=str(root/'manifest.json'),
                   ManifestSHA256=manifest_hash, ServiceUID=61001, ServiceGID=61001,
                   PayloadUID=61002, PayloadGID=61002, InitUID=61003, InitGID=61003, Parallelism=1)
     sandbox = dict(logging=dict(path=str(STATE/'service/logs')), sandbox=dict(
-        backend='linux', httpAddr='127.0.0.1:15050', helperSocket=helper['SocketPath'],
+        backend='linux', httpAddr='127.0.0.1:15050', isolatorSocket=isolator['SocketPath'],
         workspaceRoot=str(STATE/'service/work'), parallelism=1, queueSize=4,
         maxRequestBytes=2 << 20, store=dict(root=str(STATE/'service/blobs'), maxBlobBytes=64 << 20,
         maxTotalBytes=256 << 20, maxEntries=128, retention='1h')))
@@ -59,19 +59,19 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
         node=dict(enabled=True, id=node_id, controlPlaneURL=control_url,
                   advertiseURL=advertise_url, deploymentManifest=str(ETC/'deployment.json'),
                   controlToken='REPLACE_FROM_PRIVATE_TOKEN_FILE')))
-    write_json(output/'helper.json', helper)
+    write_json(output/'isolator.json', isolator)
     write_json(output/'sandbox.json', sandbox)
     write_json(output/'judge.json', judge, 0o600)
     write_json(output/'plan.json', dict(version=1, release=release, nodeID=node_id,
         accounts=ACCOUNTS, units=list(UNITS), rootfsSHA256=manifest_hash,
-        directories=[str(ETC),str(STATE),'/run/cherry-sandbox-helper'],
+        directories=[str(ETC),str(STATE),'/run/cherry-sandbox-isolator'],
         controlURL=control_url, advertiseURL=advertise_url,
         startAutomatically=False, deleteUserData=False, reboot=False))
-    files = {'sandbox': root/'bin/sandbox', 'helper': root/'bin/sandbox-helper',
+    files = {'sandbox': root/'bin/sandbox', 'isolator': root/'bin/isolator',
              'rootfsManifest': root/'manifest.json', 'toolchainLock': root/'packages.lock.json',
-             'helperConfig': ETC/'helper.json', 'sandboxConfig': ETC/'sandbox.json',
-             'bootstrap': ETC/'helper-start.py'}
-    for key, name in zip(('slice','helperUnit','sandboxUnit','judgeUnit'),UNITS):
+             'isolatorConfig': ETC/'isolator.json', 'sandboxConfig': ETC/'sandbox.json',
+             'bootstrap': ETC/'isolator-start.py'}
+    for key, name in zip(('slice','isolatorUnit','sandboxUnit','judgeUnit'),UNITS):
         files[key] = Path('/etc/systemd/system')/name
     # Release hashes are filled from the supplied immutable release by the installer.
     write_json(output/'deployment.template.json', dict(version=1,backend='linux',architecture='amd64',

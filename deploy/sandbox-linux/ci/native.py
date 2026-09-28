@@ -136,10 +136,10 @@ class Native:
         for field in fields:
             argv += ['-p', field]
         run(argv, self.report.output / 'service-failure.log', 10)
-        # The helper has no control-plane token or user session. Limit to this owned helper's
+        # The isolator has no control-plane token or user session. Limit to this owned isolator's
         # current-boot log; never collect the host journal or the token-bearing judge service.
-        run(['journalctl', '--boot', '--unit=cherry-sandbox-helper.service', '--no-pager',
-             '--output=cat', '--lines=120'], self.report.output / 'helper-failure.log', 10)
+        run(['journalctl', '--boot', '--unit=cherry-sandbox-isolator.service', '--no-pager',
+             '--output=cat', '--lines=120'], self.report.output / 'isolator-failure.log', 10)
 
     def execute(self):
         port = self.start_control()
@@ -162,8 +162,8 @@ class Native:
         manifest_hash = digest(ETC / 'deployment.json')
         self.report.record(['native.install'], 'PASS', ['install.log', 'start.log', 'installation.json', 'identity.json', 'deployment.json'])
         cases = [('native', 'verify-native.py', [], 90),
-                 *[(name, 'verify-lifecycle.py', ['--case', name], 90) for name in ('helper-config', 'rootfs-manifest', 'helper-binary')],
-                 *[('kill-' + name, 'verify-faults.py', ['--case', name], 90) for name in ('judge', 'sandbox', 'helper')],
+                 *[(name, 'verify-lifecycle.py', ['--case', name], 90) for name in ('isolator-config', 'rootfs-manifest', 'isolator-binary')],
+                 *[('kill-' + name, 'verify-faults.py', ['--case', name], 90) for name in ('judge', 'sandbox', 'isolator')],
                  ('caps', 'verify-capabilities.py', [], 120), ('uninstall', 'verify-uninstall.py', [], 90)]
         for name, script, args, seconds in cases:
             self.active = name

@@ -66,7 +66,7 @@ type Manager struct {
 }
 
 // Open 只打开已准备好的 jobs 子树，绝不开启祖先控制器或移动现有进程。
-// 调用者须保证委派目录仅由本 helper 管理，且用户程序不能访问 cgroupfs。
+// 调用者须保证委派目录仅由本 isolator 管理，且用户程序不能访问 cgroupfs。
 func Open(path string) (*Manager, error) {
 	fs, err := openFilesystem(path)
 	if err != nil {

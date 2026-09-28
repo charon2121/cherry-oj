@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""独立HTTP测试实例的有界整链验证；不调用helper私有协议。"""
+"""独立HTTP测试实例的有界整链验证；不调用isolator私有协议。"""
 import concurrent.futures
 import hashlib
 import http.client
@@ -40,7 +40,7 @@ def expect(name,result,status):
 def snapshot():
     import subprocess
     data={}
-    for suffix in ('helper','http'):
+    for suffix in ('isolator','http'):
         name=unit+'-'+suffix+'.service'
         pid=int(subprocess.check_output(['systemctl','show',name,'--property=MainPID','--value'],text=True))
         assert pid>0
@@ -54,7 +54,7 @@ def snapshot():
             assert set(values['Uid'].split())=={'61001'} and values['NoNewPrivs'].strip()=='1',values
             assert all(int(values[key],16)==0 for key in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb')),values
             data[suffix]['uid']=61001;data[suffix]['capabilities']=0;data[suffix]['noNewPrivileges']=True
-    cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-helper.service')/'jobs'
+    cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-isolator.service')/'jobs'
     data['jobs']=[p.name for p in cg.iterdir() if p.is_dir()]
     data['work']=[p.name for p in (base/'service/work').iterdir()]
     data['blobs']=[p.name for p in (base/'service/blobs').iterdir()]
@@ -146,7 +146,7 @@ try:
             if (i+1)%100==0:print(json.dumps(dict(completed=i+1,elapsedSeconds=time.monotonic()-start)),flush=True)
         print(json.dumps(dict(test='1000',clockMedianNs=statistics.median(clocks),clockMaxNs=max(clocks),cpuMedianNs=statistics.median(cpus),memoryMaxBytes=max(peaks))),flush=True)
     elif mode=='concurrency':
-        cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-helper.service')/'jobs'
+        cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-isolator.service')/'jobs'
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             start=time.monotonic();futures=[pool.submit(program,'sleep') for _ in range(2)]
             peak=0
@@ -159,7 +159,7 @@ try:
     time.sleep(.2)
     after=snapshot();print(json.dumps(dict(snapshot='after',data=after)),flush=True)
     assert before['blobs']==after['blobs'] and before['mounts']==after['mounts'],(before,after)
-    for key in ('helper','http'):assert after[key]['fds']<=before[key]['fds']+2,(before,after)
+    for key in ('isolator','http'):assert after[key]['fds']<=before[key]['fds']+2,(before,after)
     print('PASS '+mode,flush=True)
 finally:
     for ref in refs:

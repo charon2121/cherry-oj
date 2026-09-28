@@ -181,10 +181,10 @@
       ]
     },
     {
-      "id": "kernel.helper-protocol",
+      "id": "kernel.isolator-protocol",
       "suite": "kernel",
       "execution": "static-smoke",
-      "assertion": "helper Completion与整组populated=false，输出有界",
+      "assertion": "isolator Completion与整组populated=false，输出有界",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/smoke.py"
@@ -302,10 +302,10 @@
       ]
     },
     {
-      "id": "kernel.helper-disconnect",
+      "id": "kernel.isolator-disconnect",
       "suite": "kernel",
       "execution": "static-extended",
-      "assertion": "helper客户端断开后取消，后续请求恢复",
+      "assertion": "isolator客户端断开后取消，后续请求恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/extended.py"
@@ -601,10 +601,10 @@
       ]
     },
     {
-      "id": "kernel.cpp-helper-resources",
+      "id": "kernel.cpp-isolator-resources",
       "suite": "kernel",
       "execution": "cpp-limits",
-      "assertion": "C++私有helper协议编译/整树CPU/普通信号/后台/线程/OOM事实直接对照",
+      "assertion": "C++私有isolator协议编译/整树CPU/普通信号/后台/线程/OOM事实直接对照",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/cpp_limits.py"
@@ -667,10 +667,10 @@
       ]
     },
     {
-      "id": "kernel.helper-kill",
+      "id": "kernel.isolator-kill",
       "suite": "kernel",
       "execution": "fault",
-      "assertion": "helper在途SIGKILL、遗留状态恢复",
+      "assertion": "isolator在途SIGKILL、遗留状态恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -788,9 +788,9 @@
       ]
     },
     {
-      "id": "native.helper-config",
+      "id": "native.isolator-config",
       "suite": "native",
-      "execution": "helper-config",
+      "execution": "isolator-config",
       "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
       "sources": [
         {
@@ -810,9 +810,9 @@
       ]
     },
     {
-      "id": "native.helper-binary",
+      "id": "native.isolator-binary",
       "suite": "native",
-      "execution": "helper-binary",
+      "execution": "isolator-binary",
       "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
       "sources": [
         {
@@ -843,10 +843,10 @@
       ]
     },
     {
-      "id": "native.kill-helper",
+      "id": "native.kill-isolator",
       "suite": "native",
-      "execution": "kill-helper",
-      "assertion": "helper在途SIGKILL、整组回收与受控恢复",
+      "execution": "kill-isolator",
+      "assertion": "isolator在途SIGKILL、整组回收与受控恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/install/verify-faults.py"

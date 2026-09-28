@@ -16,10 +16,10 @@ BASE = Path(sys.argv[1])
 assert BASE.parent == Path('/var/lib/cherry-sandbox-test')
 assert BASE.name.startswith('work048-fault-') and not BASE.is_symlink()
 PREFIX = 'cherry-sandbox-test-' + BASE.name
-HELPER = PREFIX + '-helper'
+ISOLATOR = PREFIX + '-isolator'
 HTTP = PREFIX + '-http'
-STATE = Path('/run') / HELPER
-CG = Path('/sys/fs/cgroup/system.slice') / (HELPER + '.service')
+STATE = Path('/run') / ISOLATOR
+CG = Path('/sys/fs/cgroup/system.slice') / (ISOLATOR + '.service')
 JOBS = CG / 'jobs'
 SERVICE = BASE / 'service'
 PORT = 15051
@@ -50,22 +50,22 @@ def launch(name, props, args):
     subprocess.run(cmd + args, check=True)
 
 
-def start_helper(recover=False):
-    launch(HELPER, ['Delegate=yes', 'MemoryMax=768M', 'MemorySwapMax=0',
+def start_isolator(recover=False):
+    launch(ISOLATOR, ['Delegate=yes', 'MemoryMax=768M', 'MemorySwapMax=0',
                    'TasksMax=192', 'CPUQuota=100%', 'RuntimeMaxSec=120',
                    'KillMode=control-group'],
-           ['python3', str(BASE / 'bootstrap.py'), str(BASE), HELPER]
+           ['python3', str(BASE / 'bootstrap.py'), str(BASE), ISOLATOR]
            + (['recover'] if recover else []) + (['parallel2'] if CAPACITY else []))
     def ready():
-        # A crashed helper leaves a socket inode. Existence alone is not readiness.
+        # A crashed isolator leaves a socket inode. Existence alone is not readiness.
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             client.settimeout(.2)
             try:
-                client.connect(str(STATE / 'helper.sock'))
+                client.connect(str(STATE / 'isolator.sock'))
                 return True
             except OSError:
                 return False
-    wait_for(ready, 'helper not listening after recovery', 10)
+    wait_for(ready, 'isolator not listening after recovery', 10)
 
 
 def start_http():
@@ -177,7 +177,7 @@ def drained(workspace=True):
 def snapshot():
     drained()
     result = {}
-    for unit in (HELPER, HTTP):
+    for unit in (ISOLATOR, HTTP):
         pid = main_pid(unit)
         assert pid > 0
         result[unit.rsplit('-', 1)[-1]] = dict(pid=pid, fds=len(list(Path('/proc', str(pid), 'fd').iterdir())))
@@ -306,24 +306,24 @@ def capacity_cases():
     drained()
 
 
-for name in (HELPER, HTTP):
+for name in (ISOLATOR, HTTP):
     assert not subprocess.check_output(['systemctl', 'list-units', '--all', '--no-legend', name + '.service'], text=True).strip()
 SERVICE.mkdir(mode=0o700)
 os.chown(SERVICE, 61001, 61001)
 config = dict(logging=dict(path=str(SERVICE / 'logs')), sandbox=dict(
     backend='linux', httpAddr='127.0.0.1:' + str(PORT),
-    helperSocket=str(STATE / 'helper.sock'), workspaceRoot=str(SERVICE / 'work'),
+    isolatorSocket=str(STATE / 'isolator.sock'), workspaceRoot=str(SERVICE / 'work'),
     parallelism=2 if CAPACITY else 1, queueSize=4, maxRequestBytes=2 << 20,
     store=dict(root=str(SERVICE / 'blobs'), maxBlobBytes=64 << 20,
                maxTotalBytes=256 << 20, maxEntries=128, retention='1h')))
 (BASE / 'sandbox.yaml').write_text(json.dumps(config))
 try:
-    start_helper()
+    start_isolator()
     start_http()
     identity()
     before = snapshot()
     report('before', snapshot=before)
-    for unit in (HELPER, HTTP):
+    for unit in (ISOLATOR, HTTP):
         subprocess.run(['systemctl', 'show', unit, '-p', 'MemoryMax', '-p', 'TasksMax',
                         '-p', 'CPUQuotaPerSecUSec', '-p', 'MemorySwapMax'], check=True)
 
@@ -358,7 +358,7 @@ try:
         # Kill namespace PID 1 only after payload is observed, using its pidfd.
         active = begin()
         pid, group = wait_for(active_init, 'launcher payload not observed')
-        kill_owned(pid, 61003, str(BASE / 'sandbox-helper'), '/' + str(group.relative_to('/sys/fs/cgroup')))
+        kill_owned(pid, 61003, str(BASE / 'isolator'), '/' + str(group.relative_to('/sys/fs/cgroup')))
         result = finish(active)
         assert result['status'] not in ('OK', 'TimeLimitExceeded', 'MemoryLimitExceeded'), result
         wait_for(lambda: not group_paths(), 'launcher group not reclaimed')
@@ -366,13 +366,13 @@ try:
         identity()
         report('init-SIGKILL', status=result['status'], error=result.get('error', ''))
 
-        # HTTP crash leaves service staging files; helper must still reap its execution.
+        # HTTP crash leaves service staging files; isolator must still reap its execution.
         active = begin()
         wait_for(active_init, 'HTTP crash payload not observed')
         kill_owned(main_pid(HTTP), 61001, str(BASE / 'sandbox'), '/' + HTTP + '.service')
         assert finish(active, disconnected=True)['status'] == 'Disconnected'
         wait_for(lambda: stopped(HTTP), 'HTTP cgroup survived crash')
-        wait_for(lambda: not group_paths(), 'HTTP crash did not cancel helper')
+        wait_for(lambda: not group_paths(), 'HTTP crash did not cancel isolator')
         drained(workspace=False)
         leftovers = sorted(p.name for p in (SERVICE / 'work').iterdir())
         start_http()
@@ -380,22 +380,22 @@ try:
         drained()
         report('HTTP-SIGKILL-restart', beforeRecovery=leftovers, afterRecovery=['.lock'])
 
-        # Helper crash: systemd kills the entire delegated group; restart recovers socket/state.
+        # Isolator crash: systemd kills the entire delegated group; restart recovers socket/state.
         active = begin()
-        wait_for(active_init, 'helper crash payload not observed')
-        kill_owned(main_pid(HELPER), 0, str(BASE / 'sandbox-helper'), '/' + HELPER + '.service/supervisor')
+        wait_for(active_init, 'isolator crash payload not observed')
+        kill_owned(main_pid(ISOLATOR), 0, str(BASE / 'isolator'), '/' + ISOLATOR + '.service/supervisor')
         result = finish(active)
         assert result['status'] == 'InternalError', result
-        wait_for(lambda: stopped(HELPER), 'helper cgroup survived crash')
+        wait_for(lambda: stopped(ISOLATOR), 'isolator cgroup survived crash')
         drained()
         state_before = sorted(p.name for p in STATE.iterdir())
-        start_helper(recover=True)
+        start_isolator(recover=True)
         # Pool may fail closed after transport failure: restart its owning HTTP service explicitly.
         stop(HTTP)
         start_http()
         identity()
         drained()
-        report('helper-SIGKILL-restart', status=result['status'], stateBeforeRecovery=state_before)
+        report('isolator-SIGKILL-restart', status=result['status'], stateBeforeRecovery=state_before)
 
         active = begin()
         wait_for(active_init, 'graceful stop payload not observed')
@@ -411,10 +411,10 @@ try:
 
     time.sleep(.2)
     after = snapshot()
-    for key in ('helper', 'http'):
+    for key in ('isolator', 'http'):
         assert after[key]['fds'] <= before[key]['fds'] + 2, (before, after)
     report('after', snapshot=after)
     print('PASS fault chain', flush=True)
 finally:
     stop(HTTP)
-    stop(HELPER)
+    stop(ISOLATOR)
