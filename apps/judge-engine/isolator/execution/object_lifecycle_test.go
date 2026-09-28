@@ -103,12 +103,9 @@ func TestExecutionRunTransfersArtifactsOnce(t *testing.T) {
 	if _, err = dir.Stat(); !errors.Is(err, os.ErrClosed) {
 		t.Fatal("workspace leaked", err)
 	}
-	if err = x.Close(); err != nil {
-		t.Fatal(err)
-	}
 	var out strings.Builder
 	if err = result.WriteFiles(&out); err != nil || out.String() != "binary" {
-		t.Fatal("execution.Close closed transferred artifacts", err, out.String())
+		t.Fatal("execution kept access to transferred artifacts", err, out.String())
 	}
 	if _, err = x.Run(context.Background()); err == nil {
 		t.Fatal("repeated Run accepted")
@@ -118,26 +115,6 @@ func TestExecutionRunTransfersArtifactsOnce(t *testing.T) {
 	}
 	if _, err = file.Stat(); !errors.Is(err, os.ErrClosed) {
 		t.Fatal("artifact leaked", err)
-	}
-}
-
-func TestExecutionRejectsConcurrentRun(t *testing.T) {
-	x, p, _ := scriptedExecution(processEvent{kind: processExited})
-	entered, release := make(chan struct{}), make(chan struct{})
-	original := x.makeGroup
-	x.makeGroup = func(l cgroup.Limits) (Group, error) { close(entered); <-release; return original(l) }
-	done := make(chan error, 1)
-	go func() { result, err := x.Run(context.Background()); done <- errors.Join(err, result.Close()) }()
-	<-entered
-	if _, err := x.Run(context.Background()); err == nil {
-		t.Error("concurrent Run accepted")
-	}
-	close(release)
-	if err := <-done; err != nil {
-		t.Fatal(err)
-	}
-	if p.released {
-		t.Fatal("unexpected release")
 	}
 }
 
@@ -179,9 +156,6 @@ func TestExecutionRunPreservesStartAndCleanupFailure(t *testing.T) {
 	result, err := x.Run(context.Background())
 	if !errors.Is(err, closeErr) || !strings.Contains(result.Error, startErr.Error()) || !strings.Contains(result.Error, closeErr.Error()) || x.state != executionCleanupFailed {
 		t.Fatalf("%+v %v state=%v", result, err, x.state)
-	}
-	if err = x.Close(); !errors.Is(err, closeErr) {
-		t.Fatal("Close forgot failure", err)
 	}
 }
 

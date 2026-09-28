@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -44,11 +43,9 @@ type executionProcess interface {
 	RemoveMountpoint() error
 }
 
-// execution 独占一次命令的资源组与终止结论。Run 返回前完成回收；
-// 成功移交的产物由 Result 持有，后续 Close 不再访问它们。
-// lifecycle 锁拒绝并发 Run，并使异常兜底 Close 不与执行线程争抢资源。
+// execution 独占一次命令的资源组与终止结论。它只由包级 Run 创建并立即运行一次，
+// Run 返回前完成回收；成功移交的产物由 Result 持有，execution 不再访问它们。
 type execution struct {
-	lifecycle          sync.Mutex
 	state              executionState
 	plan               isolationPlan
 	process            executionProcess
@@ -92,10 +89,6 @@ func newExecution(r hostexec.Request, options Options) *execution {
 }
 
 func (x *execution) Run(ctx context.Context) (Result, error) {
-	if !x.lifecycle.TryLock() {
-		return Result{}, fmt.Errorf("execution Run is already in progress")
-	}
-	defer x.lifecycle.Unlock()
 	if x.state != executionNew {
 		return Result{}, fmt.Errorf("execution can only Run once")
 	}
@@ -130,20 +123,6 @@ func (x *execution) Run(ctx context.Context) (Result, error) {
 		x.supervision = x.supervise(ctx)
 	}
 	return x.finish(ctx)
-}
-
-func (x *execution) Close() error {
-	x.lifecycle.Lock()
-	defer x.lifecycle.Unlock()
-	if x.state == executionNew {
-		x.process.CancelInput()
-		x.cleanupErr = x.process.Close()
-		x.state = executionFinished
-		if x.cleanupErr != nil {
-			x.state = executionCleanupFailed
-		}
-	}
-	return x.cleanupErr
 }
 
 func (x *execution) takeResult() Result {

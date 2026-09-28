@@ -225,7 +225,6 @@ func TestConcludeIgnoresAccountingWhenGroupStopFailed(t *testing.T) {
 func TestExecutionStateTransitions(t *testing.T) {
 	legal := [][2]executionState{
 		{executionNew, executionStarting},
-		{executionNew, executionFinished},
 		{executionStarting, executionRunning},
 		{executionStarting, executionFinishing},
 		{executionStarting, executionCleanupFailed},
@@ -242,6 +241,7 @@ func TestExecutionStateTransitions(t *testing.T) {
 	illegal := [][2]executionState{
 		{executionNew, executionRunning},      // 没有启动就在跑
 		{executionNew, executionFinishing},    // 没有可回收的执行环境
+		{executionNew, executionFinished},     // 没有 Run 就结束：执行对象只由 Run 创建并立即运行
 		{executionRunning, executionStarting}, // 回到启动阶段
 		{executionFinished, executionFinishing},
 		{executionFinished, executionStarting}, // 复用已结束的执行

@@ -181,7 +181,7 @@ func TestFinishClosesUnconsumedReceivedFiles(t *testing.T) {
 	x.process.(*isolatedProcess).events = make(chan received, 1)
 	x.process.(*isolatedProcess).events <- received{dir: ownFile(f)}
 	close(x.process.(*isolatedProcess).events)
-	_, err = x.finish(context.Background())
+	_, err = finishFrom(t, x, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestFinishCancelsBlockedInputBeforeWaiting(t *testing.T) {
 	x.group = &lifecycleGroup{steps: &steps}
 	x.process.(*isolatedProcess).inputFinished = make(chan struct{})
 	go func() { defer close(x.process.(*isolatedProcess).inputFinished); var b [1]byte; _, _ = r.Read(b[:]) }()
-	_, err = x.finish(context.Background())
+	_, err = finishFrom(t, x, context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
