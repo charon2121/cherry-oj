@@ -15,7 +15,7 @@ func (j *judgment) runCase(ctx context.Context, idx int, tc testcase.TestCase) c
 	limits, clockNs := j.request.Limits, j.clockNs
 	sourceRef, executableRef := j.sourceRef, j.executableRef
 	trial := j.request.Mode == contract.ModeTrial
-	stdin, cleanup, err := stdinFor(ctx, sb, tc.Input, cfg.InlineThresholdBytes)
+	stdin, cleanup, err := j.stdinFor(ctx, tc.Input)
 	if err != nil {
 		return contract.CaseResult{
 			Idx:     idx,
@@ -65,12 +65,8 @@ func runInputs(lang language.Language, sourceRef, executableRef string) map[stri
 	}
 }
 
-func stdinFor(
-	ctx context.Context,
-	sb Sandbox,
-	input testcase.Blob,
-	inlineThreshold int64,
-) (*contract.FileSource, func(), error) {
+func (j *judgment) stdinFor(ctx context.Context, input testcase.Blob) (*contract.FileSource, func(), error) {
+	sb, inlineThreshold := j.sandbox, j.config.InlineThresholdBytes
 	rc, err := input.Open()
 	if err != nil {
 		return nil, func() {}, err
@@ -96,6 +92,6 @@ func stdinFor(
 	if ref == "" {
 		return nil, func() {}, fmt.Errorf("sandbox returned an empty stdin ref")
 	}
-	cleanup := func() { deleteRef(ctx, sb, ref) }
+	cleanup := func() { j.deleteRef(ctx, ref) }
 	return &contract.FileSource{Ref: ref}, cleanup, nil
 }

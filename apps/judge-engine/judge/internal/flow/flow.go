@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"slices"
 	"strings"
 
@@ -22,9 +23,13 @@ type Sandbox interface {
 }
 
 // Judge 完成一次判题并释放引用；请求及基础设施错误归为 SE。
-func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.JudgeRequest) contract.JudgeResult {
+// logger 记录不影响结论、但需要留痕的问题（如删除 blob 失败）；nil 使用 slog.Default。
+func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.JudgeRequest, logger *slog.Logger) contract.JudgeResult {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	req.Cases = slices.Clone(req.Cases)
-	job := judgment{sandbox: sb, config: cfg, request: req}
+	job := judgment{sandbox: sb, config: cfg, request: req, log: logger}
 	return job.run(ctx)
 }
 
@@ -38,6 +43,7 @@ type judgment struct {
 	cases                    []testcase.TestCase
 	clockNs                  int64
 	sourceRef, executableRef string
+	log                      *slog.Logger
 }
 
 func (j *judgment) run(ctx context.Context) (result contract.JudgeResult) {
@@ -108,11 +114,11 @@ func (j *judgment) prepare(ctx context.Context) error {
 }
 func (j *judgment) close(ctx context.Context) {
 	if j.executableRef != "" {
-		deleteRef(ctx, j.sandbox, j.executableRef)
+		j.deleteRef(ctx, j.executableRef)
 		j.executableRef = ""
 	}
 	if j.sourceRef != "" {
-		deleteRef(ctx, j.sandbox, j.sourceRef)
+		j.deleteRef(ctx, j.sourceRef)
 		j.sourceRef = ""
 	}
 }
@@ -122,6 +128,11 @@ func loadCases(cfg config.Settings, req contract.JudgeRequest) ([]testcase.TestC
 	}
 	return testcase.FromSpecs(req.Cases), nil
 }
-func deleteRef(ctx context.Context, sb Sandbox, ref string) {
-	_ = sb.Delete(context.WithoutCancel(ctx), ref)
+
+// deleteRef 用不随请求取消的上下文删除 blob。失败不影响判题结论（sandbox 的 store
+// 过了保留期会自行清理），但要留痕：持续失败说明 sandbox 的 store 或连接有问题。
+func (j *judgment) deleteRef(ctx context.Context, ref string) {
+	if err := j.sandbox.Delete(context.WithoutCancel(ctx), ref); err != nil {
+		j.log.Warn("judge.blob.delete.failed", "submissionId", j.request.SubmissionID, "ref", ref, "error", err)
+	}
 }

@@ -59,7 +59,7 @@ func TestTimeoutChangesVerdictAndFingerprint(t *testing.T) {
 		}
 		fp := id.Registration().EnvironmentFingerprint
 		req := contract.JudgeRequest{Mode: contract.ModeTrial, LanguageID: "cpp", Source: "int main(){}", Cases: []contract.CaseSpec{{Name: "slow", Input: ""}}, Limits: contract.JudgeLimits{CPUNs: 1_000_000, MemoryBytes: 1 << 20, ClockNs: int64(50 * time.Millisecond)}}
-		result := flow.Judge(context.Background(), client.New(sb.URL, timeout), cfg.Judge, req)
+		result := flow.Judge(context.Background(), client.New(sb.URL, timeout), cfg.Judge, req, nil)
 		fingerprints = append(fingerprints, fp)
 		verdicts = append(verdicts, result.Verdict)
 		t.Logf("timeout=%s validation=pass fingerprint=%s verdict=%s", timeout, fp, result.Verdict)

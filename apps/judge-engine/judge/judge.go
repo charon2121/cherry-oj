@@ -3,6 +3,7 @@ package judge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -29,10 +30,31 @@ const (
 type judgeService struct {
 	sandbox flow.Sandbox
 	config  judgeconfig.Settings
+	logger  *slog.Logger
 }
 
 func (s *judgeService) Judge(ctx context.Context, req contract.JudgeRequest) contract.JudgeResult {
-	return flow.Judge(ctx, s.sandbox, s.config, req)
+	result := flow.Judge(ctx, s.sandbox, s.config, req, s.logger)
+	if result.Verdict == contract.VerdictSE {
+		// SE 是平台自己的问题（sandbox 不可用、测试数据损坏……），原因只写在响应的 message 里；
+		// 不在这里留痕，排查就只能去调用方翻响应。WA、TLE 等正常结论不记。
+		s.logger.Warn("judge.result.system_error", "submissionId", req.SubmissionID,
+			"problemId", req.ProblemID, "testDataVersionId", req.TestDataVersionID, "reason", systemErrorReason(result))
+	}
+	return result
+}
+
+// systemErrorReason 取整次判题的 message；为空时取第一个判成 SE 的测试点的 message。
+func systemErrorReason(r contract.JudgeResult) string {
+	if r.Message != "" {
+		return r.Message
+	}
+	for _, c := range r.CaseResults {
+		if c.Verdict == contract.VerdictSE {
+			return fmt.Sprintf("case %d: %s", c.Idx, c.Message)
+		}
+	}
+	return ""
 }
 
 // Run 启动判题服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成，
@@ -54,6 +76,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	service := &judgeService{
 		sandbox: sandboxClient,
 		config:  cfg.Judge,
+		logger:  logger,
 	}
 	handler := api.New(service).Handler()
 	var judgeNode *node.Node
