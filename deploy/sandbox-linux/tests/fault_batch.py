@@ -404,6 +404,8 @@ try:
         elapsed = time.monotonic() - start
         result = finish(active, disconnected=True)
         assert elapsed < 2 and result['status'] != 'OK', (elapsed, result)
+        # sandbox 返回时 isolator 可能仍在按断连收尾；它的回收期限是 5 s，等组消失后再核对。
+        wait_for(lambda: not group_paths(), 'graceful stop did not reclaim the execution group', 6)
         drained()
         start_http()
         identity()
