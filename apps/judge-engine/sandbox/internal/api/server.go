@@ -1,12 +1,13 @@
 package api
 
 import (
-	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/internal/store"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/sandbox/internal/store"
 )
 
 // Executor 返回前必须完成影响结果的回收；HTTP 层无法补救已发布结果后的清理失败。

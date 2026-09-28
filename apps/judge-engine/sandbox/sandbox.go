@@ -1,7 +1,6 @@
 package sandbox
 
 import (
-	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"context"
 	"errors"
 	"fmt"
@@ -17,6 +16,7 @@ import (
 	"cherry-oj/judge-engine/sandbox/internal/api"
 	"cherry-oj/judge-engine/sandbox/internal/backend"
 	"cherry-oj/judge-engine/sandbox/internal/pool"
+	"cherry-oj/judge-engine/sandbox/internal/runner"
 	"cherry-oj/judge-engine/sandbox/internal/store"
 	"cherry-oj/judge-engine/sandbox/internal/workspace"
 )
@@ -115,7 +115,7 @@ func newHTTPServer(c Settings, p *pool.Pool, st managedStore, logger *slog.Logge
 		Handler: api.New(p, st, api.Options{
 			MaxBlobBytes:    c.Store.MaxBlobBytes,
 			MaxRequestBytes: c.MaxRequestBytes,
-			MaxConcurrent:   c.Parallelism + c.QueueSize + 4,
+			MaxConcurrent:   c.Parallelism + c.QueueSize + httpHeadroom,
 			Isolation:       c.Backend,
 		}).Handler(),
 	}

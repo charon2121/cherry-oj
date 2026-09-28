@@ -17,6 +17,10 @@ const (
 	httpIdleTimeout       = 30 * time.Second
 	httpMaxHeaderBytes    = 16 << 10
 	httpShutdownTimeout   = 10 * time.Second
+
+	// httpHeadroom 是执行池能接纳的请求（并发数 + 队列长度）之外，HTTP 层额外放行的并发名额，
+	// 使执行池占满时 /blobs 上传、下载、删除和 /version 仍能进来，而不是一律 503。
+	httpHeadroom = 4
 )
 
 // checkBudget 断言跨层期限的顺序。参数化是为了能直接用冲突取值验证它确实会拒绝，
