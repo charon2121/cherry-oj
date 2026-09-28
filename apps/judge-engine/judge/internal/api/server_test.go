@@ -189,3 +189,17 @@ func TestJudgeWrongMethodIsRejected(t *testing.T) {
 		t.Fatalf("code = %d, want 405", rec.Code)
 	}
 }
+
+// 请求体超过上限时拒绝为 413，且不调用判题：否则一个超大请求会被整份读进内存。
+func TestJudgeRejectsOversizedBody(t *testing.T) {
+	fake := &fakeJudger{}
+	h := api.New(fake).Handler()
+	source := strings.Repeat("x", 17<<20)
+	body := `{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"` + source + `","limits":{"cpuNs":1,"memoryBytes":1}}`
+	req := httptest.NewRequest(http.MethodPost, "/judge", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusRequestEntityTooLarge || fake.called != 0 {
+		t.Fatalf("status=%d called=%d", rec.Code, fake.called)
+	}
+}

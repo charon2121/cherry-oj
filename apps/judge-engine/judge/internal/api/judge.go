@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,10 +10,19 @@ import (
 	"cherry-oj/judge-engine/internal/contract"
 )
 
+// maxJudgeRequestBytes 限制 /judge 请求体：完整源码加上 trial 模式内联的测试点。
+// 不设上限时，一个超大请求会在解码时被整份读进内存。
+const maxJudgeRequestBytes = 16 << 20
+
 func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
-	req, err := decodeJudgeRequest(r.Body)
+	req, err := decodeJudgeRequest(http.MaxBytesReader(w, r.Body, maxJudgeRequestBytes))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		status := http.StatusBadRequest
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			status = http.StatusRequestEntityTooLarge
+		}
+		writeError(w, status, err)
 		return
 	}
 

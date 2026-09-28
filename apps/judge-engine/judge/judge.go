@@ -17,6 +17,13 @@ import (
 	"cherry-oj/judge-engine/judge/internal/sandboxclient"
 )
 
+// HTTP 连接的防护期限，与 sandbox 取值一致；不含写期限，理由见 Run。
+const (
+	httpReadHeaderTimeout = 5 * time.Second
+	httpIdleTimeout       = 30 * time.Second
+	httpMaxHeaderBytes    = 16 << 10
+)
+
 // judgeService 把 HTTP API 的单次判题入口接到判题编排。
 // 依赖保留为 flow.Sandbox，既能接真实客户端，也不把传输实现泄漏给 API 层。
 type judgeService struct {
@@ -61,9 +68,14 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 		service.config.EnvironmentFingerprint = judgeNode.Registration().EnvironmentFingerprint
 		handler = judgeNode.Handler(handler)
 	}
+	// 只限制读请求头与空闲连接：一次判题（编译加逐点运行）可能持续数分钟，不能设写期限；
+	// 节点安装端点要流式接收测试数据包，整体读期限由安装自身的大小上限约束。
 	srv := &http.Server{
-		Addr:    cfg.Judge.HTTPAddr,
-		Handler: tracing.Middleware(logger, handler),
+		Addr:              cfg.Judge.HTTPAddr,
+		Handler:           tracing.Middleware(logger, handler),
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		IdleTimeout:       httpIdleTimeout,
+		MaxHeaderBytes:    httpMaxHeaderBytes,
 	}
 
 	// Bind before advertising the endpoint: an occupied port must never create an online node.
