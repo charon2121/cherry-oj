@@ -46,3 +46,5 @@ judging-service ──HTTP /judge──▶ judge ──HTTP /blobs、/run──�
   和 [execstage/exec.go](isolator/execstage/exec.go)。
 - 配置：[judge.example.yaml](judge.example.yaml)、[sandbox.example.yaml](sandbox.example.yaml)、
   [isolator.example.json](isolator.example.json)；跨层期限的顺序断言在 [sandbox/budget.go](sandbox/budget.go)。
+- 在 macOS 上跑 Linux 测试（isolator 只在 linux/amd64 编译）：[scripts/test-linux.sh](../../scripts/test-linux.sh)，
+  脚本开头写了容器里覆盖不到的部分。
