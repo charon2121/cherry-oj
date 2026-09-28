@@ -1,4 +1,3 @@
-// Package pool 管理执行容量：接纳、排队、限制并发。它不创建工作区，也不回收产物。
 package pool
 
 import (

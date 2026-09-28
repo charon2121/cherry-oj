@@ -1,4 +1,3 @@
-// Package runner 解析文件引用、编排单次执行并发布已确认的产物；不持有特权操作。
 package runner
 
 import (

@@ -4,7 +4,7 @@ import (
 	"io"
 )
 
-// Store 保存执行输入与产物引用；它不拥有 Container，也不保证文件会一直保留。
+// Store 保存执行输入与产物引用；它不参与执行，也不保证文件会一直保留。
 type Store interface {
 	// Put 同步消费 r；只有完整保存后才发布 ref，r 的关闭仍由调用者负责。
 	Put(r io.Reader) (string, error)

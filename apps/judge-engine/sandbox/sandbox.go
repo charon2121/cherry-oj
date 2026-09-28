@@ -67,7 +67,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	return serve(ctx, newHTTPServer(cfg.Sandbox, p, st, logger), p, cfg.Sandbox, logger)
 }
 
-// probeBackend 用完整Container链验证可用性，失败不开放HTTP端口。
+// probeBackend 用一次真实执行（命令 true）验证 linux 后端整条链可用，失败不开放 HTTP 端口。
 func probeBackend(p *pool.Pool, name string, logger *slog.Logger) error {
 	if name != backend.NameLinux {
 		return nil
@@ -103,7 +103,7 @@ func startSweeper(st managedStore, logger *slog.Logger) (stop func()) {
 }
 
 // newHTTPServer 装配 HTTP 服务。期限覆盖请求读取和响应传输，不能用用户命令的墙钟限额替代。
-// Executor 的实际实现是 Pool；Linux Factory 每次创建独立的 isolator 客户端工作区。
+// handler 的执行器是 Pool；每次执行在暂存根下创建自己的目录（见 backend.Isolated）。
 func newHTTPServer(c Settings, p *pool.Pool, st managedStore, logger *slog.Logger) *http.Server {
 	srv := &http.Server{
 		Addr:              c.HTTPAddr,

@@ -1,5 +1,3 @@
-// Package workspace 管理服务独占的暂存根：启动时核验并回收遗留目录，
-// 运行时为每次执行分配独立目录。它不理解执行本身。
 package workspace
 
 import (
@@ -22,7 +20,7 @@ var executionName = regexp.MustCompile(`^execution-[0-9]+$`)
 var dataName = regexp.MustCompile(`^data-[0-9]+$`)
 
 // OpenWorkspace 在独占锁下核验并恢复服务暂存根；失败时不接纳执行。
-// 成功后由调用者在所有 Container 关闭后释放 Workspace。
+// 成功后由调用者在所有执行结束（执行池关闭）之后释放 Workspace。
 func OpenWorkspace(root string) (*Workspace, error) {
 	if root == "" {
 		return nil, fmt.Errorf("the staging root must not be empty")
