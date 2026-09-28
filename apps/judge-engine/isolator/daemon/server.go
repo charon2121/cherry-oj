@@ -47,21 +47,14 @@ type service struct {
 	fatal      chan error
 }
 
+// run 依次完成启动准备、开放 socket、接单；返回前关闭监听、资源组管理器并释放服务锁。
 func (s *service) run(ctx context.Context) (result error) {
-	c := s.config
-	// 先持有服务锁再恢复遗留资源，避免两个 isolator 同时回收或分配同一组槽位身份。
-	lock, err := os.OpenFile(filepath.Join(c.StateDir, "lock"), os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
+	lock, err := s.acquireLock()
 	if err != nil {
 		return err
 	}
 	defer func() { result = errors.Join(result, lock.Close()) }()
-	if err = securePath(filepath.Join(c.StateDir, "lock"), false); err != nil {
-		return err
-	}
-	if err = unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		return fmt.Errorf("isolator is already running: %w", err)
-	}
-	manager, err := cgroup.Open(c.JobsDir)
+	manager, err := cgroup.Open(s.config.JobsDir)
 	if err != nil {
 		return err
 	}
@@ -71,34 +64,72 @@ func (s *service) run(ctx context.Context) (result error) {
 		defer cancel()
 		result = errors.Join(result, manager.Close(cleanup))
 	}()
+	if err = s.prepare(ctx); err != nil {
+		return err
+	}
+	if err = s.listen(); err != nil {
+		return err
+	}
+	defer s.listener.Close()
+	return s.accept(ctx)
+}
+
+// acquireLock 先持有服务锁再恢复遗留资源，避免两个 isolator 同时回收或分配同一组槽位身份。
+func (s *service) acquireLock() (*os.File, error) {
+	path := filepath.Join(s.config.StateDir, "lock")
+	lock, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|unix.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, err
+	}
+	if err = securePath(path, false); err != nil {
+		return nil, errors.Join(err, lock.Close())
+	}
+	if err = unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		return nil, errors.Join(fmt.Errorf("isolator is already running: %w", err), lock.Close())
+	}
+	return lock, nil
+}
+
+// prepare 回收上次遗留的资源，再让每个槽位走一次真实执行链。
+// 文件校验不能证明内核隔离能力；全部成功才开放 socket。
+func (s *service) prepare(ctx context.Context) error {
 	cleanup, cancel := context.WithTimeout(ctx, recoveryTimeout)
-	err = recoverOwned(cleanup, c)
+	err := recoverOwned(cleanup, s.config)
 	cancel()
 	if err != nil {
 		return err
 	}
-	// 文件校验不能证明内核隔离能力；每组身份都走真实执行链，全部成功才开放 socket。
-	for slot := 0; slot < c.Parallelism; slot++ {
-		if err := probeInstallation(ctx, c.forSlot(slot), s.manager, s.executable); err != nil {
+	for slot := 0; slot < s.config.Parallelism; slot++ {
+		if err := probeInstallation(ctx, s.config.forSlot(slot), s.manager, s.executable); err != nil {
 			return fmt.Errorf("slot %d startup probe: %w", slot, err)
 		}
 	}
+	return nil
+}
+
+// listen 创建 socket；文件权限与 SO_PEERCRED 双重约束，只有服务专用组可以建立连接。
+func (s *service) listen() error {
+	c := s.config
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: c.SocketPath, Net: "unix"})
 	if err != nil {
 		return err
 	}
-	s.listener = listener
-	defer s.listener.Close()
-	// 文件权限与 SO_PEERCRED 双重约束，只有服务专用组可以建立连接。
 	if err = os.Chown(c.SocketPath, 0, c.ServiceGID); err != nil {
-		return err
+		return errors.Join(err, listener.Close())
 	}
 	if err = os.Chmod(c.SocketPath, 0660); err != nil {
-		return err
+		return errors.Join(err, listener.Close())
 	}
+	s.listener = listener
+	return nil
+}
+
+// accept 循环接单：认证对端、取槽位，每个连接在自己的 goroutine 里执行并交付。
+// 任何连接报告回收失败都会停止接单，accept 等在途连接收尾后返回该错误。
+func (s *service) accept(ctx context.Context) error {
 	serveCtx, stop := context.WithCancel(ctx)
 	defer stop()
-	go func() { <-serveCtx.Done(); listener.Close() }()
+	go func() { <-serveCtx.Done(); s.listener.Close() }()
 	var wg sync.WaitGroup
 	defer func() { stop(); wg.Wait() }()
 	for {
@@ -114,7 +145,7 @@ func (s *service) run(ctx context.Context) (result error) {
 			}
 			return err
 		}
-		if err = checkPeer(conn, c.ServiceUID); err != nil {
+		if err = checkPeer(conn, s.config.ServiceUID); err != nil {
 			conn.Close()
 			continue
 		}

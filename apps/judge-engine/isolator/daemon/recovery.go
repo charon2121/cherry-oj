@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// runName 识别本服务创建的执行组与挂载点目录名：run- 加 32 位十六进制。
 func runName(n string) bool {
 	if !strings.HasPrefix(n, "run-") || len(n) != 36 {
 		return false
@@ -31,11 +32,23 @@ func recoverOwned(ctx context.Context, c Config) error {
 	if err != nil {
 		return err
 	}
+	if err = claimOwnership(c, entries); err != nil {
+		return err
+	}
+	if err = recoverJobs(ctx, c, entries); err != nil {
+		return err
+	}
+	return recoverState(c)
+}
+
+// claimOwnership 首次启动时写入绑定 JobsDir 的所有权标记；此后只认标记一致的目录。
+// 没有标记却已有执行组，说明 jobs 不是本服务独占的，拒绝清理。
+func claimOwnership(c Config, jobs []os.DirEntry) error {
 	marker := filepath.Join(c.StateDir, "owner-v1")
 	want := "cherry-sandbox-isolator-v1\n" + c.JobsDir + "\n"
 	data, err := os.ReadFile(marker)
 	if errors.Is(err, os.ErrNotExist) {
-		for _, e := range entries {
+		for _, e := range jobs {
 			if e.IsDir() {
 				return fmt.Errorf("no ownership marker but jobs is not empty")
 			}
@@ -55,15 +68,17 @@ func recoverOwned(ctx context.Context, c Config) error {
 	} else if string(data) != want {
 		return fmt.Errorf("the ownership marker disagrees with jobs")
 	}
-	if err = securePath(marker, false); err != nil {
-		return err
-	}
+	return securePath(marker, false)
+}
+
+// recoverJobs 停止并删除上次遗留的执行组；遇到不认识的目录名直接拒绝，不猜测归属。
+func recoverJobs(ctx context.Context, c Config, jobs []os.DirEntry) error {
 	root, err := os.OpenRoot(c.JobsDir)
 	if err != nil {
 		return err
 	}
 	defer root.Close()
-	for _, e := range entries {
+	for _, e := range jobs {
 		if !e.IsDir() {
 			continue
 		}
@@ -86,7 +101,12 @@ func recoverOwned(ctx context.Context, c Config) error {
 			return err
 		}
 	}
-	entries, err = os.ReadDir(c.StateDir)
+	return nil
+}
+
+// recoverState 清理状态目录里的旧 socket 与空挂载点目录，只认识 owner-v1、lock、socket 与 run-* 目录。
+func recoverState(c Config) error {
+	entries, err := os.ReadDir(c.StateDir)
 	if err != nil {
 		return err
 	}
