@@ -73,6 +73,16 @@ type StageSpec struct {
 	WorkspaceInodes                          int
 }
 
+// EventKind 是 P4 发给 P3 的控制事件种类；字符串值即线格式。
+type EventKind string
+
+const (
+	EventWorkspace EventKind = "workspace" // 文件系统已就绪，附带 /work 的目录 FD
+	EventReady     EventKind = "ready"     // P5 已就绪、P4 已降权，等待 P3 的 GO
+	EventExit      EventKind = "exit"      // 用户程序已结束，附带退出码、信号与 P5 失败记录
+	EventError     EventKind = "error"     // P4 自身某一阶段失败，附带阶段名与 errno
+)
+
 // Event 经 seqpacket 保留消息边界；workspace 事件可附一个目录 FD。
 // exit 只报告 payload 退出，P3 仍须停止整组并等待 init/I/O，不能据此发布结果。
 type Event struct {
@@ -81,7 +91,7 @@ type Event struct {
 	ExecStage        byte
 	ExecErrno        uint32
 	Version          int
-	Kind             string
+	Kind             EventKind
 	ExitCode, Signal int
 	ExecFailed       bool
 }

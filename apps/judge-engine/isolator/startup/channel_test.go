@@ -27,7 +27,7 @@ func controlFile(t *testing.T) *os.File {
 func TestControlSendInterruptedOnce(t *testing.T) {
 	c, dir := controlFile(t), controlFile(t)
 	calls, delivered := 0, 0
-	err := sendEvent(c, Event{Kind: "workspace"}, dir, func(fd int, p, oob []byte, _ unix.Sockaddr, _ int) (int, error) {
+	err := sendEvent(c, Event{Kind: EventWorkspace}, dir, func(fd int, p, oob []byte, _ unix.Sockaddr, _ int) (int, error) {
 		calls++
 		messages, err := unix.ParseSocketControlMessage(oob)
 		if err != nil || len(messages) != 1 {
@@ -107,7 +107,7 @@ func TestControlSendPreservesErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := controlFile(t)
 			calls := 0
-			err := sendEvent(c, Event{Kind: "ready"}, nil, func(int, []byte, []byte, unix.Sockaddr, int) (int, error) { calls++; return tc.n, tc.err })
+			err := sendEvent(c, Event{Kind: EventReady}, nil, func(int, []byte, []byte, unix.Sockaddr, int) (int, error) { calls++; return tc.n, tc.err })
 			if err == nil || calls != 1 || tc.err != nil && !errors.Is(err, tc.err) {
 				t.Fatalf("calls=%d err=%v", calls, err)
 			}
@@ -201,7 +201,7 @@ func TestControlInterruptChecksClosedFiles(t *testing.T) {
 				}
 				err = e
 			} else {
-				err = sendEvent(c, Event{Kind: "workspace"}, dir, func(int, []byte, []byte, unix.Sockaddr, int) (int, error) { interrupt(); return -1, unix.EINTR })
+				err = sendEvent(c, Event{Kind: EventWorkspace}, dir, func(int, []byte, []byte, unix.Sockaddr, int) (int, error) { interrupt(); return -1, unix.EINTR })
 			}
 			if err == nil || errors.Is(err, unix.EINTR) || calls != 32 {
 				t.Fatalf("calls=%d err=%v", calls, err)
@@ -222,7 +222,7 @@ func TestControlInterruptedSocketDelivery(t *testing.T) {
 	defer b.Close()
 	dir := controlFile(t)
 	sent, received := 0, 0
-	err = sendEvent(a, Event{Kind: "workspace"}, dir, func(fd int, p, oob []byte, to unix.Sockaddr, flags int) (int, error) {
+	err = sendEvent(a, Event{Kind: EventWorkspace}, dir, func(fd int, p, oob []byte, to unix.Sockaddr, flags int) (int, error) {
 		sent++
 		if sent <= 3 {
 			return -1, unix.EINTR

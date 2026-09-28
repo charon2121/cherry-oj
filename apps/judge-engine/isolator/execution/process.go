@@ -170,7 +170,7 @@ func (p *isolatedProcess) exchangeWithInit(r hostexec.Request, source io.Reader)
 		for i := 0; i < maxInitEvents; i++ {
 			e, f, err := startup.ReceiveEvent(p.control.File)
 			p.events <- received{e, ownFile(f), err}
-			if err != nil || e.Kind == "exit" {
+			if err != nil || e.Kind == startup.EventExit {
 				return
 			}
 		}

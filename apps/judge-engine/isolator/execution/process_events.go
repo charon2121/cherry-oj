@@ -94,7 +94,7 @@ func (p *isolatedProcess) acceptEvent(ev received) processEvent {
 	if ev.err != nil {
 		return processEvent{kind: processFailure, err: ev.err, reportLost: errors.Is(ev.err, io.EOF)}
 	}
-	if ev.event.Kind == "workspace" && p.phase == awaitingWorkspace && ev.dir != nil {
+	if ev.event.Kind == startup.EventWorkspace && p.phase == awaitingWorkspace && ev.dir != nil {
 		p.workspace = workspaceDirectory{ev.dir}
 		if err := validateWorkspace(ev.dir); err != nil {
 			return processEvent{kind: processFailure, err: err}
@@ -105,14 +105,14 @@ func (p *isolatedProcess) acceptEvent(ev received) processEvent {
 	if ev.dir != nil {
 		return processEvent{kind: processFailure, err: errors.Join(fmt.Errorf("unexpected control FD"), ev.dir.Close())}
 	}
-	if ev.event.Kind == "error" {
+	if ev.event.Kind == startup.EventError {
 		return processEvent{kind: processFailure, err: fmt.Errorf("trusted init stage failed: %s errno=%d", ev.event.Phase, ev.event.Errno)}
 	}
-	if ev.event.Kind == "ready" && p.phase == awaitingReady {
+	if ev.event.Kind == startup.EventReady && p.phase == awaitingReady {
 		p.phase = awaitingGo
 		return processEvent{kind: processReady}
 	}
-	if ev.event.Kind == "exit" && p.phase == executing {
+	if ev.event.Kind == startup.EventExit && p.phase == executing {
 		event := processEvent{kind: processExited, exitCode: ev.event.ExitCode, signal: ev.event.Signal}
 		if ev.event.ExecFailed {
 			event.err = fmt.Errorf("payload exec failed to start: stage=%d errno=%d", ev.event.ExecStage, ev.event.ExecErrno)

@@ -72,7 +72,7 @@ func Run() {
 	if err != nil {
 		var errno syscall.Errno
 		errors.As(err, &errno)
-		report := startup.Event{Version: hostexec.Version, Kind: "error", Phase: s.phase, Errno: uint32(errno)}
+		report := startup.Event{Version: hostexec.Version, Kind: startup.EventError, Phase: s.phase, Errno: uint32(errno)}
 		if b, e := marshalEvent(report); e == nil {
 			_, _ = control.Write(b)
 		}
@@ -110,7 +110,7 @@ func (s *initSession) run() error {
 	}
 	// P3 需要持有目录 FD，才能在 namespace 停止后读取同一个工作区；
 	// 传递宿主路径既不能定位该 tmpfs，也会扩大路径解析的权限边界。
-	if err = startup.SendEvent(s.control, startup.Event{Kind: "workspace"}, dir); err != nil {
+	if err = startup.SendEvent(s.control, startup.Event{Kind: startup.EventWorkspace}, dir); err != nil {
 		return err
 	}
 	if err = s.close(dir); err != nil {
@@ -144,7 +144,7 @@ func (s *initSession) reportExit() error {
 	if waitErr != nil && !errors.As(waitErr, &exit) {
 		return waitErr
 	}
-	report := startup.Event{Version: hostexec.Version, Kind: "exit", ExitCode: s.child.ProcessState.ExitCode()}
+	report := startup.Event{Version: hostexec.Version, Kind: startup.EventExit, ExitCode: s.child.ProcessState.ExitCode()}
 	if ws, ok := s.child.ProcessState.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 		report.Signal = int(ws.Signal())
 	}

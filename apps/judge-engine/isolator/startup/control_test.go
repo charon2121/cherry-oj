@@ -25,7 +25,7 @@ func TestControlFDIsCloseOnExec(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dir.Close()
-	if err = startup.SendEvent(a, startup.Event{Kind: "workspace"}, dir); err != nil {
+	if err = startup.SendEvent(a, startup.Event{Kind: startup.EventWorkspace}, dir); err != nil {
 		t.Fatal(err)
 	}
 	event, fd, err := startup.ReceiveEvent(b)
@@ -79,7 +79,7 @@ func TestControlShutdownUnblocksIO(t *testing.T) {
 			done := make(chan error, 1)
 			go func() {
 				if mode == "send" {
-					done <- startup.SendEvent(a, startup.Event{Kind: "ready"}, nil)
+					done <- startup.SendEvent(a, startup.Event{Kind: startup.EventReady}, nil)
 					return
 				}
 				_, fd, err := startup.ReceiveEvent(a)

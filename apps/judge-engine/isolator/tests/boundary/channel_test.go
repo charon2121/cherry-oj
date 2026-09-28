@@ -103,7 +103,7 @@ func TestControlSignalChild(t *testing.T) {
 
 	// The production receiver has not run yet. Deliver one event plus one FD
 	// afterwards and require EOF, checking that this signal did not consume it.
-	require(t, startup.SendEvent(peer, startup.Event{Kind: "workspace"}, dir))
+	require(t, startup.SendEvent(peer, startup.Event{Kind: startup.EventWorkspace}, dir))
 	require(t, peer.Close())
 	event, received, err := startup.ReceiveEvent(control)
 	require(t, err)
@@ -190,7 +190,7 @@ func observeReceiveSignal(t *testing.T) {
 	dir, e := os.Open(t.TempDir())
 	require(t, e)
 	defer dir.Close()
-	require(t, startup.SendEvent(peer, startup.Event{Kind: "workspace"}, dir))
+	require(t, startup.SendEvent(peer, startup.Event{Kind: startup.EventWorkspace}, dir))
 	require(t, peer.Close())
 	select {
 	case r := <-done:

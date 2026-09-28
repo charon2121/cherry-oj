@@ -198,7 +198,7 @@ func TestProcessReleaseRequiresReadyAndRejectsDuplicate(t *testing.T) {
 	if err = p.Release(); err == nil {
 		t.Fatal("GO before ready")
 	}
-	event := p.acceptEvent(received{event: startup.Event{Kind: "ready"}})
+	event := p.acceptEvent(received{event: startup.Event{Kind: startup.EventReady}})
 	if event.kind != processReady {
 		t.Fatal(event)
 	}
@@ -212,7 +212,7 @@ func TestProcessReleaseRequiresReadyAndRejectsDuplicate(t *testing.T) {
 	if err = p.Release(); err == nil {
 		t.Fatal("duplicate GO")
 	}
-	if event = p.acceptEvent(received{event: startup.Event{Kind: "ready"}}); event.kind != processFailure {
+	if event = p.acceptEvent(received{event: startup.Event{Kind: startup.EventReady}}); event.kind != processFailure {
 		t.Fatal("duplicate ready accepted", event)
 	}
 }
@@ -223,7 +223,7 @@ func TestProcessRejectsUnexpectedFileAndWaitsOnlyOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	event := p.acceptEvent(received{event: startup.Event{Kind: "ready"}, dir: ownFile(file)})
+	event := p.acceptEvent(received{event: startup.Event{Kind: startup.EventReady}, dir: ownFile(file)})
 	if event.kind != processFailure {
 		t.Fatal(event)
 	}
