@@ -5,6 +5,7 @@ package install
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -59,10 +60,10 @@ func (n *Installer) handleInstall(w http.ResponseWriter, r *http.Request) {
 	n.logger.Info("judge.node.install.started", "nodeId", n.registration.NodeID)
 	receipt, err := n.Install(r.Context(), m, &lastPart{part: part, multipart: reader})
 	if err != nil {
-		n.logger.Warn("judge.node.install.failed", "nodeId", n.registration.NodeID)
+		n.logger.Warn("judge.node.install.failed", "nodeId", n.registration.NodeID, "testDataVersionId", m.TestDataVersionID, "error", err)
 		code := "NODE_DATA_REJECTED"
 		status := 422
-		if err == errConflict {
+		if errors.Is(err, errConflict) {
 			code = "NODE_DATA_CONFLICT"
 			status = 409
 		}

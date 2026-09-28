@@ -68,7 +68,7 @@ func (n *Registry) Run(ctx context.Context) {
 			return
 		}
 		if err != nil {
-			n.logger.Warn("judge.node.control.failed", "nodeId", n.registration.NodeID, "operation", route)
+			n.logger.Warn("judge.node.control.failed", "nodeId", n.registration.NodeID, "operation", route, "error", err)
 			registered = false
 			delay = backoff
 			backoff = min(backoff*retryMultiplier, maxRetryDelay)

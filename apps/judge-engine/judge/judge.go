@@ -53,7 +53,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	if cfg.Judge.Node.Enabled {
 		judgeNode, err = node.New(cfg.Judge, env, logger)
 		if err != nil {
-			logger.Error("judge.node.init.failed")
+			logger.Error("judge.node.init.failed", "error", err)
 			return err
 		}
 		defer judgeNode.Close()
