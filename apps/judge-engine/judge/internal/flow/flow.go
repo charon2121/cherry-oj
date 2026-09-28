@@ -118,7 +118,7 @@ func (j *judgment) close(ctx context.Context) {
 }
 func loadCases(cfg config.Settings, req contract.JudgeRequest) ([]testcase.TestCase, error) {
 	if req.Mode.UsesVersionedTestdata() {
-		return testcase.Load(cfg.TestdataRoot, req.TestDataVersionID, testcase.Options{})
+		return testcase.Load(cfg.TestdataRoot, req.TestDataVersionID)
 	}
 	return testcase.FromSpecs(req.Cases), nil
 }

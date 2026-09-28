@@ -1,9 +1,7 @@
 package testcase_test
 
 import (
-	"bytes"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,7 +38,7 @@ func names(cases []testcase.TestCase) []string {
 }
 
 func TestLoad(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b", testcase.Options{})
+	cases, err := testcase.Load(root, "a-plus-b")
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -74,7 +72,7 @@ func TestLoad(t *testing.T) {
 // ★ 数值排序：目录里是 1/2/10，字符串排序会给出 1,10,2。
 // 顺序错了，「第几个点挂了」就是错的，用户照着去查只会更迷惑。
 func TestLoadSortsNumerically(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b", testcase.Options{})
+	cases, err := testcase.Load(root, "a-plus-b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +90,7 @@ func TestLoadSortsNumerically(t *testing.T) {
 
 // 数值名排在非数值名前面；非数值之间按字符串排
 func TestLoadMixedNames(t *testing.T) {
-	cases, err := testcase.Load(root, "mixed-names", testcase.Options{})
+	cases, err := testcase.Load(root, "mixed-names")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +103,7 @@ func TestLoadMixedNames(t *testing.T) {
 
 // Size 必须和文件真实大小一致 —— flow 靠它决定内联还是走 store ref
 func TestLoadBlobSize(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b", testcase.Options{})
+	cases, err := testcase.Load(root, "a-plus-b")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +136,7 @@ func TestLoadDoesNotReadContents(t *testing.T) {
 		}
 	}
 
-	cases, err := testcase.Load(filepath.Dir(dir), "probe", testcase.Options{})
+	cases, err := testcase.Load(filepath.Dir(dir), "probe")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,49 +154,23 @@ func TestLoadDoesNotReadContents(t *testing.T) {
 	}
 }
 
-// 落单的 .in 跳过，不影响其它测试点；落单的 .out 直接无视
-func TestLoadSkipsUnpaired(t *testing.T) {
-	cases, err := testcase.Load(root, "unpaired", testcase.Options{})
-	if err != nil {
-		t.Fatalf("有一个落单的 .in 不该让整次加载失败: %v", err)
+// ★ 落单的 .in 或 .out 让整次加载失败，而不是跳过：少判一个点，错解就可能拿到 AC，
+// 而且结论里完全看不出来。报错要列出缺的每个文件，运维才知道去补什么。
+func TestLoadRejectsUnpaired(t *testing.T) {
+	_, err := testcase.Load(root, "unpaired")
+	if err == nil {
+		t.Fatal("有落单的测试文件，加载却成功了")
 	}
-	if len(cases) != 1 || cases[0].Name != "1" {
-		t.Fatalf("got %v, want [1]", names(cases))
-	}
-}
-
-// ★ 跳过必须留痕。静默跳过的话，出题人少传一个 .out 就会变成
-// 「这题只有 9 个测试点」，而没有任何人知道——错解可能因此拿到 AC。
-func TestLoadWarnsOnUnpaired(t *testing.T) {
-	var buf bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn}))
-
-	if _, err := testcase.Load(root, "unpaired", testcase.Options{Logger: logger}); err != nil {
-		t.Fatal(err)
-	}
-
-	got := buf.String()
-	if got == "" {
-		t.Fatal("跳过测试点时没有发出任何警告")
-	}
-	// 警告里要能定位到是哪个数据版本的哪个点，否则运维看到也不知道去查什么
-	for _, want := range []string{"unpaired", "2"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("警告里缺少 %q，无法定位: %s", want, got)
+	for _, want := range []string{"unpaired", "2.out", "3.in"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("错误里缺少 %q，无法定位: %v", want, err)
 		}
-	}
-}
-
-// Logger 为 nil 时走 slog.Default()，不能 panic
-func TestLoadNilLoggerIsSafe(t *testing.T) {
-	if _, err := testcase.Load(root, "unpaired", testcase.Options{Logger: nil}); err != nil {
-		t.Fatal(err)
 	}
 }
 
 // 一个都配不上 → 报错，别静默返回空切片让上层以为「这题就是没测试点」
 func TestLoadNoPairsIsError(t *testing.T) {
-	if _, err := testcase.Load(root, "no-pairs", testcase.Options{}); err == nil {
+	if _, err := testcase.Load(root, "no-pairs"); err == nil {
 		t.Error("目录里没有任何配对的 .in/.out，应当报错")
 	}
 }
@@ -208,13 +180,13 @@ func TestLoadEmptyDirIsError(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := testcase.Load(filepath.Dir(dir), "empty", testcase.Options{}); err == nil {
+	if _, err := testcase.Load(filepath.Dir(dir), "empty"); err == nil {
 		t.Error("空目录应当报错")
 	}
 }
 
 func TestLoadMissingDirIsError(t *testing.T) {
-	if _, err := testcase.Load(root, "no-such-problem", testcase.Options{}); err == nil {
+	if _, err := testcase.Load(root, "no-such-problem"); err == nil {
 		t.Error("测试数据版本目录不存在应当报错")
 	}
 }
@@ -237,7 +209,7 @@ func TestLoadRejectsBadID(t *testing.T) {
 	}
 	for _, id := range bad {
 		t.Run(id, func(t *testing.T) {
-			if _, err := testcase.Load(root, id, testcase.Options{}); err == nil {
+			if _, err := testcase.Load(root, id); err == nil {
 				t.Errorf("Load(%q) 应当报错", id)
 			}
 		})
@@ -294,7 +266,7 @@ func TestFromSpecsClosuresAreIndependent(t *testing.T) {
 
 // Blob 可以被打开多次 —— flow 里重试或先探大小再读都需要这一点
 func TestBlobIsReopenable(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b", testcase.Options{})
+	cases, err := testcase.Load(root, "a-plus-b")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,6 @@ import (
 	"cherry-oj/judge-engine/internal/contract"
 	"fmt"
 	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,28 +23,12 @@ type TestCase struct {
 	Expected *Blob // nil = 只跑不比对（结果是 RAN）
 }
 
-// Options 是 Load 的可选参数。
+// Load 读取一个测试数据版本目录下成对的 name.in / name.out，按名字排序返回。
 //
-// 用结构体而不是裸参数，和 api.Options 保持一致：调用处
-// testcase.Load(root, id, testcase.Options{Logger: lg}) 一眼看懂在传什么。
-type Options struct {
-	// Logger：缺少 .out 之类的数据问题往这里报。nil = slog.Default()。
-	//
-	// 不直接用包级 log.Printf，是因为那样调用方接管不了——测试里没法断言
-	// 「确实警告了」，线上也没法把它并进结构化日志。
-	Logger *slog.Logger
-}
-
-func (o Options) logger() *slog.Logger {
-	if o.Logger != nil {
-		return o.Logger
-	}
-	return slog.Default()
-}
-
-func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, error) {
-	log := opts.logger()
-
+// 只要有一个 .in 缺 .out，或一个 .out 缺 .in，就整体报错，不跳过：少判一个点会让错解
+// 拿到 AC，而错误在结论里完全看不出来。节点安装测试数据时已经校验过成对，这里报错
+// 意味着目录被手工改动过，应当由人检查。
+func Load(testdataRoot, testDataVersionID string) ([]TestCase, error) {
 	if !idPattern.MatchString(testDataVersionID) {
 		return nil, fmt.Errorf("illegal testDataVersionId: %q", testDataVersionID)
 	}
@@ -56,43 +39,36 @@ func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, err
 		return nil, fmt.Errorf("read test data directory %q: %w", dir, err)
 	}
 
-	var cases []TestCase
+	present := map[string]bool{}
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".in") {
+		if !e.IsDir() {
+			present[e.Name()] = true
+		}
+	}
+	var cases []TestCase
+	var missing []string
+	for name := range present {
+		base, isIn := strings.CutSuffix(name, ".in")
+		if !isIn {
+			if base, isOut := strings.CutSuffix(name, ".out"); isOut && !present[base+".in"] {
+				missing = append(missing, base+".in")
+			}
 			continue
 		}
-		name := strings.TrimSuffix(e.Name(), ".in")
-		inPath := filepath.Join(dir, e.Name())
-		outPath := filepath.Join(dir, name+".out")
-
-		inInfo, err := os.Stat(inPath)
-		if err != nil {
-			return nil, fmt.Errorf("stat %q: %w", inPath, err)
+		if !present[base+".out"] {
+			missing = append(missing, base+".out")
+			continue
 		}
-		outInfo, err := os.Stat(outPath)
+		c, err := pair(dir, base)
 		if err != nil {
-			if os.IsNotExist(err) {
-				// 出题人少传一个文件是常见事故：跳过这个点，但必须留痕。
-				log.Warn("test case has no matching .out, skipped",
-					"testDataVersionID", testDataVersionID, "case", name, "expect", outPath)
-				continue
-			}
-			return nil, fmt.Errorf("stat %q: %w", outPath, err)
+			return nil, err
 		}
-
-		cases = append(cases, TestCase{
-			Name: name,
-			Input: Blob{
-				Size: inInfo.Size(),
-				Open: func() (io.ReadCloser, error) { return os.Open(inPath) },
-			},
-			Expected: &Blob{
-				Size: outInfo.Size(),
-				Open: func() (io.ReadCloser, error) { return os.Open(outPath) },
-			},
-		})
+		cases = append(cases, c)
 	}
-
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return nil, fmt.Errorf("test data version %q is missing %s", testDataVersionID, strings.Join(missing, ", "))
+	}
 	if len(cases) == 0 {
 		return nil, fmt.Errorf("test data version %q has no paired test cases", testDataVersionID)
 	}
@@ -100,6 +76,25 @@ func Load(testdataRoot, testDataVersionID string, opts Options) ([]TestCase, err
 		return lessName(cases[i].Name, cases[j].Name)
 	})
 	return cases, nil
+}
+
+// pair 只记录两个文件的大小和打开方式，不读内容：几十 MB 的测例乘以并发数会很快耗尽内存。
+func pair(dir, name string) (TestCase, error) {
+	inPath := filepath.Join(dir, name+".in")
+	outPath := filepath.Join(dir, name+".out")
+	inInfo, err := os.Stat(inPath)
+	if err != nil {
+		return TestCase{}, fmt.Errorf("stat %q: %w", inPath, err)
+	}
+	outInfo, err := os.Stat(outPath)
+	if err != nil {
+		return TestCase{}, fmt.Errorf("stat %q: %w", outPath, err)
+	}
+	return TestCase{
+		Name:     name,
+		Input:    Blob{Size: inInfo.Size(), Open: func() (io.ReadCloser, error) { return os.Open(inPath) }},
+		Expected: &Blob{Size: outInfo.Size(), Open: func() (io.ReadCloser, error) { return os.Open(outPath) }},
+	}, nil
 }
 
 // FromSpecs 把请求里内联的测例转成同样的 TestCase，供 trial 模式用。
