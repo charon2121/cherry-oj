@@ -16,14 +16,14 @@ import (
 	"syscall"
 )
 
-// init 接受的工作区硬边界；isolator 的实际工作区策略仍由 isolator 决定。
+// init 接受的工作区硬边界；P3 的实际工作区策略仍由 P3 决定。
 const (
 	maxWorkspaceBytes  = 128 << 20
 	maxWorkspaceInodes = 4096
 )
 
 // initSession 的资源仅由主 goroutine 关闭；监测 goroutine 只读，发现断连即退出 PID 1。
-// PID 1 退出时内核终止整个 namespace，外部 isolator 仍须 Stop/Wait 并验证组清空。
+// PID 1 退出时内核终止整个 namespace，外部的 P3 仍须 Stop/Wait 并验证组清空。
 type initSession struct {
 	control                *os.File
 	files                  map[*os.File]struct{}
@@ -108,7 +108,7 @@ func (s *initSession) run() error {
 	if err = s.close(src); err != nil {
 		return err
 	}
-	// isolator 需要持有目录 FD，才能在 namespace 停止后读取同一个工作区；
+	// P3 需要持有目录 FD，才能在 namespace 停止后读取同一个工作区；
 	// 传递宿主路径既不能定位该 tmpfs，也会扩大路径解析的权限边界。
 	if err = startup.SendEvent(s.control, startup.Event{Kind: "workspace"}, dir); err != nil {
 		return err
@@ -129,8 +129,8 @@ func (s *initSession) run() error {
 	return reapDescendants()
 }
 
-// isolator 消失或主动关断时退出 PID 1，让 namespace 中的进程失去存活条件；
-// 外部 isolator 存活时仍必须 Stop/Wait，不能把该兜底当作已完成回收。
+// P3 消失或主动关断时退出 PID 1，让 namespace 中的进程失去存活条件；
+// 外部的 P3 存活时仍必须 Stop/Wait，不能把该兜底当作已完成回收。
 func exitOnDisconnect(f *os.File) {
 	var b [1]byte
 	_, _ = f.Read(b[:])
@@ -169,8 +169,8 @@ func (s *initSession) reportExit() error {
 }
 
 func reapDescendants() error {
-	// 不与 cmd.Wait 争抢主进程；报告后等 isolator 停止整组，期间回收孤儿。
-	// 无子进程时仍不能主动退出 PID 1，否则 isolator 可能先观察到 init 丢失而非退出事件。
+	// 不与 cmd.Wait 争抢主进程；报告后等 P3 停止整组，期间回收孤儿。
+	// 无子进程时仍不能主动退出 PID 1，否则 P3 可能先观察到 init 丢失而非退出事件。
 	for {
 		var ws syscall.WaitStatus
 		_, err := syscall.Wait4(-1, &ws, 0, nil)
@@ -178,7 +178,7 @@ func reapDescendants() error {
 		case err == nil, errors.Is(err, syscall.EINTR):
 			continue
 		case errors.Is(err, syscall.ECHILD):
-			select {} // 存活管道仍在监测 isolator。
+			select {} // 存活管道仍在监测 P3。
 		default:
 			return fmt.Errorf("reclaim namespace descendants: %w", err)
 		}

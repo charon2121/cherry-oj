@@ -1,6 +1,8 @@
-// Package sandbox 是执行服务的装配入口：接收执行请求、限制容量、把命令交给隔离后端。
+// Package sandbox 是对 judge 提供沙箱执行的服务门面：负责 HTTP 协议、blob 存储、排队、
+// 限额归一化，以及把执行事实归类成 Status。
 //
-// 本服务以非特权身份运行，建立隔离环境所需的特权操作全部由 isolator 持有。
+// 隔离本身不在这里做：本服务以非特权身份运行，namespace、cgroup、降权与 seccomp 全部由
+// isolator 完成（linux 后端）。devhost 后端不提供任何隔离，只用于开发调试。
 //
 // 引用边界：
 //

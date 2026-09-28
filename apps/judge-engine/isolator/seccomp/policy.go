@@ -1,6 +1,5 @@
 //go:build linux && amd64
 
-// Package policy 构造固定版本的 seccomp BPF。调用者不能通过请求扩展规则。
 package seccomp
 
 import (

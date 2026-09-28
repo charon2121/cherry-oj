@@ -1,6 +1,5 @@
 //go:build linux && amd64
 
-// Package privilege 放弃进程的全部特权，P4 与 P5 都用它。
 package privilege
 
 import (

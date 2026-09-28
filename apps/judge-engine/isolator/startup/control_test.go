@@ -45,7 +45,7 @@ func TestControlFDIsCloseOnExec(t *testing.T) {
 	}
 }
 
-// The isolator cancels blocked control I/O using shutdown before closing os.File.
+// P3 cancels blocked control I/O using shutdown before closing os.File.
 // Pinning a descriptor during recvmsg/sendmsg must not break this wakeup path.
 func TestControlShutdownUnblocksIO(t *testing.T) {
 	for _, mode := range []string{"receive", "send"} {

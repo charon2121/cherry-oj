@@ -1,6 +1,5 @@
 //go:build linux && amd64
 
-// Package execstage 是 P5：降权、安装 seccomp、完成 READY/GO 握手后 execve 用户命令。
 package execstage
 
 import (
