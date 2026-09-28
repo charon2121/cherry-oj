@@ -26,7 +26,7 @@ judging-service ──HTTP /judge──▶ judge ──HTTP /blobs、/run──�
 | 目录 | 一句话 |
 |---|---|
 | [cmd/](cmd) | 三个 `main`；[cmd/isolator](cmd/isolator/main.go) 在最前面按参数分流 P3/P4/P5 |
-| [judge/](judge) | 编排一次判题：上传源码、编译、逐点运行、比对、汇总 Verdict；入口 [flow](judge/internal/flow/flow.go) |
+| [judge/](judge) | 编排一次判题：上传源码、编译、逐点运行、比对、汇总 Verdict；入口 [flow](judge/flow/flow.go) |
 | [sandbox/](sandbox) | 对 judge 提供沙箱执行：blob、排队、限额归一化、把执行事实归类成 Status |
 | [isolator/](isolator/doc.go) | 特权隔离执行，按进程角色分包 ↓ |
 | · [daemon](isolator/daemon/doc.go) | P3：socket、认证、槽位、启动自检与恢复 |
@@ -35,12 +35,13 @@ judging-service ──HTTP /judge──▶ judge ──HTTP /blobs、/run──�
 | · [initproc](isolator/initproc/doc.go) | P4：rootfs、写入输入、启动并放行 P5、上报退出 |
 | · [execstage](isolator/execstage/doc.go) | P5：rlimit、降权、seccomp、execve |
 | · privilege / seccomp / cgroup | 降权步骤 / 过滤策略 / 资源组与计量 |
+| [layout_test.go](layout_test.go) | 三棵子树之间的引用边界：每个服务二进制只能链接自己的子树和 internal/ |
 | [internal/](internal) | 模块内共享：[contract](internal/contract)（judge↔sandbox）、[hostexec](internal/hostexec)（sandbox↔isolator） |
 
 ## 从哪里开始读
 
-- 一条命令怎么执行：sandbox 的 [api/run.go](sandbox/internal/api/run.go) → [runner](sandbox/internal/runner/runner.go)
-  → [backend/isolated.go](sandbox/internal/backend/isolated.go) → [hostexec/client](internal/hostexec/client/client.go)
+- 一条命令怎么执行：sandbox 的 [api/run.go](sandbox/api/run.go) → [runner](sandbox/runner/runner.go)
+  → [backend/isolated.go](sandbox/backend/isolated.go) → [hostexec/client](internal/hostexec/client/client.go)
   → isolator 的 [daemon/server.go](isolator/daemon/server.go) → [execution](isolator/execution/doc.go)。
 - 三个进程怎么握手：[startup/doc.go](isolator/startup/doc.go)，对照 [initproc/payload.go](isolator/initproc/payload.go)
   和 [execstage/exec.go](isolator/execstage/exec.go)。

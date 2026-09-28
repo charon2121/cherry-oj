@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"cherry-oj/judge-engine/sandbox/internal/backend"
+	"cherry-oj/judge-engine/sandbox/backend"
 )
 
 func TestBackendSelectionNeverFallsBack(t *testing.T) {

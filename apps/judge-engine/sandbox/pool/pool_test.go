@@ -1,0 +1,181 @@
+package pool
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log/slog"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/sandbox/backend"
+	"cherry-oj/judge-engine/sandbox/runner"
+	"cherry-oj/judge-engine/sandbox/store"
+)
+
+func newTestPool(t *testing.T, parallelism int) *Pool {
+	t.Helper()
+	st, err := store.NewDiskStoreWithRoot(t.TempDir() + "/store")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	p, err := New(runner.New(backend.NewDevHost(), st), Options{Parallelism: parallelism, QueueSize: 32})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { p.Close() })
+	return p
+}
+
+func quickLimits() contract.Limits {
+	return contract.Limits{
+		ClockNs:        int64(2 * time.Second),
+		StdoutMaxBytes: 65536,
+		StderrMaxBytes: 65536,
+	}
+}
+
+func TestParallelismIsCapped(t *testing.T) {
+	const limit, requests = 2, 20
+
+	p := newTestPool(t, limit)
+
+	var peak atomic.Int64
+	errCh := make(chan error, requests)
+	stop := make(chan struct{})
+
+	var sampler sync.WaitGroup
+	sampler.Go(func() {
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				// len(sem) = 已占用的令牌 = 真正在跑的并发数（不含还在排队的）
+				n := int64(len(p.sem))
+				for {
+					old := peak.Load()
+					if n <= old {
+						break
+					}
+					if peak.CompareAndSwap(old, n) {
+						break
+					}
+				}
+				time.Sleep(time.Millisecond)
+			}
+		}
+	})
+
+	var wg sync.WaitGroup
+	for range requests {
+		wg.Go(func() {
+			_, err := p.Run(context.Background(), contract.RunSpec{
+				Command: []string{"/bin/sh", "-c", "sleep 0.05"},
+				Limits:  quickLimits(),
+			})
+			if err != nil {
+				errCh <- err // 子 goroutine 里不能调 t.Fatal
+			}
+		})
+	}
+
+	wg.Wait()
+	close(stop)
+	sampler.Wait()
+	close(errCh)
+	for err := range errCh {
+		t.Fatal(err) // 回到测试 goroutine 再报
+	}
+
+	if got := peak.Load(); got > limit {
+		t.Errorf("同时在跑 %d 个，超过上限 %d", got, limit)
+	}
+	if peak.Load() < 2 {
+		t.Errorf("峰值只有 %d，根本没并发起来，这个测试没测到东西", peak.Load())
+	}
+}
+
+func TestRunReleasesToken(t *testing.T) {
+	const parallelism = 2
+	p := newTestPool(t, parallelism)
+
+	// 串行跑超过并发上限；令牌漏还的话，第 parallelism+1 次会永久卡住
+	for i := range parallelism + 5 {
+		res, err := p.Run(context.Background(), contract.RunSpec{
+			Command: []string{"/bin/echo", "ok"},
+			Limits:  quickLimits(),
+		})
+		if err != nil {
+			t.Fatalf("run %d: %v", i, err)
+		}
+		if res.Status != contract.StatusOK {
+			t.Fatalf("run %d: status=%s err=%s", i, res.Status, res.Error)
+		}
+	}
+}
+
+// 每次执行都在自己的工作区里进行：上一次留下的文件不能出现在下一次。
+func TestEachExecutionStartsFromACleanWorkspace(t *testing.T) {
+	// parallelism=1：两次顺序执行也必须拥有全新工作区。
+	p := newTestPool(t, 1)
+
+	res, err := p.Run(context.Background(), contract.RunSpec{
+		Command: []string{"/bin/sh", "-c", "echo leftover > marker"},
+		Limits:  quickLimits(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != contract.StatusOK {
+		t.Fatalf("status=%s err=%s", res.Status, res.Error)
+	}
+
+	// 上一次的marker不能出现在新工作区
+	res, err = p.Run(context.Background(), contract.RunSpec{
+		Command: []string{"/bin/sh", "-c", "test ! -e marker"},
+		Limits:  quickLimits(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != contract.StatusOK {
+		t.Fatalf("marker 泄漏到新工作区status=%s stderr=%q", res.Status, res.Stderr)
+	}
+}
+
+type cleanupFailingExecutor struct{}
+
+func (cleanupFailingExecutor) Run(context.Context, contract.RunSpec) (contract.RunResult, error) {
+	return contract.RunResult{Status: contract.StatusInternalError}, errors.New("workspace not reclaimed")
+}
+
+// 回收未确认后池停止接单，之后每个请求都是 503；原因只在这条日志里，不能静默。
+func TestCleanupFailureStopsPoolAndIsLogged(t *testing.T) {
+	var logs bytes.Buffer
+	p, err := New(cleanupFailingExecutor{}, Options{Parallelism: 1, QueueSize: 1,
+		Logger: slog.New(slog.NewJSONHandler(&logs, nil))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+	if _, err := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}}); err != nil {
+		t.Fatalf("回收失败不该作为本次请求的错误返回: %v", err)
+	}
+	if _, err := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}}); !errors.Is(err, ErrClosed) {
+		t.Fatalf("回收未确认后仍在接单: %v", err)
+	}
+	out := logs.String()
+	if !strings.Contains(out, `"msg":"sandbox.pool.stopped"`) || !strings.Contains(out, "workspace not reclaimed") {
+		t.Fatalf("停止接单没有留下原因: %s", out)
+	}
+}

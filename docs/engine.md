@@ -83,37 +83,29 @@ isolator 是三个进程里唯一持有特权的。它和 sandbox 之间的那�
 服务之间通过协议交互，各自实现保持私有；同机部署也不改变这个边界。独立二进制让它们能分别
 启动、退出与排障，不能据此推导出当前节点模式支持跨主机部署。
 
-### 1.4 边界由编译器把守，不是由约定
+### 1.4 边界由测试把守，不是由约定
 
-Go 有一条规则：**`internal/` 目录下的包，只有它的父目录子树能 import。**
+三棵服务子树 `judge/`、`sandbox/`、`isolator/` 都不放在 `internal/` 下，少一层目录，读代码时
+路径更短；只有模块顶层的 `internal/`（协议定义与平台设施）保留，给三个服务共用。
 
-这条规则把上面两条边界变成**编译期错误**：
+代价是编译器不再拦「一个服务引用另一个服务的实现」。这条边界改由模块根 `layout_test.go` 的
+`TestServiceBinariesLinkOnlyTheirOwnSubtree` 守住：它用 `go list -deps` 取出每个服务二进制的
+完整依赖闭包（间接引用也算），逐个核对：
 
-```
-judge/internal/...     ← 只有 judge/ 子树能 import
-sandbox/internal/...   ← 只有 sandbox/ 子树能 import
-internal/...           ← 整个 module 都能 import（顶层共享）
-```
+| 二进制 | 不得链接 | 为什么 |
+|---|---|---|
+| `cmd/judge` | `sandbox/…`、`isolator/…` | judge 只能通过 HTTP 用 sandbox；非特权进程不能链接特权实现 |
+| `cmd/sandbox` | `judge/…`、`isolator/…` | sandbox 不理解判题；非特权进程不能链接特权实现 |
+| `cmd/isolator` | `judge/…`、`sandbox/…` | 特权进程不理解判题，也不管排队与存储 |
 
-于是：
-
-| 想写的 import | 结果 |
-|---|---|
-| judge 里 import `sandbox/internal/pool` | **编译失败**。judge 只能通过 HTTP 用 sandbox |
-| isolator 里 import `judge/internal/flow` | **编译失败**。特权进程不理解判题 |
-| `cmd/judge` 里 import `judge/internal/api` | **编译失败**。入口只能调 `judge.Run` |
-| sandbox 里 import `isolator/daemon` | **测试失败**。见下 |
-
-特权子树 `isolator/` 是例外：它不放在 `internal/` 下，少一层目录，`cmd/isolator`
-直接按三个进程角色调用 `daemon`、`initproc`、`execstage`，不需要门面文件。代价是编译器不再拦
-「非特权进程引用特权实现」，改由 `isolator` 包的 `TestUnprivilegedBinariesDoNotLinkIsolator`
-用 `go list -deps` 检查 sandbox 与 judge 二进制的完整依赖闭包，间接引用也算。
+测试同时断言每个二进制确实依赖自己的子树，防止查询本身失效、返回空集而「永远通过」。
+它按 linux/amd64 解析依赖，在 macOS 上也能跑，并登记在 CI 的必跑清单里。
 
 `cmd/judge`、`cmd/sandbox` 只做**解析 flag、读配置、建 logger、接信号**，然后调用
-`judge.Run` / `sandbox.Run`。一旦 `main` 能直接摸到内部包，「服务的装配顺序」就会慢慢渗进
-入口文件，而入口文件是最没人读的地方。
+`judge.Run` / `sandbox.Run`；`cmd/isolator` 先按参数把 P4、P5 分流出去，再进入 `daemon.Serve`。
+「服务的装配顺序」留在各自的根包里，不渗进最没人读的入口文件。
 
-> **这一条是整份设计的地基**：边界写在注释里靠自觉，写成目录结构靠编译器。
+> **这一条是整份设计的地基**：边界写在注释里靠自觉，写成可执行的检查才靠得住。
 
 ### 1.5 为什么按服务切，而不是按「代码种类」切
 
@@ -130,7 +122,7 @@ internal/...           ← 整个 module 都能 import（顶层共享）
   `internal/` 下的兄弟目录。
 
 按服务切之后，这三类问题一起消失：配置跟着服务走，`container` 变成一次性的
-`backend.Execute`（见 §6.3），跨服务 import 变成编译错误。
+`backend.Execute`（见 §6.3），跨服务引用由依赖检查拦下（§1.4）。
 
 ---
 
@@ -142,7 +134,7 @@ apps/judge-engine/
 ├── cmd/
 │   ├── judge/main.go           # 只做 flag + 配置 + logger + 信号，然后 judge.Run
 │   ├── sandbox/main.go         #   同上 → sandbox.Run
-│   └── isolator/main.go  #   按进程角色分流 → initproc.Run / execstage.Run / daemon.Serve
+│   └── isolator/main.go        #   按进程角色分流 → initproc.Run / execstage.Run / daemon.Serve
 │
 ├── internal/                   # ★ 整个 module 共享：只放「协议与平台设施」
 │   ├── contract/               #   judge ↔ sandbox 的 HTTP DTO、Limits、Verdict/Status
@@ -153,40 +145,40 @@ apps/judge-engine/
 │       ├── logging/            #   slog 装配
 │       └── tracing/            #   trace 传播
 │
+├── layout_test.go              # 三棵子树之间的引用边界（见 §1.4）
+│
 ├── judge/                      # ★ 服务一：判题编排
 │   ├── doc.go                  #   本子树的职责与引用边界
 │   ├── judge.go                #   Run(ctx, Config, *slog.Logger) error
 │   ├── config.go
-│   └── internal/
-│       ├── api/                #   POST /judge、GET /version
-│       ├── flow/               #   一次判题：编译 → 逐点跑 → 比对 → 汇总
-│       ├── checker/            #   单遍流式比对选手输出与标准答案
-│       ├── language/           #   某语言怎么编译、产物叫什么、怎么运行
-│       ├── testcase/           #   从磁盘读某个 testDataVersionId 的测试点
-│       ├── sandboxclient/      #   给 sandbox 打电话的 HTTP 客户端
-│       ├── config/             #   judge 自己的配置与校验
-│       └── node/               #   节点身份与数据交付（见 §5.5）
-│           ├── identity/       #     环境指纹怎么算
-│           ├── registry/       #     向 judging-service 注册与心跳
-│           ├── install/        #     接收测试数据并原子落盘
-│           ├── probe/          #     探测执行环境、校验原生部署
-│           └── wire/           #     严格 JSON 解码
+│   ├── api/                    #   POST /judge、GET /version
+│   ├── flow/                   #   一次判题：编译 → 逐点跑 → 比对 → 汇总
+│   ├── checker/                #   单遍流式比对选手输出与标准答案
+│   ├── language/               #   某语言怎么编译、产物叫什么、怎么运行
+│   ├── testcase/               #   从磁盘读某个 testDataVersionId 的测试点
+│   ├── sandboxclient/          #   给 sandbox 打电话的 HTTP 客户端
+│   ├── config/                 #   judge 自己的配置与校验
+│   └── node/                   #   节点身份与数据交付（见 §5.5）
+│       ├── identity/           #     环境指纹怎么算
+│       ├── registry/           #     向 judging-service 注册与心跳
+│       ├── install/            #     接收测试数据并原子落盘
+│       ├── probe/              #     探测执行环境、校验原生部署
+│       └── wire/               #     严格 JSON 解码
 │
 ├── sandbox/                    # ★ 服务二：执行服务（非 root）
 │   ├── doc.go
 │   ├── sandbox.go              #   Run(...)
 │   ├── config.go
 │   ├── budget.go               #   跨层期限断言（见 §8）
-│   └── internal/
-│       ├── api/                #   POST /run、/blobs、GET /version
-│       ├── pool/               #   并发上限、排队、回收未确认时停止接单
-│       ├── runner/             #   一次执行的完整生命周期与限额归一化
-│       ├── backend/            #   ★ 可替换边界：linux / devhost
-│       ├── workspace/          #   每次执行独占的临时工作区
-│       └── store/              #   ref ↔ 磁盘文件
+│   ├── api/                    #   POST /run、/blobs、GET /version
+│   ├── pool/                   #   并发上限、排队、回收未确认时停止接单
+│   ├── runner/                 #   一次执行的完整生命周期与限额归一化
+│   ├── backend/                #   ★ 可替换边界：linux / devhost
+│   ├── workspace/              #   每次执行独占的临时工作区
+│   └── store/                  #   ref ↔ 磁盘文件
 │
 └── isolator/                   # ★ 服务三：特权执行助手（root），按进程角色切包
-    ├── doc.go                  #   引用边界；boundary_test.go 守住它
+    ├── doc.go                  #   本子树的职责与引用边界
     ├── daemon/                 #   P3 常驻：socket、对端认证、槽位、配置、残留回收、安装自检
     ├── execution/              #   P3 内一次执行：计划、状态机、监督、结论、回收、交付
     ├── startup/                #   P3↔P4↔P5 握手协议：FD 约定、事件、READY/GO
@@ -206,7 +198,7 @@ apps/judge-engine/
 （配置加载、日志、trace）。
 
 **不可以放**：任何一个服务的业务逻辑。一旦某个服务的实现搬进顶层 `internal/`，它就同时对另外两个
-服务可见——§1.4 建立的编译期边界，就是从这里被绕过去的。
+服务可见——§1.4 的边界检查只看服务子树之间的引用，顶层 `internal/` 恰好是它放行的地方。
 
 判断方法很简单：**问「另外两个服务读它是合理的吗」**。`hostexec` 定义 sandbox 和 isolator 的共同
 词汇，judge 读它没意义但也无害；而 `flow` 如果搬上去，isolator 就能 import 判题逻辑了。
@@ -396,7 +388,7 @@ Python 等解释型：通常 **没有** 编译那一次 `/run`，上传后直接
 #### `flow` 的接口由消费方定义
 
 ```go
-// judge/internal/flow
+// judge/flow
 type Sandbox interface {
     Upload(context.Context, io.Reader) (string, error)
     Run(context.Context, contract.RunSpec) (contract.RunResult, error)
@@ -471,7 +463,7 @@ sandbox 版本，以及运行时摘要（cgroup 配额与 sandbox 二进制摘�
 ### 6.3 `Backend`：一次性执行接口
 
 ```go
-// sandbox/internal/backend
+// sandbox/backend
 type Job struct {
     Command []string
     Env     []string
@@ -767,7 +759,7 @@ server              judge                sandbox              isolator(root)
 
 1. **信任边界**：特权只在 isolator 里；sandbox 和 judge 都是普通用户进程。
 2. **部署边界**：三个二进制各自独立交付，彼此只认协议，不认对方的实现。
-3. **编译期强制**：上面两条写成 `internal/` 目录结构，越界就编译失败——不靠 code review 把关。
+3. **可执行的边界**：上面两条写成依赖检查（`layout_test.go`），越界就测试失败——不靠 code review 把关。
 4. **一次性执行**：没有可复用的执行环境对象，「只能执行一次」由「没有对象可复用」保证。
 5. **结论与事实分离**：isolator 给事实，runner 给 status，judge 给 verdict；三层谁都不越权。
 6. **接口由消费方定义**：`flow.Sandbox`、`probe.Sandbox` 声明在使用方，实现不反向依赖。

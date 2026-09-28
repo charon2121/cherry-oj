@@ -11,11 +11,11 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/platform/tracing"
-	"cherry-oj/judge-engine/judge/internal/api"
-	judgeconfig "cherry-oj/judge-engine/judge/internal/config"
-	"cherry-oj/judge-engine/judge/internal/flow"
-	"cherry-oj/judge-engine/judge/internal/node"
-	"cherry-oj/judge-engine/judge/internal/sandboxclient"
+	"cherry-oj/judge-engine/judge/api"
+	judgeconfig "cherry-oj/judge-engine/judge/config"
+	"cherry-oj/judge-engine/judge/flow"
+	"cherry-oj/judge-engine/judge/node"
+	"cherry-oj/judge-engine/judge/sandboxclient"
 )
 
 // HTTP 连接的防护期限，与 sandbox 取值一致；不含写期限，理由见 Run。

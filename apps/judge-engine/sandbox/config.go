@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/platform/config"
-	"cherry-oj/judge-engine/sandbox/internal/backend"
+	"cherry-oj/judge-engine/sandbox/backend"
 )
 
 // Config 是 sandbox 服务的全部运行配置。

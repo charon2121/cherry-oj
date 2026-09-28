@@ -1,8 +1,8 @@
 package judge
 
-import judgeconfig "cherry-oj/judge-engine/judge/internal/config"
+import judgeconfig "cherry-oj/judge-engine/judge/config"
 
-// Config 是 judge 服务的运行配置。真正的字段定义在 judge/internal/config：
+// Config 是 judge 服务的运行配置。真正的字段定义在 judge/config：
 // flow 与 node 也要读它，而它们不能引用本包（那会构成循环引用）。
 type Config = judgeconfig.Config
 

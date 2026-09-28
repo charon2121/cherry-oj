@@ -1117,6 +1117,9 @@
     }
   ],
   "requiredGoTests": {
+    "cherry-oj/judge-engine": [
+      "TestServiceBinariesLinkOnlyTheirOwnSubtree"
+    ],
     "cherry-oj/judge-engine/internal/hostexec": [
       "TestCompilerCommandNamesPreservePathBoundary",
       "TestFramePreservesFollowingStream",
@@ -1133,9 +1136,6 @@
       "TestClientRejectsUnrequestedArtifact",
       "TestClientStreamsInputsAndOutputs",
       "TestClientWaitsForConnectionRelease"
-    ],
-    "cherry-oj/judge-engine/isolator": [
-      "TestUnprivilegedBinariesDoNotLinkIsolator"
     ],
     "cherry-oj/judge-engine/isolator/cgroup": [
       "TestCleanupTimeoutCanRetry",

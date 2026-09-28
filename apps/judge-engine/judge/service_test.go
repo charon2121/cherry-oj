@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
-	judgeconfig "cherry-oj/judge-engine/judge/internal/config"
+	judgeconfig "cherry-oj/judge-engine/judge/config"
 )
 
 type unreachableSandbox struct{}
