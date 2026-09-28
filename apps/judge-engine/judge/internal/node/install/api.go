@@ -90,7 +90,7 @@ func (r *lastPart) Read(b []byte) (int, error) {
 	count, err := r.part.Read(b)
 	if err == io.EOF {
 		if _, e := r.multipart.NextPart(); e != io.EOF {
-			return count, errRejected
+			return count, rejected("the archive must be the last multipart part")
 		}
 	}
 	return count, err

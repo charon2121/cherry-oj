@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
@@ -205,6 +206,28 @@ func TestInstallRejectsLimitsAndArchiveHash(t *testing.T) {
 			entries, err := os.ReadDir(root)
 			if err != nil || len(entries) != 1 {
 				t.Fatalf("leftovers: %v %v", entries, err)
+			}
+		})
+	}
+}
+
+// 被拒时对外仍是 NODE_DATA_REJECTED，但错误里要带上违反的是哪一条规则，
+// 服务端日志才能告诉管理员该怎么改测试数据包。
+func TestRejectionNamesTheViolatedRule(t *testing.T) {
+	for _, tc := range []struct {
+		name, reason string
+		names        []string
+	}{
+		{"nested", "nested more than one directory deep", []string{"data/nested/1.in", "data/nested/1.out"}},
+		{"mixed", "more than one top-level directory", []string{"data/1.in", "1.out"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n, _ := newNode(t, t.TempDir())
+			defer n.Close()
+			b := archive(t, tc.names, [][]byte{[]byte("1 2\n"), []byte("3\n")}, false)
+			_, err := n.Install(context.Background(), metadata(n, b), bytes.NewReader(b))
+			if err == nil || !strings.Contains(err.Error(), "NODE_DATA_REJECTED") || !strings.Contains(err.Error(), tc.reason) {
+				t.Fatalf("拒绝原因缺失: %v", err)
 			}
 		})
 	}
