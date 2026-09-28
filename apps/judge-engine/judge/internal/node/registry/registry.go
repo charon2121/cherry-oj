@@ -39,11 +39,13 @@ func New(cfg config.Node, registration contract.NodeRegistration, logger *slog.L
 }
 
 const (
-	initialRetryDelay     = time.Second
-	retryMultiplier       = 2
-	maxRetryDelay         = 30 * time.Second
-	leaseRenewalDivisor   = 3
-	minLeaseDuration      = 3 * time.Millisecond
+	initialRetryDelay   = time.Second
+	retryMultiplier     = 2
+	maxRetryDelay       = 30 * time.Second
+	leaseRenewalDivisor = 3
+	// 续期间隔是租约的 1/3。控制面实际下发 35 s；下限防止控制面出错返回极短租约时，
+	// 节点以毫秒级频率发心跳压垮控制面。契约只要求 ≥ 1 ns，这里更严。
+	minLeaseDuration      = time.Second
 	maxLeaseDuration      = 300 * time.Second
 	maxLeaseResponseBytes = 4096
 )

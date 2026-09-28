@@ -80,3 +80,24 @@ func TestOldSessionConflictStopsRegistration(t *testing.T) {
 		t.Fatal("old session kept retrying")
 	}
 }
+
+// 租约短于 1 s 视为无效，不能据此把心跳间隔压到毫秒级。
+func TestLeaseShorterThanOneSecondIsRejected(t *testing.T) {
+	for _, tc := range []struct {
+		duration time.Duration
+		ok       bool
+	}{{999 * time.Millisecond, false}, {time.Second, true}} {
+		n := testRegistry(t)
+		n.client = &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
+			b, err := json.Marshal(contract.NodeLease{NodeID: n.registration.NodeID,
+				EnvironmentID: n.registration.SessionID, LeaseDurationNs: tc.duration.Nanoseconds()})
+			if err != nil {
+				t.Fatal(err)
+			}
+			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(string(b)))}, nil
+		})}
+		if _, err := n.exchange(context.Background(), "register", n.registration); (err == nil) != tc.ok {
+			t.Errorf("lease=%s err=%v", tc.duration, err)
+		}
+	}
+}
