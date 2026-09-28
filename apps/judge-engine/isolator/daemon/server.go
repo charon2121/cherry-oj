@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,12 +29,16 @@ const (
 
 // Serve 只接受配置中固定 UID，连接占用并发槽直到产物交付结束；超额立即拒绝。
 // 调用者必须用 systemd 托管，SIGKILL 托底不能依赖 Go defer。
-func Serve(ctx context.Context, c Config) (result error) {
+// logger 记录被拒绝的连接、协议错误与回收失败；nil 时使用 slog.Default。
+func Serve(ctx context.Context, c Config, logger *slog.Logger) (result error) {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	executable, err := checkInstallation(c)
 	if err != nil {
 		return err
 	}
-	s := &service{config: c, executable: executable, slots: availableSlots(c.Parallelism), fatal: make(chan error, 1)}
+	s := &service{config: c, executable: executable, slots: availableSlots(c.Parallelism), fatal: make(chan error, 1), log: logger}
 	return s.run(ctx)
 }
 
@@ -45,6 +50,7 @@ type service struct {
 	listener   *net.UnixListener
 	slots      chan int
 	fatal      chan error
+	log        *slog.Logger
 }
 
 // run 依次完成启动准备、开放 socket、接单；返回前关闭监听、资源组管理器并释放服务锁。
@@ -121,6 +127,7 @@ func (s *service) listen() error {
 		return errors.Join(err, listener.Close())
 	}
 	s.listener = listener
+	s.log.Info("isolator.listening", "socket", c.SocketPath, "slots", c.Parallelism)
 	return nil
 }
 
@@ -146,6 +153,7 @@ func (s *service) accept(ctx context.Context) error {
 			return err
 		}
 		if err = checkPeer(conn, s.config.ServiceUID); err != nil {
+			s.log.Warn("isolator.connection.rejected", "reason", "peer", "error", err)
 			conn.Close()
 			continue
 		}
@@ -153,6 +161,8 @@ func (s *service) accept(ctx context.Context) error {
 		select {
 		case slot = <-s.slots:
 		default:
+			// 客户端只会看到 EOF；这里是区分「槽位已满」与其他断连的唯一记录。
+			s.log.Warn("isolator.connection.rejected", "reason", "no-free-slot", "slots", s.config.Parallelism)
 			conn.Close()
 			continue
 		}
@@ -162,6 +172,7 @@ func (s *service) accept(ctx context.Context) error {
 			serveInSlot(conn, s.slots, slot, func() {
 				// 回收失败会让槽位是否可复用变得不确定，先停接单再退出当前处理函数。
 				if err := s.serveConn(serveCtx, conn, slot); err != nil {
+					s.log.Error("isolator.reclaim.failed", "slot", slot, "error", err)
 					select {
 					case s.fatal <- err:
 					default:
@@ -196,18 +207,23 @@ func checkPeer(c *net.UnixConn, uid int) error {
 // 交付失败仍由 defer 关闭产物，serveInSlot 最后归还槽位并关闭连接。
 func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (fatal error) {
 	// 先限制请求头读取；校验通过后才设置后续会话期限（见 hostexec.SessionTimeout）。
-	if err := conn.SetDeadline(time.Now().Add(requestHeaderTimeout)); err != nil {
+	// 协议错误只关闭这条连接，不影响服务；请求内容不进日志。
+	invalid := func(err error) error {
+		s.log.Warn("isolator.request.invalid", "slot", slot, "error", err)
 		return nil
+	}
+	if err := conn.SetDeadline(time.Now().Add(requestHeaderTimeout)); err != nil {
+		return invalid(err)
 	}
 	var req hostexec.Request
 	if err := hostexec.ReadFrame(conn, &req, hostexec.MaxFrameBytes); err != nil {
-		return nil
+		return invalid(err)
 	}
-	if req.Validate() != nil {
-		return nil
+	if err := req.Validate(); err != nil {
+		return invalid(err)
 	}
 	if err := conn.SetDeadline(time.Now().Add(hostexec.SessionTimeout)); err != nil {
-		return nil
+		return invalid(err)
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -224,10 +240,13 @@ func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (
 	}
 	// 读取侧超时不妨碍给仍连接的调用方返回已取消/失败的资源事实。
 	_ = conn.SetWriteDeadline(time.Now().Add(deliveryTimeout))
+	// 交付失败通常是客户端已断开（请求被取消），执行本身已经回收，只记录不停服。
 	if err := hostexec.WriteFrame(conn, delivery.Result, hostexec.MaxResultFrameBytes); err != nil {
+		s.log.Info("isolator.delivery.interrupted", "slot", slot, "error", err)
 		return fatal
 	}
 	if err := delivery.WriteFiles(conn); err != nil {
+		s.log.Info("isolator.delivery.interrupted", "slot", slot, "error", err)
 		return fatal
 	}
 	if err := delivery.Close(); err != nil {

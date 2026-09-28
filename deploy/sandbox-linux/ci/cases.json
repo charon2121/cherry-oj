@@ -1152,6 +1152,7 @@
       "TestClientRejectsResetAfterCompletion",
       "TestConfigRejectsPrivilegeConfusion",
       "TestConnectionEOFReturnsCleanSlot",
+      "TestInvalidRequestIsLoggedWithoutStoppingService",
       "TestSlotIdentityRange",
       "TestSlowDeliveryHoldsSlotUntilDeadline"
     ],

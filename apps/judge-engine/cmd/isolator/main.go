@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"cherry-oj/judge-engine/internal/platform/logging"
 	"cherry-oj/judge-engine/isolator/daemon"
 	"cherry-oj/judge-engine/isolator/execstage"
 	"cherry-oj/judge-engine/isolator/initproc"
@@ -42,8 +43,10 @@ func main() {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-	if err = daemon.Serve(ctx, c); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	// 日志写 stderr，由 systemd journal 收集；isolator 的配置由 root 管理，不另设日志路径。
+	logger := logging.Console("isolator", os.Stderr)
+	if err = daemon.Serve(ctx, c, logger); err != nil {
+		logger.Error("isolator.stopped", "error", err)
 		os.Exit(1)
 	}
 }

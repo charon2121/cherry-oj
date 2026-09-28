@@ -4,12 +4,15 @@
 package daemon
 
 import (
+	"bytes"
 	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/internal/hostexec/client"
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -176,5 +179,44 @@ func TestClientRejectsResetAfterCompletion(t *testing.T) {
 	result, err := client.Call(context.Background(), socket, request, io.NopCloser(strings.NewReader("x")), nil)
 	if result.Version != hostexec.Version || !errors.Is(err, unix.ECONNRESET) {
 		t.Fatalf("reset 被当作正常完成或测试未交付响应: result=%+v err=%v", result, err)
+	}
+}
+
+// 协议错误只关这一条连接、不停服，但必须留下记录：客户端只看得到 EOF，
+// 日志是区分「请求不合法」与其他断连的唯一依据；请求内容不能进日志。
+func TestInvalidRequestIsLoggedWithoutStoppingService(t *testing.T) {
+	fds, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unixConn := func(fd int) *net.UnixConn {
+		f := os.NewFile(uintptr(fd), "test-socket")
+		defer f.Close()
+		c, err := net.FileConn(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return c.(*net.UnixConn)
+	}
+	server, peer := unixConn(fds[0]), unixConn(fds[1])
+	defer server.Close()
+	defer peer.Close()
+	secret := testRequest()
+	secret.Version = 99 // 解码成功但校验失败
+	secret.Env = []string{"TOKEN=do-not-log"}
+	if err := hostexec.WriteFrame(peer, secret, hostexec.MaxFrameBytes); err != nil {
+		t.Fatal(err)
+	}
+	var logs bytes.Buffer
+	s := &service{log: slog.New(slog.NewJSONHandler(&logs, nil))}
+	if fatal := s.serveConn(context.Background(), server, 2); fatal != nil {
+		t.Fatalf("协议错误不应停服: %v", fatal)
+	}
+	out := logs.String()
+	if !strings.Contains(out, `"msg":"isolator.request.invalid"`) || !strings.Contains(out, `"slot":2`) {
+		t.Fatalf("没有记录协议错误: %s", out)
+	}
+	if strings.Contains(out, "do-not-log") {
+		t.Fatalf("请求内容进入了日志: %s", out)
 	}
 }
