@@ -190,9 +190,38 @@ def stopped(unit):
     return not Path('/sys/fs/cgroup/system.slice', unit + '.service').exists() and main_pid(unit) == 0
 
 
+# systemd 在主进程退出后还要杀掉整棵委派子树并逐层删除 cgroup；负载较重的 CI 机器上
+# 3 s 不够。超时时带出残留子树，才能分辨是进程没死、目录没删，还是 systemd 没收尾。
+UNIT_STOP_SECONDS = 10
+
+
+def cgroup_tree(unit):
+    root = Path('/sys/fs/cgroup/system.slice') / (unit + '.service')
+    if not root.exists():
+        return []
+    rows = []
+    for d in [root] + sorted(p for p in root.rglob('*') if p.is_dir()):
+        try:
+            events = (d / 'cgroup.events').read_text().splitlines()
+            populated = next((line.split()[1] for line in events if line.startswith('populated ')), '?')
+            procs = len((d / 'cgroup.procs').read_text().split())
+        except OSError as error:
+            populated, procs = 'unreadable', str(error)
+        rows.append(dict(path=str(d.relative_to(root.parent)), populated=populated, procs=procs))
+    return rows
+
+
+def wait_stopped(unit, message):
+    try:
+        wait_for(lambda: stopped(unit), message, UNIT_STOP_SECONDS)
+    except AssertionError:
+        raise AssertionError(message + '; mainPID=' + str(main_pid(unit)) +
+                             '; remaining=' + json.dumps(cgroup_tree(unit))) from None
+
+
 def stop(unit):
     subprocess.run(['systemctl', 'stop', unit], check=False, capture_output=True)
-    wait_for(lambda: stopped(unit), 'unit did not stop: ' + unit)
+    wait_stopped(unit, 'unit did not stop: ' + unit)
 
 
 def capacity_cases():
@@ -371,7 +400,7 @@ try:
         wait_for(active_init, 'HTTP crash payload not observed')
         kill_owned(main_pid(HTTP), 61001, str(BASE / 'sandbox'), '/' + HTTP + '.service')
         assert finish(active, disconnected=True)['status'] == 'Disconnected'
-        wait_for(lambda: stopped(HTTP), 'HTTP cgroup survived crash')
+        wait_stopped(HTTP, 'HTTP cgroup survived crash')
         wait_for(lambda: not group_paths(), 'HTTP crash did not cancel isolator')
         drained(workspace=False)
         leftovers = sorted(p.name for p in (SERVICE / 'work').iterdir())
@@ -386,7 +415,7 @@ try:
         kill_owned(main_pid(ISOLATOR), 0, str(BASE / 'isolator'), '/' + ISOLATOR + '.service/supervisor')
         result = finish(active)
         assert result['status'] == 'InternalError', result
-        wait_for(lambda: stopped(ISOLATOR), 'isolator cgroup survived crash')
+        wait_stopped(ISOLATOR, 'isolator cgroup survived crash')
         drained()
         state_before = sorted(p.name for p in STATE.iterdir())
         start_isolator(recover=True)
