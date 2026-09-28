@@ -9,7 +9,7 @@ import (
 )
 
 // Judger 是 HTTP 层完成一次请求所需要的能力。
-// sandbox client 与进程配置由 cmd/judge 在启动时绑定，不进入每次请求的方法签名。
+// sandbox client 与进程配置由 judge.Run 在启动时绑定，不进入每次请求的方法签名。
 type Judger interface {
 	Judge(ctx context.Context, req contract.JudgeRequest) contract.JudgeResult
 }

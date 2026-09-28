@@ -211,7 +211,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
   系统自带的 3.9，而机器上装的可能是 3.12）。
 - 工作目录内的可执行文件也**直接写名字**，不要 `./x`：`backend.devhost` 的规则是
   「命令名不含 `/` 且该文件存在于工作目录时才解析成绝对路径」，`./x` 绕过了它；
-  隔离侧的 `launcher.resolveCommand` 同样只接受裸名称，在隔离根内按 `/work`、
+  隔离侧的 `initproc.resolveCommand`（isolator 的 P4）同样只接受裸名称，在隔离根内按 `/work`、
   `/usr/bin`、`/bin` 依次解析，不理会请求里的 `PATH`。
 - **`os/exec` 不会像 shell 那样帮你回退到 `/bin/sh`。** 脚本必须带 shebang
   （`#!/bin/sh`），否则 `execve` 直接报 `exec format error`。权限要 `0o755`

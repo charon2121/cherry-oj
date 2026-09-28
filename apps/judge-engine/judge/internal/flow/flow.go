@@ -1,4 +1,3 @@
-// Package flow 编排判题；sandbox 只报告命令执行事实，不参与 verdict。
 package flow
 
 import (

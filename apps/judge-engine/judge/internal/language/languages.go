@@ -24,7 +24,6 @@ var registry = map[string]Language{
 		// 写 python3 而不是 /usr/bin/python3：解释器/编译器一律走 PATH。
 		// 硬编码绝对路径会绕过部署环境的选择——macOS 上 /usr/bin/python3 是
 		// 系统自带的 3.9，而机器上装的可能是 3.12，判出来的结果和用户本地不一致。
-		// 命令名不含 "/" 且 workDir 里没有同名文件时，container 会交给 PATH 解析。
 		Run: []string{"python3", "Main.py"}, // 没有 Compile
 	},
 	"java": {
