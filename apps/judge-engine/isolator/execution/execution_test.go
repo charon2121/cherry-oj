@@ -2,8 +2,9 @@
 
 package execution
 
-// 白盒测试生命周期顺序和句柄所有权；不创建 namespace/cgroup，不证明 Linux 内核行为。
 import (
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/isolator/cgroup"
 	"context"
 	"errors"
 	"io"
@@ -14,9 +15,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/isolator/cgroup"
 )
 
 type lifecycleGroup struct {
@@ -25,12 +23,15 @@ type lifecycleGroup struct {
 	snapshot          cgroup.Snapshot
 }
 
-func (g *lifecycleGroup) File() (*os.File, error)            { return nil, errors.New("not used") }
+func (g *lifecycleGroup) File() (*os.File, error) { return nil, errors.New("not used") }
+
 func (g *lifecycleGroup) Snapshot() (cgroup.Snapshot, error) { return g.snapshot, nil }
+
 func (g *lifecycleGroup) Stop(ctx context.Context) (cgroup.Snapshot, error) {
 	*g.steps = append(*g.steps, "stop")
 	return g.snapshot, errors.Join(g.stopErr, ctx.Err())
 }
+
 func (g *lifecycleGroup) Close(ctx context.Context) error {
 	*g.steps = append(*g.steps, "close")
 	return errors.Join(g.closeErr, ctx.Err())
@@ -326,4 +327,5 @@ type testArtifactSource struct {
 }
 
 func (s *testArtifactSource) Open(name string) (*os.File, int64, error) { return s.open(name) }
-func (s *testArtifactSource) Close() error                              { return s.dir.Close() }
+
+func (s *testArtifactSource) Close() error { return s.dir.Close() }

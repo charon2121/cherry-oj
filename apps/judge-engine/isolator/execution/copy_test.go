@@ -22,6 +22,7 @@ func (*copyTarget) ReadFrom(io.Reader) (int64, error) { panic("unexpected Reader
 type brokenWriter struct{}
 
 func (brokenWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
 func TestCopyInputOwnsNoCachedFastPath(t *testing.T) {
 	var dst copyTarget
 	if err := copyInput(&dst, copySource{strings.NewReader("payload-tail")}, 7); err != nil {

@@ -80,3 +80,5 @@ func LoadConfig(path string) (Config, error) {
 	}
 	return c, c.Validate()
 }
+
+func checkConfigPath(path string) error { return securePath(path, false) }

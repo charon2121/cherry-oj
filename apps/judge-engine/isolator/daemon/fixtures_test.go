@@ -5,14 +5,13 @@
 package daemon
 
 import (
+	"cherry-oj/judge-engine/internal/contract"
+	"cherry-oj/judge-engine/internal/hostexec"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 func testRequest() hostexec.Request {

@@ -3,7 +3,9 @@
 // Package policy 构造固定版本的 seccomp BPF。调用者不能通过请求扩展规则。
 package seccomp
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Instruction 的布局对应 Linux sock_filter；用纯数据类型表达，策略构造可以脱离内核单独测试。
 type Instruction struct {

@@ -12,14 +12,14 @@
 | 接收请求 | [api/run.go](sandbox/internal/api/run.go) `handleRun` → [pool/pool.go](sandbox/internal/pool/pool.go) `Run` | 校验并等待执行名额，尚未启动命令 |
 | 准备输入 | [runner/runner.go](sandbox/internal/runner/runner.go) `Run` → [request.go](sandbox/internal/runner/request.go) / [sources.go](sandbox/internal/runner/sources.go) | 归一化限额、打开输入源，组装成一个 `backend.Job` |
 | 请求隔离执行 | [backend/isolated.go](sandbox/internal/backend/isolated.go) `Execute` → [hostexec/client/client.go](internal/hostexec/client/client.go) `Call` | 一次调用覆盖整次执行；返回即代表回收完成 |
-| 接收本机请求 | [daemon/server_linux_amd64.go](isolator/daemon/server_linux_amd64.go) `Serve` → `service.run` → `service.serveConn` | 认证对端（文件权限 + SO_PEERCRED）、取得槽位并读取命令 |
-| 启动隔离环境 | [execution/execution.go](isolator/execution/execution.go) `execution.Run` → [process_linux_amd64.go](isolator/execution/process_linux_amd64.go) `isolatedProcess.Start` | 建立 cgroup、启动可信 init 进程以及输入、输出、控制消息任务 |
-| 启动 payload | [cmd/isolator](cmd/isolator/main.go) 按参数分流 → [initproc/init_linux_amd64.go](isolator/initproc/init_linux_amd64.go) `initSession.run` → [payload_linux_amd64.go](isolator/initproc/payload_linux_amd64.go) `startPayload` | init 准备文件环境，启动同一二进制的 exec 角色；用户命令仍未放行 |
-| 最终执行 | [execstage/exec_linux_amd64.go](isolator/execstage/exec_linux_amd64.go) `Exec` | 设置权限和过滤策略，完成握手后 execve 用户命令 |
+| 接收本机请求 | [daemon/server.go](isolator/daemon/server.go) `Serve` → `service.run` → `service.serveConn` | 认证对端（文件权限 + SO_PEERCRED）、取得槽位并读取命令 |
+| 启动隔离环境 | [execution/execution.go](isolator/execution/execution.go) `execution.Run` → [process.go](isolator/execution/process.go) `isolatedProcess.Start` | 建立 cgroup、启动可信 init 进程以及输入、输出、控制消息任务 |
+| 启动 payload | [cmd/isolator](cmd/isolator/main.go) 按参数分流 → [initproc/init.go](isolator/initproc/init.go) `initSession.run` → [payload.go](isolator/initproc/payload.go) `startPayload` | init 准备文件环境，启动同一二进制的 exec 角色；用户命令仍未放行 |
+| 最终执行 | [execstage/exec.go](isolator/execstage/exec.go) `Exec` | 设置权限和过滤策略，完成握手后 execve 用户命令 |
 | 等待和监督 | init 的 `reportExit`；[execution/supervise.go](isolator/execution/supervise.go) `supervise` | 命令退出，或达到超时、取消、资源终止条件 |
 | 判定结论 | [execution/conclusion.go](isolator/execution/conclusion.go) `conclude`；转移表在 [state.go](isolator/execution/state.go) | 纯函数：一组事实进去，一个结论出来，不掺 I/O |
-| 回收执行环境 | [execution/cleanup.go](isolator/execution/cleanup.go) `finish` → `isolatedProcess.Wait` → 关闭环境 | 停止整组、等待 init 和 I/O、持有受控产物 FD、释放环境；失败不能发布成功 |
-| 交付结果 | daemon 的 `serveConn` → [delivery.go](isolator/execution/delivery.go) `WriteFiles` / `Close` | 写元数据和文件流，关闭产物 FD 后发 Completion；归还槽位后关闭连接 |
+| 回收执行环境 | [execution/finish.go](isolator/execution/finish.go) `finish` → `isolatedProcess.Wait` → 关闭环境 | 停止整组、等待 init 和 I/O、持有受控产物 FD、释放环境；失败不能发布成功 |
+| 交付结果 | daemon 的 `serveConn` → [result.go](isolator/execution/result.go) `WriteFiles` / `Close` | 写元数据和文件流，关闭产物 FD 后发 Completion；归还槽位后关闭连接 |
 | 返回 HTTP | `Call` → `Isolated.Execute` 的 `deliver` → runner 的 [collector.go](sandbox/internal/runner/collector.go) → `handleRun` | Call 还要等 Completion 之后的正常 EOF；产物在「回收已完成」之后才逐个交付 |
 
 主线代码保留每层的正常完成步骤。runner 的请求校验在 `request.go`，输入在 `sources.go`，
@@ -35,7 +35,7 @@
 
 [isolation_plan.go](isolator/execution/isolation_plan.go) 是固定策略与请求的只读快照。
 P3 的 `isolatedProcess.startInit` 在创建 P4 时设置 namespace 和 cgroup FD；
-P4 的 [rootFilesystem.Prepare](isolator/initproc/rootfs_linux_amd64.go) 完成只读根、工作区、
+P4 的 [rootFilesystem.Prepare](isolator/initproc/rootfs.go) 完成只读根、工作区、
 proc/dev 挂载和 pivot_root，再由 initSession 启动 P5。P5 的最终 execve 替换自身，不增加一个进程。
 正常执行对应三个常驻服务与两个临时进程，用户程序的后代另计。
 
@@ -59,7 +59,7 @@ HTTP sandbox 使用非特权身份；isolator 承担建立隔离环境所需的�
 isolator 检查状态和预算并写 `GO` → init 转发 `GO` → execve。最终 exec 线程持续锁定，不能在过滤器安装后随意加入 Go 调用。
 
 FD、握手字节和失败阶段的两端映射见
-[startup_protocol.go](isolator/startup/startup_protocol.go)。
+[protocol.go](isolator/startup/protocol.go)。
 请求预算、响应帧与会话期限都在
 [internal/hostexec](internal/hostexec)：请求侧见 [protocol.go](internal/hostexec/protocol.go)，
 响应侧见 [result.go](internal/hostexec/result.go)。同值不代表同一约束；实际 rlimit、验证上界与缺省预算分别归属。

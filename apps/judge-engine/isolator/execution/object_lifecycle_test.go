@@ -2,8 +2,10 @@
 
 package execution
 
-// 白盒检查对象边界和一次移交；内核隔离仍由 Linux 回归证明。
 import (
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/isolator/cgroup"
+	"cherry-oj/judge-engine/isolator/startup"
 	"context"
 	"errors"
 	"io"
@@ -12,10 +14,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/isolator/cgroup"
-	"cherry-oj/judge-engine/isolator/startup"
 )
 
 func TestIsolationPlanOwnsRequestSnapshot(t *testing.T) {
@@ -50,6 +48,7 @@ type scriptedProcess struct {
 }
 
 func (p *scriptedProcess) Start(Group) error { return p.startErr }
+
 func (p *scriptedProcess) Next(context.Context, supervisionTimers) processEvent {
 	if len(p.events) == 0 {
 		panic("unexpected Next")
@@ -58,6 +57,7 @@ func (p *scriptedProcess) Next(context.Context, supervisionTimers) processEvent 
 	p.events = p.events[1:]
 	return event
 }
+
 func (p *scriptedProcess) Release() error { p.released = true; return nil }
 
 func scriptedExecution(events ...processEvent) (*execution, *scriptedProcess, *[]string) {

@@ -3,12 +3,11 @@
 package execution
 
 import (
-	"slices"
-	"time"
-
 	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/isolator/cgroup"
 	"cherry-oj/judge-engine/isolator/startup"
+	"slices"
+	"time"
 )
 
 // 工作区容量不等于进程内存限额；CPU 速率不等于累计 CPU 预算。
@@ -27,12 +26,15 @@ type isolationPlan struct {
 	resources  cgroup.Limits
 	identity   identityPlan
 }
+
 type namespacePlan struct{ cloneFlags uintptr }
+
 type filesystemPlan struct {
 	rootFS, stateDir, executable string
 	workspaceBytes               int64
 	workspaceInodes              int
 }
+
 type identityPlan struct{ payloadUID, payloadGID, initUID, initGID int }
 
 func newIsolationPlan(r hostexec.Request, env Environment) isolationPlan {
@@ -43,6 +45,7 @@ func newIsolationPlan(r hostexec.Request, env Environment) isolationPlan {
 		identity:   identityPlan{env.PayloadUID, env.PayloadGID, env.InitUID, env.InitGID},
 	}
 }
+
 func cloneRequest(r hostexec.Request) hostexec.Request {
 	r.Command = slices.Clone(r.Command)
 	r.Env = slices.Clone(r.Env)
@@ -50,6 +53,7 @@ func cloneRequest(r hostexec.Request) hostexec.Request {
 	r.Outputs = slices.Clone(r.Outputs)
 	return r
 }
+
 func (p isolationPlan) stage(mountpoint string) startup.StageSpec {
 	return startup.StageSpec{
 		Request: cloneRequest(p.request), RootFS: p.filesystem.rootFS, MountPoint: mountpoint, Executable: p.filesystem.executable,

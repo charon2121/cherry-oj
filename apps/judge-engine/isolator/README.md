@@ -48,12 +48,12 @@ sandbox 使用 `api → pool → runner → backend.Backend`，Store 独立管�
 
 `Backend.Execute` 是**一次性**调用：铺输入、跑命令、交付产物、回收资源，返回即代表回收完成。因此不存在「借一个环境、用完归还」的对象，也就没有复用带来的残留问题——上面这份「结束顺序」描述的正是这一次调用内部的收尾。
 
-- `server_linux_amd64.go` 的 service 持有监听、管理器和槽位；调用 execution.Run 后交付和关闭结果。
-- `execution.go` 的 execution 独占本次 cgroup 与终止状态。`Run` 统一启动、监督和 `cleanup.go` 中的最终回收；重复或并发 Run 被拒绝。
+- `server.go` 的 service 持有监听、管理器和槽位；调用 execution.Run 后交付和关闭结果。
+- `execution.go` 的 execution 独占本次 cgroup 与终止状态。`Run` 统一启动、监督和 `finish.go` 中的最终回收；重复或并发 Run 被拒绝。
 - `isolation_plan.go` 持有经过复制的请求与固定 namespace、文件系统、资源和身份策略，不持有 FD，也不改变协议类型。
-- `process.go` 的 isolatedProcess 拥有握手、工作区目录、FD 与输入输出任务；`process_linux_amd64.go` 实际以 namespace + UseCgroupFD 启动 P4，`process_cleanup.go` 返回等待事实。execution 不访问这些原始通道。
-- `conclusion.go` 的 `conclude` 是纯函数：一组执行事实进去，一个结论出来，不掺任何 I/O；合法的状态转移写在 `state.go` 的显式转移表里。`cleanup.go` 里 `ctx.Err()` 必须在 `CancelInput()` 之前读，否则每次正常执行都会被判成已取消。
-- `delivery.go` 的 artifactSet 聚合受控产物，executionResult 接管后负责交付和关闭；重复关闭保留首次错误。
+- `process.go` 的 isolatedProcess 拥有握手、工作区目录、FD 与输入输出任务；`process.go` 实际以 namespace + UseCgroupFD 启动 P4，`process_wait.go` 返回等待事实。execution 不访问这些原始通道。
+- `conclusion.go` 的 `conclude` 是纯函数：一组执行事实进去，一个结论出来，不掺任何 I/O；合法的状态转移写在 `state.go` 的显式转移表里。`finish.go` 里 `ctx.Err()` 必须在 `CancelInput()` 之前读，否则每次正常执行都会被判成已取消。
+- `artifacts.go` 的 artifactSet 聚合受控产物，executionResult 接管后负责交付和关闭；重复关闭保留首次错误。
 - launcher 的 initSession 在 P4 调用 rootFilesystem.Prepare，再启动/放行 P5；rootFilesystem 负责挂载准备与局部 FD，无法替 P3 停组。最终 exec 的线程和系统调用限制保持原样。
 
 预算复查由 execution 完成，握手合法性由 isolatedProcess 判断。读到 ready 仍不能自行发 GO；必须再次检查取消、墙钟和累计 CPU。结束后先停组和等待，再打开产物、释放环境，结果交付仍遵循 Completion 与 EOF 协议。

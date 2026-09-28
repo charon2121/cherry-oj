@@ -3,6 +3,8 @@
 package execution
 
 import (
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/isolator/cgroup"
 	"context"
 	"errors"
 	"io"
@@ -10,9 +12,6 @@ import (
 	"strings"
 	"syscall"
 	"testing"
-
-	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/isolator/cgroup"
 )
 
 // 这张表是「执行事实 → 终止结论」的真源。

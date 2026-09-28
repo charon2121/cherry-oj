@@ -3,65 +3,21 @@
 package execution
 
 import (
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/isolator/startup"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"time"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"syscall"
 
-	"cherry-oj/judge-engine/isolator/startup"
+	"golang.org/x/sys/unix"
 )
-
-type launchPhase uint8
-
-const (
-	awaitingWorkspace launchPhase = iota
-	awaitingReady
-	awaitingGo
-	executing
-)
-
-type received struct {
-	event startup.Event
-	dir   *ownedFile
-	err   error
-}
-type captureResult struct {
-	bytes    []byte
-	err      error
-	exceeded bool
-}
-
-// 定时器由 execution 持有。Next 同时等待进程事实与预算唤醒，
-// 避免多加一个转发 goroutine 改变事件时序和回收条件。
-type supervisionTimers struct{ sample, wall, startup <-chan time.Time }
-type processEventKind uint8
-
-const (
-	processProgress processEventKind = iota
-	processReady
-	processExited
-	processInitExited
-	processFailure
-	processOutputExceeded
-	executionCancelled
-	executionWallExpired
-	executionStartupExpired
-	executionSampleDue
-)
-
-type processEvent struct {
-	kind             processEventKind
-	exitCode, signal int
-	err              error
-	reportLost       bool
-}
-type processCompletion struct {
-	stopped        bool
-	waitErr        error
-	stdout, stderr []byte
-	outputExceeded bool
-}
 
 // isolatedProcess 是 P3 的进程句柄，不是 P4 内的 initSession。
 // 主 goroutine 独占协议状态，后台任务只发送事实，所有 FD 均在此取得和释放。
@@ -99,93 +55,160 @@ type isolatedProcess struct {
 func newIsolatedProcess(plan isolationPlan, source io.Reader, cancel context.CancelFunc) *isolatedProcess {
 	return &isolatedProcess{plan: plan, source: source, cancelInput: cancel, initStopped: true}
 }
+
 func (p *isolatedProcess) CancelInput() { p.cancelInput() }
-func (p *isolatedProcess) Next(ctx context.Context, timers supervisionTimers) processEvent {
-	select {
-	case <-ctx.Done():
-		return processEvent{kind: executionCancelled}
-	case <-timers.wall:
-		return processEvent{kind: executionWallExpired}
-	case <-timers.startup:
-		return processEvent{kind: executionStartupExpired}
-	case <-timers.sample:
-		return processEvent{kind: executionSampleDue}
-	case <-p.overflow:
-		if p.phase < executing {
-			return processEvent{kind: processFailure, err: fmt.Errorf("the trusted launcher produced oversized output before handing over")}
-		}
-		return processEvent{kind: processOutputExceeded}
-	case err := <-p.inputCopied:
-		if err != nil {
-			return processEvent{kind: processFailure, err: fmt.Errorf("deliver input: %w", err)}
-		}
-		p.inputCopied = nil
-		return processEvent{kind: processProgress}
-	case err := <-p.initExited:
-		p.initExited = nil
-		p.initStopped = isProcessExit(err)
-		if !p.initStopped {
-			p.waitErr = err
-		}
-		return processEvent{kind: processInitExited, err: err}
-	case ev, ok := <-p.events:
-		if !ok {
-			return processEvent{kind: processFailure, err: fmt.Errorf("the startup control channel closed early")}
-		}
-		return p.acceptEvent(ev)
-	}
-}
 
-func (p *isolatedProcess) acceptEvent(ev received) processEvent {
-	if ev.err != nil {
-		return processEvent{kind: processFailure, err: ev.err, reportLost: errors.Is(ev.err, io.EOF)}
-	}
-	if ev.event.Kind == "workspace" && p.phase == awaitingWorkspace && ev.dir != nil {
-		p.workspace = workspaceDirectory{ev.dir}
-		if err := validateWorkspace(ev.dir); err != nil {
-			return processEvent{kind: processFailure, err: err}
-		}
-		p.phase = awaitingReady
-		return processEvent{kind: processProgress}
-	}
-	if ev.dir != nil {
-		return processEvent{kind: processFailure, err: errors.Join(fmt.Errorf("unexpected control FD"), ev.dir.Close())}
-	}
-	if ev.event.Kind == "error" {
-		return processEvent{kind: processFailure, err: fmt.Errorf("trusted init stage failed: %s errno=%d", ev.event.Phase, ev.event.Errno)}
-	}
-	if ev.event.Kind == "ready" && p.phase == awaitingReady {
-		p.phase = awaitingGo
-		return processEvent{kind: processReady}
-	}
-	if ev.event.Kind == "exit" && p.phase == executing {
-		event := processEvent{kind: processExited, exitCode: ev.event.ExitCode, signal: ev.event.Signal}
-		if ev.event.ExecFailed {
-			event.err = fmt.Errorf("payload exec failed to start: stage=%d errno=%d", ev.event.ExecStage, ev.event.ExecErrno)
-		}
-		return event
-	}
-	return processEvent{kind: processFailure, err: fmt.Errorf("startup protocol stage error")}
-}
+// 正常顺序为 workspace/ready/exit；缓冲容纳整个有界接收循环，
+// 监督提前结束时仍由 Wait 消费并关闭未接管的 FD。
+const maxInitEvents = 4
 
-// Release 只能在 ready 后由预算监督者调用，写成功才进入 executing。
-func (p *isolatedProcess) Release() error {
-	if p.phase != awaitingGo {
-		return fmt.Errorf("startup protocol stage error")
+const executionIDBytes = 16
+
+// Start 取得的每个句柄立即登记；失败后仍必须先停组，再 Wait/Close。
+func (p *isolatedProcess) Start(group Group) error {
+	if p.started {
+		return fmt.Errorf("isolatedProcess can only Start once")
 	}
-	if _, err := p.control.Write([]byte{startup.PayloadGo}); err != nil {
+	p.started = true
+	r, source := p.plan.request, p.source
+	executable := p.plan.filesystem.executable
+	if err := p.prepareInitResources(group); err != nil {
 		return err
 	}
-	p.phase = executing
+	if err := p.startInit(r, executable); err != nil {
+		return err
+	}
+	p.exchangeWithInit(r, source)
 	return nil
 }
 
-// TakeWorkspace 只在 Wait 确认停止及 I/O 完成后移交；第二次不再交付。
-func (p *isolatedProcess) TakeWorkspace() artifactSource {
-	if !p.waitDone || p.waitResult != nil || !p.completion.stopped {
-		return nil
+func (p *isolatedProcess) prepareInitResources(group Group) error {
+	rawCgroup, err := group.File()
+	if err != nil {
+		return err
 	}
-	dir := p.workspace
-	p.workspace = nil
-	return dir
+	p.cgroupFD = ownFile(rawCgroup)
+	var nonce [executionIDBytes]byte
+	if _, err = rand.Read(nonce[:]); err != nil {
+		return err
+	}
+	p.mountpoint = filepath.Join(p.plan.filesystem.stateDir, "run-"+hex.EncodeToString(nonce[:]))
+	if err = os.Mkdir(p.mountpoint, 0o700); err != nil {
+		p.mountpoint = ""
+		return err
+	}
+	p.control, p.childControl, err = socketPair()
+	if err != nil {
+		return err
+	}
+	p.lifeR, p.lifeW, err = pipe()
+	if err != nil {
+		return err
+	}
+	p.dataR, p.dataW, err = pipe()
+	if err != nil {
+		return err
+	}
+	p.outR, p.outW, err = pipe()
+	if err != nil {
+		return err
+	}
+	p.errR, p.errW, err = pipe()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *isolatedProcess) startInit(r hostexec.Request, executable string) error {
+	p.overflow = make(chan struct{}, 1)
+	capture := func(f *ownedFile, limit int64) chan captureResult {
+		done := make(chan captureResult, 1)
+		go func() {
+			w := &boundedCapture{limit: limit, overflow: p.overflow}
+			_, e := io.Copy(w, f)
+			done <- captureResult{bytes: w.data, err: e, exceeded: w.exceeded}
+		}()
+		return done
+	}
+	// 在启动子进程前接好输出收集，避免启动器写满管道后无法完成握手。
+	p.stdoutDone = capture(p.outR, r.Limits.StdoutMaxBytes)
+	p.stderrDone = capture(p.errR, r.Limits.StderrMaxBytes)
+	cmd := exec.Command(executable, startup.InitArg)
+	cmd.Env = []string{"GOMAXPROCS=1"}
+	cmd.ExtraFiles = []*os.File{
+		startup.InitControlFD - startup.ExtraFilesBaseFD:  p.childControl.File,
+		startup.InitInputFD - startup.ExtraFilesBaseFD:    p.dataR.File,
+		startup.InitLivenessFD - startup.ExtraFilesBaseFD: p.lifeR.File,
+	}
+	cmd.Stdout = p.outW.File
+	cmd.Stderr = p.errW.File
+	// 用内核的 UseCgroupFD 原子入组，不能等 Start 返回后再写 cgroup.procs：
+	// 那会让新进程在限额和计量之外先运行。cgroup FD 不放入 ExtraFiles。
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		UseCgroupFD: true, CgroupFD: int(p.cgroupFD.Fd()),
+		Cloneflags: p.plan.namespaces.cloneFlags,
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	p.initStopped = false
+	p.initExited = make(chan error, 1)
+	go func() { p.initExited <- cmd.Wait() }()
+	// 父进程释放只供子进程使用的管道端，否则子进程退出后读端仍等不到 EOF。
+	if err := closeFiles(p.cgroupFD, p.childControl, p.lifeR, p.dataR, p.outW, p.errW); err != nil {
+		return err
+	}
+	return nil
+}
+
+// 通道由启动方创建，Wait 等待接收与输入任务退出后才释放环境。
+func (p *isolatedProcess) exchangeWithInit(r hostexec.Request, source io.Reader) {
+	p.events = make(chan received, maxInitEvents)
+	go func() {
+		defer close(p.events)
+		for i := 0; i < maxInitEvents; i++ {
+			e, f, err := startup.ReceiveEvent(p.control.File)
+			p.events <- received{e, ownFile(f), err}
+			if err != nil || e.Kind == "exit" {
+				return
+			}
+		}
+	}()
+	p.inputCopied = make(chan error, 1)
+	p.inputFinished = make(chan struct{})
+	stage := p.plan.stage(p.mountpoint)
+	go func() {
+		defer close(p.inputFinished)
+		e := hostexec.WriteFrame(p.dataW, stage, hostexec.MaxFrameBytes)
+		if e == nil {
+			e = copyInput(p.dataW, source, r.InputBytes())
+		}
+		e = errors.Join(e, p.dataW.Close())
+		p.inputCopied <- e
+		if e == nil {
+			// 输入复制完后继续感知客户端断连；正常收尾通过 cancelInput 推进读期限解除阻塞。
+			// inputCopied 只代表复制结束，Wait 必须等 inputFinished 才能确认 goroutine 已退出。
+			var extra [1]byte
+			_, _ = source.Read(extra[:])
+		}
+		p.cancelInput()
+	}()
+}
+
+// copyInput 不进入 os.File.ReadFrom/net.Conn.WriteTo 的 splice 快路径。
+// Linux标准库的splice缓存由GC关闭pipe，不能作为单次执行已回收的证据。
+// 包装器只暴露Read/Write，io.CopyN用固定大小缓冲且短读返回错误。
+func copyInput(dst io.Writer, src io.Reader, n int64) error {
+	_, err := io.CopyN(struct{ io.Writer }{dst}, struct{ io.Reader }{src}, n)
+	return err
+}
+
+func socketPair() (*ownedFile, *ownedFile, error) {
+	a, b, err := startup.SocketPair()
+	return ownFile(a), ownFile(b), err
+}
+
+func isolatedNamespaces() uintptr {
+	return unix.CLONE_NEWNS | unix.CLONE_NEWPID | unix.CLONE_NEWNET | unix.CLONE_NEWIPC | unix.CLONE_NEWUTS | unix.CLONE_NEWCGROUP
 }

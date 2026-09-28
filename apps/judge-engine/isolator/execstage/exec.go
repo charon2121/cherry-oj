@@ -1,60 +1,115 @@
 //go:build linux && amd64
 
-// Package execstage 是 P5：降权、安装 seccomp、完成 READY/GO 握手后 execve 用户命令。
 package execstage
 
 import (
-	"fmt"
-	"strings"
-
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/isolator/privilege"
 	"cherry-oj/judge-engine/isolator/seccomp"
 	"cherry-oj/judge-engine/isolator/startup"
+	"errors"
+	"os"
+	"runtime"
+	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
-// 以下是可信 exec 输入的验证边界，区别于 Request 的客户端预算和
-// payloadSpec 实际选择的 rlimit；校验上界不能被误当作实际执行预算。
-const (
-	invalidLinuxID       = 1<<32 - 1 // Linux UID/GID 的全位 1 保留值。
-	maxExecArgs          = 256
-	maxExecEnvEntries    = 128
-	maxExecStringBytes   = 64 << 10 // 路径字节 + argv/env 各项字节（各项计入结尾 NUL）。
-	minExecNoFile        = 8
-	maxExecNoFile        = 1024
-	maxExecFileSizeBytes = 1 << 30
-)
+// Run 是 P5 的入口：从 ExecConfigFD 读取 P4 写入的 ExecSpec 后交给 Exec，永不返回。
+// main 必须在读取配置、启动服务或建立任何 goroutine 之前调用它。
+func Run() {
+	config := os.NewFile(startup.ExecConfigFD, "exec-config")
+	var s startup.ExecSpec
+	err := hostexec.ReadFrame(config, &s, hostexec.MaxFrameBytes)
+	if errors.Join(err, config.Close()) != nil {
+		os.Exit(startup.FailureExitCode)
+	}
+	Exec(s)
+}
 
-// validate 是 P5 对收到的 ExecSpec 做的最后一道检查，不信任 P4 已经校验过。
-func validate(s startup.ExecSpec) error {
-	if s.UID <= 0 || s.GID <= 0 || uint64(s.UID) >= invalidLinuxID || uint64(s.GID) >= invalidLinuxID {
-		return fmt.Errorf("payload must use a valid dedicated non-root UID/GID")
+// Exec 只能由新建的专用 payload re-exec 进程调用，永不返回。
+// 入组、namespace 和 rootfs 由上游先完成；本函数设置最终权限/过滤后参与 READY/GO 握手，
+// 收到 GO 才 execve。不能在上游握手前运行任何用户代码。
+// 出错即终止整个可信进程，不能回到普通 Go 服务循环继续接请求。
+func Exec(s startup.ExecSpec) {
+	runtime.LockOSThread()
+	// 不 UnlockOSThread：最终执行线程的所有安全状态必须连续到 exec。
+	if err := validate(s); err != nil {
+		terminalFailure(s.ErrorFD, startup.ExecFailureConfig, unix.EINVAL)
 	}
-	if s.Path == "" || !strings.HasPrefix(s.Path, "/") || strings.IndexByte(s.Path, 0) >= 0 {
-		return fmt.Errorf("payload path must be a resolved absolute path inside the isolation root")
+	// 所有字符串与 argv/envp 指针在最终策略安装前准备，exec 后由内核接管。
+	path, err := unix.BytePtrFromString(s.Path)
+	if err != nil {
+		terminalFailure(s.ErrorFD, startup.ExecFailureConfig, unix.EINVAL)
 	}
-	if len(s.Args) == 0 || len(s.Args) > maxExecArgs || len(s.Env) > maxExecEnvEntries {
-		return fmt.Errorf("invalid payload argument/environment entry count")
+	args, err := syscall.SlicePtrFromStrings(s.Args)
+	if err != nil {
+		terminalFailure(s.ErrorFD, startup.ExecFailureConfig, unix.EINVAL)
 	}
-	total := len(s.Path)
-	for _, v := range append(append([]string(nil), s.Args...), s.Env...) {
-		total += len(v) + 1
-		if strings.IndexByte(v, 0) >= 0 {
-			return fmt.Errorf("payload arguments/environment must not contain NUL")
+	env, err := syscall.SlicePtrFromStrings(s.Env)
+	if err != nil {
+		terminalFailure(s.ErrorFD, startup.ExecFailureConfig, unix.EINVAL)
+	}
+	for resource, limit := range map[int]uint64{syscall.RLIMIT_CORE: 0, syscall.RLIMIT_NOFILE: s.NoFile, syscall.RLIMIT_FSIZE: s.FileSizeBytes} {
+		if err := syscall.Setrlimit(resource, &syscall.Rlimit{Cur: limit, Max: limit}); err != nil {
+			terminalFailure(s.ErrorFD, startup.ExecFailureRlimit, failureErrno(err))
 		}
 	}
-	if total > maxExecStringBytes {
-		return fmt.Errorf("payload arguments/environment exceed 64KiB")
+	// 标记所有非标准 FD 为 CLOEXEC，不提前关闭 Go runtime 正在使用的 FD。
+	// close_range(CLOEXEC) 不允许不可信代码执行前的任何旧根、IPC、memfd 句柄跨 exec。
+	if err := unix.CloseRange(startup.ExtraFilesBaseFD, ^uint(0), unix.CLOSE_RANGE_CLOEXEC); err != nil {
+		terminalFailure(s.ErrorFD, startup.ExecFailureCloseOnExec, failureErrno(err))
 	}
-	if s.NoFile < minExecNoFile || s.NoFile > maxExecNoFile || s.FileSizeBytes == 0 || s.FileSizeBytes > maxExecFileSizeBytes {
-		return fmt.Errorf("payload rlimit exceeds the node launcher boundary")
+	if err := privilege.Drop(s.UID, s.GID); err != 0 {
+		terminalFailure(s.ErrorFD, startup.ExecFailurePrivileges, err)
 	}
-	if s.ErrorFD < startup.ExtraFilesBaseFD || uint64(s.ErrorFD) >= s.NoFile {
-		return fmt.Errorf("invalid payload error FD")
+	if err := seccomp.Install(s.Profile); err != nil {
+		terminalFailure(s.ErrorFD, startup.ExecFailureSeccomp, failureErrno(err))
 	}
-	if s.ReadyFD != 0 && (s.ReadyFD < startup.ExtraFilesBaseFD || uint64(s.ReadyFD) >= s.NoFile || s.ReadyFD == s.ErrorFD) {
-		return fmt.Errorf("invalid payload READY FD")
+	if s.ReadyFD != 0 {
+		ready := [startup.HandshakeBytes]byte{startup.PayloadReady}
+		n, _, e := unix.RawSyscall(unix.SYS_WRITE, uintptr(s.ReadyFD), uintptr(unsafe.Pointer(&ready[0])), startup.HandshakeBytes)
+		if e != 0 || n != startup.HandshakeBytes {
+			terminalFailure(s.ErrorFD, startup.ExecFailureHandshake, unix.EPIPE)
+		}
+		n, _, e = unix.RawSyscall(unix.SYS_READ, uintptr(s.ReadyFD), uintptr(unsafe.Pointer(&ready[0])), startup.HandshakeBytes)
+		if e != 0 || n != startup.HandshakeBytes || ready[0] != startup.PayloadGo {
+			terminalFailure(s.ErrorFD, startup.ExecFailureHandshake, unix.EPIPE)
+		}
+		unix.RawSyscall(unix.SYS_CLOSE, uintptr(s.ReadyFD), 0, 0)
 	}
-	if s.Profile != seccomp.Command && s.Profile != seccomp.Toolchain {
-		return fmt.Errorf("invalid payload policy")
+	// 使用受维护 syscall 包的原始 exec 系统调用，不引入 fork、vfork 汇编或 runtime 钩子。
+	// 直接 exec 避免标准 Exec 包装器在最终过滤后再构造参数或恢复旧 NOFILE。
+	_, _, execErr := unix.RawSyscall(unix.SYS_EXECVE, uintptr(unsafe.Pointer(path)), uintptr(unsafe.Pointer(&args[0])), uintptr(unsafe.Pointer(&env[0])))
+	runtime.KeepAlive(path)
+	runtime.KeepAlive(args)
+	runtime.KeepAlive(env)
+	terminalFailure(s.ErrorFD, startup.ExecFailureExecve, execErr)
+}
+
+// terminalFailure 可能在 seccomp 安装后运行，不能改用日志、格式化或普通退出清理。
+// 固定记录只报告阶段和 errno；使用 exit_group 防止其他 Go 线程继续运行。
+func terminalFailure(fd int, stage startup.ExecFailureStage, errno syscall.Errno) {
+	// 直接拼装小端字节；过滤器安装后不引入编码器或新的普通 Go 调用。
+	record := [startup.ExecFailureRecordBytes]byte{
+		startup.ExecFailureStageOffset: byte(stage),
+		startup.ExecFailureErrnoOffset: byte(errno), byte(errno >> 8), byte(errno >> 16), byte(errno >> 24),
 	}
-	return nil
+	if fd >= startup.ExtraFilesBaseFD {
+		_, _, _ = unix.RawSyscall(unix.SYS_WRITE, uintptr(fd), uintptr(unsafe.Pointer(&record[0])), uintptr(len(record)))
+	}
+	for {
+		_, _, _ = unix.RawSyscall(unix.SYS_EXIT_GROUP, startup.FailureExitCode, 0, 0)
+	}
+}
+
+// 非 syscall 错误（如 TSYNC 未覆盖全部线程）没有 errno，返回零保留这一事实；
+// 失败仍由阶段记录表达，不能凭猜测填成权限错误。
+func failureErrno(err error) syscall.Errno {
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		return errno
+	}
+	return 0
 }

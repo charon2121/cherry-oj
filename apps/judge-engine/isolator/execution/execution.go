@@ -3,6 +3,8 @@
 package execution
 
 import (
+	"cherry-oj/judge-engine/internal/hostexec"
+	"cherry-oj/judge-engine/isolator/cgroup"
 	"context"
 	"errors"
 	"fmt"
@@ -10,9 +12,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"cherry-oj/judge-engine/internal/hostexec"
-	"cherry-oj/judge-engine/isolator/cgroup"
 )
 
 const (
@@ -29,6 +28,7 @@ type Group interface {
 	Stop(context.Context) (cgroup.Snapshot, error)
 	Close(context.Context) error
 }
+
 type GroupFactory func(cgroup.Limits) (Group, error)
 
 // executionProcess 隐藏 FD、握手与后台任务；Wait 只确认本进程及 I/O，
@@ -145,11 +145,13 @@ func (x *execution) Close() error {
 	}
 	return x.cleanupErr
 }
+
 func (x *execution) takeResult() Result {
 	result := x.result
 	x.result.artifacts = nil
 	return result
 }
+
 func (x *execution) fail(err error) {
 	if err != nil {
 		x.runErr = errors.Join(x.runErr, err)

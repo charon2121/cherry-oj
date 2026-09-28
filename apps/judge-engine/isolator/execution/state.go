@@ -2,7 +2,9 @@
 
 package execution
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type executionState uint8
 

@@ -84,7 +84,7 @@
       "assertion": "真实Linux专属isolator各包测试执行，无隐式skip",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/execution/execute_linux_amd64_test.go"
+          "path": "apps/judge-engine/isolator/execution/start_test.go"
         }
       ]
     },
@@ -95,7 +95,7 @@
       "assertion": "八类启动边界与合法GO对照，未授权payload无输出",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/start_linux_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/start_test.go",
           "selector": "TestStartupBoundaries"
         }
       ]
@@ -107,7 +107,7 @@
       "assertion": "恶意链接/硬链接/magic link/FIFO/设备/1000次路径交换及安全FD",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/files_linux_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/files_test.go",
           "selector": "TestOutputPathBoundary"
         }
       ]
@@ -119,7 +119,7 @@
       "assertion": "逐项缺控制器及非cgroup文件系统拒绝启动",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/capability_linux_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/capability_test.go",
           "selector": "TestCgroupCapabilityRefusal"
         }
       ]
@@ -131,7 +131,7 @@
       "assertion": "真实exec失败阶段、errno保留与READY/GO失败关闭",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/exec_linux_amd64_test.go",
+          "path": "apps/judge-engine/isolator/tests/boundary/exec_test.go",
           "selector": "TestExecStageFailures"
         }
       ]

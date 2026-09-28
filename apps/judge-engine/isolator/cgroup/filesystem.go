@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"syscall"
 )
 
 const maxControlBytes = 16 << 10
@@ -39,10 +41,14 @@ func (d *diskFilesystem) write(name, value string) error {
 	}
 	return errors.Join(writeErr, f.Close())
 }
-func (d *diskFilesystem) mkdir(name string) error            { return d.root.Mkdir(name, 0700) }
-func (d *diskFilesystem) remove(name string) error           { return d.root.Remove(name) }
+
+func (d *diskFilesystem) mkdir(name string) error { return d.root.Mkdir(name, 0700) }
+
+func (d *diskFilesystem) remove(name string) error { return d.root.Remove(name) }
+
 func (d *diskFilesystem) open(name string) (*os.File, error) { return d.root.Open(name) }
-func (d *diskFilesystem) close() error                       { return d.root.Close() }
+
+func (d *diskFilesystem) close() error { return d.root.Close() }
 
 func (d *diskFilesystem) checkWritable(name string) error {
 	f, err := d.root.OpenFile(name, os.O_WRONLY, 0)
@@ -50,4 +56,31 @@ func (d *diskFilesystem) checkWritable(name string) error {
 		return err
 	}
 	return f.Close()
+}
+
+func openFilesystem(path string) (filesystem, error) {
+	if !filepath.IsAbs(path) {
+		return nil, fmt.Errorf("cgroup delegation directory must be an absolute path")
+	}
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return nil, err
+	}
+	fail := func(err error) (filesystem, error) { return nil, errors.Join(err, root.Close()) }
+	f, err := root.Open(".")
+	if err != nil {
+		return fail(err)
+	}
+	var stat syscall.Statfs_t
+	statErr := syscall.Fstatfs(int(f.Fd()), &stat)
+	closeErr := f.Close()
+	if err = errors.Join(statErr, closeErr); err != nil {
+		return fail(err)
+	}
+	// cgroup2fs 的文件系统魔数；仅目录名和控制文件名称相似不能证明它是内核控制器。
+	const cgroup2Magic = 0x63677270
+	if stat.Type != cgroup2Magic {
+		return fail(fmt.Errorf("directory is not on a cgroup v2 filesystem"))
+	}
+	return &diskFilesystem{root: root}, nil
 }
