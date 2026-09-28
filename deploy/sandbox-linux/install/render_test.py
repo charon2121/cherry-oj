@@ -21,6 +21,9 @@ class DeploymentTests(unittest.TestCase):
             self.assertFalse(plan['reboot'])
             isolator=json.loads((root/'isolator.json').read_text())
             self.assertEqual(isolator['Parallelism'],1)
+            # sandbox 同时执行的命令数超过 isolator 槽位数时，多出的连接会被拒绝并报成 SE。
+            sandbox=json.loads((root/'sandbox.json').read_text())
+            self.assertLessEqual(sandbox['sandbox']['parallelism'],isolator['Parallelism'])
             self.assertNotEqual(isolator['ServiceUID'],isolator['PayloadUID'])
             manifest=json.loads((root/'deployment.template.json').read_text())
             self.assertEqual(len(manifest['limits']),24)

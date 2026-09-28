@@ -42,14 +42,17 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
     for name in ('isolator-start.py', 'health.py'):
         shutil.copyfile(source / name, output / name)
     root = STATE / 'releases' / release
+    # sandbox 同时执行的命令数不能超过 isolator 的槽位数：多出来的连接会因「没有空槽位」
+    # 被关闭，在 judge 那里表现为 SE。两边都从这一个值渲染，不能各写各的。
+    parallelism = 1
     isolator = dict(SocketPath='/run/cherry-sandbox-isolator/isolator.sock',
                   StateDir='/run/cherry-sandbox-isolator', JobsDir=GROUP+'/cherry-sandbox-isolator.service/jobs',
                   RootFS=str(root/'rootfs'), ManifestPath=str(root/'manifest.json'),
                   ManifestSHA256=manifest_hash, ServiceUID=61001, ServiceGID=61001,
-                  PayloadUID=61002, PayloadGID=61002, InitUID=61003, InitGID=61003, Parallelism=1)
+                  PayloadUID=61002, PayloadGID=61002, InitUID=61003, InitGID=61003, Parallelism=parallelism)
     sandbox = dict(logging=dict(path=str(STATE/'service/logs')), sandbox=dict(
         backend='linux', httpAddr='127.0.0.1:15050', isolatorSocket=isolator['SocketPath'],
-        workspaceRoot=str(STATE/'service/work'), parallelism=1, queueSize=4,
+        workspaceRoot=str(STATE/'service/work'), parallelism=parallelism, queueSize=4,
         maxRequestBytes=2 << 20, store=dict(root=str(STATE/'service/blobs'), maxBlobBytes=64 << 20,
         maxTotalBytes=256 << 20, maxEntries=128, retention='1h')))
     judge = dict(logging=dict(path=str(STATE/'judge/logs')), judge=dict(
