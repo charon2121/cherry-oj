@@ -172,7 +172,7 @@ func TestConclusionFromFacts(t *testing.T) {
 
 // finishFrom 模拟 Run 的前半段：启动已经发生，剩下的是回收。
 // 直接调 finish 会被状态表拒绝（new → finishing 不是合法转移），这正是它该做的。
-func finishFrom(t *testing.T, x *execution, ctx context.Context) (Result, error) {
+func finishFrom(t *testing.T, x *execution, ctx context.Context) (Delivery, error) {
 	t.Helper()
 	if err := x.transition(executionStarting); err != nil {
 		t.Fatal(err)

@@ -44,7 +44,7 @@ type executionProcess interface {
 }
 
 // execution 独占一次命令的资源组与终止结论。它只由包级 Run 创建并立即运行一次，
-// Run 返回前完成回收；成功移交的产物由 Result 持有，execution 不再访问它们。
+// Run 返回前完成回收；成功移交的产物由 Delivery 持有，execution 不再访问它们。
 type execution struct {
 	state              executionState
 	plan               isolationPlan
@@ -52,7 +52,7 @@ type execution struct {
 	makeGroup          GroupFactory
 	group              Group
 	started            time.Time
-	result             Result
+	result             Delivery
 	runErr, cleanupErr error
 	// supervision 是监督循环的初步结论；最终结论由 conclude 结合停组计量与等待结果给出。
 	supervision supervisionOutcome
@@ -75,8 +75,8 @@ type Options struct {
 }
 
 // Run 执行一条已校验的请求，返回前完成全部回收。error 非 nil 表示回收无法确认，
-// 调用方必须停止接单；命令本身的失败记录在 Result 里。
-func Run(ctx context.Context, r hostexec.Request, options Options) (Result, error) {
+// 调用方必须停止接单；命令本身的失败记录在 Delivery 里。
+func Run(ctx context.Context, r hostexec.Request, options Options) (Delivery, error) {
 	return newExecution(r, options).Run(ctx)
 }
 
@@ -85,15 +85,15 @@ func newExecution(r hostexec.Request, options Options) *execution {
 	started := time.Now()
 	plan := newIsolationPlan(r, options.Environment)
 	return &execution{plan: plan, process: newIsolatedProcess(plan, options.Source, options.CancelInput), makeGroup: options.Groups, started: started,
-		result: Result{Result: hostexec.Result{Version: hostexec.Version, ExitCode: -1}}}
+		result: Delivery{Result: hostexec.Result{Version: hostexec.Version, ExitCode: -1}}}
 }
 
-func (x *execution) Run(ctx context.Context) (Result, error) {
+func (x *execution) Run(ctx context.Context) (Delivery, error) {
 	if x.state != executionNew {
-		return Result{}, fmt.Errorf("execution can only Run once")
+		return Delivery{}, fmt.Errorf("execution can only Run once")
 	}
 	if err := x.transition(executionStarting); err != nil {
-		return Result{}, err
+		return Delivery{}, err
 	}
 	// panic 时也尝试结束已取得的资源；正常路径显式检查 finish 的错误。
 	defer func() {
@@ -112,7 +112,7 @@ func (x *execution) Run(ctx context.Context) (Result, error) {
 		if e := x.transition(executionCleanupFailed); e != nil {
 			x.cleanupErr = errors.Join(x.cleanupErr, e)
 		}
-		return x.takeResult(), err
+		return x.takeDelivery(), err
 	}
 	x.group = g
 	// 启动失败也是「这条命令怎么停下来的」的一种，和监督得出的结论走同一条路，
@@ -125,7 +125,7 @@ func (x *execution) Run(ctx context.Context) (Result, error) {
 	return x.finish(ctx)
 }
 
-func (x *execution) takeResult() Result {
+func (x *execution) takeDelivery() Delivery {
 	result := x.result
 	x.result.artifacts = nil
 	return result

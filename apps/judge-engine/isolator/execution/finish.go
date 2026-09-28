@@ -16,7 +16,7 @@ import (
 //
 // 本函数只负责**按内核要求的顺序收集事实并回收资源**：停组 → 等待 → 取产物 → 释放。
 // 「这些事实意味着什么」交给 conclude——它不依赖顺序，可以单独穷举测试。
-func (x *execution) finish(ctx context.Context) (Result, error) {
+func (x *execution) finish(ctx context.Context) (Delivery, error) {
 	if err := x.transition(executionFinishing); err != nil {
 		x.fail(err)
 	}
@@ -96,7 +96,7 @@ func (x *execution) finish(ctx context.Context) (Result, error) {
 	if err := x.transition(final); err != nil {
 		x.cleanupErr = errors.Join(x.cleanupErr, err)
 	}
-	return x.takeResult(), x.cleanupErr
+	return x.takeDelivery(), x.cleanupErr
 }
 
 func wrapError(operation string, err error) error {

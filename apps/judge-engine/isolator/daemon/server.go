@@ -23,7 +23,7 @@ const (
 	requestHeaderTimeout = 5 * time.Second  // 开始处理连接后读取请求控制帧。
 	deliveryTimeout      = 10 * time.Second // execution.Run 返回后单独刷新写端期限。
 	recoveryTimeout      = 5 * time.Second  // 服务启动时回收旧的自有环境。
-	cleanupTimeout       = 5 * time.Second  // 停服时关闭资源组管理器。
+	managerCloseTimeout  = 5 * time.Second  // 停服时关闭资源组管理器。
 )
 
 // Serve 只接受配置中固定 UID，连接占用并发槽直到产物交付结束；超额立即拒绝。
@@ -67,7 +67,7 @@ func (s *service) run(ctx context.Context) (result error) {
 	}
 	s.manager = manager
 	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+		cleanup, cancel := context.WithTimeout(context.Background(), managerCloseTimeout)
 		defer cancel()
 		result = errors.Join(result, manager.Close(cleanup))
 	}()
@@ -183,23 +183,23 @@ func (s *service) serveConn(ctx context.Context, conn *net.UnixConn, slot int) (
 	// execution 的输入读取阻塞在 socket；仅取消 ctx 不会唤醒它，必须推进读期限。
 	interrupt := context.AfterFunc(runCtx, func() { conn.SetReadDeadline(time.Now()) })
 	defer interrupt()
-	res, fatal := execution.Run(runCtx, req, execution.Options{
+	delivery, fatal := execution.Run(runCtx, req, execution.Options{
 		Environment: s.config.forSlot(slot).environment(s.executable), Source: conn, CancelInput: cancel,
 		Groups: func(l cgroup.Limits) (execution.Group, error) { return s.manager.New(l) },
 	})
-	defer func() { fatal = errors.Join(fatal, res.Close()) }()
+	defer func() { fatal = errors.Join(fatal, delivery.Close()) }()
 	if ctx.Err() != nil {
 		return fatal
 	}
 	// 读取侧超时不妨碍给仍连接的调用方返回已取消/失败的资源事实。
 	_ = conn.SetWriteDeadline(time.Now().Add(deliveryTimeout))
-	if err := hostexec.WriteFrame(conn, res.Result, hostexec.MaxResultFrameBytes); err != nil {
+	if err := hostexec.WriteFrame(conn, delivery.Result, hostexec.MaxResultFrameBytes); err != nil {
 		return fatal
 	}
-	if err := res.WriteFiles(conn); err != nil {
+	if err := delivery.WriteFiles(conn); err != nil {
 		return fatal
 	}
-	if err := res.Close(); err != nil {
+	if err := delivery.Close(); err != nil {
 		return errors.Join(fatal, err)
 	}
 	if fatal != nil {

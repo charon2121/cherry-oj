@@ -12,9 +12,9 @@
 //	              打开产物 → 释放句柄、cgroup 与挂载点
 //
 // 状态只能按 state.go 的转移表变化；结论由纯函数 conclude 从 executionFacts 推出，不做 I/O。
-// 回收无法确认时 Run 返回 error，调用方必须停止接单；命令本身的失败只写进 Result。
+// 回收无法确认时 Run 返回 error，调用方必须停止接单；命令本身的失败只写进 Delivery。
 //
 // 文件：execution（类型与 Run）、isolation_plan、process / process_events / process_wait
 // （P3 这一侧的 P4 句柄：启动、协议事件、等待与释放）、supervise、finish、conclusion、state、
-// result 与 artifacts（交付）、capture（有界收集输出）、owned_file、usage。
+// delivery 与 artifacts（交付）、capture（有界收集输出）、owned_file、usage。
 package execution

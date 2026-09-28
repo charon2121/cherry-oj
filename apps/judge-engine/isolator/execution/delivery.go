@@ -8,17 +8,17 @@ import (
 	"io"
 )
 
-// Result 接管已结束执行的产物；hostexec.Result 自身只含可序列化事实。
-// 交付者必须成功关闭产物后才能发送 hostexec.Completion。
-type Result struct {
+// Delivery 是一次执行交给调用方的全部东西：可序列化的执行事实（内嵌的 hostexec.Result，
+// 即 Result 帧）加上已打开、待写出的产物句柄。交付者必须成功关闭产物后才能发送 Completion。
+type Delivery struct {
 	hostexec.Result
 	artifacts *artifactSet
 }
 
-func (r *Result) Close() error { return r.artifacts.Close() }
+func (r *Delivery) Close() error { return r.artifacts.Close() }
 
 // CopyN 将短文件视为交付失败，避免下一帧被当成剩余文件内容。
-func (r *Result) WriteFiles(w io.Writer) error {
+func (r *Delivery) WriteFiles(w io.Writer) error {
 	var files []*ownedFile
 	if r.artifacts != nil {
 		files = r.artifacts.files

@@ -195,7 +195,7 @@ func TestDeliveryRejectsTruncatedArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := Result{Result: hostexec.Result{Outputs: []hostexec.Output{{Path: "artifact", SizeBytes: 1}}}, artifacts: &artifactSet{files: []*ownedFile{ownFile(f)}}}
+	r := Delivery{Result: hostexec.Result{Outputs: []hostexec.Output{{Path: "artifact", SizeBytes: 1}}}, artifacts: &artifactSet{files: []*ownedFile{ownFile(f)}}}
 	if err := r.WriteFiles(io.Discard); !errors.Is(err, io.EOF) {
 		t.Fatal(err)
 	}
