@@ -68,8 +68,10 @@ static int set_path(char *dst, size_t cap, const char *v) {
     return 0;
 }
 
-// 每个 box 有自己的一对身份；所有身份段两两不重叠，也不与服务身份重叠。
+// 每个 box 有自己的一对身份：payload 与 init 各占一段 n 个连续编号，两段不重叠；
+// 服务身份只有一个编号，不能落在任一段内。
 static bool overlaps(long long a, long long b, int n) { return a < b + n && b < a + n; }
+static bool inside(long long x, long long base, int n) { return x >= base && x < base + n; }
 
 static int validate(const struct config *c, char *err, size_t errlen) {
     if (!c->rootfs[0] || !c->boxes[0] || !c->cgroup[0]) {
@@ -84,9 +86,9 @@ static int validate(const struct config *c, char *err, size_t errlen) {
     long long ids[] = {c->payload_uid, c->init_uid};
     long long gids[] = {c->payload_gid, c->init_gid};
     if (!c->service_uid || !c->service_gid || !ids[0] || !ids[1] || !gids[0] || !gids[1] ||
-        overlaps(ids[0], ids[1], n) || overlaps(gids[0], gids[1], n) || overlaps(c->service_uid, ids[0], n) ||
-        overlaps(c->service_uid, ids[1], n) || overlaps(c->service_gid, gids[0], n) ||
-        overlaps(c->service_gid, gids[1], n)) {
+        overlaps(ids[0], ids[1], n) || overlaps(gids[0], gids[1], n) || inside(c->service_uid, ids[0], n) ||
+        inside(c->service_uid, ids[1], n) || inside(c->service_gid, gids[0], n) ||
+        inside(c->service_gid, gids[1], n)) {
         set_error(err, errlen, "config: service, init and payload identities must be separate and non-root");
         return -1;
     }

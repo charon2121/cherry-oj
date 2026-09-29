@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 
 from command import install_signal_handlers, run
 from report import ROOT, digest, git_sha, harness_sha
@@ -38,10 +39,14 @@ def main():
     run(['go', 'test', '-race', '-count=1', '-json'] + linux_packages(),
         logs / 'go-linux.log', 180, cwd=go)
     linux_units(logs / 'go-linux.log')
-    env = dict(os.environ, CGO_ENABLED='0', GOOS='linux', GOARCH='amd64')
-    for name, command in [('probe', ['go', 'build', '-o', str(output / 'probe'), './isolator/tests/probe']),
-                          ('boundary', ['go', 'test', '-c', '-o', str(output / 'boundary.test'), './isolator/tests/boundary'])]:
-        run(command, logs / (name + '.log'), 120, cwd=go, env=env)
+    # 内核测试用的执行器把受信配置编译到测试目录，其余与发布构建完全相同。
+    executor = ROOT / 'apps/sandbox'
+    run(['make', '-s', '-C', executor, 'BUILD=' + str(output / 'test-executor-build'),
+         'OUT=' + str(output / 'test-executor'), 'CONFIG=/var/lib/cherry-sandbox-test/executor.conf'],
+        logs / 'test-executor.log', 120)
+    shutil.rmtree(output / 'test-executor-build', ignore_errors=True)
+    run(['gcc', '-static', '-O2', '-pthread', '-Wall', '-Werror', '-o', output / 'probe', executor / 'tests/probe.c'],
+        logs / 'probe.log', 120)
     lock = output / 'release/packages.lock.json'
     if args.packages is not None:
         run(['python3', ROOT / 'deploy/sandbox-linux/ci/packages.py', '--lock', lock,
@@ -53,8 +58,9 @@ def main():
          '--packages', output / 'packages', '--output', output / 'cpp-rootfs'], logs / 'rootfs.log', 120)
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(), architecture=platform.machine(),
                     packageLock=digest(lock), rootfsManifest=digest(output / 'cpp-rootfs/manifest.json'),
-                    binaries={name: digest(output / 'release/bin' / name) for name in ('isolator', 'sandbox', 'judge')},
-                    probe=digest(output / 'probe'), boundary=digest(output / 'boundary.test'))
+                    binaries=dict(sandbox=digest(output / 'release/bin/sandbox'), judge=digest(output / 'release/bin/judge'),
+                                  executor=digest(output / 'release/libexec/sandbox')),
+                    probe=digest(output / 'probe'), testExecutor=digest(output / 'test-executor'))
     (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')
 
 

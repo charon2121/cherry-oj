@@ -9,20 +9,22 @@
 | 节点ID / 发布目录 | cherry-linux-2 / work048-linux-v1（同一二进制/rootfs，权限清单已收敛） |
 | sandbox账号 | cherry-sandbox，UID/GID61001 |
 | judge账号 | cherry-judge，UID/GID61010；控制面token仅root与此组可读 |
-| 预留槽位账号 | cherry-payload-0～3：61002/4/6/8；cherry-init-0～3：61003/5/7/9，均nologin、无home |
+| 预留box账号 | cherry-payload-0～3：61002～61005；cherry-init-0～3：61006～61009（box N 取基数加 N），均nologin、无home |
 | 并发 / 队列 | 1 / 4；预留身份不代表启用4并发 |
 | 持久目录 | /etc/cherry-sandbox、/var/lib/cherry-sandbox/releases/work048-linux-v1、service、judge |
-| 运行状态 | /run/cherry-sandbox-isolator，保留owner与锁供isolator受控恢复 |
-| 单元 | cherry-sandbox.slice、cherry-sandbox-isolator.service、cherry-sandbox.service、cherry-sandbox-judge.service |
+| 单元 | cherry-sandbox.slice、cherry-sandbox.service、cherry-sandbox-judge.service |
 | 总限制 | 1536MiB、swap0、384 tasks、CPU200% |
-| isolator / sandbox / judge | 768/256/384MiB，192/96/96 tasks，CPU100/50/50%，swap均0 |
-| isolator子树 | supervisor128MiB/32tasks/CPU50%；jobs640MiB/160tasks/CPU100%，swap0、jobs OOM成组终止 |
+| sandbox / judge | 896/384MiB，224/96 tasks，CPU150/50%，swap均0 |
+| sandbox委派子树 | supervisor（服务与执行器）256MiB/64tasks/CPU50%；jobs（各次执行）640MiB/160tasks/CPU100%，swap0、jobs OOM成组终止 |
+| 隔离执行器 | releases/<版本>/libexec/sandbox，root:cherry-sandbox 4754（setuid-root，仅服务组可执行；其他人可读，供 judge 自检核对摘要） |
 | 监听地址 | sandbox 127.0.0.1:15050；judge 127.0.0.1:15051 |
 | rootfs manifest | ed65f75e0f8f59c48e186a889d73d63b4523d001ec17766e4c27d098b23e29f0，对应已验证56包锁 |
 
 安装器检查root/amd64/systemd>=255、路径/服务/账号与整个身份范围冲突，任何冲突拒绝首次安装。不安装宿主包、不修改全局LSM、防火墙、sysctl或SSH配置；保留云代理。首次安装只写文件与账号，不自动启动、enable或重启机器。中途失败保留installation.json及部分资源供核查，不递归回滚删除数据。
 
-isolator的七项capability集合位于唯一真源systemd/cherry-sandbox-isolator.service；包含mount/pivot_root、降权、设备节点创建与文件回收需要的权限。systemd255的seccomp准备会丢弃未显式保留的SETUID，因此单独配置AmbientCapabilities=CAP_SETUID；仍受七项bounding集合约束。实测payload/init全部线程最终cap集合为零，NNP=1；未用删除NoNewPrivileges的方式规避启动失败。逐项删除七项能力均实测拒绝启动；CAP_SYS_CHROOT、CAP_FOWNER、CAP_KILL已删除，C++嵌套输入、0600产物读取及后台后代回收对照通过。该结论限于当前实现和首站环境。
+隔离由 setuid-root 的一次性执行器（apps/sandbox）完成，没有常驻特权进程。执行器需要的八项能力（SYS_ADMIN、SETUID、SETGID、SETPCAP、CHOWN、DAC_OVERRIDE、MKNOD、KILL；KILL 用于执行器意外死亡时让 init 的 PDEATHSIG 生效）以 sandbox 服务单元的能力边界集为唯一真源：setuid 取得的能力不会超出它；服务进程本身非 root、没有任何有效能力。payload/init 全部线程最终 cap 集合为零、NNP=1。verify-capabilities.py 逐项删除八项能力，每次 sandbox 都必须在启动自检时失败。
+
+代价：为了让 setuid 生效，sandbox 服务单元不能设置 NoNewPrivileges，也不能设置对非 root 服务隐含它的 seccomp 类硬化（RestrictAddressFamilies、LockPersonality、ProtectKernel*、RestrictSUIDSGID、RestrictNamespaces 等），cgroupfs 也必须可写。judge 单元的硬化不变。
 
 回环监听防止外部直接访问；HTTP没有新增应用层鉴权，宿主root/运维及云代理属于可信域。任务network namespace无法访问宿主回环。不能把此配置用于存在恶意宿主普通用户的共享机器并宣称按Judge身份鉴权。
 
@@ -51,9 +53,9 @@ python3 deploy/sandbox-linux/install/render.py \
 sh deploy/sandbox-linux/build-release.sh /absolute/project/deploy/sandbox-linux/.local/work048-linux-v1-release
 ```
 
-release-source需要bin/{isolator,sandbox,judge}、rootfs/、manifest.json、packages.lock.json。构建脚本只构建二进制；rootfs按../rootfs/README.md从锁定包解包，源包许可证保留。先验证原始包摘要与manifest一致，不在安装时重新生成摘要接受偏差。
+release-source需要bin/{sandbox,judge}、libexec/sandbox（执行器）、rootfs/、manifest.json、packages.lock.json。构建脚本构建二进制（执行器需要gcc与libseccomp-dev）；安装器把执行器单独设为setuid-root，其余文件一律清除setuid位；rootfs按../rootfs/README.md从锁定包解包，源包许可证保留。先验证原始包摘要与manifest一致，不在安装时重新生成摘要接受偏差。
 
-部署清单绑定sandbox/isolator、rootfs manifest、包锁、isolator/sandbox配置、单元与bootstrap摘要；Node.New另对真实judge二进制和执行配置计算摘要。Linux节点校验root保护、活动版本与实际cgroup总限额，通过隔离g++ --version探针读取工具链版本。缺清单、后端不匹配、文件/限额变化拒绝注册。部署清单不包含控制面token或endpoint来决定环境兼容性。
+部署清单绑定sandbox与执行器二进制、rootfs manifest、包锁、执行器/sandbox/启动配置、单元与启动脚本摘要。judge注册前自检：root保护、current下实际启动的文件与清单一致、实际cgroup限额与清单一致；缺清单、后端不匹配、文件/限额变化拒绝上线。sandbox启动脚本另外逐文件核对rootfs与manifest，不一致拒绝启动。
 
 ## 确认后执行
 
@@ -68,7 +70,7 @@ python3 install/manage.py stop
 
 安装器将管理工具持久保存到`/var/lib/cherry-sandbox/operations`，摘要绑定installation.json；当前节点可直接用`python3 /var/lib/cherry-sandbox/operations/manage.py status|start|stop|uninstall|restore`。恢复测试工具verify-native.py、verify-lifecycle.py也保存在该目录。后者会短暂停止本项目服务并恢复原文件，只能在节点尚未承担正式业务或完成排空后运行；每次选择一个case，不能并发执行。
 
-安装后先检查systemd-analyze verify，再实际验证isolator最小权限、非特权服务、实际cgroup总限额与身份、注册回执、缺配置/策略/rootfs拒绝、服务崩溃恢复。`start`失败停止本次服务；`stop`等待服务组消失。当前不自动enable；机器重启恢复需另行明确授权和验证。
+安装后先检查systemd-analyze verify，再实际验证执行器最小能力、非特权服务、实际cgroup总限额与身份、注册回执、缺配置/策略/rootfs拒绝、服务崩溃恢复。`start`失败停止本次服务；`stop`等待服务组消失。当前不自动enable；机器重启恢复需另行明确授权和验证。
 
 初始版本无可回退的已硬化版本，回退为`stop`。未来版本切换需要新发布清单、身份与校准，当前安装器拒绝覆盖已有安装。
 

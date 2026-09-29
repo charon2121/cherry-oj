@@ -1,66 +1,48 @@
 #!/usr/bin/env python3
-"""本机 Unix socket 串行有界探针；只用于测试夹具，成功不代表完整验收。"""
-import base64
+"""静态探针串行冒烟：身份、CPU、内存、输出、网络。只用于测试夹具，成功不代表完整验收。
+
+    smoke.py <fixture>
+"""
 import json
-import os
-import socket
-import struct
+from pathlib import Path
 import sys
 import time
 
-path=sys.argv[1]
-assert path.startswith('/run/cherry-sandbox-test-')
-os.setgroups([])
-os.setgid(61001)
-os.setuid(61001)
+from executor_client import Executor, drop_to_service
 
-def exact(sock,n):
-    data=b''
-    while len(data)<n:
-        chunk=sock.recv(n-len(data))
-        if not chunk: raise EOFError('incomplete isolator response')
-        data+=chunk
-    return data
+base = Path(sys.argv[1])
+assert base.parent == Path('/var/lib/cherry-sandbox-test')
+drop_to_service()
+executor = Executor(base)
+jobs = Path((base / 'holder-ready').read_text())
 
-def frame(sock):
-    n=struct.unpack('>I',exact(sock,4))[0]
-    assert n<=4<<20
-    return json.loads(exact(sock,n))
-
-for mode in ['identity','cpu','memory','output','identity','network','identity']:
-    req=dict(Version=1,Command=['probe',mode],Limits=dict(cpuNs=1000000000,clockNs=5000000000,memoryBytes=64<<20,maxProcesses=64,stdoutMaxBytes=8192,stderrMaxBytes=4096))
-    sock=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)
-    sock.settimeout(12)
-    start=time.monotonic()
-    try:
-        sock.connect(path)
-        data=json.dumps(req).encode();sock.sendall(struct.pack('>I',len(data))+data)
-        result=frame(sock)
-        assert not result.get('Outputs')
-        completion=frame(sock)
-        assert completion==dict(Version=1,Complete=True)
-        assert sock.recv(1)==b'', 'isolator sent data after completion'
-        stdout=base64.b64decode(result.get('Stdout') or '')
-        result['StdoutBytes']=len(stdout)
-        result.pop('Stdout',None)
-        assert not result['Usage']['Populated']
-        assert not result['Error'],result
-        if mode=='identity':
-            identity=json.loads(stdout)
-            fields=identity['status']
-            assert result['ExitCode']==0 and result['Reason']==''
-            assert fields['Uid'].split()==['61002']*4
-            assert fields['Gid'].split()==['61002']*4
-            assert all(int(v,16)==0 for k,v in fields.items() if k.startswith('Cap'))
-            assert fields['NoNewPrivs']=='1' and fields['Seccomp']=='2'
-            assert fields['hostFileAbsent']=='true' and fields['rootWriteDenied']=='true'
-            assert identity['ppid']==1
-            assert all(target.startswith(('pipe:','anon_inode:','/work/.stdin')) for target in identity['fds'])
-            result['identity']=identity
-        elif mode=='cpu': assert result['Reason']=='cpu' and result['Usage']['CPUNs']>=1000000000
-        elif mode=='memory': assert result['Usage']['OOMKill']>0 and result['Signal']==9 and result['Reason']==''
-        elif mode=='output': assert result['Reason']=='output' and result['OutputExceeded'] and len(stdout)==8192
-        elif mode=='network': assert result['Signal']==31 and result['Reason']==''
-        result['mode']=mode;result['observedSeconds']=round(time.monotonic()-start,3)
-        print(json.dumps(result),flush=True)
-    finally:sock.close()
+for mode in ['identity', 'cpu', 'memory', 'output', 'identity', 'network', 'identity']:
+    start = time.monotonic()
+    facts, stdout, _, _ = executor.call(['probe', mode], memory_bytes=64 << 20, stdout_max_bytes=8192,
+                                        stderr_max_bytes=4096)
+    assert not facts['error'], facts
+    # 执行器返回前已删除执行组：每次执行结束，jobs 下不能有残留。
+    assert not [p for p in jobs.iterdir() if p.is_dir()], 'execution group remained'
+    if mode == 'identity':
+        identity = json.loads(stdout)
+        fields = identity['status']
+        assert facts['exitCode'] == 0 and facts['reason'] == ''
+        assert fields['Uid'].split() == ['61002'] * 4
+        assert fields['Gid'].split() == ['61002'] * 4
+        assert all(int(v, 16) == 0 for k, v in fields.items() if k.startswith('Cap'))
+        assert fields['NoNewPrivs'] == '1' and fields['Seccomp'] == '2'
+        assert fields['hostFileAbsent'] == 'true' and fields['rootWriteDenied'] == 'true'
+        assert identity['ppid'] == 1
+        assert all(target.startswith(('pipe:', '/work/.stdin')) for target in identity['fds'])
+        facts['identity'] = identity
+    elif mode == 'cpu':
+        assert facts['reason'] == 'cpu' and facts['cpuNs'] >= 1000000000
+    elif mode == 'memory':
+        assert facts['oomKill'] > 0 and facts['oom'] > 0 and facts['signal'] == 9 and facts['reason'] == ''
+    elif mode == 'output':
+        assert facts['reason'] == 'output' and facts['outputExceeded'] and len(stdout) == 8192
+    elif mode == 'network':
+        assert facts['signal'] == 31 and facts['reason'] == ''
+    facts['mode'] = mode
+    facts['observedSeconds'] = round(time.monotonic() - start, 3)
+    print(json.dumps(facts), flush=True)

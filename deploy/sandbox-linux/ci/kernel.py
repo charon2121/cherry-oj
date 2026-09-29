@@ -5,7 +5,6 @@ import json
 import os
 from pathlib import Path
 import shutil
-import socket
 import subprocess
 import time
 
@@ -15,22 +14,9 @@ from report import ROOT, Report, digest, git_sha, harness_sha, manifest, read_js
 import results
 
 TESTS = ROOT / 'deploy/sandbox-linux/tests'
-
-
-def ready_socket(path, unit=None):
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        with socket.socket(socket.AF_UNIX) as connection:
-            connection.settimeout(.2)
-            try:
-                connection.connect(str(path))
-                return
-            except OSError:
-                time.sleep(.05)
-    # isolator 只有在每个槽位的启动冒烟都通过之后才开放 socket。冒烟不过时，外部只看得到
-    # 「socket 没就绪」，真正的原因留在 isolator 自己的输出里；不带出来就无从判断是配置、
-    # 内核能力还是执行链的问题。
-    raise TimeoutError('isolator socket did not become ready' + unit_output(unit))
+# 测试构建的执行器编译进去的受信配置路径；持有委派的单元在这里写配置。
+CONFIG = BASE / 'executor.conf'
+SERVICE_UID = 61001
 
 
 def unit_output(unit):
@@ -47,11 +33,11 @@ def verify_build(build):
     if data['sourceSha'] != git_sha() or data['harnessSha'] != harness_sha() or data['architecture'] != 'x86_64':
         raise ValueError('build provenance mismatch')
     paths = {'packageLock': build / 'release/packages.lock.json', 'rootfsManifest': build / 'cpp-rootfs/manifest.json',
-             'probe': build / 'probe', 'boundary': build / 'boundary.test'}
+             'probe': build / 'probe', 'testExecutor': build / 'test-executor'}
     if any(digest(path) != data[key] for key, path in paths.items()):
         raise ValueError('build artifact digest mismatch')
-    for name in ('isolator', 'sandbox', 'judge'):
-        if digest(build / 'release/bin' / name) != data['binaries'][name]:
+    for name, path in (('sandbox', 'bin/sandbox'), ('judge', 'bin/judge'), ('executor', 'libexec/sandbox')):
+        if digest(build / 'release' / path) != data['binaries'][name]:
             raise ValueError('binary digest mismatch')
     return data
 
@@ -71,48 +57,72 @@ class Kernel:
     def fixture(self, kind, cpp=False):
         base = BASE / ('work048-' + kind + '-' + self.owned.identity)
         base.mkdir(mode=0o755)
-        for name in ('isolator', 'sandbox'):
-            shutil.copy2(self.build / 'release/bin' / name, base / name)
+        shutil.copy2(self.build / 'release/bin/sandbox', base / 'sandbox')
         shutil.copy2(self.build / 'probe', base / 'probe')
-        shutil.copy2(self.build / 'boundary.test', base / 'boundary.test')
-        for name in ('bootstrap.py', 'http_chain.py', 'client.py'):
+        # 测试构建的执行器把受信配置编译为 BASE/executor.conf；与生产一样以 setuid-root 安装。
+        executor = base / 'sandbox-executor'
+        shutil.copy2(self.build / 'test-executor', executor)
+        os.chown(executor, 0, SERVICE_UID)
+        executor.chmod(0o4754)
+        for name in ('holder.py', 'http_chain.py', 'http_service.py', 'executor_client.py', 'identity_sample.py'):
             shutil.copy2(TESTS / name, base / name)
+        shutil.copy2(ROOT / 'deploy/sandbox-linux/install/sandbox-start.py', base / 'sandbox-start.py')
         run(['python3', TESTS / 'prepare_fixture.py', base], self.report.output / (kind + '-fixture.log'), 10)
         if cpp:
             # copytree preserves locked modes/links; root ownership comes from this root invocation.
             shutil.copytree(self.build / 'cpp-rootfs', base / 'cpp-rootfs-v2', symlinks=True)
         return base
 
-    def boundaries(self):
+    def hold(self, base, unit, cpp=False):
+        """启动持有委派子树的单元，等它写好执行器配置。"""
+        self.owned.register(unit)
+        self.owned.launch(unit, ['python3', base / 'holder.py', base, unit] + (['cpp'] if cpp else []),
+                          base.name.split('-')[1] + '-holder.log', memory=768, tasks=192, seconds=180,
+                          delegate=True, wait=False)
+        deadline = time.monotonic() + 20
+        while not (base / 'holder-ready').exists():
+            if time.monotonic() > deadline:
+                raise TimeoutError('delegation holder did not become ready' + unit_output(unit))
+            time.sleep(.05)
+
+    def executor_suite(self):
+        """执行器自己的真实内核测试（apps/sandbox/tests），在本次独立的委派单元里运行。"""
         self.active = 'boundary'
         base = self.fixture('boundary')
-        unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(unit)
-        self.owned.launch(unit, ['python3', TESTS / 'boundary_batch.py', base], 'boundary.log',
-                          memory=768, tasks=192, seconds=60, delegate=True)
-        results.boundary(self.report.output / 'boundary.log')
-        self.record('boundary', 'boundary.log')
+        holder = 'cherry-sandbox-test-' + base.name + '-holder'
+        self.hold(base, holder)
+        try:
+            unit = 'cherry-sandbox-test-' + base.name + '-suite'
+            self.owned.register(unit)
+            jobs = (base / 'holder-ready').read_text()
+            self.owned.launch(unit, ['python3', ROOT / 'apps/sandbox/tests/run_tests.py',
+                                     '--binary', self.build / 'test-executor', '--probe', self.build / 'probe',
+                                     '--root', base, '--config', CONFIG, '--install', base / 'suite-executor',
+                                     '--jobs', jobs, '--service-uid', SERVICE_UID,
+                                     '--payload-uid', 61002, '--init-uid', 61006],
+                              'boundary.log', memory=256, tasks=64, seconds=120)
+            results.executor_suite(self.report.output / 'boundary.log')
+            self.record('boundary', 'boundary.log')
+        finally:
+            self.owned.stop(holder)
 
     def direct(self, cpp=False):
         self.active = 'cpp-limits' if cpp else 'static-identity'
         kind = 'cpp' if cpp else 'static'
         base = self.fixture(kind, cpp)
-        isolator = 'cherry-sandbox-test-' + base.name + '-isolator'
-        self.owned.register(isolator)
-        self.owned.launch(isolator, ['python3', TESTS / 'bootstrap.py', base, isolator] + (['cpp'] if cpp else []),
-                          kind + '-isolator.log', memory=768, tasks=192, seconds=180, delegate=True, wait=False)
+        holder = 'cherry-sandbox-test-' + base.name + '-holder'
+        self.hold(base, holder, cpp)
         try:
-            sock = Path('/run') / isolator / 'isolator.sock'
-            ready_socket(sock, isolator)
-            scripts = [('cpp_limits.py', 'cpp-limits', sock)] if cpp else [
-                ('inspect_threads.py', 'static-identity', base / 'isolator.json'),
-                ('smoke.py', 'static-smoke', sock), ('extended.py', 'static-extended', sock)]
-            for script, group, argument in scripts:
+            scripts = [('cpp_limits.py', 'cpp-limits')] if cpp else [
+                ('inspect_threads.py', 'static-identity'), ('smoke.py', 'static-smoke'),
+                ('extended.py', 'static-extended')]
+            for script, group in scripts:
                 self.active = group
                 unit = 'cherry-sandbox-test-work048-' + group + '-' + self.owned.identity
                 self.owned.register(unit)
                 log = group + '.log'
-                self.owned.launch(unit, ['python3', TESTS / script, argument], log)
+                shutil.copy2(TESTS / script, base / script)
+                self.owned.launch(unit, ['python3', base / script, base], log, memory=256, tasks=64)
                 path = self.report.output / log
                 if group == 'static-smoke':
                     results.markers(path, field='mode', required=('identity', 'cpu', 'memory', 'output', 'network'))
@@ -123,46 +133,47 @@ class Kernel:
                     results.markers(path, sentinel=sentinel)
                 self.record(group, log)
         finally:
-            self.owned.stop(isolator)
+            self.owned.stop(holder)
 
     def chain(self, mode):
         self.active = 'chain-' + mode
         base = self.fixture('chain-' + mode, cpp=True)
         unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(*(unit + '-' + suffix for suffix in ('isolator', 'http', 'driver')))
+        self.owned.register(*(unit + '-' + suffix for suffix in ('http', 'driver')))
         log = 'chain-' + mode + '.log'
         try:
             run(['python3', TESTS / 'chain_batch.py', base, mode, unit], self.report.output / log, 190)
             results.chain(self.report.output / log, mode)
             self.record('chain-' + mode, log)
         finally:
-            self.owned.stop(unit + '-driver', unit + '-http', unit + '-isolator')
+            self.owned.stop(unit + '-driver', unit + '-http')
 
     def fault(self, capacity=False):
         mode = 'capacity' if capacity else 'fault'
         self.active = mode
         base = self.fixture('fault-' + mode)
         unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(*(unit + '-' + suffix for suffix in ('isolator', 'http', 'driver')))
+        self.owned.register(*(unit + '-' + suffix for suffix in ('http', 'driver')))
         log = mode + '.log'
         try:
-            self.owned.launch(unit + '-driver', ['python3', TESTS / 'fault_batch.py', base] +
+            shutil.copy2(TESTS / 'fault_batch.py', base / 'fault_batch.py')
+            self.owned.launch(unit + '-driver', ['python3', base / 'fault_batch.py', base] +
                               (['capacity'] if capacity else []), log, seconds=150)
             results.markers(self.report.output / log, sentinel='PASS fault chain', required=('before', 'after'))
             required = ('pool-saturation', 'peer-isolation-and-privilege', 'handler-saturation', 'aggregate-memory',
                         'task-local-memory') if capacity else ('missing-command', 'invalid-executable', 'queued-disconnect',
-                        'init-SIGKILL', 'HTTP-SIGKILL-restart', 'isolator-SIGKILL-restart', 'HTTP-graceful-stop-restart')
+                        'init-SIGKILL', 'HTTP-SIGKILL-restart', 'executor-SIGKILL-restart', 'HTTP-graceful-stop-restart')
             results.markers(self.report.output / log, required=required)
             self.record(mode, log)
         finally:
-            self.owned.stop(unit + '-driver', unit + '-http', unit + '-isolator')
+            self.owned.stop(unit + '-driver', unit + '-http')
 
     def execute(self):
         self.active = 'go-unit'
         shutil.copy2(self.build / 'logs/go-linux.log', self.report.output / 'go-linux.log')
         results.linux_units(self.report.output / 'go-linux.log')
         self.record('go-unit', 'go-linux.log')
-        self.boundaries()
+        self.executor_suite()
         self.direct()
         for mode in ('smoke', 'repeat', 'concurrency'):
             self.chain(mode)

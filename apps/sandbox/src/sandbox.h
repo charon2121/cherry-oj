@@ -128,6 +128,7 @@ struct child_plan {
     int stdout_w, stderr_w;
     int exec_error_w; // CLOEXEC：execve 成功即关闭
     int report_w;     // init 向父进程报告用户程序退出或自身失败
+    int report_r;     // 父进程的读端；init 必须关掉它，才能从写端看出父进程是否还在
 };
 _Noreturn void init_main(const struct child_plan *p);
 

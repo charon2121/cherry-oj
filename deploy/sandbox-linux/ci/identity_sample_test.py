@@ -29,12 +29,12 @@ class IdentitySampleTest(unittest.TestCase):
                         if failed and path.name == site:
                             raise OSError(number, 'injected observation failure')
                         if path.name == 'cgroup.procs':
-                            return '61002 61003 61004 61005'
+                            return '61002 61003 61006 61007'
                         return 'Uid:\t' + path.parent.name
 
                     with patch.object(Path, 'read_text', read):
                         # 已有完整样本也不能覆盖后续观察故障。
-                        self.assertEqual(SAMPLER.sample([group]), ({61002, 61004}, {61003, 61005}))
+                        self.assertEqual(SAMPLER.sample([group]), ({61002, 61003}, {61006, 61007}))
                         failed = True
                         allowed = number == errno.ENOENT or (site == 'cgroup.procs' and number == errno.ENODEV)
                         if allowed:

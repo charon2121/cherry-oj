@@ -270,7 +270,7 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
     }
     struct child_plan plan = {.config = c, .spec = s, .box = b, .box_index = slot, .workspace = workspace,
                               .stdout_w = out[1], .stderr_w = err[1], .exec_error_w = exec_error[1],
-                              .report_w = report[1]};
+                              .report_w = report[1], .report_r = report[0]};
     int pidfd = -1;
     struct clone_args args = {
         .flags = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWCGROUP |

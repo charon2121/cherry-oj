@@ -29,7 +29,7 @@ sourceSha 必须匹配本次 checkout，harnessSha 覆盖非忽略的部署/测�
 ## Linux 内核套件
 
 工作流中的 `sandbox-kernel` 先由普通 runner 用户运行 `prepare.py`，构建本提交的二进制、
-Go 边界测试和锁定的 56 包 rootfs。它执行 Linux 专属包的 race 测试并拒绝任何跳过，下载器逐包
+测试版执行器（受信配置编译为测试目录）、静态探针和锁定的 56 包 rootfs。它执行 Linux 专属包的 race 测试并拒绝任何跳过，下载器逐包
 校验 SHA256；准备日志独立保存。软件包由统一任务交付并在本VM重新校验；rootfs和当前代码仍每次构建，不缓存rootfs。
 
 随后 `kernel.py` 在一次性 VM 内通过 sudo 编排已有测试，检查实际 systemd/内核/LSM、控制器与
@@ -41,14 +41,15 @@ Go 边界测试和锁定的 56 包 rootfs。它执行 Linux 专属包的 race �
 身份、挂载及执行 cgroup，确认无残留后才删除本轮夹具。遇到未知占用或残留时保存事实并失败。
 运行时长及 VM 销毁提供最后托底，但不能补造清理通过记录。
 
-`results.py` 要求 Linux 专属 Go 测试、四组实际边界测试及 Python 逐模式标记出现；边界夹具的
-`TestExecFailureChild` 在非子进程模式正常返回，不设置跳过例外。旧手动脚本默认参数保持有效，
-CI 仅为 `chain_batch.py` 增加可选独立单元名，为零限额场景增加结果记录。
+`results.py` 要求 Linux 专属 Go 测试、执行器自身的真实内核测试（apps/sandbox/tests，在独立
+委派单元内运行）及 Python 逐模式标记出现，不允许 skip。直接执行类测试由 `holder.py` 持有委派
+子树，以服务身份直接调用 setuid 执行器；HTTP 链路与故障批次按生产单元的方式启动 sandbox 服务，
+由生产的 `sandbox-start.py` 核对 rootfs 并建组。
 
 ## 原生部署套件
 
 `sandbox-native`在另一台一次性VM上构建同一源码和锁定rootfs，再由`native.py`调用原安装器。
-十项case覆盖安装、线程/namespace/24项限额、三种缺文件、三服务在途崩溃、七项capability删减及
+十项case覆盖安装、线程/namespace/20项限额、三种缺文件、三服务在途崩溃、八项capability删减及
 卸载/恢复。原`verify-*.py`断言和预算不变，`native_results.py`要求实际结束标记及测量值完整。
 
 `native_control.py`只作为有界loopback协议接收器，核验新节点注册、心跳和恢复后身份不变；令牌每轮
@@ -63,7 +64,7 @@ CI 仅为 `chain_batch.py` 增加可选独立单元名，为零限额场景增�
 正常报告只有完整清理后才能PASS，VM销毁不算清理证据。没有enable、整机重启或现有服务连接。
 
 权限删减对照会主动造成连续启动失败。systemd阻止新启动时可能仍保留上一次`Result=exit-code`，
-因此不能仅以“不是start-limit-hit”证明实际执行。每个对照前仅清除本轮isolator的失败计数，
+因此不能仅以“不是start-limit-hit”证明实际执行。每个对照前仅清除本轮sandbox服务的失败计数，
 不修改部署的启动频率配置、不重试当前对照；逐次要求新的InvocationID和主进程启动时间，
 报告必须含8个不同启动实例（完整权限正例+7个删减）。恢复原配置并核对摘要后同样清除主动
 失败历史，再运行原启动与恢复断言。该处理仅属于测试夹具，不进入生产管理器。

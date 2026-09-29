@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <linux/mount.h>
 #include <linux/openat2.h>
 #include <sched.h>
@@ -166,11 +167,12 @@ static int put_input(int work, const char *path, bool executable, int src, int64
     close(dir);
     if (fd < 0)
         return -1;
+    // 先改权限再改所有者：交出所有权之后，root 再改权限需要 CAP_FOWNER，而执行器不持有它。
     int rc = copy_exact(src, fd, size);
     if (rc == 0)
-        rc = fchown(fd, uid, gid);
-    if (rc == 0)
         rc = fchmod(fd, executable ? 0755 : 0644);
+    if (rc == 0)
+        rc = fchown(fd, uid, gid);
     return close(fd) != 0 ? -1 : rc;
 }
 
@@ -281,10 +283,20 @@ static _Noreturn void reap_forever(void) {
     }
 }
 
+// 父进程消失时让整个 namespace 随之终止；下一次使用这个 box 时会清理残留的执行组。
+// 内核在凭据变化时会清掉 PDEATHSIG，所以降权之后必须重新设置；设置之前父进程可能已经死了，
+// 这时 report 写端已没有读者（init 自己的读端早已关闭），poll 报 POLLERR，直接退出。
+static void die_with_parent(int phase) {
+    TRY(phase, prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0));
+    struct pollfd p = {.fd = report_fd, .events = 0};
+    if (poll(&p, 1, 0) > 0 && (p.revents & POLLERR))
+        _exit(FAILURE_EXIT_CODE);
+}
+
 _Noreturn void init_main(const struct child_plan *plan) {
     report_fd = plan->report_w;
-    // 父进程消失时让整个 namespace 随之终止；下一次使用这个 box 时会清理残留的执行组。
-    TRY(PHASE_ROOTFS, prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0));
+    close(plan->report_r);
+    die_with_parent(PHASE_ROOTFS);
     prepare_root(plan);
     int slot = plan->box_index;
     uid_t payload_uid = plan->config->payload_uid + (uid_t)slot;
@@ -310,6 +322,7 @@ _Noreturn void init_main(const struct child_plan *plan) {
     close(plan->workspace);
     TRY(PHASE_SUPERVISOR,
         drop_privileges(plan->config->init_uid + (uid_t)slot, plan->config->init_gid + (gid_t)slot));
+    die_with_parent(PHASE_SUPERVISOR);
     TRY(PHASE_SUPERVISOR, filter_install(FILTER_SUPERVISOR));
     int status;
     for (;;) {

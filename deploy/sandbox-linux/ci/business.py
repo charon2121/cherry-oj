@@ -53,8 +53,10 @@ def cleanup(output, owned):
 
 def idle():
     groups = sorted(p.name for p in JOBS.iterdir() if p.is_dir())
-    work = STATE / 'service/work'
-    files = sorted(p.name for p in work.iterdir() if p.name != '.lock')
+    # 每次交付后 box 只剩空的 in/ 与 out/；任何残留文件都算泄漏。
+    boxes = STATE / 'service/boxes'
+    files = sorted(str(p.relative_to(boxes)) for p in boxes.rglob('*')
+                   if p.name != '.lock' and not (p.is_dir() and p.name in ('0', '1', '2', '3', 'in', 'out')))
     tasks = []
     for path in Path('/proc').glob('[0-9]*/status'):
         try:
@@ -76,7 +78,7 @@ def verify_parent_events(before):
     after = parent_events()
     for path, old in before.items():
         if any(after[path].get(key, 0) != old.get(key, 0) for key in ('oom', 'oom_kill', 'oom_group_kill')):
-            raise ValueError('node/isolator exhausted its own memory budget')
+            raise ValueError('sandbox service exhausted its own memory budget')
     return after
 
 

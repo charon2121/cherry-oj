@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"cherry-oj/judge-engine/internal/hostexec"
 )
@@ -124,6 +125,10 @@ func (e *Executor) Execute(ctx context.Context, j Job, sink OutputSink) (Facts, 
 	}
 	facts, reclaimed, err := e.execute(ctx, box, j, sink)
 	if reclaimed {
+		// 交付完就清空 box：本次的源码、输入与产物不该在磁盘上多停留。清不掉的 box 不再复用。
+		if resetErr := e.reset(box); resetErr != nil {
+			return facts, errors.Join(err, cleanupFailed("clear box %d: %w", box, resetErr))
+		}
 		e.boxes <- box
 	}
 	return facts, err
@@ -179,6 +184,9 @@ func (e *Executor) run(ctx context.Context, box int) (executorOutput, int, error
 	stdout.max, stderr.max = 64<<10, 4<<10
 	cmd := exec.Command(e.binary, "--box", strconv.Itoa(box))
 	cmd.Stdin, cmd.Stdout, cmd.Stderr, cmd.Env = read, &stdout, &stderr, []string{}
+	// 执行器被杀时，若有后代仍持有它的 stdout/stderr，Wait 会一直等管道关闭；
+	// 进程退出后最多再等这么久，之后强制关闭管道，结果按未确认回收处理。
+	cmd.WaitDelay = 5 * time.Second
 	err = cmd.Start()
 	read.Close()
 	if err != nil {

@@ -23,14 +23,15 @@ logging:
 sandbox:
   httpAddr: 127.0.0.1:5050
 
-  # 显式可信本地开发；Linux正式模式改为linux，isolator不可用时拒绝启动。
+  # 显式可信本地开发；Linux 正式模式改为 linux，执行器不可用时拒绝启动。
   # devhost 是**零隔离**的开发后端：跑在里面的程序能读宿主任意文件、能联网、能 fork 炸弹。
   # 它只用于在非 Linux 平台开发整条链路，绝不能用来跑用户提交。
   # 正式部署改为 linux，并去掉下面的 allowUnsafeBackend。
   backend: devhost
   allowUnsafeBackend: true
-  isolatorSocket: /run/cherry-sandbox-isolator/isolator.sock
-  workspaceRoot: ./data/sandbox-work
+  # linux 后端：setuid-root 安装的 C 执行器，以及交给它的 box 目录根（本服务独占，0700）。
+  executorPath: /var/lib/cherry-sandbox/current/libexec/sandbox
+  boxesRoot: ./data/sandbox-boxes
   parallelism: 1
   queueSize: 8
   maxRequestBytes: 2097152

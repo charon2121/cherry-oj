@@ -1,7 +1,7 @@
 # sandbox 执行器
 
 一次性的 C 程序，每次调用在隔离环境里执行一条命令，输出一行 JSON 事实后退出。
-以 setuid-root 安装（`root:cherry-sandbox 4750`），只有 sandbox HTTP 服务所在的组能执行。
+以 setuid-root 安装（`root:cherry-sandbox 4754`），只有 sandbox HTTP 服务所在的组能执行；其他人只能读（judge 启动自检要核对它的摘要）。
 它不理解判题：编译、比对与 verdict 都在 judge。
 
 ```text

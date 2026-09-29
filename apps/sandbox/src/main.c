@@ -14,6 +14,7 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/capability.h>
 #include <linux/openat2.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -61,6 +62,11 @@ static void become_root(const struct config *c) {
         refuse(EXIT_REFUSED, "caller is not the sandbox service");
     if (setresgid(0, 0, 0) != 0 || setresuid(0, 0, 0) != 0)
         refuse(EXIT_REFUSED, "cannot assume root identity");
+    // 执行器意外死亡时，init 靠 PDEATHSIG 带着整个 namespace 退出。内核按普通 kill 的权限
+    // 投递这个信号：发送方是 root、目标是 init 身份，没有 CAP_KILL 信号会被静默丢弃，
+    // 执行组就会在无人监督的情况下继续运行。所以边界集里没有 CAP_KILL 时拒绝执行。
+    if (prctl(PR_CAPBSET_READ, CAP_KILL, 0, 0, 0) != 1)
+        refuse(EXIT_REFUSED, "CAP_KILL is required to reclaim the namespace if the executor dies");
 }
 
 static void json_string(FILE *f, const char *s) {

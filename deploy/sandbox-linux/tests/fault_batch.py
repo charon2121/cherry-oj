@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""TASK-098: bounded HTTP cancellation/crash/recovery tests on an owned static fixture."""
+"""有界的 HTTP 取消、崩溃与恢复测试，只作用于本次自有的静态夹具。
+
+    fault_batch.py <fixture> [capacity]
+"""
 import http.client
 import json
 import os
@@ -10,18 +13,19 @@ import subprocess
 import sys
 import time
 
+import http_service
 from identity_sample import sample
 
 BASE = Path(sys.argv[1])
 assert BASE.parent == Path('/var/lib/cherry-sandbox-test')
 assert BASE.name.startswith('work048-fault-') and not BASE.is_symlink()
 PREFIX = 'cherry-sandbox-test-' + BASE.name
-ISOLATOR = PREFIX + '-isolator'
 HTTP = PREFIX + '-http'
-STATE = Path('/run') / ISOLATOR
-CG = Path('/sys/fs/cgroup/system.slice') / (ISOLATOR + '.service')
+CG = Path('/sys/fs/cgroup/system.slice') / (HTTP + '.service')
 JOBS = CG / 'jobs'
 SERVICE = BASE / 'service'
+BOXES = SERVICE / 'boxes'
+EXECUTOR = str(BASE / 'sandbox-executor')
 PORT = 15051
 CAPACITY = len(sys.argv) == 3 and sys.argv[2] == 'capacity'
 LIMITS = dict(cpuNs=1_000_000_000, clockNs=5_000_000_000,
@@ -43,49 +47,8 @@ def wait_for(check, message, seconds=3):
     raise AssertionError(message)
 
 
-def launch(name, props, args):
-    cmd = ['systemd-run', '--collect', '--unit=' + name]
-    for prop in props:
-        cmd += ['-p', prop]
-    subprocess.run(cmd + args, check=True)
-
-
-def start_isolator(recover=False):
-    launch(ISOLATOR, ['Delegate=yes', 'MemoryMax=768M', 'MemorySwapMax=0',
-                   'TasksMax=192', 'CPUQuota=100%', 'RuntimeMaxSec=120',
-                   'KillMode=control-group'],
-           ['python3', str(BASE / 'bootstrap.py'), str(BASE), ISOLATOR]
-           + (['recover'] if recover else []) + (['parallel2'] if CAPACITY else []))
-    def ready():
-        # A crashed isolator leaves a socket inode. Existence alone is not readiness.
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-            client.settimeout(.2)
-            try:
-                client.connect(str(STATE / 'isolator.sock'))
-                return True
-            except OSError:
-                return False
-    wait_for(ready, 'isolator not listening after recovery', 10)
-
-
 def start_http():
-    launch(HTTP, ['MemoryMax=256M', 'MemorySwapMax=0', 'TasksMax=96',
-                  'CPUQuota=50%', 'RuntimeMaxSec=120', 'KillMode=control-group',
-                  'NoNewPrivileges=yes'],
-           ['setpriv', '--reuid=61001', '--regid=61001', '--clear-groups',
-            '--bounding-set=-all', '--no-new-privs', str(BASE / 'sandbox'),
-            '-config', str(BASE / 'sandbox.yaml')])
-    def ready():
-        try:
-            c = http.client.HTTPConnection('127.0.0.1', PORT, timeout=.2)
-            c.request('GET', '/version')
-            r = c.getresponse()
-            return r.status == 200 and json.loads(r.read())['isolation'] == 'linux'
-        except (OSError, http.client.HTTPException):
-            return False
-        finally:
-            c.close()
-    wait_for(ready, 'HTTP not started', 10)
+    http_service.launch(BASE, HTTP, port=PORT, parallelism=2 if CAPACITY else 1, cpp=False, seconds=120)
 
 
 def main_pid(unit):
@@ -136,7 +99,7 @@ def identity():
     result = finish(begin('identity'))
     assert result['status'] == 'OK' and not result.get('error'), result
     fields = json.loads(result['stdout'])['status']
-    assert set(fields['Uid'].split()) <= ({'61002', '61004'} if CAPACITY else {'61002'})
+    assert set(fields['Uid'].split()) <= ({'61002', '61003'} if CAPACITY else {'61002'})
     assert fields['Seccomp'] == '2' and fields['NoNewPrivs'] == '1'
     return result
 
@@ -149,7 +112,7 @@ def active_init():
             payload = False
             for pid in pids:
                 status = Path('/proc', pid, 'status').read_text()
-                if 'Uid:\t61003\t' in status:
+                if 'Uid:\t61006\t' in status:
                     init = int(pid)
                 if 'Uid:\t61002\t' in status and 'Seccomp:\t2' in status:
                     payload = True
@@ -160,28 +123,50 @@ def active_init():
     return None
 
 
+def executor_pid():
+    """执行器进程：可执行文件是本夹具的 setuid 执行器，且不在执行组里（init 同一可执行文件，但在 jobs 下）。"""
+    for p in Path('/proc').glob('[0-9]*/exe'):
+        try:
+            if os.readlink(p) == EXECUTOR and '/supervisor' in (p.parent / 'cgroup').read_text():
+                return int(p.parent.name)
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+    return None
+
+
+def task_uids():
+    found = []
+    for p in Path('/proc').glob('[0-9]*/status'):
+        try:
+            uid = next(l for l in p.read_text().splitlines() if l.startswith('Uid:')).split()[1]
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        if 61002 <= int(uid) <= 61009:
+            found.append(int(uid))
+    return found
+
+
 def drained(workspace=True):
     assert not group_paths(), 'execution cgroup remained'
     for p in Path('/proc').glob('[0-9]*/status'):
         try:
             uid = next(l for l in p.read_text().splitlines() if l.startswith('Uid:')).split()[1:]
-            assert not set(uid) & set(map(str, range(61002, 61010))), ('payload remained', str(p))
+            assert not set(uid) & set(map(str, range(61002, 61010))), ('task remained', str(p))
         except (FileNotFoundError, ProcessLookupError):
             pass
     assert str(BASE) not in Path('/proc/self/mountinfo').read_text()
     if workspace:
-        assert sorted(p.name for p in (SERVICE / 'work').iterdir()) == ['.lock']
+        # 每次交付后 box 只剩空的 in/ 与 out/。
+        assert not [p for p in BOXES.rglob('*') if not p.is_dir() and p.name != '.lock'], 'box files remained'
     return True
 
 
 def snapshot():
     drained()
     result = {}
-    for unit in (ISOLATOR, HTTP):
-        pid = main_pid(unit)
-        assert pid > 0
-        result[unit.rsplit('-', 1)[-1]] = dict(pid=pid, fds=len(list(Path('/proc', str(pid), 'fd').iterdir())))
-    result['work'] = sorted(p.name for p in (SERVICE / 'work').iterdir())
+    pid = main_pid(HTTP)
+    assert pid > 0
+    result['http'] = dict(pid=pid, fds=len(list(Path('/proc', str(pid), 'fd').iterdir())))
     result['blobs'] = sorted(p.name for p in (SERVICE / 'blobs').iterdir())
     return result
 
@@ -260,7 +245,7 @@ def capacity_cases():
             payload_ids.update(payload)
             init_ids.update(init)
             time.sleep(.005)
-        assert payload_ids == {61002, 61004} and init_ids == {61003, 61005}, (payload_ids, init_ids)
+        assert payload_ids == {61002, 61003} and init_ids == {61006, 61007}, (payload_ids, init_ids)
         for token, future in zip(('left', 'right'), paired):
             result = future.result()
             assert result['status'] == 'OK' and result['stdout'] == 'private ' + token + '\n', result
@@ -335,26 +320,14 @@ def capacity_cases():
     drained()
 
 
-for name in (ISOLATOR, HTTP):
-    assert not subprocess.check_output(['systemctl', 'list-units', '--all', '--no-legend', name + '.service'], text=True).strip()
-SERVICE.mkdir(mode=0o700)
-os.chown(SERVICE, 61001, 61001)
-config = dict(logging=dict(path=str(SERVICE / 'logs')), sandbox=dict(
-    backend='linux', httpAddr='127.0.0.1:' + str(PORT),
-    isolatorSocket=str(STATE / 'isolator.sock'), workspaceRoot=str(SERVICE / 'work'),
-    parallelism=2 if CAPACITY else 1, queueSize=4, maxRequestBytes=2 << 20,
-    store=dict(root=str(SERVICE / 'blobs'), maxBlobBytes=64 << 20,
-               maxTotalBytes=256 << 20, maxEntries=128, retention='1h')))
-(BASE / 'sandbox.yaml').write_text(json.dumps(config))
+assert not subprocess.check_output(['systemctl', 'list-units', '--all', '--no-legend', HTTP + '.service'], text=True).strip()
 try:
-    start_isolator()
     start_http()
     identity()
     before = snapshot()
     report('before', snapshot=before)
-    for unit in (ISOLATOR, HTTP):
-        subprocess.run(['systemctl', 'show', unit, '-p', 'MemoryMax', '-p', 'TasksMax',
-                        '-p', 'CPUQuotaPerSecUSec', '-p', 'MemorySwapMax'], check=True)
+    subprocess.run(['systemctl', 'show', HTTP, '-p', 'MemoryMax', '-p', 'TasksMax',
+                    '-p', 'CPUQuotaPerSecUSec', '-p', 'MemorySwapMax'], check=True)
 
     if CAPACITY:
         capacity_cases()
@@ -387,7 +360,8 @@ try:
         # Kill namespace PID 1 only after payload is observed, using its pidfd.
         active = begin()
         pid, group = wait_for(active_init, 'launcher payload not observed')
-        kill_owned(pid, 61003, str(BASE / 'isolator'), '/' + str(group.relative_to('/sys/fs/cgroup')))
+        # init 是执行器 clone 出来的（没有再 exec），所以它的可执行文件仍是执行器本身。
+        kill_owned(pid, 61006, EXECUTOR, '/' + str(group.relative_to('/sys/fs/cgroup')))
         result = finish(active)
         assert result['status'] not in ('OK', 'TimeLimitExceeded', 'MemoryLimitExceeded'), result
         wait_for(lambda: not group_paths(), 'launcher group not reclaimed')
@@ -395,36 +369,33 @@ try:
         identity()
         report('init-SIGKILL', status=result['status'], error=result.get('error', ''))
 
-        # HTTP crash leaves service staging files; isolator must still reap its execution.
+        # HTTP 崩溃时 systemd 杀掉整个单元（含执行器与执行组）；box 中的文件留到重启时清理。
         active = begin()
         wait_for(active_init, 'HTTP crash payload not observed')
-        kill_owned(main_pid(HTTP), 61001, str(BASE / 'sandbox'), '/' + HTTP + '.service')
+        kill_owned(main_pid(HTTP), 61001, str(BASE / 'sandbox'), '/' + HTTP + '.service/supervisor')
         assert finish(active, disconnected=True)['status'] == 'Disconnected'
         wait_stopped(HTTP, 'HTTP cgroup survived crash')
-        wait_for(lambda: not group_paths(), 'HTTP crash did not cancel isolator')
         drained(workspace=False)
-        leftovers = sorted(p.name for p in (SERVICE / 'work').iterdir())
+        leftovers = sorted(str(p.relative_to(BOXES)) for p in BOXES.rglob('*') if not p.is_dir() and p.name != '.lock')
         start_http()
         identity()
         drained()
-        report('HTTP-SIGKILL-restart', beforeRecovery=leftovers, afterRecovery=['.lock'])
+        report('HTTP-SIGKILL-restart', beforeRecovery=leftovers, afterRecovery=[])
 
-        # Isolator crash: systemd kills the entire delegated group; restart recovers socket/state.
+        # 执行器崩溃：init 的 PDEATHSIG 让整个 namespace 随之终止；HTTP 服务得不到回收确认，
+        # 执行池停止接单并报平台错误。重启服务后，下一次执行回收空的残留执行组。
         active = begin()
-        wait_for(active_init, 'isolator crash payload not observed')
-        kill_owned(main_pid(ISOLATOR), 0, str(BASE / 'isolator'), '/' + ISOLATOR + '.service/supervisor')
+        wait_for(active_init, 'executor crash payload not observed')
+        executor = wait_for(executor_pid, 'executor process not observed')
+        kill_owned(executor, 0, EXECUTOR, '/' + HTTP + '.service/supervisor')
         result = finish(active)
         assert result['status'] == 'InternalError', result
-        wait_stopped(ISOLATOR, 'isolator cgroup survived crash')
-        drained()
-        state_before = sorted(p.name for p in STATE.iterdir())
-        start_isolator(recover=True)
-        # Pool may fail closed after transport failure: restart its owning HTTP service explicitly.
+        wait_for(lambda: not task_uids(), 'tasks survived executor crash')
         stop(HTTP)
         start_http()
         identity()
         drained()
-        report('isolator-SIGKILL-restart', status=result['status'], stateBeforeRecovery=state_before)
+        report('executor-SIGKILL-restart', status=result['status'], error=result.get('error', ''))
 
         active = begin()
         wait_for(active_init, 'graceful stop payload not observed')
@@ -433,19 +404,19 @@ try:
         elapsed = time.monotonic() - start
         result = finish(active, disconnected=True)
         assert elapsed < 2 and result['status'] != 'OK', (elapsed, result)
-        # sandbox 返回时 isolator 可能仍在按断连收尾；它的回收期限是 5 s，等组消失后再核对。
+        # 停止单元时 systemd 杀掉单元内全部进程并删除委派子树；等组消失后再核对。
         wait_for(lambda: not group_paths(), 'graceful stop did not reclaim the execution group', 6)
-        drained()
+        # 执行器随单元一起被停止，回收得不到确认；box 中的文件与崩溃时一样留到重启时清理。
+        drained(workspace=False)
         start_http()
         identity()
+        drained()
         report('HTTP-graceful-stop-restart', seconds=elapsed, status=result['status'])
 
     time.sleep(.2)
     after = snapshot()
-    for key in ('isolator', 'http'):
-        assert after[key]['fds'] <= before[key]['fds'] + 2, (before, after)
+    assert after['http']['fds'] <= before['http']['fds'] + 2, (before, after)
     report('after', snapshot=after)
     print('PASS fault chain', flush=True)
 finally:
     stop(HTTP)
-    stop(ISOLATOR)

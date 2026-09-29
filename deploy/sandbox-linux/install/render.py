@@ -7,7 +7,7 @@ import re
 import shutil
 from urllib.parse import urlsplit
 
-from layout import ACCOUNTS, BUDGETS, ETC, GROUP, STATE, UNITS
+from layout import ACCOUNTS, BOXES_ROOT, BUDGETS, ETC, EXECUTOR, GROUP, INIT_UID, PAYLOAD_UID, STATE, UNITS
 
 
 def write_json(path, value, mode=0o644):
@@ -39,20 +39,31 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
     source = Path(__file__).resolve().parent
     for name in UNITS:
         shutil.copyfile(source.parent / 'systemd' / name, output / name)
-    for name in ('isolator-start.py', 'health.py'):
+    for name in ('sandbox-start.py', 'health.py'):
         shutil.copyfile(source / name, output / name)
     root = STATE / 'releases' / release
-    # sandbox 同时执行的命令数不能超过 isolator 的槽位数：多出来的连接会因「没有空槽位」
-    # 被关闭，在 judge 那里表现为 SE。两边都从这一个值渲染，不能各写各的。
+    service_group = GROUP + '/cherry-sandbox.service'
+    # 每次执行占用一个 box；sandbox 的并发数与执行器的 box 数从这一个值渲染，不能各写各的。
     parallelism = 1
-    isolator = dict(SocketPath='/run/cherry-sandbox-isolator/isolator.sock',
-                  StateDir='/run/cherry-sandbox-isolator', JobsDir=GROUP+'/cherry-sandbox-isolator.service/jobs',
-                  RootFS=str(root/'rootfs'), ManifestPath=str(root/'manifest.json'),
-                  ManifestSHA256=manifest_hash, ServiceUID=61001, ServiceGID=61001,
-                  PayloadUID=61002, PayloadGID=61002, InitUID=61003, InitGID=61003, Parallelism=parallelism)
+    executor = '\n'.join([
+        'rootfs=' + str(root / 'rootfs'), 'boxes=' + str(BOXES_ROOT), 'cgroup=' + service_group + '/jobs',
+        'box_count=' + str(parallelism), 'service_uid=61001', 'service_gid=61001',
+        f'payload_uid={PAYLOAD_UID}', f'payload_gid={PAYLOAD_UID}', f'init_uid={INIT_UID}', f'init_gid={INIT_UID}']) + '\n'
+    (output / 'executor.conf').write_text(executor)
+    (output / 'executor.conf').chmod(0o644)
+    def limits(suffix, oom_group=False):
+        memory, pids, cpu = BUDGETS[suffix]
+        values = {'memory.max': str(memory), 'memory.swap.max': '0', 'pids.max': str(pids), 'cpu.max': cpu}
+        if oom_group:
+            values['memory.oom.group'] = '1'
+        return values
+    start = dict(group=service_group, rootfs=str(root / 'rootfs'), manifest=str(root / 'manifest.json'),
+                 manifestSha256=manifest_hash, supervisor=limits('/cherry-sandbox.service/supervisor'),
+                 jobs=limits('/cherry-sandbox.service/jobs', oom_group=True),
+                 command=[str(STATE / 'current/bin/sandbox'), '-config', str(ETC / 'sandbox.json')])
     sandbox = dict(logging=dict(path=str(STATE/'service/logs')), sandbox=dict(
-        backend='linux', httpAddr='127.0.0.1:15050', isolatorSocket=isolator['SocketPath'],
-        workspaceRoot=str(STATE/'service/work'), parallelism=parallelism, queueSize=4,
+        backend='linux', httpAddr='127.0.0.1:15050', executorPath=str(EXECUTOR),
+        boxesRoot=str(BOXES_ROOT), parallelism=parallelism, queueSize=4,
         maxRequestBytes=2 << 20, store=dict(root=str(STATE/'service/blobs'), maxBlobBytes=64 << 20,
         maxTotalBytes=256 << 20, maxEntries=128, retention='1h')))
     judge = dict(logging=dict(path=str(STATE/'judge/logs')), judge=dict(
@@ -62,19 +73,19 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
         node=dict(enabled=True, id=node_id, controlPlaneURL=control_url,
                   advertiseURL=advertise_url, deploymentManifest=str(ETC/'deployment.json'),
                   controlToken='REPLACE_FROM_PRIVATE_TOKEN_FILE')))
-    write_json(output/'isolator.json', isolator)
+    write_json(output/'sandbox-start.json', start)
     write_json(output/'sandbox.json', sandbox)
     write_json(output/'judge.json', judge, 0o600)
     write_json(output/'plan.json', dict(version=1, release=release, nodeID=node_id,
         accounts=ACCOUNTS, units=list(UNITS), rootfsSHA256=manifest_hash,
-        directories=[str(ETC),str(STATE),'/run/cherry-sandbox-isolator'],
+        directories=[str(ETC),str(STATE)],
         controlURL=control_url, advertiseURL=advertise_url,
         startAutomatically=False, deleteUserData=False, reboot=False))
-    files = {'sandbox': root/'bin/sandbox', 'isolator': root/'bin/isolator',
+    files = {'sandbox': root/'bin/sandbox', 'executor': root/'libexec/sandbox',
              'rootfsManifest': root/'manifest.json', 'toolchainLock': root/'packages.lock.json',
-             'isolatorConfig': ETC/'isolator.json', 'sandboxConfig': ETC/'sandbox.json',
-             'bootstrap': ETC/'isolator-start.py'}
-    for key, name in zip(('slice','isolatorUnit','sandboxUnit','judgeUnit'),UNITS):
+             'executorConfig': ETC/'executor.conf', 'sandboxConfig': ETC/'sandbox.json',
+             'startConfig': ETC/'sandbox-start.json', 'bootstrap': ETC/'sandbox-start.py'}
+    for key, name in zip(('slice','sandboxUnit','judgeUnit'),UNITS):
         files[key] = Path('/etc/systemd/system')/name
     # Release hashes are filled from the supplied immutable release by the installer.
     write_json(output/'deployment.template.json', dict(version=1,backend='linux',architecture='amd64',

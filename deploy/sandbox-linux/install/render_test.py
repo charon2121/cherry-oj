@@ -19,14 +19,17 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual(len(set(plan['accounts'].values())),10)
             self.assertFalse(plan['startAutomatically'])
             self.assertFalse(plan['reboot'])
-            isolator=json.loads((root/'isolator.json').read_text())
-            self.assertEqual(isolator['Parallelism'],1)
-            # sandbox 同时执行的命令数超过 isolator 槽位数时，多出的连接会被拒绝并报成 SE。
+            executor=dict(line.split('=',1) for line in (root/'executor.conf').read_text().splitlines())
+            # sandbox 的并发数必须等于执行器的 box 数：每次执行占用一个 box。
             sandbox=json.loads((root/'sandbox.json').read_text())
-            self.assertLessEqual(sandbox['sandbox']['parallelism'],isolator['Parallelism'])
-            self.assertNotEqual(isolator['ServiceUID'],isolator['PayloadUID'])
+            self.assertEqual(sandbox['sandbox']['parallelism'],int(executor['box_count']))
+            self.assertEqual(sandbox['sandbox']['boxesRoot'],executor['boxes'])
+            self.assertEqual(len({executor['service_uid'],executor['payload_uid'],executor['init_uid']}),3)
+            start=json.loads((root/'sandbox-start.json').read_text())
+            self.assertEqual(start['jobs']['memory.oom.group'],'1')
+            self.assertEqual(start['group']+'/jobs',executor['cgroup'])
             manifest=json.loads((root/'deployment.template.json').read_text())
-            self.assertEqual(len(manifest['limits']),24)
+            self.assertEqual(len(manifest['limits']),20)
             self.assertEqual(len(manifest['files']),11)
             self.assertNotIn('judgeConfig',manifest['files'])
             for path, value in manifest['limits'].items():

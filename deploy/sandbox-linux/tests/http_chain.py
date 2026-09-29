@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""独立HTTP测试实例的有界整链验证；不调用isolator私有协议。"""
+"""独立 HTTP 测试实例的有界整链验证：sandbox HTTP 服务 → setuid 执行器。"""
 import concurrent.futures
 import hashlib
 import http.client
@@ -40,7 +40,7 @@ def expect(name,result,status):
 def snapshot():
     import subprocess
     data={}
-    for suffix in ('isolator','http'):
+    for suffix in ('http',):
         name=unit+'-'+suffix+'.service'
         pid=int(subprocess.check_output(['systemctl','show',name,'--property=MainPID','--value'],text=True))
         assert pid>0
@@ -51,12 +51,15 @@ def snapshot():
         data[suffix]=dict(pid=pid,fds=len(targets),targets=targets)
         if suffix=='http':
             values=dict(line.split(':',1) for line in Path('/proc',str(pid),'status').read_text().splitlines() if ':' in line)
-            assert set(values['Uid'].split())=={'61001'} and values['NoNewPrivs'].strip()=='1',values
-            assert all(int(values[key],16)==0 for key in ('CapInh','CapPrm','CapEff','CapBnd','CapAmb')),values
-            data[suffix]['uid']=61001;data[suffix]['capabilities']=0;data[suffix]['noNewPrivileges']=True
-    cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-isolator.service')/'jobs'
+            # setuid 执行器要求服务不带 NoNewPrivileges；服务进程本身仍没有任何有效能力。
+            assert set(values['Uid'].split())=={'61001'},values
+            assert all(int(values[key],16)==0 for key in ('CapInh','CapPrm','CapEff','CapAmb')),values
+            data[suffix]['uid']=61001;data[suffix]['capabilities']=0
+    cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-http.service')/'jobs'
     data['jobs']=[p.name for p in cg.iterdir() if p.is_dir()]
-    data['work']=[p.name for p in (base/'service/work').iterdir()]
+    boxes=base/'service/boxes'
+    # 每次交付后 box 只剩空的 in/ 与 out/。
+    data['work']=sorted(str(p.relative_to(boxes)) for p in boxes.rglob('*') if not p.is_dir() and p.name!='.lock')
     data['blobs']=[p.name for p in (base/'service/blobs').iterdir()]
     payloads=[]
     for p in Path('/proc').glob('[0-9]*/status'):
@@ -67,7 +70,7 @@ def snapshot():
     data['payloads']=payloads
     assert not payloads,data
     data['mounts']=sum(base.as_posix() in line for line in Path('/proc/self/mountinfo').read_text().splitlines())
-    assert not data['jobs'] and data['work']==['.lock'],data
+    assert not data['jobs'] and data['work']==[],data
     return data
 
 source=r'''
@@ -146,7 +149,7 @@ try:
             if (i+1)%100==0:print(json.dumps(dict(completed=i+1,elapsedSeconds=time.monotonic()-start)),flush=True)
         print(json.dumps(dict(test='1000',clockMedianNs=statistics.median(clocks),clockMaxNs=max(clocks),cpuMedianNs=statistics.median(cpus),memoryMaxBytes=max(peaks))),flush=True)
     elif mode=='concurrency':
-        cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-isolator.service')/'jobs'
+        cg=Path('/sys/fs/cgroup/system.slice')/(unit+'-http.service')/'jobs'
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
             start=time.monotonic();futures=[pool.submit(program,'sleep') for _ in range(2)]
             peak=0
@@ -159,7 +162,7 @@ try:
     time.sleep(.2)
     after=snapshot();print(json.dumps(dict(snapshot='after',data=after)),flush=True)
     assert before['blobs']==after['blobs'] and before['mounts']==after['mounts'],(before,after)
-    for key in ('isolator','http'):assert after[key]['fds']<=before[key]['fds']+2,(before,after)
+    assert after['http']['fds']<=before['http']['fds']+2,(before,after)
     print('PASS '+mode,flush=True)
 finally:
     for ref in refs:

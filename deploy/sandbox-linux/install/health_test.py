@@ -1,35 +1,40 @@
-"""A leftover socket pathname must not release dependent services before listen()."""
-from pathlib import Path
+"""sandbox 必须报告 linux 隔离才算就绪：零隔离的开发后端不能放行依赖它的 judge。"""
+import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import health
 
 
+def response(status, body):
+    r = MagicMock()
+    r.status = status
+    r.read.return_value = json.dumps(body).encode()
+    return r
+
+
 class ReadinessTests(unittest.TestCase):
-    path = '/run/cherry-sandbox-isolator/isolator.sock'
-    header = 'Num RefCount Protocol Flags Type St Inode Path\n'
+    def check(self, status, body, mode='sandbox'):
+        connection = MagicMock()
+        connection.getresponse.return_value = response(status, body)
+        with patch.object(health.http.client, 'HTTPConnection', return_value=connection):
+            return health.ready(mode)
 
-    def test_accepts_live_stream_listener_only(self):
-        for flags, kind, state, path, want in [
-            ('00010000', '0001', '01', self.path, True),
-            ('00000000', '0001', '01', self.path, False),
-            ('00010000', '0002', '01', self.path, False),
-            ('00010000', '0001', '03', self.path, False),
-            ('00010000', '0001', '01', self.path + '.other', False),
-        ]:
-            with self.subTest(flags=flags, kind=kind, state=state, path=path):
-                table = self.header + f'0: 00000002 00000000 {flags} {kind} {state} 123 {path}\n'
-                self.assertEqual(health.unix_listener_present(table, self.path), want)
+    def test_sandbox_requires_linux_isolation(self):
+        self.assertTrue(self.check(200, {'name': 'cherry-oj-sandbox', 'isolation': 'linux'}))
+        self.assertFalse(self.check(200, {'name': 'cherry-oj-sandbox', 'isolation': 'devhost'}))
+        self.assertFalse(self.check(200, {'name': 'other', 'isolation': 'linux'}))
+        self.assertFalse(self.check(503, {'name': 'cherry-oj-sandbox', 'isolation': 'linux'}))
 
-    def test_leftover_inode_without_kernel_listener_is_not_ready(self):
-        with patch.object(Path, 'is_socket', return_value=True), \
-             patch.object(Path, 'read_text', return_value=self.header):
-            self.assertFalse(health.ready('isolator'))
+    def test_unknown_target_is_rejected(self):
+        # isolator 已不是独立服务，传入它必须报错，而不是永远等不到就绪。
+        with patch.object(health.sys, 'argv', ['health.py', 'isolator']):
+            with self.assertRaises(ValueError):
+                health.main()
 
-    def test_missing_socket_is_not_ready(self):
-        with patch.object(Path, 'is_socket', return_value=False):
-            self.assertFalse(health.ready('isolator'))
+    def test_judge_identity(self):
+        self.assertTrue(self.check(200, {'name': 'cherry-oj-judge'}, 'judge'))
+        self.assertFalse(self.check(200, {'name': 'cherry-oj-sandbox'}, 'judge'))
 
 
 if __name__ == '__main__':

@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""在真实 Linux 内核上测试 sandbox 执行器。必须以 root 在一次性的 CI 虚拟机上运行：
-它会创建系统用户、写 /etc/cherry-sandbox/executor.conf、在 cgroup 根下建子树。
+"""在真实 Linux 内核上测试 sandbox 执行器。必须以 root 在一次性的机器上运行。
 
-    sudo python3 apps/sandbox/tests/run_tests.py --binary apps/sandbox/build/sandbox --probe build/probe
+默认自备全部环境：创建服务用户、写编译进二进制的配置路径、在 cgroup 根下建子树。
+在已委派的 systemd 单元里运行时（deploy/sandbox-linux 的内核套件），用 --jobs 指定现成的
+jobs 子树、用 --service-uid 指定服务身份、用 --config 指定测试构建编译进去的配置路径。
+
+    sudo python3 apps/sandbox/tests/run_tests.py --binary build/sandbox --probe build/probe
 """
 import argparse
 import json
@@ -15,62 +18,77 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
-ROOT = Path('/var/lib/cherry-sandbox-test')
-ROOTFS = ROOT / 'rootfs'
-BOXES = ROOT / 'boxes'
-CGROUP = Path('/sys/fs/cgroup/cherry-sandbox-test')
-JOBS = CGROUP / 'jobs'
-CONFIG = Path('/etc/cherry-sandbox/executor.conf')
-BINARY = Path('/usr/local/libexec/cherry-sandbox-test/sandbox')
-SERVICE = 'cherry-sbx-test'
-PAYLOAD_UID, INIT_UID = 61100, 61200
 LIMITS = dict(cpu_ns=2_000_000_000, clock_ns=5_000_000_000, memory_bytes=256 << 20, max_processes=32,
               stdout_max_bytes=1 << 20, stderr_max_bytes=64 << 10)
+SERVICE_NAME = 'cherry-sbx-test'
+env = SimpleNamespace()
 
 
-def setup(binary, probe):
-    if subprocess.run(['id', SERVICE], capture_output=True).returncode != 0:
-        subprocess.run(['useradd', '--system', '--no-create-home', '--shell', '/usr/sbin/nologin', SERVICE], check=True)
-    service = pwd.getpwnam(SERVICE)
-    shutil.rmtree(ROOT, ignore_errors=True)
+def service_identity(uid):
+    if uid is not None:
+        return SimpleNamespace(pw_uid=uid, pw_gid=uid)
+    if subprocess.run(['id', SERVICE_NAME], capture_output=True).returncode != 0:
+        subprocess.run(['useradd', '--system', '--no-create-home', '--shell', '/usr/sbin/nologin', SERVICE_NAME],
+                       check=True)
+    return pwd.getpwnam(SERVICE_NAME)
+
+
+def prepare_jobs(jobs):
+    """没有现成委派时，在 cgroup 根下建：cherry-sandbox-test（无进程）→ jobs（启用控制器）。"""
+    if jobs is not None:
+        return Path(jobs)
+    group = Path('/sys/fs/cgroup/cherry-sandbox-test')
+    for path in [Path('/sys/fs/cgroup'), group]:
+        path.mkdir(exist_ok=True)
+        (path / 'cgroup.subtree_control').write_text('+cpu +memory +pids')
+    jobs = group / 'jobs'
+    jobs.mkdir(exist_ok=True)
+    (jobs / 'cgroup.subtree_control').write_text('+cpu +memory +pids')
+    return jobs
+
+
+def setup(args):
+    service = service_identity(args.service_uid)
+    root = Path(args.root)
+    env.service, env.jobs = service, prepare_jobs(args.jobs)
+    env.rootfs, env.boxes = root / 'rootfs', root / 'boxes'
+    env.payload_uid, env.init_uid = args.payload_uid, args.init_uid
+    env.binary = Path(args.install)
+    for path in (env.rootfs, env.boxes):
+        shutil.rmtree(path, ignore_errors=True)
     for d in ['work', 'tmp', 'proc', 'dev', '.oldroot', 'usr/bin', 'bin', 'etc']:
-        (ROOTFS / d).mkdir(parents=True, exist_ok=True)
-    shutil.copy(probe, ROOTFS / 'usr/bin/probe')
-    os.chmod(ROOTFS / 'usr/bin/probe', 0o755)
-    ROOT.chmod(0o755)
-    BOXES.mkdir(mode=0o700)
-    os.chown(BOXES, service.pw_uid, service.pw_gid)
+        (env.rootfs / d).mkdir(parents=True, exist_ok=True)
+    for name in ('probe', 'true'):
+        shutil.copy(args.probe, env.rootfs / 'usr/bin' / name)
+        os.chmod(env.rootfs / 'usr/bin' / name, 0o755)
+    root.chmod(0o755)
+    env.boxes.mkdir(mode=0o700)
+    os.chown(env.boxes, service.pw_uid, service.pw_gid)
     for box in range(2):
         for sub in ['', 'in', 'out']:
-            d = BOXES / str(box) / sub
+            d = env.boxes / str(box) / sub
             d.mkdir(mode=0o700, exist_ok=True)
             os.chown(d, service.pw_uid, service.pw_gid)
-    # cgroup：根 → cherry-sandbox-test（无进程）→ jobs（启用 cpu/memory/pids）→ box-N（执行器创建）
-    for path in [Path('/sys/fs/cgroup'), CGROUP]:
-        if path != Path('/sys/fs/cgroup'):
-            path.mkdir(exist_ok=True)
-        (path / 'cgroup.subtree_control').write_text('+cpu +memory +pids')
-    JOBS.mkdir(exist_ok=True)
-    (JOBS / 'cgroup.subtree_control').write_text('+cpu +memory +pids')
-    CONFIG.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG.write_text(f'rootfs={ROOTFS}\nboxes={BOXES}\ncgroup={JOBS}\nbox_count=2\n'
+    config = Path(args.config)
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(f'rootfs={env.rootfs}\nboxes={env.boxes}\ncgroup={env.jobs}\nbox_count=2\n'
                       f'service_uid={service.pw_uid}\nservice_gid={service.pw_gid}\n'
-                      f'payload_uid={PAYLOAD_UID}\npayload_gid={PAYLOAD_UID}\n'
-                      f'init_uid={INIT_UID}\ninit_gid={INIT_UID}\n')
-    CONFIG.chmod(0o644)
-    BINARY.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy(binary, BINARY)
-    os.chown(BINARY, 0, service.pw_gid)
-    BINARY.chmod(0o4750)
-    return service
+                      f'payload_uid={env.payload_uid}\npayload_gid={env.payload_uid}\n'
+                      f'init_uid={env.init_uid}\ninit_gid={env.init_uid}\n')
+    config.chmod(0o644)
+    env.binary.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(args.binary, env.binary)
+    os.chown(env.binary, 0, service.pw_gid)
+    env.binary.chmod(0o4750)
 
 
 class Box:
     """以 root 准备 box 内容（文件归服务身份），再以服务身份调用执行器。"""
 
     def __init__(self, service, index=0):
-        self.service, self.index, self.dir = service, index, BOXES / str(index)
+        self.service, self.index, self.dir = service, index, env.boxes / str(index)
 
     def prepare(self, args, inputs=(), stdin=b'', outputs=(), env=(), **limits):
         for sub in ['in', 'out']:
@@ -94,7 +112,7 @@ class Box:
     def start(self):
         """stdin 接一根取消管道：执行期间必须保持写端打开，关闭它就是取消。"""
         read, write = os.pipe()
-        proc = subprocess.Popen([str(BINARY), '--box', str(self.index)], stdin=read,
+        proc = subprocess.Popen([str(env.binary), '--box', str(self.index)], stdin=read,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                 user=self.service.pw_uid, group=self.service.pw_gid, extra_groups=[])
         os.close(read)
@@ -129,13 +147,12 @@ class Box:
 
 
 def group_names():
-    return sorted(p.name for p in JOBS.iterdir() if p.is_dir())
+    return sorted(p.name for p in env.jobs.iterdir() if p.is_dir())
 
 
 class ExecutorTest(unittest.TestCase):
-    service = None
-
     def setUp(self):
+        self.service = env.service
         self.box = Box(self.service)
 
     def tearDown(self):
@@ -157,26 +174,29 @@ class ExecutorTest(unittest.TestCase):
     def test_identity_and_filesystem(self):
         f = self.box.facts(['probe', 'identity'], inputs=[('data/in.txt', b'x', False)])
         i = json.loads(self.box.read('stdout'))
-        self.assertEqual((i['uid'], i['gid']), (PAYLOAD_UID, PAYLOAD_UID))
+        status = i['status']
+        self.assertEqual(status['Uid'].split(), [str(env.payload_uid)] * 4)
+        self.assertEqual(status['Gid'].split(), [str(env.payload_uid)] * 4)
         self.assertEqual(i['ppid'], 1)
-        for cap in ['CapEff', 'CapPrm', 'CapBnd', 'CapAmb']:
-            self.assertEqual(int(i[cap], 16), 0, cap)
-        self.assertEqual((i['NoNewPrivs'], i['Seccomp']), ('1', '2'))
+        for cap in ['CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb']:
+            self.assertEqual(int(status[cap], 16), 0, cap)
+        self.assertEqual((status['NoNewPrivs'], status['Seccomp']), ('1', '2'))
+        self.assertEqual((status['hostFileAbsent'], status['rootWriteDenied']), ('true', 'true'))
         self.assertEqual(i['cwd'], '/work')
-        self.assertFalse(i['rootWritable'])
         self.assertFalse(i['hostRootVisible'])
         self.assertTrue(i['input'])
         self.assertTrue(i['tmpWritable'])
         self.assertEqual(i['extraFds'], 0)
+        self.assertTrue(all(t.startswith(('pipe:', '/work/.stdin')) for t in i['fds']), i['fds'])
         self.assertEqual(f['error'], '')
 
     def test_command_resolves_from_workspace(self):
-        probe = (ROOTFS / 'usr/bin/probe').read_bytes()
+        probe = (env.rootfs / 'usr/bin/probe').read_bytes()
         f = self.box.facts(['tool', 'exit', '3'], inputs=[('tool', probe, True)])
         self.assertEqual(f['exitCode'], 3)
 
     def test_cpu_limit(self):
-        f = self.box.facts(['probe', 'spin'], cpu_ns=500_000_000)
+        f = self.box.facts(['probe', 'cpu'], cpu_ns=500_000_000)
         self.assertEqual(f['reason'], 'cpu')
         self.assertGreaterEqual(f['cpuNs'], 500_000_000)
         self.assertLess(f['clockNs'], 2_000_000_000)
@@ -188,33 +208,56 @@ class ExecutorTest(unittest.TestCase):
         self.assertLess(f['cpuNs'], 100_000_000)
 
     def test_memory_limit_is_task_oom(self):
-        f = self.box.facts(['probe', 'hog'], memory_bytes=64 << 20)
+        f = self.box.facts(['probe', 'memory'], memory_bytes=64 << 20)
         self.assertEqual((f['reason'], f['signal']), ('', 9))
         self.assertGreater(f['oom'], 0)
         self.assertGreater(f['oomKill'], 0)
 
     def test_output_limit(self):
-        f = self.box.facts(['probe', 'flood'], stdout_max_bytes=4096)
+        f = self.box.facts(['probe', 'output'], stdout_max_bytes=4096)
         self.assertEqual(f['reason'], 'output')
         self.assertTrue(f['outputExceeded'])
         self.assertEqual(len(self.box.read('stdout')), 4096)
 
     def test_network_is_killed_by_seccomp(self):
-        self.assertEqual(self.box.facts(['probe', 'socket'])['signal'], 31)
+        self.assertEqual(self.box.facts(['probe', 'network'])['signal'], 31)
 
     def test_x32_abi_is_killed(self):
         self.assertEqual(self.box.facts(['probe', 'x32'])['signal'], 31)
 
-    def test_process_limit(self):
-        f = self.box.facts(['probe', 'forks'], max_processes=8)
-        self.assertGreater(f['pidsMaxEvents'], 0)
-        self.assertLess(int(self.box.read('stdout')), 8)
+    def test_process_and_thread_limits(self):
+        for mode, marker in [('processes', b'spawn-denied'), ('threads', b'threads-denied')]:
+            f = self.box.facts(['probe', mode], max_processes=8)
+            self.assertGreater(f['pidsMaxEvents'], 0, mode)
+            self.assertTrue(self.box.read('stdout').startswith(marker), mode)
 
     def test_background_processes_are_reclaimed(self):
         started = time.monotonic()
         f = self.box.facts(['probe', 'background'])
         self.assertEqual((f['exitCode'], f['reason']), (0, ''))
-        self.assertLess(time.monotonic() - started, 5)
+        self.assertTrue(self.box.read('stdout').startswith(b'background-started'))
+        # 后代自己要睡 4 秒；执行必须在它自行退出之前完成整组回收。
+        self.assertLess(time.monotonic() - started, 2)
+
+    def test_privilege_and_peer_isolation(self):
+        # setuid 不在过滤器的允许清单里，通常直接被 SIGSYS 杀死；即使放行，也只能得到拒绝。
+        f = self.box.facts(['probe', 'privilege'])
+        self.assertTrue(f['signal'] == 31 or (f['exitCode'], self.box.read('stdout')) == (0, b'denied\n'), f)
+        pid = os.getpid()
+        results = {}
+
+        def run(index, token):
+            results[token] = Box(self.service, index).facts(['probe', 'isolation', token, str(pid)],
+                                                            inputs=[('own', token.encode(), False)])
+
+        threads = [threading.Thread(target=run, args=(i, t)) for i, t in enumerate(['left', 'right'])]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        for i, token in enumerate(['left', 'right']):
+            self.assertEqual(results[token]['exitCode'], 0, token)
+            self.assertEqual(Box(self.service, i).read('stdout'), f'private {token}\n'.encode())
 
     def test_artifacts_are_bounded_regular_files(self):
         f = self.box.facts(['probe', 'write'], outputs=['out.txt', 'sub/deep.txt', 'missing'])
@@ -257,7 +300,7 @@ class ExecutorTest(unittest.TestCase):
         first.finish()
 
     def test_stale_group_is_reclaimed(self):
-        stale = JOBS / 'box-1'
+        stale = env.jobs / 'box-1'
         stale.mkdir()
         sleeper = subprocess.Popen(['sleep', '100'])
         (stale / 'cgroup.procs').write_text(str(sleeper.pid))
@@ -269,7 +312,7 @@ class ExecutorTest(unittest.TestCase):
         results = {}
 
         def run(index):
-            results[index] = Box(self.service, index).facts(['probe', 'spin'], cpu_ns=300_000_000)
+            results[index] = Box(self.service, index).facts(['probe', 'cpu'], cpu_ns=300_000_000)
 
         threads = [threading.Thread(target=run, args=(i,)) for i in range(2)]
         for t in threads:
@@ -287,10 +330,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--binary', required=True)
     parser.add_argument('--probe', required=True)
+    parser.add_argument('--root', default='/var/lib/cherry-sandbox-test')
+    parser.add_argument('--config', default='/etc/cherry-sandbox/executor.conf',
+                        help='必须与构建时编译进二进制的路径一致')
+    parser.add_argument('--install', default='/usr/local/libexec/cherry-sandbox-test/sandbox')
+    parser.add_argument('--jobs', help='已委派且启用了 cpu/memory/pids 的 jobs 子树')
+    parser.add_argument('--service-uid', type=int, help='服务身份（uid 与 gid 相同）；缺省时创建系统用户')
+    parser.add_argument('--payload-uid', type=int, default=61100)
+    parser.add_argument('--init-uid', type=int, default=61200)
     args, rest = parser.parse_known_args()
     if os.geteuid() != 0:
         sys.exit('must run as root on a disposable machine')
-    ExecutorTest.service = setup(args.binary, args.probe)
+    setup(args)
     unittest.main(argv=[sys.argv[0], '-v', *rest])
 
 

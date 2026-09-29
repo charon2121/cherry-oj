@@ -17,19 +17,14 @@ sys.path.append(str(ROOT / 'deploy/sandbox-linux/install'))
 from layout import ACCOUNTS, ETC, GROUP, STATE, UNITS
 
 SYSTEMD = Path('/etc/systemd/system')
-RUNTIME = Path('/run/cherry-sandbox-isolator')
-DROPINS = Path('/run/systemd/system/cherry-sandbox-isolator.service.d')
+DROPINS = Path('/run/systemd/system/cherry-sandbox.service.d')
 CAPS = ('CAP_SYS_ADMIN', 'CAP_SETUID', 'CAP_SETGID', 'CAP_SETPCAP',
-        'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD')
+        'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD', 'CAP_KILL')
 RECORD = BASE / '.native-owner.json'
 
 
 def capability_content(caps):
-    value = '[Service]\nCapabilityBoundingSet=\nCapabilityBoundingSet=' + ' '.join(caps)
-    value += '\nAmbientCapabilities=\n'
-    if 'CAP_SETUID' in caps:
-        value += 'AmbientCapabilities=CAP_SETUID\n'
-    return value
+    return '[Service]\nCapabilityBoundingSet=\nCapabilityBoundingSet=' + ' '.join(caps) + '\n'
 
 
 def regular(path):
@@ -53,7 +48,7 @@ def resources():
             if ids & set(ACCOUNTS.values()):
                 tasks.append(int(proc.name))
             for line in (proc / 'mountinfo').read_text().splitlines():
-                if str(STATE) + '/' in line or str(RUNTIME) in line:
+                if str(STATE) + '/' in line:
                     mounts.append(dict(pid=int(proc.name), mount=line))
         except (FileNotFoundError, ProcessLookupError):
             continue
@@ -69,7 +64,7 @@ class Installation:
         self.data = dict(run=github_vm(), units={unit: digest(review / unit) for unit in UNITS})
         unit_paths = [SYSTEMD / unit for unit in UNITS]
         dropin_paths = [parent / (unit + '.d') for parent in (SYSTEMD, Path('/run/systemd/system')) for unit in UNITS]
-        if any(p.exists() or p.is_symlink() for p in (ETC, STATE, RUNTIME, RECORD, *unit_paths, *dropin_paths)):
+        if any(p.exists() or p.is_symlink() for p in (ETC, STATE, RECORD, *unit_paths, *dropin_paths)):
             raise RuntimeError('native resources appeared after preflight')
         for name, uid in ACCOUNTS.items():
             for lookup, key in ((pwd.getpwnam, name), (pwd.getpwuid, uid), (grp.getgrnam, name), (grp.getgrgid, uid)):
@@ -158,7 +153,7 @@ class Installation:
                 if group.gr_gid != uid or group.gr_mem:
                     raise RuntimeError('native group changed: ' + name)
                 subprocess.run(['groupdel', name], check=True, timeout=10, stdout=subprocess.DEVNULL)
-        for path in (ETC, STATE, RUNTIME):
+        for path in (ETC, STATE):
             if path.is_symlink():
                 raise RuntimeError('owned native root changed to symlink')
             if path.exists():
@@ -170,7 +165,7 @@ class Installation:
                     raise RuntimeError('safe recursive removal unavailable')
                 shutil.rmtree(path)
         after = resources()
-        after['paths'] = [str(p) for p in (ETC, STATE, RUNTIME, DROPINS, *(SYSTEMD / u for u in UNITS)) if p.exists() or p.is_symlink()]
+        after['paths'] = [str(p) for p in (ETC, STATE, DROPINS, *(SYSTEMD / u for u in UNITS)) if p.exists() or p.is_symlink()]
         after['accounts'] = [p.pw_name for p in pwd.getpwall() if p.pw_uid in ACCOUNTS.values() or p.pw_name in ACCOUNTS]
         after['groups'] = [g.gr_name for g in grp.getgrall() if g.gr_gid in ACCOUNTS.values() or g.gr_name in ACCOUNTS]
         (self.output / 'native-resources-after.json').write_text(json.dumps(after, indent=2) + '\n')

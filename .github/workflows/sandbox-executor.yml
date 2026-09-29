@@ -4,7 +4,7 @@ name: Sandbox executor
 # 新挂载 API 与 openat2 都需要真内核。测试以 root 运行，会改动这台一次性虚拟机的用户、/etc 与 cgroup。
 on:
   push:
-    branches: [main]
+    branches: [main, 'wip/**']
     paths:
       - 'apps/sandbox/**'
       - '.github/workflows/sandbox-executor.yml'
@@ -34,6 +34,6 @@ jobs:
       - name: 构建执行器
         run: make -C apps/sandbox
       - name: 构建测试探针
-        run: gcc -static -O2 -Wall -Werror -o apps/sandbox/build/probe apps/sandbox/tests/probe.c
+        run: gcc -static -O2 -pthread -Wall -Werror -o apps/sandbox/build/probe apps/sandbox/tests/probe.c
       - name: 真实内核测试
         run: sudo python3 apps/sandbox/tests/run_tests.py --binary apps/sandbox/build/sandbox --probe apps/sandbox/build/probe

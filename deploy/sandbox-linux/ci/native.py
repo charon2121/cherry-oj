@@ -133,10 +133,19 @@ class Native:
         for field in fields:
             argv += ['-p', field]
         run(argv, self.report.output / 'service-failure.log', 10)
-        # The isolator has no control-plane token or user session. Limit to this owned isolator's
-        # current-boot log; never collect the host journal or the token-bearing judge service.
-        run(['journalctl', '--boot', '--unit=cherry-sandbox-isolator.service', '--no-pager',
-             '--output=cat', '--lines=120'], self.report.output / 'isolator-failure.log', 10)
+        # sandbox 服务（含启动脚本与执行器的报错）没有控制面 token，也没有用户会话。只取这个
+        # 自有单元本次启动的日志；不收集宿主日志。
+        run(['journalctl', '--boot', '--unit=cherry-sandbox.service', '--no-pager',
+             '--output=cat', '--lines=120'], self.report.output / 'sandbox-failure.log', 10)
+        # judge 的日志可能带控制面地址与会话信息，只保留启动失败的两类结构化事件：
+        # 它们的 error 字段是配置或部署校验的报错，不含 token。
+        path = self.report.output / 'judge-failure.log'
+        run(['journalctl', '--boot', '--unit=cherry-sandbox-judge.service', '--no-pager', '--output=cat',
+             '--lines=200'], path, 10)
+        events = ('"judge.node.preflight.failed"', '"process.config.load.failed"')
+        journal = path.read_text(errors='replace').splitlines() if path.exists() else []
+        lines = [line[:2048] for line in journal if any(e in line for e in events)]
+        path.write_text(''.join(line + '\n' for line in lines[-5:]))
 
     def execute(self):
         port = self.start_control()
@@ -151,7 +160,7 @@ class Native:
         identity = self.identity()
         wait_for(lambda: any(e['route'] == 'heartbeat' for e in registrations(self.control)), seconds=25)
         deployment = read_json(ETC / 'deployment.json')
-        if len(deployment['limits']) != 24:
+        if len(deployment['limits']) != 20:
             raise ValueError('native resource limits incomplete')
         (self.report.output / 'installation.json').write_text(json.dumps(receipt, indent=2) + '\n')
         (self.report.output / 'identity.json').write_text(json.dumps(identity, indent=2) + '\n')
@@ -159,8 +168,8 @@ class Native:
         manifest_hash = digest(ETC / 'deployment.json')
         self.report.record(['native.install'], 'PASS', ['install.log', 'start.log', 'installation.json', 'identity.json', 'deployment.json'])
         cases = [('native', 'verify-native.py', [], 90),
-                 *[(name, 'verify-lifecycle.py', ['--case', name], 90) for name in ('isolator-config', 'rootfs-manifest', 'isolator-binary')],
-                 *[('kill-' + name, 'verify-faults.py', ['--case', name], 90) for name in ('judge', 'sandbox', 'isolator')],
+                 *[(name, 'verify-lifecycle.py', ['--case', name], 90) for name in ('executor-config', 'rootfs-manifest', 'executor-binary')],
+                 *[('kill-' + name, 'verify-faults.py', ['--case', name], 90) for name in ('judge', 'sandbox', 'executor')],
                  ('caps', 'verify-capabilities.py', [], 120), ('uninstall', 'verify-uninstall.py', [], 90)]
         for name, script, args, seconds in cases:
             self.active = name

@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""真实 C++ 多进程累计CPU、OOM、普通信号、后代与线程上限。"""
+"""真实 C++ 多进程累计CPU、OOM、普通信号、后代与线程上限。
+
+    cpp_limits.py <fixture>
+"""
 import json
-import os
+from pathlib import Path
 import sys
-from client import call,request
-path=sys.argv[1]
-assert path.startswith('/run/cherry-sandbox-test-')
-os.setgroups([]);os.setgid(61001);os.setuid(61001)
+from executor_client import Executor, drop_to_service
+base=Path(sys.argv[1])
+assert base.parent==Path('/var/lib/cherry-sandbox-test')
+drop_to_service()
+executor=Executor(base)
 source=br'''
 #include <unistd.h>
 #include <signal.h>
@@ -25,18 +29,16 @@ int main(int argc,char**argv) {
  return 7;
 }
 '''
-req,data=request(['g++','-O2','-pthread','main.cpp','-o','program'],inputs=[('main.cpp',source,False)],outputs=['program'],cpuNs=3000000000)
-facts,_,err,files=call(path,req,data)
-assert facts['ExitCode']==0 and not facts['Reason'],(facts,err)
+facts,_,err,files=executor.call(['g++','-O2','-pthread','main.cpp','-o','program'],inputs=[('main.cpp',source,False)],outputs=['program'],cpu_ns=3000000000)
+assert facts['exitCode']==0 and not facts['reason'] and not facts['error'],(facts,err)
 print(json.dumps(dict(phase='compile-limits',facts=facts)),flush=True)
 for mode in ['cpu-tree','kill','background','threads','memory']:
-    req,data=request(['program',mode],inputs=[('program',files['program'],True)],memoryBytes=64<<20)
-    facts,out,err,_=call(path,req,data)
+    facts,out,err,_=executor.call(['program',mode],inputs=[('program',files['program'],True)],memory_bytes=64<<20)
     print(json.dumps(dict(mode=mode,facts=facts,stdout=out.decode(errors='replace'),stderr=err.decode(errors='replace')[:500])),flush=True)
-    assert not facts['Error'],facts
-    if mode=='cpu-tree':assert facts['Reason']=='cpu' and facts['Usage']['CPUNs']>=1000000000 and facts['ClockNs']<2000000000
-    if mode=='kill':assert facts['Signal']==9 and facts['Reason']=='' and facts['Usage']['OOMKill']==0
-    if mode=='background':assert facts['ExitCode']==0 and not facts['Reason'] and facts['ClockNs']<1000000000
-    if mode=='threads':assert facts['ExitCode']==0 and facts['Usage']['PidsMaxEvents']>0 and out.startswith(b'denied ')
-    if mode=='memory':assert facts['Usage']['OOMKill']>0 and facts['Reason']=='' and facts['Signal']==9
+    assert not facts['error'],facts
+    if mode=='cpu-tree':assert facts['reason']=='cpu' and facts['cpuNs']>=1000000000 and facts['clockNs']<2000000000
+    if mode=='kill':assert facts['signal']==9 and facts['reason']=='' and facts['oomKill']==0
+    if mode=='background':assert facts['exitCode']==0 and not facts['reason'] and facts['clockNs']<1000000000
+    if mode=='threads':assert facts['exitCode']==0 and facts['pidsMaxEvents']>0 and out.startswith(b'denied ')
+    if mode=='memory':assert facts['oomKill']>0 and facts['reason']=='' and facts['signal']==9
 print('C++ resource / signal / descendant assertions passed',flush=True)

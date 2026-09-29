@@ -8,21 +8,24 @@ from report import manifest
 
 
 class CompletionTests(unittest.TestCase):
-    def test_boundary_rejects_any_skip_or_missing_completion(self):
+    def test_executor_suite_rejects_any_skip_failure_or_missing_completion(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'boundary'
-            passed = ''.join('--- PASS: ' + name + ' (0.01s)\n' for name in (
-                'TestStartupBoundaries', 'TestOutputPathBoundary', 'TestCgroupCapabilityRefusal', 'TestExecStageFailures'))
-            text = passed + '--- PASS: TestExecFailureChild (0.00s)\n'
+            names = ('test_identity_and_filesystem', 'test_invalid_requests_are_refused', 'test_stale_group_is_reclaimed',
+                     'test_missing_command_is_platform_failure', 'test_artifacts_are_bounded_regular_files',
+                     'test_links_cannot_be_created')
+            text = ''.join(f'{n} (__main__.ExecutorTest.{n}) ... ok\n' for n in names)
+            text += '----------------------------------------------------------------------\nRan 6 tests in 1.0s\n\nOK\n'
             path.write_text(text)
-            results.boundary(path)
-            for bad in [text.replace('--- PASS: TestOutputPathBoundary', '--- SKIP: TestOutputPathBoundary'),
-                        text.replace('--- PASS: TestExecFailureChild', '--- SKIP: TestExecFailureChild'),
-                        text.replace('--- PASS: TestStartupBoundaries', '--- PASS: OtherTest'),
-                        text + '--- FAIL: TestStartupBoundaries/valid-go (0.1s)\n']:
+            results.executor_suite(path)
+            for bad in [text.replace('test_links_cannot_be_created (__main__.ExecutorTest.test_links_cannot_be_created) ... ok',
+                                     'test_links_cannot_be_created (__main__.ExecutorTest.test_links_cannot_be_created) ... skipped'),
+                        text.replace('test_identity_and_filesystem', 'test_other'),
+                        text.replace('\nOK\n', '\nFAILED (failures=1)\n'),
+                        text + 'test_extra (__main__.ExecutorTest.test_extra) ... ERROR\n']:
                 path.write_text(bad)
                 with self.assertRaises(ValueError):
-                    results.boundary(path)
+                    results.executor_suite(path)
 
     def test_repeat_requires_the_thousandth_iteration_and_cleanup(self):
         with tempfile.TemporaryDirectory() as directory:

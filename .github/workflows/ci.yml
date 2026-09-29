@@ -113,6 +113,8 @@ jobs:
         with:
           name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/cherry-shared-packages
+      - name: 安装隔离执行器的编译依赖
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
       - name: 当前提交构建、Linux 单测与锁定 rootfs
         run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
       - name: 真实内核、1000 次、并发与故障测试
@@ -168,6 +170,8 @@ jobs:
         with:
           name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/cherry-shared-packages
+      - name: 安装隔离执行器的编译依赖
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
       - name: 当前提交构建、Linux 单测与锁定 rootfs
         run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
       - name: 原生安装与十项部署恢复验证
@@ -235,6 +239,8 @@ jobs:
         with:
           name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/cherry-shared-packages
+      - name: 安装隔离执行器的编译依赖
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
       - name: 构建当前提交的 Linux 二进制与 rootfs
         run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
       - name: 构建真实 Java 服务与 Web 页面

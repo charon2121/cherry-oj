@@ -18,8 +18,8 @@ class NativeEvidenceTest(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.log = Path(self.temp.name) / 'native.log'
 
-    def test_capability_results_require_all_seven_distinct_negative_controls(self):
-        rows = [dict(test='seven-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True)]
+    def test_capability_results_require_every_distinct_negative_controls(self):
+        rows = [dict(test='eight-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True)]
         rows += [dict(test='remove-capability', removed=cap, startup='REFUSED') for cap in resources.CAPS]
         for i, row in enumerate(rows, 1):
             row.update(invocationID=format(i, '032x'), mainStartedNs=i*1000)
@@ -46,34 +46,34 @@ class NativeEvidenceTest(unittest.TestCase):
         for after in (before, dict(invocationID='b'*32, mainStartedNs=1000), dict(invocationID='', mainStartedNs=2000)):
             with self.assertRaises(AssertionError):
                 module.require_new_start(before, after)
-        with patch.object(module, 'isolator_state', return_value='inactive'), patch.object(module.manage, 'run') as run:
+        with patch.object(module, 'sandbox_state', return_value='inactive'), patch.object(module.manage, 'run') as run:
             module.reset_failure()
             run.assert_not_called()
-        with patch.object(module, 'isolator_state', return_value='failed'), patch.object(module.manage, 'run') as run:
+        with patch.object(module, 'sandbox_state', return_value='failed'), patch.object(module.manage, 'run') as run:
             module.reset_failure()
-            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox-isolator.service')
-        with patch.object(module, 'isolator_state', return_value='active'), patch.object(module.manage, 'run') as run:
+            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox.service')
+        with patch.object(module, 'sandbox_state', return_value='active'), patch.object(module.manage, 'run') as run:
             with self.assertRaises(AssertionError):
                 module.reset_failure()
             run.assert_not_called()
 
     def test_failure_or_missing_recovery_marker_cannot_pass(self):
-        self.log.write_text(json.dumps(dict(case='isolator-binary', result='PASS')) + '\n')
+        self.log.write_text(json.dumps(dict(case='executor-binary', result='PASS')) + '\n')
         with self.assertRaises(ValueError):
-            results.check('isolator-binary', self.log, 'unused')
-        self.log.write_text(json.dumps(dict(test='isolator', result='PASS', recovered='RAN', deployment='old', killedPID=25, observedPayload=26, requestOutcome='SE')) + '\n')
+            results.check('executor-binary', self.log, 'unused')
+        self.log.write_text(json.dumps(dict(test='executor', result='PASS', recovered='RAN', deployment='old', killedPID=25, observedPayload=26, requestOutcome='SE')) + '\n')
         with self.assertRaises(ValueError):
-            results.check('kill-isolator', self.log, 'new')
+            results.check('kill-executor', self.log, 'new')
 
     def test_native_requires_thread_and_resource_observations(self):
-        row = dict(result='PASS', taskUIDs=[61002, 61003], capabilities=0, noNewPrivileges=1, namespaces=6,
-                   readOnlyMounts=3, verifiedLimits=24, taskThreads=2, serviceThreads={'cherry-sandbox': 5, 'cherry-sandbox-judge': 5},
+        row = dict(result='PASS', taskUIDs=[61002, 61006], capabilities=0, noNewPrivileges=1, namespaces=6,
+                   readOnlyMounts=3, verifiedLimits=20, taskThreads=2, serviceThreads={'cherry-sandbox': 5, 'cherry-sandbox-judge': 5},
                    compileCpuNs=1, compileMemoryBytes=1, runCpuNs=1, runMemoryBytes=1)
         def check(value):
             self.log.write_text(json.dumps(value) + '\nNo task processes, execution cgroups or workspace files remain.\n')
             results.check('native', self.log, 'unused')
         check(row)
-        for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'verifiedLimits': 23}, {'capabilities': 1}):
+        for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'verifiedLimits': 19}, {'capabilities': 1}):
             with self.assertRaises(ValueError):
                 check(dict(row, **changed))
 

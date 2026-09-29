@@ -25,8 +25,9 @@ def sample(groups: Iterable[Path]) -> tuple[set[int], set[int]]:
             except FileNotFoundError:
                 continue
             uid = int(next(line for line in status.splitlines() if line.startswith('Uid:')).split()[1])
-            if uid in (61002, 61004):
+            # box 0、1 的 payload 与 init 身份（基数 + box 序号）。
+            if uid in (61002, 61003):
                 payload_ids.add(uid)
-            if uid in (61003, 61005):
+            if uid in (61006, 61007):
                 init_ids.add(uid)
     return payload_ids, init_ids

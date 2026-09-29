@@ -12,11 +12,11 @@ import (
 
 func deploymentFixture() deploymentManifest {
 	m := deploymentManifest{Version: 1, Backend: "linux", Architecture: "amd64", Files: map[string]deploymentFile{}, Limits: map[string]string{}}
-	for _, key := range []string{"sandbox", "isolator", "rootfsManifest", "toolchainLock", "isolatorConfig", "sandboxConfig", "slice", "isolatorUnit", "sandboxUnit", "judgeUnit", "bootstrap"} {
+	for _, key := range []string{"sandbox", "executor", "rootfsManifest", "toolchainLock", "executorConfig", "sandboxConfig", "startConfig", "slice", "sandboxUnit", "judgeUnit", "bootstrap"} {
 		m.Files[key] = deploymentFile{Path: "/release/" + key, SHA256: strings.Repeat("a", 64)}
 	}
 	base := "/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice"
-	for _, group := range []string{"", "/cherry-sandbox-isolator.service", "/cherry-sandbox.service", "/cherry-sandbox-judge.service", "/cherry-sandbox-isolator.service/supervisor", "/cherry-sandbox-isolator.service/jobs"} {
+	for _, group := range []string{"", "/cherry-sandbox.service", "/cherry-sandbox-judge.service", "/cherry-sandbox.service/supervisor", "/cherry-sandbox.service/jobs"} {
 		for name, value := range map[string]string{"cpu.max": "100000 100000", "memory.max": "1024", "memory.swap.max": "0", "pids.max": "64"} {
 			m.Limits[base+group+"/"+name] = value
 		}
@@ -32,7 +32,7 @@ func TestDeploymentRejectsChangedFilesAndLimits(t *testing.T) {
 			read := func(path string) ([]byte, error) { return []byte(m.Limits[path] + "\n"), nil }
 			switch kind {
 			case "missing-file":
-				delete(m.Files, "isolator")
+				delete(m.Files, "executor")
 			case "changed-file":
 				hash = func(string) (string, error) { return strings.Repeat("b", 64), nil }
 			case "read-error":
@@ -59,7 +59,7 @@ func TestDeploymentRejectsChangedFilesAndLimits(t *testing.T) {
 			named := map[string]string{
 				"unknown-field":    "extra",
 				"unverified-limit": "/sys/fs/cgroup/elsewhere/pids.max",
-				"missing-file":     "isolator",
+				"missing-file":     "executor",
 				"missing-limit":    "/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/pids.max",
 			}
 			if want, ok := named[kind]; ok && !strings.Contains(err.Error(), want) {

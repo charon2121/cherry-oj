@@ -17,15 +17,11 @@ def digest(path):
 
 def seal(root, source):
     """清单包含所有目录、文件和链接；运行时额外要求整个树属于 root。"""
-    for name in ('work', 'tmp', 'proc', 'dev', '.oldroot', '.sandbox'):
+    for name in ('work', 'tmp', 'proc', 'dev', '.oldroot'):
         path = root / name
         if path.is_symlink() or (path.exists() and not path.is_dir()):
             raise ValueError(f'不安全的挂载点: {name}')
         path.mkdir(exist_ok=True)
-    launcher = root / '.sandbox/launcher'
-    if launcher.exists() or launcher.is_symlink():
-        raise ValueError('输入包不能提供自研 launcher')
-    launcher.touch(mode=0o500)
     entries = []
     for parent, dirs, files in os.walk(root, followlinks=False):
         for name in sorted(dirs + files):
@@ -47,7 +43,7 @@ def seal(root, source):
                 os.chmod(path, stat.S_IMODE(st.st_mode) & 0o755)
                 entry['SHA256'] = digest(path)
             elif stat.S_ISDIR(st.st_mode):
-                os.chmod(path, 0o700 if relative == '.sandbox' else 0o755)
+                os.chmod(path, 0o755)
             else:
                 raise ValueError(f'rootfs 不允许特殊文件: {relative}')
             entry['Mode'] = stat.S_IMODE(path.lstat().st_mode)

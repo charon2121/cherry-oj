@@ -20,10 +20,10 @@ class SnapshotTests(unittest.TestCase):
 
     def facts(self):
         rows = [(str(index), str(index), dict(Uid=' '.join([uid]*4), Gid=' '.join([uid]*4),
-                 NoNewPrivs='1', Seccomp='2', CapEff='0')) for index, uid in enumerate(('61002', '61003'), 1)]
+                 NoNewPrivs='1', Seccomp='2', CapEff='0')) for index, uid in enumerate(('61002', '61006'), 1)]
         namespaces = {pid: {name: ('host-' if name == 'user' else 'child-') + name
                       for name in ('mnt', 'pid', 'net', 'ipc', 'uts', 'cgroup', 'user')} for pid, _, _ in rows}
-        mounts = {pid: ['1 2 3 / ' + target + ' ro x' for target in ('/', '/proc', '/.sandbox/launcher')]
+        mounts = {pid: ['1 2 3 / ' + target + ' ro x' for target in ('/', '/proc', '/dev')]
                   for pid, _, _ in rows}
         return rows, namespaces, mounts, dict(zip(('memory.swap.max', 'memory.max', 'pids.max', 'cpu.max'),
                                                  ('0', str(128 << 20), '64', '10000 10000')))

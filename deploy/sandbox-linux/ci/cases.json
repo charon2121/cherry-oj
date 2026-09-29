@@ -81,10 +81,11 @@
       "id": "kernel.go-linux",
       "suite": "kernel",
       "execution": "go-unit",
-      "assertion": "真实Linux专属isolator各包测试执行，无隐式skip",
+      "assertion": "Go 执行后端与部署自检在真实 Linux 上执行，无隐式 skip",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/execution/start_test.go"
+          "path": "apps/judge-engine/sandbox/backend/executor_test.go",
+          "selector": "TestExecutorDeliversFactsStreamsAndArtifacts"
         }
       ]
     },
@@ -92,11 +93,11 @@
       "id": "kernel.startup",
       "suite": "kernel",
       "execution": "boundary",
-      "assertion": "八类启动边界与合法GO对照，未授权payload无输出",
+      "assertion": "执行器身份、只读根、宿主不可见与 FD 不泄漏",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/start_test.go",
-          "selector": "TestStartupBoundaries"
+          "path": "apps/sandbox/tests/run_tests.py",
+          "selector": "test_identity_and_filesystem"
         }
       ]
     },
@@ -104,11 +105,11 @@
       "id": "kernel.files",
       "suite": "kernel",
       "execution": "boundary",
-      "assertion": "恶意链接/硬链接/magic link/FIFO/设备/1000次路径交换及安全FD",
+      "assertion": "产物只收单链接普通文件，用户程序无法创建链接",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/files_test.go",
-          "selector": "TestOutputPathBoundary"
+          "path": "apps/sandbox/tests/run_tests.py",
+          "selector": "test_artifacts_are_bounded_regular_files"
         }
       ]
     },
@@ -116,11 +117,11 @@
       "id": "kernel.delegation",
       "suite": "kernel",
       "execution": "boundary",
-      "assertion": "逐项缺控制器及非cgroup文件系统拒绝启动",
+      "assertion": "残留执行组先杀空回收再复用 box，同一 box 独占",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/capability_test.go",
-          "selector": "TestCgroupCapabilityRefusal"
+          "path": "apps/sandbox/tests/run_tests.py",
+          "selector": "test_stale_group_is_reclaimed"
         }
       ]
     },
@@ -128,11 +129,11 @@
       "id": "kernel.exec",
       "suite": "kernel",
       "execution": "boundary",
-      "assertion": "真实exec失败阶段、errno保留与READY/GO失败关闭",
+      "assertion": "不合格请求拒绝执行，命令缺失为平台错误",
       "sources": [
         {
-          "path": "apps/judge-engine/isolator/tests/boundary/exec_test.go",
-          "selector": "TestExecStageFailures"
+          "path": "apps/sandbox/tests/run_tests.py",
+          "selector": "test_invalid_requests_are_refused"
         }
       ]
     },
@@ -162,7 +163,7 @@
       "id": "kernel.readonly-mounts",
       "suite": "kernel",
       "execution": "static-identity",
-      "assertion": "根/proc/launcher只读，控制FD不泄漏",
+      "assertion": "根、/proc、/dev 只读，控制 FD 不泄漏",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/inspect_threads.py"
@@ -181,10 +182,10 @@
       ]
     },
     {
-      "id": "kernel.isolator-protocol",
+      "id": "kernel.executor-protocol",
       "suite": "kernel",
       "execution": "static-smoke",
-      "assertion": "isolator Completion与整组populated=false，输出有界",
+      "assertion": "执行器每次返回前删除执行组，stdout/stderr 长度与事实一致",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/smoke.py"
@@ -258,10 +259,10 @@
       ]
     },
     {
-      "id": "kernel.go-threads",
+      "id": "kernel.thread-limit",
       "suite": "kernel",
       "execution": "static-extended",
-      "assertion": "Go线程扩张pids事件",
+      "assertion": "线程扩张产生 pids 事件",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/extended.py"
@@ -302,10 +303,10 @@
       ]
     },
     {
-      "id": "kernel.isolator-disconnect",
+      "id": "kernel.executor-cancel",
       "suite": "kernel",
       "execution": "static-extended",
-      "assertion": "isolator客户端断开后取消，后续请求恢复",
+      "assertion": "关闭取消管道即取消在途执行，后续执行恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/extended.py"
@@ -601,10 +602,10 @@
       ]
     },
     {
-      "id": "kernel.cpp-isolator-resources",
+      "id": "kernel.cpp-executor-resources",
       "suite": "kernel",
       "execution": "cpp-limits",
-      "assertion": "C++私有isolator协议编译/整树CPU/普通信号/后台/线程/OOM事实直接对照",
+      "assertion": "C++ 直接调用执行器：编译、整树 CPU、普通信号、后台、线程与 OOM 事实对照",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/cpp_limits.py"
@@ -667,10 +668,10 @@
       ]
     },
     {
-      "id": "kernel.isolator-kill",
+      "id": "kernel.executor-kill",
       "suite": "kernel",
       "execution": "fault",
-      "assertion": "isolator在途SIGKILL、遗留状态恢复",
+      "assertion": "执行器在途 SIGKILL：namespace 随之终止，服务停止接单，重启后恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -788,9 +789,9 @@
       ]
     },
     {
-      "id": "native.isolator-config",
+      "id": "native.executor-config",
       "suite": "native",
-      "execution": "isolator-config",
+      "execution": "executor-config",
       "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
       "sources": [
         {
@@ -810,9 +811,9 @@
       ]
     },
     {
-      "id": "native.isolator-binary",
+      "id": "native.executor-binary",
       "suite": "native",
-      "execution": "isolator-binary",
+      "execution": "executor-binary",
       "assertion": "缺失必要文件拒绝服务，恢复原文件/摘要后启动",
       "sources": [
         {
@@ -843,10 +844,10 @@
       ]
     },
     {
-      "id": "native.kill-isolator",
+      "id": "native.kill-executor",
       "suite": "native",
-      "execution": "kill-isolator",
-      "assertion": "isolator在途SIGKILL、整组回收与受控恢复",
+      "execution": "kill-executor",
+      "assertion": "执行器在途 SIGKILL、任务全部终止，重启服务后恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/install/verify-faults.py"
@@ -1120,74 +1121,16 @@
     "cherry-oj/judge-engine": [
       "TestServiceBinariesLinkOnlyTheirOwnSubtree"
     ],
-    "cherry-oj/judge-engine/internal/hostexec": [
-      "TestCompilerCommandNamesPreservePathBoundary",
-      "TestFramePreservesFollowingStream",
-      "TestFrameRejectsInvalidWire",
-      "TestRequestRejectsEscapesAndUnboundedData"
+    "cherry-oj/judge-engine/sandbox/backend": [
+      "TestExecutorDeliversFactsStreamsAndArtifacts",
+      "TestExecutorUnreclaimedBoxIsNotReused",
+      "TestExecutorKilledBySignalIsUnreclaimed",
+      "TestExecutorCancellationClosesStdin",
+      "TestExecutorClearsTheBoxAfterEachRun"
     ],
-    "cherry-oj/judge-engine/internal/hostexec/client": [
-      "TestClientCancellationAfterCompletion",
-      "TestClientCancellationReleasesBlockedInput",
-      "TestClientEarlyFailureClosesBlockedInput",
-      "TestClientRejectsInvalidCompletion",
-      "TestClientRejectsMissingCleanupAcknowledgement",
-      "TestClientRejectsTrailingData",
-      "TestClientRejectsUnrequestedArtifact",
-      "TestClientStreamsInputsAndOutputs",
-      "TestClientWaitsForConnectionRelease"
-    ],
-    "cherry-oj/judge-engine/isolator/cgroup": [
-      "TestCleanupTimeoutCanRetry",
-      "TestConcurrentCreatesAndBoundedHistory",
-      "TestFailedCloseStopsNewWorkEvenAfterRecovery",
-      "TestFreshGroupsAndFinalAccounting",
-      "TestKillAndAccountingFailureNeverBecomeSuccess",
-      "TestNewGroupDoesNotIssueKillBeforeFirstProcess",
-      "TestPartialCreateFailureQuarantinesManager",
-      "TestRejectWrongHierarchyAndNameCollision",
-      "TestUsageRejectsMalformedAndOverflow"
-    ],
-    "cherry-oj/judge-engine/isolator/daemon": [
-      "TestClientRejectsResetAfterCompletion",
-      "TestConfigRejectsPrivilegeConfusion",
-      "TestConnectionEOFReturnsCleanSlot",
-      "TestInvalidRequestIsLoggedWithoutStoppingService",
-      "TestSlotIdentityRange",
-      "TestSlowDeliveryHoldsSlotUntilDeadline"
-    ],
-    "cherry-oj/judge-engine/isolator/execstage": [
-      "TestExecSpecBoundary",
-      "TestFailureErrnoPreservesCause"
-    ],
-    "cherry-oj/judge-engine/isolator/execution": [
-      "TestAncestorOOMPreservesPlatformFailure",
-      "TestCaptureBoundsAndDrains",
-      "TestCopyInputOwnsNoCachedFastPath",
-      "TestDeliveryRejectsTruncatedArtifact",
-      "TestFailedStartAlwaysReclaimsOwnedResources",
-      "TestFinalOOMSurvivesInitExitDiagnostic",
-      "TestFinishCancelsBlockedInputBeforeWaiting",
-      "TestFinishClosesEarlierArtifactsWhenLaterOpenFails",
-      "TestFinishClosesUnconsumedReceivedFiles",
-      "TestFinishOOMDoesNotHideIndependentFailure",
-      "TestFinishOrdersCleanupAndWithholdsUnsafeArtifacts",
-      "TestFinishPreservesExecutionAndMultipleCleanupErrors",
-      "TestOutputRejectsLinksAndSpecialFiles",
-      "TestOwnedFileConcurrentCloseUnblocksReader"
-    ],
-    "cherry-oj/judge-engine/isolator/seccomp": [
-      "TestAMD64PolicyBoundary"
-    ],
-    "cherry-oj/judge-engine/isolator/startup": [
-      "TestControlFDIsCloseOnExec",
-      "TestControlInterruptChecksClosedFiles",
-      "TestControlInterruptedSocketDelivery",
-      "TestControlReceiveFailureClosesFDs",
-      "TestControlReceiveInterruptedOnce",
-      "TestControlSendInterruptedOnce",
-      "TestControlSendPreservesErrors",
-      "TestControlShutdownUnblocksIO"
+    "cherry-oj/judge-engine/judge/node/preflight": [
+      "TestDeploymentRejectsChangedFilesAndLimits",
+      "TestNativeDeploymentRequiresLoopbackSandbox"
     ]
   }
 }

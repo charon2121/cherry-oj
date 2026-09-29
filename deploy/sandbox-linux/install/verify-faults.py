@@ -15,7 +15,8 @@ sys.path.insert(0, '/var/lib/cherry-sandbox/operations')
 import manage
 
 GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
-JOBS = GROUP / 'cherry-sandbox-isolator.service/jobs'
+JOBS = GROUP / 'cherry-sandbox.service/jobs'
+EXECUTOR = (manage.STATE / 'current/libexec/sandbox').resolve()
 BLOBS = manage.STATE / 'service/blobs'
 
 
@@ -55,7 +56,7 @@ def task_processes():
     for path in Path('/proc').glob('[0-9]*/status'):
         try:
             uid = next(line.split()[1] for line in path.read_text().splitlines() if line.startswith('Uid:'))
-            if 61002 <= int(uid) <= 61009:
+            if 61002 <= int(uid) <= 61009:  # payload 61002-61005，init 61006-61009
                 result.append(int(path.parent.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
@@ -77,32 +78,48 @@ def running_payload():
     return None
 
 
-def kill_service(unit):
-    pid = int(manage.run('systemctl', 'show', unit, '-p', 'MainPID', '--value'))
+def executor_pid():
+    """正在执行的 setuid 执行器：root 身份，位于 sandbox 服务的 supervisor 叶子。"""
+    for path in Path('/proc').glob('[0-9]*/exe'):
+        try:
+            if Path(os.readlink(path)) == EXECUTOR:
+                return int(path.parent.name)
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+    return None
+
+
+def kill_process(pid, exe, uid, cgroup):
     assert pid > 1
     fd = os.pidfd_open(pid)
     try:
-        exe, uid = {
-            'cherry-sandbox-isolator.service': ('isolator', 0),
-            'cherry-sandbox.service': ('sandbox', 61001),
-            'cherry-sandbox-judge.service': ('judge', 61010),
-        }[unit]
         proc = Path('/proc') / str(pid)
-        assert Path(os.readlink(proc / 'exe')) == (manage.STATE / 'current/bin' / exe).resolve()
+        assert Path(os.readlink(proc / 'exe')) == exe
         values = next(line.split()[1:] for line in (proc / 'status').read_text().splitlines() if line.startswith('Uid:'))
         assert values == [str(uid)] * 4
-        expected = str(GROUP / unit).removeprefix('/sys/fs/cgroup')
         actual = (proc / 'cgroup').read_text().strip().removeprefix('0::')
-        assert actual == expected or (exe == 'isolator' and actual == expected + '/supervisor')
+        assert actual == str(cgroup).removeprefix('/sys/fs/cgroup'), actual
         signal.pidfd_send_signal(fd, signal.SIGKILL)
         return pid
     finally:
         os.close(fd)
 
 
+def kill_target(case):
+    if case == 'executor':
+        return kill_process(wait_for(executor_pid, 'executor not observed'), EXECUTOR, 0,
+                            GROUP / 'cherry-sandbox.service/supervisor')
+    unit, exe, uid, leaf = {
+        'sandbox': ('cherry-sandbox.service', 'sandbox', 61001, '/supervisor'),
+        'judge': ('cherry-sandbox-judge.service', 'judge', 61010, ''),
+    }[case]
+    pid = int(manage.run('systemctl', 'show', unit, '-p', 'MainPID', '--value'))
+    return kill_process(pid, (manage.STATE / 'current/bin' / exe).resolve(), uid, str(GROUP / unit) + leaf)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('judge', 'sandbox', 'isolator'), required=True)
+    parser.add_argument('--case', choices=('judge', 'sandbox', 'executor'), required=True)
     args = parser.parse_args()
     manage.owned()
     assert not groups() and not task_processes(), 'node must be idle'
@@ -110,8 +127,6 @@ def main():
     assert baseline['verdict'] == 'RAN', baseline
     before = {p.name for p in BLOBS.iterdir()}
     manifest_hash = manage.digest(manage.ETC / 'deployment.json')
-    unit = {'judge': 'cherry-sandbox-judge.service', 'sandbox': 'cherry-sandbox.service',
-            'isolator': 'cherry-sandbox-isolator.service'}[args.case]
     started = time.monotonic()
     outcome = None
     try:
@@ -119,8 +134,11 @@ def main():
             # Background descendant extends beyond the observation window, so natural exit cannot fake cleanup.
             future = executor.submit(trial, '#include <unistd.h>\nint main(){fork();sleep(15);return 0;}\n')
             payload = wait_for(running_payload, 'payload did not reach execution', 10)
-            killed = kill_service(unit)
-            wait_for(lambda: not groups() and not task_processes(), 'tasks survived service crash')
+            killed = kill_target(args.case)
+            # 执行器被杀时，init 的 PDEATHSIG 让整个 namespace 随之终止；空的执行组留到下一次
+            # 使用这个 box 时由执行器回收，所以这里只要求任务进程消失。
+            wait_for(lambda: not task_processes() and (args.case == 'executor' or not groups()),
+                     'tasks survived service crash')
             cleanup_seconds = time.monotonic() - started
             try:
                 result = future.result(timeout=8)
@@ -129,6 +147,9 @@ def main():
             except (OSError, http.client.HTTPException) as error:
                 outcome = type(error).__name__
     finally:
+        # 执行器丢失回收确认后，sandbox 的执行池停止接单，只能重启服务恢复。
+        if args.case == 'executor':
+            manage.run('systemctl', 'stop', *reversed(manage.UNITS[1:]))
         manage.operate('start')
         assert manage.digest(manage.ETC / 'deployment.json') == manifest_hash
         # Only artifacts created by this idle-node test may be deleted, via the normal blob API.
@@ -139,7 +160,9 @@ def main():
     recovered = trial('int main(){return 0;}')
     assert recovered['verdict'] == 'RAN', recovered
     assert not groups() and not task_processes()
-    assert sorted(p.name for p in (manage.STATE / 'service/work').iterdir()) == ['.lock']
+    boxes = manage.STATE / 'service/boxes'
+    assert sorted(p.name for p in boxes.iterdir()) == ['.lock', '0']
+    assert not any(any((boxes / '0' / sub).iterdir()) for sub in ('in', 'out'))
     assert {p.name for p in BLOBS.iterdir()} == before
     print(json.dumps(dict(test=args.case, result='PASS', killedPID=killed, observedPayload=payload,
                           requestOutcome=outcome, cleanupSeconds=round(cleanup_seconds, 3),

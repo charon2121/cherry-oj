@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Probe a reduced isolator capability set without registering a changed environment."""
+"""逐项证明 setuid 执行器需要的 8 项能力都必不可少，且只靠这 8 项就能完成完整执行。
+
+能力边界集设在 sandbox 服务单元上：执行器以 setuid 获得的能力不会超出它。
+"""
 import importlib.util
 import json
 from pathlib import Path
@@ -14,8 +17,9 @@ import manage
 import health
 
 CAPS = ('CAP_SYS_ADMIN', 'CAP_SETUID', 'CAP_SETGID', 'CAP_SETPCAP',
-        'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD')
-DIRECTORY = Path('/run/systemd/system/cherry-sandbox-isolator.service.d')
+        'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD', 'CAP_KILL')
+UNIT = 'cherry-sandbox.service'
+DIRECTORY = Path('/run/systemd/system/cherry-sandbox.service.d')
 DROPIN = DIRECTORY / '90-work048-capability-test.conf'
 
 
@@ -24,22 +28,19 @@ def stopped():
 
 
 def configure(caps):
-    content = '[Service]\nCapabilityBoundingSet=\nCapabilityBoundingSet=' + ' '.join(caps)
-    content += '\nAmbientCapabilities=\n'
-    if 'CAP_SETUID' in caps:
-        content += 'AmbientCapabilities=CAP_SETUID\n'
+    content = '[Service]\nCapabilityBoundingSet=\nCapabilityBoundingSet=' + ' '.join(caps) + '\n'
     DROPIN.write_text(content)
     DROPIN.chmod(0o644)
     manage.run('systemctl', 'daemon-reload')
     return content
 
 
-def isolator_state():
-    return manage.run('systemctl', 'show', 'cherry-sandbox-isolator.service', '-p', 'ActiveState', '--value')
+def sandbox_state():
+    return manage.run('systemctl', 'show', UNIT, '-p', 'ActiveState', '--value')
 
 
 def start_observation():
-    raw = manage.run('systemctl', 'show', 'cherry-sandbox-isolator.service', '-p', 'InvocationID',
+    raw = manage.run('systemctl', 'show', UNIT, '-p', 'InvocationID',
                      '-p', 'ExecMainStartTimestampMonotonic')
     values = dict(line.split('=', 1) for line in raw.splitlines())
     return dict(invocationID=values.get('InvocationID', ''),
@@ -57,10 +58,10 @@ def require_new_start(before, after):
 def reset_failure():
     # Inactive successful units may already be garbage-collected by systemd; reset-failed
     # then returns "not loaded". They have no retained failed attempt to clear.
-    state = isolator_state()
+    state = sandbox_state()
     assert state in ('inactive', 'failed'), state
     if state == 'failed':
-        manage.run('systemctl', 'reset-failed', 'cherry-sandbox-isolator.service')
+        manage.run('systemctl', 'reset-failed', UNIT)
 
 
 def probe():
@@ -68,20 +69,20 @@ def probe():
     # These are independent deliberate-failure fixtures, not automatic retries of a failed run.
     # Keep the deployed rate-limit configuration intact; clear only this owned unit's history.
     reset_failure()
-    subprocess.run(['systemctl', 'start', 'cherry-sandbox-isolator.service'],
-                   capture_output=True, timeout=10)
-    deadline = time.monotonic() + 10
+    # 启动时要核对整棵 rootfs 并跑一次真实执行作为自检，留足时间。
+    subprocess.run(['systemctl', 'start', '--no-block', UNIT], capture_output=True, timeout=10)
+    deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
-        if isolator_state() == 'failed':
+        if sandbox_state() == 'failed':
             observation = start_observation()
             require_new_start(before, observation)
             return False, observation
-        if health.ready('isolator'):
+        if health.ready('sandbox'):
             observation = start_observation()
             require_new_start(before, observation)
             return True, observation
         time.sleep(.05)
-    raise AssertionError('isolator did not reach a definitive state')
+    raise AssertionError('sandbox did not reach a definitive state')
 
 
 def main():
@@ -98,8 +99,6 @@ def main():
         content = configure(CAPS)
         ready, observation = probe()
         assert ready, 'reduced set failed startup'
-        manage.run('systemctl', 'start', 'cherry-sandbox.service')
-        manage.run('python3', '/etc/cherry-sandbox/health.py', 'sandbox')
         source = '#include <unistd.h>\n#include <fcntl.h>\nint main(){int f=open("proof",O_CREAT|O_WRONLY,0600);if(f<0)return 2;write(f,"cap-test",8);close(f);if(!fork())sleep(10);return 0;}\n'
         compiled = native.execute(['g++', 'nested/main.cpp', '-o', 'program'],
             inputs={'nested/main.cpp': {'text': source}}, artifacts=['program'],
@@ -112,7 +111,7 @@ def main():
             native.clean()
         finally:
             native.call('DELETE', '/blobs/' + ref)
-        print(json.dumps(dict(test='seven-capability-set', result='PASS',
+        print(json.dumps(dict(test='eight-capability-set', result='PASS',
                               nestedInput=True, privateOutput=True, descendantsReaped=True,
                               **observation)), flush=True)
         stopped()
@@ -120,7 +119,7 @@ def main():
             content = configure(tuple(cap for cap in CAPS if cap != excluded))
             ready, observation = probe()
             assert not ready, 'capability may be redundant: ' + excluded
-            result = manage.run('systemctl', 'show', 'cherry-sandbox-isolator.service', '-p', 'Result', '--value')
+            result = manage.run('systemctl', 'show', UNIT, '-p', 'Result', '--value')
             assert result != 'start-limit-hit', result
             print(json.dumps(dict(test='remove-capability', removed=excluded, startup='REFUSED', **observation)), flush=True)
             stopped()

@@ -17,13 +17,13 @@ python3 deploy/sandbox-linux/rootfs/build.py \
   --output /absolute/project-local/rootfs-build-unique
 ```
 
-输出含 `rootfs/`、`manifest.json`、原始锁文件。构建器清除 setuid/setgid 和组/其他用户写权限，将硬链接转换为独立 inode，拒绝特殊文件；预建私有挂载点及不可供 payload 访问的 `.sandbox`。manifest 覆盖全部条目、模式、链接目标和文件摘要，单独打印其 SHA-256。时间戳不参与身份，包内容与权限参与。
+输出含 `rootfs/`、`manifest.json`、原始锁文件。构建器清除 setuid/setgid 和组/其他用户写权限，将硬链接转换为独立 inode，拒绝特殊文件；预建执行器要用的挂载点（`work`、`tmp`、`proc`、`dev`、`.oldroot`）。manifest 覆盖全部条目、模式、链接目标和文件摘要，单独打印其 SHA-256。时间戳不参与身份，包内容与权限参与。
 
-运行时由 TASK-099 将整个版本目录安装为 root 所有、非 root 不可写，配置固定 `RootFS`、`ManifestPath`、`ManifestSHA256`。isolator 启动逐项校验，额外文件、缺失文件、摘要或权限不符均拒绝启动；不通过重新生成摘要来掩盖部署偏差。isolator 自身以受保护的运行二进制绑定到隔离根内，payload 的请求不能选择这个入口。
+运行时将整个版本目录安装为 root 所有、非 root 不可写，sandbox 的启动配置固定 rootfs、manifest 路径与 manifest 摘要。sandbox 启动脚本（install/sandbox-start.py）逐项校验，额外文件、缺失文件、摘要或权限不符均拒绝启动；不通过重新生成摘要来掩盖部署偏差。执行器每次把这棵树只读挂进隔离环境，payload 的请求不能选择挂载来源。
 
 测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/sandbox-linux/rootfs -p '*_test.py'`。这些测试只验证清单和文件处理，实际 g++ 编译/链接及隔离运行证据见 WORK-048/VERIFY-049；其他环境仍待运行。
 
-isolator 创建监听 socket 前，会通过同一隔离链运行 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 isolator 当作只读探测。
+sandbox 服务开放 HTTP 端口前，会通过执行器运行 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 sandbox 当作只读探测。
 
 `layout: "usr-merged"` 显式要求构建器为存在的 usr/bin、usr/sbin、usr/lib、usr/lib64 建立根目录固定相对别名。已有冲突或未知布局拒绝构建；省略 layout 不创建别名。布局计入锁与清单摘要。
 

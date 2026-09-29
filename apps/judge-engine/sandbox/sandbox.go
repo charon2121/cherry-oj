@@ -18,7 +18,6 @@ import (
 	"cherry-oj/judge-engine/sandbox/pool"
 	"cherry-oj/judge-engine/sandbox/runner"
 	"cherry-oj/judge-engine/sandbox/store"
-	"cherry-oj/judge-engine/sandbox/workspace"
 )
 
 // Run 启动执行服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成。
@@ -187,17 +186,13 @@ func selectBackend(c Settings) (backend.Backend, func() error, error) {
 			return nil, nil, fmt.Errorf("this platform does not support the Linux isolation backend")
 		}
 		if os.Geteuid() == 0 {
-			return nil, nil, fmt.Errorf("the sandbox service must run as non-root; privilege is held only by the isolator")
+			return nil, nil, fmt.Errorf("the sandbox service must run as non-root; privilege is held only by the setuid executor")
 		}
-		w, err := workspace.OpenWorkspace(c.WorkspaceRoot)
+		b, err := backend.NewExecutor(c.ExecutorPath, c.BoxesRoot, c.Parallelism)
 		if err != nil {
 			return nil, nil, err
 		}
-		b, err := backend.NewIsolated(c.IsolatorSocket, w)
-		if err != nil {
-			return nil, nil, errors.Join(err, w.Close())
-		}
-		return b, w.Close, nil
+		return b, b.Close, nil
 	default:
 		return nil, nil, fmt.Errorf("unknown backend: %s", c.Backend)
 	}

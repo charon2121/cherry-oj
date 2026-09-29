@@ -68,8 +68,8 @@ class MemoryWatchTest(unittest.TestCase):
         obj = native.Native(self.root, report, owned)
         with patch.object(native, 'observe', return_value=MagicMock()) as observe:
             obj.command('install', ['python3', 'manage.py'])
-            for name in ('start', 'native', 'isolator-config', 'rootfs-manifest', 'isolator-binary',
-                         'kill-judge', 'kill-sandbox', 'kill-isolator', 'caps', 'uninstall'):
+            for name in ('start', 'native', 'executor-config', 'rootfs-manifest', 'executor-binary',
+                         'kill-judge', 'kill-sandbox', 'kill-executor', 'caps', 'uninstall'):
                 obj.command(name, ['python3', 'verify.py'], 120 if name == 'caps' else 90)
         observe.assert_called_once_with(native.CGROUP / 'cherry-sandbox-test-work048-native-install-123-1.service',
                                         self.root / 'install-memory.json')
@@ -99,5 +99,5 @@ class MemoryWatchTest(unittest.TestCase):
                 (self.root / 'installation.json').write_text(content)
                 with patch.object(native, 'STATE', self.root), patch.object(native, 'run') as run:
                     obj.diagnose()
-                self.assertEqual(run.call_count, 2)
+                self.assertEqual(run.call_count, 3)
                 self.assertIn('receiptReadError', json.loads((self.root / 'install-progress.json').read_text()))

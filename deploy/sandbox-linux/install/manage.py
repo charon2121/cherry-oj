@@ -14,7 +14,7 @@ import socket
 import subprocess
 import sys
 
-from layout import ACCOUNTS, ETC, STATE, UNITS
+from layout import ACCOUNTS, ETC, EXECUTOR, STATE, UNITS
 from render import write_json
 
 RECEIPT = STATE/'installation.json'
@@ -65,7 +65,7 @@ def preflight(plan, source):
             raise ValueError('missing tool: ' + tool)
     if int(run('systemctl','--version').splitlines()[0].split()[1]) < 255:
         raise ValueError('initial deployment requires systemd >= 255; other versions unvalidated')
-    for path in (ETC, STATE, Path('/run/cherry-sandbox-isolator')):
+    for path in (ETC, STATE):
         if path.exists() or path.is_symlink():
             raise ValueError('initial install refuses existing path: ' + str(path))
         protected(path.parent)
@@ -95,9 +95,9 @@ def preflight(plan, source):
         for row in rows:
             if row.startswith(('Uid:','Gid:')) and set(map(int,row.split()[1:])) & set(ACCOUNTS.values()):
                 raise ValueError('reserved identity still has processes')
-    for name in ('sandbox','isolator','judge'):
-        regular(source/'bin'/name)
-        with (source/'bin'/name).open('rb') as f:
+    for name in ('bin/sandbox','bin/judge','libexec/sandbox'):
+        regular(source/name)
+        with (source/name).open('rb') as f:
             header=f.read(20)
         if header[:6] != b'\x7fELF\x02\x01' or header[18:20] != b'\x3e\x00':
             raise ValueError('release binary is not Linux amd64 ELF: ' + name)
@@ -146,11 +146,19 @@ def install(review, source, token_file):
             os.chown(path,0,0,follow_symlinks=False)
             if not path.is_symlink():
                 path.chmod(stat.S_IMODE(path.lstat().st_mode)&~0o6022)
+    # 复制时清掉了所有 setuid 位；唯一例外是隔离执行器：root 所有、setuid，
+    # 只有 sandbox 服务所在的组能执行；其他人可读不可执行——judge 启动自检要核对它的摘要。
+    executor=target/'libexec/sandbox'
+    os.chown(executor,0,ACCOUNTS['cherry-sandbox'])
+    executor.chmod(0o4754)
     (STATE/'current').symlink_to(Path('releases')/release)
+    info=EXECUTOR.stat()
+    if info.st_uid!=0 or info.st_gid!=ACCOUNTS['cherry-sandbox'] or stat.S_IMODE(info.st_mode)!=0o4754:
+        raise ValueError('executor is not installed setuid-root for the sandbox group')
     for name, uid in (('service',61001),('judge',61010)):
         path=STATE/name;path.mkdir(mode=0o700);os.chown(path,uid,uid)
     ETC.mkdir(mode=0o755)
-    for name in ('isolator.json','sandbox.json','isolator-start.py','health.py'):
+    for name in ('executor.conf','sandbox-start.json','sandbox.json','sandbox-start.py','health.py'):
         shutil.copyfile(review/name,ETC/name);(ETC/name).chmod(0o644)
     judge=json.loads((review/'judge.json').read_text())
     judge['judge']['node']['controlToken']=token

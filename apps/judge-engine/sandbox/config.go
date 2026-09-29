@@ -21,11 +21,13 @@ type Config struct {
 type Settings struct {
 	HTTPAddr string `yaml:"httpAddr"`
 	// Parallelism：正数并发容量，显式 0 拒绝启动。
-	Parallelism     int    `yaml:"parallelism"`
-	Store           Store  `yaml:"store"`
-	Backend         string `yaml:"backend"`
-	IsolatorSocket  string `yaml:"isolatorSocket"`
-	WorkspaceRoot   string `yaml:"workspaceRoot"`
+	Parallelism int    `yaml:"parallelism"`
+	Store       Store  `yaml:"store"`
+	Backend     string `yaml:"backend"`
+	// ExecutorPath：setuid-root 安装的 C 执行器（apps/sandbox）。BoxesRoot：交给执行器的 box 目录根，
+	// 本服务独占，权限 0700。两者都只在 linux 后端使用，且须与执行器受信配置中的 boxes 一致。
+	ExecutorPath    string `yaml:"executorPath"`
+	BoxesRoot       string `yaml:"boxesRoot"`
 	QueueSize       int    `yaml:"queueSize"`
 	MaxRequestBytes int64  `yaml:"maxRequestBytes"`
 	// AllowUnsafeBackend：显式承认使用零隔离后端。默认关闭，缺省即拒绝启动——
@@ -43,7 +45,7 @@ type Store struct {
 	Retention     config.Duration `yaml:"retention"`
 }
 
-// DefaultConfig 返回 sandbox 的有界默认配置；Linux 隔离仍需先准备 isolator 和权限。
+// DefaultConfig 返回 sandbox 的有界默认配置；Linux 隔离仍需先以 setuid-root 安装执行器。
 func DefaultConfig() Config {
 	return Config{
 		Logging: config.Logging{
@@ -54,8 +56,8 @@ func DefaultConfig() Config {
 			HTTPAddr:        "127.0.0.1:5050",
 			Parallelism:     1,
 			Backend:         backend.NameLinux,
-			IsolatorSocket:  "/run/cherry-sandbox-isolator/isolator.sock",
-			WorkspaceRoot:   "./data/sandbox-work",
+			ExecutorPath:    "/var/lib/cherry-sandbox/current/libexec/sandbox",
+			BoxesRoot:       "./data/sandbox-boxes",
 			QueueSize:       8,
 			MaxRequestBytes: 2 << 20,
 			Store: Store{
@@ -90,8 +92,12 @@ func (c Config) Validate() error {
 	if s.Backend == backend.NameDevHost && !s.AllowUnsafeBackend {
 		return fmt.Errorf("the %s backend provides no isolation; enabling it requires setting sandbox.allowUnsafeBackend explicitly", backend.NameDevHost)
 	}
-	if s.Backend == backend.NameLinux && (s.IsolatorSocket == "" || s.WorkspaceRoot == "" || s.Store.Root == "") {
-		return fmt.Errorf("the linux backend requires isolatorSocket, workspaceRoot and store.root")
+	if s.Backend == backend.NameLinux && (s.ExecutorPath == "" || s.BoxesRoot == "" || s.Store.Root == "") {
+		return fmt.Errorf("the linux backend requires executorPath, boxesRoot and store.root")
+	}
+	// 每次执行占用一个 box，执行器最多支持 4 个。
+	if s.Backend == backend.NameLinux && s.Parallelism > 4 {
+		return fmt.Errorf("the linux backend supports at most 4 parallel executions, got %d", s.Parallelism)
 	}
 	if s.QueueSize <= 0 || s.QueueSize > 1024 || s.MaxRequestBytes <= 0 || s.MaxRequestBytes > 8<<20 {
 		return fmt.Errorf("invalid sandbox queue or request body limit")

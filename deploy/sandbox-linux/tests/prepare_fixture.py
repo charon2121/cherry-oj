@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""从本地交叉构建 probe 生成可追溯的最小 rootfs，不提供 C++ 工具链。"""
+"""用静态探针生成可追溯的最小 rootfs，不提供 C++ 工具链。"""
 import argparse
 import importlib.util
 import json
@@ -23,7 +23,7 @@ for name in ('true','probe'):
     target=root/'usr/bin'/name
     shutil.copyfile(args.bundle/'probe',target)
     target.chmod(0o755)
-manifest=builder.seal(root,'WORK-048 static Go test fixture; probe-sha256='+builder.digest(args.bundle/'probe'))
+manifest=builder.seal(root,'static probe test fixture; probe-sha256='+builder.digest(args.bundle/'probe'))
 (args.bundle/'manifest.json').write_text(json.dumps(manifest))
-print('isolator-sha256='+builder.digest(args.bundle/'isolator'))
+print('executor-sha256='+builder.digest(args.bundle/'sandbox-executor'))
 print('manifest-sha256='+builder.digest(args.bundle/'manifest.json'))

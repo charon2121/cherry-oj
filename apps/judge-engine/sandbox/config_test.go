@@ -35,7 +35,8 @@ func TestParallelismZeroIsRejected(t *testing.T) {
 func TestSandboxHardeningConfig(t *testing.T) {
 	for _, mutate := range []func(*Config){
 		func(c *Config) { c.Sandbox.Backend = "auto" },
-		func(c *Config) { c.Sandbox.IsolatorSocket = "" },
+		func(c *Config) { c.Sandbox.ExecutorPath = "" },
+		func(c *Config) { c.Sandbox.Parallelism = 5 },
 		func(c *Config) { c.Sandbox.QueueSize = 0 },
 		func(c *Config) { c.Sandbox.MaxRequestBytes = 0 },
 		func(c *Config) { c.Sandbox.Store.MaxTotalBytes = 1 },
@@ -56,9 +57,9 @@ func TestSandboxHardeningConfig(t *testing.T) {
 
 // 环境变量名是部署契约：compose 与部署清单按这些名字注入，改名等于改部署。
 func TestEnvOverridesYAML(t *testing.T) {
-	p := writeYAML(t, "sandbox:\n  parallelism: 3\n")
+	p := writeYAML(t, "sandbox:\n  parallelism: 2\n")
 	t.Setenv("CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES", "123456")
-	t.Setenv("CHERRY_OJ_SANDBOX_PARALLELISM", "5")
+	t.Setenv("CHERRY_OJ_SANDBOX_PARALLELISM", "3")
 	t.Setenv("CHERRY_OJ_LOGGING_LEVEL", "WARN")
 
 	cfg, err := LoadConfig(p)
@@ -68,8 +69,8 @@ func TestEnvOverridesYAML(t *testing.T) {
 	if cfg.Sandbox.Store.MaxBlobBytes != 123456 {
 		t.Errorf("maxBlobBytes=%d", cfg.Sandbox.Store.MaxBlobBytes)
 	}
-	if cfg.Sandbox.Parallelism != 5 {
-		t.Errorf("parallelism=%d want 5（环境变量应当压过 YAML）", cfg.Sandbox.Parallelism)
+	if cfg.Sandbox.Parallelism != 3 {
+		t.Errorf("parallelism=%d want 3（环境变量应当压过 YAML）", cfg.Sandbox.Parallelism)
 	}
 	if cfg.Logging.Level != "WARN" {
 		t.Errorf("logging.level=%q", cfg.Logging.Level)

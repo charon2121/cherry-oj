@@ -20,7 +20,8 @@ class SealTests(unittest.TestCase):
             m = module.seal(root, 'test fixture')
             entries = {e['Path']: e for e in m['Entries']}
             self.assertEqual(entries['program']['Mode'], 0o755)
-            self.assertEqual(entries['.sandbox']['Mode'], 0o700)
+            self.assertEqual(entries['work']['Mode'], 0o755)
+            self.assertNotIn('.sandbox', entries)
             self.assertEqual(entries['alias']['Link'], 'program')
             self.assertEqual(entries['program']['SHA256'], module.digest(root / 'program'))
             self.assertEqual((root / 'program').stat().st_nlink, 1)

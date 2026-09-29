@@ -56,6 +56,7 @@ func testJob() Job {
 
 func TestExecutorDeliversFactsStreamsAndArtifacts(t *testing.T) {
 	e, box := fakeExecutor(t, `
+cp "$d/spec" "$d/../captured-spec"
 cat "$d/stdin" > "$d/out/stdout"
 printf err > "$d/out/stderr"
 cp "$d/in/0" "$d/out/artifact-0"
@@ -79,7 +80,8 @@ printf '{"version":1,"exitCode":0,"signal":0,"cpuNs":5,"memoryBytes":6,"clockNs"
 	if stdout.String() != "hello" || stderr.String() != "err" || artifacts["a.out"] != "int main(){}" {
 		t.Errorf("stdout=%q stderr=%q artifacts=%v", stdout.String(), stderr.String(), artifacts)
 	}
-	spec, err := os.ReadFile(filepath.Join(box, "spec"))
+	// box 在交付后被清空，脚本另存了一份请求供这里核对。
+	spec, err := os.ReadFile(filepath.Join(box, "..", "captured-spec"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,16 +171,21 @@ func TestExecutorRejectsStreamLengthMismatch(t *testing.T) {
 	}
 }
 
-func TestExecutorResetsTheBoxBetweenRuns(t *testing.T) {
+func TestExecutorClearsTheBoxAfterEachRun(t *testing.T) {
 	e, box := fakeExecutor(t, printFacts(factsLine("", false, "")))
 	for i := 0; i < 2; i++ {
-		// 没有清空 box 的话，第二次写输入会因 O_EXCL 失败或在 in/ 中残留上一次的文件。
 		if _, err := e.Execute(context.Background(), testJob(), nil); err != nil {
 			t.Fatal(err)
 		}
-		entries, err := os.ReadDir(filepath.Join(box, "in"))
-		if err != nil || len(entries) != 1 {
-			t.Fatalf("run %d: in/ = %v, %v", i, entries, err)
+		// 交付之后 box 只剩空的 in/ 与 out/：源码、stdin、请求和输出都不留在磁盘上。
+		entries, err := os.ReadDir(box)
+		if err != nil || len(entries) != 2 {
+			t.Fatalf("run %d: box = %v, %v", i, entries, err)
+		}
+		for _, sub := range []string{"in", "out"} {
+			if left, err := os.ReadDir(filepath.Join(box, sub)); err != nil || len(left) != 0 {
+				t.Fatalf("run %d: %s = %v, %v", i, sub, left, err)
+			}
 		}
 	}
 }

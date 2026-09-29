@@ -27,15 +27,16 @@ def linux_units(path):
                 raise ValueError('required Linux test did not execute: ' + package + '/' + name)
 
 
-def boundary(path):
+def executor_suite(path):
+    """执行器自己的真实内核测试（unittest -v）：每个必需用例都要实际通过，不允许 skip 或失败。"""
     text = path.read_text()
-    skipped = re.findall(r'--- SKIP: (\S+)', text)
-    # TestExecFailureChild returns normally outside child mode; no required suite may skip.
-    if skipped or '--- FAIL:' in text:
-        raise ValueError('unexpected boundary skip/failure')
-    for name in ('TestStartupBoundaries', 'TestOutputPathBoundary', 'TestCgroupCapabilityRefusal', 'TestExecStageFailures'):
-        if not re.search(r'^--- PASS: ' + name + r' \(', text, re.MULTILINE):
-            raise ValueError('missing boundary completion: ' + name)
+    if re.search(r'\.\.\. (skipped|FAIL|ERROR)', text) or not re.search(r'^OK$', text, re.MULTILINE):
+        raise ValueError('executor suite contains skip/failure or did not finish')
+    for name in ('test_identity_and_filesystem', 'test_invalid_requests_are_refused', 'test_stale_group_is_reclaimed',
+                 'test_missing_command_is_platform_failure', 'test_artifacts_are_bounded_regular_files',
+                 'test_links_cannot_be_created'):
+        if not re.search(r'^' + name + r' .*\.\.\. ok$', text, re.MULTILINE):
+            raise ValueError('missing executor suite completion: ' + name)
 
 
 def markers(path, *, sentinel=None, field='test', required=()):
