@@ -125,9 +125,6 @@ func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 	if result.Verdict != contract.VerdictAC || result.Score != 100 {
 		t.Fatalf("result = %+v", result)
 	}
-	if result.EnvironmentFingerprint != cfg.EnvironmentFingerprint {
-		t.Errorf("environmentFingerprint=%q want %q", result.EnvironmentFingerprint, cfg.EnvironmentFingerprint)
-	}
 	if len(result.CaseResults) != 2 || result.CaseResults[0].Name != "first" || result.CaseResults[1].Name != "second" {
 		t.Fatalf("cases = %+v", result.CaseResults)
 	}
@@ -344,9 +341,6 @@ func TestJudgeValidatesBeforeCallingSandbox(t *testing.T) {
 			result := flow.Judge(context.Background(), fake, tt.cfg, tt.req, nil)
 			if result.Verdict != contract.VerdictSE || result.Message == "" {
 				t.Fatalf("result = %+v", result)
-			}
-			if result.EnvironmentFingerprint != tt.cfg.EnvironmentFingerprint {
-				t.Errorf("提前返回也必须带实际环境指纹，got %q", result.EnvironmentFingerprint)
 			}
 			if len(fake.uploaded) != 0 || len(fake.calls) != 0 {
 				t.Errorf("invalid request reached sandbox: uploads=%d runs=%d", len(fake.uploaded), len(fake.calls))

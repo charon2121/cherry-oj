@@ -111,7 +111,7 @@ class ContractsTest(unittest.TestCase):
             }.issubset(request["required"])
         )
         self.assertNotIn("language", request["properties"])
-        self.assertIn("environmentFingerprint", result["required"])
+        self.assertNotIn("environmentFingerprint", result["properties"])
         for schema in (result, case_result):
             self.assertIn("cpuNs", schema["properties"])
             self.assertIn("memoryBytes", schema["properties"])

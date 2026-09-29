@@ -26,7 +26,7 @@ public class SubmissionExecutionProfileController {
         if("trial".equals(request.purpose()) && budget>java.time.Duration.ofSeconds(45).toNanos()) throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY,"RUN_LIMIT_UNSUPPORTED","此题目的执行预算超过自测期限。");
         if(!"trial".equals(request.purpose()) && budget>=budgets.deadline().toNanos()) throw unavailable();
         return new Profile(request.problemVersionId(), request.testDataVersionId(), request.languageId(),
-                profile.environmentId(), profile.environmentFingerprint(), profile.calibrationId(),
+                profile.calibrationId(),
                 new Limits(profile.cpuNs(), profile.memoryBytes(), profile.clockNs()),budget);
     }
     private static JudgingApiException unavailable() {
@@ -41,6 +41,6 @@ public class SubmissionExecutionProfileController {
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     public record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
     public record Profile(String problemVersionId, String testDataVersionId, String languageId,
-                          String judgeEnvironmentId, String environmentFingerprint, String languageCalibrationId,
+                          String languageCalibrationId,
                           Limits effectiveLimits,long executionBudgetNs) {}
 }

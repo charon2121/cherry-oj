@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cherry-oj/contracts/judge-node.schema.json",
   "title": "Judge Node control protocol v1",
-  "description": "Private shared Bearer control token. POST /internal/judge-nodes/v1/register and /heartbeat accept Registration/Heartbeat and return Lease. POST /internal/judge-node/v1/install accepts multipart/form-data: metadata (Install JSON, first, <= 1 MiB), archive (ZIP, second); returns Receipt. No redirects. Session UUID changes on process start; registration invalidates availability of historical receipts on session change, requiring actual reinstallation before routing. Errors contain only fixed code/detail. Node identity and fingerprint are immutable; endpoints are absolute HTTP(S) origins without credentials, query, fragment or path.",
+  "description": "Private shared Bearer control token. POST /internal/judge-nodes/v1/register and /heartbeat accept Registration/Heartbeat and return Lease. POST /internal/judge-node/v1/install accepts multipart/form-data: metadata (Install JSON, first, <= 1 MiB), archive (ZIP, second); returns Receipt. No redirects. Session UUID changes on process start; registration invalidates availability of historical receipts on session change, requiring actual reinstallation before routing. Errors contain only fixed code/detail. Node identity is nodeId plus the per-process sessionId; there is no environment identity; endpoints are absolute HTTP(S) origins without credentials, query, fragment or path.",
   "oneOf": [
     {
       "$ref": "#/$defs/Registration"
@@ -24,31 +24,6 @@
     }
   ],
   "$defs": {
-    "Language": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "languageId",
-        "toolchainVersion",
-        "languageConfigDigest"
-      ],
-      "properties": {
-        "languageId": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9-]{0,31}$"
-        },
-        "toolchainVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "languageConfigDigest": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        }
-      }
-    },
     "Manifest": {
       "type": "object",
       "additionalProperties": false,
@@ -102,27 +77,14 @@
       "additionalProperties": false,
       "required": [
         "nodeId",
-        "environmentFingerprint",
         "sessionId",
         "endpoint",
-        "architecture",
-        "cpuModel",
-        "osVersion",
-        "kernelVersion",
-        "judgeVersion",
-        "sandboxVersion",
-        "configDigest",
         "languages"
       ],
       "properties": {
         "nodeId": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
-        },
-        "environmentFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
         },
         "sessionId": {
           "type": "string",
@@ -133,69 +95,25 @@
           "minLength": 1,
           "maxLength": 512
         },
-        "architecture": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 32
-        },
-        "cpuModel": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "osVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "kernelVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "judgeVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "sandboxVersion": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "configDigest": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
         "languages": {
           "type": "array",
           "minItems": 1,
           "maxItems": 32,
+          "uniqueItems": true,
+          "description": "节点能判的语言；控制面只把该语言的判题路由给声明了它的节点。",
           "items": {
-            "$ref": "#/$defs/Language"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           }
         }
       },
       "examples": [
         {
           "nodeId": "judge-local-1",
-          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
           "sessionId": "019c8e42-7f70-7000-8000-000000000001",
           "endpoint": "http://127.0.0.1:5051",
-          "architecture": "amd64",
-          "cpuModel": "local",
-          "osVersion": "linux",
-          "kernelVersion": "local",
-          "judgeVersion": "v2",
-          "sandboxVersion": "v2",
-          "configDigest": "local",
           "languages": [
-            {
-              "languageId": "cpp",
-              "toolchainVersion": "g++",
-              "languageConfigDigest": "cpp-v1"
-            }
+            "cpp"
           ]
         }
       ]
@@ -205,18 +123,12 @@
       "additionalProperties": false,
       "required": [
         "nodeId",
-        "environmentFingerprint",
         "sessionId"
       ],
       "properties": {
         "nodeId": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
-        },
-        "environmentFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
         },
         "sessionId": {
           "type": "string",
@@ -226,7 +138,6 @@
       "examples": [
         {
           "nodeId": "judge-local-1",
-          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
           "sessionId": "019c8e42-7f70-7000-8000-000000000001"
         }
       ]
@@ -236,17 +147,12 @@
       "additionalProperties": false,
       "required": [
         "nodeId",
-        "environmentId",
         "leaseDurationNs"
       ],
       "properties": {
         "nodeId": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
-        },
-        "environmentId": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
         },
         "leaseDurationNs": {
           "type": "integer",
@@ -256,7 +162,6 @@
       "examples": [
         {
           "nodeId": "judge-local-1",
-          "environmentId": "019c8e42-7f70-7000-8000-000000000001",
           "leaseDurationNs": 35000000000
         }
       ]
@@ -266,7 +171,6 @@
       "additionalProperties": false,
       "required": [
         "nodeId",
-        "environmentFingerprint",
         "sessionId",
         "testDataVersionId",
         "expectedSha256",
@@ -276,11 +180,6 @@
         "nodeId": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
-        },
-        "environmentFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
         },
         "sessionId": {
           "type": "string",
@@ -301,7 +200,6 @@
       "examples": [
         {
           "nodeId": "judge-local-1",
-          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
           "sessionId": "019c8e42-7f70-7000-8000-000000000001",
           "testDataVersionId": "019c8e42-7f70-7000-8000-000000000002",
           "expectedSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -329,7 +227,6 @@
       "additionalProperties": false,
       "required": [
         "nodeId",
-        "environmentFingerprint",
         "sessionId",
         "testDataVersionId",
         "sha256",
@@ -339,11 +236,6 @@
         "nodeId": {
           "type": "string",
           "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
-        },
-        "environmentFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
         },
         "sessionId": {
           "type": "string",
@@ -366,7 +258,6 @@
       "examples": [
         {
           "nodeId": "judge-local-1",
-          "environmentFingerprint": "dev-linux-amd64-go-judge-v2",
           "sessionId": "019c8e42-7f70-7000-8000-000000000001",
           "testDataVersionId": "019c8e42-7f70-7000-8000-000000000002",
           "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",

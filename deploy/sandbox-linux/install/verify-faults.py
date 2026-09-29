@@ -138,13 +138,12 @@ def main():
                 request(15050, 'DELETE', '/blobs/' + path.name)
     recovered = trial('int main(){return 0;}')
     assert recovered['verdict'] == 'RAN', recovered
-    assert recovered['environmentFingerprint'] == baseline['environmentFingerprint']
     assert not groups() and not task_processes()
     assert sorted(p.name for p in (manage.STATE / 'service/work').iterdir()) == ['.lock']
     assert {p.name for p in BLOBS.iterdir()} == before
     print(json.dumps(dict(test=args.case, result='PASS', killedPID=killed, observedPayload=payload,
                           requestOutcome=outcome, cleanupSeconds=round(cleanup_seconds, 3),
-                          fingerprint=baseline['environmentFingerprint'], recovered='RAN')), flush=True)
+                          deployment=manifest_hash, recovered='RAN')), flush=True)
 
 
 if __name__ == '__main__':

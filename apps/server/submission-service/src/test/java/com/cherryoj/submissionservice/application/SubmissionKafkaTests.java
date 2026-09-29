@@ -43,10 +43,10 @@ class SubmissionKafkaTests {
     @MockitoBean SubmissionPrerequisites prerequisites;
     @Test void durableRequestCrossesKafkaAndDuplicateCompletionOnlyAppliesOnce() throws Exception {
         UUID problem=UUID.randomUUID(),version=UUID.randomUUID();
-        String data=UUID.randomUUID().toString(),env=UUID.randomUUID().toString(),user=UUID.randomUUID().toString();
+        String data=UUID.randomUUID().toString(),user=UUID.randomUUID().toString();
         var snapshot=new Snapshot(problem.toString(),version.toString(),1,"A+B",data,"a".repeat(64),"cpp","ACM",1);
         when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
-        when(prerequisites.profile(snapshot)).thenReturn(new Profile(version.toString(),data,"cpp",env,"fingerprint",UUID.randomUUID().toString(),new Limits(1000,2000,3000L),40000000000L));
+        when(prerequisites.profile(snapshot)).thenReturn(new Profile(version.toString(),data,"cpp",UUID.randomUUID().toString(),new Limits(1000,2000,3000L),40000000000L));
         var created=service.create(user,UUID.randomUUID().toString(),new Create(problem,version,"cpp","private source marker"));
         String id=created.view().id();
         Properties properties=new Properties();
@@ -66,7 +66,7 @@ class SubmissionKafkaTests {
         String event=json.writeValueAsString(Map.of("eventId",UUID.randomUUID().toString(),"eventType","JudgeCompleted","eventVersion",1,
                 "occurredAt",Instant.now().toString(),"traceId","a".repeat(32),"aggregateId",id,
                 "payload",Map.of("submissionId",id,"taskId",UUID.randomUUID().toString(),"attemptNo",1,"finishedAt",Instant.now().toString(),
-                        "result",Map.of("verdict","AC","environmentFingerprint","fingerprint","passedCount",1,"executedCount",1,"totalCount",1))));
+                        "result",Map.of("verdict","AC","passedCount",1,"executedCount",1,"totalCount",1))));
         kafka.send("judge.lifecycle.v1",id,event).get(15,TimeUnit.SECONDS);
         kafka.send("judge.lifecycle.v1",id,event).get(15,TimeUnit.SECONDS);
         String lateStarted=json.writeValueAsString(Map.of("eventId",UUID.randomUUID().toString(),"eventType","JudgeStarted","eventVersion",1,

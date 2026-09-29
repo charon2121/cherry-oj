@@ -876,10 +876,10 @@
       ]
     },
     {
-      "id": "business.new-environment",
+      "id": "business.node-registration",
       "suite": "business",
       "execution": "prepare",
-      "assertion": "当前二进制/策略/rootfs真实新身份注册，正常入口选用",
+      "assertion": "新安装的节点以本次会话注册并在线，只带节点身份与C++语言",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"

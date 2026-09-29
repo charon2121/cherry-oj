@@ -54,7 +54,6 @@ class Native:
         self.active = 'install'
         self.node = 'ci-native-' + owned.identity
         self.control = BASE / 'control'
-        self.fingerprint = None
 
     def command(self, name, argv, seconds=90):
         unit = 'cherry-sandbox-test-work048-native-' + name + '-' + self.owned.identity
@@ -102,10 +101,8 @@ class Native:
             if entries and entries[-1]['sessionId'] != previous_session:
                 return entries[-1]
         value = wait_for(received)
+        # 节点身份只有 nodeId 与会话；恢复后同一台机器必须以同一 nodeId、新会话重新注册。
         validate_registration(value, self.node)
-        if self.fingerprint is not None and value['environmentFingerprint'] != self.fingerprint:
-            raise ValueError('native environment changed during recovery')
-        self.fingerprint = value['environmentFingerprint']
         return value
 
     def diagnose(self):
@@ -169,7 +166,7 @@ class Native:
             self.active = name
             previous = self.identity()['sessionId']
             self.command(name, ['python3', '-B', STATE / 'operations' / script, *args], seconds)
-            native_results.check(name, self.report.output / (name + '.log'), self.fingerprint)
+            native_results.check(name, self.report.output / (name + '.log'), manifest_hash)
             self.identity(previous_session=previous if name != 'native' else None)
             if digest(ETC / 'deployment.json') != manifest_hash:
                 raise ValueError('native manifest changed after restoration')

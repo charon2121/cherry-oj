@@ -17,11 +17,11 @@ class SubmissionExecutionProfileControllerTests {
         var controller = new SubmissionExecutionProfileController(service, budgets());
         var request = new SubmissionExecutionProfileController.Request("p", "d", "a".repeat(64), "cpp",3);
         when(service.readiness("p", "d", "a".repeat(64), "cpp"))
-                .thenReturn(new JudgingDtos.Readiness(false, "e", List.of(), null));
+                .thenReturn(new JudgingDtos.Readiness(false, List.of(), null));
         assertThrows(JudgingApiException.class, () -> controller.resolve(request));
         when(service.readiness("p", "d", "a".repeat(64), "cpp"))
-                .thenReturn(new JudgingDtos.Readiness(true, "e", List.of(),
-                        new JudgingDtos.ExecutionProfile("e", "fingerprint", "http://private-node", "cal", 1000, 2000, 3000L)));
+                .thenReturn(new JudgingDtos.Readiness(true, List.of(),
+                        new JudgingDtos.ExecutionProfile("http://private-node", "cal", 1000, 2000, 3000L)));
         var profile = controller.resolve(request);
         assertEquals("cal", profile.languageCalibrationId());
         assertEquals(1000, profile.effectiveLimits().cpuNs());

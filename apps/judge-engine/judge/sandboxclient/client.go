@@ -87,23 +87,6 @@ func (c *Client) Version(ctx context.Context) (contract.SandboxVersion, error) {
 	return version, err
 }
 
-// Probe 执行环境探测：拒绝重定向和超过 16 KiB 的响应，防止把其他地址的身份当成本节点。
-// 普通 Run 的输出可能更大，因此这些限制只应用于身份探测。
-func (c *Client) Probe(ctx context.Context, spec contract.RunSpec) (contract.RunResult, error) {
-	body, err := json.Marshal(spec)
-	if err != nil {
-		return contract.RunResult{}, fmt.Errorf("probe sandbox: encode request: %w", err)
-	}
-	var result contract.RunResult
-	if err := c.probeJSON(ctx, http.MethodPost, "/run", body, &result); err != nil {
-		return contract.RunResult{}, err
-	}
-	if result.Status == "" {
-		return contract.RunResult{}, fmt.Errorf("probe sandbox: response status is empty")
-	}
-	return result, nil
-}
-
 func (c *Client) probeJSON(ctx context.Context, method, path string, body []byte, result any) error {
 	req, err := http.NewRequestWithContext(ctx, method, c.endpoint(path), bytes.NewReader(body))
 	if err != nil {

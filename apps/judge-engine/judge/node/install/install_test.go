@@ -26,7 +26,7 @@ func hash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[
 var session atomic.Int64
 
 func testRegistration(c config.Settings) contract.NodeRegistration {
-	return contract.NodeRegistration{NodeID: c.Node.ID, EnvironmentFingerprint: "test-fingerprint",
+	return contract.NodeRegistration{NodeID: c.Node.ID,
 		SessionID: fmt.Sprintf("019c8e42-7f70-7000-8000-%012d", session.Add(1))}
 }
 
@@ -67,7 +67,7 @@ func archive(t *testing.T, names []string, contents [][]byte, symlink bool) []by
 }
 func metadata(n *install.Installer, b []byte) contract.NodeInstall {
 	r := n.Registration()
-	return contract.NodeInstall{NodeID: r.NodeID, EnvironmentFingerprint: r.EnvironmentFingerprint, SessionID: r.SessionID, TestDataVersionID: "019c8e42-7f70-7000-8000-000000000002", ExpectedSHA256: hash(b), Manifest: contract.TestDataManifest{CaseCount: 1, TotalBytes: 6, Files: []contract.ManifestFile{{Name: "1.in", SizeBytes: 4, SHA256: hash([]byte("1 2\n"))}, {Name: "1.out", SizeBytes: 2, SHA256: hash([]byte("3\n"))}}}}
+	return contract.NodeInstall{NodeID: r.NodeID, SessionID: r.SessionID, TestDataVersionID: "019c8e42-7f70-7000-8000-000000000002", ExpectedSHA256: hash(b), Manifest: contract.TestDataManifest{CaseCount: 1, TotalBytes: 6, Files: []contract.ManifestFile{{Name: "1.in", SizeBytes: 4, SHA256: hash([]byte("1 2\n"))}, {Name: "1.out", SizeBytes: 2, SHA256: hash([]byte("3\n"))}}}}
 }
 func TestInstallZIPCompatibilityAndRejectCleanup(t *testing.T) {
 	for _, tc := range []struct {
@@ -129,9 +129,9 @@ func TestInstallRetryRestartConflictAndCancellation(t *testing.T) {
 		t.Fatal("changed manifest accepted")
 	}
 	bad = m
-	bad.EnvironmentFingerprint = "other"
+	bad.SessionID = "019c8e42-7f70-7000-8000-999999999999"
 	if _, e := n.Install(context.Background(), bad, bytes.NewReader(b)); e == nil {
-		t.Fatal("wrong environment accepted")
+		t.Fatal("install addressed to another session accepted")
 	}
 	if err := n.Close(); err != nil {
 		t.Fatal(err)

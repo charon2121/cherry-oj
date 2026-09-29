@@ -96,17 +96,16 @@ Apache Commons Compress 只在 problem-service 内处理私有测试数据 ZIP�
 
 ## judging-service 的部署与校准工具
 
-judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J、Commons Compress 与测试阶段的
-Testcontainers MySQL。它只连接 `cherry_oj_judging`，V1 migration 创建环境、启用语言、测试数据部署、
-语言校准和审计五类事实；不读取 problem-service 数据库。
+judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J 与测试阶段的 Testcontainers MySQL。
+它只连接 `cherry_oj_judging`，保存节点与租约、逐节点测试数据回执、按「题目版本 × 语言」的标定、
+判题任务和审计；不读取 problem-service 数据库。
 
-测试数据由受 ADMIN JWT 保护的接口以 manifest 与 ZIP 流传入。节点模式通过独立 control token
-向 ACTIVE 环境中的 ONLINE Judge 传输，Go 在私有目录二次校验并原子安装；控制面核对节点、指纹、
-会话、版本、hash 与文件数后才记录逐节点回执。校准和 ExecutionProfile 选择持有对应数据的在线节点。
+测试数据由受 ADMIN JWT 保护的接口以 manifest 与 ZIP 流传入，经独立 control token 传给在线 Judge，
+Go 在私有目录二次校验并原子安装；控制面核对节点、会话、版本、hash 与文件数后才记录逐节点回执。
+校准和 ExecutionProfile 选择在线、声明了该语言且持有对应数据的节点。
 Java 不创建 Judge 数据目录，也不要求共享 Unix UID 或挂载路径。
 
-V2 migration 追加节点、租约与逐节点部署表，不删除 V1 环境、部署或校准。节点上线自行注册：空库
-首次环境成为 ACTIVE，其他指纹只 REGISTERED，不自动切换已有环境。默认心跳 10 秒、租约 35 秒；
+节点上线自行注册，只带节点身份（nodeId + 会话）与语言，没有环境分组。默认心跳 10 秒、租约 35 秒；
 节点重启保留旧回执但撤销可用性，通过再次部署幂等检查本地文件后恢复。参数分别为
 `JUDGE_HEARTBEAT_INTERVAL` 和 `CHERRY_JUDGE_NODE_LEASE_DURATION`。
 

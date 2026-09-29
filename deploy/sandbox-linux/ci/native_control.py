@@ -5,7 +5,6 @@ import hmac
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 from pathlib import Path
-import re
 import socket
 import time
 import uuid
@@ -15,27 +14,14 @@ MAX_EVENTS = 128
 
 
 def validate_registration(value, node):
-    fields = {'nodeId', 'environmentFingerprint', 'sessionId', 'endpoint', 'architecture', 'cpuModel',
-              'osVersion', 'kernelVersion', 'judgeVersion', 'sandboxVersion', 'configDigest', 'languages'}
-    if not isinstance(value, dict) or set(value) != fields:
+    # 注册只带节点身份：nodeId、本次进程的 sessionId、访问地址与能判的语言。
+    if not isinstance(value, dict) or set(value) != {'nodeId', 'sessionId', 'endpoint', 'languages'}:
         raise ValueError('registration fields differ from contract')
-    if value['nodeId'] != node or value['endpoint'] != 'http://127.0.0.1:15051' or value['architecture'] != 'amd64':
+    if value['nodeId'] != node or value['endpoint'] != 'http://127.0.0.1:15051':
         raise ValueError('registration does not belong to this native node')
-    for key in ('environmentFingerprint', 'configDigest'):
-        if not isinstance(value[key], str) or not re.fullmatch('[0-9a-f]{64}', value[key]):
-            raise ValueError('invalid identity digest')
     uuid.UUID(value['sessionId'])
-    for key in ('cpuModel', 'osVersion', 'kernelVersion', 'judgeVersion', 'sandboxVersion'):
-        if not isinstance(value[key], str) or not value[key] or len(value[key]) > 1024:
-            raise ValueError('missing runtime identity')
-    languages = value['languages']
-    if not isinstance(languages, list) or len(languages) != 1:
-        raise ValueError('expected one real C++ toolchain')
-    lang = languages[0]
-    if (set(lang) != {'languageId', 'toolchainVersion', 'languageConfigDigest'} or lang['languageId'] != 'cpp'
-            or not isinstance(lang['toolchainVersion'], str) or not lang['toolchainVersion']
-            or not re.fullmatch('[0-9a-f]{64}', lang['languageConfigDigest'])):
-        raise ValueError('invalid toolchain registration')
+    if value['languages'] != ['cpp']:
+        raise ValueError('expected exactly the C++ language')
     return value
 
 
@@ -45,7 +31,6 @@ class Receiver(HTTPServer):
     def __init__(self, directory, node, token, port):
         self.directory, self.node, self.token = directory, node, token
         self.events, self.registration = [], None
-        self.environment = str(uuid.uuid4())
         super().__init__(('127.0.0.1', port), Handler)
         self.timeout = .2
 
@@ -89,14 +74,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.registration = value
             elif route == 'heartbeat':
                 previous = self.server.registration
-                if not previous or value != {k: previous[k] for k in ('nodeId', 'sessionId', 'environmentFingerprint')}:
+                if not previous or value != {k: previous[k] for k in ('nodeId', 'sessionId')}:
                     raise ValueError('heartbeat is not from registered session')
             else:
                 raise ValueError('unknown route')
             self.server.events.append(dict(route=route, value=value))
             self.server.save()
-            body = json.dumps(dict(nodeId=self.server.node, environmentId=self.server.environment,
-                                   leaseDurationNs=60_000_000_000)).encode()
+            body = json.dumps(dict(nodeId=self.server.node, leaseDurationNs=60_000_000_000)).encode()
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Content-Length', str(len(body)))

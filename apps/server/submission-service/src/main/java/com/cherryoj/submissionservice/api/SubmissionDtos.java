@@ -24,12 +24,10 @@ public final class SubmissionDtos {
                            String testDataVersionId, String testDataContentSha256, String languageId, String codeMode,
                            int totalCount) {}
     public record Profile(String problemVersionId, String testDataVersionId, String languageId,
-                          String judgeEnvironmentId, String environmentFingerprint, String languageCalibrationId,
-                          Limits effectiveLimits, long executionBudgetNs) {}
+                          String languageCalibrationId, Limits effectiveLimits, long executionBudgetNs) {}
     public record Input(String submissionId, String contractVersion, String problemId, String problemVersionId,
                         String testDataVersionId, String languageId, String completeSource, String sourceSha256,
-                        String judgeEnvironmentId, String environmentFingerprint, String languageCalibrationId,
-                        Limits effectiveLimits, Instant createdAt, String testDataContentSha256, int totalCount, long executionBudgetNs) {
+                        String languageCalibrationId, Limits effectiveLimits, Instant createdAt, String testDataContentSha256, int totalCount, long executionBudgetNs) {
         @Override public String toString() { return "Input[submissionId=" + submissionId + ", source=<redacted>]"; }
     }
     public record HistoryPage(java.util.List<View> items, int page, int size, long totalElements, int totalPages) {}

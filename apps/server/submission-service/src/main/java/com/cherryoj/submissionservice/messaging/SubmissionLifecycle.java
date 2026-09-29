@@ -52,7 +52,6 @@ public class SubmissionLifecycle {
             String verdict=null,message=null; Long cpu=null,memory=null; Integer passed=null,executed=null,total=null;
             if (type.equals("JudgeCompleted")) {
                 var input=json.readValue(store.input(id),Input.class);
-                if (!input.environmentFingerprint().equals(text(result,"environmentFingerprint"))) throw invalid();
                 verdict=text(result,"verdict"); cpu=number(result,"cpuNs"); memory=number(result,"memoryBytes");
                 if (result.has("executedCount")) {
                     executed=Math.toIntExact(number(result,"executedCount")); passed=Math.toIntExact(number(result,"passedCount"));
@@ -69,9 +68,8 @@ public class SubmissionLifecycle {
         });
     }
     private static void validateResult(JsonNode result) {
-        fields(result,Set.of("verdict","environmentFingerprint","cpuNs","memoryBytes","passedCount","executedCount","totalCount","message"));
+        fields(result,Set.of("verdict","cpuNs","memoryBytes","passedCount","executedCount","totalCount","message"));
         if (!VERDICTS.contains(text(result,"verdict"))) throw invalid();
-        text(result,"environmentFingerprint");
         for (String field:ListHolder.NUMBERS) if(result.has(field)) number(result,field);
         for (String field:Set.of("passedCount","executedCount","totalCount")) if(result.has(field) && number(result,field)>1000) throw invalid();
         if (result.has("message") && text(result,"message").length()>8192) throw invalid();

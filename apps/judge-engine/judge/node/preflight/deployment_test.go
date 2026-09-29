@@ -1,6 +1,5 @@
-// White-box tests inject protected file and cgroup readers; no root privileges
-// or host cgroup mutation is needed to test identity validation failures.
-package probe
+// 白盒测试注入受保护文件与 cgroup 的读取函数，不需要 root，也不改动宿主机 cgroup。
+package preflight
 
 import (
 	"context"
@@ -25,7 +24,7 @@ func deploymentFixture() deploymentManifest {
 	return m
 }
 
-func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
+func TestDeploymentRejectsChangedFilesAndLimits(t *testing.T) {
 	for _, kind := range []string{"valid", "missing-file", "changed-file", "read-error", "missing-limit", "unbounded", "swap", "changed-limit", "unknown-field", "unverified-limit"} {
 		t.Run(kind, func(t *testing.T) {
 			m := deploymentFixture()
@@ -52,9 +51,9 @@ func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
 				// 清单声明了一条从未被核对的上界。只比数量的话它会和「少一条」互相抵消。
 				m.Limits["/sys/fs/cgroup/elsewhere/pids.max"] = "1"
 			}
-			digest, err := verifyManifest(context.Background(), m, hash, read)
+			err := verifyManifest(context.Background(), m, hash, read)
 			if (err == nil) != (kind == "valid") {
-				t.Fatalf("digest=%s err=%v", digest, err)
+				t.Fatalf("err=%v", err)
 			}
 			// 报错必须指出是哪一项，否则出问题时只知道「部署不合格」，不知道去看哪里。
 			named := map[string]string{
@@ -67,50 +66,6 @@ func TestDeploymentIdentityRejectsChangedFilesAndLimits(t *testing.T) {
 				t.Fatalf("错误信息 %q 中没有指出是哪一项（期望含 %q）", err, want)
 			}
 		})
-	}
-}
-
-func TestDeploymentIdentityChangesWithRootfsAndPolicy(t *testing.T) {
-	fingerprint := func(m deploymentManifest) string {
-		t.Helper()
-		hash := func(path string) (string, error) {
-			for _, entry := range m.Files {
-				if entry.Path == path {
-					return entry.SHA256, nil
-				}
-			}
-			return "", errors.New("unknown file")
-		}
-		digest, err := verifyManifest(context.Background(), m, hash, func(path string) ([]byte, error) { return []byte(m.Limits[path]), nil })
-		if err != nil {
-			t.Fatal(err)
-		}
-		return digest
-	}
-	original := fingerprint(deploymentFixture())
-	for _, key := range []string{"rootfsManifest", "isolator", "sandbox", "isolatorConfig", "slice", "bootstrap"} {
-		m := deploymentFixture()
-		entry := m.Files[key]
-		entry.SHA256 = strings.Repeat("b", 64)
-		m.Files[key] = entry
-		if fingerprint(m) == original {
-			t.Fatal("changed execution environment reused identity:", key)
-		}
-	}
-}
-
-func TestCPUIdentityIgnoresVolatileCounters(t *testing.T) {
-	first, err := cpuIdentity("model name : Example\nflags : a b\ncpu MHz : 100\n")
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := cpuIdentity("model name : Example\nflags : a b\ncpu MHz : 200\nmodel name : Example\n")
-	if err != nil || first != second {
-		t.Fatal("volatile data changed identity", err)
-	}
-	third, err := cpuIdentity("model name : Example\nflags : a c\n")
-	if err != nil || first == third {
-		t.Fatal("CPU feature change lost", err)
 	}
 }
 

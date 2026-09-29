@@ -246,19 +246,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "verdict",
-        "environmentFingerprint"
+        "verdict"
       ],
-      "description": "Go judge 的结果。environmentFingerprint 来自 judge 部署配置，不从请求回显。",
+      "description": "Go judge 的结果。",
       "properties": {
         "verdict": {
           "$ref": "verdict.json"
-        },
-        "environmentFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256,
-          "description": "实际执行环境指纹；judging-service 必须与冻结的 JudgeInput 对比"
         },
         "cpuNs": {
           "type": "integer",
@@ -290,7 +283,6 @@
       "examples": [
         {
           "verdict": "AC",
-          "environmentFingerprint": "sha256:judge-env-amd64-v1",
           "cpuNs": 1200000,
           "memoryBytes": 1048576,
           "score": 100,

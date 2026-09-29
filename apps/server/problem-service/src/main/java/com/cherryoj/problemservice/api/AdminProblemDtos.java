@@ -105,8 +105,7 @@ public final class AdminProblemDtos {
 
     public record TestDataDeployment(
             String testDataVersionId,
-            String environmentId,
-            String environmentName,
+            String nodeId,
             String expectedSha256,
             DeploymentStatus status,
             String deployedSha256,
@@ -128,7 +127,6 @@ public final class AdminProblemDtos {
             String id,
             String problemVersionId,
             String languageId,
-            String environmentId,
             CalibrationStatus status,
             Long cpuNs,
             Long memoryBytes,
@@ -143,7 +141,7 @@ public final class AdminProblemDtos {
     public record PublishCheckItem(PublishCheckCode code, boolean passed, String message) {
     }
 
-    public record PublishCheck(boolean ready, String environmentId, List<PublishCheckItem> checks) {
+    public record PublishCheck(boolean ready, List<PublishCheckItem> checks) {
     }
 
     public record Version(

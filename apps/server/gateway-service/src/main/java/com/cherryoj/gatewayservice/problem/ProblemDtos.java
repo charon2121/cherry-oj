@@ -81,8 +81,7 @@ final class ProblemDtos {
 	}
 
 	record TestDataDeployment(
-			String testDataVersionId, String environmentId, String environmentName,
-			String expectedSha256, String status, String deployedSha256, String deployedAt,
+			String testDataVersionId, String nodeId, String expectedSha256, String status, String deployedSha256, String deployedAt,
 			String errorMessage, String updatedAt, long rowVersion) {
 	}
 
@@ -91,7 +90,7 @@ final class ProblemDtos {
 	}
 
 	record LanguageCalibration(
-			String id, String problemVersionId, String languageId, String environmentId, String status,
+			String id, String problemVersionId, String languageId, String status,
 			Long cpuNs, Long memoryBytes, Long clockNs, BenchmarkSummary benchmarkSummary,
 			String errorMessage, String createdAt, String updatedAt, long rowVersion) {
 	}
@@ -99,6 +98,6 @@ final class ProblemDtos {
 	record PublishCheckItem(String code, boolean passed, String message) {
 	}
 
-	record PublishCheck(boolean ready, String environmentId, List<PublishCheckItem> checks) {
+	record PublishCheck(boolean ready, List<PublishCheckItem> checks) {
 	}
 }

@@ -22,10 +22,6 @@ type Settings struct {
 	// 设小了会出现「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
 	SandboxURL     string            `yaml:"sandboxURL"`
 	SandboxTimeout platform.Duration `yaml:"sandboxTimeout"`
-	// EnvironmentFingerprint：实际部署环境的不可变标识，随每个 JudgeResult 返回。
-	// judging-service 用它核对任务是否被路由到了 JudgeInput 冻结的环境。
-	// 启用节点链路时由注册身份覆盖，见 node.Identity。
-	EnvironmentFingerprint string `yaml:"environmentFingerprint"`
 	// TestdataRoot：测试数据根目录，下面按 testDataVersionId 分子目录。
 	TestdataRoot string `yaml:"testdataRoot"`
 

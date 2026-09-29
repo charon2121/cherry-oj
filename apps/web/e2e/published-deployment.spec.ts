@@ -3,7 +3,6 @@ import { expect, test } from '@playwright/test';
 const problemId = '5f16b8c1-9c31-4d46-a2aa-9ba02cf65772';
 const versionId = '454ef3b0-082e-4de6-a3d0-0f75d9a81137';
 const dataId = '454ef3b0-082e-4de6-a3d0-0f75d9a81138';
-const environmentId = '454ef3b0-082e-4de6-a3d0-0f75d9a81139';
 const time = '2026-09-08T01:00:00Z';
 const sha = 'a'.repeat(64);
 
@@ -75,8 +74,7 @@ for (const status of ['PUBLISHED', 'ARCHIVED'] as const) {
         deployed = true;
         value = {
           testDataVersionId: dataId,
-          environmentId,
-          environmentName: 'node',
+          nodeId: 'judge-local-1',
           expectedSha256: sha,
           status: 'READY',
           deployedSha256: sha,
@@ -88,10 +86,11 @@ for (const status of ['PUBLISHED', 'ARCHIVED'] as const) {
       } else if (path.endsWith('/publish-check'))
         value = {
           ready: deployed,
-          environmentId,
-          checks: ['ACTIVE_ENVIRONMENT', 'ONLINE_JUDGE_NODE', 'CALIBRATION', 'DEPLOYMENT'].map(
-            (code) => ({ code, passed: code !== 'DEPLOYMENT' || deployed, message: code }),
-          ),
+          checks: ['ONLINE_JUDGE_NODE', 'CALIBRATION', 'DEPLOYMENT'].map((code) => ({
+            code,
+            passed: code !== 'DEPLOYMENT' || deployed,
+            message: code,
+          })),
         };
       else if (path.endsWith('/test-data')) value = { items: [data] };
       else if (path.endsWith(`/versions/${versionId}`)) value = version;

@@ -42,12 +42,12 @@ class SubmissionPersistenceTests {
     SubmissionService service;
     final String user=UUID.randomUUID().toString();
     final UUID problem=UUID.randomUUID(), version=UUID.randomUUID();
-    final String data=UUID.randomUUID().toString(), environment=UUID.randomUUID().toString(), calibration=UUID.randomUUID().toString();
+    final String data=UUID.randomUUID().toString(), calibration=UUID.randomUUID().toString();
     @BeforeEach void setup() {
         service=new SubmissionService(store,prerequisites,json,manager,true,true);
         var snapshot=new Snapshot(problem.toString(),version.toString(),1,"A+B",data,"a".repeat(64),"cpp","ACM",3);
         when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
-        when(prerequisites.profile(snapshot)).thenReturn(new Profile(version.toString(),data,"cpp",environment,"fingerprint",calibration,new Limits(1000000000L,268435456L,3000000000L),40000000000L));
+        when(prerequisites.profile(snapshot)).thenReturn(new Profile(version.toString(),data,"cpp",calibration,new Limits(1000000000L,268435456L,3000000000L),40000000000L));
     }
     Create request(String source) { return new Create(problem,version,"cpp",source); }
     @Test void concurrentRetriesCreateOneImmutableInputAndOneOutbox() throws Exception {
@@ -94,7 +94,7 @@ class SubmissionPersistenceTests {
     @Test void completedCanArriveBeforeStartedButHiddenFieldsAndStateRegressionCannot() {
         String id=service.create(user,UUID.randomUUID().toString(),request("source")).view().id();
         String task=UUID.randomUUID().toString();
-        Map<String,Object> result=new LinkedHashMap<>(Map.of("verdict","WA","environmentFingerprint","fingerprint","passedCount",1,"executedCount",3,"totalCount",3));
+        Map<String,Object> result=new LinkedHashMap<>(Map.of("verdict","WA","passedCount",1,"executedCount",3,"totalCount",3));
         result.put("output",Map.of("text","hidden"));
         assertThrows(IllegalArgumentException.class,() -> lifecycle.apply(id,event(id,task,"JudgeCompleted",2,result)));
         assertEquals("PENDING",service.get(user,id).status());
@@ -126,7 +126,7 @@ class SubmissionPersistenceTests {
         assertFalse(json.writeValueAsString(page).contains("original"));
         assertEquals(0,readService.history(user,problem.toString(),1,20,"AC").totalElements());
         lifecycle.apply(first,event(first,UUID.randomUUID().toString(),"JudgeCompleted",1,
-                Map.of("verdict","AC","environmentFingerprint","fingerprint","passedCount",3,"executedCount",3,"totalCount",3)));
+                Map.of("verdict","AC","passedCount",3,"executedCount",3,"totalCount",3)));
         assertEquals(first,readService.history(user,problem.toString(),1,20,"AC").items().getFirst().id());
         reset(prerequisites); // History remains available without querying today's problem publication.
         assertEquals("// first original\nint main() {} ",readService.source(user,first).source());

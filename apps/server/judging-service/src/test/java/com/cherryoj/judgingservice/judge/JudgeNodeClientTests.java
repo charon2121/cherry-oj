@@ -26,11 +26,11 @@ class JudgeNodeClientTests {
         try {
             var client=new JudgeNodeClient(new JudgeNodeProperties("secret",Duration.ofSeconds(35)),
                 new JudgingProperties(1000,Duration.ofSeconds(2)),JsonMapper.builder().build());
-            var node=new Node("node","environment","session","http://127.0.0.1:"+server.getAddress().getPort(),"fingerprint",LocalDateTime.now().plusSeconds(35));
+            var node=new Node("node","session","http://127.0.0.1:"+server.getAddress().getPort(),LocalDateTime.now().plusSeconds(35));
             var m=new DeploymentMetadata("version","a".repeat(64),new Manifest(1,2,List.of(new ManifestFile("1.in",1,"b".repeat(64)),new ManifestFile("1.out",1,"c".repeat(64)))));
-            String valid="{\"nodeId\":\"node\",\"environmentFingerprint\":\"fingerprint\",\"sessionId\":\"session\",\"testDataVersionId\":\"version\",\"sha256\":\""+"a".repeat(64)+"\",\"fileCount\":2}";
+            String valid="{\"nodeId\":\"node\",\"sessionId\":\"session\",\"testDataVersionId\":\"version\",\"sha256\":\""+"a".repeat(64)+"\",\"fileCount\":2}";
             body.set(valid);assertThat(client.install(node,m,new ByteArrayInputStream(new byte[]{1}),null).fileCount()).isEqualTo(2);
-            for(String invalid:List.of("not json private",valid.replace("Count\":2","Count\":2.5"),valid.replace("Count\":2","Count\":\"2\""),valid.replace("fingerprint","wrong"),valid.replace("\"node\"","\"wrong\""),valid.replace("\"session\"","\"wrong\""),valid.replace("version","wrong"),valid.replace("a".repeat(64),"b".repeat(64)),valid.replace("Count\":2","Count\":3"))){
+            for(String invalid:List.of("not json private",valid.replace("Count\":2","Count\":2.5"),valid.replace("Count\":2","Count\":\"2\""),valid.replace("\"node\"","\"wrong\""),valid.replace("\"session\"","\"wrong\""),valid.replace("version","wrong"),valid.replace("a".repeat(64),"b".repeat(64)),valid.replace("Count\":2","Count\":3"))){
                 body.set(invalid);assertThatThrownBy(()->client.install(node,m,new ByteArrayInputStream(new byte[]{1}),null)).isInstanceOfSatisfying(JudgingApiException.class,e->assertThat(e.code()).isEqualTo("JUDGE_NODE_RECEIPT_MISMATCH"));
             }
             body.set("private "+"x".repeat(20000));assertThatThrownBy(()->client.install(node,m,new ByteArrayInputStream(new byte[]{1}),null)).hasMessageNotContaining("private");
@@ -55,7 +55,7 @@ class JudgeNodeClientTests {
         try {
             var client = new JudgeNodeClient(new JudgeNodeProperties("secret", Duration.ofSeconds(35)),
                     new JudgingProperties(1000, Duration.ofMillis(500)), JsonMapper.builder().build());
-            var node = new Node("node", "environment", "session", "http://127.0.0.1:" + server.getAddress().getPort(), "fingerprint", LocalDateTime.now().plusSeconds(35));
+            var node = new Node("node", "session", "http://127.0.0.1:" + server.getAddress().getPort(), LocalDateTime.now().plusSeconds(35));
             var metadata = new DeploymentMetadata("version", "a".repeat(64), new Manifest(1, 2, List.of(new ManifestFile("1.in", 1, "b".repeat(64)), new ManifestFile("1.out", 1, "c".repeat(64)))));
             org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(Duration.ofSeconds(3), () ->
                     assertThatThrownBy(() -> client.install(node, metadata, new ByteArrayInputStream(new byte[]{1}), null))

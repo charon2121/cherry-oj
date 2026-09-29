@@ -37,7 +37,7 @@ class JudgeNodeRegistryIntegrationTests {
     @Autowired ObjectMapper json;
     @Autowired org.springframework.web.context.WebApplicationContext context;
     @MockitoBean Clock clock;
-    @Test void registrationLeaseRestartAndConcurrentFirstEnvironmentPreserveFacts() throws Exception {
+    @Test void registrationLeaseRestartAndSessionReplayPreserveFacts() throws Exception {
         when(clock.instant()).thenReturn(Instant.parse("2026-09-06T00:00:00Z"));
         when(clock.millis()).thenReturn(Instant.parse("2026-09-06T00:00:00Z").toEpochMilli());
         when(clock.getZone()).thenReturn(ZoneOffset.UTC);
@@ -45,8 +45,9 @@ class JudgeNodeRegistryIntegrationTests {
                 .path("$defs").path("Registration").path("examples").get(0).toString(), Registration.class);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var a = executor.submit(() -> registry.register(fixture));
-            var b = executor.submit(() -> registry.register(copy(fixture, "second", fixture.environmentFingerprint(), fixture.sessionId())));
-            assertThat(a.get().environmentId()).isEqualTo(b.get().environmentId());
+            var b = executor.submit(() -> registry.register(copy(fixture, "second", fixture.sessionId())));
+            assertThat(a.get().nodeId()).isEqualTo(fixture.nodeId());
+            assertThat(b.get().nodeId()).isEqualTo("second");
         }
         var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup(context)
                 .apply(org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity()).build();
@@ -58,6 +59,7 @@ class JudgeNodeRegistryIntegrationTests {
         var valid = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/internal/judge-nodes/v1/register")
                 .header("Authorization", "Bearer test-only-node-control-token").contentType("application/json").content(body)).andReturn().getResponse();
         assertThat(valid.getStatus()).isEqualTo(200);
+        assertThat(json.readTree(valid.getContentAsString()).size()).isEqualTo(2);
         var invalid = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/internal/judge-nodes/v1/register")
                 .header("Authorization", "Bearer test-only-node-control-token").contentType("application/json").content("{}"))
                 .andReturn().getResponse();
@@ -65,29 +67,27 @@ class JudgeNodeRegistryIntegrationTests {
         assertThat(json.readTree(invalid.getContentAsString()).size()).isEqualTo(2);
         var lease = registry.register(fixture);
         assertThat(lease.leaseDurationNs()).isEqualTo(35_000_000_000L);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM judge_environment WHERE status='ACTIVE'", Integer.class)).isEqualTo(1);
-        var later = registry.register(copy(fixture, "other", "other-fingerprint", fixture.sessionId()));
-        assertThat(later.environmentId()).isNotEqualTo(lease.environmentId());
-        assertThat(jdbc.queryForObject("SELECT status FROM judge_environment WHERE id=UUID_TO_BIN(?)", String.class, later.environmentId())).isEqualTo("REGISTERED");
-        assertThatThrownBy(() -> registry.register(copy(fixture, fixture.nodeId(), "changed", fixture.sessionId()))).hasMessageContaining("conflicts");
         var beforeExpiry = LocalDateTime.of(2026, 9, 6, 0, 0, 34);
-        assertThat(nodes.online(lease.environmentId(), beforeExpiry)).hasSize(2);
+        assertThat(nodes.online(beforeExpiry)).hasSize(2);
+        assertThat(nodes.online("cpp", beforeExpiry)).hasSize(2);
+        assertThat(nodes.online("python", beforeExpiry)).isEmpty();
         var atExpiry = beforeExpiry.plusSeconds(1);
-        assertThat(nodes.online(lease.environmentId(), atExpiry)).isEmpty();
+        assertThat(nodes.online(atExpiry)).isEmpty();
         when(clock.instant()).thenReturn(atExpiry.toInstant(ZoneOffset.UTC));
-        registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.environmentFingerprint(), fixture.sessionId()));
-        assertThat(nodes.online(lease.environmentId(), atExpiry)).hasSize(1);
+        registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.sessionId()));
+        assertThat(nodes.online(atExpiry)).hasSize(1);
         String version = UUID.randomUUID().toString();
         nodes.recordReady(nodes.find(fixture.nodeId()), version, "a".repeat(64), 2, atExpiry);
-        assertThat(nodes.ready(lease.environmentId(), version, "a".repeat(64), atExpiry)).isNotNull();
-        registry.register(copy(fixture, fixture.nodeId(), fixture.environmentFingerprint(), UUID.randomUUID().toString()));
-        assertThat(nodes.ready(lease.environmentId(), version, "a".repeat(64), atExpiry)).isNull();
+        assertThat(nodes.ready("cpp", version, "a".repeat(64), atExpiry)).isNotNull();
+        assertThat(nodes.ready("python", version, "a".repeat(64), atExpiry)).isNull();
+        // 同一 nodeId 的新进程接替旧进程：旧会话的回执不再可用，旧会话也不能夺回 nodeId。
+        registry.register(copy(fixture, fixture.nodeId(), UUID.randomUUID().toString()));
+        assertThat(nodes.ready("cpp", version, "a".repeat(64), atExpiry)).isNull();
         assertThatThrownBy(() -> registry.register(fixture)).hasMessageContaining("conflicts");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM test_data_node_deployment", Integer.class)).isEqualTo(1);
-        assertThatThrownBy(() -> registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.environmentFingerprint(), fixture.sessionId()))).hasMessageContaining("conflicts");
+        assertThatThrownBy(() -> registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.sessionId()))).hasMessageContaining("conflicts");
     }
-    private Registration copy(Registration r, String id, String fingerprint, String session) {
-        return new Registration(id, fingerprint, session, r.endpoint(), r.architecture(), r.cpuModel(), r.osVersion(),
-                r.kernelVersion(), r.judgeVersion(), r.sandboxVersion(), r.configDigest(), r.languages());
+    private Registration copy(Registration r, String id, String session) {
+        return new Registration(id, session, r.endpoint(), r.languages());
     }
 }

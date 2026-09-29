@@ -110,7 +110,6 @@ func TestEnvOverridesYAML(t *testing.T) {
 	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_ROOT", "/srv/from-env")
 	// 取值要大于编译墙钟上限（默认 20s），否则会被跨层预算断言挡住——那正是它该做的。
 	t.Setenv("CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT", "25s")
-	t.Setenv("CHERRY_OJ_JUDGE_ENVIRONMENT_FINGERPRINT", "sha256:test-environment")
 	t.Setenv("CHERRY_OJ_JUDGE_COMPILE_CPU_NS", "999")
 
 	cfg, err := Load(p)
@@ -129,9 +128,6 @@ func TestEnvOverridesYAML(t *testing.T) {
 	}
 	if cfg.Judge.SandboxTimeout.Std() != 25*time.Second {
 		t.Errorf("sandboxTimeout=%s want 25s", cfg.Judge.SandboxTimeout)
-	}
-	if cfg.Judge.EnvironmentFingerprint != "sha256:test-environment" {
-		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
 	}
 	if cfg.Judge.Compile.CPUNs != 999 {
 		t.Errorf("compile.cpuNs=%d", cfg.Judge.Compile.CPUNs)
@@ -161,7 +157,6 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		{"sandboxTimeout 为 0", func(c *Config) { c.Judge.SandboxTimeout = 0 }},
 		{"stdoutMaxBytes 为 0", func(c *Config) { c.Judge.Output.StdoutMaxBytes = 0 }},
 		{"testdataRoot 为空", func(c *Config) { c.Judge.TestdataRoot = "" }},
-		{"environmentFingerprint 为空", func(c *Config) { c.Judge.EnvironmentFingerprint = "" }},
 		{"compile 全零", func(c *Config) { c.Judge.Compile = Compile{} }},
 		{"日志目录为空", func(c *Config) { c.Logging.Path = "" }},
 		{"日志级别非法", func(c *Config) { c.Logging.Level = "TRACE" }},
@@ -225,9 +220,6 @@ func TestExampleConfigLoads(t *testing.T) {
 	}
 	if cfg.Judge.ClockRatio != 10 {
 		t.Errorf("clockRatio=%d", cfg.Judge.ClockRatio)
-	}
-	if cfg.Judge.EnvironmentFingerprint != "local-development" {
-		t.Errorf("environmentFingerprint=%q", cfg.Judge.EnvironmentFingerprint)
 	}
 }
 

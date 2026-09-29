@@ -18,10 +18,6 @@ import (
 func probeCalls() map[string]func(*sandboxclient.Client) error {
 	return map[string]func(*sandboxclient.Client) error{
 		"/version": func(c *sandboxclient.Client) error { _, err := c.Version(context.Background()); return err },
-		"/run": func(c *sandboxclient.Client) error {
-			_, err := c.Probe(context.Background(), contract.RunSpec{Command: []string{"true"}})
-			return err
-		},
 	}
 }
 

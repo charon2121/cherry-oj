@@ -38,7 +38,7 @@ func TestJudgeResultUnmarshalsSchemaExample(t *testing.T) {
 	if err := json.Unmarshal(body, &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != VerdictAC || result.EnvironmentFingerprint == "" ||
+	if result.Verdict != VerdictAC ||
 		result.CPUNs == 0 || result.MemoryBytes == 0 || len(result.CaseResults) != 1 {
 		t.Errorf("JudgeResult 示例没有完整落入 Go 类型: %+v", result)
 	}
@@ -214,9 +214,8 @@ func TestOutputEncodes(t *testing.T) {
 
 func TestJudgeResultOmitsEmpty(t *testing.T) {
 	b, err := json.Marshal(JudgeResult{
-		Verdict:                VerdictAC,
-		EnvironmentFingerprint: "sha256:test-environment",
-		Score:                  100,
+		Verdict: VerdictAC,
+		Score:   100,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -227,7 +226,7 @@ func TestJudgeResultOmitsEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, key := range []string{"verdict", "environmentFingerprint", "score"} {
+	for _, key := range []string{"verdict", "score"} {
 		if _, ok := m[key]; !ok {
 			t.Errorf("%q 应当总是出现", key)
 		}
@@ -241,10 +240,9 @@ func TestJudgeResultOmitsEmpty(t *testing.T) {
 
 func TestJudgeResultUsesV2ResourceNames(t *testing.T) {
 	b, err := json.Marshal(JudgeResult{
-		Verdict:                VerdictAC,
-		EnvironmentFingerprint: "sha256:test-environment",
-		CPUNs:                  12,
-		MemoryBytes:            34,
+		Verdict:     VerdictAC,
+		CPUNs:       12,
+		MemoryBytes: 34,
 		CaseResults: []CaseResult{{
 			Idx:         1,
 			Verdict:     VerdictAC,

@@ -10,8 +10,7 @@ public final class JudgingDtos {
     public record Manifest(int caseCount, long totalBytes, List<ManifestFile> files) {}
     public record DeploymentMetadata(String testDataVersionId, String expectedSha256, Manifest manifest) {}
     public record Deployment(
-            String testDataVersionId, String environmentId, String environmentName,
-            String expectedSha256, String status, String deployedSha256,
+            String testDataVersionId, String nodeId, String expectedSha256, String status, String deployedSha256,
             LocalDateTime deployedAt, String errorMessage, LocalDateTime updatedAt, long rowVersion) {}
     public record CalibrationRequest(
             String problemId, String problemVersionId, String testDataVersionId, String expectedSha256,
@@ -19,14 +18,11 @@ public final class JudgingDtos {
     public record BenchmarkSummary(
             String sourceSha256, String verdict, Long maxCpuNs, Long maxMemoryBytes, Long maxClockNs) {}
     public record Calibration(
-            String id, String problemVersionId, String languageId, String environmentId,
-            String status, Long cpuNs, Long memoryBytes, Long clockNs,
+            String id, String problemVersionId, String languageId, String status, Long cpuNs, Long memoryBytes, Long clockNs,
             BenchmarkSummary benchmarkSummary, String errorMessage,
             LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion) {}
     public record ReadinessCheck(String code, boolean passed, String message) {}
     public record ExecutionProfile(
-            String environmentId, String environmentFingerprint, String endpointRef,
-            String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
-    public record Readiness(
-            boolean ready, String environmentId, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
+            String endpointRef, String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
+    public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

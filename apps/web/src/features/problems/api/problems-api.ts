@@ -140,8 +140,7 @@ const adminVersionSchema = z
 const deploymentSchema = z
   .object({
     testDataVersionId: id,
-    environmentId: id,
-    environmentName: z.string(),
+    nodeId: z.string(),
     expectedSha256: z.string(),
     status: z.enum(['PENDING', 'DEPLOYING', 'READY', 'FAILED']),
     deployedSha256: z.string().nullable(),
@@ -156,7 +155,6 @@ const calibrationSchema = z
     id,
     problemVersionId: id,
     languageId: z.string(),
-    environmentId: id,
     status: z.enum(['DRAFT', 'RUNNING', 'VALID', 'FAILED', 'SUPERSEDED']),
     cpuNs: z.number().int().nullable(),
     memoryBytes: z.number().int().nullable(),
@@ -180,7 +178,6 @@ const calibrationSchema = z
 const publishCheckSchema = z
   .object({
     ready: z.boolean(),
-    environmentId: id.nullable(),
     checks: z.array(
       z.object({ code: z.string(), passed: z.boolean(), message: z.string() }).loose(),
     ),

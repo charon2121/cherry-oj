@@ -17,18 +17,17 @@ func Default() Config {
 			Level: "INFO",
 		},
 		Judge: Settings{
-			Node:                   defaultNode(),
-			HTTPAddr:               "127.0.0.1:5051",
-			SandboxURL:             "http://127.0.0.1:5050",
-			SandboxTimeout:         platform.Duration(60 * time.Second),
-			EnvironmentFingerprint: "local-development",
-			TestdataRoot:           "/srv/cherry-oj/testdata",
-			StrictWhitespace:       false, // 默认宽松：一个换行不该卡住新手
-			RevealExpected:         false, // ★ 默认不泄题；教学部署自己打开
-			ClockRatio:             10,
-			InlineThresholdBytes:   256 << 10,
-			OutputExcerptBytes:     4 << 10,
-			MessageExcerptBytes:    8 << 10,
+			Node:                 defaultNode(),
+			HTTPAddr:             "127.0.0.1:5051",
+			SandboxURL:           "http://127.0.0.1:5050",
+			SandboxTimeout:       platform.Duration(60 * time.Second),
+			TestdataRoot:         "/srv/cherry-oj/testdata",
+			StrictWhitespace:     false, // 默认宽松：一个换行不该卡住新手
+			RevealExpected:       false, // ★ 默认不泄题；教学部署自己打开
+			ClockRatio:           10,
+			InlineThresholdBytes: 256 << 10,
+			OutputExcerptBytes:   4 << 10,
+			MessageExcerptBytes:  8 << 10,
 			Output: Output{
 				StdoutMaxBytes: 1 << 20,
 				StderrMaxBytes: 1 << 20,

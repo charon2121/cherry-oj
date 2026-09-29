@@ -25,7 +25,7 @@ env={key:os.environ[key] for key in ['PATH','HOME','TMPDIR','JAVA_HOME','LANG','
  'DOCKER_HOST','DOCKER_CONTEXT','DOCKER_CONFIG','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH'] if key in os.environ}
 env.update(JUDGE_BIND_ADDRESS='127.0.0.1',CHERRY_JUDGE_CONTROL_TOKEN='work002-isolated-control',JUDGE_NODE_ID=NAME,
  JUDGE_TESTDATA_VOLUME=NAME+'-testdata',JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
- JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s',JUDGE_ENVIRONMENT_FINGERPRINT=NAME)
+ JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s')
 env.update(WORK002_DB_PASSWORD=secrets.token_urlsafe(24),WORK002_MYSQL_PORT=str(ports['mysql']),
  WORK002_REDIS_PORT=str(ports['redis']),WORK002_KAFKA_PORT=str(ports['kafka']))
 service_tokens={name:secrets.token_urlsafe(48) for name in ['submission-problem','submission-judging','judging-submission']}
@@ -141,7 +141,7 @@ try:
  failure=request(version_path+'/deployment','POST',deploy_payload,expect=503);assert failure['code']=='NO_ONLINE_JUDGE_NODE',failure
  run(compose+['up','-d','--wait','judge','sandbox'],env=env)
  wait(lambda:sql('SELECT COUNT(*) FROM cherry_judging.judge_node WHERE lease_expires_at>UTC_TIMESTAMP(6)')=='1','node registration')
- print('Real Compose node registered; first environment ACTIVE.',flush=True)
+ print('Real Compose node registered.',flush=True)
  deployed=request(version_path+'/deployment','POST',deploy_payload);assert deployed['status']=='READY',deployed
  again=request(version_path+'/deployment','POST',deploy_payload);assert again['status']=='READY',again
  source='#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<"\\n";}'
@@ -150,14 +150,12 @@ try:
  deploy_payload['rowVersion']=request(version_path)['rowVersion']
  ready=request(version_path+'/publish-check');assert ready['ready'],ready
  assert sql('SELECT COUNT(*) FROM cherry_judging.test_data_node_deployment WHERE available=1')=='1'
- assert not (OUT/'legacy-assets').exists(),'Java unexpectedly created local deployment directory'
  print('Upload → bind → remote install → C++ calibration: PASS.',flush=True)
  published=request(version_path+'/publish','POST',{'rowVersion':request(version_path)['rowVersion']})
  deploy_payload['rowVersion']=published['rowVersion']
  current_problem=request(f'/api/admin/problems/{pid}')
  request(f'/api/admin/problems/{pid}','PATCH',{'slug':'work002-plus','visibility':'PUBLIC','rowVersion':current_problem['rowVersion']})
  assert request('/api/problems/work002-plus')['problemVersionId']==vid
- actual_fingerprint=sql("SELECT fingerprint FROM cherry_judging.judge_environment WHERE status='ACTIVE'")
  submissions=[]
  def submit(code,key=None,expect=201,expected_owner=None,expected_version=None):
   key=key or str(uuid.uuid4())
@@ -170,7 +168,7 @@ try:
    return result if result['status']=='DONE' else None
   result=wait(terminal,'submission '+sid,seconds)
   assert result['verdict']==verdict,(sid,result['verdict'],verdict)
-  forbidden={'caseResults','output','diff','source','completeSource','environmentFingerprint','testDataVersionId'}
+  forbidden={'caseResults','output','diff','source','completeSource','testDataVersionId'}
   assert not forbidden.intersection(result),list(result)
   if verdict not in ['CE','SE']:assert 'message' not in result
   submissions.append({'id':sid,'verdict':verdict})
@@ -227,29 +225,6 @@ try:
  assert submit(source,expect=409)[1]['code']=='PROBLEM_VERSION_CHANGED'
  old_vid=vid;vid=revision['id']
  print('New published version/calibration preserve the frozen JudgeInput; stale version rejected: PASS.',flush=True)
- # A ready replacement environment must not silently judge an input frozen to the old one.
- run(compose+['stop','kafka'],env=env)
- _,environment_value=submit(source)
- environment_input=sql("SELECT payload FROM cherry_submission.judge_input WHERE submission_id='"+environment_value['id']+"'")
- old_environment=sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='ACTIVE'")
- upgraded_env=dict(env,JUDGE_NODE_ID=NAME+'-upgrade',JUDGE_STRICT_WHITESPACE='true',JUDGE_TESTDATA_VOLUME=NAME+'-upgrade-data')
- extra_volumes.append(NAME+'-upgrade-data')
- run(compose+['up','-d','--wait','judge'],env=upgraded_env)
- wait(lambda:sql("SELECT COUNT(*) FROM cherry_judging.judge_environment WHERE status='REGISTERED'")=='1','replacement environment')
- new_environment=sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='REGISTERED'")
- def switch_environment(previous,target):
-  generated=run(['python3',str(ROOT/'apps/server/judging-service/scripts/switch-environment.py'),previous,target]).stdout.decode()
-  sql('USE cherry_judging;\n'+generated)
- switch_environment(old_environment,new_environment)
- request(version_path+'/deployment','POST',deploy_payload)
- run(compose+['start','kafka'],env=env)
- finished(environment_value['id'],'SE')
- assert environment_input==sql("SELECT payload FROM cherry_submission.judge_input WHERE submission_id='"+environment_value['id']+"'")
- run(compose+['up','-d','--wait','judge'],env=env)
- wait(lambda:sql("SELECT COUNT(*) FROM cherry_judging.judge_node WHERE node_id='"+NAME+"' AND lease_expires_at>UTC_TIMESTAMP(6)")=='1','original environment node')
- switch_environment(new_environment,old_environment)
- request(version_path+'/deployment','POST',deploy_payload)
- print('Different ready environment cannot replace a frozen input target: PASS.',flush=True)
 
 
  # Stop new admission while retaining reads and the original key's replay fact.
@@ -285,9 +260,9 @@ try:
   for marker in ['completeSource','caseResults','testDataContentSha256','iostream']:
    assert marker not in payloads,(database,marker)
  evidence={'project':NAME,'ports':ports,'problemId':pid,'versionId':vid,'slug':'work002-plus',
-  'environmentFingerprint':actual_fingerprint,'testDataVersionId':asset['id'],'environmentId':deployed['environmentId'],
+  'testDataVersionId':asset['id'],'nodeId':deployed['nodeId'],
   'calibrationId':current_calibration['id'],'baselineVersionId':first_vid,'baselineCalibrationId':calibrated['id'],'sha256':asset['contentSha256'],'requestIds':request_ids,
-  'submissions':submissions,'workerCrash':'pass','frozenVersion':'pass','frozenEnvironment':'pass','result':'pass','rollback':'pass','kafkaRecovery':'pass','nodeRecovery':'pass'}
+  'submissions':submissions,'workerCrash':'pass','frozenVersion':'pass','result':'pass','rollback':'pass','kafkaRecovery':'pass','nodeRecovery':'pass'}
  (OUT/'evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
  print('E2E PASS:',OUT/'evidence.json',flush=True)
  if args.keep:

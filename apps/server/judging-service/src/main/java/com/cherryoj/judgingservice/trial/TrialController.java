@@ -143,9 +143,9 @@ public class TrialController {
 		var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
 		if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline)))
 			throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
-		var node = nodes.ready(profile.judgeEnvironmentId(), r.testDataVersionId().toString(),
-				r.testDataContentSha256(), LocalDateTime.now(ZoneOffset.UTC));
-		if (node == null || !node.fingerprint().equals(profile.environmentFingerprint()))
+		var node = nodes.ready("cpp", r.testDataVersionId().toString(), r.testDataContentSha256(),
+				LocalDateTime.now(ZoneOffset.UTC));
+		if (node == null)
 			throw unavailable();
 		Map<String, Object> body = Map.of("submissionId", UUID.randomUUID().toString(), "problemId", r.problemId(),
 				"problemVersionId", r.problemVersionId(), "testDataVersionId", r.testDataVersionId(), "languageId",
@@ -166,8 +166,6 @@ public class TrialController {
 				throw unavailable();
 			}
 			var tree = json.readTree(received.body());
-			if (!profile.environmentFingerprint().equals(tree.path("environmentFingerprint").asText()))
-				throw unavailable();
 			String verdict = tree.path("verdict").asText();
 			if ("CE".equals(verdict))
 				return new Result("COMPILE_ERROR", null, null, null, null, diagnostic(tree.path("message").asText("")),

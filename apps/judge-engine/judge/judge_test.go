@@ -31,15 +31,9 @@ func TestOccupiedListenerDoesNotRegisterNode(t *testing.T) {
 			}
 			return
 		}
-		if r.URL.Path != "/run" {
-			t.Errorf("unexpected route: %s", r.URL.Path)
-			w.WriteHeader(404)
-			return
-		}
-		metadata := `{"Architecture":"amd64","CPUModel":"test","OSVersion":"test","KernelVersion":"test","ToolchainVersion":"test","RuntimeDigest":"test"}`
-		if err := json.NewEncoder(w).Encode(map[string]any{"status": "OK", "exitCode": 0, "stdout": metadata}); err != nil {
-			t.Error(err)
-		}
+		// 启动自检只读 /version；走到别的路由说明节点在自检之外还访问了 sandbox。
+		t.Errorf("unexpected route: %s", r.URL.Path)
+		w.WriteHeader(404)
 	}))
 	defer sandbox.Close()
 	root := t.TempDir()

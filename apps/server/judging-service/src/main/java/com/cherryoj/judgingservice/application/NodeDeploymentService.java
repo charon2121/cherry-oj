@@ -4,7 +4,6 @@ import com.cherryoj.judgingservice.api.JudgingApiException;
 import com.cherryoj.judgingservice.api.JudgingDtos.*;
 import com.cherryoj.judgingservice.judge.JudgeNodeClient;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
-import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import java.io.InputStream;
 import java.time.*;
 import org.slf4j.LoggerFactory;
@@ -16,18 +15,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class NodeDeploymentService {
     private final JudgeNodeRepository nodes;
-    private final JudgingRepository repository;
     private final JudgeNodeClient client;
     private final Clock clock;
     private final TransactionTemplate transactions;
-    public NodeDeploymentService(JudgeNodeRepository nodes, JudgingRepository repository, JudgeNodeClient client,
+    public NodeDeploymentService(JudgeNodeRepository nodes, JudgeNodeClient client,
                                  Clock clock, PlatformTransactionManager manager) {
-        this.nodes = nodes; this.repository = repository; this.client = client; this.clock = clock; transactions = new TransactionTemplate(manager);
+        this.nodes = nodes; this.client = client; this.clock = clock; transactions = new TransactionTemplate(manager);
     }
     public Deployment deploy(DeploymentMetadata metadata, InputStream archive, String traceId) {
-        var environment = repository.findActive(false);
-        if (environment == null) throw noOnline();
-        var online = nodes.online(environment.id(), now());
+        var online = nodes.online(now());
         if (online.isEmpty()) throw noOnline();
         var node = online.getFirst();
         if (nodes.hashConflict(node.nodeId(), metadata.testDataVersionId(), metadata.expectedSha256())) throw new JudgingApiException(HttpStatus.CONFLICT, "DEPLOYMENT_HASH_CONFLICT", "相同版本不能部署不同摘要。");
@@ -46,14 +42,12 @@ public class NodeDeploymentService {
         return transactions.execute(status -> {
             nodes.lockRegistry();
             var current = nodes.find(node.nodeId());
-            var active = repository.findActive(true);
-            if (current == null || active == null || !active.id().equals(environment.id())
-                    || !current.sessionId().equals(node.sessionId()) || !current.leaseExpiresAt().isAfter(now())) throw JudgeNodeClient.unreachable();
+            if (current == null || !current.sessionId().equals(node.sessionId()) || !current.leaseExpiresAt().isAfter(now())) throw JudgeNodeClient.unreachable();
             if (nodes.hashConflict(node.nodeId(), metadata.testDataVersionId(), metadata.expectedSha256())) throw JudgeNodeClient.mismatch();
             var now = now();
             nodes.recordReady(node, metadata.testDataVersionId(), receipt.sha256(), receipt.fileCount(), now);
-            LoggerFactory.getLogger(getClass()).info("judge.node.deployment.ready nodeId={} environmentId={} testDataVersionId={}", node.nodeId(), environment.id(), metadata.testDataVersionId());
-            return new Deployment(metadata.testDataVersionId(), environment.id(), environment.name(), metadata.expectedSha256(), "READY", receipt.sha256(), now, null, now, 0);
+            LoggerFactory.getLogger(getClass()).info("judge.node.deployment.ready nodeId={} testDataVersionId={}", node.nodeId(), metadata.testDataVersionId());
+            return new Deployment(metadata.testDataVersionId(), node.nodeId(), metadata.expectedSha256(), "READY", receipt.sha256(), now, null, now, 0);
         });
     }
     private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC); }

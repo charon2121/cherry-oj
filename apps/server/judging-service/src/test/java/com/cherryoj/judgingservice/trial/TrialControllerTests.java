@@ -19,7 +19,7 @@ class TrialControllerTests {
 	void trialUsesOnlySuppliedInputAndKeepsIndependentStreams() throws Exception {
 		var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 		var payload = new AtomicReference<>(
-				"{\"verdict\":\"RAN\",\"environmentFingerprint\":\"fingerprint\",\"caseResults\":[{\"idx\":1,\"verdict\":\"RAN\",\"cpuNs\":0,\"memoryBytes\":0,\"output\":{\"excerpt\":\"\",\"bytes\":0},\"stderr\":{\"excerpt\":\"debug\",\"bytes\":5}}]}");
+				"{\"verdict\":\"RAN\",\"caseResults\":[{\"idx\":1,\"verdict\":\"RAN\",\"cpuNs\":0,\"memoryBytes\":0,\"output\":{\"excerpt\":\"\",\"bytes\":0},\"stderr\":{\"excerpt\":\"debug\",\"bytes\":5}}]}");
 		var json = new ObjectMapper();
 		server.createContext("/judge", exchange -> {
 			var request = json.readTree(exchange.getRequestBody().readAllBytes());
@@ -39,12 +39,10 @@ class TrialControllerTests {
 		var problem = UUID.randomUUID();
 		var version = UUID.randomUUID();
 		var data = UUID.randomUUID();
-		var environment = UUID.randomUUID().toString();
 		when(profiles.resolve(any())).thenReturn(new SubmissionExecutionProfileController.Profile(version.toString(),
-				data.toString(), "cpp", environment, "fingerprint", "calibration",
+				data.toString(), "cpp", "calibration",
 				new SubmissionExecutionProfileController.Limits(1000000000, 67108864, 2000000000L), 3000000000L));
 		var node = mock(JudgeNodeRepository.Node.class);
-		when(node.fingerprint()).thenReturn("fingerprint");
 		when(node.endpoint()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
 		when(nodes.ready(any(), any(), any(), any())).thenReturn(node);
 		var controller = new TrialController(profiles, nodes, mock(FormalProperties.class), json,
@@ -56,10 +54,10 @@ class TrialControllerTests {
 			assertEquals("COMPLETED", result.status());
 			assertEquals("debug", result.stderr().text());
 			assertEquals("", result.stdout().text());
-			payload.set("{\"verdict\":\"RAN\",\"environmentFingerprint\":\"wrong\"}");
+			payload.set("{\"verdict\":\"RAN\"}");
 			assertThrows(JudgingApiException.class, () -> controller.run(request, null));
 			payload.set(
-					"{\"verdict\":\"CE\",\"environmentFingerprint\":\"fingerprint\",\"message\":\"/private/build/main.cpp: broken\"}");
+					"{\"verdict\":\"CE\",\"message\":\"/private/build/main.cpp: broken\"}");
 			var ce = controller.run(request, null).getBody();
 			assertEquals("COMPILE_ERROR", ce.status());
 			assertNull(ce.cpuNs());

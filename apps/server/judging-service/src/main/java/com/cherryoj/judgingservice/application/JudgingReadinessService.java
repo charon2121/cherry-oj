@@ -13,9 +13,9 @@ import com.cherryoj.judgingservice.api.JudgingDtos.ReadinessCheck;
 import com.cherryoj.judgingservice.domain.UuidV7;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeCallException;
+import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.CalibrationRow;
-import com.cherryoj.judgingservice.persistence.JudgingRepository.EnvironmentRow;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -36,7 +36,7 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class JudgingReadinessService {
     private static final int MAX_SAFE_ERROR = 128;
-    private final com.cherryoj.judgingservice.persistence.JudgeNodeRepository nodes;
+    private final JudgeNodeRepository nodes;
     private final NodeDeploymentService nodeDeployments;
     private final JudgingRepository repository;
     private final JudgeGateway judge;
@@ -47,7 +47,7 @@ public class JudgingReadinessService {
 
     public JudgingReadinessService(JudgingRepository repository, JudgeGateway judge, UuidV7 ids, Clock clock,
                                    ObjectMapper json, PlatformTransactionManager transactionManager,
-                                   com.cherryoj.judgingservice.persistence.JudgeNodeRepository nodes,
+                                   JudgeNodeRepository nodes,
                                    NodeDeploymentService nodeDeployments) {
         this.repository = repository;
         this.nodes = nodes; this.nodeDeployments = nodeDeployments;
@@ -86,10 +86,8 @@ public class JudgingReadinessService {
         String verdict = safeVerdict(result.verdict());
         BenchmarkSummary summary = new BenchmarkSummary(sourceSha, verdict,
                 nonNegative(result.cpuNs()), nonNegative(result.memoryBytes()), null);
-        if (!"AC".equals(verdict) || !start.environment().fingerprint().equals(result.environmentFingerprint())) {
-            String error = !start.environment().fingerprint().equals(result.environmentFingerprint())
-                    ? "JUDGE_ENVIRONMENT_FINGERPRINT_MISMATCH" : "REFERENCE_" + verdict;
-            finishFailedCalibration(start.calibrationId(), summary, error, actorId, traceId);
+        if (!"AC".equals(verdict)) {
+            finishFailedCalibration(start.calibrationId(), summary, "REFERENCE_" + verdict, actorId, traceId);
             return mapCalibration(repository.findCalibration(start.calibrationId()));
         }
 
@@ -106,30 +104,22 @@ public class JudgingReadinessService {
     }
 
     private CalibrationStart startCalibration(CalibrationRequest request, String actorId, String traceId) {
-        EnvironmentRow environment = requireActive(true);
-        requireLanguageAndDeployment(environment, request.languageId(), request.testDataVersionId(),
-                request.expectedSha256());
+        var node = requireReadyNode(request.languageId(), request.testDataVersionId(), request.expectedSha256());
         String id = ids.next().toString();
-        repository.insertCalibration(id, request.problemVersionId(), request.languageId(), environment.id(),
+        repository.insertCalibration(id, request.problemVersionId(), request.languageId(),
                 request.cpuNs(), request.memoryBytes(), request.clockNs(), now());
         audit("CALIBRATION", id, actorId, "CALIBRATION_STARTED", traceId,
                 Map.of("calibrationId", id, "problemVersionId", request.problemVersionId(),
-                        "testDataVersionId", request.testDataVersionId(), "environmentId", environment.id(),
+                        "testDataVersionId", request.testDataVersionId(), "nodeId", node.nodeId(),
                         "languageId", request.languageId(), "cpuNs", request.cpuNs(),
                         "memoryBytes", request.memoryBytes()));
-        var node = nodes.ready(environment.id(), request.testDataVersionId(), request.expectedSha256(), now());
-        if (node == null) throw NodeDeploymentService.noOnline();
-        return new CalibrationStart(id, environment, node.endpoint());
+        return new CalibrationStart(id, node.endpoint());
     }
 
     private Calibration finishValidCalibration(CalibrationStart start, CalibrationRequest request,
                                                BenchmarkSummary summary, String actorId, String traceId) {
-        EnvironmentRow active = requireActive(true);
-        if (!active.id().equals(start.environment().id())) {
-            throw conflict("ACTIVE_ENVIRONMENT_CHANGED", "校准期间 ACTIVE 环境已经改变。");
-        }
-        requireLanguageAndDeployment(active, request.languageId(), request.testDataVersionId(), request.expectedSha256());
-        CalibrationRow previous = repository.findValid(request.problemVersionId(), request.languageId(), active.id(), true);
+        requireReadyNode(request.languageId(), request.testDataVersionId(), request.expectedSha256());
+        CalibrationRow previous = repository.findValid(request.problemVersionId(), request.languageId(), true);
         if (previous != null && repository.supersede(previous.id(), now(), previous.rowVersion()) != 1) {
             throw conflict("CALIBRATION_STATE_CONFLICT", "有效校准已经改变，请重试。");
         }
@@ -139,7 +129,7 @@ public class JudgingReadinessService {
         }
         audit("CALIBRATION", start.calibrationId(), actorId, "CALIBRATION_VALIDATED", traceId,
                 Map.of("calibrationId", start.calibrationId(), "problemVersionId", request.problemVersionId(),
-                        "environmentId", active.id(), "languageId", request.languageId(),
+                        "languageId", request.languageId(),
                         "sourceSha256", summary.sourceSha256(), "verdict", summary.verdict()));
         return mapCalibration(repository.findCalibration(start.calibrationId()));
     }
@@ -159,44 +149,31 @@ public class JudgingReadinessService {
     private Readiness resolveReadiness(String problemVersionId, String testDataVersionId,
                                        String expectedSha256, String languageId) {
         ArrayList<ReadinessCheck> checks = new ArrayList<>();
-        EnvironmentRow environment = repository.findActive(false);
-        checks.add(check("ACTIVE_ENVIRONMENT", environment != null,
-                environment == null ? "没有 ACTIVE 判题环境。" : "ACTIVE 判题环境可用。"));
-        boolean language = environment != null && repository.languageEnabled(environment.id(), languageId);
-        checks.add(check("LANGUAGE", language,
-                language ? "语言在当前环境已启用。" : "语言未在当前环境启用。"));
-        boolean online = environment != null && !nodes.online(environment.id(), now()).isEmpty();
+        boolean online = !nodes.online(now()).isEmpty();
         checks.add(check("ONLINE_JUDGE_NODE", online, online ? "在线判题节点可用。" : "当前没有在线判题节点，请启动节点并等待注册。"));
-        var readyNode = environment == null ? null : nodes.ready(environment.id(), testDataVersionId, expectedSha256, now());
+        boolean language = !nodes.online(languageId, now()).isEmpty();
+        checks.add(check("LANGUAGE", language,
+                language ? "有在线节点支持该语言。" : "没有在线节点支持该语言。"));
+        var readyNode = nodes.ready(languageId, testDataVersionId, expectedSha256, now());
         boolean deployed = readyNode != null;
         checks.add(check("DEPLOYMENT", deployed,
                 deployed ? "测试数据已按预期摘要部署。" : "测试数据尚未 READY 或摘要不匹配。"));
-        CalibrationRow calibration = environment == null ? null
-                : repository.findValid(problemVersionId, languageId, environment.id(), false);
+        CalibrationRow calibration = repository.findValid(problemVersionId, languageId, false);
         boolean calibrated = calibration != null;
         checks.add(check("CALIBRATION", calibrated,
-                calibrated ? "当前环境存在 VALID 校准。" : "当前环境缺少 VALID 校准。"));
+                calibrated ? "该语言存在 VALID 校准。" : "该语言缺少 VALID 校准。"));
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
-        ExecutionProfile profile = ready ? new ExecutionProfile(environment.id(), environment.fingerprint(),
-                readyNode.endpoint(), calibration.id(), calibration.cpuNs(), calibration.memoryBytes(),
-                calibration.clockNs()) : null;
-        return new Readiness(ready, environment == null ? null : environment.id(), checks, profile);
+        ExecutionProfile profile = ready ? new ExecutionProfile(readyNode.endpoint(), calibration.id(),
+                calibration.cpuNs(), calibration.memoryBytes(), calibration.clockNs()) : null;
+        return new Readiness(ready, checks, profile);
     }
 
-    private void requireLanguageAndDeployment(EnvironmentRow environment, String languageId,
-                                              String testDataVersionId, String expectedSha) {
-        if (!repository.languageEnabled(environment.id(), languageId)) {
-            throw conflict("LANGUAGE_NOT_ENABLED", "语言未在当前 ACTIVE 环境启用。");
-        }
-        if (nodes.online(environment.id(), now()).isEmpty()) throw NodeDeploymentService.noOnline();
-        if (nodes.ready(environment.id(), testDataVersionId, expectedSha, now()) == null)
-            throw conflict("DEPLOYMENT_NOT_READY", "在线节点尚未安装匹配的测试数据，请先部署。");
-    }
-
-    private EnvironmentRow requireActive(boolean lock) {
-        EnvironmentRow environment = repository.findActive(lock);
-        if (environment == null) throw unavailable("ACTIVE_ENVIRONMENT_MISSING", "没有 ACTIVE 判题环境。");
-        return environment;
+    /** 持有这份测试数据、且声明了该语言的在线节点；没有就不能标定。 */
+    private JudgeNodeRepository.Node requireReadyNode(String languageId, String testDataVersionId, String expectedSha) {
+        if (nodes.online(languageId, now()).isEmpty()) throw NodeDeploymentService.noOnline();
+        var node = nodes.ready(languageId, testDataVersionId, expectedSha, now());
+        if (node == null) throw conflict("DEPLOYMENT_NOT_READY", "在线节点尚未安装匹配的测试数据，请先部署。");
+        return node;
     }
 
     private void audit(String type, String aggregateId, String actorId, String action,
@@ -208,8 +185,7 @@ public class JudgingReadinessService {
     private Calibration mapCalibration(CalibrationRow row) {
         BenchmarkSummary summary = row.benchmarkSummaryJson() == null ? null
                 : json.readValue(row.benchmarkSummaryJson(), BenchmarkSummary.class);
-        return new Calibration(row.id(), row.problemVersionId(), row.languageId(), row.environmentId(),
-                row.status(), row.cpuNs(), row.memoryBytes(), row.clockNs(), summary, row.errorMessage(),
+        return new Calibration(row.id(), row.problemVersionId(), row.languageId(), row.status(), row.cpuNs(), row.memoryBytes(), row.clockNs(), summary, row.errorMessage(),
                 row.createdAt(), row.updatedAt(), row.rowVersion());
     }
 
@@ -246,9 +222,6 @@ public class JudgingReadinessService {
     private static JudgingApiException conflict(String code, String message) {
         return new JudgingApiException(HttpStatus.CONFLICT, code, message);
     }
-    private static JudgingApiException unavailable(String code, String message) {
-        return new JudgingApiException(HttpStatus.SERVICE_UNAVAILABLE, code, message);
-    }
 
-    private record CalibrationStart(String calibrationId, EnvironmentRow environment, String endpoint) {}
+    private record CalibrationStart(String calibrationId, String endpoint) {}
 }

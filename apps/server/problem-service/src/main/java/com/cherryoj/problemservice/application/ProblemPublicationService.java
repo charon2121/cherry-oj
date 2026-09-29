@@ -112,7 +112,7 @@ public class ProblemPublicationService {
         audit(problemId, versionId, actorUserId, "TEST_DATA_DEPLOYED", Map.of(
                 "testDataVersionId", snapshot.testDataVersionId(),
                 "expectedSha256", snapshot.sha256(),
-                "environmentId", response.environmentId(),
+                "nodeId", response.nodeId(),
                 "status", response.status().name()));
         return response;
     }
@@ -158,19 +158,17 @@ public class ProblemPublicationService {
         if (data == null) {
             checks.add(item(PublishCheckCode.DEPLOYMENT, false, "绑定的测试数据尚未 READY。"));
             checks.add(item(PublishCheckCode.CALIBRATION, false, "测试数据就绪后才能检查校准。"));
-            return result(null, checks);
+            return result(checks);
         }
         JudgingDtos.Readiness remote = judging.readiness(
                 versionId, data.id(), data.contentSha256(), "cpp", delegatedJwt, traceparent);
         mergeRemoteLanguage(checks, remote);
-        // 旧部署模式没有节点检查；节点模式必须把在线事实保留到管理工作台。
-        if (remote.checks() != null && remote.checks().stream().anyMatch(c -> "ONLINE_JUDGE_NODE".equals(c.code()))) {
-            checks.add(remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE,
-                    "当前没有在线判题节点，请启动节点并等待注册。"));
-        }
-        checks.add(remoteCheck(remote, "DEPLOYMENT", PublishCheckCode.DEPLOYMENT, "当前环境缺少 READY 部署。"));
-        checks.add(remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION, "当前环境缺少 VALID 校准。"));
-        return result(remote.environmentId(), checks);
+        // 在线节点的事实要保留到管理工作台：部署按钮据此提示并禁用。
+        checks.add(remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE,
+                "当前没有在线判题节点，请启动节点并等待注册。"));
+        checks.add(remoteCheck(remote, "DEPLOYMENT", PublishCheckCode.DEPLOYMENT, "测试数据尚未部署到在线节点。"));
+        checks.add(remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION, "该语言缺少 VALID 校准。"));
+        return result(checks);
     }
 
     public Version publish(
@@ -216,8 +214,7 @@ public class ProblemPublicationService {
             auditInTransaction(problemId, versionId, actorUserId, "PROBLEM_VERSION_PUBLISHED", Map.of(
                     "versionNo", locked.version().versionNo(),
                     "testDataVersionId", lockedData.id(),
-                    "contentSha256", lockedData.contentSha256(),
-                    "environmentId", check.environmentId()));
+                    "contentSha256", lockedData.contentSha256()));
         });
         return adminProblems.getVersion(problemId, versionId);
     }
@@ -259,7 +256,6 @@ public class ProblemPublicationService {
             }
             Map<String, Object> detail = new java.util.LinkedHashMap<>();
             detail.put("calibrationId", calibration.id());
-            detail.put("environmentId", calibration.environmentId());
             detail.put("status", calibration.status());
             if (calibration.benchmarkSummary() != null) {
                 detail.put("sourceSha256", calibration.benchmarkSummary().sourceSha256());
@@ -376,12 +372,9 @@ public class ProblemPublicationService {
     private static void mergeRemoteLanguage(List<PublishCheckItem> checks, JudgingDtos.Readiness readiness) {
         PublishCheckItem local = checks.get(2);
         if (!local.passed()) return;
-        PublishCheckItem active = remoteCheck(
-                readiness, "ACTIVE_ENVIRONMENT", PublishCheckCode.LANGUAGE, "没有 ACTIVE 判题环境。");
         PublishCheckItem language = remoteCheck(
-                readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "C++ 未在当前环境启用。");
-        if (!active.passed()) checks.set(2, active);
-        else if (!language.passed()) checks.set(2, language);
+                readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持 C++。");
+        if (!language.passed()) checks.set(2, language);
     }
 
     private static String safeMessage(String message, String fallback) {
@@ -393,16 +386,13 @@ public class ProblemPublicationService {
         return new PublishCheckItem(code, passed, message);
     }
 
-    private static PublishCheck result(String environmentId, List<PublishCheckItem> checks) {
+    private static PublishCheck result(List<PublishCheckItem> checks) {
         var codes = checks.stream().map(PublishCheckItem::code).collect(java.util.stream.Collectors.toSet());
         var required = java.util.EnumSet.allOf(PublishCheckCode.class);
         required.remove(PublishCheckCode.ONLINE_JUDGE_NODE);
         if (codes.size() != checks.size() || !codes.containsAll(required))
             throw new IllegalStateException("Publish check must contain each base check exactly once");
-        return new PublishCheck(
-                environmentId != null && checks.stream().allMatch(PublishCheckItem::passed),
-                environmentId,
-                List.copyOf(checks));
+        return new PublishCheck(checks.stream().allMatch(PublishCheckItem::passed), List.copyOf(checks));
     }
 
     private static JudgingDtos.Manifest manifest(TestDataDtos.Manifest manifest) {
@@ -413,11 +403,10 @@ public class ProblemPublicationService {
 
     private static AdminProblemDtos.TestDataDeployment deployment(JudgingDtos.Deployment value) {
         try {
-            if (value.testDataVersionId() == null || value.environmentId() == null
-                    || value.environmentName() == null || value.expectedSha256() == null
+            if (value.testDataVersionId() == null || value.nodeId() == null || value.expectedSha256() == null
                     || value.status() == null || value.updatedAt() == null) throw invalidResponse();
             return new AdminProblemDtos.TestDataDeployment(
-                    value.testDataVersionId(), value.environmentId(), value.environmentName(), value.expectedSha256(),
+                    value.testDataVersionId(), value.nodeId(), value.expectedSha256(),
                     DeploymentStatus.valueOf(value.status()), value.deployedSha256(), value.deployedAt(),
                     value.errorMessage(), value.updatedAt(), value.rowVersion());
         }
@@ -435,7 +424,7 @@ public class ProblemPublicationService {
                             value.benchmarkSummary().maxCpuNs(), value.benchmarkSummary().maxMemoryBytes(),
                             value.benchmarkSummary().maxClockNs());
             return new AdminProblemDtos.LanguageCalibration(
-                    value.id(), value.problemVersionId(), value.languageId(), value.environmentId(),
+                    value.id(), value.problemVersionId(), value.languageId(),
                     calibrationStatus(value.status()), value.cpuNs(), value.memoryBytes(), value.clockNs(), summary,
                     value.errorMessage(), value.createdAt(), value.updatedAt(), value.rowVersion());
         }

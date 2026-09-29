@@ -60,16 +60,14 @@ func systemErrorReason(r contract.JudgeResult) string {
 // Run 启动判题服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成，
 // 使本函数不依赖进程级状态，测试可以直接驱动它。
 func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
-	// 配置、环境、身份是三个值：配置加载后只读，环境由探测得到，身份由两者推出。
 	var err error
 	sandboxClient := sandboxclient.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std())
-	env := node.DeclaredEnvironment(cfg.Judge)
 	if cfg.Judge.Node.Enabled {
-		probeCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		env, err = node.ProbeEnvironment(probeCtx, cfg.Judge, sandboxClient)
+		checkCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		err = node.Preflight(checkCtx, cfg.Judge, sandboxClient)
 		cancel()
 		if err != nil {
-			logger.Error("judge.node.environment.probe.failed", "error", err)
+			logger.Error("judge.node.preflight.failed", "error", err)
 			return err
 		}
 	}
@@ -81,14 +79,12 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	handler := api.New(service).Handler()
 	var judgeNode *node.Node
 	if cfg.Judge.Node.Enabled {
-		judgeNode, err = node.New(cfg.Judge, env, logger)
+		judgeNode, err = node.New(cfg.Judge, logger)
 		if err != nil {
 			logger.Error("judge.node.init.failed", "error", err)
 			return err
 		}
 		defer judgeNode.Close()
-		// 指纹以注册身份为准；配置里的声明值只在未启用节点链路时使用。
-		service.config.EnvironmentFingerprint = judgeNode.Registration().EnvironmentFingerprint
 		handler = judgeNode.Handler(handler)
 	}
 	// 只限制读请求头与空闲连接：一次判题（编译加逐点运行）可能持续数分钟，不能设写期限；

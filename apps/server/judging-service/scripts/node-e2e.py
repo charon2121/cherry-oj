@@ -16,7 +16,7 @@ ports={name:port() for name in ['mysql','redis','user','gateway','problem','judg
 print('E2E output:',OUT,flush=True)
 env=dict(os.environ,CHERRY_JUDGE_CONTROL_TOKEN='work040-isolated-control',JUDGE_NODE_ID=NAME,
  JUDGE_TESTDATA_VOLUME=NAME+'-testdata',JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
- JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s',JUDGE_ENVIRONMENT_FINGERPRINT=NAME)
+ JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s')
 compose=['docker','compose','-f',str(ROOT/'compose.yaml'),'-p',NAME]
 def docker(*cmd):return run(['docker',*cmd])
 def sql(statement):
@@ -115,7 +115,7 @@ try:
  failure=request(version_path+'/deployment','POST',deploy_payload,expect=503);assert failure['code']=='NO_ONLINE_JUDGE_NODE',failure
  run(compose+['up','-d','--wait'],env=env)
  wait(lambda:sql('SELECT COUNT(*) FROM cherry_judging.judge_node WHERE lease_expires_at>UTC_TIMESTAMP(6)')=='1','node registration')
- print('Real Compose node registered; first environment ACTIVE.',flush=True)
+ print('Real Compose node registered.',flush=True)
  deployed=request(version_path+'/deployment','POST',deploy_payload);assert deployed['status']=='READY',deployed
  again=request(version_path+'/deployment','POST',deploy_payload);assert again['status']=='READY',again
  source='#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<"\\n";}'
@@ -136,46 +136,7 @@ try:
  assert request(version_path+'/publish-check')['ready']
  print('Stop → lease expiry → restart → revalidate local data: PASS.',flush=True)
  deploy_payload['rowVersion']=request(version_path)['rowVersion']
- # Publish the old fixture, then create an editable revision for the new environment.
- published_snapshot=request(version_path+'/publish','POST',{'rowVersion':deploy_payload['rowVersion']})
- deploy_payload['rowVersion']=published_snapshot['rowVersion']
- current_problem=request(f'/api/admin/problems/{pid}')
- revision=request(f'/api/admin/problems/{pid}/versions','POST',{'rowVersion':current_problem['rowVersion'],'reuseTestData':True},expect=201)
- revision_path=f"/api/admin/problems/{pid}/versions/{revision['id']}"
- # Real environment upgrade: different policy, new identity and private volume.
- old_environment=sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='ACTIVE'")
- def switch(previous,target):
-  command=['python3',str(ROOT/'apps/server/judging-service/scripts/switch-environment.py'),previous,target]
-  generated=run(command).stdout.decode()
-  return sql('USE cherry_judging;\n'+generated)
- try:
-  switch(old_environment,str(uuid.uuid4()))
-  raise AssertionError('environment guard accepted a missing destination')
- except subprocess.CalledProcessError:pass
- assert sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='ACTIVE'")==old_environment
- upgraded_env=dict(env,JUDGE_NODE_ID=NAME+'-new',JUDGE_TESTDATA_VOLUME=NAME+'-new-testdata',JUDGE_STRICT_WHITESPACE='true')
- extra_volumes.append(NAME+'-new-testdata')
- run(compose+['up','-d','--wait','judge'],env=upgraded_env)
- wait(lambda:sql("SELECT COUNT(*) FROM cherry_judging.judge_environment WHERE status='REGISTERED'")=='1','new environment remains registered')
- new_environment=sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='REGISTERED'")
- assert sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='ACTIVE'")==old_environment
- switch(old_environment,new_environment)
- request(version_path+'/deployment','POST',deploy_payload)
- new_check=request(version_path+'/publish-check');assert not new_check['ready'] and any(c['code']=='CALIBRATION' and not c['passed'] for c in new_check['checks'])
- new_calibration=request(revision_path+'/calibration','POST',{'languageId':'cpp','cpuNs':1000000000,'memoryBytes':268435456,'clockNs':None,'referenceSource':source,'rowVersion':revision['rowVersion']})
- assert new_calibration['status']=='VALID'
- assert request(revision_path+'/publish-check')['ready']
- # Return to the original environment and private volume; retain both histories.
- run(compose+['up','-d','--wait','judge'],env=env)
- wait(lambda:sql("SELECT COUNT(*) FROM cherry_judging.judge_node WHERE node_id='"+NAME+"' AND lease_expires_at>UTC_TIMESTAMP(6)")=='1','original node recovery')
- switch(new_environment,old_environment)
- deploy_payload['rowVersion']=request(version_path)['rowVersion']
- request(version_path+'/deployment','POST',deploy_payload)
- assert request(version_path+'/publish-check')['ready']
- assert sql("SELECT COUNT(*) FROM cherry_judging.language_calibration WHERE status='VALID'")=='2'
- assert request(version_path)==published_snapshot
- print('Environment switch guards, new identity/private volume, fresh calibration and return to old environment: PASS.',flush=True)
- evidence={'project':NAME,'ports':ports,'problemId':pid,'versionId':vid,'workbenchVersionId':revision['id'],'testDataVersionId':asset['id'],'environmentId':deployed['environmentId'],'sha256':asset['contentSha256'],'requestIds':request_ids,'result':'pass','environmentSwitch':'pass'}
+ evidence={'project':NAME,'ports':ports,'problemId':pid,'versionId':vid,'testDataVersionId':asset['id'],'nodeId':deployed['nodeId'],'sha256':asset['contentSha256'],'requestIds':request_ids,'result':'pass'}
  (OUT/'evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
  (OUT/'compose.env.json').write_text(json.dumps({k:v for k,v in env.items() if k.startswith('JUDGE_') or k=='CHERRY_JUDGE_CONTROL_TOKEN'}));os.chmod(OUT/'compose.env.json',0o600)
  print('E2E PASS:',OUT/'evidence.json',flush=True)

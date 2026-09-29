@@ -283,17 +283,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "verdict",
-        "environmentFingerprint"
+        "verdict"
       ],
       "properties": {
         "verdict": {
           "$ref": "verdict.json"
-        },
-        "environmentFingerprint": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
         },
         "cpuNs": {
           "type": "integer",

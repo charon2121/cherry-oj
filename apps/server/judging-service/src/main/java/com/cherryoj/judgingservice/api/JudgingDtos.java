@@ -33,8 +33,7 @@ public final class JudgingDtos {
             @NotNull @Valid Manifest manifest) {}
 
     public record Deployment(
-            String testDataVersionId, String environmentId, String environmentName,
-            String expectedSha256, String status, String deployedSha256,
+            String testDataVersionId, String nodeId, String expectedSha256, String status, String deployedSha256,
             LocalDateTime deployedAt, String errorMessage, LocalDateTime updatedAt, long rowVersion) {}
 
     public record CalibrationRequest(
@@ -52,17 +51,15 @@ public final class JudgingDtos {
                                    Long maxMemoryBytes, Long maxClockNs) {}
 
     public record Calibration(
-            String id, String problemVersionId, String languageId, String environmentId,
-            String status, Long cpuNs, Long memoryBytes, Long clockNs,
+            String id, String problemVersionId, String languageId, String status, Long cpuNs, Long memoryBytes, Long clockNs,
             BenchmarkSummary benchmarkSummary, String errorMessage,
             LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion) {}
 
     public record ReadinessCheck(String code, boolean passed, String message) {}
 
+    /** endpointRef 是持有数据的在线节点地址，只在服务内部使用，不对外返回。 */
     public record ExecutionProfile(
-            String environmentId, String environmentFingerprint, String endpointRef,
-            String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
+            String endpointRef, String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
 
-    public record Readiness(boolean ready, String environmentId, List<ReadinessCheck> checks,
-                            ExecutionProfile executionProfile) {}
+    public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

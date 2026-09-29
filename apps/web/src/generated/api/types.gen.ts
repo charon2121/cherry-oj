@@ -524,8 +524,10 @@ export type DeployTestDataRequest = {
 
 export type TestDataDeployment = {
     testDataVersionId: string;
-    environmentId: string;
-    environmentName: string;
+    /**
+     * 安装了这份测试数据的判题节点
+     */
+    nodeId: string;
     expectedSha256: string;
     status: DeploymentStatus;
     deployedSha256: string | null;
@@ -560,7 +562,6 @@ export type LanguageCalibration = {
     id: string;
     problemVersionId: string;
     languageId: LanguageId;
-    environmentId: string;
     status: CalibrationStatus;
     cpuNs: number | null;
     memoryBytes: number | null;
@@ -585,7 +586,6 @@ export type PublishCheckItem = {
 
 export type PublishCheck = {
     ready: boolean;
-    environmentId: string | null;
     checks: Array<PublishCheckItem>;
 };
 

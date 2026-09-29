@@ -41,17 +41,17 @@ class NodeDeploymentIntegrationTests {
         String session=UUID.randomUUID().toString(),version=UUID.randomUUID().toString(),problem=UUID.randomUUID().toString(),actor=UUID.randomUUID().toString();
         var metadata=new DeploymentMetadata(version,"a".repeat(64),new Manifest(1,2,List.of(new ManifestFile("1.in",1,"b".repeat(64)),new ManifestFile("1.out",1,"c".repeat(64)))));
         assertThatThrownBy(()->service.deploy(metadata,new ByteArrayInputStream(new byte[0]),actor,null)).hasMessageContaining("没有在线");
-        var registration=new Registration("node-1","fingerprint",session,"http://127.0.0.1:15051","arm64","cpu","linux","kernel","v1","v1","config",List.of(new Language("cpp","g++","cpp")));
+        var registration=new Registration("node-1",session,"http://127.0.0.1:15051",List.of("cpp"));
         var lease=registry.register(registration);
         when(client.install(any(),any(),any(),any())).thenAnswer(call->{
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            return new Receipt("node-1","fingerprint",session,version,"a".repeat(64),2);
+            return new Receipt("node-1",session,version,"a".repeat(64),2);
         });
         var deployed=service.deploy(metadata,new ByteArrayInputStream(new byte[0]),actor,null);
         assertThat(deployed.status()).isEqualTo("READY");
         service.deploy(metadata,new ByteArrayInputStream(new byte[0]),actor,null);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM test_data_node_deployment",Integer.class)).isEqualTo(1);
-        when(judge.judge(anyString(),any(),any())).thenReturn(new JudgeGateway.JudgeResult("AC","fingerprint",1L,1L,100));
+        when(judge.judge(anyString(),any(),any())).thenReturn(new JudgeGateway.JudgeResult("AC",1L,1L,100));
         service.calibrate(new CalibrationRequest(problem,problem,version,"a".repeat(64),"cpp",1000000,1000000,null,"int main(){}"),actor,null);
         var ready=service.readiness(problem,version,"a".repeat(64),"cpp");assertThat(ready.ready()).isTrue();assertThat(ready.executionProfile().endpointRef()).isEqualTo(registration.endpoint());
         verify(judge).judge(eq(registration.endpoint()),any(),any());
@@ -68,10 +68,10 @@ class NodeDeploymentIntegrationTests {
         when(clock.instant()).thenReturn(time.plusSeconds(35));
         assertThat(service.readiness(problem,version,"a".repeat(64),"cpp").ready()).isFalse();
         assertThatThrownBy(()->service.deploy(metadata,new ByteArrayInputStream(new byte[0]),actor,null)).hasMessageContaining("没有在线");
-        registry.heartbeat(new Heartbeat("node-1","fingerprint",session));
+        registry.heartbeat(new Heartbeat("node-1",session));
         assertThat(service.readiness(problem,version,"a".repeat(64),"cpp").ready()).isTrue();
         reset(client);
-        when(client.install(any(),any(),any(),any())).thenAnswer(call->{when(clock.instant()).thenReturn(time.plusSeconds(71));return new Receipt("node-1","fingerprint",session,UUID.randomUUID().toString(),"a".repeat(64),2);});
+        when(client.install(any(),any(),any(),any())).thenAnswer(call->{when(clock.instant()).thenReturn(time.plusSeconds(71));return new Receipt("node-1",session,UUID.randomUUID().toString(),"a".repeat(64),2);});
         String another=UUID.randomUUID().toString();var other=new DeploymentMetadata(another,metadata.expectedSha256(),metadata.manifest());
         assertThatThrownBy(()->service.deploy(other,new ByteArrayInputStream(new byte[0]),actor,null)).hasMessageContaining("无法连接");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM test_data_node_deployment",Integer.class)).isEqualTo(1);

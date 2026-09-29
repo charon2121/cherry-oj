@@ -232,7 +232,6 @@ test('an admin creates a draft and restores the complete version workbench', asy
     (route) =>
       success(route, {
         ready: false,
-        environmentId: null,
         checks: [
           { code: 'CONTENT', passed: true, message: '题面完整' },
           { code: 'SAMPLES', passed: true, message: '样例完整' },

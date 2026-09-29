@@ -60,6 +60,6 @@ func (n *Installer) Root() string { return n.root }
 // Registration 返回安装回执使用的身份副本。
 func (n *Installer) Registration() contract.NodeRegistration {
 	r := n.registration
-	r.Languages = append([]contract.NodeLanguage(nil), r.Languages...)
+	r.Languages = append([]string(nil), r.Languages...)
 	return r
 }

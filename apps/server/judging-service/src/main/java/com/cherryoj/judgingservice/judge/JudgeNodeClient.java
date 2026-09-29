@@ -37,7 +37,7 @@ public class JudgeNodeClient {
         byte[] middle = ("\r\n--" + boundary + "\r\nContent-Disposition: form-data; name=\"archive\"; filename=\"asset.zip\"\r\nContent-Type: application/zip\r\n\r\n")
                 .getBytes(StandardCharsets.US_ASCII);
         byte[] suffix = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.US_ASCII);
-        var install = new Install(node.nodeId(), node.fingerprint(), node.sessionId(), metadata.testDataVersionId(), metadata.expectedSha256(), metadata.manifest());
+        var install = new Install(node.nodeId(), node.sessionId(), metadata.testDataVersionId(), metadata.expectedSha256(), metadata.manifest());
         byte[] encoded = json.writeValueAsBytes(install);
         if (encoded.length > 1_048_576) throw rejected();
         var consumed = new java.util.concurrent.atomic.AtomicBoolean();
@@ -75,12 +75,12 @@ public class JudgeNodeClient {
         if (response.statusCode() != 200) throw unreachable();
         try {
             var tree = json.readTree(response.body());
-            if (!tree.isObject() || tree.size() != 6 || !tree.path("fileCount").isIntegralNumber()) throw mismatch();
-            for (String field : List.of("nodeId", "environmentFingerprint", "sessionId", "testDataVersionId", "sha256")) {
+            if (!tree.isObject() || tree.size() != 5 || !tree.path("fileCount").isIntegralNumber()) throw mismatch();
+            for (String field : List.of("nodeId", "sessionId", "testDataVersionId", "sha256")) {
                 if (!"STRING".equals(tree.path(field).getNodeType().name())) throw mismatch();
             }
             Receipt receipt = json.treeToValue(tree, Receipt.class);
-            if (!node.nodeId().equals(receipt.nodeId()) || !node.fingerprint().equals(receipt.environmentFingerprint())
+            if (!node.nodeId().equals(receipt.nodeId())
                     || !node.sessionId().equals(receipt.sessionId()) || !metadata.testDataVersionId().equals(receipt.testDataVersionId())
                     || !metadata.expectedSha256().equals(receipt.sha256()) || metadata.manifest().files().size() != receipt.fileCount()) throw mismatch();
             return receipt;

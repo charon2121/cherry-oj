@@ -45,9 +45,7 @@ type judgment struct {
 	log                      *slog.Logger
 }
 
-func (j *judgment) run(ctx context.Context) (result contract.JudgeResult) {
-	// 指纹来自实际运行配置；提前 CE/SE 也必须返回，不能回显请求环境。
-	defer func() { result.EnvironmentFingerprint = j.config.EnvironmentFingerprint }()
+func (j *judgment) run(ctx context.Context) contract.JudgeResult {
 	defer j.close(ctx)
 	if err := j.prepare(ctx); err != nil {
 		return systemError("%v", err)
@@ -57,7 +55,7 @@ func (j *judgment) run(ctx context.Context) (result contract.JudgeResult) {
 	if early != nil {
 		return *early
 	}
-	result = contract.JudgeResult{Verdict: contract.VerdictAC}
+	result := contract.JudgeResult{Verdict: contract.VerdictAC}
 	for i, tc := range j.cases {
 		caseResult := j.runCase(ctx, i+1, tc)
 		result.CaseResults = append(result.CaseResults, caseResult)

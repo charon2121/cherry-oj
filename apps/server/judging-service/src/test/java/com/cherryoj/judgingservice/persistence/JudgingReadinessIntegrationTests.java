@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-import com.cherryoj.judgingservice.api.JudgeNodeDtos.Language;
 import com.cherryoj.judgingservice.api.JudgeNodeDtos.Receipt;
 import com.cherryoj.judgingservice.api.JudgeNodeDtos.Registration;
 import com.cherryoj.judgingservice.api.JudgingDtos.CalibrationRequest;
@@ -39,7 +38,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers(disabledWithoutDocker = true)
 class JudgingReadinessIntegrationTests {
     private static final String ACTOR = "019c8e42-7f70-7000-8000-000000000001";
-    private static final String FINGERPRINT = "dev-linux-amd64-go-judge-v2";
     private static final String SESSION = UUID.randomUUID().toString();
     private static final String SHA = "a".repeat(64);
 
@@ -61,15 +59,14 @@ class JudgingReadinessIntegrationTests {
 
     @BeforeEach
     void onlineNode() {
-        registry.register(new Registration("node-readiness", FINGERPRINT, SESSION, "http://127.0.0.1:15051",
-                "amd64", "cpu", "linux", "kernel", "v1", "v1", "config", List.of(new Language("cpp", "g++", "cpp"))));
+        registry.register(new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp")));
     }
 
     @Test
     void acCalibrationMakesReadinessTrueAndAuditHoldsNoSource() throws Exception {
         Fixture fixture = deployed();
         when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("AC", FINGERPRINT, 12L, 4096L, 100));
+                new JudgeGateway.JudgeResult("AC", 12L, 4096L, 100));
         assertThat(service.readiness(fixture.problemVersionId(), fixture.testDataId(), SHA, "cpp").ready()).isFalse();
 
         CalibrationRequest request = calibration(fixture, "int main(){return 0;}");
@@ -81,33 +78,29 @@ class JudgingReadinessIntegrationTests {
         assertThat(readiness.ready()).isTrue();
         assertThat(readiness.checks()).allMatch(check -> check.passed());
         assertThat(readiness.executionProfile().cpuNs()).isEqualTo(1_000_000_000L);
-        assertThat(readiness.executionProfile().environmentFingerprint()).isEqualTo(FINGERPRINT);
+        assertThat(readiness.executionProfile().endpointRef()).isEqualTo("http://127.0.0.1:15051");
         String details = String.join("", jdbc.queryForList(
                 "SELECT CAST(detail_json AS CHAR) FROM judging_audit_event", String.class));
         assertThat(details).doesNotContain(request.referenceSource());
     }
 
     @Test
-    void failedJudgeNeverSupersedesExistingValidCalibrationAndFingerprintMismatchIsSe() throws Exception {
+    void failedJudgeNeverSupersedesExistingValidCalibration() throws Exception {
         Fixture fixture = deployed();
         when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("AC", FINGERPRINT, 1L, 2L, 100));
+                new JudgeGateway.JudgeResult("AC", 1L, 2L, 100));
         var valid = service.calibrate(calibration(fixture, "// valid"), ACTOR, null);
 
         when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("WA", FINGERPRINT, 3L, 4L, 0));
+                new JudgeGateway.JudgeResult("WA", 3L, 4L, 0));
         var failed = service.calibrate(calibration(fixture, "// wrong"), ACTOR, null);
         assertThat(failed.status()).isEqualTo("FAILED");
         assertThat(failed.benchmarkSummary().verdict()).isEqualTo("WA");
 
-        when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("AC", "other-environment", 3L, 4L, 100));
-        var mismatch = service.calibrate(calibration(fixture, "// mismatch"), ACTOR, null);
-        assertThat(mismatch.errorMessage()).isEqualTo("JUDGE_ENVIRONMENT_FINGERPRINT_MISMATCH");
         assertThat(validCalibration(fixture)).isEqualTo(valid.id());
 
         when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("AC", FINGERPRINT, 5L, 6L, 100));
+                new JudgeGateway.JudgeResult("AC", 5L, 6L, 100));
         var replacement = service.calibrate(calibration(fixture, "// replacement"), ACTOR, null);
         assertThat(replacement.status()).isEqualTo("VALID");
         assertThat(validCalibration(fixture)).isEqualTo(replacement.id());
@@ -119,14 +112,14 @@ class JudgingReadinessIntegrationTests {
     void databaseAllowsOnlyOneValidCalibrationPerProblemVersionAndLanguage() throws Exception {
         Fixture fixture = deployed();
         when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("AC", FINGERPRINT, 1L, 2L, 100));
+                new JudgeGateway.JudgeResult("AC", 1L, 2L, 100));
         service.calibrate(calibration(fixture, "// valid"), ACTOR, null);
         LocalDateTime now = LocalDateTime.now();
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO language_calibration
-                  (id,problem_version_id,language_id,judge_environment_id,status,source_type,cpu_ns,
+                  (id,problem_version_id,language_id,status,source_type,cpu_ns,
                    memory_bytes,approved_by,approved_at,created_at,updated_at,row_version)
-                SELECT UUID_TO_BIN(UUID()),problem_version_id,language_id,judge_environment_id,'VALID','MANUAL',1,1,
+                SELECT UUID_TO_BIN(UUID()),problem_version_id,language_id,'VALID','MANUAL',1,1,
                        UUID_TO_BIN(?),?,?,?,0
                 FROM language_calibration WHERE problem_version_id=UUID_TO_BIN(?) AND status='VALID'
                 """, ACTOR, now, now, now, fixture.problemVersionId()))
@@ -138,7 +131,7 @@ class JudgingReadinessIntegrationTests {
         var metadata = new DeploymentMetadata(testData, SHA, new Manifest(1, 2, List.of(
                 new ManifestFile("1.in", 1, "b".repeat(64)), new ManifestFile("1.out", 1, "c".repeat(64)))));
         when(client.install(any(), any(), any(), any())).thenReturn(
-                new Receipt("node-readiness", FINGERPRINT, SESSION, testData, SHA, 2));
+                new Receipt("node-readiness", SESSION, testData, SHA, 2));
         service.deploy(metadata, new ByteArrayInputStream(new byte[0]), ACTOR, null);
         return new Fixture(UUID.randomUUID().toString(), UUID.randomUUID().toString(), testData);
     }

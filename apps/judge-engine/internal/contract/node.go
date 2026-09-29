@@ -1,33 +1,20 @@
 package contract
 
 // 节点控制协议唯一真源：contracts/judge-node.schema.json。
-type NodeLanguage struct {
-	LanguageID           string `json:"languageId"`
-	ToolchainVersion     string `json:"toolchainVersion"`
-	LanguageConfigDigest string `json:"languageConfigDigest"`
-}
+// NodeRegistration 只带节点身份：nodeId 加本次进程的 sessionId，外加访问地址和能判的语言。
+// 不上报机器事实，也没有「环境」分组：控制面按节点路由，标定按题目版本 × 语言。
 type NodeRegistration struct {
-	NodeID                 string         `json:"nodeId"`
-	EnvironmentFingerprint string         `json:"environmentFingerprint"`
-	SessionID              string         `json:"sessionId"`
-	Endpoint               string         `json:"endpoint"`
-	Architecture           string         `json:"architecture"`
-	CPUModel               string         `json:"cpuModel"`
-	OSVersion              string         `json:"osVersion"`
-	KernelVersion          string         `json:"kernelVersion"`
-	JudgeVersion           string         `json:"judgeVersion"`
-	SandboxVersion         string         `json:"sandboxVersion"`
-	ConfigDigest           string         `json:"configDigest"`
-	Languages              []NodeLanguage `json:"languages"`
+	NodeID    string   `json:"nodeId"`
+	SessionID string   `json:"sessionId"`
+	Endpoint  string   `json:"endpoint"`
+	Languages []string `json:"languages"`
 }
 type NodeHeartbeat struct {
-	NodeID                 string `json:"nodeId"`
-	EnvironmentFingerprint string `json:"environmentFingerprint"`
-	SessionID              string `json:"sessionId"`
+	NodeID    string `json:"nodeId"`
+	SessionID string `json:"sessionId"`
 }
 type NodeLease struct {
 	NodeID          string `json:"nodeId"`
-	EnvironmentID   string `json:"environmentId"`
 	LeaseDurationNs int64  `json:"leaseDurationNs"`
 }
 type ManifestFile struct {
@@ -41,18 +28,16 @@ type TestDataManifest struct {
 	Files      []ManifestFile `json:"files"`
 }
 type NodeInstall struct {
-	NodeID                 string           `json:"nodeId"`
-	EnvironmentFingerprint string           `json:"environmentFingerprint"`
-	SessionID              string           `json:"sessionId"`
-	TestDataVersionID      string           `json:"testDataVersionId"`
-	ExpectedSHA256         string           `json:"expectedSha256"`
-	Manifest               TestDataManifest `json:"manifest"`
+	NodeID            string           `json:"nodeId"`
+	SessionID         string           `json:"sessionId"`
+	TestDataVersionID string           `json:"testDataVersionId"`
+	ExpectedSHA256    string           `json:"expectedSha256"`
+	Manifest          TestDataManifest `json:"manifest"`
 }
 type NodeReceipt struct {
-	NodeID                 string `json:"nodeId"`
-	EnvironmentFingerprint string `json:"environmentFingerprint"`
-	SessionID              string `json:"sessionId"`
-	TestDataVersionID      string `json:"testDataVersionId"`
-	SHA256                 string `json:"sha256"`
-	FileCount              int    `json:"fileCount"`
+	NodeID            string `json:"nodeId"`
+	SessionID         string `json:"sessionId"`
+	TestDataVersionID string `json:"testDataVersionId"`
+	SHA256            string `json:"sha256"`
+	FileCount         int    `json:"fileCount"`
 }

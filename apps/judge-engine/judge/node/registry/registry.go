@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -21,8 +20,6 @@ import (
 // ErrIdentityConflict 表示控制面已用同一 nodeId 登记了不同身份。
 // 这不是可重试的故障：继续心跳只会反复被拒，必须由人确认是哪一边的身份不对。
 var ErrIdentityConflict = errors.New("node identity conflict")
-
-var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
 // Registry 持有注册身份与控制面客户端。
 type Registry struct {
@@ -59,7 +56,7 @@ func (n *Registry) Run(ctx context.Context) {
 		route := "register"
 		if registered {
 			route = "heartbeat"
-			payload = contract.NodeHeartbeat{NodeID: n.registration.NodeID, EnvironmentFingerprint: n.registration.EnvironmentFingerprint, SessionID: n.registration.SessionID}
+			payload = contract.NodeHeartbeat{NodeID: n.registration.NodeID, SessionID: n.registration.SessionID}
 		}
 		lease, err := n.exchange(ctx, route, payload)
 		delay := n.cfg.HeartbeatInterval.Std()
@@ -74,7 +71,7 @@ func (n *Registry) Run(ctx context.Context) {
 			backoff = min(backoff*retryMultiplier, maxRetryDelay)
 		} else {
 			if !registered {
-				n.logger.Info("judge.node.registered", "nodeId", lease.NodeID, "environmentId", lease.EnvironmentID)
+				n.logger.Info("judge.node.registered", "nodeId", lease.NodeID, "sessionId", n.registration.SessionID)
 			}
 			registered = true
 			backoff = initialRetryDelay
@@ -115,7 +112,7 @@ func (n *Registry) exchange(ctx context.Context, route string, payload any) (con
 	if err := wire.Decode(io.LimitReader(response.Body, maxLeaseResponseBytes+1), &lease); err != nil {
 		return lease, err
 	}
-	if lease.NodeID != n.registration.NodeID || !uuidPattern.MatchString(lease.EnvironmentID) || lease.LeaseDurationNs < minLeaseDuration.Nanoseconds() || lease.LeaseDurationNs > maxLeaseDuration.Nanoseconds() {
+	if lease.NodeID != n.registration.NodeID || lease.LeaseDurationNs < minLeaseDuration.Nanoseconds() || lease.LeaseDurationNs > maxLeaseDuration.Nanoseconds() {
 		return lease, fmt.Errorf("invalid node lease")
 	}
 	return lease, nil

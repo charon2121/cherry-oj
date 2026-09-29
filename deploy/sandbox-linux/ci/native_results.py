@@ -4,7 +4,7 @@ from native_resources import CAPS
 from results import json_lines, markers
 
 
-def check(kind, path, fingerprint):
+def check(kind, path, deployment):
     rows = json_lines(path)
     if kind == 'native':
         if len(rows) != 1:
@@ -27,7 +27,7 @@ def check(kind, path, fingerprint):
         if len(rows) != 1:
             raise ValueError('missing or duplicate service fault result')
         row = rows[0]
-        if row.get('test') != kind[5:] or row.get('result') != 'PASS' or row.get('recovered') != 'RAN' or row.get('fingerprint') != fingerprint:
+        if row.get('test') != kind[5:] or row.get('result') != 'PASS' or row.get('recovered') != 'RAN' or row.get('deployment') != deployment:
             raise ValueError('service fault recovery identity mismatch')
         if row.get('killedPID', 0) <= 1 or row.get('observedPayload', 0) <= 1 or not row.get('requestOutcome'):
             raise ValueError('missing actual in-flight kill observation')

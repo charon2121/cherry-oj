@@ -40,7 +40,7 @@ class HttpJudgingClientTests {
             requestBody.set(exchange.getRequestBody().readAllBytes());
             respond(exchange, 200, """
                     {"testDataVersionId":"019c8e42-7f70-7000-8000-000000000010",
-                     "environmentId":"019c8e42-7f70-7000-8000-000000000020","environmentName":"linux",
+                     "nodeId":"judge-local-1",
                      "expectedSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                      "status":"READY","deployedSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                      "deployedAt":null,"errorMessage":null,"updatedAt":null,"rowVersion":1}

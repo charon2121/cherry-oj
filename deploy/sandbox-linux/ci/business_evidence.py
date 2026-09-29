@@ -35,17 +35,11 @@ class Evidence:
     def identity(self, node):
         deadline = time.monotonic() + 40
         while time.monotonic() < deadline:
-            rows = self.rows('judging', "SELECT JSON_OBJECT('judgeEnvironmentId',BIN_TO_UUID(e.id),"
-                "'environmentFingerprint',e.fingerprint,'status',e.status,'nodeId',n.node_id,"
-                "'sessionId',BIN_TO_UUID(n.session_id),'registration',n.metadata_json,'online',n.lease_expires_at>UTC_TIMESTAMP(6)) "
-                'FROM judge_environment e JOIN judge_node n ON n.judge_environment_id=e.id LIMIT 2')
+            rows = self.rows('judging', "SELECT JSON_OBJECT('nodeId',n.node_id,'sessionId',BIN_TO_UUID(n.session_id),"
+                "'endpoint',n.endpoint,'languages',n.languages_json,'online',n.lease_expires_at>UTC_TIMESTAMP(6)) "
+                'FROM judge_node n LIMIT 2')
             if len(rows) == 1 and rows[0]['online'] == 1:
-                if rows[0]['nodeId'] != node or rows[0]['status'] != 'ACTIVE':
-                    raise ValueError('fresh node/environment selection mismatch')
-                uuid(rows[0]['judgeEnvironmentId'])
-                registration = validate_registration(rows[0]['registration'], node)
-                if registration['environmentFingerprint'] != rows[0]['environmentFingerprint'] or registration['sessionId'] != rows[0]['sessionId']:
-                    raise ValueError('persisted registration does not match active node')
+                validate_registration({k: rows[0][k] for k in ('nodeId', 'sessionId', 'endpoint', 'languages')}, node)
                 return rows[0]
             time.sleep(.25)
         raise TimeoutError('fresh node registration did not arrive')
@@ -53,28 +47,28 @@ class Evidence:
     def deployment(self, context):
         rows = self.rows('judging', "SELECT JSON_OBJECT('nodeId',d.node_id,'sha256',LOWER(HEX(d.expected_sha256)),"
             "'fileCount',d.file_count,'available',d.available,'sessionId',BIN_TO_UUID(d.session_id),"
-            "'environmentId',BIN_TO_UUID(n.judge_environment_id),'online',n.lease_expires_at>UTC_TIMESTAMP(6)) "
+            "'online',n.lease_expires_at>UTC_TIMESTAMP(6)) "
             'FROM test_data_node_deployment d JOIN judge_node n ON n.node_id=d.node_id AND n.session_id=d.session_id '
             f"WHERE test_data_version_id=UUID_TO_BIN('{uuid(context['testDataVersionId'])}') LIMIT 2")
         if len(rows) != 1:
             raise ValueError('expected exactly one new deployment receipt')
         row = rows[0]
         expected = dict(nodeId=context['nodeId'], sha256=context['dataSha256'], fileCount=12, available=1,
-                        sessionId=context['sessionId'], environmentId=context['judgeEnvironmentId'], online=1)
+                        sessionId=context['sessionId'], online=1)
         if row != expected:
             raise ValueError('deployment receipt does not belong to the fresh node/data')
         return row
 
     def calibration(self, context):
-        rows = self.rows('judging', "SELECT JSON_OBJECT('id',BIN_TO_UUID(id),'environmentId',BIN_TO_UUID(judge_environment_id),"
+        rows = self.rows('judging', "SELECT JSON_OBJECT('id',BIN_TO_UUID(id),"
             "'cpuNs',cpu_ns,'memoryBytes',memory_bytes,'clockNs',clock_ns,'sourceType',source_type,"
             "'benchmark',benchmark_summary_json) FROM language_calibration WHERE status='VALID' AND language_id='cpp' "
             f"AND problem_version_id=UUID_TO_BIN('{uuid(context['problemVersionId'])}') LIMIT 2")
         if len(rows) != 1:
             raise ValueError('expected one fresh valid calibration')
         row = rows[0]
-        if row['environmentId'] != context['judgeEnvironmentId'] or row['cpuNs'] != 1000000000 or row['memoryBytes'] != 268435456:
-            raise ValueError('calibration environment/limits mismatch')
+        if row['cpuNs'] != 1000000000 or row['memoryBytes'] != 268435456:
+            raise ValueError('calibration limits mismatch')
         if row['sourceType'] != 'BENCHMARK' or row['benchmark']['verdict'] != 'AC' or row['benchmark']['sourceSha256'] != hashlib.sha256((FIXTURES / 'calibration.cpp').read_bytes()).hexdigest():
             raise ValueError('calibration did not execute this reference source')
         return row
@@ -87,8 +81,7 @@ class Evidence:
         if len(rows) != 1 or rows[0]['status'] != 'DONE' or rows[0]['attempt'] != 1:
             raise ValueError('submission missing, unfinished or retried')
         row = rows[0]
-        for field in ('problemId', 'problemVersionId', 'testDataVersionId', 'judgeEnvironmentId',
-                      'environmentFingerprint', 'languageCalibrationId'):
+        for field in ('problemId', 'problemVersionId', 'testDataVersionId', 'languageCalibrationId'):
             if row['input'][field] != context[field]:
                 raise ValueError('JudgeInput identity mismatch: ' + field)
         expected_sha = hashlib.sha256(source.encode()).hexdigest()

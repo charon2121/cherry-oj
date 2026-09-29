@@ -16,7 +16,6 @@ class RealLinuxJudgeIntegrationTests {
     @Test
     void aPlusBReturnsAcWaAndCeThroughTheProductionHttpClient() throws Exception {
         String endpoint = System.getenv("CHERRY_REAL_JUDGE_URL");
-        String fingerprint = System.getenv().getOrDefault("CHERRY_REAL_JUDGE_FINGERPRINT", "local-compose");
         var properties = new JudgingProperties(1, Duration.ofSeconds(60));
         var client = new HttpJudgeGateway(HttpClient.newHttpClient(), new ObjectMapper(), properties);
 
@@ -33,7 +32,6 @@ class RealLinuxJudgeIntegrationTests {
         assertThat(ac.verdict()).isEqualTo("AC");
         assertThat(wa.verdict()).isEqualTo("WA");
         assertThat(ce.verdict()).isEqualTo("CE");
-        assertThat(ac.environmentFingerprint()).isEqualTo(fingerprint);
         assertThat(ac.cpuNs()).isNotNegative();
         assertThat(ac.memoryBytes()).isNotNegative();
     }

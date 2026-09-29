@@ -61,7 +61,7 @@ class NativeEvidenceTest(unittest.TestCase):
         self.log.write_text(json.dumps(dict(case='isolator-binary', result='PASS')) + '\n')
         with self.assertRaises(ValueError):
             results.check('isolator-binary', self.log, 'unused')
-        self.log.write_text(json.dumps(dict(test='isolator', result='PASS', recovered='RAN', fingerprint='old', killedPID=25, observedPayload=26, requestOutcome='SE')) + '\n')
+        self.log.write_text(json.dumps(dict(test='isolator', result='PASS', recovered='RAN', deployment='old', killedPID=25, observedPayload=26, requestOutcome='SE')) + '\n')
         with self.assertRaises(ValueError):
             results.check('kill-isolator', self.log, 'new')
 
@@ -78,12 +78,11 @@ class NativeEvidenceTest(unittest.TestCase):
                 check(dict(row, **changed))
 
     def test_registration_requires_fresh_node_and_real_identity_fields(self):
-        value = dict(nodeId='ci-test', environmentFingerprint='a'*64, sessionId='00000000-0000-4000-8000-000000000001',
-                     endpoint='http://127.0.0.1:15051', architecture='amd64', cpuModel='test-cpu', osVersion='Linux',
-                     kernelVersion='6.8', judgeVersion='test', sandboxVersion='test', configDigest='b'*64,
-                     languages=[dict(languageId='cpp', toolchainVersion='locked-g++', languageConfigDigest='c'*64)])
+        value = dict(nodeId='ci-test', sessionId='00000000-0000-4000-8000-000000000001',
+                     endpoint='http://127.0.0.1:15051', languages=['cpp'])
         control.validate_registration(value, 'ci-test')
-        for changed in ({'nodeId': 'old'}, {'architecture': 'arm64'}, {'configDigest': ''}, {'languages': []}):
+        for changed in ({'nodeId': 'old'}, {'endpoint': 'http://127.0.0.1:1'}, {'sessionId': 'x'}, {'languages': []},
+                        {'environmentFingerprint': 'a'*64}):
             with self.assertRaises(ValueError):
                 control.validate_registration(dict(value, **changed), 'ci-test')
 

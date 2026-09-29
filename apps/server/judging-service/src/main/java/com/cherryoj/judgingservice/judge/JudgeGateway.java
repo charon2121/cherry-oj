@@ -12,10 +12,10 @@ public interface JudgeGateway {
                         Limits limits, String mode) {}
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
-    record JudgeResult(String verdict, String environmentFingerprint, Long cpuNs,
-                       Long memoryBytes, Integer score, String message, java.util.List<CaseResult> caseResults) {
-        public JudgeResult(String verdict, String environmentFingerprint, Long cpuNs, Long memoryBytes, Integer score) {
-            this(verdict,environmentFingerprint,cpuNs,memoryBytes,score,null,null);
+    record JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
+                       java.util.List<CaseResult> caseResults) {
+        public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score) {
+            this(verdict,cpuNs,memoryBytes,score,null,null);
         }
     }
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown=true)

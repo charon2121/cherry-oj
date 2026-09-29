@@ -131,30 +131,17 @@ Maven 版本、BOM 或构建插件属于技术审核范围；只有它们改变�
 ## 判题节点与测试数据
 
 本地先启动 MySQL/Redis 和五个 Java 服务，再从仓库根运行 `docker compose up -d --build`。
-Judge 自动注册并续租，首次空 judging 数据库自动建立 ACTIVE 环境。两端使用相同的
+Judge 自动注册并续租，注册只带节点身份：`JUDGE_NODE_ID`、每次启动新生成的会话号、访问地址和
+能判的语言，不上报机器信息，也没有「判题环境」分组。两端使用相同的
 `CHERRY_JUDGE_CONTROL_TOKEN`；本地默认值为 `local-judge-control-token`，生产必须覆盖。
 Compose 的 `judge-testdata` 是节点私有持久卷，无需 `TESTDATA_PATH` 或 `dev` profile seed。
 修改 Java 端口时设置 `JUDGE_CONTROL_PLANE_URL`；修改 Judge 映射端口时同步 `JUDGE_ADVERTISE_URL`。
-Judge 经 sandbox 的限时探测获取实际 CPU、内核、系统、编译器、资源配额与二进制摘要，计算环境指纹。
-探测失败会拒绝节点启动；Judge 自身二进制摘要同样纳入指纹。升级 sandbox 时必须同步重启 Judge 重新探测。
-改变实际运行环境需要使用新 `JUDGE_NODE_ID`，并为它设置新的 `JUDGE_TESTDATA_VOLUME`，例如
-`JUDGE_NODE_ID=judge-v2 JUDGE_TESTDATA_VOLUME=cherry-judge-v2 docker compose up -d --build`。
-旧身份和旧安装回执不能用于另一环境；保留旧卷用于回退，不覆盖旧目录，回退时恢复原节点 ID 与卷名。
+Judge 注册前做启动自检：对端必须是 cherry-oj 的 sandbox；原生 Linux 部署还要核对部署清单里的
+发布文件摘要与 cgroup 上界。自检失败会拒绝节点上线。
 
-已有其他指纹的 ACTIVE 环境不会自动替换，新节点只会 REGISTERED。准备迁移时，先记录旧/新环境 ID，
-确认允许新环境暂时因尚未部署/校准而不可用，然后生成可审阅的切换 SQL：
-
-```bash
-python3 apps/server/judging-service/scripts/switch-environment.py OLD_UUID NEW_UUID > /tmp/switch-judge.sql
-# 审阅目标 ID 后，在 judging 数据库用 mysql 批处理执行；不要使用 --force。
-mysql --defaults-extra-file=/安全路径/mysql.cnf cherry_oj_judging < /tmp/switch-judge.sql
-```
-
-脚本本身只生成 SQL。事务会校验原 ACTIVE、目标 REGISTERED/RETIRED 和在线租约，并与注册/回执共用锁；
-不满足时整段回滚。切换后重新部署并对新环境校准，不能复制旧标定。
-校准遵循现有版本状态机：只有 DRAFT 可开始验证；已 READY_FOR_REVIEW 的版本应在旧环境完成发布，
-已发布版本则创建复用测试数据的新草稿修订，再在新环境校准。旧发布版本与旧环境标定保持不变。
-回退时把 OLD/NEW 对调；历史标定仍属于原环境。
+判题与标定都按节点路由：选一个在线、声明了该语言、且本会话已按摘要安装测试数据的节点。
+标定按「题目版本 × 语言」记录，升级判题机或换机器不会让已有标定失效；如果新机器的性能差异
+需要重新标定，在工作台对该题目版本重新校准即可，新的 VALID 标定会替换旧的。
 
 工作台每 10 秒刷新发布检查。节点离线后，部署按钮显示原因并禁用；节点恢复后可以重新部署，
 节点检查已有目录的 hash/manifest 后返回回执，无需重新上传 ZIP。

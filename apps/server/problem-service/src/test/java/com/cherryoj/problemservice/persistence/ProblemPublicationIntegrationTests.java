@@ -172,9 +172,9 @@ class ProblemPublicationIntegrationTests {
 
         judging.ready = false;
         var missing = publication.publishCheck(fixture.problemId(), fixture.versionId(), "jwt", null);
-        assertThat(missing.checks()).hasSize(6);
+        assertThat(missing.checks()).hasSize(7);
         assertThat(missing.checks()).extracting(value -> value.code().name())
-                .containsExactly("CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "DEPLOYMENT", "CALIBRATION");
+                .containsExactly("CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "ONLINE_JUDGE_NODE", "DEPLOYMENT", "CALIBRATION");
         assertThat(missing.ready()).isFalse();
         assertThat(admin.getVersion(fixture.problemId(), fixture.versionId()).status())
                 .isEqualTo(VersionStatus.READY_FOR_REVIEW);
@@ -359,8 +359,7 @@ class ProblemPublicationIntegrationTests {
             jwt = token;
             traceparent = trace;
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-            return new JudgingDtos.Deployment(metadata.testDataVersionId(), UUID.randomUUID().toString(), "test-env",
-                    metadata.expectedSha256(), "READY", metadata.expectedSha256(), now, null, now, 1);
+            return new JudgingDtos.Deployment(metadata.testDataVersionId(), "judge-test-1", metadata.expectedSha256(), "READY", metadata.expectedSha256(), now, null, now, 1);
         }
 
         @Override
@@ -381,8 +380,7 @@ class ProblemPublicationIntegrationTests {
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             String verdict = "VALID".equals(calibrationStatus) ? "AC" : "WA";
             return new JudgingDtos.Calibration(
-                    UUID.randomUUID().toString(), request.problemVersionId(), request.languageId(),
-                    UUID.randomUUID().toString(), calibrationStatus,
+                    UUID.randomUUID().toString(), request.problemVersionId(), request.languageId(), calibrationStatus,
                     request.cpuNs(), request.memoryBytes(), request.clockNs(),
                     new JudgingDtos.BenchmarkSummary("a".repeat(64), verdict, 1L, 1L, 1L),
                     "VALID".equals(calibrationStatus) ? null : "REFERENCE_NOT_ACCEPTED", now, now, 1);
@@ -401,13 +399,12 @@ class ProblemPublicationIntegrationTests {
                     throw new IllegalStateException(error);
                 }
             }
-            String environmentId = UUID.randomUUID().toString();
-            return new JudgingDtos.Readiness(ready, environmentId, List.of(
-                    new JudgingDtos.ReadinessCheck("ACTIVE_ENVIRONMENT", true, "ACTIVE environment ready."),
+            return new JudgingDtos.Readiness(ready, List.of(
+                    new JudgingDtos.ReadinessCheck("ONLINE_JUDGE_NODE", true, "Node online."),
                     new JudgingDtos.ReadinessCheck("LANGUAGE", true, "Language ready."),
                     new JudgingDtos.ReadinessCheck("DEPLOYMENT", ready, ready ? "Deployment ready." : "Deployment missing."),
                     new JudgingDtos.ReadinessCheck("CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
-                    ready ? new JudgingDtos.ExecutionProfile(environmentId, "fingerprint", "endpoint",
+                    ready ? new JudgingDtos.ExecutionProfile("endpoint",
                             UUID.randomUUID().toString(), 1, 1, null) : null);
         }
     }

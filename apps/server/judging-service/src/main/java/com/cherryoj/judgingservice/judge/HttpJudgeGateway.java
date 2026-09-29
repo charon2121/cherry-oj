@@ -47,7 +47,7 @@ public final class HttpJudgeGateway implements JudgeGateway {
             var response=future.get(budget.toNanos(),java.util.concurrent.TimeUnit.NANOSECONDS);
             if(response.statusCode()!=200) throw new JudgeCallException("JUDGE_HTTP_"+response.statusCode());
             JudgeResult result=json.readValue(response.body(),JudgeResult.class);
-            if(result.verdict()==null || result.environmentFingerprint()==null) throw new JudgeCallException("JUDGE_RESPONSE_INVALID");
+            if(result.verdict()==null) throw new JudgeCallException("JUDGE_RESPONSE_INVALID");
             return result;
         }
         catch (JudgeCallException error) { throw error; }

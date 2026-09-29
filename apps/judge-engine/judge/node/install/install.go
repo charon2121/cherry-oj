@@ -61,7 +61,7 @@ func (tx *installation) run(ctx context.Context, archive io.Reader) (contract.No
 		}
 	}()
 	empty := contract.NodeReceipt{}
-	if m.NodeID != tx.node.registration.NodeID || m.EnvironmentFingerprint != tx.node.registration.EnvironmentFingerprint || m.SessionID != tx.node.registration.SessionID {
+	if m.NodeID != tx.node.registration.NodeID || m.SessionID != tx.node.registration.SessionID {
 		return empty, conflicted("install targets another node identity or session")
 	}
 	if !uuidPattern.MatchString(m.TestDataVersionID) || !hashPattern.MatchString(m.ExpectedSHA256) {
@@ -84,7 +84,7 @@ func (tx *installation) run(ctx context.Context, archive io.Reader) (contract.No
 			return empty, conflicted("existing version has no readable receipt: %v", e)
 		}
 		var receipt contract.NodeReceipt
-		if json.Unmarshal(saved, &receipt) != nil || receipt.SHA256 != m.ExpectedSHA256 || receipt.EnvironmentFingerprint != m.EnvironmentFingerprint || receipt.NodeID != m.NodeID || receipt.TestDataVersionID != m.TestDataVersionID || receipt.FileCount != len(m.Manifest.Files) {
+		if json.Unmarshal(saved, &receipt) != nil || receipt.SHA256 != m.ExpectedSHA256 || receipt.NodeID != m.NodeID || receipt.TestDataVersionID != m.TestDataVersionID || receipt.FileCount != len(m.Manifest.Files) {
 			return empty, conflicted("existing version was installed with a different receipt")
 		}
 		if err := tx.verifyInstalled(ctx, target, m.Manifest); err != nil {
@@ -102,7 +102,7 @@ func (tx *installation) run(ctx context.Context, archive io.Reader) (contract.No
 	if err := tx.extract(ctx, tx.zipPath, data, m.Manifest); err != nil {
 		return empty, err
 	}
-	receipt := contract.NodeReceipt{NodeID: tx.node.registration.NodeID, EnvironmentFingerprint: tx.node.registration.EnvironmentFingerprint, SessionID: tx.node.registration.SessionID, TestDataVersionID: m.TestDataVersionID, SHA256: m.ExpectedSHA256, FileCount: len(m.Manifest.Files)}
+	receipt := contract.NodeReceipt{NodeID: tx.node.registration.NodeID, SessionID: tx.node.registration.SessionID, TestDataVersionID: m.TestDataVersionID, SHA256: m.ExpectedSHA256, FileCount: len(m.Manifest.Files)}
 	payload, err := json.Marshal(receipt)
 	if err != nil {
 		return empty, err

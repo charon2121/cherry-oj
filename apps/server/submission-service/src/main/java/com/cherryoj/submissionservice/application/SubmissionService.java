@@ -52,7 +52,7 @@ public class SubmissionService {
         var view=new View(id,snapshot.problemId(),snapshot.problemVersionId(),snapshot.problemVersionNo(),snapshot.problemTitle(),
                 request.languageId(),"PENDING",now,null,null,null,null,null,null,null,null);
         var input=new Input(id,"2",snapshot.problemId(),snapshot.problemVersionId(),snapshot.testDataVersionId(),request.languageId(),
-                request.source(),sha(request.source()),profile.judgeEnvironmentId(),profile.environmentFingerprint(),profile.languageCalibrationId(),
+                request.source(),sha(request.source()),profile.languageCalibrationId(),
                 profile.effectiveLimits(),now,snapshot.testDataContentSha256(),snapshot.totalCount(),profile.executionBudgetNs());
         String payload=json.writeValueAsString(Map.of("eventId",event,"eventType","JudgeRequested","eventVersion",1,
                 "occurredAt",now.toString(),"traceId",traceId(),"aggregateId",id,
@@ -118,11 +118,10 @@ public class SubmissionService {
     }
     private static void validateProfile(Profile p,Snapshot s) {
         if (p==null || !s.problemVersionId().equals(p.problemVersionId()) || !s.testDataVersionId().equals(p.testDataVersionId())
-                || !s.languageId().equals(p.languageId()) || p.judgeEnvironmentId()==null || p.languageCalibrationId()==null
-                || p.environmentFingerprint()==null || p.environmentFingerprint().isBlank() || p.effectiveLimits()==null) throw invalidSnapshot();
+                || !s.languageId().equals(p.languageId()) || p.languageCalibrationId()==null || p.effectiveLimits()==null) throw invalidSnapshot();
         var limits=p.effectiveLimits();
         if (p.executionBudgetNs()<=0 || limits.cpuNs()<=0 || limits.memoryBytes()<=0 || (limits.clockNs()!=null && limits.clockNs()<=0)) throw invalidSnapshot();
-        try { UUID.fromString(p.judgeEnvironmentId()); UUID.fromString(p.languageCalibrationId()); } catch (IllegalArgumentException error) { throw invalidSnapshot(); }
+        try { UUID.fromString(p.languageCalibrationId()); } catch (IllegalArgumentException error) { throw invalidSnapshot(); }
     }
     private static SubmissionException invalidSnapshot() { return problem(HttpStatus.SERVICE_UNAVAILABLE,"INVALID_JUDGE_SNAPSHOT","当前题目暂时无法判题。"); }
     private static SubmissionException missing() { return problem(HttpStatus.NOT_FOUND,"SUBMISSION_NOT_FOUND","记录不存在或无权查看。"); }

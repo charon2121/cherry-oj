@@ -3,7 +3,6 @@ package com.cherryoj.judgingservice.formal;
 import com.cherryoj.judgingservice.domain.UuidV7;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
-import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import java.security.SecureRandom;
 import java.time.*;
 import java.util.*;
@@ -48,26 +47,26 @@ class FormalTaskStoreTests {
         var old=store.claim(Duration.ofSeconds(10)); assertNull(store.claim(Duration.ofSeconds(10)));
         clock.advance(11); var current=store.claim(Duration.ofSeconds(10));
         assertEquals(2,current.attemptNo()); assertFalse(store.renew(old,Duration.ofSeconds(10)));
-        assertFalse(store.finish(old,Map.of("verdict","AC","environmentFingerprint","f"),null,null));
-        assertTrue(store.finish(current,Map.of("verdict","WA","environmentFingerprint","f"),null,null));
-        assertFalse(store.finish(current,Map.of("verdict","AC","environmentFingerprint","f"),null,null));
+        assertFalse(store.finish(old,Map.of("verdict","AC"),null,null));
+        assertTrue(store.finish(current,Map.of("verdict","WA"),null,null));
+        assertFalse(store.finish(current,Map.of("verdict","AC"),null,null));
         assertEquals(1,store.pending().stream().filter(e -> e.payload().contains("JudgeCompleted")).count());
         assertEquals("ABANDONED",jdbc.queryForObject("SELECT status FROM judge_attempt WHERE attempt_no=1",String.class));
         assertNull(store.claim(Duration.ofSeconds(10)));
     }
-    @Test void nodeFailureRetriesBoundedlyThenPublishesSeWithoutChangingFrozenEnvironment() {
-        String id=UUID.randomUUID().toString(),environment=UUID.randomUUID().toString(),data=UUID.randomUUID().toString();
+    @Test void nodeFailureRetriesBoundedlyThenPublishesSe() {
+        String id=UUID.randomUUID().toString(),data=UUID.randomUUID().toString();
         store.receive(UUID.randomUUID().toString(),id,clock.instant(),"a".repeat(32),null);
-        var inputs=mock(FormalInputClient.class); var nodes=mock(JudgeNodeRepository.class); var environments=mock(JudgingRepository.class); var judge=mock(JudgeGateway.class);
+        var inputs=mock(FormalInputClient.class); var nodes=mock(JudgeNodeRepository.class); var judge=mock(JudgeGateway.class);
         var properties=new FormalProperties(false,"requests","lifecycle","http://localhost","",1,3,Duration.ofSeconds(30),Duration.ofMinutes(10),Duration.ofSeconds(30),10,Duration.ofSeconds(1));
-        var input=new FormalInput(id,"2",UUID.randomUUID().toString(),UUID.randomUUID().toString(),data,"cpp","source",FormalWorker.hash("source"),environment,"f",UUID.randomUUID().toString(),new JudgeGateway.Limits(1000,2000,3000L),clock.instant(),"a".repeat(64),1,40000000000L);
+        var input=new FormalInput(id,"2",UUID.randomUUID().toString(),UUID.randomUUID().toString(),data,"cpp","source",FormalWorker.hash("source"),UUID.randomUUID().toString(),new JudgeGateway.Limits(1000,2000,3000L),clock.instant(),"a".repeat(64),1,40000000000L);
         when(inputs.get(id,null)).thenReturn(input);
         try {
-            var worker=new FormalWorker(store,inputs,nodes,environments,judge,properties,clock);
+            var worker=new FormalWorker(store,inputs,nodes,judge,properties,clock);
             for(int attempt=1;attempt<=3;attempt++) { worker.execute(store.claim(Duration.ofSeconds(30))); clock.advance(6); }
             assertNull(store.claim(Duration.ofSeconds(30)));
             assertEquals(1,store.pending().stream().filter(e -> e.payload().contains("JudgeFailed")).count());
-            verify(nodes,times(3)).ready(eq(environment),eq(data),eq("a".repeat(64)),any());
+            verify(nodes,times(3)).ready(eq("cpp"),eq(data),eq("a".repeat(64)),any());
             verifyNoInteractions(judge); worker.stop();
         } finally { }
     }

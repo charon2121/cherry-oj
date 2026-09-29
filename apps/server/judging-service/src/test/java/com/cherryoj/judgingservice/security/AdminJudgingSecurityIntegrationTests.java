@@ -74,7 +74,7 @@ class AdminJudgingSecurityIntegrationTests {
                 + "&testDataVersionId=019c8e42-7f70-7000-8000-000000000011"
                 + "&expectedSha256=" + "0".repeat(64) + "&languageId=cpp";
         when(service.readiness(anyString(), anyString(), anyString(), anyString()))
-                .thenReturn(new Readiness(false, null, List.of(), null));
+                .thenReturn(new Readiness(false, List.of(), null));
 
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(get(path).header("Authorization", "Bearer " + token("USER")))

@@ -84,7 +84,7 @@ class Business:
     def __init__(self, args, report, owned):
         self.args, self.report, self.owned = args, report, owned
         self.stack, self.native = None, None
-        self.active = 'business.new-environment'
+        self.active = 'business.node-registration'
 
     def execute(self):
         metadata = read_json(self.args.application_build / 'business-build.json')
@@ -104,9 +104,9 @@ class Business:
         context = evidence.identity(self.native.node)
         # Before resource fixtures, verify the actual installed 24 limits and Linux privileges.
         self.native.command('native', ['python3', '-B', STATE / 'operations/verify-native.py'])
-        check_native('native', self.report.output / 'native.log', context['environmentFingerprint'])
-        save(self.report.output, 'new-environment.json', context)
-        self.report.record([self.active], 'PASS', ['new-environment.json', 'native.log'])
+        check_native('native', self.report.output / 'native.log', None)
+        save(self.report.output, 'node-registration.json', context)
+        self.report.record([self.active], 'PASS', ['node-registration.json', 'native.log'])
         api = API(self.report.output)
         self.active = 'business.deploy'
         api.login(self.stack.credentials)
@@ -209,8 +209,8 @@ def main():
                 business.active = 'business.' + progress['step']
         # No exception text: HTTP/auth/Playwright errors can contain private values.
         save(report.output, 'failure.json', dict(type=type(error).__name__,
-             stage=business.active if business else 'business.new-environment'))
-        case = business.active if business else 'business.new-environment'
+             stage=business.active if business else 'business.node-registration'))
+        case = business.active if business else 'business.node-registration'
         if next(c for c in report.data['cases'] if c['id'] == case)['status'] == 'NOT_RUN':
             report.record([case], 'CANCELLED' if isinstance(error, (InterruptedError, KeyboardInterrupt)) else 'FAIL', ['failure.json'])
         if business and business.stack:

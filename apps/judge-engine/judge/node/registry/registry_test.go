@@ -47,7 +47,7 @@ func TestRunRetriesRegistersHeartbeatsAndStops(t *testing.T) {
 			if count > 2 && !strings.HasSuffix(r.URL.Path, "/heartbeat") {
 				t.Error("expected heartbeat")
 			}
-			b, e := json.Marshal(contract.NodeLease{NodeID: n.registration.NodeID, EnvironmentID: n.registration.SessionID, LeaseDurationNs: 35_000_000_000})
+			b, e := json.Marshal(contract.NodeLease{NodeID: n.registration.NodeID, LeaseDurationNs: 35_000_000_000})
 			if e != nil {
 				t.Fatal(e)
 			}
@@ -90,7 +90,7 @@ func TestLeaseShorterThanOneSecondIsRejected(t *testing.T) {
 		n := testRegistry(t)
 		n.client = &http.Client{Transport: transportFunc(func(*http.Request) (*http.Response, error) {
 			b, err := json.Marshal(contract.NodeLease{NodeID: n.registration.NodeID,
-				EnvironmentID: n.registration.SessionID, LeaseDurationNs: tc.duration.Nanoseconds()})
+				LeaseDurationNs: tc.duration.Nanoseconds()})
 			if err != nil {
 				t.Fatal(err)
 			}

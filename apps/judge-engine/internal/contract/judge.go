@@ -109,12 +109,11 @@ type CaseResult struct {
 
 // JudgeResult：判题结果
 type JudgeResult struct {
-	Verdict                Verdict `json:"verdict"`
-	EnvironmentFingerprint string  `json:"environmentFingerprint"` // 来自 judge 部署配置，不从请求回显
-	CPUNs                  int64   `json:"cpuNs,omitempty"`        // 各点最大值
-	MemoryBytes            int64   `json:"memoryBytes,omitempty"`  // 各点峰值最大值
-	Score                  int     `json:"score"`
-	Message                string  `json:"message,omitempty"` // 如 CE 的编译器输出
+	Verdict     Verdict `json:"verdict"`
+	CPUNs       int64   `json:"cpuNs,omitempty"`       // 各点最大值
+	MemoryBytes int64   `json:"memoryBytes,omitempty"` // 各点峰值最大值
+	Score       int     `json:"score"`
+	Message     string  `json:"message,omitempty"` // 如 CE 的编译器输出
 	// CaseResults 的顺序即实际执行顺序，Idx 从 1 递增。
 	// trial 模式下严格对应请求里的 Cases[i]——调用方靠这个把结果对回去，judge 不得重排。
 	CaseResults []CaseResult `json:"caseResults,omitempty"`

@@ -2,7 +2,6 @@ package com.cherryoj.judgingservice.formal;
 
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
-import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import jakarta.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,16 +18,15 @@ public class FormalWorker {
     private final FormalTaskStore store;
     private final FormalInputClient inputs;
     private final JudgeNodeRepository nodes;
-    private final JudgingRepository environments;
     private final JudgeGateway judge;
     private final FormalProperties properties;
     private final Clock clock;
     private final ExecutorService executor=Executors.newVirtualThreadPerTaskExecutor();
     private final ConcurrentMap<String,FormalTaskStore.Task> active=new ConcurrentHashMap<>();
     private final Semaphore slots;
-    public FormalWorker(FormalTaskStore store,FormalInputClient inputs,JudgeNodeRepository nodes,JudgingRepository environments,
+    public FormalWorker(FormalTaskStore store,FormalInputClient inputs,JudgeNodeRepository nodes,
                         JudgeGateway judge,FormalProperties properties,Clock clock) {
-        this.store=store; this.inputs=inputs; this.nodes=nodes; this.environments=environments; this.judge=judge;
+        this.store=store; this.inputs=inputs; this.nodes=nodes; this.judge=judge;
         this.properties=properties; this.clock=clock; slots=new Semaphore(properties.parallelism());
     }
     @Scheduled(fixedDelay=500,scheduler="formalTaskScheduler")
@@ -55,12 +53,11 @@ public class FormalWorker {
             validate(input,task.submissionId());
             Duration budget=Duration.ofNanos(input.executionBudgetNs());
             if(budget.isNegative() || budget.isZero() || clock.instant().plus(budget).isAfter(deadline)) throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE");
-            var node=nodes.ready(input.judgeEnvironmentId(),input.testDataVersionId(),input.testDataContentSha256(),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC));
-            if(node==null || !node.fingerprint().equals(input.environmentFingerprint())
-                    || !environments.languageEnabled(input.judgeEnvironmentId(),input.languageId())) throw new FormalFailure("NO_MATCHING_JUDGE_NODE");
+            // 派发时再选节点：任何在线、声明了该语言、本会话持有这份数据的节点都行。
+            var node=nodes.ready(input.languageId(),input.testDataVersionId(),input.testDataContentSha256(),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC));
+            if(node==null) throw new FormalFailure("NO_MATCHING_JUDGE_NODE");
             var result=judge.judge(node.endpoint(),new JudgeGateway.JudgeRequest(input.submissionId(),input.problemId(),input.problemVersionId(),
                     input.testDataVersionId(),input.languageId(),input.completeSource(),input.effectiveLimits(),"submit"),task.traceParent(),budget);
-            if(!input.environmentFingerprint().equals(result.environmentFingerprint())) throw new FormalFailure("JUDGE_FINGERPRINT_MISMATCH");
             if("SE".equals(result.verdict())) throw new FormalFailure("JUDGE_SYSTEM_ERROR");
             store.finish(task,safe(result,input.totalCount()),null,null);
         } catch(Exception error) {
@@ -79,14 +76,14 @@ public class FormalWorker {
                 || input.executionBudgetNs()<=0 || input.totalCount()<1 || input.totalCount()>1000 || input.createdAt()==null || input.testDataContentSha256()==null
                 || !input.testDataContentSha256().matches("[a-f0-9]{64}")) throw new FormalFailure("INVALID_JUDGE_INPUT");
         try {
-            for(String uuid:List.of(input.problemId(),input.problemVersionId(),input.testDataVersionId(),input.judgeEnvironmentId(),input.languageCalibrationId())) UUID.fromString(uuid);
+            for(String uuid:List.of(input.problemId(),input.problemVersionId(),input.testDataVersionId(),input.languageCalibrationId())) UUID.fromString(uuid);
         } catch(RuntimeException error) { throw new FormalFailure("INVALID_JUDGE_INPUT"); }
     }
     static Map<String,Object> safe(JudgeGateway.JudgeResult result,int totalCount) {
         Set<String> verdicts=Set.of("AC","WA","PE","TLE","MLE","OLE","RE","CE");
         if(result==null || result.verdict()==null || !verdicts.contains(result.verdict())) throw new FormalFailure("INVALID_JUDGE_RESULT");
         var safe=new LinkedHashMap<String,Object>();
-        safe.put("verdict",result.verdict()); safe.put("environmentFingerprint",result.environmentFingerprint());
+        safe.put("verdict",result.verdict());
         if(result.cpuNs()!=null) { if(result.cpuNs()<0) throw new FormalFailure("INVALID_JUDGE_RESULT"); safe.put("cpuNs",result.cpuNs()); }
         if(result.memoryBytes()!=null) { if(result.memoryBytes()<0) throw new FormalFailure("INVALID_JUDGE_RESULT"); safe.put("memoryBytes",result.memoryBytes()); }
         if(result.caseResults()!=null) {

@@ -2239,11 +2239,10 @@
       "TestDataDeployment": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["testDataVersionId", "environmentId", "environmentName", "expectedSha256", "status", "deployedSha256", "deployedAt", "errorMessage", "updatedAt", "rowVersion"],
+        "required": ["testDataVersionId", "nodeId", "expectedSha256", "status", "deployedSha256", "deployedAt", "errorMessage", "updatedAt", "rowVersion"],
         "properties": {
           "testDataVersionId": { "type": "string", "format": "uuid" },
-          "environmentId": { "type": "string", "format": "uuid" },
-          "environmentName": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "nodeId": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$", "description": "安装了这份测试数据的判题节点" },
           "expectedSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
           "status": { "$ref": "#/components/schemas/DeploymentStatus" },
           "deployedSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
@@ -2287,12 +2286,11 @@
       "LanguageCalibration": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "problemVersionId", "languageId", "environmentId", "status", "cpuNs", "memoryBytes", "clockNs", "benchmarkSummary", "errorMessage", "createdAt", "updatedAt", "rowVersion"],
+        "required": ["id", "problemVersionId", "languageId", "status", "cpuNs", "memoryBytes", "clockNs", "benchmarkSummary", "errorMessage", "createdAt", "updatedAt", "rowVersion"],
         "properties": {
           "id": { "type": "string", "format": "uuid" },
           "problemVersionId": { "type": "string", "format": "uuid" },
           "languageId": { "$ref": "#/components/schemas/LanguageId" },
-          "environmentId": { "type": "string", "format": "uuid" },
           "status": { "$ref": "#/components/schemas/CalibrationStatus" },
           "cpuNs": { "type": ["integer", "null"], "minimum": 1 },
           "memoryBytes": { "type": ["integer", "null"], "minimum": 1 },
@@ -2323,10 +2321,9 @@
       "PublishCheck": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["ready", "environmentId", "checks"],
+        "required": ["ready", "checks"],
         "properties": {
           "ready": { "type": "boolean" },
-          "environmentId": { "type": ["string", "null"], "format": "uuid" },
           "checks": { "type": "array", "minItems": 6, "maxItems": 7, "items": { "$ref": "#/components/schemas/PublishCheckItem" } }
         }
       },

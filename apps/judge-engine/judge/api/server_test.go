@@ -50,9 +50,8 @@ func TestVersion(t *testing.T) {
 
 func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
 	fake := &fakeJudger{result: contract.JudgeResult{
-		Verdict:                contract.VerdictAC,
-		EnvironmentFingerprint: "sha256:test-environment",
-		Score:                  100,
+		Verdict: contract.VerdictAC,
+		Score:   100,
 	}}
 	h := api.New(fake).Handler()
 	body := `{
@@ -100,8 +99,7 @@ func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Verdict != contract.VerdictAC || result.Score != 100 ||
-		result.EnvironmentFingerprint != "sha256:test-environment" {
+	if result.Verdict != contract.VerdictAC || result.Score != 100 {
 		t.Errorf("result = %+v", result)
 	}
 }
@@ -159,10 +157,7 @@ func TestJudgeVerdictsAreHTTP200(t *testing.T) {
 		contract.VerdictSE,
 	} {
 		t.Run(string(verdict), func(t *testing.T) {
-			fake := &fakeJudger{result: contract.JudgeResult{
-				Verdict:                verdict,
-				EnvironmentFingerprint: "sha256:test-environment",
-			}}
+			fake := &fakeJudger{result: contract.JudgeResult{Verdict: verdict}}
 			h := api.New(fake).Handler()
 			req := httptest.NewRequest(http.MethodPost, "/judge", strings.NewReader(
 				`{"submissionId":"s","problemId":"p","problemVersionId":"pv","testDataVersionId":"tdv","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1}}`,

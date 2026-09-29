@@ -471,7 +471,6 @@ jobs:
           import json, sys
           result = json.load(sys.stdin)
           assert result["verdict"] == "AC", result
-          assert result["environmentFingerprint"] == "local-compose", result
           assert len(result["caseResults"]) == 3, result
           assert all(case["verdict"] == "AC" for case in result["caseResults"]), result
           '

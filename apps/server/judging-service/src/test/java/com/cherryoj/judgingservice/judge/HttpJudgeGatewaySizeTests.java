@@ -16,7 +16,7 @@ class HttpJudgeGatewaySizeTests {
         String cases=IntStream.rangeClosed(1,300).mapToObj(i -> "{\"idx\":"+i
                 +",\"verdict\":\"WA\",\"output\":{\"excerpt\":\""+"x".repeat(4096)+"\"}}")
                 .collect(Collectors.joining(","));
-        byte[] body=("{\"verdict\":\"WA\",\"environmentFingerprint\":\"f\",\"caseResults\":["+cases+"]}")
+        byte[] body=("{\"verdict\":\"WA\",\"caseResults\":["+cases+"]}")
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(body.length>1_048_576);
         var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);

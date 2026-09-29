@@ -26,9 +26,6 @@ func (c Config) Validate() error {
 	if j.SandboxTimeout <= 0 {
 		return fmt.Errorf("judge.sandboxTimeout must be positive, got %s", j.SandboxTimeout)
 	}
-	if j.EnvironmentFingerprint == "" {
-		return fmt.Errorf("judge.environmentFingerprint must not be empty")
-	}
 	if j.TestdataRoot == "" {
 		return fmt.Errorf("judge.testdataRoot must not be empty")
 	}

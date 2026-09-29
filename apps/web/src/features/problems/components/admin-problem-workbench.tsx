@@ -533,7 +533,7 @@ function WorkbenchEditor({
     (item) => item.code === 'DEPLOYMENT' && item.passed,
   );
   const nodeUnavailable = check.data?.checks.find(
-    (item) => ['ONLINE_JUDGE_NODE', 'ACTIVE_ENVIRONMENT'].includes(item.code) && !item.passed,
+    (item) => item.code === 'ONLINE_JUDGE_NODE' && !item.passed,
   );
   const calibrationReady = check.data?.checks.some(
     (item) => item.code === 'CALIBRATION' && item.passed,
@@ -1064,7 +1064,7 @@ function WorkbenchEditor({
                 ) : null}
                 {deploy.data && !nodeUnavailable ? (
                   <Text className="mt-3" role="status">
-                    {deploy.data.environmentName}：
+                    判题节点 {deploy.data.nodeId}：
                     {deploy.data.status === 'READY' ? '部署可用' : deploy.data.status}
                   </Text>
                 ) : null}

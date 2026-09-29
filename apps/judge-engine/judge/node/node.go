@@ -9,23 +9,16 @@ import (
 	"cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/node/identity"
 	"cherry-oj/judge-engine/judge/node/install"
-	"cherry-oj/judge-engine/judge/node/probe"
+	"cherry-oj/judge-engine/judge/node/preflight"
 	"cherry-oj/judge-engine/judge/node/registry"
 )
 
-// Environment 是探测得到的执行环境事实。
-type Environment = identity.Environment
+// Sandbox 是启动自检所消费的能力，由 judge 现有的 sandbox 客户端实现。
+type Sandbox = preflight.Sandbox
 
-// DeclaredEnvironment 取配置中声明的环境，供未启用节点链路时使用。
-func DeclaredEnvironment(s config.Settings) Environment { return identity.Declared(s) }
-
-// Sandbox 是环境探测所消费的能力，由 judge 现有的 sandbox 客户端实现。
-type Sandbox = probe.Sandbox
-
-// ProbeEnvironment 通过 sandbox 已有的有界接口读取真实执行环境。
-// 配置里声明的那份只是意图，不能替代实测。
-func ProbeEnvironment(ctx context.Context, s config.Settings, sandbox Sandbox) (Environment, error) {
-	return probe.Environment(ctx, s, sandbox)
+// Preflight 在注册前自检：对端是 cherry-oj 的 sandbox，原生部署与部署清单一致。
+func Preflight(ctx context.Context, s config.Settings, sandbox Sandbox) error {
+	return preflight.Check(ctx, s, sandbox)
 }
 
 type Node struct {
@@ -34,16 +27,15 @@ type Node struct {
 	installer *install.Installer
 }
 
-// New 接收配置与已探明的执行环境两个值：身份由两者共同决定，
-// 不再由配置结构兼任探测结果的容器。
-func New(j config.Settings, env Environment, logger *slog.Logger) (*Node, error) {
+// New 由配置生成本次进程的身份，并打开数据安装与注册心跳。
+func New(j config.Settings, logger *slog.Logger) (*Node, error) {
 	if err := j.Node.Validate(); err != nil {
 		return nil, err
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	id, err := identity.New(j, env)
+	id, err := identity.New(j)
 	if err != nil {
 		return nil, err
 	}
