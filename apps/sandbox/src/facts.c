@@ -1,4 +1,4 @@
-// 从事实推出结论。这里不做 I/O、不改状态，规则与原 Go 版 isolator 的 conclude 一致。
+// 从事实推出结论。这里不做 I/O、不改状态，规则沿用此前 Go 版 isolator 的 conclude。
 #define _GNU_SOURCE
 #include <signal.h>
 #include <stdio.h>

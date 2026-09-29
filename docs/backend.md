@@ -51,7 +51,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 - **Redis**：Gateway 登录 Session 等短生命周期共享状态；不作为业务事实的真源。
 - **Apache Kafka**：提交判题等跨服务异步事件。
 - **Docker / Docker Compose**：本地开发与多服务联调。
-- **Linux + cgroup v2**：生产判题环境；sandbox 是唯一需要特权能力的服务。
+- **Linux + cgroup v2**：生产判题环境；特权只在 sandbox 每次执行调用的 setuid-root 执行器（`apps/sandbox`）里，没有常驻的特权服务。
 
 ## 3. 微服务边界
 

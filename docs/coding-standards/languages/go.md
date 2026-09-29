@@ -104,7 +104,7 @@ func New(exec Executor, st store.Store, opts Options) *Server {
   写成「查不到返回 a」的话，某天加了新 verdict 忘了进表，结果是**错题判成 AC**。
 - **别把「业务失败」当成 error。** `sandboxclient.Run` 返回 `(RunResult{TLE}, nil)` 是
   完全正常的：HTTP 对话成功了，只是被跑的程序超时了。混了会把 TLE 报成 SE。
-- **外部字符串拼进路径前先用正则关死。** 已出现三次：`hostexec.ValidPath`、
+- **外部字符串拼进路径前先用正则关死。** 已出现三次：`backend.ValidPath`、
   `store.refPattern`、`testcase.idPattern`。`filepath.Join(root, "../../etc")`
   会老老实实跳出去。
 
@@ -179,7 +179,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
   ```
 
   这样测试可以注入一个写进 `bytes.Buffer` 的 handler 来断言日志内容
-  （sandbox 的 `pool.Options`、isolator 的 `daemon.Serve`）。
+  （sandbox 的 `pool.Options`）。
 - **静默跳过是事故，会影响结论的数据问题不能只靠留痕。** 出题人少传一个 `.out`，
   跳过就变成「这题只有 9 个测试点」——错解可能因此拿到 AC，而警告日志没人会在判题
   当下看到。所以 `testcase.Load` 遇到落单的 `.in` 或 `.out` 直接报错（判成 SE），
@@ -211,7 +211,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
   系统自带的 3.9，而机器上装的可能是 3.12）。
 - 工作目录内的可执行文件也**直接写名字**，不要 `./x`：`backend.devhost` 的规则是
   「命令名不含 `/` 且该文件存在于工作目录时才解析成绝对路径」，`./x` 绕过了它；
-  隔离侧的 `initproc.resolveCommand`（isolator 的 P4）同样只接受裸名称，在隔离根内按 `/work`、
+  隔离侧的 C 执行器（`apps/sandbox`）同样只接受裸名称，在隔离根内按 `/work`、
   `/usr/bin`、`/bin` 依次解析，不理会请求里的 `PATH`。
 - **`os/exec` 不会像 shell 那样帮你回退到 `/bin/sh`。** 脚本必须带 shebang
   （`#!/bin/sh`），否则 `execve` 直接报 `exec format error`。权限要 `0o755`

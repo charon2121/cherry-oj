@@ -25,68 +25,76 @@
    → 这叫 **sandbox（执行服务）**。它像实验室的调度台：不碰试剂，只管排班和器材。
 
 3. **真的建出一个受限环境并把命令关进去**
-   namespace、chroot、cgroup、seccomp——这些动作**需要 root**。
-   → 这叫 **isolator（特权隔离执行器）**。它像只有主管才有钥匙的那间通风柜。
+   namespace、pivot_root、cgroup、seccomp——这些动作**需要 root**。
+   → 这叫 **sandbox 执行器**（`apps/sandbox`，一个 setuid-root 的 C 程序）。它像只有主管才有钥匙的
+   那间通风柜，而且每次用完就锁上：一次执行一个进程，执行完就退出。
 
-**为什么必须拆成三个而不是两个？**
+**为什么第 2、3 件事要分开？**
 
-第 2 件事和第 3 件事看起来是一件事，但它们**需要的权限完全不同**：排队、限流、管临时文件不需要任何
-特权；建 namespace 和写 cgroup 需要 root。把它们放进同一个进程，就等于让那个进程整体以 root 运行——
-于是排队逻辑里的一个越界写，后果是 root 权限下的越界写。拆开之后，特权进程小到可以逐行读完，
-非特权进程再大也只是个普通用户。
+它们看起来是一件事，但**需要的权限完全不同**：排队、限流、管临时文件不需要任何特权；建 namespace
+和写 cgroup 需要 root。放进同一个进程，就等于让那个进程整体以 root 运行——于是排队逻辑里的一个
+越界写，后果是 root 权限下的越界写。拆开之后，特权代码小到可以逐行读完，非特权服务再大也只是个
+普通用户。
+
+特权部分还刻意做成**一次性的**：没有常驻的特权进程，也没有它和 sandbox 之间的会话协议。每次执行
+sandbox 服务把请求写进一个 box 目录、exec 一次执行器、读回一行 JSON。执行器退出，特权随之消失。
 
 一句话记住边界：
 
-> **isolator 只说「进程怎么退出的、用了多少资源」；sandbox 只说「这条命令执行完了」；
+> **执行器只说「进程怎么退出的、用了多少资源」；sandbox 只说「这条命令执行完了」；
 > judge 才说「算不算对」。**
 
 ---
 
-## 1. 三个进程，两条硬边界
+## 1. 两个服务、一个执行器，两条硬边界
 
-### 1.1 三个进程各自回答什么
+### 1.1 各自回答什么
 
-| 进程 | 身份 | 回答的问题 | 默认端口/地址 |
+| 程序 | 身份 | 回答的问题 | 默认端口/地址 |
 |---|---|---|---|
 | **judge** | 普通用户 | 这份提交是 AC 还是 WA？ | `127.0.0.1:5051`（HTTP） |
 | **sandbox** | 普通用户，**非 root** | 这条命令跑完了吗？产物在哪？ | `127.0.0.1:5050`（HTTP） |
-| **isolator** | **root** | 进程退出码是多少？整组用了多少 CPU/内存？ | Unix socket（无网络端口） |
+| **sandbox 执行器** | **setuid-root**，每次执行一个进程 | 进程退出码是多少？整组用了多少 CPU/内存？ | 无；只由 sandbox exec |
 
 产品从上到下是：
 
 ```
-浏览器 → server(Java) → judge(Go) → sandbox(Go) → isolator(Go, root)
+浏览器 → server(Java) → judge(Go) → sandbox(Go) → sandbox 执行器(C, setuid-root)
 ```
 
 `server` 侧的职责见 [architecture.md](./architecture.md)；本文只讲后三个。
 
 ### 1.2 信任边界：root 与非 root 之间
 
-isolator 是三个进程里唯一持有特权的。它和 sandbox 之间的那条线是**信任边界**：
+执行器是唯一持有特权的程序。它和 sandbox 服务之间的那条线是**信任边界**：
 
-- isolator **不信任** sandbox 发来的任何东西。请求里不接受宿主路径、不接受 uid/gid、不接受
-  rlimit 越界值；所有路径都是工作区内的逻辑路径，由 isolator 自己解析。
-- 谁能连是**双重约束**：socket 文件权限只放行服务专用组，建立连接后再用 `SO_PEERCRED`
-  核对对端的 UID。只靠文件权限等于假设「目录权限从来没被改过」。
-- 两端唯一的共享词汇是 `internal/hostexec` 里的协议定义。**isolator 的服务端实现和 sandbox 的
-  客户端实现互相看不见对方**，只对同一份协议编程。
+- 执行器**不信任**调用方给的任何东西。请求里不接受宿主路径、不接受 uid/gid；rootfs、box 根目录、
+  cgroup 子树和各身份都来自 root 管理的受信配置（`/etc/cherry-sandbox/executor.conf`，路径编译进
+  二进制）。box 目录里的文件按「不跟随链接、只读单链接的服务所有普通文件」打开。
+- 谁能调用是**双重约束**：文件模式只让服务组执行（`root:cherry-sandbox 4754`），执行器启动后再
+  核对真实 UID 必须是配置里的服务身份（或 root）。
+- 执行器能拿到的能力不超过 sandbox 服务单元的**能力边界集**（8 项，见 §7.1）。服务进程本身
+  非 root、没有任何有效能力；setuid 取得的能力在执行器里用完即丢，init 与用户程序都拿不到。
+- 两端的共享词汇只有 box 目录约定与一行 JSON 事实，写在 [apps/sandbox/README.md](../apps/sandbox/README.md)。
+  Go 侧的调用方是 `sandbox/backend/executor.go`，C 侧与它互相看不见实现。
 
-### 1.3 部署边界：三个独立交付的二进制
+### 1.3 部署边界：独立交付
 
-三个程序分别构建、启动，各自拥有服务生命周期。部署位置还受当前节点探测方式约束：
+judge、sandbox 两个 Go 二进制和执行器分别构建，放进同一个 release；两个服务各自拥有服务生命周期。
+部署位置还受当前节点探测方式约束：
 
-- 当前生产的 Linux 原生节点模式要求 judge、sandbox 和 isolator **在同一台机器**。
-  sandbox 与 isolator 使用本机 socket；judge 要求 sandbox 地址为回环地址，并核验本机部署清单、
-  二进制摘要和 cgroup 事实。将 judge 移到远端会使这些检查失败。
-- 开发机上可以只跑 judge + sandbox（`devhost` 后端），完全没有 isolator。
+- 当前生产的 Linux 原生节点模式要求 judge 和 sandbox **在同一台机器**。judge 要求 sandbox 地址为
+  回环地址，并核验本机部署清单、二进制（含执行器）摘要和 cgroup 事实。将 judge 移到远端会使这些
+  检查失败。
+- 开发机上可以只跑 judge + sandbox（`devhost` 后端），完全不需要执行器。
 
 服务之间通过协议交互，各自实现保持私有；同机部署也不改变这个边界。独立二进制让它们能分别
 启动、退出与排障，不能据此推导出当前节点模式支持跨主机部署。
 
 ### 1.4 边界由测试把守，不是由约定
 
-三棵服务子树 `judge/`、`sandbox/`、`isolator/` 都不放在 `internal/` 下，少一层目录，读代码时
-路径更短；只有模块顶层的 `internal/`（协议定义与平台设施）保留，给三个服务共用。
+两棵服务子树 `judge/`、`sandbox/` 都不放在 `internal/` 下，少一层目录，读代码时路径更短；只有模块
+顶层的 `internal/`（协议定义与平台设施）保留，给两个服务共用。
 
 代价是编译器不再拦「一个服务引用另一个服务的实现」。这条边界改由模块根 `layout_test.go` 的
 `TestServiceBinariesLinkOnlyTheirOwnSubtree` 守住：它用 `go list -deps` 取出每个服务二进制的
@@ -94,16 +102,17 @@ isolator 是三个进程里唯一持有特权的。它和 sandbox 之间的那�
 
 | 二进制 | 不得链接 | 为什么 |
 |---|---|---|
-| `cmd/judge` | `sandbox/…`、`isolator/…` | judge 只能通过 HTTP 用 sandbox；非特权进程不能链接特权实现 |
-| `cmd/sandbox` | `judge/…`、`isolator/…` | sandbox 不理解判题；非特权进程不能链接特权实现 |
-| `cmd/isolator` | `judge/…`、`sandbox/…` | 特权进程不理解判题，也不管排队与存储 |
+| `cmd/judge` | `sandbox/…` | judge 只能通过 HTTP 用 sandbox |
+| `cmd/sandbox` | `judge/…` | sandbox 不理解判题 |
 
 测试同时断言每个二进制确实依赖自己的子树，防止查询本身失效、返回空集而「永远通过」。
 它按 linux/amd64 解析依赖，在 macOS 上也能跑，并登记在 CI 的必跑清单里。
 
+特权实现是另一种语言写的独立程序，Go 模块里根本没有可链接的特权代码——「非特权进程不能链接特权
+实现」由此在结构上成立，不再需要一条检查。
+
 `cmd/judge`、`cmd/sandbox` 只做**解析 flag、读配置、建 logger、接信号**，然后调用
-`judge.Run` / `sandbox.Run`；`cmd/isolator` 先按参数把 P4、P5 分流出去，再进入 `daemon.Serve`。
-「服务的装配顺序」留在各自的根包里，不渗进最没人读的入口文件。
+`judge.Run` / `sandbox.Run`。「服务的装配顺序」留在各自的根包里，不渗进最没人读的入口文件。
 
 > **这一条是整份设计的地基**：边界写在注释里靠自觉，写成可执行的检查才靠得住。
 
@@ -112,8 +121,8 @@ isolator 是三个进程里唯一持有特权的。它和 sandbox 之间的那�
 早先的目录是按「这是什么种类的代码」切的——`internal/judge/`、`internal/sandbox/`、
 `internal/sandbox/container/`、`internal/config/`……问题不在于名字难听，而在于**它切错了轴**：
 
-- 一个 `internal/config` 同时装着 judge 的配置、sandbox 的配置和 isolator 的配置，于是
-  「加一个 judge 的配置项」会让 sandbox 的包重新编译。
+- 一个 `internal/config` 同时装着各个服务的配置，于是「加一个 judge 的配置项」会让 sandbox 的包
+  重新编译。
 - `container` 这个名字暗示「有个容器对象，可以复用」，于是接口长成了「放输入 → 启动 → 等待 →
   取产物 → 关闭」四个阶段，时序只能写在运行时错误里（「Container 只能执行一次」
   「工作区不再接受输入」），两个实现各自拿一组状态字段守护它。
@@ -132,19 +141,16 @@ apps/judge-engine/
 ├── go.mod                      # module cherry-oj/judge-engine
 ├── cmd/
 │   ├── judge/main.go           # 只做 flag + 配置 + logger + 信号，然后 judge.Run
-│   ├── sandbox/main.go         #   同上 → sandbox.Run
-│   └── isolator/main.go        #   按进程角色分流 → initproc.Run / execstage.Run / daemon.Serve
+│   └── sandbox/main.go         #   同上 → sandbox.Run
 │
 ├── internal/                   # ★ 整个 module 共享：只放「协议与平台设施」
 │   ├── contract/               #   judge ↔ sandbox 的 HTTP DTO、Limits、Verdict/Status
-│   ├── hostexec/               #   sandbox ↔ isolator 的本机执行协议（帧、请求、结果）
-│   │   └── client/             #     该协议的客户端实现
 │   └── platform/
 │       ├── config/             #   泛型配置加载：默认值 → YAML → 环境变量
 │       ├── logging/            #   slog 装配
 │       └── tracing/            #   trace 传播
 │
-├── layout_test.go              # 三棵子树之间的引用边界（见 §1.4）
+├── layout_test.go              # 两棵子树之间的引用边界（见 §1.4）
 │
 ├── judge/                      # ★ 服务一：判题编排
 │   ├── doc.go                  #   本子树的职责与引用边界
@@ -164,43 +170,42 @@ apps/judge-engine/
 │       ├── preflight/          #     注册前自检：确认 sandbox、校验原生部署
 │       └── wire/               #     严格 JSON 解码
 │
-├── sandbox/                    # ★ 服务二：执行服务（非 root）
-│   ├── doc.go
-│   ├── sandbox.go              #   Run(...)
-│   ├── config.go
-│   ├── budget.go               #   跨层期限断言（见 §8）
-│   ├── api/                    #   POST /run、/blobs、GET /version
-│   ├── pool/                   #   并发上限、排队、回收未确认时停止接单
-│   ├── runner/                 #   一次执行的完整生命周期与限额归一化
-│   ├── backend/                #   ★ 可替换边界：linux / devhost
-│   ├── workspace/              #   每次执行独占的临时工作区
-│   └── store/                  #   ref ↔ 磁盘文件
-│
-└── isolator/                   # ★ 服务三：特权执行助手（root），按进程角色切包
-    ├── doc.go                  #   本子树的职责与引用边界
-    ├── daemon/                 #   P3 常驻：socket、对端认证、槽位、配置、残留回收、安装自检
-    ├── execution/              #   P3 内一次执行：计划、状态机、监督、结论、回收、交付
-    ├── startup/                #   P3↔P4↔P5 握手协议：FD 约定、事件、READY/GO
-    ├── initproc/               #   P4：namespace 内 PID 1，准备 rootfs 并放行 P5
-    ├── execstage/              #   P5：降权、seccomp、execve
-    ├── privilege/              #   P4 与 P5 共用的降权步骤
-    ├── cgroup/                 #   限额与计量（限量轴）
-    ├── seccomp/                #   seccomp 策略
-    └── tests/boundary/         #   需要真实内核的边界测试
+└── sandbox/                    # ★ 服务二：执行服务（非 root）
+    ├── doc.go
+    ├── sandbox.go              #   Run(...)
+    ├── config.go
+    ├── budget.go               #   跨层期限断言（见 §8）
+    ├── api/                    #   POST /run、/blobs、GET /version
+    ├── pool/                   #   并发上限、排队、回收未确认时停止接单
+    ├── runner/                 #   一次执行的完整生命周期与限额归一化
+    ├── backend/                #   ★ 可替换边界：linux（调用执行器）/ devhost
+    └── store/                  #   ref ↔ 磁盘文件
+
+apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go 模块里
+├── src/
+│   ├── main.c                  #   入口：受信配置、调用方核对、提权、锁 box、输出事实
+│   ├── config.c / spec.c       #   受信配置与请求解析
+│   ├── box.c                   #   box 目录的安全打开与写回
+│   ├── cgroup.c                #   执行组：建组、写限额并读回、计量、整组 kill
+│   ├── supervise.c             #   clone3、监督墙钟/CPU/输出/取消、结论
+│   ├── child.c                 #   namespace 内：init（PID 1）与用户程序
+│   ├── privilege.c / filter.c  #   降权步骤 / seccomp 策略
+│   └── facts.c                 #   一行 JSON 事实
+└── tests/                      #   需要真实内核与 root 的测试
 ```
 
 ### 2.1 顶层 `internal/` 放什么、不放什么
 
-顶层 `internal/` 是唯一能被三棵子树同时引用的地方，所以它的准入条件要比别处严：
+顶层 `internal/` 是唯一能被两棵子树同时引用的地方，所以它的准入条件要比别处严：
 
-**可以放**：两个服务之间的**协议定义**（`contract`、`hostexec`），以及和业务无关的**平台设施**
+**可以放**：两个服务之间的**协议定义**（`contract`），以及和业务无关的**平台设施**
 （配置加载、日志、trace）。
 
-**不可以放**：任何一个服务的业务逻辑。一旦某个服务的实现搬进顶层 `internal/`，它就同时对另外两个
+**不可以放**：任何一个服务的业务逻辑。一旦某个服务的实现搬进顶层 `internal/`，它就同时对另一个
 服务可见——§1.4 的边界检查只看服务子树之间的引用，顶层 `internal/` 恰好是它放行的地方。
 
-判断方法很简单：**问「另外两个服务读它是合理的吗」**。`hostexec` 定义 sandbox 和 isolator 的共同
-词汇，judge 读它没意义但也无害；而 `flow` 如果搬上去，isolator 就能 import 判题逻辑了。
+判断方法很简单：**问「另一个服务读它是合理的吗」**。`contract` 是两边的共同词汇；而 `flow` 如果
+搬上去，sandbox 就能 import 判题逻辑了。
 
 ---
 
@@ -254,8 +259,8 @@ sandbox 返回 TimeLimitExceeded
   → CE
 ```
 
-**设计禁令**：不要把 `WA` 放进 sandbox 的 Status 里，也不要把 Status 放进 isolator。
-isolator 连 Status 都不判——它只报退出码、信号、cgroup 读数和主动终止原因，
+**设计禁令**：不要把 `WA` 放进 sandbox 的 Status 里，也不要把 Status 放进执行器。
+执行器连 Status 都不判——它只报退出码、信号、cgroup 读数和主动终止原因，
 「这算不算超时」是 `runner` 的策略。
 
 ---
@@ -268,12 +273,12 @@ isolator 连 Status 都不判——它只报退出码、信号、cgroup 读数�
 | server(Java) ↔ judge(Go) | `contracts/judge.schema.json` | **这份 schema 是唯一真源** |
 | judging-service ↔ judge 节点 | `contracts/judge-node.schema.json` | schema 是真源 |
 | judge ↔ sandbox | `contracts/run.schema.json` | 实现以 `internal/contract` 为准，schema 当文档 |
-| sandbox ↔ isolator | `internal/hostexec` | **只有 Go 定义，没有 schema** |
+| sandbox ↔ 执行器 | [apps/sandbox/README.md](../apps/sandbox/README.md) | **box 目录约定与一行 JSON，没有 schema** |
 | 全链路 verdict | `contracts/verdict.json` | 已有 |
 
-最后两行的差别值得说明：`hostexec` 是**本机的、同一份代码同批部署的两端**之间的协议，没有跨语言
-消费者，因此把 Go 类型当真源比再维护一份 schema 更可靠——字段名即线格式，改名等于改协议，
-这一点直接写在类型的注释里，并由 `wire_test.go` 的黄金用例把字节输出钉住。
+sandbox ↔ 执行器那一行没有 schema，是因为两端**同一个 release、同批部署**，没有第三方消费者。
+约定写在执行器的 README 里；Go 侧对事实 JSON 严格解码（未知字段、尾随内容、未知原因、未请求的
+产物一律拒绝），执行器改了输出格式而 Go 侧没跟上，会立刻变成平台错误，而不是悄悄丢字段。
 
 约定：JSON **camelCase**；时间 **ns**；内存 **bytes**。改跨语言接口时：**先改 `contracts/`**。
 
@@ -503,7 +508,7 @@ type Backend interface {
 
 | 后端 | 隔离 | 用在哪 |
 |---|---|---|
-| `linux` | 全套：namespace、只读 rootfs、cgroup、seccomp，**由 isolator 执行** | 生产 |
+| `linux` | 全套：namespace、只读 rootfs、cgroup、seccomp，**由 setuid 执行器完成** | 生产 |
 | `devhost` | **零隔离**：临时工作目录里一个普通子进程 | 只在开发机 |
 
 `devhost` 存在的理由只有一个：namespace/cgroup 是 Linux-only，但你要在 mac 上开发
@@ -518,15 +523,16 @@ type Backend interface {
 探测失败就退出。这条闸曾经因为一个错误处理 bug（返回了外层那个为 nil 的 `err`）
 而形同虚设——探测失败也照样开端口。现在它返回的是真实错误，并且局部变量不再遮蔽外层的名字。
 
-### 6.5 `store` 与 `workspace`
+### 6.5 `store` 与 box
 
 两个都管文件，但管的是不同的东西：
 
 - **`store`**：跨执行的「文件字典」，`ref` ↔ 磁盘上的一个文件，带容量与保留期。源码上传进来、
   编译产物存进去、下一次执行再取出来，走的都是它。目录必须是服务私有的 0700，加独占锁，
   拒绝任何非独占的普通文件。
-- **`workspace`**：**单次执行**独占的临时工作区，执行结束就回收。暂存根同样是服务所有的 0700 目录，
-  启动时如果发现里面有未知条目或未回收的工作区，直接拒绝启动——不去猜那是什么。
+- **box**：**单次执行**的请求与结果目录，是 sandbox 和执行器之间的交接处（§7.2）。每个并发名额
+  一个，执行前后都被重置为只剩空的 `in/` 与 `out/`。用户程序真正的工作区不在这里，而是执行器为
+  每次执行新建的一块 tmpfs，执行结束随 namespace 一起消失。
 
 ### 6.6 「回收未确认」为什么要停掉整个池
 
@@ -565,56 +571,72 @@ func (e *CleanupError) Error() string { return "reclaim unconfirmed: " + e.Err.E
 
 ---
 
-## 7. isolator 详解
+## 7. sandbox 执行器详解
 
-### 7.1 它是唯一持有特权的进程
+### 7.1 它是唯一持有特权的程序
 
-isolator 以 root 运行，监听一个 Unix socket，**没有网络端口**。它做的事只有一件：
-按协议收一个请求，建出隔离环境，跑一条命令，把进程与资源事实还回去。
-
-它启动时对自己也很苛刻：必须由 root 托管、必须是不带 setuid/setgid 的普通可执行文件、
-必须用 `CGO_ENABLED=0` 构建、rootfs manifest 摘要必须被钉住；服务、init、payload
-三个身份必须分离且都不是 root 身份复用。启动最后会做一次**隔离启动能力冒烟**——
-真的建一次隔离环境跑一条命令——冒烟不过就不开 socket。
-
-崩溃重启后还有一道恢复检查：state 目录里出现未知条目、jobs 里出现未知组、
-所有权标记和 jobs 对不上，一律拒绝启动。**不去清理自己不认识的东西。**
-
-### 7.2 `hostexec`：本机执行协议
-
-一次调用的线格式：
+执行器（`apps/sandbox`）是一个 C 程序，以 setuid-root 安装。它没有常驻进程、没有 socket、没有网络
+端口：sandbox 服务每执行一条命令就 exec 它一次，它建出隔离环境、跑完命令、回收干净、在 stdout 输出
+一行 JSON 事实，然后退出。
 
 ```
-客户端 →  [4 字节大端长度][Request JSON]
-          [Inputs[0] 的 SizeBytes 字节][Inputs[1] ...]     ← 文件不进 JSON
-          [StdinBytes 字节 stdin]
-服务端 →  [4 字节长度][Result JSON]                        ← 事实 + stdout/stderr
-          [Outputs[0] 的 SizeBytes 字节][Outputs[1] ...]   ← 产物字节流
-          [4 字节长度][Completion JSON]                    ← 「回收与交付都完成了」
-          正常 EOF                                        ← 「连接槽位已归还」
+sandbox（宿主侧，root）   校验配置与请求 → 锁定 box → 建执行组 → clone3(6 个 namespace)
+  └─ init（PID 1）        挂载 rootfs、/work、/tmp、/proc、/dev → pivot_root → 复制输入 → fork → 降权
+       └─ 用户程序        rlimit → 降到 payload 身份 → seccomp → execve
+sandbox 监督墙钟、CPU、输出与取消 → 整组 kill → 最终计量 → 取回产物 → 输出一行 JSON
+```
+
+它对自己的调用条件很苛刻：受信配置和它的每一级祖先目录都必须属于 root 且不可被他人写入；调用方的
+真实 UID 必须是配置里的服务身份；服务、init、payload 三类身份必须互不重叠且都不是 root。任何一条
+不满足，退出码 1，什么都不启动。
+
+setuid 取得的能力不会超出 sandbox 服务单元的能力边界集。边界集只保留执行器必需的 8 项：
+`SYS_ADMIN`、`SETUID`、`SETGID`、`SETPCAP`、`CHOWN`、`DAC_OVERRIDE`、`MKNOD`、`KILL`。前七项用于
+建 namespace、挂载、降权、交还文件所有权和建最小 `/dev`；`KILL` 见 §7.4。部署验证逐项删掉其中
+一项，每次服务都必须在启动自检时失败——证明没有一项是多余的。
+
+为此 sandbox 服务单元**不能**设置 `NoNewPrivileges`，也不能设置任何对非 root 服务隐含它的加固项
+（`RestrictAddressFamilies`、`LockPersonality`、`ProtectKernel*`、`RestrictSUIDSGID`、
+`RestrictNamespaces` 等），否则 setuid 失效；`ProtectControlGroups` 也不能设，执行器要写 cgroup。
+这是用「没有常驻特权进程」换来的代价，服务进程本身仍然非 root、没有任何有效能力。
+
+### 7.2 box：执行器和 sandbox 服务之间唯一的约定
+
+每个并发名额对应一个 box 目录 `<boxes>/<N>/`，属于服务身份：
+
+```
+spec        请求：NUL 结尾的 key=value 记录（arg / env / input / output / 六项限额）
+stdin       标准输入
+in/<i>      输入文件，序号对应 spec 里 input 的顺序
+out/        必须为空；执行器写回 stdout、stderr、artifact-<i>
 ```
 
 几个值得解释的决定：
 
-- **文件走连续字节流，不放进 JSON。** base64 进 JSON 会强制两端全量内存缓冲；
-  用 `SizeBytes` 划分流之后，64 MiB 的输入预算不等于 64 MiB 的内存占用。
-- **`Completion` 和 EOF 是两件事。** `Completion` 只确认「执行资源回收完毕、产物 FD 已关闭」；
-  连接槽位有没有归还，要靠服务端关闭连接产生的**正常 EOF** 来确认。少等这一步，
-  客户端就会在槽位还没回来的时候认为可以发下一条。收到 `Completion` 之后多出来的任何字节，
-  都不能当成功。
-- **请求先限条目数、再限累计字节**，输入与产物是两个独立预算，避免用小控制帧触发无界分配。
-- **字段名即线格式**，改名等于改协议；黄金用例把 `Request`/`Result`/`Completion`
-  的字节输出钉死，防止「只是重命名一个字段」悄悄变成一次协议变更。
+- **请求不用 JSON。** setuid-root 程序里少一个解析器，就少一块攻击面；NUL 分隔的记录几十行就能
+  解析完，而且不存在转义。
+- **文件放在磁盘上，不走管道。** 输入可能有 64 MiB，放进目录之后执行器按需复制进工作区，两端都不用
+  全量缓冲。
+- **执行器以 root 操作服务所有的目录**，所以打开 box 里的任何东西都用 `openat2` 加
+  `RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_XDEV`，只接受单链接、
+  属于服务的普通文件；写回只用 `O_EXCL` 新建，再把所有者交还服务。同一 box 同时只允许一次执行
+  （`flock`）。
+- **取消走 stdin。** sandbox 服务把一根管道接在执行器的 stdin 上并保持写端打开；关闭它——或者服务
+  进程崩溃——就是取消。不需要另一个信号通道。
+- **退出码分三类**：0 事实已输出、执行组已回收；1 拒绝执行，什么都没启动；2 回收未确认。Go 侧把
+  2、被信号杀死和未知退出码都当成回收未确认（§6.6），并且不再把这个 box 交给下一次执行。
+
+每次执行前后，Go 侧都把 box 重置为只剩空的 `in/` 与 `out/`：源码、stdin 和输出不在磁盘上过夜。
 
 ### 7.3 隔离与限量 —— 两条正交的轴
 
 初学最容易把「隔离」和「限量」当成一个东西（runc 把它们打包成「容器」，更强化了这个错觉）。
 其实内核给的是**两条互不依赖的能力**：
 
-| 轴 | 回答的问题 | 内核机制 | 归谁管 |
+| 轴 | 回答的问题 | 内核机制 | 在哪 |
 |---|---|---|---|
-| **隔离 Isolation** | 进程能**看见/碰到**什么？ | namespaces、pivot_root、seccomp、capabilities | **`initproc`**、**`execstage`**、**`privilege`**、**`seccomp`** |
-| **限量 Resource control** | 能**用多少** CPU/内存/进程，实际**用了多少**？ | cgroup v2、（弱）rlimits | **`cgroup`** |
+| **隔离 Isolation** | 进程能**看见/碰到**什么？ | namespaces、pivot_root、seccomp、capabilities | `child.c`、`privilege.c`、`filter.c` |
+| **限量 Resource control** | 能**用多少** CPU/内存/进程，实际**用了多少**？ | cgroup v2、（弱）rlimits | `cgroup.c` |
 
 **它俩可以单独存在**，这是理解边界的关键：
 
@@ -626,78 +648,69 @@ isolator 以 root 运行，监听一个 Unix socket，**没有网络端口**。�
 
 | 机制 | 干什么 |
 |---|---|
-| mount namespace + **pivot_root** | 自己的文件系统视图、换根、只读 rootfs |
-| pid namespace | 内部成 PID 1，看不见宿主进程 |
+| mount namespace + **pivot_root** | 自己的文件系统视图、换根、只读 rootfs；`/work` 是独立的 tmpfs |
+| pid namespace | init 成为 PID 1，看不见宿主进程；`/proc` 以 `hidepid=2,subset=pid` 挂载 |
 | net namespace | 空网络栈＝断网（最便宜的安全收益） |
 | ipc / uts namespace | 独立共享内存 / hostname |
 | cgroup namespace | 进程看到的 cgroup 根是自己的执行组，看不到宿主的 cgroup 树 |
-| **seccomp-bpf** | 过滤/禁用系统调用（`ptrace`/`mount`/`reboot`…），装载后用 TSYNC 覆盖全部线程 |
-| 降权 | 清空全部 capability、切到每个槽位专用的非 root UID/GID、设置 no_new_privs（`privilege` 包） |
+| **seccomp-bpf** | 白名单系统调用，其余直接杀进程；非 x86_64 ABI（含 x32）同样杀掉 |
+| 降权 | 清空全部 capability、切到每个 box 专用的非 root UID/GID、设置 no_new_privs |
 
 **不使用 user namespace。** 用户程序从来不以 uid 0 运行，而是直接以宿主上真实存在的专用非 root
-身份运行（每个槽位一组，互不重叠），所以不需要靠 user namespace 把「内部 root」映射成宿主普通用户。
-isolator 在 clone P4 时实际新建的是上表的 mount、pid、net、ipc、uts、cgroup 六个 namespace。
+身份运行（每个 box 一组，互不重叠），所以不需要靠 user namespace 把「内部 root」映射成宿主普通用户。
+init 也降到自己的专用身份，并装上不含 `execve` 的过滤器，只负责等待、上报和回收孤儿。
 
 这些**全和 cgroup 无关**——它们回答「能看见/能干什么」，不是「能用多少」。
 
 #### 限量这条轴
 
 cgroup v2 在**一组进程**层面控制 + 计量：`memory.max`/`memory.peak`（算 MLE）、
-`cpu.max`/`cpu.stat`（算 TLE）、`pids.max`/`pids.peak`（挡 fork 炸弹）。
-每次执行建一个子 cgroup → 起进程时把它塞进去 → 跑完读 peak → 删掉。
+`cpu.max`/`cpu.stat`（算 TLE）、`pids.max`（挡 fork 炸弹）、`memory.oom.group`（OOM 杀整组）。
+每次执行建一个子 cgroup `jobs/box-N` → clone 时把 init 直接放进去 → 结束时 `cgroup.kill` 整组 →
+等 `populated` 变 0 → 读最终计量 → 删掉。
 
 写完限额之后会**读回来比对**：写进去和读出来不一致就拒绝，而不是假设写成功了。
-新建的 cgroup 如果已经有进程或历史计量，也直接拒绝——那说明它不是新建的。
+新建的 cgroup 如果已经有进程或历史计量，也直接拒绝——那说明它不是新建的。上一次执行意外中断
+留下的同名组，会先被杀空、删除，失败就以退出码 2 报告回收未确认。
 
 > `rlimits`（`setrlimit`）是更弱的进程级老式限量，可作兜底；真限量在 Linux 上靠 cgroup。
 > 因此**权威的 CPU/内存用量一律来自 cgroup 快照**，不用单进程 `wait4` 的 rusage 推断整组峰值；
 > `Facts.GroupAccounting` 就是用来告诉调用方「这是整组计量」的。
 
-### 7.4 一个必须点破的耦合
+### 7.4 两个必须点破的耦合
 
-进程只在被 `clone` 创建的那一刻能同时进 namespace 和进 cgroup（`CLONE_INTO_CGROUP`）。
-所以启动器得**拿着已经建好的 cgroup 句柄**，在孩子 exec 用户代码**之前**就把它关进笼子，
-否则有竞态窗口让它先 fork 炸弹。
+**进 namespace 与进 cgroup 必须是同一个动作。** 进程只在被 `clone` 创建的那一刻能同时进
+namespace 和进 cgroup（`CLONE_INTO_CGROUP`）。所以执行器先建好执行组、拿着它的目录句柄
+clone3，孩子在 exec 用户代码**之前**就已经在笼子里，没有先 fork 炸弹的竞态窗口。
 
-但 cgroup 的**建立 / 写上限 / 读峰值**仍然全在 `cgroup` 包——`execution` 只是「起 P4 时把它
-塞进已建好的笼子」。这是两条轴唯一交汇的地方，也仅此一处。
+**执行器死了，namespace 必须跟着死。** 执行器是唯一在监督执行的进程；它若被杀，没有谁会再去
+`cgroup.kill` 那个执行组。所以 init 设置了 `PDEATHSIG=SIGKILL`：父进程一死，PID 1 被杀，内核随之
+终止整个 pid namespace。这里有两个坑，都曾让「杀掉执行器」的故障测试挂住：
 
-### 7.5 结论是纯函数，状态转移是一张表
+- **内核在进程凭据变化时会清掉 PDEATHSIG。** init 降到自己的身份之后必须重新设置；重新设置之前
+  父进程可能已经死了，所以设置后立刻检查报告管道的写端是否已经没有读者，没有就自己退出。
+- **PDEATHSIG 按普通 kill 的权限投递。** 发送方是执行器（root 身份），接收方是 init 身份，两者身份
+  不匹配时需要 `CAP_KILL`，否则信号被静默丢弃。这就是能力边界集里有 `KILL` 的原因；执行器在边界集
+  缺少它时拒绝执行，而不是带着一个失效的兜底去跑。
+
+### 7.5 结论是纯函数
 
 一次执行结束后要回答：这是超时、OOM、被信号杀、正常退出，还是平台故障？
 
-这个判断**不掺任何 I/O**：
+这个判断**不掺任何 I/O**，集中在 `facts.c` 的 `conclude`：给定监督结果、是否取消、最终计量和
+CPU 预算，输出唯一的原因与信号。几条规则值得记住：
 
-```go
-// isolator/execution
-type executionFacts struct {
-    supervision supervisionOutcome  // 进程怎么结束的
-    cancelled   bool                // 请求是否已被取消
-    group       cgroup.Snapshot     // cgroup 读数
-    groupErr    error
-    budget      contract.Limits
-    completion  processCompletion
-}
+- `oom_kill > 0` 而本任务 `oom == 0`：受害进程来自祖先或全局 OOM，**判平台故障**，不能把平台内存
+  压力算成用户超限。
+- init 没来得及报告就消失：若同时有本任务 OOM 证据，按 SIGKILL 处理（OOM 连 init 一起杀了）；
+  否则是平台故障。
+- 采样可能恰好错过最后一段 CPU，没有其他原因时用最终计量兜底判 CPU 超限。
+- 执行组没能确认清空：平台故障，并以退出码 2 要求调用方停止接单。
 
-func conclude(f executionFacts) conclusion   // 纯函数
-```
-
-好处是它可以被穷举测试：给定一组事实，结论必须唯一且可重复。同样地，执行的状态机是一张
-**显式的转移表**（`state.go` 里的 `executionTransitions`），非法转移直接报错而不是走到一个
-没人想过的分支。表的价值在缺一条时立刻显现——`starting → cleanup-failed` 曾经漏掉，
-测试当场指出来了。
-
-这里有一条**顺序上的陷阱**，值得单独记住：
-
-```go
-// 「请求是否已被取消」必须在解除输入阻塞之前读取。
-facts := executionFacts{..., cancelled: ctx.Err() != nil, ...}
-x.process.CancelInput()
-```
-
-`CancelInput` 的实现可以取消调用方自己的上下文——启动冒烟正是这样接线的。
-读晚一步，**每次正常执行都会被判成已取消**，于是冒烟永远失败，isolator 永远不开 socket，
-而外部看到的现象只是一句「isolator socket did not become ready」。
+监督本身（`supervise.c`）用一个 `poll` 循环同时看 stdout/stderr、exec 错误管道、init 报告、
+pidfd、取消管道和 5ms 的采样定时器。**计时从 execve 成功那一刻开始**：exec 错误管道是 CLOEXEC 的，
+它的 EOF 就是「用户程序已经开始运行」，CPU 用量也从这一刻的基线开始算，不把建环境的开销算进
+用户的时间。
 
 ---
 
@@ -706,13 +719,17 @@ x.process.CancelInput()
 一次执行同时被三道期限约束，它们必须**从外到内严格递减**：
 
 ```
-HTTP 写期限  >  本机会话期限(SessionTimeout)  >  单次执行墙钟硬界(MaxClockNs)
+HTTP 写期限(160s)  >  执行器调用上界(ExecutorBound)  >  单次执行墙钟硬界(MaxClockNs, 120s)
 ```
+
+执行器调用上界不是另设的一道超时，而是执行器内部三段期限之和：启动 3s + 墙钟 120s + 回收 10s。
+三段各自有独立的超时，任何一段到期都会结束执行，所以一次调用不会超过它们的和。
 
 顺序错了，症状会极具误导性：
 
-- 写期限 ≤ 会话期限：连接先被切断，**调用方看到的是传输失败，而不是执行结论**。
-- 会话期限 ≤ 墙钟硬界：达到墙钟上限的命令先被会话期限打断，**一次正常的 TLE 被报成平台错误**。
+- 写期限 ≤ 执行器调用上界：连接先被切断，**调用方看到的是传输失败，而不是执行结论**。
+- 执行器调用上界 ≤ 墙钟硬界：跑满墙钟的命令没有留给启动和回收的时间，**一次正常的 TLE 被报成
+  平台错误**。
 
 judge 侧还有一条同源的断言：`judge.sandboxTimeout` 必须大于 `judge.compile.clockNs`。
 测例墙钟可能比编译更长，因此 flow 在上传源码前还会检查每次请求的有效墙钟
@@ -730,36 +747,35 @@ sandbox 侧的三道期限由 `sandbox/budget.go` 的 `checkBudget` 在启动时
 ## 9. 端到端时间线
 
 ```
-server              judge                sandbox              isolator(root)
+server              judge                sandbox              执行器(setuid-root)
   |                   |                     |                      |
   |-- POST /judge --->|                     |                      |
   |                   |-- POST /blobs ----->|                      |
   |                   |<---- srcRef --------|                      |
   |                   |-- POST /run(编译) ->|                      |
-  |                   |                     |-- hostexec Request ->|
+  |                   |                     |-- 写 box，exec ----->|
   |                   |                     |                      | 建隔离环境
   |                   |                     |                      | 起进程、读 cgroup
-  |                   |                     |<- Result + 产物 -----|
-  |                   |                     |<- Completion, EOF ---|
-  |                   |<-- OK + exeRef -----|                      |
+  |                   |                     |<- 一行 JSON，out/ ---|
+  |                   |                     |   （执行器已退出）    |
   |                   |-- POST /run(测点1)->|        …（同上）…     |
   |                   |<-- OK + stdout -----|                      |
   |                   |  checker → case AC  |                      |
   |<-- JudgeResult ---|                     |                      |
 ```
 
-单独测 sandbox 时，用 `curl` 打 `/blobs`、`/run` 即可；isolator 不对外暴露端口，
-要单独验证它得走 `isolator/tests/boundary` 那组需要真实内核的测试。
+单独测 sandbox 时，用 `curl` 打 `/blobs`、`/run` 即可；执行器不对外暴露任何端口，
+要单独验证它得走 `apps/sandbox/tests` 那组需要真实内核和 root 的测试。
 
 ---
 
 ## 10. 设计原则
 
-1. **信任边界**：特权只在 isolator 里；sandbox 和 judge 都是普通用户进程。
-2. **部署边界**：三个二进制各自独立交付，彼此只认协议，不认对方的实现。
-3. **可执行的边界**：上面两条写成依赖检查（`layout_test.go`），越界就测试失败——不靠 code review 把关。
+1. **信任边界**：特权只在一次性的执行器里，没有常驻的特权进程；sandbox 和 judge 都是普通用户进程。
+2. **部署边界**：各个程序独立交付，彼此只认协议，不认对方的实现。
+3. **可执行的边界**：服务之间的边界写成依赖检查（`layout_test.go`），越界就测试失败——不靠 code review 把关。
 4. **一次性执行**：没有可复用的执行环境对象，「只能执行一次」由「没有对象可复用」保证。
-5. **结论与事实分离**：isolator 给事实，runner 给 status，judge 给 verdict；三层谁都不越权。
+5. **结论与事实分离**：执行器给事实，runner 给 status，judge 给 verdict；三层谁都不越权。
 6. **接口由消费方定义**：`flow.Sandbox`、`preflight.Sandbox` 声明在使用方，实现不反向依赖。
 7. **学习边界**：复用参考项目的**思路**，命名与实现按场景自己写；先打通，再硬化。
 
@@ -769,7 +785,7 @@ server              judge                sandbox              isolator(root)
 
 - Windows/macOS 上的「真沙箱」
 - gRPC、WebSocket、FFI
-- sandbox 里出现 WA，isolator 里出现 status
+- sandbox 里出现 WA，执行器里出现 status
 - 复用跑过用户代码的隔离环境
 - MVP 的多程序管道、交互题、special judge
 - 直接依赖 go-judge/go-sandbox 库

@@ -20,6 +20,16 @@ sandbox 监督墙钟、CPU、输出与取消 → 整组 kill → 最终计量 �
 进程之间没有握手，只有三样东西：execve 前失败时写入的 CLOEXEC 错误管道（execve 成功即关闭，
 这就是计时起点）、init 报告用户程序退出的管道，以及退出码。
 
+## 能力
+
+setuid 取得的能力不超过调用方（sandbox 服务单元）的能力边界集。执行器需要其中 8 项：
+`SYS_ADMIN`、`SETUID`、`SETGID`、`SETPCAP`、`CHOWN`、`DAC_OVERRIDE`、`MKNOD`、`KILL`。
+
+`KILL` 不用于正常执行，而是兜底：init 设了 `PDEATHSIG`，执行器意外死亡时整个 namespace 随之终止。
+内核按普通 kill 的权限投递这个信号，发送方（root）与 init 身份不匹配，没有 `CAP_KILL` 信号会被静默
+丢弃。所以边界集缺少 `KILL` 时执行器拒绝执行。内核在凭据变化时会清掉 `PDEATHSIG`，init 降权后会
+重新设置。
+
 ## 受信配置
 
 编译进二进制的路径 `/etc/cherry-sandbox/executor.conf`，文件与每一级祖先都必须属于 root 且不可被

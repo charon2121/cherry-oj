@@ -180,7 +180,8 @@ judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限�
 
 只提供 `/blobs` 与 `/run`：
 
-- 准备文件、启动不可信进程、执行资源隔离。
+- 准备文件、启动不可信进程、执行资源隔离。隔离由每次执行调用一次的 setuid-root C 执行器
+  （`apps/sandbox`）完成，sandbox 服务本身非 root。
 - 返回退出事实、CPU、墙钟、内存和受限 stdout/stderr。
 - 不加载题目数据，不读取标准答案，不产生 OJ verdict。
 
@@ -443,10 +444,11 @@ cherry-oj/
 │   │   ├── problem-service/
 │   │   ├── submission-service/
 │   │   └── judging-service/
-│   └── judge-engine/                  Go module
-│       ├── cmd/judge/
-│       ├── cmd/sandbox/
-│       └── internal/{judge,sandbox}/
+│   ├── judge-engine/                  Go module
+│   │   ├── cmd/{judge,sandbox}/
+│   │   ├── judge/
+│   │   └── sandbox/
+│   └── sandbox/                       C 执行器（setuid-root，每次执行一个进程）
 └── compose.yaml
 ```
 
