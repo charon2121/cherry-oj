@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.cherryoj.judgingservice.config.JudgingProperties;
 import java.net.http.HttpClient;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -18,8 +17,7 @@ class RealLinuxJudgeIntegrationTests {
     void aPlusBReturnsAcWaAndCeThroughTheProductionHttpClient() throws Exception {
         String endpoint = System.getenv("CHERRY_REAL_JUDGE_URL");
         String fingerprint = System.getenv().getOrDefault("CHERRY_REAL_JUDGE_FINGERPRINT", "local-compose");
-        var properties = new JudgingProperties(Path.of("."), 1, 1, 1, 1, 1,
-                Duration.ofSeconds(60), Duration.ofHours(24), false, null);
+        var properties = new JudgingProperties(1, Duration.ofSeconds(60));
         var client = new HttpJudgeGateway(HttpClient.newHttpClient(), new ObjectMapper(), properties);
 
         var ac = client.judge(endpoint, request("""

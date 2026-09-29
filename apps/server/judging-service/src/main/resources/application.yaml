@@ -63,33 +63,8 @@ cherry:
     node:
       control-token: "${CHERRY_JUDGE_CONTROL_TOKEN:}"
       lease-duration: "${CHERRY_JUDGE_NODE_LEASE_DURATION:35s}"
-      deployment-mode: "${CHERRY_JUDGE_DEPLOYMENT_MODE:node-remote}"
-    testdata-root: "${CHERRY_JUDGE_TESTDATA_ROOT:./data/judge-testdata}"
     max-archive-bytes: 104857600
-    max-expanded-bytes: 1073741824
-    max-entry-bytes: 67108864
-    max-files: 2000
-    max-compression-ratio: 100
     judge-timeout: "${CHERRY_JUDGE_TIMEOUT:10m}"
-    stale-age: "${CHERRY_JUDGE_DEPLOYMENT_STALE_AGE:24h}"
-    recovery-enabled: true
-    provision:
-      enabled: false
-      allow-existing-identical: false
-      id: ""
-      name: ""
-      fingerprint: ""
-      architecture: ""
-      cpu-model: ""
-      os-version: ""
-      kernel-version: ""
-      judge-version: ""
-      sandbox-version: ""
-      config-digest: ""
-      endpoint-ref: ""
-      language-id: "cpp"
-      toolchain-version: ""
-      language-config-digest: ""
 
 server:
   port: 8084

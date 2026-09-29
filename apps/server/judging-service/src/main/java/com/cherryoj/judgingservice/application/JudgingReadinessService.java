@@ -15,11 +15,7 @@ import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeCallException;
 import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.CalibrationRow;
-import com.cherryoj.judgingservice.persistence.JudgingRepository.DeploymentRow;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.EnvironmentRow;
-import com.cherryoj.judgingservice.storage.TestDataDeploymentStore;
-import com.cherryoj.judgingservice.storage.TestDataDeploymentStore.DeploymentException;
-import com.cherryoj.judgingservice.storage.TestDataDeploymentStore.Installed;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -31,7 +27,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -41,28 +36,21 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class JudgingReadinessService {
     private static final int MAX_SAFE_ERROR = 128;
-    private final com.cherryoj.judgingservice.config.JudgeNodeProperties nodeProperties;
     private final com.cherryoj.judgingservice.persistence.JudgeNodeRepository nodes;
     private final NodeDeploymentService nodeDeployments;
     private final JudgingRepository repository;
-    private final TestDataDeploymentStore store;
     private final JudgeGateway judge;
     private final UuidV7 ids;
     private final Clock clock;
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
-    private final ReentrantLock[] deploymentLocks = java.util.stream.IntStream.range(0, 64)
-            .mapToObj(ignored -> new ReentrantLock()).toArray(ReentrantLock[]::new);
 
-    public JudgingReadinessService(JudgingRepository repository, org.springframework.beans.factory.ObjectProvider<TestDataDeploymentStore> store,
-                                   JudgeGateway judge, UuidV7 ids, Clock clock, ObjectMapper json,
-                                   PlatformTransactionManager transactionManager,
-                                   com.cherryoj.judgingservice.config.JudgeNodeProperties nodeProperties,
+    public JudgingReadinessService(JudgingRepository repository, JudgeGateway judge, UuidV7 ids, Clock clock,
+                                   ObjectMapper json, PlatformTransactionManager transactionManager,
                                    com.cherryoj.judgingservice.persistence.JudgeNodeRepository nodes,
                                    NodeDeploymentService nodeDeployments) {
         this.repository = repository;
-        this.store = store.getIfAvailable();
-        this.nodeProperties = nodeProperties; this.nodes = nodes; this.nodeDeployments = nodeDeployments;
+        this.nodes = nodes; this.nodeDeployments = nodeDeployments;
         this.judge = judge;
         this.ids = ids;
         this.clock = clock;
@@ -72,39 +60,7 @@ public class JudgingReadinessService {
 
     public Deployment deploy(DeploymentMetadata metadata, InputStream archive,
                              String actorId, String traceId) {
-        if (nodeProperties.remote()) return nodeDeployments.deploy(metadata, archive, traceId);
-        ReentrantLock lock = deploymentLocks[(metadata.testDataVersionId().hashCode() & Integer.MAX_VALUE)
-                % deploymentLocks.length];
-        lock.lock();
-        try {
-            BeginDeployment begin = transactions.execute(status -> beginDeployment(metadata, actorId, traceId));
-            if (begin.ready() != null) return begin.ready();
-
-            Installed installed;
-            try {
-                installed = store.deploy(metadata.testDataVersionId(), metadata.expectedSha256(),
-                        metadata.manifest(), archive);
-            }
-            catch (DeploymentException error) {
-                failDeployment(metadata.testDataVersionId(), begin.environment().id(), error.getMessage(), actorId, traceId);
-                throw deploymentProblem(error);
-            }
-
-            try {
-                return transactions.execute(status -> finishDeployment(
-                        metadata, begin.environment(), installed, actorId, traceId));
-            }
-            catch (RuntimeException error) {
-                store.rollback(installed);
-                failDeployment(metadata.testDataVersionId(), begin.environment().id(),
-                        "DEPLOYMENT_FINALIZE_FAILED", actorId, traceId);
-                if (error instanceof JudgingApiException api) throw api;
-                throw unavailable("DEPLOYMENT_FINALIZE_FAILED", "测试数据部署暂时无法完成。");
-            }
-        }
-        finally {
-            lock.unlock();
-        }
+        return nodeDeployments.deploy(metadata, archive, traceId);
     }
 
     public Calibration calibrate(CalibrationRequest request, String actorId, String traceId) {
@@ -116,7 +72,7 @@ public class JudgingReadinessService {
         String sourceSha = sha256(request.referenceSource().getBytes(StandardCharsets.UTF_8));
         JudgeGateway.JudgeResult result;
         try {
-            result = judge.judge(start.environment().endpointRef(), new JudgeGateway.JudgeRequest(
+            result = judge.judge(start.endpoint(), new JudgeGateway.JudgeRequest(
                     start.calibrationId(), request.problemId(), request.problemVersionId(),
                     request.testDataVersionId(), request.languageId(), request.referenceSource(),
                     new JudgeGateway.Limits(request.cpuNs(), request.memoryBytes(), request.clockNs()), "submit"), traceId);
@@ -149,72 +105,6 @@ public class JudgingReadinessService {
                 expectedSha256, languageId));
     }
 
-    private BeginDeployment beginDeployment(DeploymentMetadata metadata, String actorId, String traceId) {
-        EnvironmentRow environment = requireActive(true);
-        DeploymentRow row = repository.findDeployment(metadata.testDataVersionId(), environment.id(), true);
-        if (row != null) {
-            if (!row.expectedSha256().equals(metadata.expectedSha256())) {
-                throw conflict("DEPLOYMENT_HASH_CONFLICT", "相同测试数据版本不能部署不同摘要。");
-            }
-            if ("READY".equals(row.status()) && row.expectedSha256().equals(row.deployedSha256())) {
-                return new BeginDeployment(environment, mapDeployment(row, environment), row.rowVersion());
-            }
-            if ("FAILED".equals(row.status())) {
-                if (repository.retryFailedDeployment(row.testDataVersionId(), row.environmentId(), now(), row.rowVersion()) != 1) {
-                    throw conflict("DEPLOYMENT_STATE_CONFLICT", "部署状态已改变，请重试。");
-                }
-                row = repository.findDeployment(row.testDataVersionId(), row.environmentId(), false);
-            }
-            else {
-                throw conflict("DEPLOYMENT_IN_PROGRESS", "该测试数据版本正在部署。");
-            }
-        }
-        else {
-            repository.insertDeploying(metadata.testDataVersionId(), environment.id(), metadata.expectedSha256(), now());
-            row = repository.findDeployment(metadata.testDataVersionId(), environment.id(), false);
-        }
-        audit("DEPLOYMENT", metadata.testDataVersionId(), actorId, "TEST_DATA_DEPLOYMENT_STARTED", traceId,
-                Map.of("testDataVersionId", metadata.testDataVersionId(), "environmentId", environment.id(),
-                        "expectedSha256", metadata.expectedSha256()));
-        return new BeginDeployment(environment, null, row.rowVersion());
-    }
-
-    private Deployment finishDeployment(DeploymentMetadata metadata, EnvironmentRow expectedEnvironment,
-                                        Installed installed, String actorId, String traceId) {
-        EnvironmentRow active = requireActive(true);
-        if (!active.id().equals(expectedEnvironment.id())) {
-            throw conflict("ACTIVE_ENVIRONMENT_CHANGED", "部署期间 ACTIVE 环境已经改变。");
-        }
-        DeploymentRow row = repository.findDeployment(metadata.testDataVersionId(), active.id(), true);
-        if (row == null || !"DEPLOYING".equals(row.status())
-                || !row.expectedSha256().equals(installed.sha256())) {
-            throw conflict("DEPLOYMENT_STATE_CONFLICT", "部署状态已改变，请重试。");
-        }
-        if (repository.markDeploymentReady(row.testDataVersionId(), row.environmentId(), installed.sha256(),
-                now(), row.rowVersion()) != 1) {
-            throw conflict("DEPLOYMENT_STATE_CONFLICT", "部署状态已改变，请重试。");
-        }
-        audit("DEPLOYMENT", row.testDataVersionId(), actorId, "TEST_DATA_DEPLOYMENT_READY", traceId,
-                Map.of("testDataVersionId", row.testDataVersionId(), "environmentId", active.id(),
-                        "deployedSha256", installed.sha256(), "fileCount", metadata.manifest().files().size()));
-        return mapDeployment(repository.findDeployment(row.testDataVersionId(), row.environmentId(), false), active);
-    }
-
-    private void failDeployment(String testDataId, String environmentId, String error,
-                                String actorId, String traceId) {
-        try {
-            transactions.executeWithoutResult(status -> {
-                String safeError = safe(error);
-                if (repository.markDeploymentFailed(testDataId, environmentId, safeError, now()) == 1) {
-                    audit("DEPLOYMENT", testDataId, actorId, "TEST_DATA_DEPLOYMENT_FAILED", traceId,
-                            Map.of("testDataVersionId", testDataId, "environmentId", environmentId,
-                                    "failureCode", safeError));
-                }
-            });
-        }
-        catch (RuntimeException ignored) { }
-    }
-
     private CalibrationStart startCalibration(CalibrationRequest request, String actorId, String traceId) {
         EnvironmentRow environment = requireActive(true);
         requireLanguageAndDeployment(environment, request.languageId(), request.testDataVersionId(),
@@ -227,12 +117,9 @@ public class JudgingReadinessService {
                         "testDataVersionId", request.testDataVersionId(), "environmentId", environment.id(),
                         "languageId", request.languageId(), "cpuNs", request.cpuNs(),
                         "memoryBytes", request.memoryBytes()));
-        if (nodeProperties.remote()) {
-            var node = nodes.ready(environment.id(), request.testDataVersionId(), request.expectedSha256(), now());
-            if (node == null) throw NodeDeploymentService.noOnline();
-            environment = new EnvironmentRow(environment.id(), environment.name(), environment.fingerprint(), node.endpoint());
-        }
-        return new CalibrationStart(id, environment);
+        var node = nodes.ready(environment.id(), request.testDataVersionId(), request.expectedSha256(), now());
+        if (node == null) throw NodeDeploymentService.noOnline();
+        return new CalibrationStart(id, environment, node.endpoint());
     }
 
     private Calibration finishValidCalibration(CalibrationStart start, CalibrationRequest request,
@@ -278,17 +165,10 @@ public class JudgingReadinessService {
         boolean language = environment != null && repository.languageEnabled(environment.id(), languageId);
         checks.add(check("LANGUAGE", language,
                 language ? "语言在当前环境已启用。" : "语言未在当前环境启用。"));
-        DeploymentRow deployment = environment == null ? null
-                : repository.findDeployment(testDataVersionId, environment.id(), false);
-        boolean deployed = deployment != null && "READY".equals(deployment.status())
-                && expectedSha256.equals(deployment.expectedSha256())
-                && expectedSha256.equals(deployment.deployedSha256());
+        boolean online = environment != null && !nodes.online(environment.id(), now()).isEmpty();
+        checks.add(check("ONLINE_JUDGE_NODE", online, online ? "在线判题节点可用。" : "当前没有在线判题节点，请启动节点并等待注册。"));
         var readyNode = environment == null ? null : nodes.ready(environment.id(), testDataVersionId, expectedSha256, now());
-        if (nodeProperties.remote()) {
-            boolean online = environment != null && !nodes.online(environment.id(), now()).isEmpty();
-            checks.add(check("ONLINE_JUDGE_NODE", online, online ? "在线判题节点可用。" : "当前没有在线判题节点，请启动节点并等待注册。"));
-            deployed = readyNode != null;
-        }
+        boolean deployed = readyNode != null;
         checks.add(check("DEPLOYMENT", deployed,
                 deployed ? "测试数据已按预期摘要部署。" : "测试数据尚未 READY 或摘要不匹配。"));
         CalibrationRow calibration = environment == null ? null
@@ -298,7 +178,7 @@ public class JudgingReadinessService {
                 calibrated ? "当前环境存在 VALID 校准。" : "当前环境缺少 VALID 校准。"));
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
         ExecutionProfile profile = ready ? new ExecutionProfile(environment.id(), environment.fingerprint(),
-                (nodeProperties.remote() ? readyNode.endpoint() : environment.endpointRef()), calibration.id(), calibration.cpuNs(), calibration.memoryBytes(),
+                readyNode.endpoint(), calibration.id(), calibration.cpuNs(), calibration.memoryBytes(),
                 calibration.clockNs()) : null;
         return new Readiness(ready, environment == null ? null : environment.id(), checks, profile);
     }
@@ -308,18 +188,9 @@ public class JudgingReadinessService {
         if (!repository.languageEnabled(environment.id(), languageId)) {
             throw conflict("LANGUAGE_NOT_ENABLED", "语言未在当前 ACTIVE 环境启用。");
         }
-        if (nodeProperties.remote()) {
-            if (nodes.online(environment.id(), now()).isEmpty()) throw NodeDeploymentService.noOnline();
-            if (nodes.ready(environment.id(), testDataVersionId, expectedSha, now()) == null)
-                throw conflict("DEPLOYMENT_NOT_READY", "在线节点尚未安装匹配的测试数据，请先部署。");
-            return;
-        }
-        DeploymentRow deployment = repository.findDeployment(testDataVersionId, environment.id(), true);
-        if (deployment == null || !"READY".equals(deployment.status())
-                || !expectedSha.equals(deployment.expectedSha256())
-                || !expectedSha.equals(deployment.deployedSha256())) {
-            throw conflict("DEPLOYMENT_NOT_READY", "测试数据未在当前 ACTIVE 环境按预期摘要部署。");
-        }
+        if (nodes.online(environment.id(), now()).isEmpty()) throw NodeDeploymentService.noOnline();
+        if (nodes.ready(environment.id(), testDataVersionId, expectedSha, now()) == null)
+            throw conflict("DEPLOYMENT_NOT_READY", "在线节点尚未安装匹配的测试数据，请先部署。");
     }
 
     private EnvironmentRow requireActive(boolean lock) {
@@ -332,12 +203,6 @@ public class JudgingReadinessService {
                        String traceId, Map<String, Object> detail) {
         repository.insertAudit(ids.next().toString(), type, aggregateId, actorId, action,
                 safeTrace(traceId), writeJson(detail), now());
-    }
-
-    private Deployment mapDeployment(DeploymentRow row, EnvironmentRow environment) {
-        return new Deployment(row.testDataVersionId(), row.environmentId(), environment.name(),
-                row.expectedSha256(), row.status(), row.deployedSha256(), row.deployedAt(),
-                row.errorMessage(), row.updatedAt(), row.rowVersion());
     }
 
     private Calibration mapCalibration(CalibrationRow row) {
@@ -378,16 +243,6 @@ public class JudgingReadinessService {
     private static ReadinessCheck check(String code, boolean passed, String message) {
         return new ReadinessCheck(code, passed, message);
     }
-    private static JudgingApiException deploymentProblem(DeploymentException error) {
-        return switch (error.kind()) {
-            case INVALID -> new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY,
-                    "INVALID_TEST_DATA_DEPLOYMENT", "测试数据 ZIP 与 manifest 不匹配。");
-            case TOO_LARGE -> new JudgingApiException(HttpStatus.PAYLOAD_TOO_LARGE,
-                    "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
-            case CONFLICT -> conflict("DEPLOYMENT_DIRECTORY_CONFLICT", "判题目录已存在，拒绝覆盖。");
-            case STORAGE -> unavailable("DEPLOYMENT_STORAGE_UNAVAILABLE", "判题数据目录暂时不可用。");
-        };
-    }
     private static JudgingApiException conflict(String code, String message) {
         return new JudgingApiException(HttpStatus.CONFLICT, code, message);
     }
@@ -395,6 +250,5 @@ public class JudgingReadinessService {
         return new JudgingApiException(HttpStatus.SERVICE_UNAVAILABLE, code, message);
     }
 
-    private record BeginDeployment(EnvironmentRow environment, Deployment ready, long rowVersion) {}
-    private record CalibrationStart(String calibrationId, EnvironmentRow environment) {}
+    private record CalibrationStart(String calibrationId, EnvironmentRow environment, String endpoint) {}
 }

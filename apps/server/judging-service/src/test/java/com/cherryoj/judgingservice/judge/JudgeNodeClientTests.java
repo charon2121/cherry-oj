@@ -24,8 +24,8 @@ class JudgeNodeClientTests {
             byte[] bytes=body.get().getBytes(java.nio.charset.StandardCharsets.UTF_8);exchange.sendResponseHeaders(status.get(),bytes.length);exchange.getResponseBody().write(bytes);exchange.close();
         });server.start();
         try {
-            var client=new JudgeNodeClient(new JudgeNodeProperties("secret",Duration.ofSeconds(35),"node-remote"),
-                new JudgingProperties(null,1000,1000,1000,20,100,Duration.ofSeconds(2),Duration.ofHours(1),false,null),JsonMapper.builder().build());
+            var client=new JudgeNodeClient(new JudgeNodeProperties("secret",Duration.ofSeconds(35)),
+                new JudgingProperties(1000,Duration.ofSeconds(2)),JsonMapper.builder().build());
             var node=new Node("node","environment","session","http://127.0.0.1:"+server.getAddress().getPort(),"fingerprint",LocalDateTime.now().plusSeconds(35));
             var m=new DeploymentMetadata("version","a".repeat(64),new Manifest(1,2,List.of(new ManifestFile("1.in",1,"b".repeat(64)),new ManifestFile("1.out",1,"c".repeat(64)))));
             String valid="{\"nodeId\":\"node\",\"environmentFingerprint\":\"fingerprint\",\"sessionId\":\"session\",\"testDataVersionId\":\"version\",\"sha256\":\""+"a".repeat(64)+"\",\"fileCount\":2}";
@@ -53,8 +53,8 @@ class JudgeNodeClientTests {
         });
         server.start();
         try {
-            var client = new JudgeNodeClient(new JudgeNodeProperties("secret", Duration.ofSeconds(35), "node-remote"),
-                    new JudgingProperties(null, 1000, 1000, 1000, 20, 100, Duration.ofMillis(500), Duration.ofHours(1), false, null), JsonMapper.builder().build());
+            var client = new JudgeNodeClient(new JudgeNodeProperties("secret", Duration.ofSeconds(35)),
+                    new JudgingProperties(1000, Duration.ofMillis(500)), JsonMapper.builder().build());
             var node = new Node("node", "environment", "session", "http://127.0.0.1:" + server.getAddress().getPort(), "fingerprint", LocalDateTime.now().plusSeconds(35));
             var metadata = new DeploymentMetadata("version", "a".repeat(64), new Manifest(1, 2, List.of(new ManifestFile("1.in", 1, "b".repeat(64)), new ManifestFile("1.out", 1, "c".repeat(64)))));
             org.junit.jupiter.api.Assertions.assertTimeoutPreemptively(Duration.ofSeconds(3), () ->

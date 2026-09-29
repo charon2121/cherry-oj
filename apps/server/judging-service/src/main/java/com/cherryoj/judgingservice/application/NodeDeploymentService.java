@@ -31,7 +31,7 @@ public class NodeDeploymentService {
         if (online.isEmpty()) throw noOnline();
         var node = online.getFirst();
         if (nodes.hashConflict(node.nodeId(), metadata.testDataVersionId(), metadata.expectedSha256())) throw new JudgingApiException(HttpStatus.CONFLICT, "DEPLOYMENT_HASH_CONFLICT", "相同版本不能部署不同摘要。");
-        // HTTP 明确在事务外，回执丢失可以重试；不把旧环境级 READY 当成节点事实。
+        // HTTP 明确在事务外，回执丢失可以重试。
         Long previousReceipt = nodes.receiptVersion(node, metadata.testDataVersionId());
         com.cherryoj.judgingservice.api.JudgeNodeDtos.Receipt receipt;
         try {

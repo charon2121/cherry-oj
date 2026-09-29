@@ -141,7 +141,6 @@ Judge 经 sandbox 的限时探测获取实际 CPU、内核、系统、编译器�
 `JUDGE_NODE_ID=judge-v2 JUDGE_TESTDATA_VOLUME=cherry-judge-v2 docker compose up -d --build`。
 旧身份和旧安装回执不能用于另一环境；保留旧卷用于回退，不覆盖旧目录，回退时恢复原节点 ID 与卷名。
 
-既有数据库先升级 V2 并显式保留 `legacy-local`；历史环境、部署与标定都不改写。
 已有其他指纹的 ACTIVE 环境不会自动替换，新节点只会 REGISTERED。准备迁移时，先记录旧/新环境 ID，
 确认允许新环境暂时因尚未部署/校准而不可用，然后生成可审阅的切换 SQL：
 
@@ -152,17 +151,13 @@ mysql --defaults-extra-file=/安全路径/mysql.cnf cherry_oj_judging < /tmp/swi
 ```
 
 脚本本身只生成 SQL。事务会校验原 ACTIVE、目标 REGISTERED/RETIRED 和在线租约，并与注册/回执共用锁；
-不满足时整段回滚。切换后启用 `node-remote`，重新部署并对新环境校准，不能复制旧标定。
+不满足时整段回滚。切换后重新部署并对新环境校准，不能复制旧标定。
 校准遵循现有版本状态机：只有 DRAFT 可开始验证；已 READY_FOR_REVIEW 的版本应在旧环境完成发布，
 已发布版本则创建复用测试数据的新草稿修订，再在新环境校准。旧发布版本与旧环境标定保持不变。
-回退时把 OLD/NEW 对调并加 `--legacy-target`，再恢复下述 legacy 配置；历史标定仍属于原环境。
+回退时把 OLD/NEW 对调；历史标定仍属于原环境。
 
 工作台每 10 秒刷新发布检查。节点离线后，部署按钮显示原因并禁用；节点恢复后可以重新部署，
 节点检查已有目录的 hash/manifest 后返回回执，无需重新上传 ZIP。
-
-回退：设置 `CHERRY_JUDGE_DEPLOYMENT_MODE=legacy-local`，配置原 Java 测试数据目录，并执行
-`TESTDATA_PATH=/绝对路径 docker compose -f compose.yaml -f compose.legacy.yaml up -d`。
-回退保留 V2 表与节点卷，不删除旧资产；旧目录权限仍需允许 Judge 的 UID 10001 读取。
 
 隔离端到端验证：先运行 Maven package 和 `docker compose build judge`，再运行
 `python3 apps/server/judging-service/scripts/node-e2e.py`。脚本建立独立 MySQL/Redis、五服务、

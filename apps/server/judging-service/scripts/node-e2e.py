@@ -40,7 +40,7 @@ def start(service,extra=None):
  CHERRY_USER_SERVICE_URL=f"http://127.0.0.1:{ports['user']}",CHERRY_PROBLEM_SERVICE_URL=f"http://127.0.0.1:{ports['problem']}",
  CHERRY_JUDGING_BASE_URL=f"http://127.0.0.1:{ports['judging']}",CHERRY_IDENTITY_JWKS_URI=f"http://127.0.0.1:{ports['user']}/.well-known/jwks.json",
  CHERRY_IDENTITY_METADATA_URI=f"http://127.0.0.1:{ports['user']}/internal/identity/metadata",CHERRY_REDIS_PORT=str(ports['redis']),
- CHERRY_TEST_DATA_ROOT=str(OUT/'problem-assets'),CHERRY_JUDGE_TESTDATA_ROOT=str(OUT/'legacy-assets'),
+ CHERRY_TEST_DATA_ROOT=str(OUT/'problem-assets'),
  CHERRY_JUDGE_NODE_LEASE_DURATION='4s',CHERRY_WEB_ORIGIN='http://localhost:5173',
  CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:'+str(OUT/'keys/active-private.pem'),CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:'+str(OUT/'keys/active-public.pem'))
  for database in ['user','problem','judging']:
@@ -123,9 +123,7 @@ try:
  assert calibrated['status']=='VALID',calibrated
  deploy_payload['rowVersion']=request(version_path)['rowVersion']
  ready=request(version_path+'/publish-check');assert ready['ready'],ready
- assert sql('SELECT COUNT(*) FROM cherry_judging.test_data_deployment')=='0'
  assert sql('SELECT COUNT(*) FROM cherry_judging.test_data_node_deployment WHERE available=1')=='1'
- assert not (OUT/'legacy-assets').exists(),'Java unexpectedly created local deployment directory'
  print('Finder upload → bind → remote install → duplicate install → C++ calibration: PASS.',flush=True)
  run(compose+['stop','judge'],env=env)
  wait(lambda:any(c['code']=='ONLINE_JUDGE_NODE' and not c['passed'] for c in request(version_path+'/publish-check')['checks']),'offline lease')
@@ -137,37 +135,7 @@ try:
  request(version_path+'/deployment','POST',deploy_payload)
  assert request(version_path+'/publish-check')['ready']
  print('Stop → lease expiry → restart → revalidate local data: PASS.',flush=True)
- # Exercise the actual legacy switch on this owned stack, preserving node facts.
- node_receipt=sql('SELECT node_id,HEX(expected_sha256),BIN_TO_UUID(session_id),file_count,available FROM cherry_judging.test_data_node_deployment')
- original_calibration=sql('SELECT BIN_TO_UUID(id),status,cpu_ns,memory_bytes FROM cherry_judging.language_calibration')
- actual_fingerprint=sql("SELECT fingerprint FROM cherry_judging.judge_environment WHERE status='ACTIVE'")
- original_judging=processes[1];original_judging.terminate();original_judging.wait(timeout=15)
- command,config,log=start('judging',{'CHERRY_JUDGE_DEPLOYMENT_MODE':'legacy-local'})
- legacy_process=subprocess.Popen(command,env=config,cwd=OUT,stdout=log,stderr=log);processes.append(legacy_process)
- wait(lambda:raw(f"http://127.0.0.1:{ports['judging']}/actuator/health")['status']=='UP','legacy judging')
  deploy_payload['rowVersion']=request(version_path)['rowVersion']
- legacy_deployed=request(version_path+'/deployment','POST',deploy_payload);assert legacy_deployed['status']=='READY'
- # This intentionally restores legacy's documented UID-readable bind mount.
- legacy_root=OUT/'legacy-assets'
- for item in [legacy_root,*legacy_root.rglob('*')]:item.chmod(0o755 if item.is_dir() else 0o444)
- legacy_env=dict(env,TESTDATA_PATH=str(legacy_root),JUDGE_ENVIRONMENT_FINGERPRINT=actual_fingerprint)
- legacy_compose=['docker','compose','-f',str(ROOT/'compose.yaml'),'-f',str(ROOT/'compose.legacy.yaml'),'-p',NAME]
- run(legacy_compose+['up','-d','--wait','judge'],env=legacy_env)
- assert request(version_path+'/publish-check')['ready']
- # Read-only /judge execution proves the restored mount works without changing calibration.
- judge_request={'submissionId':str(uuid.uuid4()),'problemId':pid,'problemVersionId':vid,'testDataVersionId':asset['id'],'languageId':'cpp','source':source,'limits':{'cpuNs':1000000000,'memoryBytes':268435456},'mode':'submit'}
- with urllib.request.urlopen(urllib.request.Request(f"http://127.0.0.1:{ports['judge']}/judge",json.dumps(judge_request).encode(),{'Content-Type':'application/json'}),timeout=30) as response:legacy_result=json.load(response)
- assert legacy_result['verdict']=='AC',legacy_result
- assert sql('SELECT node_id,HEX(expected_sha256),BIN_TO_UUID(session_id),file_count,available FROM cherry_judging.test_data_node_deployment')==node_receipt
- assert sql('SELECT BIN_TO_UUID(id),status,cpu_ns,memory_bytes FROM cherry_judging.language_calibration')==original_calibration
- print('Legacy rollback: explicit mode + bind mount + actual C++ AC; node receipts and calibration unchanged: PASS.',flush=True)
- legacy_process.terminate();legacy_process.wait(timeout=15)
- command,config,log=start('judging');remote_process=subprocess.Popen(command,env=config,cwd=OUT,stdout=log,stderr=log);processes.append(remote_process)
- wait(lambda:raw(f"http://127.0.0.1:{ports['judging']}/actuator/health")['status']=='UP','restored remote judging')
- run(compose+['up','-d','--wait','judge'],env=env)
- wait(lambda:sql('SELECT COUNT(*) FROM cherry_judging.judge_node WHERE lease_expires_at>UTC_TIMESTAMP(6)')=='1','restored remote registration')
- request(version_path+'/deployment','POST',deploy_payload)
- assert request(version_path+'/publish-check')['ready']
  # Publish the old fixture, then create an editable revision for the new environment.
  published_snapshot=request(version_path+'/publish','POST',{'rowVersion':deploy_payload['rowVersion']})
  deploy_payload['rowVersion']=published_snapshot['rowVersion']
@@ -176,9 +144,8 @@ try:
  revision_path=f"/api/admin/problems/{pid}/versions/{revision['id']}"
  # Real environment upgrade: different policy, new identity and private volume.
  old_environment=sql("SELECT BIN_TO_UUID(id) FROM cherry_judging.judge_environment WHERE status='ACTIVE'")
- def switch(previous,target,legacy=False):
+ def switch(previous,target):
   command=['python3',str(ROOT/'apps/server/judging-service/scripts/switch-environment.py'),previous,target]
-  if legacy:command.append('--legacy-target')
   generated=run(command).stdout.decode()
   return sql('USE cherry_judging;\n'+generated)
  try:
@@ -208,7 +175,7 @@ try:
  assert sql("SELECT COUNT(*) FROM cherry_judging.language_calibration WHERE status='VALID'")=='2'
  assert request(version_path)==published_snapshot
  print('Environment switch guards, new identity/private volume, fresh calibration and return to old environment: PASS.',flush=True)
- evidence={'project':NAME,'ports':ports,'problemId':pid,'versionId':vid,'workbenchVersionId':revision['id'],'environmentFingerprint':actual_fingerprint,'testDataVersionId':asset['id'],'environmentId':deployed['environmentId'],'sha256':asset['contentSha256'],'requestIds':request_ids,'result':'pass','legacyRollback':'pass','environmentSwitch':'pass','defaultMode':'node-remote'}
+ evidence={'project':NAME,'ports':ports,'problemId':pid,'versionId':vid,'workbenchVersionId':revision['id'],'testDataVersionId':asset['id'],'environmentId':deployed['environmentId'],'sha256':asset['contentSha256'],'requestIds':request_ids,'result':'pass','environmentSwitch':'pass'}
  (OUT/'evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
  (OUT/'compose.env.json').write_text(json.dumps({k:v for k,v in env.items() if k.startswith('JUDGE_') or k=='CHERRY_JUDGE_CONTROL_TOKEN'}));os.chmod(OUT/'compose.env.json',0o600)
  print('E2E PASS:',OUT/'evidence.json',flush=True)

@@ -23,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 import static org.mockito.Mockito.when;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = {"cherry.judging.recovery-enabled=false", "cherry.judging.provision.enabled=false"})
+@SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
 class JudgeNodeRegistryIntegrationTests {
     @Container static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4");

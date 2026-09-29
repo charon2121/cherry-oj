@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties={"cherry.formal.enabled=false","cherry.judging.recovery-enabled=false"})
+@SpringBootTest(properties={"cherry.formal.enabled=false"})
 @Testcontainers
 class FormalTaskStoreTests {
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4").withDatabaseName("judging");

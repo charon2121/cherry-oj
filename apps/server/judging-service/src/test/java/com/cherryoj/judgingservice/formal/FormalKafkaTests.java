@@ -27,8 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.awaitility.Awaitility.await;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties={"cherry.formal.enabled=true","cherry.formal.submission-token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "cherry.judging.recovery-enabled=false"})
+@SpringBootTest(properties={"cherry.formal.enabled=true","cherry.formal.submission-token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
 @Testcontainers
 @DirtiesContext(classMode=DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class FormalKafkaTests {

@@ -1,7 +1,6 @@
 package com.cherryoj.judgingservice.api;
 
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
-import com.cherryoj.judgingservice.config.JudgeNodeProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -11,14 +10,12 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 public class SubmissionExecutionProfileController {
     private final JudgingReadinessService service;
-    private final JudgeNodeProperties nodes;
     private final com.cherryoj.judgingservice.formal.FormalProperties budgets;
-    public SubmissionExecutionProfileController(JudgingReadinessService service, JudgeNodeProperties nodes, com.cherryoj.judgingservice.formal.FormalProperties budgets) {
-        this.service = service; this.nodes = nodes; this.budgets = budgets;
+    public SubmissionExecutionProfileController(JudgingReadinessService service, com.cherryoj.judgingservice.formal.FormalProperties budgets) {
+        this.service = service; this.budgets = budgets;
     }
     @PostMapping("/internal/submission/execution-profile")
     public Profile resolve(@Valid @RequestBody Request request) {
-        if (!nodes.remote()) throw unavailable();
         var readiness = service.readiness(request.problemVersionId(), request.testDataVersionId(),
                 request.testDataContentSha256(), request.languageId());
         var profile = readiness.executionProfile();

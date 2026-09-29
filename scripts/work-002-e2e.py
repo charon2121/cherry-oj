@@ -52,7 +52,7 @@ def start(service,extra=None):
  CHERRY_USER_SERVICE_URL=f"http://127.0.0.1:{ports['user']}",CHERRY_PROBLEM_SERVICE_URL=f"http://127.0.0.1:{ports['problem']}",
  CHERRY_JUDGING_BASE_URL=f"http://127.0.0.1:{ports['judging']}",CHERRY_IDENTITY_JWKS_URI=f"http://127.0.0.1:{ports['user']}/.well-known/jwks.json",
  CHERRY_IDENTITY_METADATA_URI=f"http://127.0.0.1:{ports['user']}/internal/identity/metadata",CHERRY_REDIS_PORT=str(ports['redis']),
- CHERRY_TEST_DATA_ROOT=str(OUT/'problem-assets'),CHERRY_JUDGE_TESTDATA_ROOT=str(OUT/'legacy-assets'),
+ CHERRY_TEST_DATA_ROOT=str(OUT/'problem-assets'),
  CHERRY_JUDGE_NODE_LEASE_DURATION='4s',CHERRY_WEB_ORIGIN=f"http://{NAME}.localhost:{ports['web']}",
  CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:'+str(OUT/'keys/active-private.pem'),CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:'+str(OUT/'keys/active-public.pem'))
  for database in ['user','problem','judging','submission']:
@@ -149,7 +149,6 @@ try:
  assert calibrated['status']=='VALID',calibrated
  deploy_payload['rowVersion']=request(version_path)['rowVersion']
  ready=request(version_path+'/publish-check');assert ready['ready'],ready
- assert sql('SELECT COUNT(*) FROM cherry_judging.test_data_deployment')=='0'
  assert sql('SELECT COUNT(*) FROM cherry_judging.test_data_node_deployment WHERE available=1')=='1'
  assert not (OUT/'legacy-assets').exists(),'Java unexpectedly created local deployment directory'
  print('Upload → bind → remote install → C++ calibration: PASS.',flush=True)

@@ -24,7 +24,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties={"cherry.judging.node.deployment-mode=node-remote","cherry.judging.node.control-token=test-control"})
+@SpringBootTest(properties={"cherry.judging.node.control-token=test-control"})
 @Testcontainers(disabledWithoutDocker=true)
 class NodeDeploymentIntegrationTests {
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
@@ -36,7 +36,7 @@ class NodeDeploymentIntegrationTests {
     @MockitoBean JudgeNodeClient client;
     @MockitoBean JudgeGateway judge;
     @MockitoBean Clock clock;
-    @Test void remoteDeploymentUsesOnlineInstalledNodeAndNeverCreatesLegacyReady() throws Exception {
+    @Test void remoteDeploymentUsesOnlineInstalledNode() throws Exception {
         Instant time=Instant.parse("2026-09-06T01:00:00Z");when(clock.instant()).thenReturn(time);when(clock.millis()).thenReturn(time.toEpochMilli());when(clock.getZone()).thenReturn(ZoneOffset.UTC);
         String session=UUID.randomUUID().toString(),version=UUID.randomUUID().toString(),problem=UUID.randomUUID().toString(),actor=UUID.randomUUID().toString();
         var metadata=new DeploymentMetadata(version,"a".repeat(64),new Manifest(1,2,List.of(new ManifestFile("1.in",1,"b".repeat(64)),new ManifestFile("1.out",1,"c".repeat(64)))));
@@ -51,7 +51,6 @@ class NodeDeploymentIntegrationTests {
         assertThat(deployed.status()).isEqualTo("READY");
         service.deploy(metadata,new ByteArrayInputStream(new byte[0]),actor,null);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM test_data_node_deployment",Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM test_data_deployment",Integer.class)).isZero();
         when(judge.judge(anyString(),any(),any())).thenReturn(new JudgeGateway.JudgeResult("AC","fingerprint",1L,1L,100));
         service.calibrate(new CalibrationRequest(problem,problem,version,"a".repeat(64),"cpp",1000000,1000000,null,"int main(){}"),actor,null);
         var ready=service.readiness(problem,version,"a".repeat(64),"cpp");assertThat(ready.ready()).isTrue();assertThat(ready.executionProfile().endpointRef()).isEqualTo(registration.endpoint());

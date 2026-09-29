@@ -4,7 +4,6 @@ import com.cherryoj.judgingservice.config.JudgingProperties;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -28,7 +27,7 @@ class HttpJudgeGatewaySizeTests {
         });
         server.start();
         try {
-            var properties=new JudgingProperties(Path.of("."),1,1,1,1,1,Duration.ofSeconds(10),Duration.ofHours(1),false,null);
+            var properties=new JudgingProperties(1,Duration.ofSeconds(10));
             var gateway=new HttpJudgeGateway(HttpClient.newHttpClient(),JsonMapper.builder()
                     .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build(),properties);
             var result=gateway.judge("http://127.0.0.1:"+server.getAddress().getPort(),

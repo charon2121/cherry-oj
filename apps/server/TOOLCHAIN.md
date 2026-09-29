@@ -110,10 +110,6 @@ V2 migration 追加节点、租约与逐节点部署表，不删除 V1 环境、
 节点重启保留旧回执但撤销可用性，通过再次部署幂等检查本地文件后恢复。参数分别为
 `JUDGE_HEARTBEAT_INTERVAL` 和 `CHERRY_JUDGE_NODE_LEASE_DURATION`。
 
-`CHERRY_JUDGE_DEPLOYMENT_MODE=legacy-local` 是显式回退路径，保留旧文件安装和启动恢复能力。
-仅回退模式可以显式启用 `cherry.judging.provision.*`；普通节点模式不运行 dev fixture。
-回退时使用 `compose.legacy.yaml` 和原 `TESTDATA_PATH`，不删除节点卷或回滚 V2 migration。
-
 控制 token 通过 `CHERRY_JUDGE_CONTROL_TOKEN` 配给两端，本地默认值仅用于本机开发；生产必须显式
 提供 token 和数据库连接，节点 advertise URL 必须能被 Java 访问。测试用临时 MySQL 8.4 验证
 约束、并发注册、租约边界、迁移和回执；真实五服务 Compose 回归入口为

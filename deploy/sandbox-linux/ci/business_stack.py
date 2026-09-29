@@ -118,8 +118,6 @@ class Stack:
         for service in SERVICES:
             self.unit(service, ['python3', '-B', script, PRIVATE, service, '--java', self.java])
             wait_health(PORTS[service])
-        if (PRIVATE / 'forbidden-local-testdata').exists():
-            raise RuntimeError('judging unexpectedly used local data mode')
 
     def browser_server(self, node):
         self.unit('preview', [node, ROOT / 'apps/web/node_modules/vite/bin/vite.js', 'preview',

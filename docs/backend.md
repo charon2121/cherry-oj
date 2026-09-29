@@ -326,5 +326,4 @@ Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日�
 重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
 
 本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路，
-只 REGISTERED 新指纹，不能静默替换 ACTIVE。显式回退使用 `legacy-local` 与
-`compose.legacy.yaml`，保留 migration、历史校准和 JudgeInput；具体参数见 `apps/server/README.md`。
+只 REGISTERED 新指纹，不能静默替换 ACTIVE；具体参数见 `apps/server/README.md`。

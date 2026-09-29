@@ -41,9 +41,7 @@ import org.springframework.web.context.WebApplicationContext;
         "spring.flyway.enabled=false",
         "cherry.service-calls.submission-judging-tokens=work044-synthetic-service-token-0123456789",
         "spring.datasource.url=jdbc:mysql://127.0.0.1:1/not-used",
-        "spring.datasource.username=none",
-        "cherry.judging.recovery-enabled=false",
-        "cherry.judging.testdata-root=${java.io.tmpdir}/cherry-judging-security"
+        "spring.datasource.username=none"
 })
 class AdminJudgingSecurityIntegrationTests {
     private static final String USER_ID = "019c8e42-7f70-7000-8000-000000000001";

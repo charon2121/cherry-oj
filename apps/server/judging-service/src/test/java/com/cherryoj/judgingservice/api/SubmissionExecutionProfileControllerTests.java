@@ -1,7 +1,6 @@
 package com.cherryoj.judgingservice.api;
 
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
-import com.cherryoj.judgingservice.config.JudgeNodeProperties;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -15,8 +14,7 @@ class SubmissionExecutionProfileControllerTests {
     }
     @Test void neverFallsBackToDefaultLimitsOrExposesNodeAddress() {
         var service = mock(JudgingReadinessService.class);
-        var nodes = new JudgeNodeProperties("control", Duration.ofSeconds(30), "node-remote");
-        var controller = new SubmissionExecutionProfileController(service, nodes, budgets());
+        var controller = new SubmissionExecutionProfileController(service, budgets());
         var request = new SubmissionExecutionProfileController.Request("p", "d", "a".repeat(64), "cpp",3);
         when(service.readiness("p", "d", "a".repeat(64), "cpp"))
                 .thenReturn(new JudgingDtos.Readiness(false, "e", List.of(), null));
@@ -28,8 +26,5 @@ class SubmissionExecutionProfileControllerTests {
         assertEquals("cal", profile.languageCalibrationId());
         assertEquals(1000, profile.effectiveLimits().cpuNs());
         assertFalse(profile.toString().contains("private-node"));
-        var legacy = new SubmissionExecutionProfileController(service,
-                new JudgeNodeProperties("", Duration.ofSeconds(30), "legacy-local"),budgets());
-        assertThrows(JudgingApiException.class, () -> legacy.resolve(request));
     }
 }
