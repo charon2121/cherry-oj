@@ -22,7 +22,8 @@ def sample(groups: Iterable[Path]) -> tuple[set[int], set[int]]:
         for pid in pids:
             try:
                 status = Path('/proc', pid, 'status').read_text()
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
+                # 进程在列出与读取之间退出：目录已消失是 ENOENT，正在退出时读取是 ESRCH。
                 continue
             uid = int(next(line for line in status.splitlines() if line.startswith('Uid:')).split()[1])
             # box 0、1 的 payload 与 init 身份（基数 + box 序号）。

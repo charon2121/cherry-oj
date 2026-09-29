@@ -21,7 +21,7 @@ class IdentitySampleTest(unittest.TestCase):
     def test_disappearance_and_observation_errors(self) -> None:
         group = Path('/owned-test-group')
         for site in ('cgroup.procs', 'status'):
-            for number in (errno.ENOENT, errno.ENODEV, errno.EACCES, errno.EIO, errno.EMFILE):
+            for number in (errno.ENOENT, errno.ENODEV, errno.ESRCH, errno.EACCES, errno.EIO, errno.EMFILE):
                 with self.subTest(site=site, errno=number):
                     failed = False
 
@@ -36,7 +36,8 @@ class IdentitySampleTest(unittest.TestCase):
                         # 已有完整样本也不能覆盖后续观察故障。
                         self.assertEqual(SAMPLER.sample([group]), ({61002, 61003}, {61006, 61007}))
                         failed = True
-                        allowed = number == errno.ENOENT or (site == 'cgroup.procs' and number == errno.ENODEV)
+                        allowed = number == errno.ENOENT or (site == 'cgroup.procs' and number == errno.ENODEV) or (
+                            site == 'status' and number == errno.ESRCH)
                         if allowed:
                             self.assertEqual(SAMPLER.sample([group]), (set(), set()))
                         else:
