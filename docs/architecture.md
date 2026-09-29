@@ -14,8 +14,8 @@
 
 ## 1. 架构原则
 
-1. **产品事实与执行事实分开。** 题面、版本、模板和测试数据元信息属于 problem-service；判题环境、
-   数据部署状态和环境相关限制属于 judging-service。
+1. **产品事实与执行事实分开。** 题面、版本、模板和测试数据元信息属于 problem-service；判题节点、
+   数据部署状态和标定后的绝对限制属于 judging-service。
 2. **一次提交先冻结，再异步执行。** submission-service 在自己的事务中保存 Submission、不可变
    JudgeInput 和 Outbox；Kafka 消息不携带源码或隐藏数据。
 3. **每个服务只写自己的数据库。** 跨服务不连表、不共享 Mapper、不直接读取对方 schema。
@@ -113,7 +113,7 @@ MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约�
 - 面向 submission-service 的不可变 `ProblemJudgeSnapshot`：明确版本、语言、代码模式、模板和
   `testDataVersionId`。
 
-problem-service 不保存 Submission，不选择判题环境，不保存环境相关绝对限制，不执行判题。
+problem-service 不保存 Submission，不选择判题节点，不保存标定后的绝对限制，不执行判题。
 
 ### 3.4 submission-service
 
@@ -139,24 +139,27 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
 
 唯一写入：
 
-- JudgeEnvironment、JudgeEnvironmentLanguage。
-- JudgeNode 与 TestDataNodeDeployment：真实节点租约与逐节点安装回执。
-- TestDataDeployment：旧本地部署兼容事实。
-- LanguageCalibration。
+- JudgeNode 与 TestDataNodeDeployment：节点身份、租约、声明的语言与逐节点安装回执。
+- LanguageCalibration：按「题目版本 × 语言」的绝对限制。
 - JudgeTask、JudgeAttempt、租约和重试状态。
 - Outbox / Inbox 与执行侧审计。
 
 它提供：
 
 - `ResolveExecutionProfile`：输入明确的 `problemVersionId + testDataVersionId +
-  testDataContentSha256 + languageId`，从当前 ACTIVE 环境解析出环境、部署回执、有效标定和绝对限制。
-- 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput、调用指定环境的 Go judge。
+  testDataContentSha256 + languageId`，确认有在线节点持有这份数据，解析出有效标定和绝对限制。
+- 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput，派发时选一个可用节点调用 Go judge。
 - 自定义测试内部接口：接收已经准备好的完整源码和文本 cases，同步调用 Go judge 的 trial 模式。
-- 节点自注册/心跳、节点侧测试数据安装、标定和环境切换能力。
+- 节点自注册/心跳、节点侧测试数据安装和标定能力。
 
-节点控制协议以 `contracts/judge-node.schema.json` 为准。首次真实注册在空库创建 ACTIVE 环境，
-不同指纹仅 REGISTERED。同 nodeId 的指纹不可变；进程 sessionId 改变时历史回执保留但不可用，
-必须经节点幂等安装重新校验。租约过期只停止路由，不删除节点、环境或历史事实。
+节点控制协议以 `contracts/judge-node.schema.json` 为准。节点只带身份：nodeId、每次进程启动新生成的
+sessionId、访问地址和能判的语言，不上报机器信息，也不归并成「判题环境」。同一 nodeId 的新进程以
+新 sessionId 注册即接替旧进程，历史回执保留但不可用，必须经节点幂等安装重新校验；已被接替的旧
+sessionId 不能再夺回 nodeId。租约过期只停止路由，不删除节点或历史事实。
+
+可用节点 = 租约未过期 + 声明了该语言 + 本会话已按摘要安装这份测试数据。标定、自测和正式判题都
+路由给可用节点，不把任务绑定到某一台机器；换机器或升级判题机不会让已有标定失效，需要时对题目
+版本重新标定即可。
 
 judging-service 不读取 problem-service 或 submission-service 数据库；需要的内容来自版本化 HTTP
 响应或 Kafka 事件。
@@ -170,7 +173,6 @@ judging-service 不读取 problem-service 或 submission-service 数据库；需
 - 逐测试点调用 sandbox。
 - 使用 checker 比对 stdout 与标准答案。
 - 汇总 AC/WA/TLE/MLE/CE/SE 等 verdict。
-- 回传实际 `environmentFingerprint`。
 
 judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限制生效。
 
@@ -234,17 +236,15 @@ ResolveExecutionProfile(
   testDataContentSha256,
   languageId
 )
-  → judgeEnvironmentId / environmentFingerprint
   → languageCalibrationId
   → effectiveLimits { cpuNs, memoryBytes, clockNs? }
 ```
 
 只有同时满足以下条件才成功：
 
-- 存在唯一 ACTIVE 环境。
-- 环境启用了目标语言。
-- `testDataVersionId + environmentId` 部署回执为 READY 且 hash 一致。
-- `problemVersionId + languageId + environmentId` 存在当前 VALID 标定。
+- 有在线节点声明了目标语言。
+- 其中至少一个节点在本会话里按 hash 安装了 `testDataVersionId`。
+- `problemVersionId + languageId` 存在当前 VALID 标定。
 
 失败时不创建 Submission，不用默认限制降级。
 
@@ -341,12 +341,11 @@ EventEnvelope {
 8. 返回 202 Accepted + Location
 9. judging-service Inbox 去重，创建 JudgeTask(READY)
 10. Worker 领取租约，发布 JudgeStarted
-11. Worker HTTP 拉取 JudgeInput，按 judgeEnvironmentId 路由 Go judge
-12. Go judge 按 testDataVersionId 判题并返回 environmentFingerprint
-13. judging-service 校验 fingerprint 与 JudgeInput 一致
-14. 保存 attempt，发布 JudgeCompleted 或 JudgeFailed
-15. submission-service Inbox 去重并条件更新 Submission
-16. web 轮询看到 PENDING → JUDGING → DONE + verdict
+11. Worker HTTP 拉取 JudgeInput，选一个可用节点调用 Go judge
+12. Go judge 按 testDataVersionId 与冻结的限制判题
+13. 保存 attempt，发布 JudgeCompleted 或 JudgeFailed
+14. submission-service Inbox 去重并条件更新 Submission
+15. web 轮询看到 PENDING → JUDGING → DONE + verdict
 ```
 
 步骤 4、5 失败时不创建提交。步骤 7 成功后，即使 Kafka、Worker 或 judge 暂时不可用，也由 Outbox、
@@ -379,12 +378,12 @@ int main() {
 - submission-service 只对模板执行一次非递归字面量替换。
 - 用户源码原文保存在 Submission；合并后的完整源码保存在 JudgeInput。
 - judgeTemplate 不返回普通用户 API。
-- 发布检查必须用参考核心代码合并模板，并在目标环境通过样例和正式数据。
+- 发布检查必须用参考核心代码合并模板，并在判题节点上通过样例和正式数据。
 - judge、sandbox、测试数据格式和 checker 不区分 ACM/CORE；两者都使用 stdin/stdout `.in/.out`。
 
 ---
 
-## 8. 测试数据、环境与标定
+## 8. 测试数据、节点与标定
 
 ### 8.1 TestDataVersion
 
@@ -396,27 +395,22 @@ problem-service 保存不可变数据包元信息和长期资产引用。judge �
   2.in  2.out
 ```
 
-### 8.2 TestDataDeployment
+### 8.2 TestDataNodeDeployment
 
-judging-service 保存数据送达某 JudgeEnvironment 的回执。READY 表示目标 judge 节点能够按
-`testDataVersionId` 读取数据，且部署 hash 与 problem-service 提供的内容 hash 一致。
+judging-service 保存数据送达某个节点、某次会话的回执。可用表示该节点这次进程能够按
+`testDataVersionId` 读取数据，且节点回报的 hash 与 problem-service 提供的内容 hash 一致。
+节点重启换了会话后回执失效，重新部署时节点幂等核对本地文件即可恢复，无需重新上传。
 
-### 8.3 JudgeEnvironment
-
-代表一套长期执行基线，而不是一次 sandbox 工作间。MVP 同时只有一个 ACTIVE 环境；旧环境可以
-RETIRED，但必须允许已经冻结到它的在途 JudgeTask 完成或明确失败后重试。
-
-### 8.4 LanguageCalibration
+### 8.3 LanguageCalibration
 
 由 judging-service 保存，唯一对应：
 
 ```text
-problemVersionId + languageId + judgeEnvironmentId
+problemVersionId + languageId
   → cpuNs + memoryBytes + clockNs?
 ```
 
-环境切换不复制 ProblemVersion。新环境只有在准备好所需 TestDataDeployment 和 LanguageCalibration
-后才能激活；新 Submission 使用新环境，旧 JudgeInput 仍保留旧环境和旧限制。
+标定不绑定机器。重新标定产生新的 VALID 记录并替换旧记录；已经冻结进 JudgeInput 的限制不受影响。
 
 ---
 
@@ -469,7 +463,7 @@ cherry-oj/
 - 浏览器只持有 Session Cookie，不接触内部 JWT。
 - 每个资源服务自行验证 JWT，不信任裸 `X-User-Id`。
 - 源码、密码、Cookie、JWT、隐藏数据和标准答案不得进入日志或 Kafka。
-- 日志统一包含 traceId；判题链路包含 submissionId、taskId、attemptNo 和 environmentId。
+- 日志统一包含 traceId；判题链路包含 submissionId、taskId、attemptNo 和 nodeId。
 - public request ID 由 Gateway 生成，只关联一次同步 HTTP 支持请求；内部 Trace 使用 W3C
   `traceparent`/`tracestate`。未来实现必须由 Gateway 丢弃外部 trace/baggage 上下文并新建内部 root；baseline
   不传播 baggage。request ID、Trace ID、幂等键和业务 ID 不得互换。
@@ -496,7 +490,7 @@ cherry-oj/
 7. 跑通 C++ ACM A+B
 8. 加入 CORE 模板合并
 9. 接入 web 登录、题库、提交和轮询
-10. 补题目生产、环境迁移和标定工作台
+10. 补题目生产和标定工作台
 ```
 
 不得先在某种语言实现私有 DTO 再反推 schema；不得为了跑通 demo 让服务跨库读写；不得把正式判题

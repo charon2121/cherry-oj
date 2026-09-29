@@ -113,8 +113,7 @@ isolator 是三个进程里唯一持有特权的。它和 sandbox 之间的那�
 `internal/sandbox/container/`、`internal/config/`……问题不在于名字难听，而在于**它切错了轴**：
 
 - 一个 `internal/config` 同时装着 judge 的配置、sandbox 的配置和 isolator 的配置，于是
-  「加一个 judge 的配置项」会让 sandbox 的包重新编译，也会让**每个节点的环境指纹发生轮换**
-  （指纹曾经把整份配置摘要算进去）。
+  「加一个 judge 的配置项」会让 sandbox 的包重新编译。
 - `container` 这个名字暗示「有个容器对象，可以复用」，于是接口长成了「放输入 → 启动 → 等待 →
   取产物 → 关闭」四个阶段，时序只能写在运行时错误里（「Container 只能执行一次」
   「工作区不再接受输入」），两个实现各自拿一组状态字段守护它。
@@ -159,10 +158,10 @@ apps/judge-engine/
 │   ├── sandboxclient/          #   给 sandbox 打电话的 HTTP 客户端
 │   ├── config/                 #   judge 自己的配置与校验
 │   └── node/                   #   节点身份与数据交付（见 §5.5）
-│       ├── identity/           #     环境指纹怎么算
+│       ├── identity/           #     节点身份：nodeId、会话号、语言
 │       ├── registry/           #     向 judging-service 注册与心跳
 │       ├── install/            #     接收测试数据并原子落盘
-│       ├── probe/              #     探测执行环境、校验原生部署
+│       ├── preflight/          #     注册前自检：确认 sandbox、校验原生部署
 │       └── wire/               #     严格 JSON 解码
 │
 ├── sandbox/                    # ★ 服务二：执行服务（非 root）
@@ -305,7 +304,6 @@ isolator 连 Status 都不判——它只报退出码、信号、cgroup 读数�
 // 响应
 {
   "verdict": "AC",
-  "environmentFingerprint": "sha256:judge-env-amd64-v1",
   "cpuNs": 1447000,
   "memoryBytes": 1048576,
   "score": 100,
@@ -332,9 +330,8 @@ isolator 连 Status 都不判——它只报退出码、信号、cgroup 读数�
 
 文件名规约**宽松匹配**：任何 `X.in`，只要同目录下有 `X.out`，就配成一对，`X` 即测试点名。排序时 `X` 能转整数的按数值排（否则 `1, 10, 2` 会乱），转不成的按字符串排在后面。落单的 `.in` 跳过并记 warning。
 
-时空限制由 judging-service 根据题目版本、语言和环境标定解析成绝对值，冻结进 JudgeInput 后随
-`JudgeRequest` 下发。测试数据部署用 content hash 校验，Go judge 再从自身配置返回实际
-`environmentFingerprint`，judging-service 必须与 JudgeInput 对比后才能接受结果。
+时空限制由 judging-service 根据题目版本和语言的标定解析成绝对值，冻结进 JudgeInput 后随
+`JudgeRequest` 下发。测试数据部署用 content hash 校验，节点回执绑定本次进程的会话号。
 
 ### 5.3 语言配置
 
@@ -348,9 +345,9 @@ Run:              ["Main"]     // 工作区里的可执行文件，不带 "./"
 Python 没有 Compile，直接 `python3 Main.py`；解释器/编译器一律走 `PATH`，不写死绝对路径。
 
 **注意 `language` 包里有 python，但节点对外只声明 `cpp`。** 这不是遗漏：整条平台链路当前是
-cpp-only——Java 侧的控制器用 `@Pattern(regexp="cpp")` 卡住语言，环境开通只开通一种语言，
-节点匹配要求语言集合**完全相等**。节点多声明一种语言，结果不是「多支持了 Python」，而是
-**没有任何环境能匹配上这个节点**。要放开语言，得从 Java 侧的约束开始改，不是从这里。
+cpp-only——Java 侧的控制器用 `@Pattern(regexp="cpp")` 卡住语言，也只有 cpp 的标定流程。
+控制面按节点声明的语言路由，节点多声明一种走不通的语言，只会让它看起来能判这种语言。
+要放开语言，得从 Java 侧的约束和标定开始改，不是从这里。
 
 ### 5.4 judge ↔ sandbox 交互流程
 
@@ -398,25 +395,27 @@ type Sandbox interface {
 
 这个接口声明在 `flow` 里，而不是在 `sandboxclient` 里。差别在于：**实现不依赖 flow**，
 于是判题流程的测试不需要启动任何沙箱，给一个假的三方法实现就够了。同样的写法也用在
-`node/probe` 的 `Sandbox` 接口上——探测消费的是 judge 已有的 HTTP 客户端能力，
+`node/preflight` 的 `Sandbox` 接口上——自检消费的是 judge 已有的 HTTP 客户端能力，
 不再自建第三个 HTTP 客户端。
 
-### 5.5 节点身份与环境指纹
+### 5.5 节点身份与启动自检
 
-judge 作为判题节点时，要先回答控制面一个问题：**「你是什么样的执行环境？」**
+judge 作为判题节点时，只向控制面报身份：`nodeId`（配置）、`sessionId`（每次进程启动新生成）、
+访问地址和能判的语言。它**不回答「你是什么样的执行环境」**——不上报 CPU、内核、工具链，
+也不把判题策略算成指纹。
 
-`node/probe` 通过 sandbox 已有的有界接口探测：架构、CPU 型号与特性、OS、内核、工具链版本、
-sandbox 版本，以及运行时摘要（cgroup 配额与 sandbox 二进制摘要）。`node/identity` 把这些
-**加上 judge 自己的判题策略**（严格空白、时钟倍率、输出截断上界、编译限额……）算成一个指纹。
+这曾经是另一套设计：机器事实、判题策略和 judge 二进制摘要被揉成一个「环境指纹」，控制面按指纹把
+节点归并成「判题环境」，标定也挂在环境上。结果是任何一次发版都会轮换指纹，新节点只能以 REGISTERED
+出现，必须人工切换 ACTIVE 环境并重新部署、重新标定。现在控制面按节点路由（在线、声明了该语言、
+本会话持有数据），标定按「题目版本 × 语言」记录；换机器需要重新标定时，由管理员对题目版本显式重做。
 
-为什么策略也要计入：同一台机器上，把「严格空白」从关改成开，同一份提交的结论会变。指纹代表
-「这个环境下的判题结论可复现」，策略变了就不再是同一个环境。
+`node/identity` 只负责生成这份身份。`sessionId` 让控制面区分同一 nodeId 的新旧进程：进程重启后旧的
+数据安装回执失效，必须重新安装证明持有。
 
-关键是**指纹的输入是一份显式的结构体**，字段一条条列出来。它曾经是「把整份配置序列化后取摘要」，
-那样写的后果是：**加一个与判题无关的配置项，比如日志路径，也会让全网节点的指纹轮换**，
-历史标定全部失效。显式列举让「什么会影响结论」变成一个可以读、可以审的清单。
+`node/preflight` 在注册前自检，任何一项不满足都拒绝上线：`GET /version` 必须表明对端是 cherry-oj 的
+sandbox；sandbox 报告 linux 隔离与配置了部署清单必须同时成立。
 
-原生部署还要多一道：`node/probe/deployment_spec.go` 用命名常量写清「一个合格的原生部署长什么样」
+原生部署还要多一道：`node/preflight/deployment_spec.go` 用命名常量写清「一个合格的原生部署长什么样」
 ——哪些文件、哪些 cgroup 组、哪些限额。校验是**双向覆盖**的：清单里声明的每一条都必须被核对，
 被核对的每一条都必须在清单里。只比数量的话，「少一条」和「多一条从不核对的」会互相抵消。
 
@@ -437,7 +436,7 @@ sandbox 版本，以及运行时摘要（cgroup 配额与 sandbox 二进制摘�
 | `GET /version` | 资源 | 自报名字、版本与**当前隔离后端** |
 
 `GET /version` 里的隔离后端字段不是装饰：judge 以节点模式启动时，先靠它确认「我连上的这台
-真的是隔离部署」，探测不过就在 `net.Listen` **之前**返回错误——端口都不会被占上，
+真的是隔离部署」，自检不过就在 `net.Listen` **之前**返回错误——端口都不会被占上，
 自然也不会有一个上线的节点（见 §6.4）。
 
 ### 6.2 一次 `/run` 在内部怎么走？
@@ -721,8 +720,7 @@ judge 侧还有一条同源的断言：`judge.sandboxTimeout` 必须大于 `judg
 
 这些是必要条件，**不能证明调用期限覆盖了整个 sandbox 操作**。排队、输入输出传输和回收都会
 消耗时间；当前 judge 配置不能推导这些耗时的总上界，部署时仍须为它们留出余量。
-`sandboxTimeout` 会影响调用是得到执行结论还是超时成为 SE，所以它以 `sandboxTimeoutNs`
-显式进入环境指纹；调整它会轮换环境身份。
+`sandboxTimeout` 会影响调用是得到执行结论还是超时成为 SE，调整它时要按上面的不等式复核。
 
 sandbox 侧的三道期限由 `sandbox/budget.go` 的 `checkBudget` 在启动时检查；judge 的编译期限由
 配置校验检查，测例期限由 flow 在请求时检查。测试分别覆盖合法、相等和越界值。
@@ -762,7 +760,7 @@ server              judge                sandbox              isolator(root)
 3. **可执行的边界**：上面两条写成依赖检查（`layout_test.go`），越界就测试失败——不靠 code review 把关。
 4. **一次性执行**：没有可复用的执行环境对象，「只能执行一次」由「没有对象可复用」保证。
 5. **结论与事实分离**：isolator 给事实，runner 给 status，judge 给 verdict；三层谁都不越权。
-6. **接口由消费方定义**：`flow.Sandbox`、`probe.Sandbox` 声明在使用方，实现不反向依赖。
+6. **接口由消费方定义**：`flow.Sandbox`、`preflight.Sandbox` 声明在使用方，实现不反向依赖。
 7. **学习边界**：复用参考项目的**思路**，命名与实现按场景自己写；先打通，再硬化。
 
 ---
@@ -792,14 +790,12 @@ server              judge                sandbox              isolator(root)
 
 ## WORK-040 节点生命周期与数据交付
 
-节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 使用稳定 nodeId 和进程 sessionId
-先经 sandbox /run、/version 探测实际环境，并将两端二进制、资源配额、工具链和 Judge 策略计入指纹。
-随后向 judging-service 注册真实环境能力，后台心跳失败时重试且不关闭健康入口；控制面租约过期后停止
-部署和路由。安装接口通过独立共享 token 保护，使用有界 multipart 流、摘要和 manifest 二次校验、
-节点私有目录和原子 rename。数据回执绑定 nodeId、环境指纹、sessionId、版本、hash 与文件数。
-重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
+节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 注册只带节点身份：稳定的 nodeId、
+每次进程启动新生成的 sessionId、访问地址和能判的语言；不上报机器信息，也没有「判题环境」分组。
+注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
+重试且不关闭健康入口；控制面租约过期后停止部署和路由。安装接口通过独立共享 token 保护，使用有界
+multipart 流、摘要和 manifest 二次校验、节点私有目录和原子 rename。数据回执绑定 nodeId、sessionId、
+版本、hash 与文件数。重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
 
-本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路，
-只 REGISTERED 新指纹，不能静默替换 ACTIVE；具体参数见 `apps/server/README.md`。
-
-改变环境时使用新 nodeId 与新的 `JUDGE_TESTDATA_VOLUME`，保留旧卷供回退。sandbox 独立升级后须重启 Judge 重新探测。
+本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路；
+具体参数见 `apps/server/README.md`。

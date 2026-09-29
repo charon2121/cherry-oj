@@ -29,7 +29,7 @@ judging-service     → cherry_oj_judging
 `gateway-service` 的浏览器 Session 存 Redis，不建立业务表。Go judge 与 sandbox 不读取 Java 服务
 数据库。测试数据包、生成产物和大报告进入私有文件/对象存储，MySQL 只保存引用、版本、摘要和状态。
 
-本设计覆盖传统 OJ 纵向 MVP：用户、不可变题目版本、ACM/CORE 模板、测试数据版本元信息、环境、部署、
+本设计覆盖传统 OJ 纵向 MVP：用户、不可变题目版本、ACM/CORE 模板、测试数据版本元信息、判题节点、部署、
 人工标定、提交快照、Outbox/Inbox、判题任务与尝试。PRD 阶段 2 的生成器、校验器、oracle、参考程序、
 原始基准样本和验证报告需要在题目工厂开工前另行扩展，不在首批 migration 中提前建空表。
 
@@ -50,7 +50,7 @@ judging-service     → cherry_oj_judging
 
 - MySQL 版本固定为 8.4 LTS，存储引擎固定为 InnoDB。
 - database 默认字符集为 `utf8mb4`，默认排序规则为 `utf8mb4_0900_ai_ci`。
-- 稳定 token、hash、slug、语言 ID、事件类型和指纹列显式使用 `ascii_bin`，避免大小写折叠。
+- 稳定 token、hash、slug、语言 ID、节点 ID 和事件类型列显式使用 `ascii_bin`，避免大小写折叠。
 - 用户名使用 `utf8mb4_0900_as_ci`：大小写不敏感但重音敏感；应用层还要在写入前做 Unicode 规范化。
 - 所有连接会话固定 `time_zone = '+00:00'`；时间点使用 `DATETIME(6)`，Java 使用 `Instant`。
 - 不依赖 `ON UPDATE CURRENT_TIMESTAMP` 隐式写时间，所有时间由应用显式传入。
@@ -111,7 +111,7 @@ UUID 以 RFC 4122/9562 网络字节序原样保存，不使用 `UUID_TO_BIN(uuid
 - `outbox_event.payload_json`
 - 各服务审计详情
 
-核心关联、状态、环境指纹、绝对限制、租约和查询条件必须使用普通列。事件和结果 JSON 在进入数据库前
+核心关联、状态、绝对限制、租约和查询条件必须使用普通列。事件和结果 JSON 在进入数据库前
 先按 contracts 校验；Outbox 整条序列化消息以及生命周期结果均限制为 1 MiB。
 
 ---
@@ -561,8 +561,6 @@ contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON �
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
 | `code_mode` | `VARCHAR(8)` | 否 | 提交代码模式，ACM 或 CORE。 |
 | `language_calibration_id` | `BINARY(16)` | 否 | 本次绝对限制来源的语言标定 UUID。 |
-| `judge_environment_id` | `BINARY(16)` | 否 | 本次使用或关联的判题环境 UUID。 |
-| `environment_fingerprint` | `VARCHAR(256)` | 否 | 判题环境不可变指纹快照。 |
 | `limit_cpu_ns` | `BIGINT` | 否 | 每个测试点 CPU 时间绝对上限，单位 ns。 |
 | `limit_memory_bytes` | `BIGINT` | 否 | 每个测试点内存绝对上限，单位 bytes。 |
 | `limit_clock_ns` | `BIGINT` | 是 | 可选墙钟绝对上限，单位 ns。 |
@@ -592,8 +590,6 @@ contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON �
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
 | `complete_source` | `MEDIUMTEXT` | 否 | 实际送往 Go judge 的完整源码；CORE 已合并模板。 |
 | `source_sha256` | `BINARY(32)` | 否 | complete_source UTF-8 字节的 SHA-256 摘要。 |
-| `judge_environment_id` | `BINARY(16)` | 否 | 本次使用或关联的判题环境 UUID。 |
-| `environment_fingerprint` | `VARCHAR(256)` | 否 | 判题环境不可变指纹快照。 |
 | `language_calibration_id` | `BINARY(16)` | 否 | 本次绝对限制来源的语言标定 UUID。 |
 | `limit_cpu_ns` | `BIGINT` | 否 | 每个测试点 CPU 时间绝对上限，单位 ns。 |
 | `limit_memory_bytes` | `BIGINT` | 否 | 每个测试点内存绝对上限，单位 bytes。 |
@@ -662,8 +658,6 @@ CREATE TABLE submission (
     language_id                 VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     code_mode                   VARCHAR(8) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     language_calibration_id     BINARY(16) NOT NULL,
-    judge_environment_id        BINARY(16) NOT NULL,
-    environment_fingerprint     VARCHAR(256) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     limit_cpu_ns                BIGINT NOT NULL,
     limit_memory_bytes          BIGINT NOT NULL,
     limit_clock_ns              BIGINT NULL,
@@ -736,8 +730,6 @@ CREATE TABLE judge_input (
     language_id                VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     complete_source            MEDIUMTEXT NOT NULL,
     source_sha256              BINARY(32) NOT NULL,
-    judge_environment_id       BINARY(16) NOT NULL,
-    environment_fingerprint    VARCHAR(256) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     language_calibration_id    BINARY(16) NOT NULL,
     limit_cpu_ns               BIGINT NOT NULL,
     limit_memory_bytes         BIGINT NOT NULL,
@@ -870,12 +862,12 @@ submission-service 和 judging-service 各自创建同名 Outbox/Inbox 表；它
 ### 6.1 表关系
 
 ```text
-judge_environment
-  ├─ judge_environment_language
-  ├─ judge_node → test_data_node_deployment
-  ├─ test_data_deployment
-  ├─ language_calibration
-  └─ judge_attempt
+judge_node_registry_lock   串行化注册、心跳与部署确认
+judge_node
+  ├─ judge_node_session
+  └─ test_data_node_deployment
+
+language_calibration        按题目版本 × 语言，不关联节点
 
 judge_task
   └─ judge_attempt
@@ -885,63 +877,47 @@ inbox_event      消费 JudgeRequested
 judging_audit_event
 ```
 
-`ExecutionProfile` 不建表。它从唯一 ACTIVE environment 出发，连接启用语言、READY deployment 和当前
-VALID calibration，返回冻结所需字段。`active_slot` 与 `valid_slot` 是生成列：MySQL 唯一索引允许多个
-NULL，但只允许一个值为 1，因此可以在数据库层约束“最多一个 ACTIVE”与“每个组合最多一个 VALID”。
+`ExecutionProfile` 不建表。它找一个可用节点（租约未过期、`languages_json` 含目标语言、本会话的
+`test_data_node_deployment` 可用且摘要一致），再取该题目版本 × 语言当前 VALID 的 calibration，
+返回冻结所需字段。节点只带身份，不归并成「判题环境」。`valid_slot` 是生成列：MySQL 唯一索引允许
+多个 NULL，但只允许一个值为 1，因此可以在数据库层约束“每个题目版本 × 语言最多一个 VALID”。
 
 ### 6.2 字段字典
 
 每张物理表都必须维护字段字典；DDL 增删或改变字段语义时，本节与 migration 同步更新。
 
-#### `judge_environment`
+#### `judge_node`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `name` | `VARCHAR(128)` | 否 | 判题环境的管理员可读名称。 |
-| `fingerprint` | `VARCHAR(256)` | 否 | 由硬件、系统、judge、sandbox 与执行配置生成的环境唯一指纹。 |
-| `status` | `VARCHAR(16)` | 否 | 环境状态：REGISTERED、ACTIVE 或 RETIRED。 |
-| `active_slot` | `TINYINT` | 生成列 | 仅 ACTIVE 行生成 1 的内部列，用唯一索引限制最多一个 ACTIVE 环境。 |
-| `architecture` | `VARCHAR(32)` | 否 | CPU/操作系统架构，例如 amd64。 |
-| `cpu_model` | `VARCHAR(256)` | 否 | 影响标定的 CPU 型号或稳定性能标识。 |
-| `os_version` | `VARCHAR(128)` | 否 | 判题节点操作系统版本。 |
-| `kernel_version` | `VARCHAR(128)` | 否 | 判题节点内核版本。 |
-| `judge_version` | `VARCHAR(128)` | 否 | Go judge 构建版本或摘要。 |
-| `sandbox_version` | `VARCHAR(128)` | 否 | Go sandbox 构建版本或摘要。 |
-| `config_digest` | `VARCHAR(128)` | 否 | 所有影响执行语义配置的摘要。 |
-| `endpoint_ref` | `VARCHAR(512)` | 否 | 受控环境路由标识；禁止包含凭证。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
-| `activated_at` | `DATETIME(6)` | 是 | 环境切换为 ACTIVE 的时间。 |
-| `retired_at` | `DATETIME(6)` | 是 | 环境切换为 RETIRED 的时间。 |
-| `row_version` | `BIGINT` | 否 | 乐观锁版本；每次成功更新递增。 |
+| `node_id` | `VARCHAR(64)` | 否 | 部署配置给出的稳定节点标识，主键。 |
+| `session_id` | `BINARY(16)` | 否 | 当前进程的会话 UUID；进程每次启动都会换新。 |
+| `endpoint` | `VARCHAR(512)` | 否 | 节点的 HTTP(S) 源地址；禁止包含凭证、路径、查询或片段。 |
+| `languages_json` | `JSON` | 否 | 节点声明能判的语言数组，例如 `["cpp"]`。 |
+| `lease_expires_at` | `DATETIME(6)` | 否 | 租约到期时间；在线状态由它派生。 |
+| `created_at` | `DATETIME(6)` | 否 | 首次注册时间，使用 UTC。 |
+| `updated_at` | `DATETIME(6)` | 否 | 最近一次注册或心跳时间，使用 UTC。 |
 
-#### `judge_environment_language`
+#### `judge_node_session`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `judge_environment_id` | `BINARY(16)` | 否 | 本次使用或关联的判题环境 UUID。 |
-| `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
-| `toolchain_version` | `VARCHAR(256)` | 否 | 该环境中编译器或运行时版本。 |
-| `language_config_digest` | `VARCHAR(128)` | 否 | 语言编译与运行配置摘要。 |
-| `enabled` | `BOOLEAN` | 否 | 该环境当前是否接受此语言。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
-| `updated_at` | `DATETIME(6)` | 否 | 记录最后更新时间，使用 UTC。 |
-| `row_version` | `BIGINT` | 否 | 乐观锁版本；每次成功更新递增。 |
+| `node_id` | `VARCHAR(64)` | 否 | 所属节点。 |
+| `session_id` | `BINARY(16)` | 否 | 曾被接受的会话；已被接替的会话不能再夺回 nodeId。 |
+| `registered_at` | `DATETIME(6)` | 否 | 该会话首次注册时间，使用 UTC。 |
 
-#### `test_data_deployment`
+#### `test_data_node_deployment`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `test_data_version_id` | `BINARY(16)` | 否 | 实际绑定的不可变测试数据版本 UUID。 |
-| `judge_environment_id` | `BINARY(16)` | 否 | 本次使用或关联的判题环境 UUID。 |
-| `expected_sha256` | `BINARY(32)` | 否 | 部署任务从 problem-service 接收并冻结的测试数据摘要。 |
-| `status` | `VARCHAR(16)` | 否 | 数据部署状态：PENDING、DEPLOYING、READY 或 FAILED。 |
-| `deployed_sha256` | `BINARY(32)` | 是 | 判题环境实际部署完成后的测试数据摘要。 |
-| `deployed_at` | `DATETIME(6)` | 是 | 测试数据部署完成并校验成功的时间。 |
-| `error_message` | `TEXT` | 是 | 最近部署失败的安全摘要。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
-| `updated_at` | `DATETIME(6)` | 否 | 记录最后更新时间，使用 UTC。 |
-| `row_version` | `BIGINT` | 否 | 乐观锁版本；每次成功更新递增。 |
+| `test_data_version_id` | `BINARY(16)` | 否 | 不可变测试数据版本 UUID。 |
+| `node_id` | `VARCHAR(64)` | 否 | 持有这份数据的节点。 |
+| `expected_sha256` | `BINARY(32)` | 否 | 部署时的内容摘要；同一节点同一版本不能换摘要。 |
+| `session_id` | `BINARY(16)` | 否 | 回执所属的节点会话。 |
+| `file_count` | `INT` | 否 | 节点回执中的文件数。 |
+| `available` | `BOOLEAN` | 否 | 当前会话是否可用；节点换会话后置为不可用，重新安装确认后恢复。 |
+| `deployed_at` | `DATETIME(6)` | 否 | 最近一次确认时间，使用 UTC。 |
+| `row_version` | `BIGINT` | 否 | 乐观锁版本；防止迟到的失败撤销后来的成功。 |
 
 #### `language_calibration`
 
@@ -950,7 +926,6 @@ NULL，但只允许一个值为 1，因此可以在数据库层约束“最多�
 | `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
 | `problem_version_id` | `BINARY(16)` | 否 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
-| `judge_environment_id` | `BINARY(16)` | 否 | 本次使用或关联的判题环境 UUID。 |
 | `status` | `VARCHAR(16)` | 否 | 标定状态：DRAFT、RUNNING、VALID、FAILED 或 SUPERSEDED。 |
 | `valid_slot` | `TINYINT` | 生成列 | 仅 VALID 行生成 1 的内部列，用唯一索引限制同组合最多一个有效标定。 |
 | `source_type` | `VARCHAR(16)` | 否 | 限制来源：MANUAL 或 BENCHMARK。 |
@@ -994,7 +969,7 @@ NULL，但只允许一个值为 1，因此可以在数据库层约束“最多�
 | `task_id` | `BINARY(16)` | 否 | 本服务 JudgeTask UUID。 |
 | `attempt_no` | `INT UNSIGNED` | 否 | 该 Attempt 在所属任务中的递增序号。 |
 | `lease_token` | `BINARY(16)` | 否 | 创建本 Attempt 时冻结的 Worker fencing token。 |
-| `judge_environment_id` | `BINARY(16)` | 否 | 本次使用或关联的判题环境 UUID。 |
+| `node_id` | `VARCHAR(64)` | 是 | 本次派发的节点；派发前失败时为空。 |
 | `started_at` | `DATETIME(6)` | 否 | 首次开始处理或执行的时间。 |
 | `finished_at` | `DATETIME(6)` | 是 | 本次调用完成或失败的时间。 |
 | `outcome` | `VARCHAR(32)` | 是 | 本次 Attempt 的完成结果分类。 |
@@ -1046,8 +1021,8 @@ NULL，但只允许一个值为 1，因此可以在数据库层约束“最多�
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
 | `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `aggregate_type` | `VARCHAR(32)` | 否 | 审计对象类型，例如环境、部署、标定或任务。 |
-| `aggregate_id` | `BINARY(16)` | 否 | 被审计的环境、部署、标定或任务 UUID。 |
+| `aggregate_type` | `VARCHAR(32)` | 否 | 审计对象类型：部署、标定或任务。 |
+| `aggregate_id` | `BINARY(16)` | 否 | 被审计的部署、标定或任务 UUID。 |
 | `actor_user_id` | `BINARY(16)` | 是 | 触发管理操作的 user-service 用户 UUID；系统任务时为空。 |
 | `action` | `VARCHAR(64)` | 否 | 稳定的审计操作类型。 |
 | `trace_id` | `VARCHAR(128)` | 是 | 跨服务调用与日志关联标识。 |
@@ -1057,105 +1032,56 @@ NULL，但只允许一个值为 1，因此可以在数据库层约束“最多�
 ### 6.3 DDL
 
 ```sql
-CREATE TABLE judge_environment (
-    id                      BINARY(16) NOT NULL,
-    name                    VARCHAR(128) NOT NULL,
-    fingerprint             VARCHAR(256) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    status                  VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    active_slot             TINYINT GENERATED ALWAYS AS (
-                                CASE WHEN status = 'ACTIVE' THEN 1 ELSE NULL END
-                            ) STORED,
-    architecture            VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    cpu_model               VARCHAR(256) NOT NULL,
-    os_version              VARCHAR(128) NOT NULL,
-    kernel_version          VARCHAR(128) NOT NULL,
-    judge_version           VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    sandbox_version         VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    config_digest           VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    endpoint_ref            VARCHAR(512) COLLATE utf8mb4_bin NOT NULL,
+-- 串行化注册、心跳与部署确认：在线检查与回执提交之间不会被换会话。
+CREATE TABLE judge_node_registry_lock (id TINYINT NOT NULL PRIMARY KEY);
+
+CREATE TABLE judge_node (
+    node_id                 VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    session_id              BINARY(16) NOT NULL,
+    endpoint                VARCHAR(512) COLLATE utf8mb4_bin NOT NULL,
+    languages_json          JSON NOT NULL,
+    lease_expires_at        DATETIME(6) NOT NULL,
     created_at              DATETIME(6) NOT NULL,
-    activated_at            DATETIME(6) NULL,
-    retired_at              DATETIME(6) NULL,
+    updated_at              DATETIME(6) NOT NULL,
+
+    PRIMARY KEY (node_id),
+    KEY idx_node_online (lease_expires_at, node_id),
+    CONSTRAINT ck_node_id CHECK (REGEXP_LIKE(node_id, '^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$', 'c')),
+    CONSTRAINT ck_node_languages CHECK (JSON_TYPE(languages_json) = 'ARRAY'),
+    CONSTRAINT ck_node_times CHECK (lease_expires_at > updated_at AND updated_at >= created_at)
+) ENGINE = InnoDB;
+
+-- 已被接替的进程不能通过重新注册夺回同一个 nodeId。
+CREATE TABLE judge_node_session (
+    node_id                 VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    session_id              BINARY(16) NOT NULL,
+    registered_at           DATETIME(6) NOT NULL,
+
+    PRIMARY KEY (node_id, session_id),
+    CONSTRAINT fk_node_session_node FOREIGN KEY (node_id) REFERENCES judge_node (node_id)
+) ENGINE = InnoDB;
+
+CREATE TABLE test_data_node_deployment (
+    test_data_version_id    BINARY(16) NOT NULL,
+    node_id                 VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    expected_sha256         BINARY(32) NOT NULL,
+    session_id              BINARY(16) NOT NULL,
+    file_count              INT NOT NULL,
+    available               BOOLEAN NOT NULL,
+    deployed_at             DATETIME(6) NOT NULL,
     row_version             BIGINT NOT NULL DEFAULT 0,
 
-    PRIMARY KEY (id),
-    CONSTRAINT uq_judge_environment_fingerprint UNIQUE (fingerprint),
-    CONSTRAINT uq_judge_environment_one_active UNIQUE (active_slot),
-    KEY idx_judge_environment_status_created (status, created_at, id),
-    CONSTRAINT ck_judge_environment_status CHECK (
-        status IN ('REGISTERED', 'ACTIVE', 'RETIRED')
-    ),
-    CONSTRAINT ck_judge_environment_times CHECK (
-        (status <> 'ACTIVE' OR (activated_at IS NOT NULL AND retired_at IS NULL))
-        AND (status <> 'RETIRED' OR retired_at IS NOT NULL)
-    ),
-    CONSTRAINT ck_judge_environment_row_version CHECK (row_version >= 0)
-) ENGINE = InnoDB;
-
-CREATE TABLE judge_environment_language (
-    judge_environment_id       BINARY(16) NOT NULL,
-    language_id                VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    toolchain_version          VARCHAR(256) NOT NULL,
-    language_config_digest     VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    enabled                    BOOLEAN NOT NULL,
-    created_at                 DATETIME(6) NOT NULL,
-    updated_at                 DATETIME(6) NOT NULL,
-    row_version                BIGINT NOT NULL DEFAULT 0,
-
-    PRIMARY KEY (judge_environment_id, language_id),
-    KEY idx_environment_language_enabled (language_id, enabled, judge_environment_id),
-    CONSTRAINT fk_environment_language_environment FOREIGN KEY (judge_environment_id)
-        REFERENCES judge_environment (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT ck_environment_language_id CHECK (
-        REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
-    ),
-    CONSTRAINT ck_environment_language_enabled CHECK (enabled IN (0, 1)),
-    CONSTRAINT ck_environment_language_row_version CHECK (row_version >= 0),
-    CONSTRAINT ck_environment_language_time CHECK (updated_at >= created_at)
-) ENGINE = InnoDB;
-
-CREATE TABLE test_data_deployment (
-    test_data_version_id       BINARY(16) NOT NULL,
-    judge_environment_id       BINARY(16) NOT NULL,
-    expected_sha256            BINARY(32) NOT NULL,
-    status                     VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    deployed_sha256            BINARY(32) NULL,
-    deployed_at                DATETIME(6) NULL,
-    error_message              TEXT NULL,
-    created_at                 DATETIME(6) NOT NULL,
-    updated_at                 DATETIME(6) NOT NULL,
-    row_version                BIGINT NOT NULL DEFAULT 0,
-
-    PRIMARY KEY (test_data_version_id, judge_environment_id),
-    KEY idx_deployment_environment_status (judge_environment_id, status, updated_at),
-    CONSTRAINT fk_deployment_environment FOREIGN KEY (judge_environment_id)
-        REFERENCES judge_environment (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT ck_deployment_status CHECK (
-        status IN ('PENDING', 'DEPLOYING', 'READY', 'FAILED')
-    ),
-    CONSTRAINT ck_deployment_ready CHECK (
-        status <> 'READY' OR (
-            deployed_sha256 IS NOT NULL
-            AND deployed_sha256 = expected_sha256
-            AND deployed_at IS NOT NULL
-            AND error_message IS NULL
-        )
-    ),
-    CONSTRAINT ck_deployment_failed CHECK (
-        status <> 'FAILED' OR error_message IS NOT NULL
-    ),
-    CONSTRAINT ck_deployment_error_length CHECK (
-        error_message IS NULL OR CHAR_LENGTH(error_message) <= 8192
-    ),
-    CONSTRAINT ck_deployment_row_version CHECK (row_version >= 0),
-    CONSTRAINT ck_deployment_time CHECK (updated_at >= created_at)
+    PRIMARY KEY (test_data_version_id, node_id),
+    KEY idx_node_deployment_available (node_id, available, test_data_version_id),
+    CONSTRAINT fk_node_deployment_node FOREIGN KEY (node_id) REFERENCES judge_node (node_id),
+    CONSTRAINT ck_node_deployment_count CHECK (file_count BETWEEN 2 AND 2000),
+    CONSTRAINT ck_node_deployment_available CHECK (available IN (0, 1))
 ) ENGINE = InnoDB;
 
 CREATE TABLE language_calibration (
     id                      BINARY(16) NOT NULL,
     problem_version_id      BINARY(16) NOT NULL,
     language_id             VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    judge_environment_id    BINARY(16) NOT NULL,
     status                  VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     valid_slot              TINYINT GENERATED ALWAYS AS (
                                 CASE WHEN status = 'VALID' THEN 1 ELSE NULL END
@@ -1174,16 +1100,9 @@ CREATE TABLE language_calibration (
     row_version             BIGINT NOT NULL DEFAULT 0,
 
     PRIMARY KEY (id),
-    CONSTRAINT uq_calibration_one_valid UNIQUE (
-        problem_version_id, language_id, judge_environment_id, valid_slot
-    ),
-    KEY idx_calibration_resolve (
-        problem_version_id, language_id, judge_environment_id, status
-    ),
-    KEY idx_calibration_environment_status (judge_environment_id, status, updated_at),
+    CONSTRAINT uq_calibration_one_valid UNIQUE (problem_version_id, language_id, valid_slot),
+    KEY idx_calibration_resolve (problem_version_id, language_id, status),
     KEY idx_calibration_supersedes (supersedes_id),
-    CONSTRAINT fk_calibration_environment FOREIGN KEY (judge_environment_id)
-        REFERENCES judge_environment (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT fk_calibration_supersedes FOREIGN KEY (supersedes_id)
         REFERENCES language_calibration (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_calibration_language CHECK (
@@ -1271,7 +1190,7 @@ CREATE TABLE judge_attempt (
     task_id                     BINARY(16) NOT NULL,
     attempt_no                  INT UNSIGNED NOT NULL,
     lease_token                 BINARY(16) NOT NULL,
-    judge_environment_id        BINARY(16) NOT NULL,
+    node_id                     VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     started_at                  DATETIME(6) NOT NULL,
     finished_at                 DATETIME(6) NULL,
     outcome                     VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
@@ -1282,11 +1201,9 @@ CREATE TABLE judge_attempt (
 
     PRIMARY KEY (id),
     CONSTRAINT uq_judge_attempt_no UNIQUE (task_id, attempt_no),
-    KEY idx_judge_attempt_environment_started (judge_environment_id, started_at, id),
+    KEY idx_judge_attempt_node_started (node_id, started_at, id),
     CONSTRAINT fk_judge_attempt_task FOREIGN KEY (task_id)
         REFERENCES judge_task (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT fk_judge_attempt_environment FOREIGN KEY (judge_environment_id)
-        REFERENCES judge_environment (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_judge_attempt_no CHECK (attempt_no > 0),
     CONSTRAINT ck_judge_attempt_outcome CHECK (
         outcome IS NULL OR outcome IN (
@@ -1392,7 +1309,7 @@ CREATE TABLE judging_audit_event (
     KEY idx_judging_audit_aggregate (aggregate_type, aggregate_id, created_at, id),
     KEY idx_judging_audit_actor (actor_user_id, created_at, id),
     CONSTRAINT ck_judging_audit_aggregate CHECK (
-        aggregate_type IN ('ENVIRONMENT', 'DEPLOYMENT', 'CALIBRATION', 'TASK')
+        aggregate_type IN ('DEPLOYMENT', 'CALIBRATION', 'TASK')
     ),
     CONSTRAINT ck_judging_audit_detail CHECK (
         detail_json IS NULL OR JSON_TYPE(detail_json) = 'OBJECT'
@@ -1405,21 +1322,19 @@ CREATE TABLE judging_audit_event (
 解析请求携带 `problem_version_id + test_data_version_id + expected_sha256 + language_id`。实现必须在
 同一只读事务/一致性视图中完成：
 
-1. 读取唯一 `status = 'ACTIVE'` 的 environment；没有或多于一个都视为配置错误。
-2. 读取 `(environment_id, language_id)` 且 `enabled = 1` 的语言配置。
-3. 读取 deployment，要求 `status = 'READY'`、`expected_sha256 = deployed_sha256`，并且请求 hash 与
-   两者一致。
-4. 读取对应组合唯一的 `status = 'VALID'` calibration。
-5. 返回环境 ID/指纹、标定 ID 和拆列后的绝对限制；任一缺失都返回明确不可提交原因，不生成默认值。
+1. 至少一个在线节点（`lease_expires_at` 未过期）的 `languages_json` 含目标语言。
+2. 其中有节点在当前会话里持有该版本的可用回执（`available = 1`、`session_id` 等于节点当前会话），
+   且 `expected_sha256` 与请求 hash 一致。
+3. 读取该题目版本 × 语言唯一的 `status = 'VALID'` calibration。
+4. 返回标定 ID 和拆列后的绝对限制；任一缺失都返回明确不可提交原因，不生成默认值。
 
-### 6.5 环境切换与标定生效
+### 6.5 标定生效
 
-- 激活环境时先锁定当前 ACTIVE 与目标 REGISTERED 行，完成覆盖检查后，先把旧环境改为 RETIRED，再把
-  新环境改为 ACTIVE；`uq_judge_environment_one_active` 是并发最后防线。
-- 生效新标定时锁定同一 `(problem_version_id, language_id, environment_id)` 的所有记录，先把旧 VALID
-  改为 SUPERSEDED，再插入/更新新 VALID；`uq_calibration_one_valid` 防止并发双生效。
+- 生效新标定时锁定同一 `(problem_version_id, language_id)` 的当前 VALID 记录，先把旧 VALID 改为
+  SUPERSEDED，再把新记录改为 VALID；`uq_calibration_one_valid` 防止并发双生效。
+- 标定不绑定节点；换机器或升级判题机不会让已有标定失效，需要时对题目版本重新标定。
 - 跨服务的 problemVersionId、testDataVersionId、approvedBy 只保存 UUID，不建立外键。
-- 历史 JudgeInput 已冻结旧环境和旧标定；环境退休或标定被替代不能修改历史输入。
+- 历史 JudgeInput 已冻结旧标定和旧限制；标定被替代不能修改历史输入。
 
 ### 6.6 租约、Attempt 与迟到结果
 
@@ -1462,11 +1377,11 @@ keyset pagination；管理后台确需跳页时才使用受限 offset pagination
 
 ### 7.3 judging-service
 
-- ACTIVE 环境：生成列唯一索引使 `WHERE status = 'ACTIVE'` 最多返回一行。
-- ExecutionProfile：environment language 主键、deployment 主键和 calibration resolve 索引覆盖三次精确查询。
+- 在线节点：`idx_node_online(lease_expires_at, node_id)`；语言用 `JSON_CONTAINS` 在在线节点上过滤。
+- ExecutionProfile：节点部署主键和 calibration resolve 索引覆盖精确查询。
 - 可领取任务：`idx_judge_task_available(status, next_attempt_at, id)`。
 - 过期租约：`idx_judge_task_expired_lease(status, lease_until, id)`。
-- 环境任务/Attempt 排障：`idx_judge_attempt_environment_started`。
+- 节点任务/Attempt 排障：`idx_judge_attempt_node_started`。
 
 任何新联合索引都必须附带真实 SQL、`EXPLAIN ANALYZE` 和代表性数据量。不能只因为管理页面可能筛选某列
 就提前增加索引；每个二级索引都会放大 Submission、Task 和 Outbox 的写成本。
@@ -1484,7 +1399,7 @@ keyset pagination；管理后台确需跳页时才使用受限 offset pagination
 - judging-service：JudgeRequested Inbox + 唯一 JudgeTask。
 - judging-service：Attempt 完成 + Task 状态 + lifecycle Outbox。
 - submission-service：lifecycle Inbox + Submission 条件更新。
-- judging-service：环境切换 + 审计；标定替代 + 审计。
+- judging-service：部署确认 + 审计；标定替代 + 审计。
 
 HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在上述数据库事务内部。
 
@@ -1492,7 +1407,7 @@ HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在
 
 - 默认使用 MySQL `READ COMMITTED`，减少长事务和范围锁；需要稳定多表快照的只读解析显式在同一事务中
   完成。
-- 发布、环境切换、标定生效和任务领取使用精确主键/唯一键 `SELECT ... FOR UPDATE`。
+- 发布、标定生效和任务领取使用精确主键/唯一键 `SELECT ... FOR UPDATE`；节点注册、心跳与部署确认共用单行 registry lock。
 - Relay 和 Worker 批量领取允许使用 `FOR UPDATE SKIP LOCKED`，批次必须小，领取后立即提交。
 - 乐观更新同时校验 `row_version`；状态机更新还必须在 `WHERE` 中带当前状态，不能只按 ID 覆盖。
 
@@ -1502,7 +1417,7 @@ HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在
 
 - 本服务内引用存在性、唯一用户名/slug/版本号/幂等键/Submission Task。
 - 状态和基础字段取值、正数资源限制、终态字段组合。
-- 最多一个 ACTIVE 环境、每个组合最多一个 VALID 标定。
+- 每个题目版本 × 语言最多一个 VALID 标定。
 - EventId Inbox 去重、Kafka position 唯一、任务和 Attempt 次数唯一。
 
 应用事务约束：
@@ -1536,8 +1451,11 @@ apps/server/submission-service/src/main/resources/db/migration/
   V2__create_submission_messaging_tables.sql
 
 apps/server/judging-service/src/main/resources/db/migration/
-  V1__create_judging_environment_tables.sql
-  V2__create_judging_task_and_messaging_tables.sql
+  V1__create_judging_readiness_tables.sql
+  V2__create_judge_node_registry.sql
+  V3__create_formal_judging_tasks.sql
+  V4__drop_legacy_local_deployment.sql
+  V5__drop_judge_environment.sql
 ```
 
 拆成 V1/V2 只表达同一服务内清晰的基础设施边界，不意味着运行时可以缺少 V2。首个正式环境从空库执行
@@ -1563,7 +1481,7 @@ apps/server/judging-service/src/main/resources/db/migration/
 4. problem 发布并发只有一个当前指针结果，已发布记录的应用层更新被拒绝。
 5. Submission 创建事务在任一步故障时不留下半条数据；幂等键并发只产生一个 Submission。
 6. Inbox 重投不重复推进状态；DONE 不回退。
-7. 环境并发激活只允许一个 ACTIVE；同组合并发标定只允许一个 VALID。
+7. 同一题目版本 × 语言并发标定只允许一个 VALID。
 8. 两个 Worker 竞争只会有一个租约成功；旧 token 的迟到结果不能改变 Task 或发布完成事件。
 9. Outbox `SKIP LOCKED` 多 Relay 领取不重复占用同一行，过期租约可以恢复。
 10. 关键查询使用预期索引；准备代表性数据后保存 `EXPLAIN ANALYZE` 断言或基线报告。
@@ -1622,14 +1540,13 @@ problem
 由以下表查询组装，不单独持久化：
 
 ```text
-unique ACTIVE judge_environment
-  → enabled judge_environment_language
-  → READY test_data_deployment with matching hash
-  → unique VALID language_calibration
+online judge_node declaring the language
+  → available test_data_node_deployment in the node's current session with matching hash
+  → unique VALID language_calibration for problem version × language
 ```
 
 calibration 的 `cpu_ns / memory_bytes / clock_ns` 组装为 contracts 的 `effectiveLimits`。解析结果随后被
-submission-service 同时冻结到 Submission 和 JudgeInput；未来环境或标定变化不能回写历史记录。
+submission-service 同时冻结到 Submission 和 JudgeInput；未来标定变化不能回写历史记录。
 
 ### 11.3 JudgeInput 与 JudgeRequest
 
@@ -1638,7 +1555,6 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来环境或�
 - `complete_source` → `source`
 - `limit_cpu_ns / limit_memory_bytes / limit_clock_ns` → `limits`
 - `test_data_version_id` UUID → 标准小写 UUID 字符串目录键
-- `environment_fingerprint` 只用于返回结果一致性验证，不要求 Go judge 从请求回显
 
 ---
 
@@ -1650,9 +1566,9 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来环境或�
 - [x] Problem 与不可变 ProblemVersion 分离，当前发布版本使用稳定指针。
 - [x] ACM/CORE 模板按 ProblemVersion × Language 保存，发布后不可修改。
 - [x] 大测试数据不进 MySQL，只保存 storageRef、manifest、hash 和版本状态。
-- [x] 环境、数据部署和语言标定属于 judging-service，绝对限制按环境保存。
-- [x] 数据库约束最多一个 ACTIVE environment 和每组合一个 VALID calibration。
-- [x] Submission 冻结题目、数据、语言、环境、标定和绝对限制快照。
+- [x] 判题节点、数据部署和语言标定属于 judging-service，绝对限制按题目版本 × 语言保存。
+- [x] 数据库约束每个题目版本 × 语言最多一个 VALID calibration。
+- [x] Submission 冻结题目、数据、语言、标定和绝对限制快照。
 - [x] 用户源码与完整送判源码分开；JudgeInput 与 Submission 一对一且同事务创建。
 - [x] 创建幂等键、Inbox eventId、Task submissionId 和 Attempt 次数都有唯一约束。
 - [x] Outbox/Inbox、任务租约、fencing token 和迟到结果边界可由物理列支持。
@@ -1682,10 +1598,17 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来环境或�
 ### WORK-040 节点注册增量
 
 V2 migration 仅新增 `judge_node_registry_lock`、`judge_node`、`judge_node_session` 和 `test_data_node_deployment`。
-注册事务锁住单行 registry lock，保证空库并发注册只创建一个 ACTIVE 环境。节点以 node_id 为主键、
-环境外键不可变，以 `(judge_environment_id, lease_expires_at, node_id)` 索引查询在线节点。
+注册事务锁住单行 registry lock，串行化注册、心跳与部署确认。节点以 node_id 为主键，
+以 `(lease_expires_at, node_id)` 索引查询在线节点（V5 去掉环境外键后）。
 安装回执以 `(test_data_version_id, node_id)` 唯一，摘要不可变，记录 session_id、file_count、
 available、deployed_at 和 row_version；会话变化撤销可用性，历史行不删除。
 `judge_node_session` 保留已接受的会话，防止旧进程重新注册抢回身份。安装拒绝按 row_version 条件撤销旧回执，
 旧请求失败不能覆盖较新的成功结果。查询 READY 同时匹配当前会话和租约。
 DDL 以 judging-service 的 `V2__create_judge_node_registry.sql` 为执行依据；不修改 V1 或回滚 schema。
+
+### 取消判题环境（V4、V5）
+
+V4 删除只有 legacy-local 模式写入的 `test_data_deployment`。V5 取消「判题环境」：删除
+`judge_environment` 与 `judge_environment_language`；`judge_node` 去掉环境外键与整份注册元数据，
+只留 `languages_json`；`language_calibration` 去掉 `judge_environment_id`，唯一约束变为「题目版本 ×
+语言」，迁移时同一组合只保留最近批准的 VALID，其余转为 SUPERSEDED；环境审计记录不保留。

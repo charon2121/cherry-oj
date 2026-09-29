@@ -88,7 +88,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 - 题目、不可变题目版本、样例、checker 配置和测试数据版本元信息。
 - 保存每个题目版本允许的语言，以及 CORE 的 starterCode 和 judgeTemplate。
 - 发布题目修订版本；向 submission-service 提供不可变 `ProblemJudgeSnapshot`。
-- 不保存用户提交，不选择判题环境，不保存环境相关绝对限制，不执行判题。
+- 不保存用户提交，不选择判题节点，不保存标定后的绝对限制，不执行判题。
 
 技术：Spring MVC、MyBatis、MySQL、Flyway。
 
@@ -111,7 +111,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 职责：
 
 - 消费判题请求，创建和调度 JudgeTask / JudgeAttempt。
-- 持有 JudgeEnvironment、JudgeEnvironmentLanguage、TestDataDeployment 和 LanguageCalibration。
+- 持有判题节点（身份、租约、语言）、逐节点测试数据回执和按「题目版本 × 语言」的 LanguageCalibration。
 - 根据明确的题目版本、数据版本和语言解析当前可用 ExecutionProfile。
 - 通过租约领取任务，调用 Go judge，并处理超时、退避重试和死任务。
 - Worker 根据 submissionId 从 submission-service 内部 API 拉取不可变 JudgeInput。
@@ -259,9 +259,8 @@ Kafka 只传递推进流程所需的标识符和有大小上限的小型结果�
    `202 Accepted` 和 `Location`。
 5. judging-service 消费事件并创建 `JudgeTask(Ready)`；Kafka 消费线程不执行长时间判题。
 6. Worker 通过 `leaseToken`、`leaseUntil` 和 `attemptNo` 领取任务，再从 submission-service 内部
-   API 拉取 JudgeInput，提交事务后调用目标环境的 Go judge。
-7. Go judge 返回的 environmentFingerprint 必须与 JudgeInput 冻结值一致，否则本次 Attempt 按系统
-   故障处理。
+   API 拉取 JudgeInput，提交事务后选一个可用节点（在线、支持该语言、本会话持有这份数据）调用 Go judge。
+7. Go judge 按 JudgeInput 冻结的限制判题；没有可用节点时本次 Attempt 按系统故障处理。
 8. 网络超时和 5xx 采用 1s / 10s / 60s 退避，默认最多 3 次；4xx、契约错误或重试耗尽进入 Dead。
 9. 只有匹配当前 `leaseToken` 的 Worker 可以落结果和发布完成事件，旧 Worker 的迟到结果必须丢弃。
 10. submission-service 幂等消费生命周期事件，使用条件更新保证 `Done` 永不回退。
@@ -319,11 +318,12 @@ Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日�
 
 ## WORK-040 节点生命周期与数据交付
 
-节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 使用稳定 nodeId 和进程 sessionId
-向 judging-service 注册真实环境能力，后台心跳失败时重试且不关闭健康入口；控制面租约过期后停止
-部署和路由。安装接口通过独立共享 token 保护，使用有界 multipart 流、摘要和 manifest 二次校验、
-节点私有目录和原子 rename。数据回执绑定 nodeId、环境指纹、sessionId、版本、hash 与文件数。
-重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
+节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 注册只带节点身份：稳定的 nodeId、
+每次进程启动新生成的 sessionId、访问地址和能判的语言；不上报机器信息，也没有「判题环境」分组。
+注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
+重试且不关闭健康入口；控制面租约过期后停止部署和路由。安装接口通过独立共享 token 保护，使用有界
+multipart 流、摘要和 manifest 二次校验、节点私有目录和原子 rename。数据回执绑定 nodeId、sessionId、
+版本、hash 与文件数。重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
 
-本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路，
-只 REGISTERED 新指纹，不能静默替换 ACTIVE；具体参数见 `apps/server/README.md`。
+本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路；
+具体参数见 `apps/server/README.md`。

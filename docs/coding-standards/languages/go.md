@@ -239,6 +239,6 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
   `fakeSandbox` 假装整个执行层。判题逻辑的单测不该需要真起一个沙箱。
 - **黑盒（`package foo_test`）优先**；只有当断言必须读非导出字段或遍历非导出
   注册表时才用白盒，并在文件头注明理由（`language` 的一致性检查、
-  `backend.devhost` 要读临时工作目录、`node/probe` 要注入受保护文件与 cgroup 读取器）。
+  `backend.devhost` 要读临时工作目录、`node/preflight` 要注入受保护文件与 cgroup 读取器）。
 - **依赖本机工具链的集成测试用 `t.Skip`** 优雅退化，并在 CI 里打印工具链版本
   ——否则某天镜像变了、测试静默跳过也没人发现。
