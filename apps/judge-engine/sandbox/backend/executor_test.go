@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // fakeExecutor 用 shell 脚本扮演 setuid 执行器：脚本拿到 box 目录 $d，按约定写 out/ 并输出一行 JSON。
@@ -129,7 +128,7 @@ func TestExecutorRefusalReturnsTheBox(t *testing.T) {
 func TestExecutorPlatformFailureKeepsFacts(t *testing.T) {
 	e, _ := fakeExecutor(t, printFacts(factsLine("platform", false, "init failed: phase=6 errno=2")))
 	f, err := e.Execute(context.Background(), testJob(), nil)
-	if err == nil || !strings.Contains(err.Error(), "init failed") || f.Reason != hostexec.ReasonPlatform {
+	if err == nil || !strings.Contains(err.Error(), "init failed") || f.Reason != ReasonPlatform {
 		t.Fatalf("facts=%+v err=%v", f, err)
 	}
 }
@@ -140,7 +139,7 @@ func TestExecutorCancellationClosesStdin(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(100*time.Millisecond, cancel)
 	f, err := e.Execute(ctx, testJob(), nil)
-	if err != nil || f.Reason != hostexec.ReasonCancelled {
+	if err != nil || f.Reason != ReasonCancelled {
 		t.Fatalf("facts=%+v err=%v", f, err)
 	}
 }

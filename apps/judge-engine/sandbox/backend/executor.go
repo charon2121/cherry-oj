@@ -15,8 +15,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // Executor 通过 setuid 的 sandbox 执行器（apps/sandbox）执行命令。本进程不持有任何特权。
@@ -236,10 +234,10 @@ func writeRequest(dir string, j Job) error {
 	}
 	var total int64
 	for i, in := range j.Inputs {
-		if !hostexec.ValidPath(in.Name) {
+		if !ValidPath(in.Name) {
 			return fmt.Errorf("invalid input path: %q", in.Name)
 		}
-		n, err := spool(filepath.Join(dir, "in", strconv.Itoa(i)), in.Reader, hostexec.MaxInputBytes-total)
+		n, err := spool(filepath.Join(dir, "in", strconv.Itoa(i)), in.Reader, MaxInputBytes-total)
 		if err != nil {
 			return err
 		}
@@ -254,11 +252,11 @@ func writeRequest(dir string, j Job) error {
 	if j.Stdin != nil {
 		stdin = j.Stdin.Reader
 	}
-	if _, err := spool(filepath.Join(dir, "stdin"), stdin, hostexec.MaxInputBytes-total); err != nil {
+	if _, err := spool(filepath.Join(dir, "stdin"), stdin, MaxInputBytes-total); err != nil {
 		return err
 	}
 	for _, o := range j.Outputs {
-		if !hostexec.ValidPath(o) {
+		if !ValidPath(o) {
 			return fmt.Errorf("invalid artifact path: %q", o)
 		}
 		spec.WriteString("output=" + o + "\x00")
@@ -300,7 +298,7 @@ type executorResult struct {
 	CPUNs           int64              `json:"cpuNs"`
 	MemoryBytes     int64              `json:"memoryBytes"`
 	ClockNs         int64              `json:"clockNs"`
-	Reason          hostexec.Reason    `json:"reason"`
+	Reason          Reason             `json:"reason"`
 	OOM             uint64             `json:"oom"`
 	OOMKill         uint64             `json:"oomKill"`
 	MemoryMaxEvents uint64             `json:"memoryMaxEvents"`
@@ -330,7 +328,7 @@ func parseResult(data []byte) (executorResult, error) {
 		return r, fmt.Errorf("sandbox executor returned trailing data")
 	}
 	known := r.Reason == ""
-	for _, reason := range hostexec.AllReasons() {
+	for _, reason := range AllReasons() {
 		known = known || r.Reason == reason
 	}
 	if r.Version != 1 || !known || r.CPUNs < 0 || r.MemoryBytes < 0 || r.ClockNs < 0 || r.StdoutBytes < 0 || r.StderrBytes < 0 {
@@ -343,10 +341,10 @@ func (r executorResult) facts() Facts {
 	f := Facts{ExitCode: r.ExitCode, Signal: r.Signal, CPUNs: r.CPUNs, MemoryBytes: r.MemoryBytes,
 		ClockNs: r.ClockNs, Reason: r.Reason, GroupAccounting: true, OOMKilled: r.OOM > 0 && r.OOMKill > 0}
 	if r.Cancelled {
-		f.Reason = hostexec.ReasonCancelled
+		f.Reason = ReasonCancelled
 	}
 	if r.OutputExceeded && f.Reason == "" {
-		f.Reason = hostexec.ReasonOutput
+		f.Reason = ReasonOutput
 	}
 	return f
 }
@@ -382,7 +380,7 @@ func deliverStreams(dir string, j Job, r executorResult) error {
 func deliverOutputs(dir string, j Job, r executorResult, facts Facts, sink OutputSink) error {
 	var total int64
 	for _, o := range r.Outputs {
-		if o.Index < 0 || o.Index >= len(j.Outputs) || j.Outputs[o.Index] != o.Path || o.SizeBytes < 0 || o.SizeBytes > hostexec.MaxArtifactBytes-total {
+		if o.Index < 0 || o.Index >= len(j.Outputs) || j.Outputs[o.Index] != o.Path || o.SizeBytes < 0 || o.SizeBytes > MaxArtifactBytes-total {
 			return fmt.Errorf("sandbox executor delivered an unrequested or oversized artifact: %q", o.Path)
 		}
 		total += o.SizeBytes

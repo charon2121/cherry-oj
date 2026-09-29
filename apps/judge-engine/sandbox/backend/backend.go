@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // Source 是一个输入来源。Reader 由调用方持有并负责关闭；Execute 只读取，不接管。
@@ -50,7 +49,7 @@ type Facts struct {
 	MemoryBytes int64
 	ClockNs     int64
 	// Reason 是主动终止或平台故障的原因；空值表示没有发生主动终止。
-	Reason hostexec.Reason
+	Reason Reason
 	// OOMKilled 要求本任务的 OOM 证据，仅有 SIGKILL 不够。
 	OOMKilled bool
 	// GroupAccounting 标识资源来自整组计量，调用方据此避免套用单进程峰值推断。

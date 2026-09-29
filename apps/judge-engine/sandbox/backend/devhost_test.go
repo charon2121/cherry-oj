@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 var _ Backend = (*DevHost)(nil)
@@ -92,7 +91,7 @@ func TestDevHostWallClockKillsProcessGroup(t *testing.T) {
 	if elapsed := time.Since(start); elapsed > 5*time.Second {
 		t.Fatalf("墙钟没有生效，耗时 %s", elapsed)
 	}
-	if facts.Reason != hostexec.ReasonWall {
+	if facts.Reason != ReasonWall {
 		t.Fatalf("reason=%q want wall", facts.Reason)
 	}
 }
@@ -108,7 +107,7 @@ func TestDevHostCancellationIsNotWall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if facts.Reason != hostexec.ReasonCancelled {
+	if facts.Reason != ReasonCancelled {
 		t.Fatalf("reason=%q want cancelled", facts.Reason)
 	}
 }

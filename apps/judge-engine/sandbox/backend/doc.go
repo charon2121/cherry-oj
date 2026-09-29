@@ -1,5 +1,5 @@
-// Package backend 是单次命令执行的可替换边界：linux 后端把命令交给 isolator，devhost 后端
-// 在本进程里直接起子进程、不做任何隔离，只用于开发。
+// Package backend 是单次命令执行的可替换边界：linux 后端把命令写进 box、调用一次 setuid-root
+// 的 C 执行器（apps/sandbox），devhost 后端在本进程里直接起子进程、不做任何隔离，只用于开发。
 //
 // 一次 Execute 就是一次完整执行：铺输入、跑命令、交付产物、回收资源。**返回即代表回收完成**，
 // 调用方据此决定是否对外发布结果，不需要再调用什么关闭方法。

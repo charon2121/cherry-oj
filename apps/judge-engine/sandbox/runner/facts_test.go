@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/internal/hostexec"
 	"cherry-oj/judge-engine/sandbox/backend"
 	"cherry-oj/judge-engine/sandbox/store"
 )
@@ -24,13 +23,13 @@ func TestFactsClassification(t *testing.T) {
 		{"sigkill", backend.Facts{Signal: 9}, nil, contract.StatusSignalled},
 		{"oom equal limit", backend.Facts{Signal: 9, OOMKilled: true, MemoryBytes: 128 << 20}, nil, contract.StatusMemoryLimitExceeded},
 		{"peak without oom", backend.Facts{GroupAccounting: true, MemoryBytes: 129 << 20}, nil, contract.StatusOK},
-		{"cpu", backend.Facts{Reason: hostexec.ReasonCPU}, nil, contract.StatusTimeLimitExceeded},
-		{"wall", backend.Facts{Reason: hostexec.ReasonWall}, nil, contract.StatusTimeLimitExceeded},
-		{"output", backend.Facts{Reason: hostexec.ReasonOutput}, nil, contract.StatusOutputLimitExceeded},
+		{"cpu", backend.Facts{Reason: backend.ReasonCPU}, nil, contract.StatusTimeLimitExceeded},
+		{"wall", backend.Facts{Reason: backend.ReasonWall}, nil, contract.StatusTimeLimitExceeded},
+		{"output", backend.Facts{Reason: backend.ReasonOutput}, nil, contract.StatusOutputLimitExceeded},
 		{"cancel", backend.Facts{}, context.Canceled, contract.StatusInternalError},
 		{"caller deadline", backend.Facts{}, context.DeadlineExceeded, contract.StatusInternalError},
 		{"unknown", backend.Facts{Reason: "surprise"}, nil, contract.StatusInternalError},
-		{"platform despite oom", backend.Facts{Reason: hostexec.ReasonPlatform, OOMKilled: true}, nil, contract.StatusInternalError},
+		{"platform despite oom", backend.Facts{Reason: backend.ReasonPlatform, OOMKilled: true}, nil, contract.StatusInternalError},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

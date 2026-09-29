@@ -12,8 +12,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"cherry-oj/judge-engine/internal/hostexec"
 )
 
 // Name 用于配置中选择后端；取值同时出现在配置校验与装配处，只定义一次。
@@ -133,9 +131,9 @@ func runCommand(ctx context.Context, dir string, j Job) (Facts, error) {
 		CPUNs: state.UserTime().Nanoseconds() + state.SystemTime().Nanoseconds()}
 	switch {
 	case errors.Is(runCtx.Err(), context.DeadlineExceeded) && ctx.Err() == nil:
-		facts.Reason = hostexec.ReasonWall
+		facts.Reason = ReasonWall
 	case runCtx.Err() != nil:
-		facts.Reason = hostexec.ReasonCancelled
+		facts.Reason = ReasonCancelled
 	}
 	if ws, ok := state.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 		facts.Signal = int(ws.Signal())
