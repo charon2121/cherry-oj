@@ -1,58 +1,6 @@
 name: cherry-oj-engine
 
 services:
-  sandbox:
-    image: cherry-oj-sandbox:local
-    build:
-      context: ./apps/judge-engine
-      dockerfile: Dockerfile
-      target: sandbox
-    init: true
-    restart: unless-stopped
-    read_only: true
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      CHERRY_OJ_LOGGING_PATH: /var/log/cherry-oj
-      CHERRY_OJ_LOGGING_LEVEL: ${ENGINE_LOG_LEVEL:-INFO}
-      CHERRY_OJ_SANDBOX_HTTP_ADDR: 0.0.0.0:5050
-      # 此 Compose 仅用于可信代码开发；不可信执行使用 deploy/sandbox-linux 原生隔离部署。
-      # devhost 是零隔离的开发后端：只用于可信代码的本地联调，不能跑用户提交。
-      # 它要求显式承认，避免误用时以为自己有沙箱。正式隔离部署见 deploy/sandbox-linux。
-      CHERRY_OJ_SANDBOX_BACKEND: devhost
-      CHERRY_OJ_SANDBOX_ALLOW_UNSAFE_BACKEND: "true"
-      CHERRY_OJ_SANDBOX_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
-      CHERRY_OJ_SANDBOX_STORE_ROOT: /var/lib/cherry-oj/store
-      CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}
-    expose:
-      - "5050"
-    volumes:
-      - engine-logs:/var/log/cherry-oj
-    tmpfs:
-      # store 只放跨 /run 使用的临时 ref；容器停止后自动清空，且不需要执行权限。
-      - /var/lib/cherry-oj/store:rw,nosuid,nodev,noexec,size=${SANDBOX_STORE_SIZE:-256m},mode=0700,uid=10001,gid=10001
-      # host Container 的工作目录在 /tmp，编译产物会从这里执行，因此不能挂 noexec。
-      - /tmp:rw,nosuid,nodev,exec,size=${SANDBOX_WORKSPACE_SIZE:-1g},mode=1777
-    cpus: ${SANDBOX_CPUS:-2.0}
-    mem_limit: ${SANDBOX_MEMORY_LIMIT:-2g}
-    pids_limit: ${SANDBOX_PIDS_LIMIT:-512}
-    networks:
-      - engine
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:5050/version"]
-      interval: 5s
-      timeout: 2s
-      retries: 12
-      start_period: 5s
-    stop_grace_period: 15s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   judge:
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -68,15 +16,19 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    depends_on:
-      sandbox:
-        condition: service_healthy
     environment:
       CHERRY_OJ_LOGGING_PATH: /var/log/cherry-oj
       CHERRY_OJ_LOGGING_LEVEL: ${ENGINE_LOG_LEVEL:-INFO}
       CHERRY_OJ_JUDGE_HTTP_ADDR: 0.0.0.0:5051
-      CHERRY_OJ_JUDGE_SANDBOX_URL: http://sandbox:5050
-      CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT: ${JUDGE_SANDBOX_TIMEOUT:-60s}
+      CHERRY_OJ_JUDGE_SANDBOX_MODE: local
+      # 此 Compose 仅用于可信代码开发；不可信执行使用 deploy/sandbox-linux 原生隔离部署。
+      # devhost 是零隔离的开发后端：只用于可信代码的本地联调，不能跑用户提交。
+      # 它要求显式承认，避免误用时以为自己有沙箱。正式隔离部署见 deploy/sandbox-linux。
+      CHERRY_OJ_EXECUTION_BACKEND: devhost
+      CHERRY_OJ_EXECUTION_ALLOW_UNSAFE_BACKEND: "true"
+      CHERRY_OJ_EXECUTION_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
+      CHERRY_OJ_EXECUTION_STORE_ROOT: /var/lib/cherry-oj/store
+      CHERRY_OJ_EXECUTION_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}
       CHERRY_OJ_JUDGE_TESTDATA_ROOT: /srv/cherry-oj/testdata
       CHERRY_OJ_JUDGE_STRICT_WHITESPACE: ${JUDGE_STRICT_WHITESPACE:-false}
       CHERRY_OJ_JUDGE_REVEAL_EXPECTED: ${JUDGE_REVEAL_EXPECTED:-false}
@@ -94,12 +46,15 @@ services:
       # 节点拥有数据；Java 通过受保护的安装 API 交付 ZIP，不共享宿主机路径。
       - judge-testdata:/srv/cherry-oj/testdata
     tmpfs:
-      - /tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777
-    cpus: ${JUDGE_CPUS:-1.0}
-    mem_limit: ${JUDGE_MEMORY_LIMIT:-512m}
-    pids_limit: ${JUDGE_PIDS_LIMIT:-128}
+      # store 只放跨多次执行使用的临时 ref；容器停止后自动清空，且不需要执行权限。
+      - /var/lib/cherry-oj/store:rw,nosuid,nodev,noexec,size=${SANDBOX_STORE_SIZE:-256m},mode=0700,uid=10001,gid=10001
+      # devhost 的工作目录在 /tmp，编译产物会从这里执行，因此不能挂 noexec。
+      - /tmp:rw,nosuid,nodev,exec,size=${SANDBOX_WORKSPACE_SIZE:-1g},mode=1777
+    # judge 与执行层在同一个容器里：配额按两者之和给。
+    cpus: ${JUDGE_CPUS:-3.0}
+    mem_limit: ${JUDGE_MEMORY_LIMIT:-2560m}
+    pids_limit: ${JUDGE_PIDS_LIMIT:-640}
     networks:
-      - engine
       - backend
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:5051/version"]
@@ -115,11 +70,8 @@ services:
         max-file: "3"
 
 networks:
-  engine:
-    # sandbox 没有宿主机端口，只能被同一私网里的 judge 访问。
-    internal: true
   backend:
-    # judge 的北向入口；后续 apps/server 接入此网络，sandbox 不加入。
+    # judge 的北向入口；后续 apps/server 接入此网络。
 
 volumes:
   engine-logs:
