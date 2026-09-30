@@ -76,7 +76,7 @@ sandbox 服务把请求写进一个 box 目录、exec 一次执行器、读回�
 - 执行器能拿到的能力不超过 sandbox 服务单元的**能力边界集**（8 项，见 §7.1）。服务进程本身
   非 root、没有任何有效能力；setuid 取得的能力在执行器里用完即丢，init 与用户程序都拿不到。
 - 两端的共享词汇只有 box 目录约定与一行 JSON 事实，写在 [apps/sandbox/README.md](../apps/sandbox/README.md)。
-  Go 侧的调用方是 `sandbox/backend/executor.go`，C 侧与它互相看不见实现。
+  Go 侧的调用方是 `execution/backend/executor.go`，C 侧与它互相看不见实现。
 
 ### 1.3 部署边界：独立交付
 
@@ -93,7 +93,7 @@ judge、sandbox 两个 Go 二进制和执行器分别构建，放进同一个 re
 
 ### 1.4 边界由测试把守，不是由约定
 
-两棵服务子树 `judge/`、`sandbox/` 都不放在 `internal/` 下，少一层目录，读代码时路径更短；只有模块
+两棵服务子树 `judge/`、`execution/` 都不放在 `internal/` 下，少一层目录，读代码时路径更短；只有模块
 顶层的 `internal/`（协议定义与平台设施）保留，给两个服务共用。
 
 代价是编译器不再拦「一个服务引用另一个服务的实现」。这条边界改由模块根 `layout_test.go` 的
@@ -102,7 +102,7 @@ judge、sandbox 两个 Go 二进制和执行器分别构建，放进同一个 re
 
 | 二进制 | 不得链接 | 为什么 |
 |---|---|---|
-| `cmd/judge` | `sandbox/…` | judge 只能通过 HTTP 用 sandbox |
+| `cmd/judge` | `execution/…` | judge 只能通过 HTTP 用 sandbox |
 | `cmd/sandbox` | `judge/…` | sandbox 不理解判题 |
 
 测试同时断言每个二进制确实依赖自己的子树，防止查询本身失效、返回空集而「永远通过」。
@@ -170,7 +170,7 @@ apps/judge-engine/
 │       ├── preflight/          #     注册前自检：确认 sandbox、校验原生部署
 │       └── wire/               #     严格 JSON 解码
 │
-└── sandbox/                    # ★ 服务二：执行服务（非 root）
+└── execution/                  # ★ 服务二：执行服务（非 root）
     ├── doc.go
     ├── sandbox.go              #   Run(...)
     ├── config.go
@@ -467,7 +467,7 @@ sandbox；sandbox 报告 linux 隔离与配置了部署清单必须同时成立�
 ### 6.3 `Backend`：一次性执行接口
 
 ```go
-// sandbox/backend
+// execution/backend
 type Job struct {
     Command []string
     Env     []string
@@ -739,7 +739,7 @@ judge 侧还有一条同源的断言：`judge.sandboxTimeout` 必须大于 `judg
 消耗时间；当前 judge 配置不能推导这些耗时的总上界，部署时仍须为它们留出余量。
 `sandboxTimeout` 会影响调用是得到执行结论还是超时成为 SE，调整它时要按上面的不等式复核。
 
-sandbox 侧的三道期限由 `sandbox/budget.go` 的 `checkBudget` 在启动时检查；judge 的编译期限由
+sandbox 侧的三道期限由 `execution/budget.go` 的 `checkBudget` 在启动时检查；judge 的编译期限由
 配置校验检查，测例期限由 flow 在请求时检查。测试分别覆盖合法、相等和越界值。
 
 ---

@@ -26,15 +26,15 @@ judging-service ──HTTP /judge──▶ judge ──HTTP /blobs、/run──�
 |---|---|
 | [cmd/](cmd) | 两个 `main`，只调用各自服务包的 `Run` |
 | [judge/](judge) | 编排一次判题：上传源码、编译、逐点运行、比对、汇总 Verdict；入口 [flow](judge/flow/flow.go) |
-| [sandbox/](sandbox) | 对 judge 提供沙箱执行：blob、排队、限额归一化、把执行事实归类成 Status |
-| · [backend](sandbox/backend/doc.go) | 单次执行的可替换边界：[executor.go](sandbox/backend/executor.go) 调用 C 执行器，devhost 不隔离、只用于开发 |
+| [execution/](execution) | 对 judge 提供沙箱执行：blob、排队、限额归一化、把执行事实归类成 Status |
+| · [backend](execution/backend/doc.go) | 单次执行的可替换边界：[executor.go](execution/backend/executor.go) 调用 C 执行器，devhost 不隔离、只用于开发 |
 | [layout_test.go](layout_test.go) | 两棵子树之间的引用边界：每个服务二进制只能链接自己的子树和 internal/ |
 | [internal/](internal) | 模块内共享：[contract](internal/contract)（judge↔sandbox 的 DTO）与平台设施 |
 
 ## 从哪里开始读
 
-- 一条命令怎么执行：sandbox 的 [api/run.go](sandbox/api/run.go) → [runner](sandbox/runner/runner.go)
-  → [backend/executor.go](sandbox/backend/executor.go) → 执行器的 [main.c](../sandbox/src/main.c)。
+- 一条命令怎么执行：sandbox 的 [api/run.go](execution/api/run.go) → [runner](execution/runner/runner.go)
+  → [backend/executor.go](execution/backend/executor.go) → 执行器的 [main.c](../sandbox/src/main.c)。
 - 配置：[judge.example.yaml](judge.example.yaml)、[sandbox.example.yaml](sandbox.example.yaml)；
-  跨层期限的顺序断言在 [sandbox/budget.go](sandbox/budget.go)。
+  跨层期限的顺序断言在 [execution/budget.go](execution/budget.go)。
 - 执行器的真实内核测试：[apps/sandbox/tests](../sandbox/tests/run_tests.py)，需要 root 与一次性的 Linux 机器。

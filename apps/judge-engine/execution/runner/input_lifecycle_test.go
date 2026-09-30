@@ -8,8 +8,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"cherry-oj/judge-engine/execution/backend"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
 )
 
 type closingInput struct {

@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	"cherry-oj/judge-engine/sandbox/store"
+	"cherry-oj/judge-engine/execution/store"
 )
 
 func (s *Server) handleBlobPut(w http.ResponseWriter, r *http.Request) {

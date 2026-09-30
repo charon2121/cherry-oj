@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 func failedRun(ctx context.Context, status contract.Status, err error) contract.RunResult {

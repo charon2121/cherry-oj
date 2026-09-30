@@ -29,7 +29,7 @@ func TestPoolDoesNotDependOnExecutionImplementations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.HasPrefix(path, "cherry-oj/judge-engine/sandbox/") {
+			if strings.HasPrefix(path, "cherry-oj/judge-engine/execution/") {
 				t.Errorf("capacity package imports execution implementation %q in %s", path, name)
 			}
 		}

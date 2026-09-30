@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 // MaxInputBytes 是一次请求内所有输入文件和 stdin 共享的字节预算。

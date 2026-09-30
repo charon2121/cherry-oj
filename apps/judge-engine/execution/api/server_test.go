@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"cherry-oj/judge-engine/execution/api"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/api"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 type fakeExec struct {

@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/runner"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/runner"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 func setup(t *testing.T) (backend.Backend, store.Store) {

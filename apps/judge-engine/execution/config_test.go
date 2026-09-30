@@ -1,11 +1,11 @@
-package sandbox
+package execution
 
 import (
 	"os"
 	"path/filepath"
 	"testing"
 
-	"cherry-oj/judge-engine/sandbox/backend"
+	"cherry-oj/judge-engine/execution/backend"
 )
 
 func writeYAML(t *testing.T, body string) string {

@@ -84,7 +84,7 @@
       "assertion": "Go 执行后端与部署自检在真实 Linux 上执行，无隐式 skip",
       "sources": [
         {
-          "path": "apps/judge-engine/sandbox/backend/executor_test.go",
+          "path": "apps/judge-engine/execution/backend/executor_test.go",
           "selector": "TestExecutorDeliversFactsStreamsAndArtifacts"
         }
       ]
@@ -1121,7 +1121,7 @@
     "cherry-oj/judge-engine": [
       "TestServiceBinariesLinkOnlyTheirOwnSubtree"
     ],
-    "cherry-oj/judge-engine/sandbox/backend": [
+    "cherry-oj/judge-engine/execution/backend": [
       "TestExecutorDeliversFactsStreamsAndArtifacts",
       "TestExecutorUnreclaimedBoxIsNotReused",
       "TestExecutorKilledBySignalIsUnreclaimed",

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 // Runner 借用可并发调用的后端与 Store；每次 Run 的输入、产物和取消状态仍是局部值。

@@ -22,8 +22,8 @@ func TestServiceBinariesLinkOnlyTheirOwnSubtree(t *testing.T) {
 		cmd, own  string
 		forbidden []string
 	}{
-		{"./cmd/judge", "judge", []string{"sandbox"}},
-		{"./cmd/sandbox", "sandbox", []string{"judge"}},
+		{"./cmd/judge", "judge", []string{"execution"}},
+		{"./cmd/sandbox", "execution", []string{"judge"}},
 	}
 	for _, s := range services {
 		deps := dependencies(t, s.cmd)

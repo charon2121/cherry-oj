@@ -1,4 +1,4 @@
-// Package sandbox 是对 judge 提供沙箱执行的服务门面：负责 HTTP 协议、blob 存储、排队、
+// Package execution 是对 judge 提供沙箱执行的服务门面：负责 HTTP 协议、blob 存储、排队、
 // 限额归一化，以及把执行事实归类成 Status。
 //
 // 隔离本身不在这里做：本服务以非特权身份运行，namespace、cgroup、降权与 seccomp 全部由
@@ -14,4 +14,4 @@
 //   - 与执行器之间只有 box 目录约定与一行 JSON 事实（见 apps/sandbox/README.md），
 //     调用方在 backend/executor.go。
 //   - 本服务不理解判题：verdict、编译与比对都在 judge。
-package sandbox
+package execution

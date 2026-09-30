@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 // MaxInlineBytes 限制一次响应内所有内联产物的累计大小。

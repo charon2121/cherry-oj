@@ -3,8 +3,8 @@ package runner
 import (
 	"testing"
 
+	"cherry-oj/judge-engine/execution/backend"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
 )
 
 // 每个终止原因在这里登记一次结论，外加一个让该结论可区分的执行状态。

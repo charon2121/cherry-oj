@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 func TestFactsClassification(t *testing.T) {

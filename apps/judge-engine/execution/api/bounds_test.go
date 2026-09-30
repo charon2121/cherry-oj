@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"cherry-oj/judge-engine/execution/api"
 	"cherry-oj/judge-engine/internal/contract"
-	"cherry-oj/judge-engine/sandbox/api"
 )
 
 type countExecutor struct{ calls int }

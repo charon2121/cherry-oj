@@ -1,4 +1,4 @@
-package sandbox
+package execution
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 	"runtime"
 	"time"
 
+	"cherry-oj/judge-engine/execution/api"
+	"cherry-oj/judge-engine/execution/backend"
+	"cherry-oj/judge-engine/execution/pool"
+	"cherry-oj/judge-engine/execution/runner"
+	"cherry-oj/judge-engine/execution/store"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/platform/tracing"
-	"cherry-oj/judge-engine/sandbox/api"
-	"cherry-oj/judge-engine/sandbox/backend"
-	"cherry-oj/judge-engine/sandbox/pool"
-	"cherry-oj/judge-engine/sandbox/runner"
-	"cherry-oj/judge-engine/sandbox/store"
 )
 
 // Run 启动执行服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成。
