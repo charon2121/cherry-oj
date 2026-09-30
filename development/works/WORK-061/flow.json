@@ -67,7 +67,7 @@
     "stage": "verification",
     "label": "验证与验收",
     "requirement": "required",
-    "status": "pending",
+    "status": "doing",
     "status_source": "derived",
     "artifacts": [
       "VERIFY-062"

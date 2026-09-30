@@ -26,7 +26,7 @@ read_paths: ["apps/judge-engine", "apps/sandbox", "deploy/sandbox-linux", ".gith
 write_paths: ["apps/judge-engine", "apps/sandbox/README.md", "deploy/sandbox-linux", ".github/workflows", "contracts/run.schema.json", "scripts/contracts_test.py", "docs", "compose.yaml", "compose.standalone.yaml", "AGENTS.md"]
 forbidden_paths: ["apps/server", "apps/web", "apps/sandbox/src"]
 created_at: "2026-09-29"
-updated_at: "2026-09-29"
+updated_at: "2026-09-30"
 format: "compact"
 work_type: "maintenance"
 ---
@@ -169,7 +169,7 @@ executorPath、boxesRoot、parallelism、queueSize、store）并入 judge 配置
 | 确认目标与边界 | ○ 就绪 | 必需 | WORK-061 `todo` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
 | 实施 | · 未开始 | 必需 | WORK-061 `todo` | 按任务实施，产出代码与测试 |
 | 复核 | · 未开始 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 验证与验收 | · 未开始 | 必需 | VERIFY-062 `draft` | 用可复现的证据确认要求逐条满足 |
+| 验证与验收 | ▶ 进行中 | 必需 | VERIFY-062 `review` | 用可复现的证据确认要求逐条满足 |
 
 ## 变更记录
 
