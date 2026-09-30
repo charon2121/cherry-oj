@@ -1,11 +1,11 @@
 # cherry-oj
 
-学习型 Online Judge。浏览器端和五个 Java 服务已经建立基础工程，当前可工作的判题引擎由两个 Go 服务组成：
+学习型 Online Judge。浏览器端和五个 Java 服务已经建立基础工程，当前可工作的判题引擎是一个 Go 服务
+`judge` 加一个 C 执行器：
 
-- `judge`：判题编排、测试数据读取、答案比对。
-- `sandbox`：执行一条编译或运行命令，返回资源用量与输出。
-
-二者来自同一个 Go module，但部署为**两个独立容器**，通过私有 HTTP 网络通信。
+- `judge`：判题编排、测试数据读取、答案比对；进程内的执行层负责执行编译与运行命令、返回资源用量与输出。
+- `sandbox` 执行器（`apps/sandbox`）：setuid-root 的一次性 C 程序，每次执行在隔离环境里跑一条命令。
+  只在原生 Linux 部署中使用，见 `deploy/sandbox-linux`。
 
 ## 项目文档
 
@@ -55,11 +55,10 @@ docker compose up -d --wait
 默认部署行为：
 
 - judge 暴露在宿主机 `127.0.0.1:5051`。
-- sandbox 不映射宿主机端口，只允许 judge 通过内部网络访问。
 - 测试数据只读挂载到 judge；默认使用仓库中的 A+B 测试 fixture。
-- sandbox 的 blob store 和执行工作区使用 tmpfs，容器停止后自动清空。
-- judge/sandbox 的 JSON 文件日志写入 `engine-logs` volume，并按 UTC 日期拆分；stdout 日志仍然保留。
-- 两个容器都使用非 root 用户、只读根文件系统、移除 Linux capabilities。
+- 执行层的 blob store 和执行工作区使用 tmpfs，容器停止后自动清空。
+- judge 的 JSON 文件日志写入 `engine-logs` volume，并按 UTC 日期拆分；stdout 日志仍然保留。
+- 容器使用非 root 用户、只读根文件系统、移除 Linux capabilities。
 
 发送一个 A+B 判题请求：
 
@@ -83,7 +82,7 @@ curl -sS -X POST http://127.0.0.1:5051/judge \
 
 ```bash
 docker compose ps
-docker compose logs -f judge sandbox
+docker compose logs -f judge
 ```
 
 停止服务：
@@ -101,16 +100,18 @@ Compose 支持通过环境变量或项目根目录的 `.env` 文件覆盖：
 | `TESTDATA_PATH` | 仓库测试 fixture | 宿主机测试数据目录，只读挂载给 judge |
 | `JUDGE_BIND_ADDRESS` | `127.0.0.1` | judge 的宿主机监听地址 |
 | `JUDGE_PORT` | `5051` | judge 的宿主机端口 |
-| `SANDBOX_PARALLELISM` | `2` | sandbox 同时执行的任务数 |
-| `SANDBOX_CPUS` | `2.0` | sandbox 容器 CPU 配额 |
-| `SANDBOX_MEMORY_LIMIT` | `2g` | sandbox 容器总内存上限 |
+| `JUDGE_CPUS` | `3.0` | judge 容器 CPU 配额（含执行层运行的用户程序） |
+| `JUDGE_MEMORY_LIMIT` | `2560m` | judge 容器总内存上限 |
+| `JUDGE_PIDS_LIMIT` | `640` | judge 容器进程数上限 |
+| `SANDBOX_PARALLELISM` | `2` | 执行层同时执行的命令数 |
+| `SANDBOX_MAX_BLOB_BYTES` | `67108864` | 执行层 store 单个 blob 上限 |
 | `SANDBOX_STORE_SIZE` | `256m` | blob store tmpfs 大小 |
 | `SANDBOX_WORKSPACE_SIZE` | `1g` | 编译和运行工作区 tmpfs 大小 |
-| `ENGINE_LOG_LEVEL` | `INFO` | judge/sandbox 的 JSON 日志级别 |
+| `ENGINE_LOG_LEVEL` | `INFO` | judge 的 JSON 日志级别 |
 
 生产环境中应移除 judge 的宿主机端口映射，让业务 server 与 judge 通过后端私网通信。
-测试数据仍只挂载给 judge，sandbox 不应接触题库答案。
+标准答案只由判题编排读取，执行层与用户程序接触不到它。
 
-> 安全说明：当前 sandbox 使用 host Container 实现，Docker 只是外围隔离。它适合开发和
-> MVP 联调，但还不应执行公网不可信提交；上线前仍需完成 namespace、chroot 和 cgroup
-> 的逐任务隔离。
+> 安全说明：Compose 使用零隔离的 devhost 后端，Docker 只是外围隔离，只适合可信代码的开发与联调，
+> 不能执行不可信提交。逐任务的 namespace、pivot_root、cgroup 与 seccomp 隔离由原生 Linux 部署中的
+> sandbox 执行器完成，见 `deploy/sandbox-linux`。

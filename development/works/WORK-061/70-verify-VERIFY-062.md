@@ -38,7 +38,7 @@ verifies 必须锚定主文档的 AC 条目；没运行的检查必须如实说�
   测试（在真实 Linux 上作为必跑 Go 测试执行），错误可执行格式改由 extended.py 直接驱动执行器。
 - `inlineThresholdBytes` 未按原方案删除：它在进程内仍有意义，删除会改动判题编排的输入传递。
 - 原方案「12 项上界」有误，实际为 16 项（4 个受管组 × 4）。
-- 根目录 README.md 的 Compose 说明未更新（不在可写范围），待确认。
+- 根目录 README.md 经用户确认后纳入范围并已更新。
 
 ## 验证情况
 
@@ -48,8 +48,6 @@ verifies 必须锚定主文档的 AC 条目；没运行的检查必须如实说�
 
 ## 遗留问题
 
-- 根目录 README.md 需要随 Compose 变化更新：`docker compose logs -f judge sandbox` 已失效，
-  `SANDBOX_*` 变量说明需改为执行层含义。需要确认是否扩大本工作范围。
 - `tracing.Transport` 目前没有出站调用方，judge 调控制面的客户端未接入 trace 传播（合并前也未接入）。
 - 执行层错误消息与日志事件名仍沿用 `sandbox` 前缀（如 `sandbox queue is full`、`sandbox.pool.stopped`），
   改名会影响日志检索，未在本工作中处理。

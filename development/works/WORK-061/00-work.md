@@ -22,8 +22,8 @@ data_change: false
 public_api_change: false
 security_sensitive: true
 user_visible: false
-read_paths: ["apps/judge-engine", "apps/sandbox", "deploy/sandbox-linux", ".github/workflows", "contracts", "docs", "compose.yaml", "compose.standalone.yaml", "AGENTS.md", "scripts/contracts_test.py"]
-write_paths: ["apps/judge-engine", "apps/sandbox/README.md", "deploy/sandbox-linux", ".github/workflows", "contracts/run.schema.json", "scripts/contracts_test.py", "docs", "compose.yaml", "compose.standalone.yaml", "AGENTS.md"]
+read_paths: ["README.md", "apps/judge-engine", "apps/sandbox", "deploy/sandbox-linux", ".github/workflows", "contracts", "docs", "compose.yaml", "compose.standalone.yaml", "AGENTS.md", "scripts/contracts_test.py"]
+write_paths: ["apps/judge-engine", "apps/sandbox/README.md", "deploy/sandbox-linux", ".github/workflows", "contracts/run.schema.json", "scripts/contracts_test.py", "docs", "compose.yaml", "compose.standalone.yaml", "AGENTS.md", "README.md"]
 forbidden_paths: ["apps/server", "apps/web", "apps/sandbox/src"]
 created_at: "2026-09-29"
 updated_at: "2026-09-30"
@@ -190,3 +190,5 @@ executorPath、boxesRoot、parallelism、queueSize、store）并入 judge 配置
 - 2026-09-30：待确认：根目录 README.md 仍描述 Compose 的 sandbox 容器、`SANDBOX_*` 变量与
   `docker compose logs judge sandbox` 命令（其中 logs 命令已失效）。该文件不在本工作的可写范围内，
   需用户确认是否扩大范围后更新。
+- 2026-09-30：用户确认扩大范围：根目录 README.md 纳入可写范围，同步 Compose 只运行 judge 后的说明
+  （服务构成、日志命令、配额变量与安全说明）。Compose 的 `SANDBOX_*` 变量名保持不变，只改说明。
