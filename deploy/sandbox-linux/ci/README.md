@@ -43,7 +43,7 @@ sourceSha 必须匹配本次 checkout，harnessSha 覆盖非忽略的部署/测�
 
 `results.py` 要求 Linux 专属 Go 测试、执行器自身的真实内核测试（apps/sandbox/tests，在独立
 委派单元内运行）及 Python 逐模式标记出现，不允许 skip。直接执行类测试由 `holder.py` 持有委派
-子树，以服务身份直接调用 setuid 执行器；HTTP 链路与故障批次按生产单元的方式启动 sandbox 服务，
+子树，以服务身份直接调用 setuid 执行器；整链与故障批次按生产单元的方式启动 judge（执行层在进程内），
 由生产的 `judge-start.py` 核对 rootfs 并建组。
 
 ## 原生部署套件
@@ -64,7 +64,7 @@ sourceSha 必须匹配本次 checkout，harnessSha 覆盖非忽略的部署/测�
 正常报告只有完整清理后才能PASS，VM销毁不算清理证据。没有enable、整机重启或现有服务连接。
 
 权限删减对照会主动造成连续启动失败。systemd阻止新启动时可能仍保留上一次`Result=exit-code`，
-因此不能仅以“不是start-limit-hit”证明实际执行。每个对照前仅清除本轮sandbox服务的失败计数，
+因此不能仅以“不是start-limit-hit”证明实际执行。每个对照前仅清除本轮judge服务的失败计数，
 不修改部署的启动频率配置、不重试当前对照；逐次要求新的InvocationID和主进程启动时间，
 报告必须含8个不同启动实例（完整权限正例+7个删减）。恢复原配置并核对摘要后同样清除主动
 失败历史，再运行原启动与恢复断言。该处理仅属于测试夹具，不进入生产管理器。

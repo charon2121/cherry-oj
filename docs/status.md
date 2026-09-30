@@ -8,12 +8,12 @@
 
 | 部分 | 状态 |
 |---|---|
-| `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events；run / verdict 保持稳定 |
-| sandbox（store, container, runner, pool, api, cmd） | ✅ 可独立 `curl` |
+| `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events；verdict 保持稳定 |
+| 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；执行器有真实内核测试 |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
-| judge：`api`、`cmd/judge` | ✅ `POST /judge`，可与 sandbox 双进程联调 |
-| Docker 部署 | ✅ judge / sandbox 双容器 Compose（开发与 MVP） |
+| judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内 |
+| Docker 部署 | ✅ 单 judge 容器 Compose（开发与 MVP，devhost 后端） |
 | `apps/server`（五个 Java 服务） | ✅ Maven 聚合、独立端口、健康检查与基础测试；业务 API 待实现 |
 | `apps/web` | ✅ React、Router、Query、样式、组件与测试工具骨架；业务页面待实现 |
 

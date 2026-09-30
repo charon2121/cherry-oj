@@ -127,7 +127,7 @@ sandbox 服务，与本工作目的相反。
 **删除。** `cmd/sandbox`、`sandbox/api`（`/run`、`/blobs`、`/version`）、`judge/sandboxclient`、
 sandbox 的配置加载与 `sandbox.example.yaml`、`budget.go` 中的 HTTP 层期限、`contracts/run.schema.json`
 及其契约测试。`internal/contract` 中 `RunSpec`/`RunResult` 仍作为 flow ↔ 执行层的 Go 类型保留。
-judge 的 `sandboxURL`、`sandboxTimeout`、`inlineThresholdBytes` 删除；执行层配置（backend、
+judge 的 `sandboxURL`、`sandboxTimeout` 删除（`inlineThresholdBytes` 保留，见变更记录）；执行层配置（backend、
 executorPath、boxesRoot、parallelism、queueSize、store）并入 judge 配置的 `execution` 段。
 每次执行的期限由执行器调用上界（启动 3s + 墙钟 + 回收 10s）给出，flow 原有的
 「有效墙钟 < sandboxTimeout」检查改为「≤ 墙钟硬界」。
@@ -144,7 +144,7 @@ executorPath、boxesRoot、parallelism、queueSize、store）并入 judge 配置
   `PrivateTmp`、`IPAddressDeny/Allow`、`UMask=0077`；启动改为 `judge-start.py`
   （由 `sandbox-start.py` 改名：核对 rootfs、建 supervisor/jobs 并写限额，再 exec judge）。
 - 资源上界：slice 不变（1536M/384/200%）；judge.service 1280M/320/200%；supervisor 640M/160/100%；
-  jobs 640M/160/100%。部署清单与 judge 的 `deployment_spec.go` 同步为 3 个组 × 4 项 = 12 项上界。
+  jobs 640M/160/100%。部署清单与 judge 的 `deployment_spec.go` 同步为 4 个组（含 slice）× 4 项 = 16 项上界。
 - 发布：release 只含 `bin/judge` 与 `libexec/sandbox`；`health.py` 只检查 judge。
 
 **CI。** 内核套件：执行器真实内核测试不变；原 HTTP 链路（smoke/repeat/concurrency）改为经 judge
@@ -176,3 +176,17 @@ executorPath、boxesRoot、parallelism、queueSize、store）并入 judge 配置
 - 2026-09-29：创建。签署与重要变更在此记录，测试证据只写 VERIFY。
 - 2026-09-30：用户审阅方案后明确「可以，改名为 execution，开始执行」：接受 judge 服务单元加固变弱的
   代价，确认目录改名。据此开始实施；意图闸仍由人签署，本记录不代签。
+- 2026-09-30：实施中对方案的调整（均不改变已确认的目标、边界与代价）：
+  - 分步：改名单独成提交；第二步拆成 Compose、原生部署、内核套件三个提交，每个提交 CI 通过后再继续。
+  - 上界数：原方案写「3 个组 × 4 项 = 12 项」有误，实际受管组含 slice 共 4 个，为 16 项。
+  - `inlineThresholdBytes` 保留：进程内同样要在「内联文本」与「先存 store 走 ref」之间取舍，删除它等于
+    改判题编排的输入传递方式，超出本工作「不改判题逻辑」的边界。
+  - 必需回归由 93 项变为 91 项：`native.kill-sandbox` 与 `kernel.handler-saturation` 随 sandbox 服务删除；
+    judge 不暴露原始执行事实的几项改到能直接观察它们的地方（显式零限额、零输出预算、队列饱和改为
+    执行层单元测试并列入必跑 Go 测试；错误可执行格式改由 extended.py 直接驱动执行器）；
+    `kernel.http-kill` 改名 `kernel.judge-kill`。
+  - 两次提交误带了下一步已暂存的改名与删除（4b1f1fb、3687486），各自的 CI 因此失败，下一步的提交补齐；
+    此后改为按显式路径提交。
+- 2026-09-30：待确认：根目录 README.md 仍描述 Compose 的 sandbox 容器、`SANDBOX_*` 变量与
+  `docker compose logs judge sandbox` 命令（其中 logs 命令已失效）。该文件不在本工作的可写范围内，
+  需用户确认是否扩大范围后更新。

@@ -694,7 +694,7 @@ JudgeRequest {
 Go judge 不知道：userId、codeMode、judgeTemplate、LanguageCalibration、Submission 状态、Kafka 或 Java
 数据库。它只按请求执行。
 
-`contracts/run.schema.json` 和 sandbox 不需要因微服务、题目版本或 CORE 改变。
+执行层（judge 进程内）与 sandbox 执行器不需要因微服务、题目版本或 CORE 改变。
 
 ---
 
@@ -884,9 +884,9 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 ### 13.3 不变化
 
-- `contracts/run.schema.json` 不知道题目版本或 CORE。
+- 执行层的 `RunSpec`（`internal/contract`）不知道题目版本或 CORE。
 - `contracts/verdict.json` 保持 verdict 集合真源。
-- sandbox Status 与 judge Verdict 继续分离。
+- 执行层 Status 与 judge Verdict 继续分离。
 
 ---
 

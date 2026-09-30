@@ -4,11 +4,11 @@
 > 产品范围：[`product.md`](./product.md)
 > 后端技术基线：[backend.md](./backend.md)
 > 数据与一致性：[data-model.md](./data-model.md)
-> judge / sandbox 内部设计：[engine.md](./engine.md)
+> judge、执行层与 sandbox 执行器内部设计：[engine.md](./engine.md)
 
 本文描述 Cherry OJ 当前唯一有效的系统拓扑。早期的“单体 `apps/server` 同步调用 judge”方案已经
-废止；业务后端采用五个 Java 微服务，正式提交通过 Kafka 异步推进。Go judge 与 sandbox 的职责边界
-保持不变。
+废止；业务后端采用五个 Java 微服务，正式提交通过 Kafka 异步推进。判题编排与执行层的职责边界
+保持不变（执行层已并入 judge 进程，见 engine.md）。
 
 ---
 
@@ -23,8 +23,8 @@
    不破坏状态，不声称 MySQL + Kafka 能“恰好一次”。
 5. **跨边界契约先行。** 浏览器公开 REST 以 `contracts/web-api.openapi.json` 为唯一真源；内部服务、
    Kafka 和 Java/Go DTO 使用各自的 `contracts/*.json`，不能把公开 BFF envelope 扩散到内部协议。
-6. **sandbox 只执行命令。** 编译、测试点编排、checker 和 verdict 都在 judge；sandbox 不知道题目、
-   Submission、ACM 或 CORE。
+6. **执行层只执行命令。** 编译、测试点编排、checker 和 verdict 都在判题编排；执行层与 sandbox
+   执行器不知道题目、Submission、ACM 或 CORE。
 7. **源码模式在进入 judge 前消失。** ACM 源码直接冻结；CORE 用户源码在 submission-service 中与
    题目语言模板合并，JudgeRequest 始终携带完整、可编译源码。
 
@@ -56,10 +56,10 @@ gateway-service                 BFF、Session、CSRF、路由、统一错误
                                             │ 内部 HTTP 拉取 JudgeInput
                                             │ HTTP /judge
                                             ▼
-                                      Go judge
-                                            │ HTTP /run, /blobs
+                                      Go judge（判题编排 + 进程内执行层）
+                                            │ 每次执行 exec 一次
                                             ▼
-                                      Go sandbox
+                                      sandbox 执行器（C, setuid-root）
 
 judging-service ── Kafka judge.lifecycle.v1 ──► submission-service
 submission-service：Pending → Judging → Done + verdict
@@ -170,20 +170,20 @@ judging-service 不读取 problem-service 或 submission-service 数据库；需
 
 - 按 `testDataVersionId` 加载正式 `.in/.out`。
 - 根据 language registry 编译完整源码。
-- 逐测试点调用 sandbox。
+- 逐测试点调用进程内执行层。
 - 使用 checker 比对 stdout 与标准答案。
 - 汇总 AC/WA/TLE/MLE/CE/SE 等 verdict。
 
 judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限制生效。
 
-### 3.7 Go sandbox
+### 3.7 执行层与 sandbox 执行器
 
-只提供 `/blobs` 与 `/run`：
+执行层是 judge 进程内的库（`apps/judge-engine/execution`），不是独立服务：
 
-- 准备文件、启动不可信进程、执行资源隔离。隔离由每次执行调用一次的 setuid-root C 执行器
-  （`apps/sandbox`）完成，sandbox 服务本身非 root。
+- 准备文件、排队、调用执行器执行不可信进程。隔离由每次执行调用一次的 setuid-root C 执行器
+  （`apps/sandbox`）完成，judge 进程本身非 root。
 - 返回退出事实、CPU、墙钟、内存和受限 stdout/stderr。
-- 不加载题目数据，不读取标准答案，不产生 OJ verdict。
+- 不加载题目数据，不读取标准答案，不产生 OJ verdict；「执行层不懂判题」由包级依赖检查守住。
 
 ---
 
@@ -199,7 +199,7 @@ judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限�
 - `/api/admin/problems/**` → problem-service
 - `/api/admin/judging/**` → judging-service（Gateway 做前置检查，服务自身仍验权）
 
-前端不能直接访问 Kafka、内部微服务、judge 或 sandbox。
+前端不能直接访问 Kafka、内部微服务或 judge。
 
 浏览器请求 body 直接使用 endpoint DTO，不增加通用 wrapper。普通 JSON 成功响应统一为
 `{ data, meta: { requestId, pagination? } }`；失败使用 RFC 9457 `application/problem+json`，在标准
@@ -380,7 +380,7 @@ int main() {
 - 用户源码原文保存在 Submission；合并后的完整源码保存在 JudgeInput。
 - judgeTemplate 不返回普通用户 API。
 - 发布检查必须用参考核心代码合并模板，并在判题节点上通过样例和正式数据。
-- judge、sandbox、测试数据格式和 checker 不区分 ACM/CORE；两者都使用 stdin/stdout `.in/.out`。
+- judge、执行层、测试数据格式和 checker 不区分 ACM/CORE；两者都使用 stdin/stdout `.in/.out`。
 
 ---
 
@@ -445,9 +445,9 @@ cherry-oj/
 │   │   ├── submission-service/
 │   │   └── judging-service/
 │   ├── judge-engine/                  Go module
-│   │   ├── cmd/{judge,sandbox}/
-│   │   ├── judge/
-│   │   └── sandbox/
+│   │   ├── cmd/judge/
+│   │   ├── judge/                     判题编排
+│   │   └── execution/                 进程内执行层
 │   └── sandbox/                       C 执行器（setuid-root，每次执行一个进程）
 └── compose.yaml
 ```
@@ -455,7 +455,7 @@ cherry-oj/
 每个 Java 服务独立构建、独立容器、独立数据库账号。可以共享父 POM/BOM 和纯技术测试工具，但不得
 共享业务实体、Mapper 或数据库表。
 
-本地 Compose 最终需要：web、五个 Java 服务、judge、sandbox、MySQL、Redis、Kafka。开发早期可按
+本地 Compose 最终需要：web、五个 Java 服务、judge、MySQL、Redis、Kafka。开发早期可按
 纵向切片只启动所需服务，但不能因此改变服务所有权。
 
 ---
@@ -474,7 +474,7 @@ cherry-oj/
 - Java/Go 已实现统一 JSON 日志和 HTTP W3C Trace 传播，具体字段与文件滚动见
   [`logging.md`](./logging.md)。Kafka 传播仍是待业务链实现的契约；仓库没有 Trace exporter、Metrics、
   日志平台或 collector，不能把日志关联误认为已有完整观测后端。
-- 用户代码和 Agent 生成代码都只在 sandbox 执行。
+- 用户代码和 Agent 生成代码都只在 sandbox 执行器的隔离环境里执行。
 - 当前 host container 只适合开发和内部 MVP；公网不可信执行前必须完成 namespace/cgroup 硬化。
 - Gateway、内部 HTTP、Kafka consumer 和 judge 调用都必须有界超时与大小限制。
 

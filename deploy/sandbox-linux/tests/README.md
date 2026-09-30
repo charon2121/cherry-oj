@@ -9,7 +9,7 @@ systemd 单元、cgroup 与 setuid 文件，只能在 `/var/lib/cherry-sandbox-t
 
 `ci/prepare.py` 构建测试版执行器（受信配置编译为 `/var/lib/cherry-sandbox-test/executor.conf`）、
 静态探针（`apps/sandbox/tests/probe.c`）与锁定的 C++ rootfs。`kernel.py` 为每批建独占目录：
-复制 Go 的 sandbox 服务、以 `root:61001 4754` 安装测试版执行器，`prepare_fixture.py` 用探针生成
+复制 judge、以 `root:61001 4754` 安装测试版执行器，`prepare_fixture.py` 用探针生成
 最小 rootfs 与 manifest（探针另以 `true` 的名字放一份），C++ 批次再复制锁定 rootfs。
 数字身份：服务 61001，payload 61002 起，init 61006 起（box N 取基数加 N）；不创建系统账号。
 

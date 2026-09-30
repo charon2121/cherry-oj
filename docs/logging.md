@@ -1,6 +1,6 @@
 # 日志与执行链路规范
 
-Java 五个服务、Go judge 和 Go sandbox 共享本规范。目标是让同一条请求在不同运行时中仍可用同一个
+Java 五个服务与 Go judge 共享本规范。目标是让同一条请求在不同运行时中仍可用同一个
 Trace ID 查询，同时让日志可以直接被 JSON 日志采集器读取；日志平台、指标、告警和 Trace 导出后端
 不属于当前能力。
 
@@ -13,7 +13,7 @@ Trace ID 查询，同时让日志可以直接被 JSON 日志采集器读取；�
 | `@timestamp` | 必需 | RFC 3339 时间；允许 `Z` 或明确时区偏移 |
 | `level` | 必需 | `DEBUG`、`INFO`、`WARN` 或 `ERROR` |
 | `message` | 必需 | 简短、可读的事件说明，不拼接源码或请求正文 |
-| `service` | 必需 | 固定部署服务名，例如 `submission-service`、`judge`、`sandbox` |
+| `service` | 必需 | 固定部署服务名，例如 `submission-service`、`judge` |
 | `trace_id` | 活动 Trace 时必需 | 32 位小写十六进制 W3C Trace ID |
 | `span_id` | 活动 Trace 时必需 | 当前服务边界的 16 位小写十六进制 Span ID |
 | `request_id` | 有同步请求 ID 时必需 | Gateway 生成的 `req_...`；不承担 Trace 或幂等语义 |
@@ -36,8 +36,10 @@ DTO、异常对象或请求对象。
 - Java MVC/WebFlux 入站请求自动建立或继续 Trace。使用 Spring 注入的 `RestClient.Builder`、
   `WebClient.Builder` 或 Gateway route 发起出站请求时，框架自动注入 W3C header；不要手工 new 一个
   未受 Spring 管理的客户端后期待它自动传播。
-- Go judge/sandbox 的 HTTP middleware 建立或继续 Trace；judge 的 sandbox client 通过统一 Transport
-  自动透传 `traceparent`、`tracestate` 和合法的 `X-Request-Id`，并主动删除 baggage。
+- Go judge 的 HTTP middleware 建立或继续 Trace。执行层在 judge 进程内，同一次判题的执行日志天然带着
+  同一个请求的上下文，不再经过 HTTP 传播。`tracing.Transport` 负责出站透传 `traceparent`、`tracestate`
+  和合法的 `X-Request-Id` 并删除 baggage；它原来的唯一调用方是已删除的 sandbox 客户端，judge 调用
+  控制面的客户端目前没有接入它。
 - Kafka 业务链尚未实现。后续 producer/consumer 必须把 `traceparent`/`tracestate` 放入 Kafka header，
   开启 Spring Kafka Observation；event envelope 的 `traceId` 只保存当前 32-hex 查询副本，不能代替
   header 构造 parent。
@@ -61,5 +63,5 @@ logging:
 ```
 
 环境变量分别是 `CHERRY_OJ_LOGGING_PATH` 与 `CHERRY_OJ_LOGGING_LEVEL`。日志目录不可创建或文件不可写时
-进程拒绝启动，避免服务看似正常但日志已经丢失。Compose 将两个 Go 服务的目录配置为
+进程拒绝启动，避免服务看似正常但日志已经丢失。Compose 将 judge 的日志目录配置为
 `/var/log/cherry-oj`，并挂载持久化的 `engine-logs` volume；stdout 仍可由容器运行时采集。

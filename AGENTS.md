@@ -36,7 +36,7 @@
 | 了解某个工作的全貌                         | `scripts/work board WORK-xxx`（闸、流程、要求覆盖、任务、下一步）                                                         |
 | 改动涉及用户能力、流程、权限或可见信息     | [`docs/product.md`](./docs/product.md) 与关联 WORK 定义或 FEATURE；存在 blocking 未知或定义未确认时，**不要把假设固化进代码**          |
 | 需要知道服务职责、数据所有权、消息与接口边界 | [`docs/architecture.md`](./docs/architecture.md)：拓扑图、逐服务数据所有权、Kafka 与 HTTP 契约                            |
-| 写 Go（judge / sandbox）                   | [`coding-standards/languages/go.md`](./docs/coding-standards/languages/go.md)                                                       |
+| 写 Go（judge / 执行层）                    | [`coding-standards/languages/go.md`](./docs/coding-standards/languages/go.md)                                                       |
 | 写 Java（`apps/server`）                   | [`coding-standards/languages/java.md`](./docs/coding-standards/languages/java.md) + [`coding-standards/frameworks/spring.md`](./docs/coding-standards/frameworks/spring.md) + [`apps/server/TOOLCHAIN.md`](./apps/server/TOOLCHAIN.md) |
 | 写 TypeScript                              | [`coding-standards/languages/typescript.md`](./docs/coding-standards/languages/typescript.md) + [`apps/web/TOOLCHAIN.md`](./apps/web/TOOLCHAIN.md) |
 | 写 Python（`scripts/`、`deploy/`）         | [`coding-standards/languages/python.md`](./docs/coding-standards/languages/python.md)                                               |
@@ -64,7 +64,8 @@
 - **区分「这次对话成不成」和「那个程序跑得怎么样」。** TLE、WA、段错误一律 HTTP 200；只有 JSON
   解不开、缺必填字段才 400。
 - **外部字符串拼进路径前先用正则关死。** 已经踩过三次。
-- **sandbox 完全不懂判题。** 编译、比对、verdict 全在 judge。这条守不住，整个分层就没意义了。
+- **执行层完全不懂判题。** 编译、比对、verdict 全在判题编排；执行层（judge 进程内）与 sandbox
+  执行器只报告执行事实。这条守不住，整个分层就没意义了。
 - **每个服务只写自己的数据库。** 跨服务不连表、不共享 Mapper、不直接读对方 schema。
 - **源码不进 Kafka。** submission-service 先冻结不可变 JudgeInput，judging-service 再按
   submissionId 从受保护的内部 API 拉取。

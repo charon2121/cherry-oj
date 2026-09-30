@@ -37,11 +37,11 @@ Cherry OJ 是学习型项目，后端直接采用微服务，不以单体作为�
 ### 2.2 Go 判题后端
 
 - **Go 1.26.3**：`apps/judge-engine` 当前模块版本。
-- 同一个 Go module 产出 **judge** 与 **sandbox** 两个独立进程。
-- **judge** 负责编译、逐测试点运行、checker 和 verdict 汇总。
-- **sandbox** 只负责安全执行命令以及返回时间、内存、退出状态和输出，不理解题目与 verdict。
-- judge 与 sandbox 通过 HTTP/JSON 通信，并共享 Go 内部契约类型。
-- sandbox 目标环境为 Linux，隔离基础为 namespace、cgroup v2；本地开发可使用 host container 实现。
+- Go module 产出一个进程 **judge**：判题编排负责编译、逐测试点运行、checker 和 verdict 汇总；
+  进程内的**执行层**只负责执行命令以及返回时间、内存、退出状态和输出，不理解题目与 verdict。
+- 两者是同一进程里的两个包，边界由包级依赖检查守住，共享 Go 内部契约类型。
+- 隔离由每次执行调用一次的 setuid-root C 执行器（`apps/sandbox`）完成，基础为 namespace、cgroup v2；
+  本地开发可使用零隔离的 devhost 后端。
 
 Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/yaml.v3`，用于配置解析。
 

@@ -7,24 +7,23 @@
 | 资源 | 固定值 |
 |---|---|
 | 节点ID / 发布目录 | cherry-linux-2 / work048-linux-v1（同一二进制/rootfs，权限清单已收敛） |
-| sandbox账号 | cherry-sandbox，UID/GID61001 |
-| judge账号 | cherry-judge，UID/GID61010；控制面token仅root与此组可读 |
+| judge账号 | cherry-judge，UID/GID61010；控制面token仅root与此组可读；也是执行器受信配置里的服务身份 |
 | 预留box账号 | cherry-payload-0～3：61002～61005；cherry-init-0～3：61006～61009（box N 取基数加 N），均nologin、无home |
 | 并发 / 队列 | 1 / 4；预留身份不代表启用4并发 |
-| 持久目录 | /etc/cherry-sandbox、/var/lib/cherry-sandbox/releases/work048-linux-v1、service、judge |
-| 单元 | cherry-sandbox.slice、cherry-sandbox.service、cherry-sandbox-judge.service |
+| 持久目录 | /etc/cherry-sandbox、/var/lib/cherry-sandbox/releases/<版本>、judge（含 boxes、blobs、testdata、logs） |
+| 单元 | cherry-sandbox.slice、cherry-sandbox-judge.service（执行层在 judge 进程内，WORK-061） |
 | 总限制 | 1536MiB、swap0、384 tasks、CPU200% |
-| sandbox / judge | 896/384MiB，224/96 tasks，CPU150/50%，swap均0 |
-| sandbox委派子树 | supervisor（服务与执行器）256MiB/64tasks/CPU50%；jobs（各次执行）640MiB/160tasks/CPU100%，swap0、jobs OOM成组终止 |
-| 隔离执行器 | releases/<版本>/libexec/sandbox，root:cherry-sandbox 4754（setuid-root，仅服务组可执行；其他人可读，供 judge 自检核对摘要） |
-| 监听地址 | sandbox 127.0.0.1:15050；judge 127.0.0.1:15051 |
+| judge | 1280MiB，320 tasks，CPU200%，swap0 |
+| judge委派子树 | supervisor（judge 进程与执行器）640MiB/160tasks/CPU100%；jobs（各次执行）640MiB/160tasks/CPU100%，swap0、jobs OOM成组终止 |
+| 隔离执行器 | releases/<版本>/libexec/sandbox，root:cherry-judge 4754（setuid-root，仅 judge 组可执行；其他人可读，供部署清单核对摘要） |
+| 监听地址 | judge 127.0.0.1:15051 |
 | rootfs manifest | ed65f75e0f8f59c48e186a889d73d63b4523d001ec17766e4c27d098b23e29f0，对应已验证56包锁 |
 
 安装器检查root/amd64/systemd>=255、路径/服务/账号与整个身份范围冲突，任何冲突拒绝首次安装。不安装宿主包、不修改全局LSM、防火墙、sysctl或SSH配置；保留云代理。首次安装只写文件与账号，不自动启动、enable或重启机器。中途失败保留installation.json及部分资源供核查，不递归回滚删除数据。
 
-隔离由 setuid-root 的一次性执行器（apps/sandbox）完成，没有常驻特权进程。执行器需要的八项能力（SYS_ADMIN、SETUID、SETGID、SETPCAP、CHOWN、DAC_OVERRIDE、MKNOD、KILL；KILL 用于执行器意外死亡时让 init 的 PDEATHSIG 生效）以 sandbox 服务单元的能力边界集为唯一真源：setuid 取得的能力不会超出它；服务进程本身非 root、没有任何有效能力。payload/init 全部线程最终 cap 集合为零、NNP=1。verify-capabilities.py 逐项删除八项能力，每次 sandbox 都必须在启动自检时失败。
+隔离由 setuid-root 的一次性执行器（apps/sandbox）完成，没有常驻特权进程。执行器需要的八项能力（SYS_ADMIN、SETUID、SETGID、SETPCAP、CHOWN、DAC_OVERRIDE、MKNOD、KILL；KILL 用于执行器意外死亡时让 init 的 PDEATHSIG 生效）以 judge 服务单元的能力边界集为唯一真源：setuid 取得的能力不会超出它；judge 进程本身非 root、没有任何有效能力。payload/init 全部线程最终 cap 集合为零、NNP=1。verify-capabilities.py 逐项删除八项能力，每次 judge 都必须在执行层启动冒烟时失败。
 
-代价：为了让 setuid 生效，sandbox 服务单元不能设置 NoNewPrivileges，也不能设置对非 root 服务隐含它的 seccomp 类硬化（RestrictAddressFamilies、LockPersonality、ProtectKernel*、RestrictSUIDSGID、RestrictNamespaces 等），cgroupfs 也必须可写。judge 单元的硬化不变。
+代价：为了让 setuid 生效，judge 服务单元不能设置 NoNewPrivileges，也不能设置对非 root 服务隐含它的 seccomp 类硬化（RestrictAddressFamilies、LockPersonality、ProtectKernel*、RestrictSUIDSGID、RestrictNamespaces 等），也不能设置 ProtectControlGroups（cgroupfs 必须可写）。合并前这些让步只落在不联网的 sandbox 服务上，合并后落在要连控制面的 judge 上，这是 WORK-061 明确接受的取舍；judge 仍保留 ProtectSystem=strict、ProtectHome、PrivateTmp 与只允许本机的 IP 访问控制。
 
 回环监听防止外部直接访问；HTTP没有新增应用层鉴权，宿主root/运维及云代理属于可信域。任务network namespace无法访问宿主回环。不能把此配置用于存在恶意宿主普通用户的共享机器并宣称按Judge身份鉴权。
 

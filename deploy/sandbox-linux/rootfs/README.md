@@ -23,7 +23,7 @@ python3 deploy/sandbox-linux/rootfs/build.py \
 
 测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/sandbox-linux/rootfs -p '*_test.py'`。这些测试只验证清单和文件处理，实际 g++ 编译/链接及隔离运行证据见 WORK-048/VERIFY-049；其他环境仍待运行。
 
-sandbox 服务开放 HTTP 端口前，会通过执行器运行 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 sandbox 当作只读探测。
+judge 开放 HTTP 端口前，进程内执行层会通过执行器运行 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 judge 当作只读探测。
 
 `layout: "usr-merged"` 显式要求构建器为存在的 usr/bin、usr/sbin、usr/lib、usr/lib64 建立根目录固定相对别名。已有冲突或未知布局拒绝构建；省略 layout 不创建别名。布局计入锁与清单摘要。
 

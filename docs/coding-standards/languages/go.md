@@ -28,7 +28,7 @@ go test -race ./...     # 全绿
 - 包名**小写、单数、不用下划线**：`pool`、`store`、`checker`。
   复数只用于「注册表」语义（`languages` 装着多门语言）。
 - **文件名 = 里面装什么**，按「会一起改的放一起」分，而不是按代码类型分。
-  `blobs.go` 装三个 blob handler，因为它们会一起变。
+  `engine.go` 装执行层的装配、执行与收尾，因为它们会一起变。
 - 和包同名的文件放核心类型（`pool.go` 放 `Pool`）。
 - **别把包目录命名成 `testdata`** —— go 工具链会整个无视它，`go build` 报的错
   完全不着边际。数据目录才叫 `testdata`（工具链忽略它正是我们想要的）。
@@ -56,7 +56,7 @@ go test -race ./...     # 全绿
 
 - **类型不导出、构造函数导出**：`diskStore` + `NewDiskStore()`。
   对外的契约是接口，具体实现随时能换。
-- **接口由消费方定义。** `api.Executor`、`flow.Sandbox`、`api.Judger` 都声明在
+- **接口由消费方定义。** `flow.Sandbox`、`preflight.Sandbox`、`api.Judger` 都声明在
   使用方，实现方完全不知道它们存在。好处：依赖单向不成环，且测试能塞一个
   十几行的假替身。
 - **接受接口，返回结构体。** `api.New(exec Executor, ...)` 收接口，
@@ -74,8 +74,8 @@ go test -race ./...     # 全绿
 **用 `Options` 结构体，别堆裸参数。**
 
 ```go
-api.New(p, st, api.Options{MaxBlobBytes: cfg.Sandbox.Store.MaxBlobBytes})  // ✓
-api.New(p, st, 67108864)                                                   // ✗ 得回来翻签名
+pool.New(r, pool.Options{Parallelism: 2, QueueSize: 8})                    // ✓
+pool.New(r, 2, 8)                                                          // ✗ 哪个是并发、哪个是队列？
 checker.Compare(checker.Options{StrictWhitespace: true}, got, want)        // ✓
 checker.Compare(true, got, want)                                           // ✗ true 是什么？
 ```
@@ -102,8 +102,8 @@ func New(exec Executor, st store.Store, opts Options) *Server {
   `unexpected status 400` 会让人调试到怀疑人生。
 - **未知情况往严格的方向倒。** `worse()` 查不到的 verdict 当成最严重——
   写成「查不到返回 a」的话，某天加了新 verdict 忘了进表，结果是**错题判成 AC**。
-- **别把「业务失败」当成 error。** `sandboxclient.Run` 返回 `(RunResult{TLE}, nil)` 是
-  完全正常的：HTTP 对话成功了，只是被跑的程序超时了。混了会把 TLE 报成 SE。
+- **别把「业务失败」当成 error。** `Engine.Run` 返回 `(RunResult{TLE}, nil)` 是
+  完全正常的：执行本身成功了，只是被跑的程序超时了。混了会把 TLE 报成 SE。
 - **外部字符串拼进路径前先用正则关死。** 已出现三次：`backend.ValidPath`、
   `store.refPattern`、`testcase.idPattern`。`filepath.Join(root, "../../etc")`
   会老老实实跳出去。
@@ -179,7 +179,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
   ```
 
   这样测试可以注入一个写进 `bytes.Buffer` 的 handler 来断言日志内容
-  （sandbox 的 `pool.Options`）。
+  （执行层的 `pool.Options`）。
 - **静默跳过是事故，会影响结论的数据问题不能只靠留痕。** 出题人少传一个 `.out`，
   跳过就变成「这题只有 9 个测试点」——错解可能因此拿到 AC，而警告日志没人会在判题
   当下看到。所以 `testcase.Load` 遇到落单的 `.in` 或 `.out` 直接报错（判成 SE），
@@ -191,8 +191,8 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
 
 - **第三方依赖能不加就不加。** 目前整个模块只有 `gopkg.in/yaml.v3`，
   因为标准库不解析 YAML。加依赖前先确认标准库真的做不到。
-- HTTP 路由用标准库 `ServeMux` 的 `"POST /run"` / `"GET /blobs/{ref}"` 语法
-  （Go 1.22+），不引第三方路由。路径参数用 `r.PathValue("ref")`。
+- HTTP 路由用标准库 `ServeMux` 的 `"POST /judge"` / `"GET /version"` 语法
+  （Go 1.22+），不引第三方路由。路径参数用 `r.PathValue(...)`。
 - **`bufio.Scanner` 有 64 KB 单行上限。** 有的题输出一行几百万个数字，会报
   `token too long` 然后被上层当成 SE，而题目本身没毛病。要么
   `scanner.Buffer(...)` 调大，要么用 `bufio.Reader` 逐字节推进（`checker` 走的
@@ -235,7 +235,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
 - **`t.Helper()`** 别忘，失败时行号才会指向调用处。
 - **别在测试里吞 error**：`c, _ := NewHost()` 失败时 `c` 是 nil，报错推迟到下
   一行变成莫名其妙的 nil panic，行号还指错地方。
-- **假替身优先于真环境**：`httptest.NewServer` 假装 sandbox、手写的
+- **假替身优先于真环境**：`httptest.NewServer` 假装控制面、手写的
   `fakeSandbox` 假装整个执行层。判题逻辑的单测不该需要真起一个沙箱。
 - **黑盒（`package foo_test`）优先**；只有当断言必须读非导出字段或遍历非导出
   注册表时才用白盒，并在文件头注明理由（`language` 的一致性检查、

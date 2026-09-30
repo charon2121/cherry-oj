@@ -1,7 +1,7 @@
 # sandbox 执行器
 
 一次性的 C 程序，每次调用在隔离环境里执行一条命令，输出一行 JSON 事实后退出。
-以 setuid-root 安装（`root:cherry-sandbox 4754`），只有 sandbox HTTP 服务所在的组能执行；其他人只能读（judge 启动自检要核对它的摘要）。
+以 setuid-root 安装（`root:cherry-judge 4754`），只有 judge 所在的组能执行（执行层在 judge 进程内调用它）；其他人只能读（部署清单要核对它的摘要）。
 它不理解判题：编译、比对与 verdict 都在 judge。
 
 ```text
@@ -22,7 +22,7 @@ sandbox 监督墙钟、CPU、输出与取消 → 整组 kill → 最终计量 �
 
 ## 能力
 
-setuid 取得的能力不超过调用方（sandbox 服务单元）的能力边界集。执行器需要其中 8 项：
+setuid 取得的能力不超过调用方（judge 服务单元）的能力边界集。执行器需要其中 8 项：
 `SYS_ADMIN`、`SETUID`、`SETGID`、`SETPCAP`、`CHOWN`、`DAC_OVERRIDE`、`MKNOD`、`KILL`。
 
 `KILL` 不用于正常执行，而是兜底：init 设了 `PDEATHSIG`，执行器意外死亡时整个 namespace 随之终止。
