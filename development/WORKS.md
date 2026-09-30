@@ -65,3 +65,4 @@
 | WORK-058 | 按信任与部署边界重切判题引擎模块结构 | 整理维护 | 实现完成 | 高 | 多个模块 | team/judge-engine | [00-work.md](./works/WORK-058/00-work.md) |
 | WORK-059 | 业务闭环中 PATCH /api/admin/problems/{id} 偶发 500 且证据不可定位 | 问题修复 | 已取消 | 中 | 多个模块 | team/server | [00-work.md](./works/WORK-059/00-work.md) |
 | WORK-060 | 收敛个人 Agent 开发的审核材料与默认文档 | 整理维护 | 待确认 | 中 | 多个模块 | codex/root | [00-work.md](./works/WORK-060/00-work.md) |
+| WORK-061 | judge 进程内调用 C 执行器并移除 sandbox HTTP 服务 | 整理维护 | 待确认 | 高 | 整个系统 | team/judge-engine | [00-work.md](./works/WORK-061/00-work.md) |
