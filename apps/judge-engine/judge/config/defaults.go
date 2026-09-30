@@ -3,7 +3,15 @@ package config
 import (
 	"time"
 
+	"cherry-oj/judge-engine/execution"
+
 	platform "cherry-oj/judge-engine/internal/platform/config"
+)
+
+// judge 使用执行层的两种方式，见 Settings.SandboxMode。
+const (
+	SandboxModeHTTP  = "http"
+	SandboxModeLocal = "local"
 )
 
 // Default 返回 judge 的有界默认配置。
@@ -19,6 +27,7 @@ func Default() Config {
 		Judge: Settings{
 			Node:                 defaultNode(),
 			HTTPAddr:             "127.0.0.1:5051",
+			SandboxMode:          SandboxModeHTTP,
 			SandboxURL:           "http://127.0.0.1:5050",
 			SandboxTimeout:       platform.Duration(60 * time.Second),
 			TestdataRoot:         "/srv/cherry-oj/testdata",
@@ -38,5 +47,6 @@ func Default() Config {
 				ClockNs:     int64(20 * time.Second),
 			},
 		},
+		Execution: execution.DefaultEngineSettings(),
 	}
 }

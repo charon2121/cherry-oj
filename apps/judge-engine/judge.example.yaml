@@ -22,6 +22,12 @@ logging:
 
 judge:
   httpAddr: 127.0.0.1:5051
+
+  # judge 怎样使用执行层：
+  #   http  —— 经由独立的 sandbox 服务（sandboxURL）；
+  #   local —— 在本进程内装配执行层，配置见文末的 execution 段。
+  # 两种方式只在迁移期并存（WORK-061），之后只保留 local。
+  sandboxMode: http
   sandboxURL: http://127.0.0.1:5050
 
   # 单次调用 sandbox 的超时。必须大于「编译 + 最慢的那个测试点」，
@@ -100,3 +106,25 @@ judge:
 
 # Linux 执行器的 stdout/stderr 每路硬界为 1MiB；启用 linux 后端时同时把
 # judge.output.stdoutMaxBytes、stderrMaxBytes 设为 1048576，并使用新节点身份重新校准。其他Linux节点部署材料见WORK-048/TASK-099。
+
+
+# 进程内执行层，只在 judge.sandboxMode=local 时使用。环境变量前缀 CHERRY_OJ_EXECUTION_：
+#   execution.parallelism → CHERRY_OJ_EXECUTION_PARALLELISM
+execution:
+  # 同时执行的命令数。linux 后端每次执行占一个 box，执行器最多支持 4 个。
+  parallelism: 1
+  queueSize: 8
+  # linux：每次执行调用一次 setuid-root 的 C 执行器（apps/sandbox），生产使用。
+  # devhost：临时目录里的普通子进程，**没有任何隔离**，只用于可信代码开发，
+  #          必须同时设置 allowUnsafeBackend: true 才会启动。
+  backend: linux
+  executorPath: /var/lib/cherry-sandbox/current/libexec/sandbox
+  # 交给执行器的 box 目录根：本进程独占、0700，须与执行器受信配置中的 boxes 一致。
+  boxesRoot: ./data/sandbox-boxes
+  # 源码、编译产物等在多次执行之间传递的临时文件。
+  store:
+    root: ./data/sandbox-blobs
+    maxBlobBytes: 67108864
+    maxTotalBytes: 536870912
+    maxEntries: 4096
+    retention: 1h

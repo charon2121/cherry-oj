@@ -2,9 +2,7 @@ package execution
 
 import (
 	"fmt"
-	"time"
 
-	"cherry-oj/judge-engine/execution/backend"
 	"cherry-oj/judge-engine/internal/platform/config"
 )
 
@@ -35,38 +33,24 @@ type Settings struct {
 	AllowUnsafeBackend bool `yaml:"allowUnsafeBackend"`
 }
 
-type Store struct {
-	// Root：服务独占的私有 blob 目录，由配置显式指定。
-	Root string `yaml:"root"`
-	// MaxBlobBytes：单次上传的上限。/dev/shm 是内存盘，没有上限一次大上传就能撑爆 RAM。
-	MaxBlobBytes  int64           `yaml:"maxBlobBytes"`
-	MaxTotalBytes int64           `yaml:"maxTotalBytes"`
-	MaxEntries    int             `yaml:"maxEntries"`
-	Retention     config.Duration `yaml:"retention"`
-}
-
 // DefaultConfig 返回 sandbox 的有界默认配置；Linux 隔离仍需先以 setuid-root 安装执行器。
 func DefaultConfig() Config {
+	e := DefaultEngineSettings()
 	return Config{
 		Logging: config.Logging{
 			Path:  "./logs",
 			Level: "INFO",
 		},
 		Sandbox: Settings{
-			HTTPAddr:        "127.0.0.1:5050",
-			Parallelism:     1,
-			Backend:         backend.NameLinux,
-			ExecutorPath:    "/var/lib/cherry-sandbox/current/libexec/sandbox",
-			BoxesRoot:       "./data/sandbox-boxes",
-			QueueSize:       8,
-			MaxRequestBytes: 2 << 20,
-			Store: Store{
-				Root:          "./data/sandbox-blobs",
-				MaxBlobBytes:  64 << 20,
-				MaxTotalBytes: 512 << 20,
-				MaxEntries:    4096,
-				Retention:     config.Duration(time.Hour),
-			},
+			HTTPAddr:           "127.0.0.1:5050",
+			MaxRequestBytes:    2 << 20,
+			Parallelism:        e.Parallelism,
+			QueueSize:          e.QueueSize,
+			Backend:            e.Backend,
+			ExecutorPath:       e.ExecutorPath,
+			BoxesRoot:          e.BoxesRoot,
+			AllowUnsafeBackend: e.AllowUnsafeBackend,
+			Store:              e.Store,
 		},
 	}
 }
@@ -80,33 +64,21 @@ func (c Config) Validate() error {
 	if s.HTTPAddr == "" {
 		return fmt.Errorf("sandbox.httpAddr must not be empty")
 	}
-	if s.Parallelism <= 0 || s.Parallelism > 256 {
-		return fmt.Errorf("sandbox.parallelism must be 1 to 256, got %d", s.Parallelism)
+	if s.MaxRequestBytes <= 0 || s.MaxRequestBytes > 8<<20 {
+		return fmt.Errorf("invalid sandbox request body limit")
 	}
-	if s.Store.MaxBlobBytes <= 0 || s.Store.MaxBlobBytes > 64<<20 {
-		return fmt.Errorf("sandbox.store.maxBlobBytes must be 1 to 64MiB, got %d", s.Store.MaxBlobBytes)
-	}
-	if s.Backend != backend.NameLinux && s.Backend != backend.NameDevHost {
-		return fmt.Errorf("sandbox.backend must be %s or %s", backend.NameLinux, backend.NameDevHost)
-	}
-	if s.Backend == backend.NameDevHost && !s.AllowUnsafeBackend {
-		return fmt.Errorf("the %s backend provides no isolation; enabling it requires setting sandbox.allowUnsafeBackend explicitly", backend.NameDevHost)
-	}
-	if s.Backend == backend.NameLinux && (s.ExecutorPath == "" || s.BoxesRoot == "" || s.Store.Root == "") {
-		return fmt.Errorf("the linux backend requires executorPath, boxesRoot and store.root")
-	}
-	// 每次执行占用一个 box，执行器最多支持 4 个。
-	if s.Backend == backend.NameLinux && s.Parallelism > 4 {
-		return fmt.Errorf("the linux backend supports at most 4 parallel executions, got %d", s.Parallelism)
-	}
-	if s.QueueSize <= 0 || s.QueueSize > 1024 || s.MaxRequestBytes <= 0 || s.MaxRequestBytes > 8<<20 {
-		return fmt.Errorf("invalid sandbox queue or request body limit")
-	}
-	if s.Store.MaxTotalBytes < s.Store.MaxBlobBytes || s.Store.MaxEntries <= 0 || s.Store.Retention <= 0 {
-		return fmt.Errorf("invalid sandbox.store total/entry/retention")
+	if err := s.engine().Validate("sandbox"); err != nil {
+		return err
 	}
 	// 跨层期限的顺序关系也在启动时挡住：配错了不会报错，只会在某次长执行时表现成平台错误。
 	return budget()
+}
+
+// engine 取出执行层自己的配置。sandbox 服务的配置键是部署契约（环境变量由键名推出），
+// 所以这里保持原来的平铺结构，而不是嵌套一段 execution。
+func (s Settings) engine() EngineSettings {
+	return EngineSettings{Parallelism: s.Parallelism, QueueSize: s.QueueSize, Backend: s.Backend,
+		ExecutorPath: s.ExecutorPath, BoxesRoot: s.BoxesRoot, AllowUnsafeBackend: s.AllowUnsafeBackend, Store: s.Store}
 }
 
 // LoadConfig 按「默认值 → YAML → 环境变量」装配 sandbox 配置并校验。

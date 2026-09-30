@@ -1,6 +1,9 @@
 package config
 
-import platform "cherry-oj/judge-engine/internal/platform/config"
+import (
+	"cherry-oj/judge-engine/execution"
+	platform "cherry-oj/judge-engine/internal/platform/config"
+)
 
 // Load 按「默认值 → YAML → 环境变量」装配 judge 配置并校验。
 func Load(path string) (Config, error) { return platform.Load(path, Default()) }
@@ -12,12 +15,18 @@ func Load(path string) (Config, error) { return platform.Load(path, Default()) }
 type Config struct {
 	Logging platform.Logging `yaml:"logging"`
 	Judge   Settings         `yaml:"judge"`
+	// Execution：judge.sandboxMode 为 local 时，在本进程内装配的执行层（环境变量前缀
+	// `CHERRY_OJ_EXECUTION_*`）。http 模式下不使用。
+	Execution execution.EngineSettings `yaml:"execution"`
 }
 
 // Settings 是 judge 段的运行策略。
 type Settings struct {
 	Node     Node   `yaml:"node"`
 	HTTPAddr string `yaml:"httpAddr"`
+	// SandboxMode：judge 怎样使用执行层。http 经由独立的 sandbox 服务（sandboxURL）；local 在本
+	// 进程内装配执行层（顶层 execution 段）。两者只在迁移期并存，见 WORK-061。
+	SandboxMode string `yaml:"sandboxMode"`
 	// SandboxURL/SandboxTimeout：judge 通过 HTTP 使用 sandbox，超时必须覆盖对端最慢的一次操作，
 	// 设小了会出现「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
 	SandboxURL     string            `yaml:"sandboxURL"`

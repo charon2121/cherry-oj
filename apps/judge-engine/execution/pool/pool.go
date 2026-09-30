@@ -114,6 +114,9 @@ func (p *Pool) Close() error {
 	return p.closeErr
 }
 
+// Stopped 在池停止接单时关闭：回收未确认使池中毒，或 Close 已被调用。
+func (p *Pool) Stopped() <-chan struct{} { return p.ctx.Done() }
+
 func (p *Pool) admit() error {
 	p.mu.Lock()
 	if p.closed {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestBackendSelectionNeverFallsBack(t *testing.T) {
-	c := DefaultConfig().Sandbox
+	c := DefaultEngineSettings()
 	c.Backend = "unknown"
 	if _, _, e := selectBackend(c); e == nil {
 		t.Fatal("unknown accepted")
@@ -24,7 +24,7 @@ func TestBackendSelectionNeverFallsBack(t *testing.T) {
 
 // 零隔离后端必须显式承认才能启用：误用它跑用户提交等于没有沙箱。
 func TestDevHostRequiresExplicitAcknowledgement(t *testing.T) {
-	c := DefaultConfig().Sandbox
+	c := DefaultEngineSettings()
 	c.Backend = backend.NameDevHost
 
 	if _, _, e := selectBackend(c); e == nil {

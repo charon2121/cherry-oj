@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"cherry-oj/judge-engine/execution"
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/internal/platform/tracing"
 	"cherry-oj/judge-engine/judge/api"
@@ -59,12 +60,21 @@ func systemErrorReason(r contract.JudgeResult) string {
 
 // Run 启动判题服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成，
 // 使本函数不依赖进程级状态，测试可以直接驱动它。
-func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
-	var err error
-	sandboxClient := sandboxclient.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std())
+func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
+	sb, stopped, closeSandbox, err := openSandbox(cfg, logger)
+	if err != nil {
+		logger.Error("process.execution.init.failed", "error", err)
+		return err
+	}
+	defer func() {
+		if err := closeSandbox(); err != nil {
+			logger.Error("process.execution.close.failed", "error", err)
+			result = errors.Join(result, err)
+		}
+	}()
 	if cfg.Judge.Node.Enabled {
 		checkCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		err = node.Preflight(checkCtx, cfg.Judge, sandboxClient)
+		err = node.Preflight(checkCtx, cfg.Judge, sb)
 		cancel()
 		if err != nil {
 			logger.Error("judge.node.preflight.failed", "error", err)
@@ -72,7 +82,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 		}
 	}
 	service := &judgeService{
-		sandbox: sandboxClient,
+		sandbox: sb,
 		config:  cfg.Judge,
 		logger:  logger,
 	}
@@ -109,12 +119,34 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) error {
 	if judgeNode != nil {
 		runNode = judgeNode.Run
 	}
-	logger.Info("process.started", "event", "process.started", "http_addr", cfg.Judge.HTTPAddr, "sandbox_url", cfg.Judge.SandboxURL)
-	return serve(ctx, srv, listener, runNode, logger)
+	logger.Info("process.started", "event", "process.started", "http_addr", cfg.Judge.HTTPAddr, "sandbox_mode", cfg.Judge.SandboxMode)
+	return serve(ctx, srv, listener, runNode, stopped, logger)
+}
+
+// sandbox 是 judge 使用执行层所需的全部能力：判题编排的三个方法，加上节点自检的版本查询。
+type sandbox interface {
+	flow.Sandbox
+	Version(context.Context) (contract.SandboxVersion, error)
+}
+
+// openSandbox 按 judge.sandboxMode 选择执行层：http 经由独立的 sandbox 服务，local 在本进程内装配。
+// stopped 在执行层停止接单（回收未确认）时关闭；http 模式下由 sandbox 服务自己处理，返回 nil。
+func openSandbox(cfg Config, logger *slog.Logger) (sandbox, <-chan struct{}, func() error, error) {
+	if cfg.Judge.SandboxMode == judgeconfig.SandboxModeLocal {
+		e, err := execution.Open(cfg.Execution, logger)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return e, e.Stopped(), e.Close, nil
+	}
+	return sandboxclient.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std()), nil, func() error { return nil }, nil
 }
 
 // 服务异常退出与外部取消都必须结束心跳；等待之前先取消本服务拥有的生命周期。
-func serve(ctx context.Context, srv *http.Server, listener net.Listener, runNode func(context.Context), logger *slog.Logger) error {
+//
+// 执行层停止接单（stopped 关闭）也结束服务：回收未确认意味着这台节点已经不能安全执行，
+// 以失败退出、停止心跳，比继续在线把每次提交都判成 SE 更早暴露问题。
+func serve(ctx context.Context, srv *http.Server, listener net.Listener, runNode func(context.Context), stopped <-chan struct{}, logger *slog.Logger) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 	if runNode != nil {
@@ -131,6 +163,9 @@ func serve(ctx context.Context, srv *http.Server, listener net.Listener, runNode
 	var exitErr error
 	select {
 	case <-ctx.Done():
+	case <-stopped:
+		exitErr = errors.New("execution layer stopped accepting work: reclaim was not confirmed")
+		logger.Error("process.execution.stopped", "event", "process.execution.stopped", "error", exitErr)
 	case err := <-serveErr:
 		if !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("process.serve.failed", "event", "process.serve.failed", "error", err)

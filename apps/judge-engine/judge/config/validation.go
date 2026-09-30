@@ -20,8 +20,17 @@ func (c Config) Validate() error {
 	if j.HTTPAddr == "" {
 		return fmt.Errorf("judge.httpAddr must not be empty")
 	}
-	if j.SandboxURL == "" {
-		return fmt.Errorf("judge.sandboxURL must not be empty")
+	switch j.SandboxMode {
+	case SandboxModeHTTP:
+		if j.SandboxURL == "" {
+			return fmt.Errorf("judge.sandboxURL must not be empty")
+		}
+	case SandboxModeLocal:
+		if err := c.Execution.Validate("execution"); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("judge.sandboxMode must be %s or %s, got %q", SandboxModeHTTP, SandboxModeLocal, j.SandboxMode)
 	}
 	if j.SandboxTimeout <= 0 {
 		return fmt.Errorf("judge.sandboxTimeout must be positive, got %s", j.SandboxTimeout)

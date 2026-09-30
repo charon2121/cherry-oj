@@ -26,7 +26,7 @@ func TestServeFailureStopsRegistry(t *testing.T) {
 	want := errors.New("listener failed")
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, &http.Server{}, failedListener{want}, runNode, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		done <- serve(ctx, &http.Server{}, failedListener{want}, runNode, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	}()
 	select {
 	case err := <-done:
