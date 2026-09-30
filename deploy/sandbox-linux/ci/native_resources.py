@@ -14,7 +14,7 @@ from owned import BASE, Owned, github_vm
 from report import ROOT, digest, read_json
 
 sys.path.append(str(ROOT / 'deploy/sandbox-linux/install'))
-from layout import ACCOUNTS, ETC, GROUP, STATE, UNITS
+from layout import ACCOUNTS, BUDGETS, ETC, GROUP, STATE, UNITS
 
 SYSTEMD = Path('/etc/systemd/system')
 DROPINS = Path('/run/systemd/system/cherry-sandbox-judge.service.d')

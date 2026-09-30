@@ -13,7 +13,7 @@ import time
 from command import install_signal_handlers, run
 from kernel import verify_build
 from native_control import validate_registration
-from native_resources import Installation, RECORD, ETC, STATE, UNITS
+from native_resources import BUDGETS, Installation, RECORD, ETC, STATE, UNITS
 import native_results
 from memory_watch import observe
 from owned import BASE, CGROUP, MARKER, Owned, github_vm, preflight
@@ -158,7 +158,8 @@ class Native:
         identity = self.identity()
         wait_for(lambda: any(e['route'] == 'heartbeat' for e in registrations(self.control)), seconds=25)
         deployment = read_json(ETC / 'deployment.json')
-        if len(deployment['limits']) != 20:
+        # 每个受管 cgroup 组必须有 4 项上界；数量从布局推出，不另抄一份会过期的数字。
+        if len(deployment['limits']) != 4 * len(BUDGETS):
             raise ValueError('native resource limits incomplete')
         (self.report.output / 'installation.json').write_text(json.dumps(receipt, indent=2) + '\n')
         (self.report.output / 'identity.json').write_text(json.dumps(identity, indent=2) + '\n')
