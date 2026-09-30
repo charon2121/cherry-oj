@@ -81,7 +81,10 @@ def main():
                         exe=os.readlink(f'/proc/{pid}/exe')
                         rows.extend((pid,exe,status(p)) for p in Path('/proc',pid,'task').glob('*/status'))
                 payload=[r for r in rows if r[1].startswith('/work/')]
-                if payload and {v['Uid'].split()[0] for _,_,v in rows}=={str(PAYLOAD),str(INIT)} and all(all(int(v[k],16)==0 for k in CAPS) for _,_,v in rows):break
+                # init 先降权、再装 seccomp：只有全部线程都已完全受限（能力为零、NNP、seccomp 过滤）才算观察到。
+                restricted=all(all(int(v[k],16)==0 for k in CAPS) and v['NoNewPrivs'].strip()=='1' and v['Seccomp'].strip()=='2'
+                               for _,_,v in rows)
+                if payload and {v['Uid'].split()[0] for _,_,v in rows}=={str(PAYLOAD),str(INIT)} and restricted:break
             except (FileNotFoundError,ProcessLookupError):pass
             time.sleep(.01)
         else:raise AssertionError('fully restricted run-phase task not observed')
