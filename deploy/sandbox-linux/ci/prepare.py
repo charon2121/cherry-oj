@@ -58,7 +58,7 @@ def main():
          '--packages', output / 'packages', '--output', output / 'cpp-rootfs'], logs / 'rootfs.log', 120)
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(), architecture=platform.machine(),
                     packageLock=digest(lock), rootfsManifest=digest(output / 'cpp-rootfs/manifest.json'),
-                    binaries=dict(sandbox=digest(output / 'release/bin/sandbox'), judge=digest(output / 'release/bin/judge'),
+                    binaries=dict(judge=digest(output / 'release/bin/judge'),
                                   executor=digest(output / 'release/libexec/sandbox')),
                     probe=digest(output / 'probe'), testExecutor=digest(output / 'test-executor'))
     (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')

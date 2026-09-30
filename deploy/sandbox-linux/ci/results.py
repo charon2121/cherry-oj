@@ -54,9 +54,7 @@ def chain(path, mode):
     if mode == 'smoke':
         markers(path, required=('compile', 'echo', 'cpu', 'tree', 'memory', 'output', 'empty', 'kill',
                                'nonzero', 'background', 'threads', 'hostfile', 'network', 'mount', 'ptrace',
-                               'wall', 'symlink', 'magiclink', 'hardlink', 'zero-cpuNs', 'zero-clockNs',
-                               'zero-memoryBytes', 'zero-maxProcesses', 'zero-output-empty',
-                               'zero-output-writer', 'after-cancel'))
+                               'wall', 'symlink', 'magiclink', 'hardlink', 'after-cancel'))
     elif mode == 'repeat':
         markers(path, required=('1000',))
         markers(path, field='completed', required=(1000,))

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import time
 
-jobs = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox.service/jobs')
+jobs = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service/jobs')
 deadline = time.monotonic() + 60
 seen = {}
 print('observer-ready', flush=True)

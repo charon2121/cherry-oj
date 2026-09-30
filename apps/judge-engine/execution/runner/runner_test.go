@@ -2,6 +2,7 @@ package runner_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"strings"
 	"testing"
@@ -96,6 +97,24 @@ func TestZeroLimits(t *testing.T) {
 	}
 	if !strings.Contains(res.Stdout, "hi") {
 		t.Fatalf("stdout=%q", res.Stdout) // 没 guard 时是空的
+	}
+}
+
+// 显式的零输出预算是真实的限制，不是「没配置」：不写输出的程序照常结束，写了就是 OLE。
+// 显式 0 只能从 JSON 表达（Go 字面量无法区分省略与 0），所以这里走一次解码。
+func TestExplicitZeroOutputBudget(t *testing.T) {
+	c, st := setup(t)
+	var limits contract.Limits
+	if err := json.Unmarshal([]byte(`{"clockNs":2000000000,"stdoutMaxBytes":0,"stderrMaxBytes":65536}`), &limits); err != nil {
+		t.Fatal(err)
+	}
+	quiet, _ := runner.New(c, st).Run(context.Background(), contract.RunSpec{Command: []string{"/bin/sh", "-c", "exit 0"}, Limits: limits})
+	if quiet.Status != contract.StatusOK {
+		t.Fatalf("quiet program: status=%s err=%s", quiet.Status, quiet.Error)
+	}
+	writer, _ := runner.New(c, st).Run(context.Background(), contract.RunSpec{Command: []string{"/bin/sh", "-c", "printf x"}, Limits: limits})
+	if writer.Status != contract.StatusOutputLimitExceeded || writer.Stdout != "" {
+		t.Fatalf("writer: status=%s stdout=%q", writer.Status, writer.Stdout)
 	}
 }
 

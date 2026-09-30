@@ -44,7 +44,7 @@ sourceSha 必须匹配本次 checkout，harnessSha 覆盖非忽略的部署/测�
 `results.py` 要求 Linux 专属 Go 测试、执行器自身的真实内核测试（apps/sandbox/tests，在独立
 委派单元内运行）及 Python 逐模式标记出现，不允许 skip。直接执行类测试由 `holder.py` 持有委派
 子树，以服务身份直接调用 setuid 执行器；HTTP 链路与故障批次按生产单元的方式启动 sandbox 服务，
-由生产的 `sandbox-start.py` 核对 rootfs 并建组。
+由生产的 `judge-start.py` 核对 rootfs 并建组。
 
 ## 原生部署套件
 

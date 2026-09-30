@@ -8,7 +8,7 @@ import re
 import subprocess
 import sys
 
-import http_service
+import judge_service
 
 base = Path(sys.argv[1])
 mode = sys.argv[2]
@@ -16,15 +16,15 @@ unit = sys.argv[3]
 assert base.parent == Path('/var/lib/cherry-sandbox-test') and base.name.startswith('work048-chain-')
 assert mode in ('smoke', 'repeat', 'concurrency')
 assert re.fullmatch('cherry-sandbox-test-work048-chain-' + mode + '-[a-z0-9-]+', unit)
-server, driver = unit + '-http', unit + '-driver'
+server, driver = unit + '-judge', unit + '-driver'
 assert not subprocess.check_output(['systemctl', 'list-units', '--all', '--no-legend', unit + '-*'], text=True).strip()
 try:
-    http_service.launch(base, server, port=15050, parallelism=2 if mode == 'concurrency' else 1)
+    judge_service.launch(base, server, parallelism=2 if mode == 'concurrency' else 1)
     subprocess.run(['systemctl', 'show', server, '-p', 'MemoryMax', '-p', 'TasksMax', '-p', 'CPUQuotaPerSecUSec',
                     '-p', 'MainPID'], check=True)
     subprocess.run(['systemd-run', '--unit=' + driver, '--collect', '--wait', '--pipe', '-p', 'MemoryMax=128M',
                     '-p', 'MemorySwapMax=0', '-p', 'TasksMax=16', '-p', 'CPUQuota=50%', '-p', 'RuntimeMaxSec=150',
-                    'python3', str(base / 'http_chain.py'), str(base), mode, unit], check=True, text=True)
+                    'python3', str(base / 'judge_chain.py'), str(base), mode, unit], check=True, text=True)
 except BaseException:
     # 先保留服务状态再停止：重置不等于证明服务崩溃过。
     subprocess.run(['systemctl', 'show', server, '-p', 'ActiveState', '-p', 'MainPID', '-p', 'Result',

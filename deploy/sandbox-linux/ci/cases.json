@@ -317,10 +317,10 @@
       "id": "kernel.compile",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "C++隔离编译成功，artifact用于独立后续运行",
+      "assertion": "C++隔离编译成功，产物用于同一次判题的多个测试点",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -328,10 +328,10 @@
       "id": "kernel.echo",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "完整HTTP链stdin/stdout字节一致",
+      "assertion": "judge→执行层→执行器整链stdin/stdout字节一致",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -339,10 +339,10 @@
       "id": "kernel.cpu",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "1s累计CPU小于1.2s，运行墙钟小于2s",
+      "assertion": "1s累计CPU超限判TLE，用量落在预算附近",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -350,10 +350,10 @@
       "id": "kernel.tree",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "全部子进程累计CPU1s预算与2s内墙钟",
+      "assertion": "全部子进程累计CPU超1s预算判TLE",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -364,7 +364,7 @@
       "assertion": "任务自身OOM正确MLE",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -375,7 +375,7 @@
       "assertion": "输出触限OLE",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -386,7 +386,7 @@
       "assertion": "紧接OLE空程序正常且峰值小于16MiB",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -394,10 +394,10 @@
       "id": "kernel.kill",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "普通SIGKILL仍Signalled9，不能推断TLE/MLE",
+      "assertion": "普通SIGKILL判RE，不能推断TLE/MLE",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -405,10 +405,10 @@
       "id": "kernel.nonzero",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "退出7对应NonzeroExitStatus",
+      "assertion": "退出7判RE",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -419,7 +419,7 @@
       "assertion": "后台setsid后代于1s内回收",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -430,7 +430,7 @@
       "assertion": "pthread扩张受限且返回denied",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -441,7 +441,7 @@
       "assertion": "不能读取宿主hostname",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -452,7 +452,7 @@
       "assertion": "网络调用被拒绝",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -463,7 +463,7 @@
       "assertion": "挂载调用被拒绝",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -474,7 +474,7 @@
       "assertion": "ptrace调用被拒绝",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -485,7 +485,7 @@
       "assertion": "150ms墙钟TLE",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -496,7 +496,7 @@
       "assertion": "创建symlink被拒且不发布产物",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -507,7 +507,7 @@
       "assertion": "magic-link被拒且不发布产物",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -518,40 +518,43 @@
       "assertion": "硬链接被拒且不发布产物",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
     {
       "id": "kernel.zero-limits",
       "suite": "kernel",
-      "execution": "chain-smoke",
-      "assertion": "显式零CPU/clock/memory/pids保持契约",
+      "execution": "go-unit",
+      "assertion": "显式零CPU/clock/memory/pids为执行结论且不启动命令（执行层单元测试）",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "apps/judge-engine/execution/runner/facts_test.go",
+          "selector": "TestExplicitZeroAndExecuteFailure"
         }
       ]
     },
     {
       "id": "kernel.zero-output-empty",
       "suite": "kernel",
-      "execution": "chain-smoke",
-      "assertion": "零输出预算无输出程序正常",
+      "execution": "go-unit",
+      "assertion": "显式零输出预算下无输出程序正常（执行层单元测试）",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "apps/judge-engine/execution/runner/runner_test.go",
+          "selector": "TestExplicitZeroOutputBudget"
         }
       ]
     },
     {
       "id": "kernel.zero-output-writer",
       "suite": "kernel",
-      "execution": "chain-smoke",
-      "assertion": "零输出预算写者OLE",
+      "execution": "go-unit",
+      "assertion": "显式零输出预算下写者OLE（执行层单元测试）",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "apps/judge-engine/execution/runner/runner_test.go",
+          "selector": "TestExplicitZeroOutputBudget"
         }
       ]
     },
@@ -559,10 +562,10 @@
       "id": "kernel.after-cancel",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "真实HTTP断开后全部回收，下一空程序正常",
+      "assertion": "调用方断开/judge后执行被取消并回收，下一次判题正常",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -570,10 +573,10 @@
       "id": "kernel.chain-cleanup",
       "suite": "kernel",
       "execution": "chain-smoke",
-      "assertion": "同PID FD/任务UID/组/工作文件/挂载/产物初末不增长",
+      "assertion": "judge进程FD、任务UID、组、box文件、blob与挂载初末不增长",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -581,11 +584,10 @@
       "id": "kernel.repeat-1000",
       "suite": "kernel",
       "execution": "chain-repeat",
-      "assertion": "连续1000次全OK，记录CPU/墙钟/峰值与最终快照",
+      "assertion": "连续1000次执行全部正常（10次trial×100测试点），记录CPU与峰值",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py",
-          "selector": "range(1000)"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -593,11 +595,10 @@
       "id": "kernel.parallel-two",
       "suite": "kernel",
       "execution": "chain-concurrency",
-      "assertion": "两独立组实际重叠，两个2秒任务总用时小于3.5秒",
+      "assertion": "两次判题的执行组实际重叠，总用时小于串行",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/http_chain.py",
-          "selector": "peak==2"
+          "path": "deploy/sandbox-linux/tests/judge_chain.py"
         }
       ]
     },
@@ -616,7 +617,7 @@
       "id": "kernel.missing-command",
       "suite": "kernel",
       "execution": "fault",
-      "assertion": "命令不存在为平台错误",
+      "assertion": "命令不存在经judge判为SE并带出原因",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -626,11 +627,11 @@
     {
       "id": "kernel.enoexec",
       "suite": "kernel",
-      "execution": "fault",
-      "assertion": "非法可执行格式为平台错误",
+      "execution": "static-extended",
+      "assertion": "非法可执行格式为平台错误（ENOEXEC）",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+          "path": "deploy/sandbox-linux/tests/extended.py"
         }
       ]
     },
@@ -657,10 +658,10 @@
       ]
     },
     {
-      "id": "kernel.http-kill",
+      "id": "kernel.judge-kill",
       "suite": "kernel",
       "execution": "fault",
-      "assertion": "HTTP在途SIGKILL、暂存恢复及后续执行",
+      "assertion": "judge在途SIGKILL后单元整体回收，重启后box清理且继续判题",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -671,7 +672,7 @@
       "id": "kernel.executor-kill",
       "suite": "kernel",
       "execution": "fault",
-      "assertion": "执行器在途 SIGKILL：namespace 随之终止，服务停止接单，重启后恢复",
+      "assertion": "执行器在途SIGKILL：namespace随之终止，执行层停止接单、judge退出，重启后恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -682,7 +683,7 @@
       "id": "kernel.graceful-stop",
       "suite": "kernel",
       "execution": "fault",
-      "assertion": "HTTP正常停止取消并恢复",
+      "assertion": "judge正常停止迅速结束在途执行并回收，重启后恢复",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -703,11 +704,12 @@
     {
       "id": "kernel.pool-saturation",
       "suite": "kernel",
-      "execution": "capacity",
-      "assertion": "2槽/4队列第7请求503，取消后恢复",
+      "execution": "go-unit",
+      "assertion": "并发与队列占满时拒绝新执行，关闭后容量全部归还（执行层单元测试）",
       "sources": [
         {
-          "path": "deploy/sandbox-linux/tests/fault_batch.py"
+          "path": "apps/judge-engine/execution/pool/lifecycle_test.go",
+          "selector": "TestQueueAndShutdown"
         }
       ]
     },
@@ -715,18 +717,7 @@
       "id": "kernel.peer-isolation",
       "suite": "kernel",
       "execution": "capacity",
-      "assertion": "两槽payload/init独立身份、私有文件及宿主PID不可见、提权拒绝",
-      "sources": [
-        {
-          "path": "deploy/sandbox-linux/tests/fault_batch.py"
-        }
-      ]
-    },
-    {
-      "id": "kernel.handler-saturation",
-      "suite": "kernel",
-      "execution": "capacity",
-      "assertion": "10handler占满，第11请求503",
+      "assertion": "两个box的payload/init身份独立、工作区私有、宿主PID不可见、提权被拒",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -737,7 +728,7 @@
       "id": "kernel.aggregate-oom",
       "suite": "kernel",
       "execution": "capacity",
-      "assertion": "96MiB祖先限制杀128MiB任务为平台错误",
+      "assertion": "96MiB祖先限制杀两个60MiB任务判SE（平台问题）",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -748,7 +739,7 @@
       "id": "kernel.task-oom",
       "suite": "kernel",
       "execution": "capacity",
-      "assertion": "恢复总量后64MiB任务OOM为MLE",
+      "assertion": "恢复总量后64MiB任务OOM判MLE",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/fault_batch.py"
@@ -1120,6 +1111,13 @@
     "cherry-oj/judge-engine/judge/node/preflight": [
       "TestDeploymentRejectsChangedFilesAndLimits",
       "TestNativeDeploymentRequiresLoopbackSandbox"
+    ],
+    "cherry-oj/judge-engine/execution/runner": [
+      "TestExplicitZeroAndExecuteFailure",
+      "TestExplicitZeroOutputBudget"
+    ],
+    "cherry-oj/judge-engine/execution/pool": [
+      "TestQueueAndShutdown"
     ]
   }
 }

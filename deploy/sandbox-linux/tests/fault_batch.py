@@ -1,36 +1,35 @@
 #!/usr/bin/env python3
-"""有界的 HTTP 取消、崩溃与恢复测试，只作用于本次自有的静态夹具。
+"""有界的取消、崩溃与恢复测试：经 judge 的 /judge 驱动进程内执行层与 setuid 执行器。
+只作用于本次自有的 C++ 夹具与测试单元。
 
     fault_batch.py <fixture> [capacity]
 """
-import http.client
+import concurrent.futures
 import json
 import os
 from pathlib import Path
 import signal
-import socket
 import subprocess
 import sys
 import time
 
-import http_service
+import judge_service
 from identity_sample import sample
+from judge_program import begin, case, finish, judge, request
 
 BASE = Path(sys.argv[1])
 assert BASE.parent == Path('/var/lib/cherry-sandbox-test')
 assert BASE.name.startswith('work048-fault-') and not BASE.is_symlink()
 PREFIX = 'cherry-sandbox-test-' + BASE.name
-HTTP = PREFIX + '-http'
-CG = Path('/sys/fs/cgroup/system.slice') / (HTTP + '.service')
+SERVICE = PREFIX + '-judge'
+CG = Path('/sys/fs/cgroup/system.slice') / (SERVICE + '.service')
 JOBS = CG / 'jobs'
-SERVICE = BASE / 'service'
-BOXES = SERVICE / 'boxes'
+DATA = BASE / 'service'
+BOXES = DATA / 'boxes'
 EXECUTOR = str(BASE / 'sandbox-executor')
+JUDGE = str(BASE / 'judge')
 PORT = 15051
 CAPACITY = len(sys.argv) == 3 and sys.argv[2] == 'capacity'
-LIMITS = dict(cpuNs=1_000_000_000, clockNs=5_000_000_000,
-              memoryBytes=64 << 20, maxProcesses=64,
-              stdoutMaxBytes=8192, stderrMaxBytes=8192)
 
 
 def report(name, **facts):
@@ -47,13 +46,12 @@ def wait_for(check, message, seconds=3):
     raise AssertionError(message)
 
 
-def start_http():
-    http_service.launch(BASE, HTTP, port=PORT, parallelism=2 if CAPACITY else 1, cpp=False, seconds=120)
+def start_judge():
+    judge_service.launch(BASE, SERVICE, parallelism=2 if CAPACITY else 1, cpp=True, seconds=150)
 
 
 def main_pid(unit):
-    p = subprocess.run(['systemctl', 'show', unit, '-p', 'MainPID', '--value'],
-                       capture_output=True, text=True)
+    p = subprocess.run(['systemctl', 'show', unit, '-p', 'MainPID', '--value'], capture_output=True, text=True)
     return int(p.stdout.strip() or '0')
 
 
@@ -73,58 +71,28 @@ def kill_owned(pid, uid, exe, cgroup):
         os.close(fd)
 
 
-def begin(mode='sleep', command=None, inputs=None):
-    c = http.client.HTTPConnection('127.0.0.1', PORT, timeout=8)
-    body = dict(command=command if command is not None else ['probe', mode], limits=LIMITS,
-                inputs=inputs if inputs is not None else {'seed': {'text': 'owned fault-test input'}})
-    c.request('POST', '/run', json.dumps(body), {'Content-Type': 'application/json'})
-    return c
-
-
-def finish(c, disconnected=False):
-    try:
-        response = c.getresponse()
-        data = response.read(2 << 20)
-        assert response.status == 200, (response.status, data[:256])
-        return json.loads(data)
-    except (OSError, http.client.HTTPException):
-        if disconnected:
-            return {'status': 'Disconnected'}
-        raise
-    finally:
-        c.close()
-
-
-def identity():
-    result = finish(begin('identity'))
-    assert result['status'] == 'OK' and not result.get('error'), result
-    fields = json.loads(result['stdout'])['status']
-    assert set(fields['Uid'].split()) <= ({'61002', '61003'} if CAPACITY else {'61002'})
-    assert fields['Seccomp'] == '2' and fields['NoNewPrivs'] == '1'
-    return result
-
-
-def active_init():
+def run_phase(count=1):
+    """运行阶段（不是编译阶段）的执行：组里有 init，且用户程序的可执行文件是编译产物 /work/Main。"""
+    found = []
     for group in group_paths():
         try:
-            pids = (group / 'cgroup.procs').read_text().split()
             init = None
-            payload = False
-            for pid in pids:
+            running = False
+            for pid in (group / 'cgroup.procs').read_text().split():
                 status = Path('/proc', pid, 'status').read_text()
-                if 'Uid:\t61006\t' in status:
+                if '\nUid:\t6100' in status and 'Seccomp:\t2' in status and os.readlink(f'/proc/{pid}/exe') == '/work/Main':
+                    running = True
+                elif any(f'\nUid:\t{uid}\t' in status for uid in (61006, 61007)):
                     init = int(pid)
-                if 'Uid:\t61002\t' in status and 'Seccomp:\t2' in status:
-                    payload = True
-            if init and payload:
-                return init, group
-        except FileNotFoundError:
+            if init and running:
+                found.append((init, group))
+        except (FileNotFoundError, ProcessLookupError):
             pass
-    return None
+    return found if len(found) >= count else None
 
 
 def executor_pid():
-    """执行器进程：可执行文件是本夹具的 setuid 执行器，且不在执行组里（init 同一可执行文件，但在 jobs 下）。"""
+    """执行器进程：可执行文件是本夹具的 setuid 执行器，且在 supervisor 叶子（init 同一可执行文件，但在 jobs 下）。"""
     for p in Path('/proc').glob('[0-9]*/exe'):
         try:
             if os.readlink(p) == EXECUTOR and '/supervisor' in (p.parent / 'cgroup').read_text():
@@ -146,14 +114,25 @@ def task_uids():
     return found
 
 
+def verdict(result, name):
+    rows = {c['name']: c for c in result.get('caseResults', [])}
+    return rows[name]['verdict'] if name in rows else result['verdict']
+
+
+def identity():
+    result = judge(PORT, [case('identity')])
+    row = result['caseResults'][0]
+    assert row['verdict'] == 'RAN', result
+    fields = dict(line.split(':', 1) for line in row['output']['excerpt'].splitlines() if ':' in line)
+    assert set(fields['Uid'].split()) <= ({'61002', '61003'} if CAPACITY else {'61002'}), fields
+    assert fields['Seccomp'].strip() == '2' and fields['NoNewPrivs'].strip() == '1', fields
+    assert int(fields['CapEff'].strip(), 16) == 0, fields
+    return result
+
+
 def drained(workspace=True):
     assert not group_paths(), 'execution cgroup remained'
-    for p in Path('/proc').glob('[0-9]*/status'):
-        try:
-            uid = next(l for l in p.read_text().splitlines() if l.startswith('Uid:')).split()[1:]
-            assert not set(uid) & set(map(str, range(61002, 61010))), ('task remained', str(p))
-        except (FileNotFoundError, ProcessLookupError):
-            pass
+    assert not task_uids(), 'task remained'
     assert str(BASE) not in Path('/proc/self/mountinfo').read_text()
     if workspace:
         # 每次交付后 box 只剩空的 in/ 与 out/。
@@ -163,12 +142,10 @@ def drained(workspace=True):
 
 def snapshot():
     drained()
-    result = {}
-    pid = main_pid(HTTP)
+    pid = main_pid(SERVICE)
     assert pid > 0
-    result['http'] = dict(pid=pid, fds=len(list(Path('/proc', str(pid), 'fd').iterdir())))
-    result['blobs'] = sorted(p.name for p in (SERVICE / 'blobs').iterdir())
-    return result
+    return dict(judge=dict(pid=pid, fds=len(list(Path('/proc', str(pid), 'fd').iterdir()))),
+                blobs=sorted(p.name for p in (DATA / 'blobs').iterdir() if p.name != '.lock'))
 
 
 def stopped(unit):
@@ -209,34 +186,99 @@ def stop(unit):
     wait_stopped(unit, 'unit did not stop: ' + unit)
 
 
-def capacity_cases():
-    import concurrent.futures
-    import socket
+def restart_clean():
+    """judge 停止后 box 与 blob 中本次留下的文件属于已结束的判题；清掉再启动，下一次执行照常。"""
+    for path in (DATA / 'blobs').iterdir():
+        if path.name != '.lock':
+            path.unlink()
+    start_judge()
 
-    connections = []
-    try:
-        # Two running + four queued; no seventh request may enter the pool.
-        connections = [begin() for _ in range(6)]
-        wait_for(lambda: len(group_paths()) == 2, 'parallelism did not reach two')
-        time.sleep(.2)
-        extra = begin()
-        response = extra.getresponse()
-        body = response.read(4096)
-        extra.close()
-        assert response.status == 503 and b'queue is full' in body, (response.status, body)
-        assert len(group_paths()) == 2
-        report('pool-saturation', admitted=6, groups=2, rejectedHTTP=503)
-    finally:
-        for c in connections:
-            c.close()
-    wait_for(lambda: not group_paths(), 'cancelled saturated group remained')
-    time.sleep(.1)
+
+def fault_cases():
+    # 命令不存在：C++ 工具链 rootfs 里没有 python3，执行器在 exec 前失败，judge 判 SE 并带出原因。
+    result = judge(PORT, [case('empty')], language='python', source='print(1)\n')
+    assert verdict(result, 'empty') == 'SE' and 'errno=2' in json.dumps(result), result
     drained()
     identity()
+    report('missing-command', verdict='SE')
+
+    # A 占住唯一的执行名额；B 排队时调用方断开，B 不能再占用名额。
+    active = begin(PORT, request([case('sleep')]), timeout=30)
+    wait_for(run_phase, 'first payload not observed', 20)
+    queued = begin(PORT, request([case('sleep')]), timeout=30)
+    time.sleep(.3)
+    queued.close()
+    assert verdict(finish(active), 'sleep') == 'RAN'
+    start = time.monotonic()
+    identity()
+    elapsed = time.monotonic() - start
+    # 这一次本身要编译再运行；若 B 仍占着名额，还要多等 B 的编译与 2s 睡眠。
+    assert elapsed < 4.5, ('cancelled request occupied the slot', elapsed)
+    drained()
+    report('queued-disconnect', nextRequestSeconds=elapsed)
+
+    # 只在观察到运行阶段之后，用 pidfd 杀掉 namespace 里的 PID 1。
+    active = begin(PORT, request([case('sleep')]), timeout=30)
+    (pid, group), = wait_for(run_phase, 'launcher payload not observed', 20)
+    # init 是执行器 clone 出来的（没有再 exec），所以它的可执行文件仍是执行器本身。
+    kill_owned(pid, 61006, EXECUTOR, '/' + str(group.relative_to('/sys/fs/cgroup')))
+    result = finish(active)
+    assert verdict(result, 'sleep') == 'SE', result
+    wait_for(lambda: not group_paths(), 'launcher group not reclaimed')
+    drained()
+    identity()
+    report('init-SIGKILL', verdict='SE')
+
+    # judge 崩溃时 systemd 杀掉整个单元（含执行器与执行组）；box 中的文件留到重启时清理。
+    active = begin(PORT, request([case('sleep')]), timeout=30)
+    wait_for(run_phase, 'judge crash payload not observed', 20)
+    kill_owned(main_pid(SERVICE), 61001, JUDGE, '/' + SERVICE + '.service/supervisor')
+    assert finish(active, disconnected=True)['verdict'] == 'Disconnected'
+    wait_stopped(SERVICE, 'judge cgroup survived crash')
+    drained(workspace=False)
+    leftovers = sorted(str(p.relative_to(BOXES)) for p in BOXES.rglob('*') if not p.is_dir() and p.name != '.lock')
+    restart_clean()
+    identity()
+    drained()
+    report('judge-SIGKILL-restart', beforeRecovery=leftovers, afterRecovery=[])
+
+    # 执行器崩溃：init 的 PDEATHSIG 让整个 namespace 随之终止；执行层得不到回收确认，停止接单，
+    # judge 以失败退出。重启后，下一次执行回收空的残留执行组。
+    active = begin(PORT, request([case('sleep')]), timeout=30)
+    wait_for(run_phase, 'executor crash payload not observed', 20)
+    executor = wait_for(executor_pid, 'executor process not observed')
+    kill_owned(executor, 0, EXECUTOR, '/' + SERVICE + '.service/supervisor')
+    result = finish(active, disconnected=True)
+    assert result['verdict'] in ('SE', 'Disconnected'), result
+    wait_for(lambda: not task_uids(), 'tasks survived executor crash')
+    wait_stopped(SERVICE, 'judge kept running after the execution layer stopped')
+    restart_clean()
+    identity()
+    drained()
+    report('executor-SIGKILL-restart', verdict=result['verdict'])
+
+    active = begin(PORT, request([case('sleep')]), timeout=30)
+    wait_for(run_phase, 'graceful stop payload not observed', 20)
+    start = time.monotonic()
+    stop(SERVICE)
+    elapsed = time.monotonic() - start
+    result = finish(active, disconnected=True)
+    # systemd 向单元内全部进程（judge、执行器、用户程序）发 SIGTERM：在途判题可能来得及答完，
+    # 也可能以 SE 或断开结束；要求的是停得快、停完之后什么都不留。
+    assert elapsed < 12, (elapsed, result)
+    # 执行器随单元一起被停止，回收得不到确认；box 中的文件与崩溃时一样留到重启时清理。
+    drained(workspace=False)
+    restart_clean()
+    identity()
+    drained()
+    report('judge-graceful-stop-restart', seconds=elapsed, verdict=verdict(result, 'sleep'))
+
+
+def capacity_cases():
+    judge_pid = main_pid(SERVICE)
 
     def isolated(token):
-        return finish(begin(command=['probe', 'isolation', token, str(main_pid(HTTP))],
-                            inputs={'own': {'text': token}}))
+        return judge(PORT, [case(f'isolation {token} {judge_pid}', f'private {token} peers=0 host=hidden\n')])
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         paired = [pool.submit(isolated, token) for token in ('left', 'right')]
         payload_ids, init_ids = set(), set()
@@ -246,177 +288,67 @@ def capacity_cases():
             init_ids.update(init)
             time.sleep(.005)
         assert payload_ids == {61002, 61003} and init_ids == {61006, 61007}, (payload_ids, init_ids)
-        for token, future in zip(('left', 'right'), paired):
-            result = future.result()
-            assert result['status'] == 'OK' and result['stdout'] == 'private ' + token + '\n', result
-    escalation = finish(begin('privilege'))
-    assert ((escalation['status'] == 'Signalled' and escalation['signal'] == 31)
-            or (escalation['status'] == 'OK' and escalation['stdout'] == 'denied\n')), escalation
+        for future in paired:
+            assert future.result()['caseResults'][0]['verdict'] == 'AC', future.result()
+    escalation = judge(PORT, [case('privilege', 'denied\n')])['caseResults'][0]
+    # 降权后 setuid(0) 要么返回失败，要么直接被 seccomp 杀掉（RE）；绝不能成功。
+    assert escalation['verdict'] in ('AC', 'RE'), escalation
     drained()
     report('peer-isolation-and-privilege', peerFilesVisible=False, hostPIDVisible=False,
-           privilegeStatus=escalation['status'], privilegeSignal=escalation['signal'],
-           payloadUIDs=sorted(payload_ids), initUIDs=sorted(init_ids))
+           privilegeVerdict=escalation['verdict'], payloadUIDs=sorted(payload_ids), initUIDs=sorted(init_ids))
 
-    # Occupy all ten handler slots with bounded incomplete bodies, then release them.
-    slow = []
-    try:
-        for _ in range(10):
-            sock = socket.create_connection(('127.0.0.1', PORT), timeout=2)
-            slow.append(sock)
-            sock.sendall(b'POST /run HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: 64\r\n\r\n')
-        time.sleep(.2)
-        c = http.client.HTTPConnection('127.0.0.1', PORT, timeout=2)
-        c.request('GET', '/version')
-        response = c.getresponse()
-        body = response.read(4096)
-        c.close()
-        assert response.status == 503 and b'error' in body, (response.status, body)
-        assert not group_paths()
-        report('handler-saturation', handlers=10, rejectedHTTP=503)
-    finally:
-        for sock in slow:
-            sock.close()
-    time.sleep(.2)
-    identity()
-    drained()
-
-    # Bound the sum of both executions without lowering their individual 128MiB limit.
+    # 两次执行各自只用 60MiB（远低于各自 128MiB 的限额），但 jobs 的总量被压到 96MiB：
+    # 祖先 OOM 杀掉的是平台问题，不能判成用户超内存。
     memory = JOBS / 'memory.max'
     oom_group = JOBS / 'memory.oom.group'
     old_memory, old_group = memory.read_text(), oom_group.read_text()
+
     def events():
         return {name: {key: int(value) for key, value in
                        (line.split() for line in (JOBS / name).read_text().splitlines())}
                 for name in ('memory.events.local', 'memory.events')}
     before = events()
     try:
-        memory.write_text(str(96 << 20))
-        oom_group.write_text('1')
-        assert memory.read_text().strip() == str(96 << 20)
-        def allocate():
-            c = http.client.HTTPConnection('127.0.0.1', PORT, timeout=8)
-            c.request('POST', '/run', json.dumps(dict(command=['probe', 'memory'], limits=dict(LIMITS, memoryBytes=128 << 20))), {'Content-Type': 'application/json'})
-            return finish(c)
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            futures = [pool.submit(allocate) for _ in range(2)]
+            futures = [pool.submit(judge, PORT, [case('hold')], limits=dict(memoryBytes=128 << 20)) for _ in range(2)]
+            wait_for(lambda: run_phase(2), 'both holders not running', 30)
+            time.sleep(.5)
+            oom_group.write_text('1')
+            memory.write_text(str(96 << 20))
             results = [future.result() for future in futures]
         after = events()
-        assert after['memory.events.local']['oom_group_kill'] > before['memory.events.local']['oom_group_kill'], (before, after)
         assert after['memory.events']['oom_kill'] > before['memory.events']['oom_kill'], (before, after)
-        assert all(r['status'] == 'InternalError' and 'without task-local OOM' in r.get('error', '') for r in results), results
+        rows = [r['caseResults'][0] for r in results]
+        assert all(r['verdict'] == 'SE' for r in rows), results
+        assert any('without task-local OOM' in r.get('message', '') for r in rows), results
         wait_for(lambda: not group_paths(), 'aggregate OOM groups remained')
         drained()
         report('aggregate-memory', limitBytes=96 << 20, before=before, after=after,
-               statuses=[r['status'] for r in results], errors=[r.get('error', '') for r in results])
+               verdicts=[r['verdict'] for r in rows], messages=[r.get('message', '') for r in rows])
     finally:
         memory.write_text(old_memory)
         oom_group.write_text(old_group)
     identity()
-    c = begin('memory')
-    task_oom = finish(c)
-    assert task_oom['status'] == 'MemoryLimitExceeded' and not task_oom.get('error'), task_oom
-    report('task-local-memory', status=task_oom['status'], memoryBytes=task_oom['memoryBytes'])
+    task_oom = judge(PORT, [case('memory')])['caseResults'][0]
+    assert task_oom['verdict'] == 'MLE', task_oom
+    report('task-local-memory', verdict=task_oom['verdict'], memoryBytes=task_oom.get('memoryBytes', 0))
     identity()
     drained()
 
 
-assert not subprocess.check_output(['systemctl', 'list-units', '--all', '--no-legend', HTTP + '.service'], text=True).strip()
+assert not subprocess.check_output(['systemctl', 'list-units', '--all', '--no-legend', SERVICE + '.service'], text=True).strip()
 try:
-    start_http()
+    start_judge()
     identity()
     before = snapshot()
     report('before', snapshot=before)
-    subprocess.run(['systemctl', 'show', HTTP, '-p', 'MemoryMax', '-p', 'TasksMax',
+    subprocess.run(['systemctl', 'show', SERVICE, '-p', 'MemoryMax', '-p', 'TasksMax',
                     '-p', 'CPUQuotaPerSecUSec', '-p', 'MemorySwapMax'], check=True)
-
-    if CAPACITY:
-        capacity_cases()
-    else:
-        for name, command, inputs in (
-                ('missing-command', ['missing-command'], {}),
-                ('invalid-executable', ['bad'], {'bad': {'text': 'not an executable'}})):
-            result = finish(begin(command=command, inputs=inputs))
-            assert result['status'] == 'InternalError' and result.get('error'), result
-            drained()
-            identity()
-            report(name, status=result['status'], error=result['error'])
-
-        # A occupies the only slot; B closes while A is still running.
-        active = begin()
-        _, original = wait_for(active_init, 'first payload not observed')
-        queued = begin()
-        time.sleep(.2)
-        assert group_paths() == [original]
-        queued.close()
-        result = finish(active)
-        assert result['status'] == 'OK', result
-        start = time.monotonic()
-        identity()
-        elapsed = time.monotonic() - start
-        assert elapsed < 1, ('cancelled request occupied slot', elapsed)
-        drained()
-        report('queued-disconnect', nextRequestSeconds=elapsed)
-
-        # Kill namespace PID 1 only after payload is observed, using its pidfd.
-        active = begin()
-        pid, group = wait_for(active_init, 'launcher payload not observed')
-        # init 是执行器 clone 出来的（没有再 exec），所以它的可执行文件仍是执行器本身。
-        kill_owned(pid, 61006, EXECUTOR, '/' + str(group.relative_to('/sys/fs/cgroup')))
-        result = finish(active)
-        assert result['status'] not in ('OK', 'TimeLimitExceeded', 'MemoryLimitExceeded'), result
-        wait_for(lambda: not group_paths(), 'launcher group not reclaimed')
-        drained()
-        identity()
-        report('init-SIGKILL', status=result['status'], error=result.get('error', ''))
-
-        # HTTP 崩溃时 systemd 杀掉整个单元（含执行器与执行组）；box 中的文件留到重启时清理。
-        active = begin()
-        wait_for(active_init, 'HTTP crash payload not observed')
-        kill_owned(main_pid(HTTP), 61001, str(BASE / 'sandbox'), '/' + HTTP + '.service/supervisor')
-        assert finish(active, disconnected=True)['status'] == 'Disconnected'
-        wait_stopped(HTTP, 'HTTP cgroup survived crash')
-        drained(workspace=False)
-        leftovers = sorted(str(p.relative_to(BOXES)) for p in BOXES.rglob('*') if not p.is_dir() and p.name != '.lock')
-        start_http()
-        identity()
-        drained()
-        report('HTTP-SIGKILL-restart', beforeRecovery=leftovers, afterRecovery=[])
-
-        # 执行器崩溃：init 的 PDEATHSIG 让整个 namespace 随之终止；HTTP 服务得不到回收确认，
-        # 执行池停止接单并报平台错误。重启服务后，下一次执行回收空的残留执行组。
-        active = begin()
-        wait_for(active_init, 'executor crash payload not observed')
-        executor = wait_for(executor_pid, 'executor process not observed')
-        kill_owned(executor, 0, EXECUTOR, '/' + HTTP + '.service/supervisor')
-        result = finish(active)
-        assert result['status'] == 'InternalError', result
-        wait_for(lambda: not task_uids(), 'tasks survived executor crash')
-        stop(HTTP)
-        start_http()
-        identity()
-        drained()
-        report('executor-SIGKILL-restart', status=result['status'], error=result.get('error', ''))
-
-        active = begin()
-        wait_for(active_init, 'graceful stop payload not observed')
-        start = time.monotonic()
-        stop(HTTP)
-        elapsed = time.monotonic() - start
-        result = finish(active, disconnected=True)
-        assert elapsed < 2 and result['status'] != 'OK', (elapsed, result)
-        # 停止单元时 systemd 杀掉单元内全部进程并删除委派子树；等组消失后再核对。
-        wait_for(lambda: not group_paths(), 'graceful stop did not reclaim the execution group', 6)
-        # 执行器随单元一起被停止，回收得不到确认；box 中的文件与崩溃时一样留到重启时清理。
-        drained(workspace=False)
-        start_http()
-        identity()
-        drained()
-        report('HTTP-graceful-stop-restart', seconds=elapsed, status=result['status'])
-
+    capacity_cases() if CAPACITY else fault_cases()
     time.sleep(.2)
     after = snapshot()
-    assert after['http']['fds'] <= before['http']['fds'] + 2, (before, after)
+    assert after['judge']['fds'] <= before['judge']['fds'] + 2, (before, after)
     report('after', snapshot=after)
     print('PASS fault chain', flush=True)
 finally:
-    stop(HTTP)
+    stop(SERVICE)

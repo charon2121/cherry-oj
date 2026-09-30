@@ -1,7 +1,7 @@
 # Linux 隔离测试夹具
 
 本目录是内核套件（`ci/kernel.py`）使用的测试驱动：在一次性 Linux 机器上，用静态探针与锁定的
-C++ rootfs 验证 sandbox 执行器（`apps/sandbox`）及 sandbox HTTP 服务整条隔离链。它们会创建
+C++ rootfs 验证 sandbox 执行器（`apps/sandbox`）及 judge 进程内执行层的整条隔离链。它们会创建
 systemd 单元、cgroup 与 setuid 文件，只能在 `/var/lib/cherry-sandbox-test/` 下的本次独占目录与
 `cherry-sandbox-test-*` 单元中运行，不得用作正式节点 rootfs，也不得对已有服务运行。
 
@@ -16,7 +16,7 @@ systemd 单元、cgroup 与 setuid 文件，只能在 `/var/lib/cherry-sandbox-t
 ## 直接调用执行器
 
 - `holder.py <目录> <单元> [cpp]`：在 Delegate 单元内把自己移进 supervisor 叶子、建 jobs 并启用
-  cpu/memory/pids，写测试配置后保持运行。与生产的 `install/sandbox-start.py` 做的事相同。
+  cpu/memory/pids，写测试配置后保持运行。与生产的 `install/judge-start.py` 做的事相同。
 - `executor_client.py`：以服务身份准备 box、调用执行器、读回事实与产物；stdin 上接取消管道。
 - `inspect_threads.py`：观察执行组内 init 与 payload 的全部线程身份、capability、namespace、
   只读挂载与组限额。
@@ -27,17 +27,21 @@ systemd 单元、cgroup 与 setuid 文件，只能在 `/var/lib/cherry-sandbox-t
 
 执行器自己的真实内核测试（`apps/sandbox/tests/run_tests.py`）也在独立委派单元内运行一遍。
 
-## HTTP 整链与故障
+## judge 整链与故障
 
-`http_service.py` 按生产单元的方式启动 sandbox HTTP 服务：服务身份非 root、无有效能力，边界集只
-保留执行器需要的 8 项，Delegate 委派；由 `sandbox-start.py` 核对 rootfs、建组后 exec 服务。
+`judge_service.py` 按生产单元的方式启动 judge（执行层在进程内，linux 后端）：服务身份非 root、
+无有效能力，边界集只保留执行器需要的 8 项，Delegate 委派；由 `judge-start.py` 核对 rootfs、建组后
+exec judge。节点链路关闭，测试直接调 `/judge` 的 trial。测试程序是 `judge_program.py` 里的一份 C++
+源码：trial 运行时不带参数，模式从 stdin 第一行读取，一次编译、多个测试点各选一种模式。
 
-- `chain_batch.py <目录> smoke|repeat|concurrency <单元>` 启动 HTTP 服务与驱动 `http_chain.py`：
-  隔离编译 C++、产物引用、状态映射、资源、后台后代、断连与链接系统调用拒绝；repeat 连续 1000 次；
-  concurrency 验证两个执行组实际重叠。每批对比 FD、执行组、box、blob、任务进程与挂载快照。
-- `fault_batch.py <目录> [capacity]`：命令缺失、错误可执行格式、排队断连、init 强杀、HTTP 强杀后
-  重启、执行器强杀后重启与正常停服；capacity 批次验证队列饱和、并发 box 的身份与文件隔离、handler
-  饱和、祖先 OOM 与任务自身 OOM。发送信号前用 pidfd 核验 UID、可执行文件与 cgroup。
+- `chain_batch.py <目录> smoke|repeat|concurrency <单元>` 启动 judge 与驱动 `judge_chain.py`：
+  隔离编译 C++、判题结论映射（TLE/MLE/OLE/RE）、资源、后台后代、断连与链接系统调用拒绝；repeat
+  连续 1000 次执行；concurrency 验证两个执行组实际重叠。每批对比 FD、执行组、box、blob、任务进程与
+  挂载快照。
+- `fault_batch.py <目录> [capacity]`：命令缺失、排队断连、init 强杀、judge 强杀后重启、执行器强杀后
+  重启与正常停服；capacity 批次验证并发 box 的身份与文件隔离、提权拒绝、祖先 OOM 与任务自身 OOM。
+  发送信号前用 pidfd 核验 UID、可执行文件与 cgroup。执行层的队列饱和、显式零限额与零输出预算由
+  执行层单元测试覆盖；错误可执行格式由 `extended.py` 直接驱动执行器覆盖。
 
 每批结束停止本批单元，核对无任务进程、挂载与单元组残留后才清理目录；未知条目不得自动清除。
 

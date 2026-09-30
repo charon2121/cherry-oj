@@ -45,6 +45,10 @@ cancel()
 facts, _, _, _ = executor.finish(proc, cancel)
 assert facts['reason'] == 'cancelled' and facts['cancelled'], facts
 print(json.dumps(dict(mode='cancel', **facts)), flush=True)
+# 声明为可执行、内容却不是可执行格式的输入：execve 返回 ENOEXEC，这是平台错误而不是用户程序的退出。
+facts, _, _, _ = executor.call(['bad'], inputs=[('bad', b'not an executable', True)])
+assert facts['reason'] == 'platform' and 'errno=8' in facts['error'], facts
+print(json.dumps(dict(mode='enoexec', **facts)), flush=True)
 result = run('identity')
 assert not result['reason'] and result['exitCode'] == 0
 print('extended assertions passed', flush=True)

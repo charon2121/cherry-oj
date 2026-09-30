@@ -75,7 +75,7 @@ def preflight():
                                      'cherry-sandbox*'], text=True, timeout=5)
     if units.strip():
         raise RuntimeError('existing sandbox unit')
-    for port in (15050, 15051):
+    for port in (15051,):
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', port))
     required = ['cgroup.controllers', 'memory.peak', 'cgroup.kill', 'cpu.stat',

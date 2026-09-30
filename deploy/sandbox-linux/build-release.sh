@@ -9,9 +9,8 @@ mkdir "$output"
 mkdir "$output/bin" "$output/libexec"
 cd "$root/apps/judge-engine"
 export CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-for name in sandbox judge; do
-  go build -o "$output/bin/$name" "./cmd/$name"
-done
+# judge 在本进程内装配执行层，节点上只有这一个 Go 服务。
+go build -o "$output/bin/judge" ./cmd/judge
 # 执行器在独立目录构建，不在源码树里留下产物；安装时由 manage.py 设为 setuid-root。
 make -s -C "$root/apps/sandbox" BUILD="$output/executor-build" OUT="$output/libexec/sandbox"
 rm -rf "$output/executor-build"

@@ -36,7 +36,7 @@ def verify_build(build):
              'probe': build / 'probe', 'testExecutor': build / 'test-executor'}
     if any(digest(path) != data[key] for key, path in paths.items()):
         raise ValueError('build artifact digest mismatch')
-    for name, path in (('sandbox', 'bin/sandbox'), ('judge', 'bin/judge'), ('executor', 'libexec/sandbox')):
+    for name, path in (('judge', 'bin/judge'), ('executor', 'libexec/sandbox')):
         if digest(build / 'release' / path) != data['binaries'][name]:
             raise ValueError('binary digest mismatch')
     return data
@@ -57,14 +57,15 @@ class Kernel:
     def fixture(self, kind, cpp=False):
         base = BASE / ('work048-' + kind + '-' + self.owned.identity)
         base.mkdir(mode=0o755)
-        shutil.copy2(self.build / 'release/bin/sandbox', base / 'sandbox')
+        shutil.copy2(self.build / 'release/bin/judge', base / 'judge')
         shutil.copy2(self.build / 'probe', base / 'probe')
         # 测试构建的执行器把受信配置编译为 BASE/executor.conf；与生产一样以 setuid-root 安装。
         executor = base / 'sandbox-executor'
         shutil.copy2(self.build / 'test-executor', executor)
         os.chown(executor, 0, SERVICE_UID)
         executor.chmod(0o4754)
-        for name in ('holder.py', 'http_chain.py', 'http_service.py', 'executor_client.py', 'identity_sample.py'):
+        for name in ('holder.py', 'judge_chain.py', 'judge_service.py', 'judge_program.py', 'executor_client.py',
+                     'identity_sample.py'):
             shutil.copy2(TESTS / name, base / name)
         shutil.copy2(ROOT / 'deploy/sandbox-linux/install/judge-start.py', base / 'judge-start.py')
         run(['python3', TESTS / 'prepare_fixture.py', base], self.report.output / (kind + '-fixture.log'), 10)
@@ -139,34 +140,34 @@ class Kernel:
         self.active = 'chain-' + mode
         base = self.fixture('chain-' + mode, cpp=True)
         unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(*(unit + '-' + suffix for suffix in ('http', 'driver')))
+        self.owned.register(*(unit + '-' + suffix for suffix in ('judge', 'driver')))
         log = 'chain-' + mode + '.log'
         try:
             run(['python3', TESTS / 'chain_batch.py', base, mode, unit], self.report.output / log, 190)
             results.chain(self.report.output / log, mode)
             self.record('chain-' + mode, log)
         finally:
-            self.owned.stop(unit + '-driver', unit + '-http')
+            self.owned.stop(unit + '-driver', unit + '-judge')
 
     def fault(self, capacity=False):
         mode = 'capacity' if capacity else 'fault'
         self.active = mode
-        base = self.fixture('fault-' + mode)
+        base = self.fixture('fault-' + mode, cpp=True)
         unit = 'cherry-sandbox-test-' + base.name
-        self.owned.register(*(unit + '-' + suffix for suffix in ('http', 'driver')))
+        self.owned.register(*(unit + '-' + suffix for suffix in ('judge', 'driver')))
         log = mode + '.log'
         try:
             shutil.copy2(TESTS / 'fault_batch.py', base / 'fault_batch.py')
             self.owned.launch(unit + '-driver', ['python3', base / 'fault_batch.py', base] +
-                              (['capacity'] if capacity else []), log, seconds=150)
+                              (['capacity'] if capacity else []), log, seconds=240)
             results.markers(self.report.output / log, sentinel='PASS fault chain', required=('before', 'after'))
-            required = ('pool-saturation', 'peer-isolation-and-privilege', 'handler-saturation', 'aggregate-memory',
-                        'task-local-memory') if capacity else ('missing-command', 'invalid-executable', 'queued-disconnect',
-                        'init-SIGKILL', 'HTTP-SIGKILL-restart', 'executor-SIGKILL-restart', 'HTTP-graceful-stop-restart')
+            required = ('peer-isolation-and-privilege', 'aggregate-memory', 'task-local-memory') if capacity else (
+                'missing-command', 'queued-disconnect', 'init-SIGKILL', 'judge-SIGKILL-restart',
+                'executor-SIGKILL-restart', 'judge-graceful-stop-restart')
             results.markers(self.report.output / log, required=required)
             self.record(mode, log)
         finally:
-            self.owned.stop(unit + '-driver', unit + '-http')
+            self.owned.stop(unit + '-driver', unit + '-judge')
 
     def execute(self):
         self.active = 'go-unit'
