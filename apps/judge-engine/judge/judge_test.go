@@ -23,22 +23,10 @@ func TestOccupiedListenerDoesNotRegisterNode(t *testing.T) {
 	var registrations atomic.Int32
 	control := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { registrations.Add(1); w.WriteHeader(503) }))
 	defer control.Close()
-	sandbox := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/version" {
-			_, err := w.Write([]byte(`{"name":"cherry-oj-sandbox","version":"test","isolation":"host"}`))
-			if err != nil {
-				t.Error(err)
-			}
-			return
-		}
-		// 启动自检只读 /version；走到别的路由说明节点在自检之外还访问了 sandbox。
-		t.Errorf("unexpected route: %s", r.URL.Path)
-		w.WriteHeader(404)
-	}))
-	defer sandbox.Close()
 	root := t.TempDir()
 	path := filepath.Join(root, "config.json")
-	settings := map[string]any{"logging": map[string]any{"path": root}, "judge": map[string]any{"httpAddr": occupied.Addr().String(), "sandboxURL": sandbox.URL, "testdataRoot": filepath.Join(root, "testdata"), "node": map[string]any{"enabled": true, "controlToken": "test-control", "controlPlaneURL": control.URL}}}
+	settings := map[string]any{"logging": map[string]any{"path": root}, "judge": map[string]any{"httpAddr": occupied.Addr().String(), "testdataRoot": filepath.Join(root, "testdata"), "node": map[string]any{"enabled": true, "controlToken": "test-control", "controlPlaneURL": control.URL}},
+		"execution": map[string]any{"backend": "devhost", "allowUnsafeBackend": true, "store": map[string]any{"root": filepath.Join(root, "blobs")}}}
 	data, err := json.Marshal(settings)
 	if err != nil {
 		t.Fatal(err)

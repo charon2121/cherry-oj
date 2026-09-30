@@ -4,15 +4,14 @@ import (
 	"time"
 
 	"cherry-oj/judge-engine/execution"
+	"cherry-oj/judge-engine/execution/backend"
 
 	platform "cherry-oj/judge-engine/internal/platform/config"
 )
 
-// judge 使用执行层的两种方式，见 Settings.SandboxMode。
-const (
-	SandboxModeHTTP  = "http"
-	SandboxModeLocal = "local"
-)
+// MaxClockNs 是执行层能接受的单次执行墙钟硬界（与 C 执行器一致）。判题编排不能直接引用执行层，
+// 由配置包转述给它：请求推出的墙钟超过它，执行器必然拒绝，不如在上传源码前就说清楚。
+const MaxClockNs = backend.MaxClockNs
 
 // Default 返回 judge 的有界默认配置。
 //
@@ -27,9 +26,6 @@ func Default() Config {
 		Judge: Settings{
 			Node:                 defaultNode(),
 			HTTPAddr:             "127.0.0.1:5051",
-			SandboxMode:          SandboxModeHTTP,
-			SandboxURL:           "http://127.0.0.1:5050",
-			SandboxTimeout:       platform.Duration(60 * time.Second),
 			TestdataRoot:         "/srv/cherry-oj/testdata",
 			StrictWhitespace:     false, // 默认宽松：一个换行不该卡住新手
 			RevealExpected:       false, // ★ 默认不泄题；教学部署自己打开

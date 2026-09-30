@@ -25,7 +25,7 @@ const (
 )
 
 // EngineSettings 是执行层自己的配置：并发、排队、执行后端与临时文件存储。它不含任何网络设置，
-// 装配方（judge，或过渡期的 sandbox 服务）决定把它放在自己配置的哪一段。
+// 装配方（judge）决定把它放在自己配置的哪一段。
 type EngineSettings struct {
 	// Parallelism：正数并发容量，显式 0 拒绝启动。
 	Parallelism int    `yaml:"parallelism"`
@@ -197,7 +197,7 @@ func (e *Engine) Close() error {
 	return err
 }
 
-// Store生命周期由 Engine 拥有，HTTP 和 Pool 不擅自关闭共享 Store。
+// Store 的生命周期由 Engine 拥有，Pool 与 runner 不擅自关闭共享 Store。
 type managedStore interface {
 	store.Store
 	io.Closer

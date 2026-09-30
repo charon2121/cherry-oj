@@ -22,7 +22,6 @@ class DeploymentTests(unittest.TestCase):
             executor=dict(line.split('=',1) for line in (root/'executor.conf').read_text().splitlines())
             # 执行层的并发数必须等于执行器的 box 数：每次执行占用一个 box。
             judge=json.loads((root/'judge.json').read_text())
-            self.assertEqual(judge['judge']['sandboxMode'],'local')
             self.assertEqual(judge['execution']['parallelism'],int(executor['box_count']))
             self.assertEqual(judge['execution']['boxesRoot'],executor['boxes'])
             # 执行器的调用方就是 judge：服务身份必须与 judge 单元的账户一致，且与 box 身份分离。

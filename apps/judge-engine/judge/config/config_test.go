@@ -8,8 +8,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	platform "cherry-oj/judge-engine/internal/platform/config"
 )
 
 func writeYAML(t *testing.T, body string) string {
@@ -84,13 +82,13 @@ judge:
 }
 
 func TestLoadDuration(t *testing.T) {
-	p := writeYAML(t, "judge:\n  sandboxTimeout: 90s\n")
+	p := writeYAML(t, "judge:\n  node:\n    heartbeatInterval: 30s\n")
 	cfg, err := Load(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Judge.SandboxTimeout.Std() != 90*time.Second {
-		t.Errorf("sandboxTimeout=%s want 90s", cfg.Judge.SandboxTimeout)
+	if cfg.Judge.Node.HeartbeatInterval.Std() != 30*time.Second {
+		t.Errorf("heartbeatInterval=%s want 30s", cfg.Judge.Node.HeartbeatInterval)
 	}
 }
 
@@ -108,8 +106,7 @@ func TestEnvOverridesYAML(t *testing.T) {
 	t.Setenv("CHERRY_OJ_JUDGE_CLOCK_RATIO", "7")
 	t.Setenv("CHERRY_OJ_JUDGE_REVEAL_EXPECTED", "true")
 	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_ROOT", "/srv/from-env")
-	// 取值要大于编译墙钟上限（默认 20s），否则会被跨层预算断言挡住——那正是它该做的。
-	t.Setenv("CHERRY_OJ_JUDGE_SANDBOX_TIMEOUT", "25s")
+	t.Setenv("CHERRY_OJ_JUDGE_NODE_HEARTBEAT_INTERVAL", "25s")
 	t.Setenv("CHERRY_OJ_JUDGE_COMPILE_CPU_NS", "999")
 
 	cfg, err := Load(p)
@@ -126,8 +123,8 @@ func TestEnvOverridesYAML(t *testing.T) {
 	if cfg.Judge.TestdataRoot != "/srv/from-env" {
 		t.Errorf("testdataRoot=%q", cfg.Judge.TestdataRoot)
 	}
-	if cfg.Judge.SandboxTimeout.Std() != 25*time.Second {
-		t.Errorf("sandboxTimeout=%s want 25s", cfg.Judge.SandboxTimeout)
+	if cfg.Judge.Node.HeartbeatInterval.Std() != 25*time.Second {
+		t.Errorf("heartbeatInterval=%s want 25s", cfg.Judge.Node.HeartbeatInterval)
 	}
 	if cfg.Judge.Compile.CPUNs != 999 {
 		t.Errorf("compile.cpuNs=%d", cfg.Judge.Compile.CPUNs)
@@ -154,7 +151,8 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		mutIn func(*Config)
 	}{
 		{"clockRatio 为 0", func(c *Config) { c.Judge.ClockRatio = 0 }},
-		{"sandboxTimeout 为 0", func(c *Config) { c.Judge.SandboxTimeout = 0 }},
+		{"编译墙钟超过执行硬界", func(c *Config) { c.Judge.Compile.ClockNs = MaxClockNs + 1 }},
+		{"执行层并发为 0", func(c *Config) { c.Execution.Parallelism = 0 }},
 		{"stdoutMaxBytes 为 0", func(c *Config) { c.Judge.Output.StdoutMaxBytes = 0 }},
 		{"testdataRoot 为空", func(c *Config) { c.Judge.TestdataRoot = "" }},
 		{"compile 全零", func(c *Config) { c.Judge.Compile = Compile{} }},
@@ -223,24 +221,21 @@ func TestExampleConfigLoads(t *testing.T) {
 	}
 }
 
-// 调用期限必须覆盖本节点配置的最长一次执行；设小了会出现「沙箱正常跑着、judge 先超时」，
-// 报出来是系统错误，查不到原因。
-func TestSandboxTimeoutMustCoverCompileWall(t *testing.T) {
+// 编译墙钟超过执行层硬界时，每次编译都会被执行器拒绝；启动时就要点明是哪两项冲突。
+func TestCompileWallMustFitExecutionHardLimit(t *testing.T) {
 	cfg := Default()
-	cfg.Judge.SandboxTimeout = platformDuration(cfg.Judge.Compile.ClockNs)
+	cfg.Judge.Compile.ClockNs = MaxClockNs + 1
 	err := cfg.Validate()
 	if err == nil {
-		t.Fatal("调用期限不大于编译墙钟却被接受")
+		t.Fatal("超过执行硬界的编译墙钟被接受")
 	}
-	for _, want := range []string{"sandboxTimeout", "compile.clockNs"} {
+	for _, want := range []string{"compile.clockNs", "hard limit"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("错误信息 %q 没有点明 %q", err, want)
 		}
 	}
-	cfg.Judge.SandboxTimeout = platformDuration(cfg.Judge.Compile.ClockNs + int64(time.Second))
+	cfg.Judge.Compile.ClockNs = MaxClockNs
 	if err := cfg.Validate(); err != nil {
-		t.Fatalf("留出余量后仍被拒绝: %v", err)
+		t.Fatalf("等于硬界仍被拒绝: %v", err)
 	}
 }
-
-func platformDuration(ns int64) platform.Duration { return platform.Duration(ns) }

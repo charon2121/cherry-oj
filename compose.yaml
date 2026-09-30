@@ -20,7 +20,6 @@ services:
       CHERRY_OJ_LOGGING_PATH: /var/log/cherry-oj
       CHERRY_OJ_LOGGING_LEVEL: ${ENGINE_LOG_LEVEL:-INFO}
       CHERRY_OJ_JUDGE_HTTP_ADDR: 0.0.0.0:5051
-      CHERRY_OJ_JUDGE_SANDBOX_MODE: local
       # 此 Compose 仅用于可信代码开发；不可信执行使用 deploy/sandbox-linux 原生隔离部署。
       # devhost 是零隔离的开发后端：只用于可信代码的本地联调，不能跑用户提交。
       # 它要求显式承认，避免误用时以为自己有沙箱。正式隔离部署见 deploy/sandbox-linux。

@@ -29,7 +29,7 @@ func devhostEngine(t *testing.T) *Engine {
 	return e
 }
 
-// 进程内执行层要提供 judge 通过 HTTP 用过的全部能力：上传、按 ref 执行、删除、自报隔离后端。
+// 执行层要提供判题编排需要的全部能力：上传、按 ref 执行、删除、自报隔离后端。
 func TestEngineUploadRunDelete(t *testing.T) {
 	e := devhostEngine(t)
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func TestEngineUploadRunDelete(t *testing.T) {
 	}
 }
 
-// HTTP 入口原来挡住的非法请求，进程内也必须挡住，而不是交给后端去猜。
+// 非法请求在执行层入口就挡住，而不是交给后端去猜。
 func TestEngineRejectsInvalidRequests(t *testing.T) {
 	e := devhostEngine(t)
 	if _, err := e.Run(context.Background(), contract.RunSpec{}); err == nil {

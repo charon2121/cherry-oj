@@ -15,8 +15,7 @@ func Load(path string) (Config, error) { return platform.Load(path, Default()) }
 type Config struct {
 	Logging platform.Logging `yaml:"logging"`
 	Judge   Settings         `yaml:"judge"`
-	// Execution：judge.sandboxMode 为 local 时，在本进程内装配的执行层（环境变量前缀
-	// `CHERRY_OJ_EXECUTION_*`）。http 模式下不使用。
+	// Execution：在本进程内装配的执行层（环境变量前缀 `CHERRY_OJ_EXECUTION_*`）。
 	Execution execution.EngineSettings `yaml:"execution"`
 }
 
@@ -24,13 +23,6 @@ type Config struct {
 type Settings struct {
 	Node     Node   `yaml:"node"`
 	HTTPAddr string `yaml:"httpAddr"`
-	// SandboxMode：judge 怎样使用执行层。http 经由独立的 sandbox 服务（sandboxURL）；local 在本
-	// 进程内装配执行层（顶层 execution 段）。两者只在迁移期并存，见 WORK-061。
-	SandboxMode string `yaml:"sandboxMode"`
-	// SandboxURL/SandboxTimeout：judge 通过 HTTP 使用 sandbox，超时必须覆盖对端最慢的一次操作，
-	// 设小了会出现「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
-	SandboxURL     string            `yaml:"sandboxURL"`
-	SandboxTimeout platform.Duration `yaml:"sandboxTimeout"`
 	// TestdataRoot：测试数据根目录，下面按 testDataVersionId 分子目录。
 	TestdataRoot string `yaml:"testdataRoot"`
 
@@ -57,8 +49,8 @@ type Settings struct {
 	// 程序可能在等 IO（不烧 CPU 但耗墙钟），要留富余；太大则死锁的程序要吊很久才被杀。
 	ClockRatio int64 `yaml:"clockRatio"`
 
-	// InlineThresholdBytes：测例输入超过这个大小就先传进 sandbox 的 store 走 ref，
-	// 否则内联进 /run 的 JSON。小数据内联省一次往返，大数据走 ref 省内存。
+	// InlineThresholdBytes：测例输入超过这个大小就先放进执行层的 store 走 ref，否则以内联文本
+	// 交给执行层。小数据内联省一次落盘，大数据走 ref 避免在请求里复制一整份。
 	InlineThresholdBytes int64 `yaml:"inlineThresholdBytes"`
 
 	// OutputExcerptBytes：非 AC 时回传多少字节的用户输出。

@@ -23,17 +23,6 @@ logging:
 judge:
   httpAddr: 127.0.0.1:5051
 
-  # judge 怎样使用执行层：
-  #   http  —— 经由独立的 sandbox 服务（sandboxURL）；
-  #   local —— 在本进程内装配执行层，配置见文末的 execution 段。
-  # 两种方式只在迁移期并存（WORK-061），之后只保留 local。
-  sandboxMode: http
-  sandboxURL: http://127.0.0.1:5050
-
-  # 单次调用 sandbox 的超时。必须大于「编译 + 最慢的那个测试点」，
-  # 否则会出现「沙箱正常跑着，judge 自己先超时了」，报出来是 SE，极难查。
-  sandboxTimeout: 60s
-
   # 测试数据根目录，下面按不可变 testDataVersionId 分目录：
   # <root>/<testDataVersionId>/{1.in,1.out,...}
   # 开发时可指向 ./testdata/problems
@@ -108,7 +97,7 @@ judge:
 # judge.output.stdoutMaxBytes、stderrMaxBytes 设为 1048576，并使用新节点身份重新校准。其他Linux节点部署材料见WORK-048/TASK-099。
 
 
-# 进程内执行层，只在 judge.sandboxMode=local 时使用。环境变量前缀 CHERRY_OJ_EXECUTION_：
+# judge 在本进程内装配的执行层。环境变量前缀 CHERRY_OJ_EXECUTION_：
 #   execution.parallelism → CHERRY_OJ_EXECUTION_PARALLELISM
 execution:
   # 同时执行的命令数。linux 后端每次执行占一个 box，执行器最多支持 4 个。

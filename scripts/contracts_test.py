@@ -51,7 +51,6 @@ class ContractsTest(unittest.TestCase):
             "execution-profile.schema.json",
             "judge-input.schema.json",
             "judge-events.schema.json",
-            "run.schema.json",
             "verdict.json",
             "web-api.openapi.json",
             "submission-internal.openapi.json",
@@ -179,7 +178,6 @@ class ContractsTest(unittest.TestCase):
     def test_http_contracts_keep_tracking_context_out_of_bodies(self) -> None:
         for name, request_definition in (
             ("judge.schema.json", "JudgeRequest"),
-            ("run.schema.json", "RunSpec"),
         ):
             document = load(name)
             context = document["x-transport-context"]

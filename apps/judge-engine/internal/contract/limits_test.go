@@ -2,9 +2,6 @@ package contract_test
 
 import (
 	"encoding/json"
-	"math"
-	"os"
-	"reflect"
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
@@ -106,58 +103,6 @@ func TestLimitsGoConstructionAndDecodeReuse(t *testing.T) {
 		if _, err = json.Marshal(invalid); err == nil {
 			t.Fatal("invalid Go literal marshaled")
 		}
-	}
-}
-
-func TestRunSchemaLimitsAndSignalAlign(t *testing.T) {
-	data, err := os.ReadFile("../../../../contracts/run.schema.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var schema struct {
-		Definitions map[string]struct {
-			AdditionalProperties *bool `json:"additionalProperties"`
-			Properties           map[string]struct {
-				Type        string
-				Minimum     int64
-				Maximum     json.Number
-				Description string
-			}
-			Enum []string
-		}
-	}
-	if err = json.Unmarshal(data, &schema); err != nil {
-		t.Fatal(err)
-	}
-	limits := schema.Definitions["Limits"]
-	if limits.AdditionalProperties == nil || *limits.AdditionalProperties {
-		t.Fatal("unknown limits fields allowed")
-	}
-	typ := reflect.TypeFor[contract.Limits]()
-	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
-		if !field.IsExported() {
-			continue
-		}
-		name := field.Tag.Get("json")
-		if name == "maxProcesses,omitempty" {
-			name = "maxProcesses"
-		}
-		rule, ok := limits.Properties[name]
-		if !ok || rule.Type != "integer" || rule.Minimum != 0 {
-			t.Fatalf("missing numeric rule for %s", name)
-		}
-		want := int64(math.MaxInt64)
-		if name == "maxProcesses" {
-			want = math.MaxInt32
-		}
-		maximum, err := rule.Maximum.Int64()
-		if err != nil || maximum != want {
-			t.Fatalf("maximum %s = %s", name, rule.Maximum)
-		}
-	}
-	if rule := schema.Definitions["RunResult"].Properties["signal"]; rule.Type != "integer" || rule.Minimum != 0 {
-		t.Fatal("signal missing from schema")
 	}
 }
 

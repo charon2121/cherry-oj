@@ -44,7 +44,7 @@ def launch(base, unit, *, port=15051, parallelism=1, cpp=True, seconds=180):
                             f'payload_uid={PAYLOAD_UID}\npayload_gid={PAYLOAD_UID}\n'
                             f'init_uid={INIT_UID}\ninit_gid={INIT_UID}\n')
     config = dict(logging=dict(path=str(service / 'logs')), judge=dict(
-        httpAddr='127.0.0.1:' + str(port), sandboxMode='local', testdataRoot=str(testdata),
+        httpAddr='127.0.0.1:' + str(port), testdataRoot=str(testdata),
         node=dict(enabled=False),
         compile=dict(cpuNs=10_000_000_000, memoryBytes=256 << 20, clockNs=20_000_000_000)),
         execution=dict(backend='linux', executorPath=str(base / 'sandbox-executor'), boxesRoot=str(boxes),

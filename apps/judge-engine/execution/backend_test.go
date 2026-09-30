@@ -33,13 +33,14 @@ func TestDevHostRequiresExplicitAcknowledgement(t *testing.T) {
 		t.Fatalf("错误信息没有指出怎么开启: %v", e)
 	}
 
-	cfg := DefaultConfig()
-	cfg.Sandbox.Backend = backend.NameDevHost
-	if e := cfg.Validate(); e == nil {
+	cfg := DefaultEngineSettings()
+	cfg.Backend = backend.NameDevHost
+	cfg.Store.Root = t.TempDir()
+	if e := cfg.Validate("execution"); e == nil {
 		t.Fatal("配置校验没有挡住未承认的零隔离后端")
 	}
-	cfg.Sandbox.AllowUnsafeBackend = true
-	if e := cfg.Validate(); e != nil {
+	cfg.AllowUnsafeBackend = true
+	if e := cfg.Validate("execution"); e != nil {
 		t.Fatalf("显式承认后仍被拒绝: %v", e)
 	}
 

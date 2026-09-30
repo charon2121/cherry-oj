@@ -83,18 +83,3 @@ func TestDeploymentRejectsUnprotectedPath(t *testing.T) {
 		t.Fatal("writable metadata accepted")
 	}
 }
-
-// 原生部署要求 sandbox 就是本机同批安装的那一个：跨主机的端点不受这份清单约束，
-// 校验清单也就证明不了实际执行环境。端口由部署决定，不写死。
-func TestNativeDeploymentRequiresLoopbackSandbox(t *testing.T) {
-	for _, url := range []string{"http://127.0.0.1:15050", "http://127.0.0.1:5050", "http://[::1]:5050"} {
-		if err := requireLoopback(url); err != nil {
-			t.Errorf("回环端点被拒绝 %q: %v", url, err)
-		}
-	}
-	for _, url := range []string{"http://10.0.0.4:5050", "http://sandbox:5050", "http://example.com"} {
-		if err := requireLoopback(url); err == nil {
-			t.Errorf("非回环端点被接受: %q", url)
-		}
-	}
-}

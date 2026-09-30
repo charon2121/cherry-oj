@@ -15,9 +15,6 @@ const (
 	MaxArtifactBytes int64 = 64 << 20
 	// MaxClockNs 是单次执行的墙钟硬界，也是跨层期限预算的下界。
 	MaxClockNs = int64(120 * time.Second)
-	// ExecutorBound 是一次执行器调用从启动到退出的最长时间：启动期限 + 墙钟硬界 + 回收期限。
-	// 执行器在这三段各自有独立的超时，任何一段到期都会结束执行，所以调用不会超过它们之和。
-	ExecutorBound = 3*time.Second + time.Duration(MaxClockNs) + 10*time.Second
 
 	maxPathSegments = 8
 )

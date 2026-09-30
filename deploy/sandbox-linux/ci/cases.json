@@ -1099,7 +1099,7 @@
   ],
   "requiredGoTests": {
     "cherry-oj/judge-engine": [
-      "TestServiceBinariesLinkOnlyTheirOwnSubtree"
+      "TestOnlyJudgeAssemblyImportsExecution"
     ],
     "cherry-oj/judge-engine/execution/backend": [
       "TestExecutorDeliversFactsStreamsAndArtifacts",
@@ -1110,7 +1110,7 @@
     ],
     "cherry-oj/judge-engine/judge/node/preflight": [
       "TestDeploymentRejectsChangedFilesAndLimits",
-      "TestNativeDeploymentRequiresLoopbackSandbox"
+      "TestCheckRefusesMissingManifestOrWrongBackend"
     ],
     "cherry-oj/judge-engine/execution/runner": [
       "TestExplicitZeroAndExecuteFailure",

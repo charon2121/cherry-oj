@@ -16,7 +16,6 @@ import (
 	judgeconfig "cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/flow"
 	"cherry-oj/judge-engine/judge/node"
-	"cherry-oj/judge-engine/judge/sandboxclient"
 )
 
 // HTTP 连接的防护期限，与 sandbox 取值一致；不含写期限，理由见 Run。
@@ -61,20 +60,20 @@ func systemErrorReason(r contract.JudgeResult) string {
 // Run 启动判题服务并在 ctx 取消后收尾。配置加载、日志初始化与信号监听由调用方完成，
 // 使本函数不依赖进程级状态，测试可以直接驱动它。
 func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
-	sb, stopped, closeSandbox, err := openSandbox(cfg, logger)
+	engine, err := execution.Open(cfg.Execution, logger)
 	if err != nil {
 		logger.Error("process.execution.init.failed", "error", err)
 		return err
 	}
 	defer func() {
-		if err := closeSandbox(); err != nil {
+		if err := engine.Close(); err != nil {
 			logger.Error("process.execution.close.failed", "error", err)
 			result = errors.Join(result, err)
 		}
 	}()
 	if cfg.Judge.Node.Enabled {
 		checkCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		err = node.Preflight(checkCtx, cfg.Judge, sb)
+		err = node.Preflight(checkCtx, cfg.Judge, engine)
 		cancel()
 		if err != nil {
 			logger.Error("judge.node.preflight.failed", "error", err)
@@ -82,7 +81,7 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 		}
 	}
 	service := &judgeService{
-		sandbox: sb,
+		sandbox: engine,
 		config:  cfg.Judge,
 		logger:  logger,
 	}
@@ -119,27 +118,9 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	if judgeNode != nil {
 		runNode = judgeNode.Run
 	}
-	logger.Info("process.started", "event", "process.started", "http_addr", cfg.Judge.HTTPAddr, "sandbox_mode", cfg.Judge.SandboxMode)
-	return serve(ctx, srv, listener, runNode, stopped, logger)
-}
-
-// sandbox 是 judge 使用执行层所需的全部能力：判题编排的三个方法，加上节点自检的版本查询。
-type sandbox interface {
-	flow.Sandbox
-	Version(context.Context) (contract.SandboxVersion, error)
-}
-
-// openSandbox 按 judge.sandboxMode 选择执行层：http 经由独立的 sandbox 服务，local 在本进程内装配。
-// stopped 在执行层停止接单（回收未确认）时关闭；http 模式下由 sandbox 服务自己处理，返回 nil。
-func openSandbox(cfg Config, logger *slog.Logger) (sandbox, <-chan struct{}, func() error, error) {
-	if cfg.Judge.SandboxMode == judgeconfig.SandboxModeLocal {
-		e, err := execution.Open(cfg.Execution, logger)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return e, e.Stopped(), e.Close, nil
-	}
-	return sandboxclient.New(cfg.Judge.SandboxURL, cfg.Judge.SandboxTimeout.Std()), nil, func() error { return nil }, nil
+	logger.Info("process.started", "event", "process.started", "http_addr", cfg.Judge.HTTPAddr,
+		"isolation", cfg.Execution.Backend)
+	return serve(ctx, srv, listener, runNode, engine.Stopped(), logger)
 }
 
 // 服务异常退出与外部取消都必须结束心跳；等待之前先取消本服务拥有的生命周期。

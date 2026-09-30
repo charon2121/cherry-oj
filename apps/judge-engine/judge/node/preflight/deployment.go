@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -34,14 +32,7 @@ type deploymentFile struct {
 }
 
 func checkDeployment(ctx context.Context, j config.Settings) error {
-	// 原生部署下 sandbox 必须是本机同批安装的那一个：跨主机的端点不受这份部署清单约束，
-	// 校验清单就证明不了实际执行的是哪一份。这里只要求回环地址，具体端口由部署配置决定。
-	// 进程内执行层（local）没有端点，天然就是本机；只有 http 模式需要核对地址。
-	if j.SandboxMode != config.SandboxModeLocal {
-		if err := requireLoopback(j.SandboxURL); err != nil {
-			return err
-		}
-	}
+	// 执行层在本进程内，天然就是本机同批安装的那一个；这里只核对平台与部署清单。
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		return fmt.Errorf("native deployment requires Linux/amd64")
 	}
@@ -67,19 +58,6 @@ func verifyDeployment(ctx context.Context, path string) error {
 		}
 	}
 	return verifyManifest(ctx, manifest, protectedDigest, os.ReadFile)
-}
-
-// requireLoopback 只接受回环主机名，端口与方案仍由部署配置决定。
-func requireLoopback(raw string) error {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return fmt.Errorf("native deployment requires a parsable sandbox endpoint: %w", err)
-	}
-	host := u.Hostname()
-	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
-		return fmt.Errorf("native deployment requires a loopback sandbox endpoint, got %q", host)
-	}
-	return nil
 }
 
 func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest func(string) (string, error), readLimit func(string) ([]byte, error)) error {

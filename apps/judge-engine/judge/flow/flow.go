@@ -94,10 +94,10 @@ func (j *judgment) prepare(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("calculate clock limit: %v", err)
 	}
-	// 请求可以显式指定墙钟，也可以经倍率得到比编译更长的期限；上传前拒绝必然冲突。
-	// 这里只检查执行墙钟，排队、回收与传输仍需调用期限留出余量。
-	if j.clockNs >= int64(j.config.SandboxTimeout) {
-		return fmt.Errorf("judge.sandboxTimeout (%s) must exceed execution clockNs (%d)", j.config.SandboxTimeout, j.clockNs)
+	// 请求可以显式指定墙钟，也可以经倍率得到更长的期限；超过执行层硬界的执行必然被拒绝，
+	// 上传源码前就说清楚原因。
+	if j.clockNs > config.MaxClockNs {
+		return fmt.Errorf("execution clockNs (%d) exceeds the wall-clock hard limit (%d)", j.clockNs, config.MaxClockNs)
 	}
 	ref, err := j.sandbox.Upload(ctx, strings.NewReader(j.request.Source))
 	if err != nil {

@@ -20,20 +20,8 @@ func (c Config) Validate() error {
 	if j.HTTPAddr == "" {
 		return fmt.Errorf("judge.httpAddr must not be empty")
 	}
-	switch j.SandboxMode {
-	case SandboxModeHTTP:
-		if j.SandboxURL == "" {
-			return fmt.Errorf("judge.sandboxURL must not be empty")
-		}
-	case SandboxModeLocal:
-		if err := c.Execution.Validate("execution"); err != nil {
-			return err
-		}
-	default:
-		return fmt.Errorf("judge.sandboxMode must be %s or %s, got %q", SandboxModeHTTP, SandboxModeLocal, j.SandboxMode)
-	}
-	if j.SandboxTimeout <= 0 {
-		return fmt.Errorf("judge.sandboxTimeout must be positive, got %s", j.SandboxTimeout)
+	if err := c.Execution.Validate("execution"); err != nil {
+		return err
 	}
 	if j.TestdataRoot == "" {
 		return fmt.Errorf("judge.testdataRoot must not be empty")
@@ -59,12 +47,11 @@ func (c Config) Validate() error {
 	if j.Compile.CPUNs <= 0 || j.Compile.MemoryBytes <= 0 || j.Compile.ClockNs <= 0 {
 		return fmt.Errorf("all three judge.compile values must be positive, got %+v", j.Compile)
 	}
-	// 启动时只能比较已知的编译墙钟；测例墙钟（显式值或 cpuNs × clockRatio）由 flow 检查。
-	// 这不是 sandbox 总耗时的上界：排队、回收和网络还会消耗调用期限。
-	// 设小了的表现是「沙箱正常跑着，judge 自己先超时」，报出来是 SE，查半天查不到原因。
-	if j.SandboxTimeout.Std() <= time.Duration(j.Compile.ClockNs) {
-		return fmt.Errorf("judge.sandboxTimeout (%s) must be greater than judge.compile.clockNs (%s): otherwise judge times out first when a compile reaches its wall-clock limit, and the result is reported as a system error",
-			j.SandboxTimeout, time.Duration(j.Compile.ClockNs))
+	// 编译墙钟超过执行层的硬界，每次编译都会被执行器拒绝，表现成一连串 SE；启动时就挡住。
+	// 测例墙钟（显式值或 cpuNs × clockRatio）随请求变化，由 flow 在上传源码前检查。
+	if j.Compile.ClockNs > MaxClockNs {
+		return fmt.Errorf("judge.compile.clockNs (%s) exceeds the execution wall-clock hard limit (%s)",
+			time.Duration(j.Compile.ClockNs), time.Duration(MaxClockNs))
 	}
 	return nil
 }

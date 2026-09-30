@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"cherry-oj/judge-engine/execution"
 	"cherry-oj/judge-engine/execution/backend"
 	"cherry-oj/judge-engine/internal/contract"
 	judgeconfig "cherry-oj/judge-engine/judge/config"
@@ -18,23 +19,19 @@ import (
 
 func quietLogger() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
 
-// local 模式在本进程内装配执行层：同一份判题编排不经 HTTP 也能判出结论。
-func TestLocalModeJudgesInProcess(t *testing.T) {
+// 判题编排直接使用本进程内装配的执行层，判出结论。
+func TestJudgesThroughInProcessExecution(t *testing.T) {
 	cfg := judgeconfig.Default()
-	cfg.Judge.SandboxMode = judgeconfig.SandboxModeLocal
 	cfg.Execution.Backend, cfg.Execution.AllowUnsafeBackend = backend.NameDevHost, true
 	cfg.Execution.Store.Root = filepath.Join(t.TempDir(), "blobs")
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	sb, stopped, closeSandbox, err := openSandbox(cfg, quietLogger())
+	sb, err := execution.Open(cfg.Execution, quietLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer closeSandbox()
-	if stopped == nil {
-		t.Fatal("local mode must expose when the execution layer stops accepting work")
-	}
+	defer sb.Close()
 	if v, _ := sb.Version(context.Background()); v.Isolation != backend.NameDevHost {
 		t.Fatalf("version = %+v", v)
 	}
@@ -64,24 +61,5 @@ func TestStoppedExecutionEndsServe(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("serve kept running after the execution layer stopped")
-	}
-}
-
-// 模式必须是明确的两个值之一；local 模式要校验执行层配置，http 模式不需要。
-func TestSandboxModeValidation(t *testing.T) {
-	cfg := judgeconfig.Default()
-	cfg.Judge.SandboxMode = "auto"
-	if err := cfg.Validate(); err == nil {
-		t.Fatal("unknown mode accepted")
-	}
-	cfg = judgeconfig.Default()
-	cfg.Judge.SandboxMode = judgeconfig.SandboxModeLocal
-	cfg.Execution.Backend = backend.NameDevHost
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "execution.allowUnsafeBackend") {
-		t.Fatalf("local mode skipped execution validation: %v", err)
-	}
-	cfg.Judge.SandboxMode = judgeconfig.SandboxModeHTTP
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("http mode must not depend on the execution section: %v", err)
 	}
 }
