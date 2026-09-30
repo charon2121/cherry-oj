@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""缺执行器、执行器配置或 rootfs 清单时服务必须拒绝启动；只作用于已核验的本机安装。"""
+"""缺执行器、执行器配置或 rootfs 清单时 judge 必须拒绝启动；只作用于已核验的本机安装。"""
 import argparse
 import hashlib
 import json
@@ -34,8 +34,8 @@ def main():
         deadline=time.monotonic()+35
         while time.monotonic()<deadline:
             result=states()
-            # 缺执行器、它的配置或 rootfs 清单时，sandbox 服务的启动自检失败，judge 随之不会上线。
-            if result['cherry-sandbox.service']=='failed' and result['cherry-sandbox-judge.service'] in ('inactive','failed'):break
+            # 缺执行器、它的配置或 rootfs 清单时，judge 的启动脚本或执行层冒烟失败，judge 不会上线。
+            if result['cherry-sandbox-judge.service']=='failed':break
             time.sleep(.2)
         else:raise AssertionError(('services did not fail closed',states()))
         print(json.dumps(dict(case=args.case,result='PASS',states=result)),flush=True)
@@ -48,6 +48,6 @@ def main():
         manage.owned()
         manage.operate('start')
     assert all(value=='active' for value in states().values())
-    print('Original files/identity restored; all three services healthy.',flush=True)
+    print('Original files/identity restored; judge healthy.',flush=True)
 
 if __name__=='__main__':main()

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""sandbox HTTP 服务的启动脚本：核对 rootfs、建好委派子树，再 exec 服务本体。
+"""judge 服务的启动脚本：核对 rootfs、建好委派子树，再 exec judge 本体。
 
-以服务身份在自己的 systemd 单元里运行（Delegate=cpu memory pids）：
+以 judge 的服务身份在自己的 systemd 单元里运行（Delegate=cpu memory pids）：
 
 1. rootfs 必须与固定摘要的清单逐文件一致——多一个、少一个、内容或权限不同都拒绝启动。
    执行器每次把这棵树只读挂进隔离环境，被篡改的 rootfs 等于被篡改的编译器与运行时。
 2. 把本进程移进 supervisor 叶子，让委派根不含进程，再建 jobs 并启用控制器；
-   执行器在 jobs 下为每次执行建组。两支各自有资源上界。
-3. exec 服务本体（参数取自配置）。
+   judge 进程内的执行层调用执行器，执行器在 jobs 下为每次执行建组。两支各自有资源上界。
+3. exec judge（参数取自配置）。
 
 配置只接受 root 管理的文件：文件与每一级祖先都属于 root 且不可被组或其他人写入。
 """
@@ -99,7 +99,7 @@ def prepare_groups(group, supervisor, jobs):
     actual = Path('/proc/self/cgroup').read_text().strip()
     if actual != '0::' + str(group).removeprefix('/sys/fs/cgroup'):
         raise RuntimeError('unexpected cgroup owner: ' + actual)
-    # 服务以 UMask=0077 运行，新建的组目录会是 0700；judge 启动自检要读这两支的资源上界，
+    # 服务以 UMask=0077 运行，新建的组目录会是 0700；部署核对要读这两支的资源上界，
     # 所以显式放开读与遍历（控制文件本身由内核按 0644 创建，写仍只属于服务身份）。
     for leaf in ('supervisor', 'jobs'):
         (group / leaf).mkdir(exist_ok=True)

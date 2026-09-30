@@ -19,7 +19,7 @@ class NativeEvidenceTest(unittest.TestCase):
         self.log = Path(self.temp.name) / 'native.log'
 
     def test_capability_results_require_every_distinct_negative_controls(self):
-        rows = [dict(test='eight-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True)]
+        rows = [dict(test='eight-capability-set', result='PASS', compiledArtifact=True, workspaceWrite=True, descendantsReaped=True)]
         rows += [dict(test='remove-capability', removed=cap, startup='REFUSED') for cap in resources.CAPS]
         for i, row in enumerate(rows, 1):
             row.update(invocationID=format(i, '032x'), mainStartedNs=i*1000)
@@ -51,7 +51,7 @@ class NativeEvidenceTest(unittest.TestCase):
             run.assert_not_called()
         with patch.object(module, 'sandbox_state', return_value='failed'), patch.object(module.manage, 'run') as run:
             module.reset_failure()
-            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox.service')
+            run.assert_called_once_with('systemctl', 'reset-failed', 'cherry-sandbox-judge.service')
         with patch.object(module, 'sandbox_state', return_value='active'), patch.object(module.manage, 'run') as run:
             with self.assertRaises(AssertionError):
                 module.reset_failure()
@@ -67,13 +67,13 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_native_requires_thread_and_resource_observations(self):
         row = dict(result='PASS', taskUIDs=[61002, 61006], capabilities=0, noNewPrivileges=1, namespaces=6,
-                   readOnlyMounts=3, verifiedLimits=20, taskThreads=2, serviceThreads={'cherry-sandbox': 5, 'cherry-sandbox-judge': 5},
-                   compileCpuNs=1, compileMemoryBytes=1, runCpuNs=1, runMemoryBytes=1)
+                   readOnlyMounts=3, verifiedLimits=16, taskThreads=2, serviceThreads={'cherry-sandbox-judge': 5},
+                   runCpuNs=1, runMemoryBytes=1)
         def check(value):
             self.log.write_text(json.dumps(value) + '\nNo task processes, execution cgroups or workspace files remain.\n')
             results.check('native', self.log, 'unused')
         check(row)
-        for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'verifiedLimits': 19}, {'capabilities': 1}):
+        for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'verifiedLimits': 15}, {'capabilities': 1}):
             with self.assertRaises(ValueError):
                 check(dict(row, **changed))
 

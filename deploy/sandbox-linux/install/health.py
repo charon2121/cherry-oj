@@ -6,18 +6,19 @@ import sys
 import time
 
 
-def ready(mode):
-    port = {'sandbox': 15050, 'judge': 15051}[mode]
-    connection = http.client.HTTPConnection('127.0.0.1', port, timeout=1)
+def ready(mode='judge'):
+    """judge 只在执行层启动冒烟与原生部署自检（要求 linux 隔离）都通过后才监听，
+    所以能答 /version 就说明它已在隔离执行器上就绪。"""
+    if mode != 'judge':
+        raise ValueError('unknown health target')
+    connection = http.client.HTTPConnection('127.0.0.1', 15051, timeout=1)
     try:
         connection.request('GET', '/version')
         response = connection.getresponse()
         body = response.read(16385)
         if response.status != 200 or len(body) > 16384:
             return False
-        result = json.loads(body)
-        expected = 'cherry-oj-judge' if mode == 'judge' else 'cherry-oj-sandbox'
-        return result.get('name') == expected and (mode == 'judge' or result.get('isolation') == 'linux')
+        return json.loads(body).get('name') == 'cherry-oj-judge'
     except (OSError, ValueError, http.client.HTTPException):
         return False
     finally:
@@ -26,9 +27,10 @@ def ready(mode):
 
 def main():
     mode = sys.argv[1]
-    if mode not in ('sandbox', 'judge'):
+    if mode != 'judge':
         raise ValueError('unknown health target')
-    deadline = time.monotonic() + 25
+    # judge 启动要先逐文件核对 rootfs、再用一次真实执行冒烟，C++ 工具链 rootfs 需要几秒到十几秒。
+    deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
         if ready(mode):
             return

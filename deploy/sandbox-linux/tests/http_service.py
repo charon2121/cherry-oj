@@ -2,10 +2,10 @@
 
 与 deploy/sandbox-linux/systemd/cherry-sandbox.service 一致：服务身份非 root、没有有效能力，
 能力边界集只保留 setuid 执行器需要的 8 项，Delegate 委派 cpu/memory/pids，
-由 sandbox-start.py 核对 rootfs、建 supervisor/jobs，再 exec Go 服务。
+由 judge-start.py 核对 rootfs、建 supervisor/jobs，再 exec Go 服务。
 
 测试机上刻意不建 61001 等账户，systemd 无法按 User= 解析它们；所以单元以 root 启动本文件，
-由它做 systemd 本该做的事——把委派子树交给服务身份、降到服务身份——再 exec sandbox-start.py。
+由它做 systemd 本该做的事——把委派子树交给服务身份、降到服务身份——再 exec judge-start.py。
 """
 import hashlib
 import http.client
@@ -61,7 +61,7 @@ def launch(base, unit, *, port, parallelism=1, cpp=True, seconds=180):
     command = ['systemd-run', '--collect', '--unit=' + unit]
     for p in properties:
         command += ['-p', p]
-    subprocess.run(command + ['/usr/bin/python3', str(base / 'http_service.py'), str(base / 'sandbox-start.py'),
+    subprocess.run(command + ['/usr/bin/python3', str(base / 'http_service.py'), str(base / 'judge-start.py'),
                               str(base / 'sandbox-start.json')], check=True)
     wait_ready(port, unit)
     return group

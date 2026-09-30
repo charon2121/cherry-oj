@@ -14,7 +14,7 @@ import socket
 import subprocess
 import sys
 
-from layout import ACCOUNTS, ETC, EXECUTOR, STATE, UNITS
+from layout import ACCOUNTS, ETC, EXECUTOR, GROUP, JUDGE_DATA, JUDGE_UID, JUDGE_UNIT, STATE, UNITS
 from render import write_json
 
 RECEIPT = STATE/'installation.json'
@@ -75,7 +75,7 @@ def preflight(plan, source):
         facts=dict(line.split('=',1) for line in properties.splitlines())
         if unit_conflicts(unit,facts):
             raise ValueError('unit already exists: ' + unit)
-    for port in (15050,15051):
+    for port in (15051,):
         with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as listener:
             listener.bind(('127.0.0.1',port))
     for name, uid in ACCOUNTS.items():
@@ -95,7 +95,7 @@ def preflight(plan, source):
         for row in rows:
             if row.startswith(('Uid:','Gid:')) and set(map(int,row.split()[1:])) & set(ACCOUNTS.values()):
                 raise ValueError('reserved identity still has processes')
-    for name in ('bin/sandbox','bin/judge','libexec/sandbox'):
+    for name in ('bin/judge','libexec/sandbox'):
         regular(source/name)
         with (source/name).open('rb') as f:
             header=f.read(20)
@@ -146,23 +146,22 @@ def install(review, source, token_file):
             os.chown(path,0,0,follow_symlinks=False)
             if not path.is_symlink():
                 path.chmod(stat.S_IMODE(path.lstat().st_mode)&~0o6022)
-    # 复制时清掉了所有 setuid 位；唯一例外是隔离执行器：root 所有、setuid，
-    # 只有 sandbox 服务所在的组能执行；其他人可读不可执行——judge 启动自检要核对它的摘要。
+    # 复制时清掉了所有 setuid 位；唯一例外是隔离执行器：root 所有、setuid，只有 judge 所在的组能执行；
+    # 其他人可读不可执行（部署清单要核对它的摘要）。
     executor=target/'libexec/sandbox'
-    os.chown(executor,0,ACCOUNTS['cherry-sandbox'])
+    os.chown(executor,0,JUDGE_UID)
     executor.chmod(0o4754)
     (STATE/'current').symlink_to(Path('releases')/release)
     info=EXECUTOR.stat()
-    if info.st_uid!=0 or info.st_gid!=ACCOUNTS['cherry-sandbox'] or stat.S_IMODE(info.st_mode)!=0o4754:
-        raise ValueError('executor is not installed setuid-root for the sandbox group')
-    for name, uid in (('service',61001),('judge',61010)):
-        path=STATE/name;path.mkdir(mode=0o700);os.chown(path,uid,uid)
+    if info.st_uid!=0 or info.st_gid!=JUDGE_UID or stat.S_IMODE(info.st_mode)!=0o4754:
+        raise ValueError('executor is not installed setuid-root for the judge group')
+    JUDGE_DATA.mkdir(mode=0o700);os.chown(JUDGE_DATA,JUDGE_UID,JUDGE_UID)
     ETC.mkdir(mode=0o755)
-    for name in ('executor.conf','sandbox-start.json','sandbox.json','sandbox-start.py','health.py'):
+    for name in ('executor.conf','judge-start.json','judge-start.py','health.py'):
         shutil.copyfile(review/name,ETC/name);(ETC/name).chmod(0o644)
     judge=json.loads((review/'judge.json').read_text())
     judge['judge']['node']['controlToken']=token
-    write_json(ETC/'judge.json',judge,0o640);os.chown(ETC/'judge.json',0,61010)
+    write_json(ETC/'judge.json',judge,0o640);os.chown(ETC/'judge.json',0,JUDGE_UID)
     for name in UNITS:
         shutil.copyfile(review/name,SYSTEMD/name);(SYSTEMD/name).chmod(0o644)
         receipt['files'][str(SYSTEMD/name)]=digest(SYSTEMD/name)
@@ -290,7 +289,7 @@ def operate(action):
         return
     if action=='start':
         try:
-            run('systemctl','start','cherry-sandbox-judge.service')
+            run('systemctl','start',JUDGE_UNIT)
             run('python3',str(ETC/'health.py'),'judge')
         except Exception:
             run('systemctl','stop',*reversed(UNITS[1:]))
@@ -299,11 +298,11 @@ def operate(action):
     else:
         run('systemctl','stop',*reversed(UNITS[1:]))
         for name in UNITS[1:]:
-            if (Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')/name).exists():
+            if (Path(GROUP)/name).exists():
                 raise ValueError('service cgroup remains after stop: '+name)
         receipt['status']='stopped'
         if action=='uninstall':
-            group=Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
+            group=Path(GROUP)
             if group.exists() and any(p.is_dir() for p in group.iterdir()):
                 raise ValueError('unknown child groups remain in owned slice')
             backup_units(receipt)

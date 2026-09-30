@@ -54,7 +54,7 @@ def cleanup(output, owned):
 def idle():
     groups = sorted(p.name for p in JOBS.iterdir() if p.is_dir())
     # 每次交付后 box 只剩空的 in/ 与 out/；任何残留文件都算泄漏。
-    boxes = STATE / 'service/boxes'
+    boxes = STATE / 'judge/boxes'
     files = sorted(str(p.relative_to(boxes)) for p in boxes.rglob('*')
                    if p.name != '.lock' and not (p.is_dir() and p.name in ('0', '1', '2', '3', 'in', 'out')))
     tasks = []
@@ -65,7 +65,7 @@ def idle():
                 tasks.append(int(path.parent.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
-    blobs = sorted(p.name for p in (STATE / 'service/blobs').iterdir() if p.name != '.lock')
+    blobs = sorted(p.name for p in (STATE / 'judge/blobs').iterdir() if p.name != '.lock')
     return dict(groups=groups, files=files, tasks=tasks, blobs=blobs)
 
 

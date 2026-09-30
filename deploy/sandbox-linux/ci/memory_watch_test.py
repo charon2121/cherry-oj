@@ -99,5 +99,5 @@ class MemoryWatchTest(unittest.TestCase):
                 (self.root / 'installation.json').write_text(content)
                 with patch.object(native, 'STATE', self.root), patch.object(native, 'run') as run:
                     obj.diagnose()
-                self.assertEqual(run.call_count, 3)
+                self.assertEqual(run.call_count, 2)
                 self.assertIn('receiptReadError', json.loads((self.root / 'install-progress.json').read_text()))

@@ -133,16 +133,14 @@ class Native:
         for field in fields:
             argv += ['-p', field]
         run(argv, self.report.output / 'service-failure.log', 10)
-        # sandbox 服务（含启动脚本与执行器的报错）没有控制面 token，也没有用户会话。只取这个
-        # 自有单元本次启动的日志；不收集宿主日志。
-        run(['journalctl', '--boot', '--unit=cherry-sandbox.service', '--no-pager',
-             '--output=cat', '--lines=120'], self.report.output / 'sandbox-failure.log', 10)
-        # judge 的日志可能带控制面地址与会话信息，只保留启动失败的两类结构化事件：
-        # 它们的 error 字段是配置或部署校验的报错，不含 token。
+        # judge 的日志可能带控制面地址与会话信息，只保留启动失败的几类结构化事件：
+        # 它们的 error 字段是配置、部署校验或执行层装配（含执行器拒绝原因）的报错，不含 token。
+        # 启动脚本 judge-start.py 在 exec judge 之前失败时只有 Python 异常，同样不含 token。
         path = self.report.output / 'judge-failure.log'
         run(['journalctl', '--boot', '--unit=cherry-sandbox-judge.service', '--no-pager', '--output=cat',
              '--lines=200'], path, 10)
-        events = ('"judge.node.preflight.failed"', '"process.config.load.failed"')
+        events = ('"judge.node.preflight.failed"', '"process.config.load.failed"',
+                  '"process.execution.init.failed"', '"process.backend.probe.failed"', 'Error: ')
         journal = path.read_text(errors='replace').splitlines() if path.exists() else []
         lines = [line[:2048] for line in journal if any(e in line for e in events)]
         path.write_text(''.join(line + '\n' for line in lines[-5:]))
@@ -169,7 +167,7 @@ class Native:
         self.report.record(['native.install'], 'PASS', ['install.log', 'start.log', 'installation.json', 'identity.json', 'deployment.json'])
         cases = [('native', 'verify-native.py', [], 90),
                  *[(name, 'verify-lifecycle.py', ['--case', name], 90) for name in ('executor-config', 'rootfs-manifest', 'executor-binary')],
-                 *[('kill-' + name, 'verify-faults.py', ['--case', name], 90) for name in ('judge', 'sandbox', 'executor')],
+                 *[('kill-' + name, 'verify-faults.py', ['--case', name], 90) for name in ('judge', 'executor')],
                  ('caps', 'verify-capabilities.py', [], 120), ('uninstall', 'verify-uninstall.py', [], 90)]
         for name, script, args, seconds in cases:
             self.active = name

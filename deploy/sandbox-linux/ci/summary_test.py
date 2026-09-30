@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from report import Report, case_ids, git_sha
+from report import Report, case_ids, git_sha, manifest
 from summary import JOBS, SUITES, summarize
 
 SHA = 'a' * 40
@@ -36,7 +36,7 @@ class SummaryTests(unittest.TestCase):
     def test_complete_same_attempt_is_the_only_green(self):
         result = self.result()
         self.assertEqual(result['status'], 'PASS')
-        self.assertEqual(sum(r['passed'] for r in result['suites'].values()), 93)
+        self.assertEqual(sum(r['passed'] for r in result['suites'].values()), len(manifest()['cases']))
         self.assertEqual(result['runAttempt'], '2')
 
     def test_every_predecessor_must_succeed(self):

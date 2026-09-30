@@ -17,7 +17,7 @@ sys.path.append(str(ROOT / 'deploy/sandbox-linux/install'))
 from layout import ACCOUNTS, ETC, GROUP, STATE, UNITS
 
 SYSTEMD = Path('/etc/systemd/system')
-DROPINS = Path('/run/systemd/system/cherry-sandbox.service.d')
+DROPINS = Path('/run/systemd/system/cherry-sandbox-judge.service.d')
 CAPS = ('CAP_SYS_ADMIN', 'CAP_SETUID', 'CAP_SETGID', 'CAP_SETPCAP',
         'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD', 'CAP_KILL')
 RECORD = BASE / '.native-owner.json'

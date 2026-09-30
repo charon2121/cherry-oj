@@ -1,40 +1,35 @@
 [Unit]
-Description=Cherry OJ independent judge node
-Requires=cherry-sandbox.service
-After=cherry-sandbox.service
-BindsTo=cherry-sandbox.service
+Description=Cherry OJ judge node with the in-process execution layer and setuid isolated executor
 
 [Service]
 Type=exec
 Slice=cherry-sandbox.slice
 ExecStartPre=/usr/bin/test -f /etc/cherry-sandbox/judge.json
-ExecStartPre=/usr/bin/python3 /etc/cherry-sandbox/health.py sandbox
-ExecStart=/var/lib/cherry-sandbox/current/bin/judge -config /etc/cherry-sandbox/judge.json
+# 启动脚本核对 rootfs 与清单逐文件一致，建好委派子树（supervisor/jobs），再 exec judge。
+ExecStart=/usr/bin/python3 /etc/cherry-sandbox/judge-start.py /etc/cherry-sandbox/judge-start.json
 User=cherry-judge
 Group=cherry-judge
 UMask=0077
+Delegate=cpu memory pids
 KillMode=control-group
 TimeoutStopSec=15s
 Restart=no
-MemoryMax=384M
+MemoryMax=1280M
 MemorySwapMax=0
-TasksMax=96
-CPUQuota=50%
+TasksMax=320
+CPUQuota=200%
 CPUQuotaPeriodSec=100ms
-CapabilityBoundingSet=
-NoNewPrivileges=yes
+# judge 进程本身非 root、没有任何有效能力。边界集只为它在进程内调用的 setuid-root 执行器保留
+# 必需的 8 项能力；执行器用完即全部丢弃，用户程序与 init 都拿不到。
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_MKNOD CAP_KILL
+# 执行器靠 setuid 取得特权，因此这里不能设置 NoNewPrivileges，也不能设置任何对非 root 服务
+# 隐含 NoNewPrivileges 的选项（RestrictAddressFamilies、LockPersonality、ProtectKernel*、
+# RestrictSUIDSGID、RestrictNamespaces 等基于 seccomp 的硬化）；cgroupfs 也必须可写
+# （不能设置 ProtectControlGroups）。这是 WORK-061 明确接受的代价，其余隔离保留：
 ProtectSystem=strict
-ReadWritePaths=/var/lib/cherry-sandbox/judge
+ReadWritePaths=/var/lib/cherry-sandbox/judge /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service
 ProtectHome=yes
 PrivateTmp=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectKernelLogs=yes
-ProtectControlGroups=yes
-RestrictSUIDSGID=yes
-RestrictNamespaces=yes
-LockPersonality=yes
-RestrictAddressFamilies=AF_UNIX AF_INET
 IPAddressDeny=any
 IPAddressAllow=localhost
 

@@ -833,17 +833,6 @@
       ]
     },
     {
-      "id": "native.kill-sandbox",
-      "suite": "native",
-      "execution": "kill-sandbox",
-      "assertion": "sandbox在途SIGKILL、整组回收与受控恢复",
-      "sources": [
-        {
-          "path": "deploy/sandbox-linux/install/verify-faults.py"
-        }
-      ]
-    },
-    {
       "id": "native.kill-executor",
       "suite": "native",
       "execution": "kill-executor",

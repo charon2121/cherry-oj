@@ -66,7 +66,7 @@ class Kernel:
         executor.chmod(0o4754)
         for name in ('holder.py', 'http_chain.py', 'http_service.py', 'executor_client.py', 'identity_sample.py'):
             shutil.copy2(TESTS / name, base / name)
-        shutil.copy2(ROOT / 'deploy/sandbox-linux/install/sandbox-start.py', base / 'sandbox-start.py')
+        shutil.copy2(ROOT / 'deploy/sandbox-linux/install/judge-start.py', base / 'judge-start.py')
         run(['python3', TESTS / 'prepare_fixture.py', base], self.report.output / (kind + '-fixture.log'), 10)
         if cpp:
             # copytree preserves locked modes/links; root ownership comes from this root invocation.

@@ -11,18 +11,18 @@ def check(kind, path, deployment):
             raise ValueError('missing or duplicate native execution result')
         row = rows[0]
         expected = dict(result='PASS', taskUIDs=[61002, 61006], capabilities=0, noNewPrivileges=1,
-                        namespaces=6, readOnlyMounts=3, verifiedLimits=20)
+                        namespaces=6, readOnlyMounts=3, verifiedLimits=16)
         if any(row.get(k) != v for k, v in expected.items()):
             raise ValueError('native isolation result incomplete')
-        if row['taskThreads'] <= 0 or set(row['serviceThreads']) != {'cherry-sandbox', 'cherry-sandbox-judge'} or any(v <= 0 for v in row['serviceThreads'].values()):
+        if row['taskThreads'] <= 0 or set(row['serviceThreads']) != {'cherry-sandbox-judge'} or any(v <= 0 for v in row['serviceThreads'].values()):
             raise ValueError('missing native thread observations')
-        if any(row.get(k, 0) <= 0 for k in ('compileCpuNs', 'compileMemoryBytes', 'runCpuNs', 'runMemoryBytes')):
+        if any(row.get(k, 0) <= 0 for k in ('runCpuNs', 'runMemoryBytes')):
             raise ValueError('missing native resource measurements')
         markers(path, sentinel='No task processes, execution cgroups or workspace files remain.')
     elif kind in ('executor-config', 'rootfs-manifest', 'executor-binary'):
         if len(rows) != 1 or rows[0].get('case') != kind or rows[0].get('result') != 'PASS':
             raise ValueError('missing lifecycle refusal')
-        markers(path, sentinel='Original files/identity restored; all three services healthy.')
+        markers(path, sentinel='Original files/identity restored; judge healthy.')
     elif kind.startswith('kill-'):
         if len(rows) != 1:
             raise ValueError('missing or duplicate service fault result')
@@ -34,7 +34,7 @@ def check(kind, path, deployment):
     elif kind == 'caps':
         baseline = [r for r in rows if r.get('test') == 'eight-capability-set']
         removed = [r for r in rows if r.get('test') == 'remove-capability']
-        expected = dict(test='eight-capability-set', result='PASS', nestedInput=True, privateOutput=True, descendantsReaped=True)
+        expected = dict(test='eight-capability-set', result='PASS', compiledArtifact=True, workspaceWrite=True, descendantsReaped=True)
         if len(rows) != len(CAPS) + 1 or len(baseline) != 1 or any(baseline[0].get(k) != v for k, v in expected.items()):
             raise ValueError('missing eight-capability positive control')
         if len(removed) != len(CAPS) or {r.get('removed') for r in removed} != set(CAPS) or any(r.get('startup') != 'REFUSED' for r in removed):

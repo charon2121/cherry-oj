@@ -10,7 +10,7 @@ import threading
 import time
 
 # 执行器按 box 固定组名（box-N）；一次执行的记录在其用户进程消失时结束，组名复用不会混淆。
-JOBS = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox.service/jobs')
+JOBS = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service/jobs')
 
 
 def counters(text):

@@ -10,13 +10,13 @@ const (
 
 // releaseFiles 是部署清单中必须与 current 下实际启动路径一致的文件：清单校验的那一份，
 // 必须正是服务运行的那一份。
-var releaseFiles = map[string]string{"sandbox": "bin/sandbox", "executor": "libexec/sandbox"}
+var releaseFiles = map[string]string{"executor": "libexec/sandbox"}
 
 // requiredFiles 是部署必须声明并逐一核对摘要的文件。
 var requiredFiles = []string{
-	"sandbox", "executor", "rootfsManifest", "toolchainLock",
-	"executorConfig", "sandboxConfig", "startConfig", "slice",
-	"sandboxUnit", "judgeUnit", "bootstrap",
+	"executor", "rootfsManifest", "toolchainLock",
+	"executorConfig", "startConfig", "slice",
+	"judgeUnit", "bootstrap",
 }
 
 // requiredGroups 是必须有资源上界的 cgroup 节点，requiredLimits 是每个节点必须设的控制文件。
@@ -24,10 +24,9 @@ var requiredFiles = []string{
 // 多一项少一项还会互相抵消。
 var requiredGroups = []string{
 	"cherry.slice/cherry-sandbox.slice",
-	"cherry.slice/cherry-sandbox.slice/cherry-sandbox.service",
 	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service",
-	"cherry.slice/cherry-sandbox.slice/cherry-sandbox.service/supervisor",
-	"cherry.slice/cherry-sandbox.slice/cherry-sandbox.service/jobs",
+	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service/supervisor",
+	"cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service/jobs",
 }
 
 var requiredLimits = []string{"cpu.max", "memory.max", "memory.swap.max", "pids.max"}

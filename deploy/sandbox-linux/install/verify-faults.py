@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Kill one verified native service during a bounded trial, then verify recovery."""
+"""Kill judge or the setuid executor during a bounded trial, then verify recovery."""
 import argparse
 import concurrent.futures
 import http.client
@@ -15,9 +15,11 @@ sys.path.insert(0, '/var/lib/cherry-sandbox/operations')
 import manage
 
 GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
-JOBS = GROUP / 'cherry-sandbox.service/jobs'
+JUDGE = GROUP / 'cherry-sandbox-judge.service'
+JOBS = JUDGE / 'jobs'
 EXECUTOR = (manage.STATE / 'current/libexec/sandbox').resolve()
-BLOBS = manage.STATE / 'service/blobs'
+BLOBS = manage.STATE / 'judge/blobs'
+BOXES = manage.STATE / 'judge/boxes'
 
 
 def request(port, method, path, data=None):
@@ -79,7 +81,7 @@ def running_payload():
 
 
 def executor_pid():
-    """正在执行的 setuid 执行器：root 身份，位于 sandbox 服务的 supervisor 叶子。"""
+    """正在执行的 setuid 执行器：root 身份，位于 judge 服务的 supervisor 叶子。"""
     for path in Path('/proc').glob('[0-9]*/exe'):
         try:
             if Path(os.readlink(path)) == EXECUTOR:
@@ -107,19 +109,14 @@ def kill_process(pid, exe, uid, cgroup):
 
 def kill_target(case):
     if case == 'executor':
-        return kill_process(wait_for(executor_pid, 'executor not observed'), EXECUTOR, 0,
-                            GROUP / 'cherry-sandbox.service/supervisor')
-    unit, exe, uid, leaf = {
-        'sandbox': ('cherry-sandbox.service', 'sandbox', 61001, '/supervisor'),
-        'judge': ('cherry-sandbox-judge.service', 'judge', 61010, ''),
-    }[case]
-    pid = int(manage.run('systemctl', 'show', unit, '-p', 'MainPID', '--value'))
-    return kill_process(pid, (manage.STATE / 'current/bin' / exe).resolve(), uid, str(GROUP / unit) + leaf)
+        return kill_process(wait_for(executor_pid, 'executor not observed'), EXECUTOR, 0, JUDGE / 'supervisor')
+    pid = int(manage.run('systemctl', 'show', manage.JUDGE_UNIT, '-p', 'MainPID', '--value'))
+    return kill_process(pid, (manage.STATE / 'current/bin/judge').resolve(), manage.JUDGE_UID, JUDGE / 'supervisor')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('judge', 'sandbox', 'executor'), required=True)
+    parser.add_argument('--case', choices=('judge', 'executor'), required=True)
     args = parser.parse_args()
     manage.owned()
     assert not groups() and not task_processes(), 'node must be idle'
@@ -147,22 +144,22 @@ def main():
             except (OSError, http.client.HTTPException) as error:
                 outcome = type(error).__name__
     finally:
-        # 执行器丢失回收确认后，sandbox 的执行池停止接单，只能重启服务恢复。
-        if args.case == 'executor':
-            manage.run('systemctl', 'stop', *reversed(manage.UNITS[1:]))
-        manage.operate('start')
-        assert manage.digest(manage.ETC / 'deployment.json') == manifest_hash
-        # Only artifacts created by this idle-node test may be deleted, via the normal blob API.
+        # 执行器丢失回收确认后，执行层停止接单、judge 以失败退出；judge 被杀时单元已停。
+        # 两种情况都先确认 judge 停下，再清理这次测试留下的 blob，最后重新启动。
+        manage.run('systemctl', 'stop', *reversed(manage.UNITS[1:]))
+        # Only artifacts created by this idle-node test may be deleted; judge is stopped, so no
+        # reader can hold them. The store reloads its directory on the next start.
         for path in BLOBS.iterdir():
             if path.name not in before:
-                assert re.fullmatch('[a-zA-Z0-9_-]+', path.name), path.name
-                request(15050, 'DELETE', '/blobs/' + path.name)
+                assert re.fullmatch('(\\.pending-)?[a-zA-Z0-9_-]+', path.name), path.name
+                path.unlink()
+        manage.operate('start')
+        assert manage.digest(manage.ETC / 'deployment.json') == manifest_hash
     recovered = trial('int main(){return 0;}')
     assert recovered['verdict'] == 'RAN', recovered
     assert not groups() and not task_processes()
-    boxes = manage.STATE / 'service/boxes'
-    assert sorted(p.name for p in boxes.iterdir()) == ['.lock', '0']
-    assert not any(any((boxes / '0' / sub).iterdir()) for sub in ('in', 'out'))
+    assert sorted(p.name for p in BOXES.iterdir()) == ['.lock', '0']
+    assert not any(any((BOXES / '0' / sub).iterdir()) for sub in ('in', 'out'))
     assert {p.name for p in BLOBS.iterdir()} == before
     print(json.dumps(dict(test=args.case, result='PASS', killedPID=killed, observedPayload=payload,
                           requestOutcome=outcome, cleanupSeconds=round(cleanup_seconds, 3),

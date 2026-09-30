@@ -12,11 +12,11 @@ import (
 
 func deploymentFixture() deploymentManifest {
 	m := deploymentManifest{Version: 1, Backend: "linux", Architecture: "amd64", Files: map[string]deploymentFile{}, Limits: map[string]string{}}
-	for _, key := range []string{"sandbox", "executor", "rootfsManifest", "toolchainLock", "executorConfig", "sandboxConfig", "startConfig", "slice", "sandboxUnit", "judgeUnit", "bootstrap"} {
+	for _, key := range []string{"executor", "rootfsManifest", "toolchainLock", "executorConfig", "startConfig", "slice", "judgeUnit", "bootstrap"} {
 		m.Files[key] = deploymentFile{Path: "/release/" + key, SHA256: strings.Repeat("a", 64)}
 	}
 	base := "/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice"
-	for _, group := range []string{"", "/cherry-sandbox.service", "/cherry-sandbox-judge.service", "/cherry-sandbox.service/supervisor", "/cherry-sandbox.service/jobs"} {
+	for _, group := range []string{"", "/cherry-sandbox-judge.service", "/cherry-sandbox-judge.service/supervisor", "/cherry-sandbox-judge.service/jobs"} {
 		for name, value := range map[string]string{"cpu.max": "100000 100000", "memory.max": "1024", "memory.swap.max": "0", "pids.max": "64"} {
 			m.Limits[base+group+"/"+name] = value
 		}
