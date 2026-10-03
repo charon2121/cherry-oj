@@ -1,0 +1,1268 @@
+{
+  "version": 1,
+  "date": "2026-10-03",
+  "system_snapshot": {
+    "path": "development/history/work-system.zip",
+    "sha256": "8c7b10674359bc5c672767cc3076901d1206251939e2987ba006debfe6b467eb"
+  },
+  "files": {
+    "development/works/WORK-001/10-change-CHANGE-001.md": "2d24c32457bf8cb4086e5609e0ccbf732dc71f84e99ae2b6a5af7f212f6424ce",
+    "development/works/WORK-001/50-plan-PLAN-001.md": "a3d6177aecb8af2b001530ab71c37162eee1eb1c3a07c4466193e6b841165b7a",
+    "development/works/WORK-001/30-design-DESIGN-001.md": "1b5ddee4deb6167e0b769517b63330e7df54c0bc9b2a0594d6407219ffb486cb",
+    "development/works/WORK-001/flow.json": "80f0d11ae965bdde0f508d4a66ad9ead1952f2c0c5edb783b06b5142c909358d",
+    "development/works/WORK-001/70-verify-VERIFY-001.md": "395bba53956271124295f0d4ae9f6e9f4514297eabc1613fe40aa1b62a77f07d",
+    "development/works/WORK-001/80-memory-MEMORY-001.md": "25cd80d8b21e5fab1b0855e4defc8ed2a2cf29e0ad6ab17c4be7d6f3be97ea94",
+    "development/works/WORK-001/40-decision-DECISION-001.md": "54b4816c3007afe148130c98aefa6085d66118d6f7d3da584f32d46838691809",
+    "development/works/WORK-001/90-history-WORK-001.md": "fcac37757d1d6bf407c865c87a350b45096ed9b42aea6bfde0dae97affd3aeb5",
+    "development/works/WORK-001/60-task-TASK-001.md": "521783a5f1d47606501ee56c7ca7162558b4417080cc3fcf15963f62f79925dd",
+    "development/works/WORK-002/60-task-TASK-077.md": "17171ab981267c9d0c6f1430b13ade5514c691a80d45a705133e63fe503d9c57",
+    "development/works/WORK-002/60-task-TASK-002.md": "7287ac121aaa110114c41a56f04df33b20cbbaf0a347e90e8dbb025aad210533",
+    "development/works/WORK-002/60-task-TASK-080.md": "982198c48ffb5e29d241f0ca3b19469cfe412d439f210e8b505522059e68b68e",
+    "development/works/WORK-002/20-experience-EXPERIENCE-001.md": "ff2efaf47ceb6f65bd4a88a861d46e5a9d2014cc11d52a312ee62061fb158b68",
+    "development/works/WORK-002/90-history-WORK-002.md": "4d4f97b788344241c94d071f91fe03ccca47c7343f9eab709ef042504311f6b2",
+    "development/works/WORK-002/60-task-TASK-076.md": "8a1a3726ba1975092ea67eb1fa3a1ddae17072d431375e763a4bcdd806f8de4a",
+    "development/works/WORK-002/40-decision-DECISION-002.md": "8242d2017838179b0a0978b4425d9b79c7db6d9c08b8793fd9c90935385862be",
+    "development/works/WORK-002/60-task-TASK-079.md": "0d63df250379cf271233fa031b277eb55f9a51074cf40a7ee9fbad0518067b4a",
+    "development/works/WORK-002/60-task-TASK-078.md": "f3dfdccd457855672bfd12cd9bcaffccd27236ff6cf598990ef8468c1430cb83",
+    "development/works/WORK-002/70-verify-VERIFY-002.md": "e25fe1a161a300334c621e3240a0b71503370300689fe43f44922fb1fbe388d0",
+    "development/works/WORK-002/80-memory-MEMORY-002.md": "bf48c9cdbdb4f1582d4a8497cfae04ce506af2d4640aa76e5809d83010812e3c",
+    "development/works/WORK-002/flow.json": "e7c82c38794880e572975af1f3c49b9de4a4fcd54c57bc94d2e6fd94a389fd80",
+    "development/works/WORK-002/50-plan-PLAN-002.md": "2eab925bca5b6227bd9adf154b9dd5cc18857008b80d2797dec667167e0e588f",
+    "development/works/WORK-002/30-design-DESIGN-002.md": "626b9b88ee1e3a2b0f296004ff77e69f9c5cc33cb813644c1b88de9f29e5aeec",
+    "development/works/WORK-002/10-feature-FEATURE-001.md": "a4d8c2f68eef5b095fa3c1200b04c94f0b878c92609e59c96f23e74fee5cec02",
+    "development/works/WORK-003/90-history-WORK-003.md": "ca200b61d21e4a2d3cc88d0b830dea4dc6e9aae67e3baf30b403b43dbdedff09",
+    "development/works/WORK-003/60-task-TASK-003.md": "6d47be644b6923aa86580ef9623aeb6f2c3a40643ea61bbd5ca2f1142908a03b",
+    "development/works/WORK-003/70-verify-VERIFY-003.md": "cb35a26dd28b530705ab200a051adc4d327e470f8d0b1667263f03e25f0adce8",
+    "development/works/WORK-003/80-memory-MEMORY-003.md": "0b9ba211ef935cdaad546f6751b8db5aafb1c08b3541c5c6eaea00fc8b44b47d",
+    "development/works/WORK-003/40-decision-DECISION-003.md": "dac3c0bd6d247210102fefd30de372fca32c2cd286c3add23060e8a1d557ebc1",
+    "development/works/WORK-003/flow.json": "e1e8cf210ff26676cbad108e984cde37674f32e14cebf6a7d4cf22d4408efe60",
+    "development/works/WORK-003/50-plan-PLAN-003.md": "a7ebf580739488bbf5ee614599bd40c15f78e4641d9cb66a5a630501e9e2ceea",
+    "development/works/WORK-003/30-design-DESIGN-003.md": "78aaf4abef65971f4404198061ff916c355f8ea3828b4ca14784c5b668d3069e",
+    "development/works/WORK-003/10-change-CHANGE-002.md": "fb7310a66b7b3a4a4389abab6114c73272db390158455959131b1b546095f0c7",
+    "development/works/WORK-004/50-plan-PLAN-004.md": "68adf3f52ee59601d4d8f57254f7f78744e62a1e3eaeceffe5ff5cfe10cbd6ec",
+    "development/works/WORK-004/30-design-DESIGN-004.md": "6dbce558f36e5d235199dfbc706cb83d87a30d68b44d7627b5f5551ee1c9e4de",
+    "development/works/WORK-004/flow.json": "aa5121a66dcca2ea75f38685f718a534fe5657fb4c576676b8a3012f26b5dc79",
+    "development/works/WORK-004/40-decision-DECISION-004.md": "02eed8726deadac17299b27ea009abfb52090bea001c8eeabcdd31b00d130f73",
+    "development/works/WORK-004/70-verify-VERIFY-004.md": "b009c7486c1ca187bb565dd837c552b73055ccf9ce70177c876f8ff7bc391b33",
+    "development/works/WORK-004/80-memory-MEMORY-004.md": "b95f0d49f8af46415afded82ca6a24ad4b3c78290ee5535d72db5c1773700e8c",
+    "development/works/WORK-004/60-task-TASK-004.md": "b9ab88fc4c18201c04de0cb41a59d94cc3d23cccfc09f165147b19af5ae3a7d9",
+    "development/works/WORK-004/90-history-WORK-004.md": "74dc35f4164f231000afa57955e8b0305a82b375eb9aeb5affba8483a238149f",
+    "development/works/WORK-004/10-change-CHANGE-003.md": "2b2539c3742d60349fb0182a7497478d247578bcb5e79906bf97cbfa8b93ba0a",
+    "development/works/WORK-005/flow.json": "468f8a18541fc52e37440ff112ed5983b9efed9c995da80ef4ce9b86660bba5c",
+    "development/works/WORK-005/70-verify-VERIFY-005.md": "ed094833d90885b223ab10c785a2859b9b04a1536c04ae3f86fde23d6ebec5d8",
+    "development/works/WORK-005/10-issue-ISSUE-001.md": "8eed99fee83933d2256fd4a74ef5d0728e52ca0dd50cc9af53a27a0e78300a53",
+    "development/works/WORK-005/90-history-WORK-005.md": "f08e8c55dc4f336b8b0d1b698d92b7c42e1c41fe7e184a5f2fcd61adab04e5af",
+    "development/works/WORK-005/60-task-TASK-005.md": "28d48cee71b78f93816de01eaca3c3540e8d785223b6077ab6cd3eca83bdc7e5",
+    "development/works/WORK-006/10-change-CHANGE-004.md": "72d4cc2af16386b1fbb589599e9092c87b750925126d74b85711486e67ccfc2f",
+    "development/works/WORK-006/60-task-TASK-006.md": "68e4af77c246fa3ec3866d7445fa4499408165bf7c6524a25a7e573bc511e4c8",
+    "development/works/WORK-006/90-history-WORK-006.md": "af2c785717dd1ffa02aa6556b511beb61ab792995f2a99879ae3c4bc966553c6",
+    "development/works/WORK-006/70-verify-VERIFY-006.md": "7a5e02a75f018034cd029e971c025d1bae1b01b6e9de844be1eb15e2288cb842",
+    "development/works/WORK-006/flow.json": "8f803f81182f301c957d06db7c229edba2b004317b998225889ef62d63365c90",
+    "development/works/WORK-007/90-history-WORK-007.md": "d6d75a4532d83b405cef16389330ff9a90aaabc24526a2ebee482d90af0abc95",
+    "development/works/WORK-007/60-task-TASK-007.md": "66d3a9cb8a03fab18b83927123527517dd6c6c2cb6e3734ee4266cbea06a5408",
+    "development/works/WORK-007/10-change-CHANGE-005.md": "7f7634736191ca57a2318ecdcaa6023b251936cb981ba090c8db7a9b6526d5ec",
+    "development/works/WORK-007/70-verify-VERIFY-007.md": "1599292aa50e19fe1e3fbd1b066e72622ab498f4c137f848802b0b1d58a1a249",
+    "development/works/WORK-007/50-plan-PLAN-005.md": "dba6c0f55168761d4bac2fefc683bad4c5a5cba3dc21ffea3640a035225fd7a1",
+    "development/works/WORK-007/30-design-DESIGN-005.md": "098f71738ddd21067dfd4778a5198a6edfdd24b4faf08d8d1774f991cf35ec64",
+    "development/works/WORK-007/flow.json": "0482960d0c85e3e5606e8e5d5418a588253abd1bd1b1ec136e88ef99831fefe0",
+    "development/works/WORK-007/80-memory-MEMORY-005.md": "5589aa10d567be9521caf7d7ea3e6f37b49adf5fc158a446a50b9fd7de5281ba",
+    "development/works/WORK-007/40-decision-DECISION-005.md": "e4e6cc178edd32eb47df093334e85ae42ae53c925fb97a129c8fe1957d70ecae",
+    "development/works/WORK-008/70-verify-VERIFY-008.md": "bfa86be53b89ebed585a5b15587d0312fd1b2775085902bd74342305b56adae5",
+    "development/works/WORK-008/60-task-TASK-008.md": "6afd3f60be954f793078e9078e6644dbf88e64ad0e2b2e98556b55f5fe894436",
+    "development/works/WORK-008/10-capability-CAPABILITY-001.md": "e3652f1f80bb6438621657175b9bb28ce88435054fdac54f07ec31bf1616a11e",
+    "development/works/WORK-008/80-memory-MEMORY-006.md": "faf7d63bab361428d75d738cd6a3b988c99dea312221034cfca09017cd85ea62",
+    "development/works/WORK-008/90-history-WORK-008.md": "ffa1b7ee4a5e15b1bc72be77e2e463cd187191947973e5ab0b67455e28e2ae1e",
+    "development/works/WORK-008/50-plan-PLAN-006.md": "038580722c4252eb6a2ea1b9e80c89fc7148cfa7a2e0acd61573f3d63a7a0bac",
+    "development/works/WORK-008/flow.json": "f9de898078813aeb795b79428a2c7ebf93d8599701921d0d5d5fc360bba4ebe7",
+    "development/works/WORK-008/30-design-DESIGN-006.md": "b4f874c3de179c2b862fb72fcd2c9bbcd22dced1d488cc446e1850ede9d7223c",
+    "development/works/WORK-008/20-experience-EXPERIENCE-002.md": "3a40326faebb1ff1dfc0e4bdf9e58be38973a13e5a153e660b92460ac7138d62",
+    "development/works/WORK-009/70-verify-VERIFY-009.md": "9d8415128e4a112fc260fc483f62b7f115e7cd7a07f0d4b9877f249b189bb9ed",
+    "development/works/WORK-009/40-decision-DECISION-006.md": "2aaaeba3ee28498d683d6c46aed6e0ffb8493f1df383889406e3dbd5beb8a6ac",
+    "development/works/WORK-009/80-memory-MEMORY-007.md": "b3c80260db9af9966b3eb6f6474ef24888b46330ae53c9d4bbb2da414f02117b",
+    "development/works/WORK-009/90-history-WORK-009.md": "d72168ba39857b988e5b09b026345d3f56496a3630b4d073b2df93073028efb6",
+    "development/works/WORK-009/60-task-TASK-009.md": "4476ce5c503c7d109862611b3f11f73919a480fc01d829c881ea19f24b337c3e",
+    "development/works/WORK-009/10-capability-CAPABILITY-002.md": "a4766d4124e725a5884a4ddca83f5d4deac9d21a997ce5407010eae306664763",
+    "development/works/WORK-009/flow.json": "3fc5fb92c6200cc392a364abf58ed11b755eb4bb269bb0bc3138127e07025cb5",
+    "development/works/WORK-009/50-plan-PLAN-007.md": "97ab975a8ade145b33f785696fb213abcd016d7d8928b045df8b3c127f5c68b5",
+    "development/works/WORK-009/30-design-DESIGN-007.md": "ed271efe6c3305b7392ac4fca7a88a763b1a2ae0a1f5c21d72a4d082a062a76a",
+    "development/works/WORK-009/20-experience-EXPERIENCE-003.md": "d159d08771c0b577893980674e8ae74d13fa34802e4b2beee458791d78edb547",
+    "development/works/WORK-010/60-task-TASK-012.md": "130c616a4f77b8101ba1847ac179cef1bf2ecd64bdba2ba68ae1ef1b189ac528",
+    "development/works/WORK-010/20-experience-EXPERIENCE-004.md": "20395b79015a5f48cd6270c9a0405de0763a37ce8fb2d30d2fd14f78afdd4c70",
+    "development/works/WORK-010/60-task-TASK-013.md": "1a6d78a0faef327abc1befa6f12c9fbe3eb1ad6b2b243af9955736908832942d",
+    "development/works/WORK-010/80-memory-MEMORY-008.md": "a16c5e6a69a3d8109480b9ff95b57b505dcc7b12211e6485b398177adf1edbac",
+    "development/works/WORK-010/40-decision-DECISION-007.md": "cfeb71116011ae01dc4d4c4c67fdafc4fb8a0b00858751808483fb9cdebacab8",
+    "development/works/WORK-010/flow.json": "e16eda20239f6f62bf0b0ca74f4539a284bd04c55d8b451012df50b4ca7309b2",
+    "development/works/WORK-010/70-verify-VERIFY-010.md": "0dc2157f21094dbe7ee2a301ac4cba833b0acac841c050b97e122249bf35a154",
+    "development/works/WORK-010/10-capability-CAPABILITY-003.md": "dfab5b537d05f75394339ecf5e116d5f9d9d44a35d8d4f996b9805d1cc58a0af",
+    "development/works/WORK-010/60-task-TASK-010.md": "428804b6d8a405ea42833bf77d9d45e50d150864dcb5aede64d8f450beb8a441",
+    "development/works/WORK-010/50-plan-PLAN-008.md": "56e6ffb99d382c3a968f00017cb3636a3fdc692ff9e9e29845dccd8bc43f5a8b",
+    "development/works/WORK-010/30-design-DESIGN-008.md": "e297dbfb22e9f4bdcc714868e408752a5180cfc6c457c5bc1e49be1c83e44259",
+    "development/works/WORK-010/60-task-TASK-011.md": "274b24ec51e6bfb9e98d9ece1841b237efebf90172bf671aae3ab347fda74a2e",
+    "development/works/WORK-010/90-history-WORK-010.md": "f5822a7e387751777dea88bfb81e6c849e109827adca9a52755c2b8a0e90142c",
+    "development/works/WORK-011/flow.json": "5d51bad80ded1a3ce8d11a06a6e6310f225202f836213e78536158e9b97b3a47",
+    "development/works/WORK-011/70-verify-VERIFY-011.md": "6e0f8d8f427f40b1067e1e984cd093e2bfbd562ea280611d60b71b436666fba7",
+    "development/works/WORK-011/60-task-TASK-014.md": "1e76776565848e3c94eb6c223cd8462cb4cb539a7f0411ee491f8debfb44977d",
+    "development/works/WORK-011/90-history-WORK-011.md": "1f18ff915c20c4dbcd45a0e5143c280f63f24eec7269f4dd2481d568bb0e93d2",
+    "development/works/WORK-011/10-change-CHANGE-006.md": "ebacb4be870571547d2ea9f4543f85a6e62ba304acb02229fa2bd98cc277a656",
+    "development/works/WORK-012/80-memory-MEMORY-009.md": "6383ecec872a17ae6341c2f2200c592a8936b5ae3e59a48f8d9618c6dab1aed7",
+    "development/works/WORK-012/40-decision-DECISION-008.md": "640ab16c91225d5f7e0b9a8e96f7d401804d11c6baac5659c73f1757ea69c9be",
+    "development/works/WORK-012/90-history-WORK-012.md": "a53bfae7b87c31bf0ee5385a41db32b8c32be24181b00500098a8dfa5866066d",
+    "development/works/WORK-012/70-verify-VERIFY-012.md": "93061c766305ee98c09c9715e37d1019745c2d5f88b3ed102071e046e8a7322a",
+    "development/works/WORK-012/flow.json": "d6dc51d7c0b476111f3a0472aa0828dba310bf34971ec4a1d2e268444a7545cc",
+    "development/works/WORK-012/10-change-CHANGE-007.md": "eb5cb944129827de77ca2fb06b024d45b2152b07c9122ce424ff7f1bc8118f78",
+    "development/works/WORK-012/50-plan-PLAN-009.md": "c4c22fb38528e821e22081bd4aca99411deb3d40fcb0d0224d422327766b54bc",
+    "development/works/WORK-012/30-design-DESIGN-009.md": "6041ef7b20fca47a6084cfbf480a7c91b5055a41049f88dbf5aa6bdce0e54d89",
+    "development/works/WORK-012/60-task-TASK-015.md": "86e053ea0a12dd2deecdade61f296606910461ff7092a784b71b65940d6c4a6e",
+    "development/works/WORK-013/60-task-TASK-016.md": "24a156a63e579d754dc84fe4099e90dec1e030fbe80b3170bdbb285dc610b37c",
+    "development/works/WORK-013/90-history-WORK-013.md": "a437b0d988e751bdd31825f5c3cfb87506cc2f4d4fb20f4422256634166b9662",
+    "development/works/WORK-013/60-task-TASK-017.md": "35b2e16ae84ae6dccf69dc99bff443e7f7e7c57845fb6be533440f65c76dfdaa",
+    "development/works/WORK-013/20-experience-EXPERIENCE-005.md": "4ce5e0f0ba33ee73e7255a6ddf0b3d7a59b3cf6994dd7311b02ab64587a8f131",
+    "development/works/WORK-013/40-decision-DECISION-009.md": "4ea27026371d51b167b6b11918586b0c760b20460197d534f32473f4255ec7ba",
+    "development/works/WORK-013/10-capability-CAPABILITY-004.md": "f48c536056c67d575cad6104f168d1bd26cfe2f51dc9e3b69d765e41c375e4d0",
+    "development/works/WORK-013/60-task-TASK-018.md": "b3a032f41290a801e0afcbab349ed6e07fab5f3f1a82f84b42043e58189e6174",
+    "development/works/WORK-013/30-design-DESIGN-010.md": "f127f48e6fb42fbba8fe9596352426416c3d4e21610e0d33d8c3e6ceba6b21bb",
+    "development/works/WORK-013/70-verify-VERIFY-013.md": "eb3d428840ab4a8aae8fd28fc4f5052ab63291535d580ae10ce22efa5c318ed2",
+    "development/works/WORK-013/50-plan-PLAN-010.md": "83ddbb3b1b014dfe1f048c26c7aed3aca58591b75422d5d0f60cc2fac98b2072",
+    "development/works/WORK-013/60-task-TASK-019.md": "d9bedceb2f1e09d778f160874412af542c39ce59c17070d105c6d1b905aef3ea",
+    "development/works/WORK-013/flow.json": "14a7583b7eaf06d55e77685138c8a0e27c63b9989f0872df80260f806fffa4d8",
+    "development/works/WORK-013/80-memory-MEMORY-010.md": "504a9a41add056ec48c908f5ee1aa07ec97ebe736a51046922dd56f750823bb6",
+    "development/works/WORK-014/30-design-DESIGN-011.md": "c7fc17f01b36ab60206bf3e3f4f8a60788186c23767ebc36e80085cc580814a6",
+    "development/works/WORK-014/10-issue-ISSUE-002.md": "3fccc222382fe7bc121708d5f4e5199a27dac8175a216f4fabb64eebc4a61947",
+    "development/works/WORK-014/50-plan-PLAN-011.md": "66fff3f31bdb8db1884be34845fef500c06c9ddcd4f76b3585669b773b228f76",
+    "development/works/WORK-014/flow.json": "72090856518e7f1516ba5bb654c1804b91cece8a74f3ac6a8232262a0e2fd1c3",
+    "development/works/WORK-014/80-memory-MEMORY-011.md": "a18e2f0f7d5b20931b2c48cefd0cecbd05f090174f86fc44d9c3db43710907fd",
+    "development/works/WORK-014/40-decision-DECISION-010.md": "12dfa8ff0cc30cc8b36db41c3a57705de277b01c93fb455e2ac0ba0548327598",
+    "development/works/WORK-014/70-verify-VERIFY-014.md": "0abb5ddff09e94dd7332e69966b806b736e7846821db373069cb3c731fec2a60",
+    "development/works/WORK-014/60-task-TASK-020.md": "3164a391aec5957dcccff266b3d8f87a3bdf01330e0e2cf87621076a4d93a5aa",
+    "development/works/WORK-014/90-history-WORK-014.md": "66615489c4d41a43ea712fd9a0ba9783838a41cc6c8474e6a9a136b45ed48de7",
+    "development/works/WORK-015/80-memory-MEMORY-012.md": "663f006d3d08dc1d04d6f0671bdbcadb392ec5a5e78ccb2264ec0120dc9dfed9",
+    "development/works/WORK-015/10-capability-CAPABILITY-005.md": "f91161e21a448e08d545b5d393880cbcfa2c2abc7022d9419db062883da25d1e",
+    "development/works/WORK-015/flow.json": "e14bf4b6e8ac4637ec9ae37e9ae164eb7c0ac9c56033f0101d3978c3600aa7a1",
+    "development/works/WORK-015/70-verify-VERIFY-015.md": "44dceb10ff4d8502530fd21662f08ebfa88987c1c16b627e4d326fbcfa967629",
+    "development/works/WORK-015/30-design-DESIGN-012.md": "1c881ad007c04ed348712997c8dc1e7295561b25feb5d08cc07303e79c49d901",
+    "development/works/WORK-015/50-plan-PLAN-012.md": "8e07417a7a0330a0fdffa53936071ade890f9bc09afcb07443b410d09081bdc9",
+    "development/works/WORK-015/40-decision-DECISION-011.md": "f892c6644298c69f07a31d4e112c2c97fff482518108759cb17fcdb77ab372d9",
+    "development/works/WORK-015/20-experience-EXPERIENCE-006.md": "305048cbfcafc491ffb270b38a8c9c35626c99d23a4a117d66df3846e64a2631",
+    "development/works/WORK-015/90-history-WORK-015.md": "252154d9659214bf676fc3df00f42de5a74d3aef8c5bb67782d97599b60c4788",
+    "development/works/WORK-015/60-task-TASK-021.md": "7b70c8f7ebb475bc15df05f32e560a38e9debf4804094ff62eaeebd1113c32b9",
+    "development/works/WORK-016/60-task-TASK-022.md": "66507907c4cdfdbdf1487a61369b5faa42542d846659396fee659f36054fb7f3",
+    "development/works/WORK-016/90-history-WORK-016.md": "f35ae8ce19a6f36f821a7ec4e782069828815b01bb7423e9b854410ff11935c2",
+    "development/works/WORK-016/10-issue-ISSUE-003.md": "fc4434440db9b0d3a6e3a483e5baf8a7f338ae542953e4d2e7f38fe97a218d0e",
+    "development/works/WORK-016/70-verify-VERIFY-016.md": "f3f178e929eb228d6aaa62dd76361ee8c51f112d21fb36d26d9cb1830c3199f2",
+    "development/works/WORK-016/flow.json": "e27e74ed103afdb3ac69a749d4031bbe6e25b53732d8b4259ab353396e7a20f4",
+    "development/works/WORK-017/90-history-WORK-017.md": "73a1e1b3e7baf4d5d350825d6964ff1c9c914def453b787109283d3458f7f154",
+    "development/works/WORK-017/60-task-TASK-023.md": "e9bb68e276dc9f5a2c059cd3bb352c59194434e440d1a5230bba7bf2acbb1f08",
+    "development/works/WORK-017/80-memory-MEMORY-013.md": "ce29b7f1f365e23a9c6ae6f1e9de5e8942b50fbc5ac98f977b8a008813b08e5d",
+    "development/works/WORK-017/40-decision-DECISION-012.md": "ab1e7f942e7383cc6a33026969d9f75e2ab8c36881346cfd46fd5c84695481e3",
+    "development/works/WORK-017/70-verify-VERIFY-017.md": "9b2d4d1039b3e1502ed30facafaff52a0d2686c1f6286f7ffc50b8c89505ccf2",
+    "development/works/WORK-017/flow.json": "e8a6a72332f328a873caf61f733b8da1dc817fe261dce66d0877d5df873585eb",
+    "development/works/WORK-017/10-capability-CAPABILITY-006.md": "9d5107d6814bc0211a91a3306abca48a854b6c946e2a47016ccb955705ff12fc",
+    "development/works/WORK-017/30-design-DESIGN-013.md": "41c375903ab6cc7b6e32a2e32e0726d47de6fc5e18bfec142795594b3f4b5e93",
+    "development/works/WORK-017/50-plan-PLAN-013.md": "1b284d549e94fef877b0f3c85a2e05739fa7bac9e155d8bd5d7cdb6e6d28dce2",
+    "development/works/WORK-017/60-task-TASK-024.md": "c7dd103676d5070f3c232ca041dbdf630ffd026ced6b2af0d0f1f1f7eebb8051",
+    "development/works/WORK-017/20-experience-EXPERIENCE-007.md": "29a6cdb6aa07087200652d92af2598ad9c8f47c854ab143babb4d250d7e63a46",
+    "development/works/WORK-017/60-task-TASK-025.md": "9281ab7e40f92493caa297de6c67802b0ee67a202539b6effee89f8019828d5e",
+    "development/works/WORK-018/60-task-TASK-026.md": "2ecaef70040288118bd59227c4f11c6b6452cd999558a22315bbbc591f19042f",
+    "development/works/WORK-018/70-verify-VERIFY-018.md": "c478c75e71f5b9559b8011a1db1961ca83f0a832681a523f3c9a9a23d2e8e628",
+    "development/works/WORK-018/30-design-DESIGN-014.md": "f6828c8a3e0752561b943b9f2da983b18baf91f9cb660a65b0955d80c4859818",
+    "development/works/WORK-018/50-plan-PLAN-014.md": "c49a6a3ed10eee756b63585815c9be93cd13e90bbad81c76e369c396fabdc25f",
+    "development/works/WORK-018/90-history-WORK-018.md": "f674adc16dd638039ac7eb6b8bc2c6dc7d19cc669252c646034dad571b60c960",
+    "development/works/WORK-018/40-decision-DECISION-013.md": "4b70870bc2df5008d60f4c1defae8b8d99457ea5a4ae91c00affcc611f133b81",
+    "development/works/WORK-018/10-change-CHANGE-008.md": "bcdbe77d7fb52da6264c58c6cc6a2a342293616fea818611d5f41e36b75b6503",
+    "development/works/WORK-018/flow.json": "4bf47ca3f0d394229b2f95a7e3d59184a2f5018692397b90a23c042a52e1904b",
+    "development/works/WORK-018/80-memory-MEMORY-014.md": "4e5b70915309f89de61e2b453d470b6d40b91a39b77ff1a50e1dec6b3b306066",
+    "development/works/WORK-019/70-verify-VERIFY-019.md": "8a09126e357b6a97a82c0e0a54608fb93ed8585077c1e85e950a6cc50adc06fc",
+    "development/works/WORK-019/60-task-TASK-027.md": "e2aaf3a94c7509d9c440c54317dd8abc227aaff23df64c308c149971dd71ed14",
+    "development/works/WORK-019/90-history-WORK-019.md": "ef2cb384c0c9d3fc11033ae97d277e9ae5d1b01b5c0bdbd8b3f8477596394df8",
+    "development/works/WORK-019/30-design-DESIGN-015.md": "e0d1c08ffa6debd9ecf69a09599983b5aeeeeb74fe5dfa6fec961cc694ab7a40",
+    "development/works/WORK-019/10-feature-FEATURE-002.md": "51ceabe0935119558742723e42abd808fab7ec3692c8c795de0a2e25016e36b1",
+    "development/works/WORK-019/80-memory-MEMORY-015.md": "07a7e1e434949bacf2ca162b9c5940cda1b5ac5dc1c3c48103bc910c0e060438",
+    "development/works/WORK-019/flow.json": "d11096af45bb1d864e46e98576ba5d93524a13c49ba71dccf69a01be2b2e2de0",
+    "development/works/WORK-019/20-experience-EXPERIENCE-008.md": "6d5de5b8222d87b598ad6f7fa1fa2780700169966951ce64e3154ebc28da1d5d",
+    "development/works/WORK-020/10-feature-FEATURE-003.md": "111703a3ff715375f09d6fe1a097ab202470a9b9a3af83a891a20ce7899eedbf",
+    "development/works/WORK-020/60-task-TASK-028.md": "ec228c0112f7f19d6f4645ceea19ca9798614618d7041e9e64386436dc8508f3",
+    "development/works/WORK-020/80-memory-MEMORY-016.md": "b960d219bb59d334b7f66590b4ff95fee89726347a7c584a892b4112cc03a9b8",
+    "development/works/WORK-020/flow.json": "8b7c986bfb062dc3583dc77c7277495fdb38f448e8867ac514a4b8c4b40f0a89",
+    "development/works/WORK-020/30-design-DESIGN-016.md": "b891477310233fa1d836bfadacb88f73471f9a590a77acd43043c932c5615c12",
+    "development/works/WORK-020/20-experience-EXPERIENCE-009.md": "65340d655884943fe4251c75c4374893c32afbdd06a07222badec3ef627de5f2",
+    "development/works/WORK-020/70-verify-VERIFY-020.md": "0963c1824f56d454507839d9978d407c483f4acdda174c5d8bd67671c5c6e2e6",
+    "development/works/WORK-020/90-history-WORK-020.md": "28bdfd1fc74456b0446db9d4239b1199b8bb6c3d87c0ac378b39ebe44d5a39cf",
+    "development/works/WORK-021/60-task-TASK-029.md": "79c7d238f44ae168c0aec4ba71b35b273522e342dee75f3163edd3d9a6a259c6",
+    "development/works/WORK-021/flow.json": "43d72a51ed1ec9b69340e346570faf0b5fd1eaca3d6825a78a7ae746225b5827",
+    "development/works/WORK-021/70-verify-VERIFY-021.md": "5e5487e391cfd048748e7cd731233acdf2bf9deda9efbe1b57459b3955ce1f94",
+    "development/works/WORK-021/30-design-DESIGN-017.md": "b4558ac16d270b611b1dee1de10de40fae9f8d3130e08260edd36675299e8574",
+    "development/works/WORK-021/10-issue-ISSUE-004.md": "ddd84ece227f02617d7413db0358102b2cf6b1f670fece9148c9dc3e4995093d",
+    "development/works/WORK-021/90-history-WORK-021.md": "d39f7583d4967fe131b55c161222b362e24eff092c2731e5298ac99c3aaca6b5",
+    "development/works/WORK-022/20-experience-EXPERIENCE-010.md": "c330bdac0a0f735e89196807db9ac3d9f0fb49edc7d087dd604f133eb18c5474",
+    "development/works/WORK-022/90-history-WORK-022.md": "97d74357b836c42abed83ebe50cfa38c2e9143cee05708d6a4d379e985b392bc",
+    "development/works/WORK-022/80-memory-MEMORY-017.md": "a73ab162622b4563b16aa2e1407bfee7db4d848b3d79d2a500ef20da8fbb9a9e",
+    "development/works/WORK-022/70-verify-VERIFY-022.md": "4998b2d6c2e48ce1de215edb2ced847b2c15bd392ef2eb8800086f3c6b9de773",
+    "development/works/WORK-022/flow.json": "08384f0371e668641bc56ad3e2b20b2387c05a3b846f226d69fb5254bcfa52ab",
+    "development/works/WORK-022/10-feature-FEATURE-004.md": "2ad2e9b812cd8a74cb758fd88a2ef9e65f9e04c467535920daad1648c60bcbcf",
+    "development/works/WORK-022/60-task-TASK-030.md": "dc175ea405e7cbcdbc71695436d677a5cfd6a6a7d6eac1b6831ad03315ad1bdd",
+    "development/works/WORK-023/90-history-WORK-023.md": "135dd742b98581e0e876fb1337594e7c4f6b12d0f426c44b5f37e89bb44582d5",
+    "development/works/WORK-023/20-experience-EXPERIENCE-011.md": "59bc88c91cb248c148aa07c0a9a6595a72646e6075f02bab1d4ec8dae6570a16",
+    "development/works/WORK-023/80-memory-MEMORY-018.md": "20dfe54c9cc26443c651ad100ac350a157f30e1c8a1ec6b45fbb0560aeefe7e3",
+    "development/works/WORK-023/70-verify-VERIFY-023.md": "38a7b19715fc6130af2dd09978c78b849b6fdd17096401c95181d3b86a39c433",
+    "development/works/WORK-023/flow.json": "c00482d370ae32391480d146c4a03fc95ef362aa32e718eb6d358f9a52ea01f2",
+    "development/works/WORK-023/10-feature-FEATURE-005.md": "d3c4933f5533a205b20885a1de3453306ee7be8059dafe624abf264384d45283",
+    "development/works/WORK-023/30-design-DESIGN-018.md": "e0754d562806b78430f5c8830fa2dbca42a54e01c7dce6156f8cca2fa81281ab",
+    "development/works/WORK-023/60-task-TASK-031.md": "d4ef62a62eda24c82667c3e643c852bdeb849126d74ecf5bd4c58353725142ab",
+    "development/works/WORK-024/80-memory-MEMORY-019.md": "40617ccdc5bdaf0fb1b3568a6c26f3659e8e8309b71893959495daa59a2cda6d",
+    "development/works/WORK-024/60-task-TASK-032.md": "98f832d9d91ec615e62c9abefd32cab72fd12afed1526443eefb6d11af296b34",
+    "development/works/WORK-024/10-feature-FEATURE-006.md": "4f5aa35500c5b3378415650c01211da51d0e0de9b4877c205a263f4d4a26dff7",
+    "development/works/WORK-024/flow.json": "22a893d26c092c4ee8de117b2a1ae49a3328e48f5f022bb08fc5f118cf621ae6",
+    "development/works/WORK-024/70-verify-VERIFY-024.md": "111a7e15ba5c0ec2587bb49c669f5118be8fa27f0df6887840dfff5445e13c24",
+    "development/works/WORK-024/20-experience-EXPERIENCE-012.md": "20e6c4d8bd602cf2e7870dc03b18fae756b5a0c44cdbabda74be9bd230e4a308",
+    "development/works/WORK-024/90-history-WORK-024.md": "9873ad6d9b8599127e38d0a2e46a268147de88b64d0d84886d349bfecc5372aa",
+    "development/works/WORK-025/60-task-TASK-036.md": "519ab66d3354484d53ec000f9d421291f0d68ddf69b868b2acade2e440a411b5",
+    "development/works/WORK-025/60-task-TASK-033.md": "4be9cc01216434a4ac82c1863df0ee0b9e56f19825cddfd326206dd8d29e7966",
+    "development/works/WORK-025/60-task-TASK-042.md": "9aff332f5e35310ca6371b9850e5816ecfb667323ed661f9b8aee19994f3eb19",
+    "development/works/WORK-025/60-task-TASK-037.md": "b6ebb7e67b5a0bcbd83d2402021ff4f2fae97c0a785a03c60377f1826eabecc4",
+    "development/works/WORK-025/70-verify-VERIFY-027.md": "154e0898d4c991fa15e4c71cc0d4ea18dd3af10fa9041e7ab0f0bd041f62ea05",
+    "development/works/WORK-025/10-feature-FEATURE-007.md": "5362cf5f134b979f28d9492e14cc70ce9f2af58436b1918d015d87efffbcc411",
+    "development/works/WORK-025/60-task-TASK-038.md": "104cefa7100cbb0ead88c749785f4a432af32bb06899c75c3fdd76b1e580a205",
+    "development/works/WORK-025/60-task-TASK-039.md": "64fa7fd218a78577712c84722b36164feeaccb3eff8c10ff04eade2658370a34",
+    "development/works/WORK-025/50-plan-PLAN-015.md": "47f7c9a934931726fd1615e3821b22c0b63f5f0793682ba03f709970a677e32b",
+    "development/works/WORK-025/40-decision-DECISION-014.md": "bfc94748ede178e889b16670fad5ec9fe5cc85636cbd34b100c013be2997076b",
+    "development/works/WORK-025/flow.json": "d1a9966aa0ea5849d44da3be5dd248325f1c517b5073275a2b8e00d302768e7e",
+    "development/works/WORK-025/10-issue-ISSUE-005.md": "963a80b00b8f56c315a23ec856a73305a467aeda08aab1bf4d629c8048c85ba2",
+    "development/works/WORK-025/70-verify-VERIFY-025.md": "205312ddbc3a38b4a0c9fb5b05b84be277c64fed7a54f0b75da78dab6ccd6f0a",
+    "development/works/WORK-025/80-memory-MEMORY-020.md": "c19aabd6aacf02a82c7723343e4318a09f81f8ef0dabce4ae7923947de6175e8",
+    "development/works/WORK-025/90-history-WORK-025.md": "ecde522e136ca3da636369fa2ebdc81ab4cc62f412dfde9f404c4f6806ebe368",
+    "development/works/WORK-025/60-task-TASK-034.md": "663001084cc5a2a36fdb94e2d13906c663dab61f22a48622d18591e28e65ed07",
+    "development/works/WORK-025/60-task-TASK-040.md": "3bc3e0e00e97d2d0a36a54847291622e7a4790034ef112a4208c19f500fe04c8",
+    "development/works/WORK-025/30-design-DESIGN-019.md": "b7b21fe03d3e73277a375b036e2b3309a28be6325039dbf812e46a3080fd0fa4",
+    "development/works/WORK-025/60-task-TASK-035.md": "d613dca8b29b07154222fa44eca4741f9ea286d0e460400dc4b8a1ff05f59a16",
+    "development/works/WORK-025/20-experience-EXPERIENCE-013.md": "b7360f526b5ccc2869bc9a94701b35c52450f3374a64555678c7305a1e83ea3a",
+    "development/works/WORK-026/20-experience-EXPERIENCE-014.md": "e6ee3ecda0367d19ba0f4489461b2a5c97e6d3e4c01648d20f50f8444efc776d",
+    "development/works/WORK-026/90-history-WORK-026.md": "e8d1952e6506db5e31fb9ee652252524d7e227ce0e71caf5af80651ea8315d71",
+    "development/works/WORK-026/30-design-DESIGN-020.md": "869ddd6d889ea4c8e73cada7a5ff81f9319f6e1631141d00b062bc2f630c38ba",
+    "development/works/WORK-026/70-verify-VERIFY-026.md": "bae5badd1c33884c8a08f04ccea2bf0b32c2764a693ce4881eea51b755087c04",
+    "development/works/WORK-026/80-memory-MEMORY-021.md": "5ec37e7015b538e71bea23094b5fc2409dc79c6f1bc933c4a5dfeb9b05eecd81",
+    "development/works/WORK-026/flow.json": "ded82d7bf043d2552ae45d7a5d7c95d84b189de408bc0c2c7f8b53999bee3134",
+    "development/works/WORK-026/50-plan-PLAN-016.md": "e9f91759a7f83b0b37107c60d5006a7698fe26e429233fbdc8af29e9ad0c73cd",
+    "development/works/WORK-026/10-capability-CAPABILITY-007.md": "e56b847ada51204b54ca3b4a30836a75e5b9c421ad76b5c08e283bdf20ff0d58",
+    "development/works/WORK-026/40-decision-DECISION-015.md": "5c3d4860f1b0fa663624ccb49e5e1b227507d6753cb12553be410761741c61c0",
+    "development/works/WORK-026/60-task-TASK-041.md": "f747373e4c12ffe3f06d589b183026a9648eabffde31881138659780f2c44b64",
+    "development/works/WORK-027/60-task-TASK-043.md": "8f68d779b13ff4c608332a4104973a0b244703f7035c915ca9893527761634bb",
+    "development/works/WORK-027/90-history-WORK-027.md": "ef77529e2f54e5064dbc5b6f3fb866460caacbacf57e2743c267a4d44870a6c6",
+    "development/works/WORK-027/70-verify-VERIFY-028.md": "37759c8903a594b43922a8bed87a1be949361d05333f5e374cc13bf0b5d24925",
+    "development/works/WORK-027/30-design-DESIGN-021.md": "24584db6f3a7bf5fde4e7d846486e6a9a7a70056bc894ebfc067ffe353372979",
+    "development/works/WORK-027/flow.json": "ca5423374d11b1824744ed43767efc0be5db239ffde2c72dee19866e3ca95695",
+    "development/works/WORK-027/10-change-CHANGE-009.md": "04ab03b71385ce9fd3e7a856bb364fe8d803bbe3c58716f38b167258ac199ff2",
+    "development/works/WORK-027/50-plan-PLAN-017.md": "76b8d2b260555bb4215623583a71eb0cf29b0d43c90f956ff240af42985eb932",
+    "development/works/WORK-027/60-task-TASK-045.md": "e069498b242d5e4389f7937a2a5cdc2cd08f17a69bbbb9d7b8d8185c2974c32a",
+    "development/works/WORK-027/60-task-TASK-044.md": "4acdc5508ba92920414a3ac60cbda7cd3ab399e02611a945fb2aa39e14555b1d",
+    "development/works/WORK-028/70-verify-VERIFY-029.md": "346c74b9c9c4b1ecc3eab311a5d8bba23ab9793363ae5bc0ca05458a27109672",
+    "development/works/WORK-028/60-task-TASK-046.md": "58932ba92033066cd9ac818a67149fea2fb4beb6138ef3f7ff142256e233669d",
+    "development/works/WORK-028/40-decision-DECISION-016.md": "6c4f93e658239303a9ed4d125ae0e7e3361c328e3716aace70f66e766c028825",
+    "development/works/WORK-028/80-memory-MEMORY-022.md": "88741e07350ce19a1f97465c5b375a07ec06043d268ddac7d4cd02b177baca21",
+    "development/works/WORK-028/10-issue-ISSUE-006.md": "ed3397f55b71f79d4cae6cef2e3834888f486cdc29e89b25d42331d55303f0c4",
+    "development/works/WORK-028/90-history-WORK-028.md": "a61b56cdf44906cb9e7eb8010bf19dccc084842f83c639cd59b700226581d438",
+    "development/works/WORK-028/flow.json": "a5f441a2ca7743241faa8c7505555f5ab7e31b866746cd3dcbf5e3947b0af5c9",
+    "development/works/WORK-028/30-design-DESIGN-022.md": "2a12b92a1bf3f9559237f79c65c80eed511ddf6922ee25e63910f83220334c3f",
+    "development/works/WORK-028/50-plan-PLAN-018.md": "d77c68a22c4cb4ee8c7db5835e6a3c51a23be0222b3469b09068305f9eed1944",
+    "development/works/WORK-029/60-task-TASK-047.md": "83accdd4e4da56e4ddc699151205409650317084734e568f1bb5058e60c40479",
+    "development/works/WORK-029/20-experience-EXPERIENCE-015.md": "f1009c74d211ead0e56c9c9359bb52111afa36e35e385601636dc9363551a8e1",
+    "development/works/WORK-029/10-feature-FEATURE-008.md": "bdf9bc1d6dec85cb6aed1a12dd3ea6546ce1420395167c29b733df04149c6b79",
+    "development/works/WORK-029/90-history-WORK-029.md": "b7ab8fb045d6347d640df650d20919b25924a3a55f24b72a245588e09717ec17",
+    "development/works/WORK-029/80-memory-MEMORY-023.md": "985b2e3ff81692a2a43cab61c9b08243ec7c33e60833598a66fde4f7a757ebb4",
+    "development/works/WORK-029/flow.json": "057ad90e6c87b5c4e81492f5a885960c56a9c1b839aacee61da1ba4de250b268",
+    "development/works/WORK-029/70-verify-VERIFY-030.md": "3d3ec8a79960acb6a0a43aef0626d1ae1e1b207a727535003c6cc7e4febf096f",
+    "development/works/WORK-030/10-issue-ISSUE-007.md": "3a79adadc5fda6b35f7582cded29de5e1cda0a87f7054336fda86196db6dc00c",
+    "development/works/WORK-030/40-decision-DECISION-017.md": "2dd784889bdf6fef51158838fd4cf099b4495e105bd30343fb5e3c887506e951",
+    "development/works/WORK-030/60-task-TASK-048.md": "cbfbebf5d566391a40c584770c51a6e764a701ade31274f29452369e77ac3bed",
+    "development/works/WORK-030/flow.json": "77b2045c9d778255f2ea4d6b8f26f16e008e10efed4c523c70db02b88717ebb0",
+    "development/works/WORK-030/70-verify-VERIFY-031.md": "2d43fde03772cc38c4533aad30be852a771dd903b8006d30ca5911334ad17eb7",
+    "development/works/WORK-030/80-memory-MEMORY-024.md": "610973edd729fff90397694a7d6c3fdcb29b9507eacea8cfac6c45994b4ca6ff",
+    "development/works/WORK-030/30-design-DESIGN-023.md": "b67c529bc8b0ed246420729c306ac4f00d46cdc97bcc57e82e260058240211dd",
+    "development/works/WORK-030/50-plan-PLAN-019.md": "398488d01b1c787ffbe6da74f51dd0de83baa17d6a054a3dc19ed68014d97a3a",
+    "development/works/WORK-030/90-history-WORK-030.md": "d6314229e31ac6736e7557f17dcf6c48abfc84c4ec13a4f54dc049c3b4dd75dc",
+    "development/works/WORK-031/10-feature-FEATURE-009.md": "557819114727cc8225ef480694cce771846cb0f3bcc3e26e795a588d31a18c2f",
+    "development/works/WORK-031/30-design-DESIGN-024.md": "0b0763e88066cfc659b75e7b2294bef714b64446f0b46d7a4941df16a9ebce22",
+    "development/works/WORK-031/60-task-TASK-049.md": "4ad960f86c495551fd806b8db098eb051843252c719968de9bd005ab60b4e9ce",
+    "development/works/WORK-031/50-plan-PLAN-020.md": "c9ea2251ae3f67ce04f7660f7030c4533c9e91e8bb8e0c75025d70ffa1776713",
+    "development/works/WORK-031/70-verify-VERIFY-032.md": "6502dd5938548227b7e28819b1a7387111fd679619382a5948f14de7b82dc064",
+    "development/works/WORK-031/flow.json": "12d010945defc11f7384a70377bd32b33b75714af305f6e9d9596b0fd819d42d",
+    "development/works/WORK-031/80-memory-MEMORY-025.md": "30e901b7b58342dac01bf175b78d244d423df1f0797a06b579dbb1d6170d0f9e",
+    "development/works/WORK-031/90-history-WORK-031.md": "53b6ddeb07a1cb2eae11abdfddaa0710cad9256ca0927e0690da4ad010a7f575",
+    "development/works/WORK-031/20-experience-EXPERIENCE-016.md": "0bbc9830fea36e915ab3a6906987a2c30af5a684409134e83bf48aa531f11d11",
+    "development/works/WORK-032/90-history-WORK-032.md": "6647394ba192ec177b2b36bd15e3a019c7aa7114e0fdba4887b33b1dbd8f3d24",
+    "development/works/WORK-032/10-issue-ISSUE-008.md": "7dde4f3da604e4c8f738c88665ed9afc9a2189da80111aa9e8f4a3dc7b7c9780",
+    "development/works/WORK-032/70-verify-VERIFY-033.md": "b8d17e8165c290e30156076e37090d79b69ff24b3364de3479cadf73372c5f7a",
+    "development/works/WORK-032/30-design-DESIGN-025.md": "438efc2b58c29e520af7db7c002770c26a20a4d050e54a36211ed0fbc4dbf7e1",
+    "development/works/WORK-032/flow.json": "a2f81e68f1546970c086d5a1f8e96a7c1c2871fcce0c12d6f51898bfd314f74e",
+    "development/works/WORK-032/60-task-TASK-050.md": "dc2e85cc1e00b270e8b3fe86de08a766681aeecfa4f814a93a9b7615f74588db",
+    "development/works/WORK-033/40-decision-DECISION-018.md": "22a85dbf6df09a57153a2c9d80dfeb6cb66bfb495ed97eeabbe4f97d9315b7ad",
+    "development/works/WORK-033/90-history-WORK-033.md": "9d453a43f4768224f9dfdca26476efad61bdc2d3b76966e9b9a9238d99e81200",
+    "development/works/WORK-033/10-improvement-IMPROVEMENT-001.md": "b6ca224ba17cf839cf8c29767b4e9bc88e87c5be9372b4f3af32b9a5f40b5af1",
+    "development/works/WORK-033/50-plan-PLAN-021.md": "8bdf041adc94c91a50f651a02fd4f94380734882c42c751e3d023c2f0fb58bf0",
+    "development/works/WORK-033/80-memory-MEMORY-026.md": "e5d61513acc76fdedb8c8515566c73f5bffd8b94c054047e9b704f12dbc213ae",
+    "development/works/WORK-033/flow.json": "7586cb7bd6dfc74c0a124010101fbc74526ee05fcca5754bd98a494795f1121d",
+    "development/works/WORK-033/30-design-DESIGN-026.md": "a4b228ceb119c91e3bcd73a215bfa536b7daabb89e394b98553efc6e862be7e2",
+    "development/works/WORK-033/30-design-DESIGN-027.md": "2eb7913e36e0123f764e2d47b1e62141af8385ed85d199c4821737a5d2987405",
+    "development/works/WORK-033/70-verify-VERIFY-034.md": "62af6ba2cf98c097e04eb49707eae58f0e0b6d99b125156f74549cbf8ade3fde",
+    "development/works/WORK-033/60-task-TASK-051.md": "975cbfbe492c91c9a288a13edd50362afb2cdeb70133955936ed40ac6d6855f6",
+    "development/works/WORK-033/20-experience-EXPERIENCE-017.md": "22dacb05a9688106e40a407872a8b0bcc29527126701c92f2156c8d3a540675f",
+    "development/works/WORK-034/60-task-TASK-053.md": "623eb79679b3a0eeb6732d0d0c5c0cb613a95c1d5a348832c19b30f307cafbe6",
+    "development/works/WORK-034/40-decision-DECISION-019.md": "d4445b33a57da430607e360193a820206f863d9a1d11425a89dd996334fd187c",
+    "development/works/WORK-034/60-task-TASK-052.md": "1219c01b57b94a81f4764da5025fbf686697daa2344283ebdee80cfc8804a489",
+    "development/works/WORK-034/80-memory-MEMORY-027.md": "c138e5db237b4223b4c80f032c1f0134563a803a55dbb89cade5e794c64e81ce",
+    "development/works/WORK-034/flow.json": "3ba931ea0c430750398645681525000adaa5f9b8cf3e0c0f3fe72b55867db462",
+    "development/works/WORK-034/50-plan-PLAN-022.md": "d44da22751c9b7b3b0af8fdf2c6a230fbb7a6aac24be8b6352ff9a8054a036bd",
+    "development/works/WORK-034/70-verify-VERIFY-035.md": "41fbf090c71c1923f55f67ed1da0d33d66d0b302bcef24f5ea90ec93c6a7d733",
+    "development/works/WORK-034/30-design-DESIGN-028.md": "3c5ab27135994819ecebc896d213a96590c7362e47abd522b0341a4148d10be2",
+    "development/works/WORK-034/60-task-TASK-055.md": "37fd5a3fcc23f764ab7be5ee76193d5b1a73052c547166fa34c82285cfeea9d2",
+    "development/works/WORK-034/10-improvement-IMPROVEMENT-002.md": "b609d14caaf319d180fa973bbd1ec357eabc16057c029940da9f8f73f02f09ea",
+    "development/works/WORK-034/90-history-WORK-034.md": "c52bbaacc78ea7a2a2f5c56303a46364cc9632e75284db7b43efad261f6db176",
+    "development/works/WORK-034/60-task-TASK-054.md": "f535be96d50e46667d67be1dda2bba305b1569240f02f21b9053f942c19da110",
+    "development/works/WORK-035/10-change-CHANGE-010.md": "13dbc52ae78bd4f0ee98b0c4ae4bc14a99b42724b08c846e2603ef811164b8b2",
+    "development/works/WORK-035/60-task-TASK-057.md": "ec6de1ca8af4bb62fce8eac4ee0066f6cfad3e1747fb7bc73878509f638cafec",
+    "development/works/WORK-035/60-task-TASK-056.md": "e00f2fb98b58f357931bd184d6ce465386593c011af8986aa5e4e74707498d46",
+    "development/works/WORK-035/70-verify-VERIFY-036.md": "14319c40f1a2a9512048588e561761340ebbb7b30e327ef834c87bbea2361597",
+    "development/works/WORK-035/60-task-TASK-058.md": "ecf094231951d385dd33cb275f5285a54a6206f92e8aba0212bb30a5529d3dff",
+    "development/works/WORK-035/flow.json": "b0fd3a9effb5a8a00d24d144ecffb8813f3655135f1d45696291a3e4694f2f83",
+    "development/works/WORK-035/50-plan-PLAN-023.md": "f1ba3709284909c24d7fb9b7343ba1ae8ef29ee2570bf6932d3be8bd98f8b60b",
+    "development/works/WORK-035/90-history-WORK-035.md": "27647052b483ee8ed76f9a87ff5bd40c6d146bb658cda8c21fcdf75498ac38d6",
+    "development/works/WORK-035/30-design-DESIGN-029.md": "eecf160eed1ce8220dc6f54dcfa5b19c86b5e29025596c784a867ab8e50586cc",
+    "development/works/WORK-036/60-task-TASK-063.md": "b5ea7e2439d5d919c3d03b41dc2f59adcd7f0a722d2e88c3120da488908c16d2",
+    "development/works/WORK-036/80-memory-MEMORY-028.md": "874a95ad2307767fdb9bdc3700a07e1ab83e92602ba51f7bb052b8183766a4e6",
+    "development/works/WORK-036/90-history-WORK-036.md": "2b29866d7730ecb8480b2b220ffab712b84a5b69b5502b47812d389f434d6833",
+    "development/works/WORK-036/60-task-TASK-062.md": "25ea45b750e99847348acb6d336db0b6c1c634a33b3c060d94791391b7fb4bc2",
+    "development/works/WORK-036/70-verify-VERIFY-037.md": "8c2e6306b1d12eb9bae1cba5996e6a04459362172a824a79611c0e7d1b549021",
+    "development/works/WORK-036/60-task-TASK-059.md": "5b6a69adbdde720b85942477e51a465dfd1339ade7429fa828e914f6ce7fbe2b",
+    "development/works/WORK-036/50-plan-PLAN-024.md": "d282634532f88362b79b87d123efe9d8a20f982f1b27ea9e6a8c88d47683c127",
+    "development/works/WORK-036/30-design-DESIGN-030.md": "3d4f5e8bbba73ca5e7d700cb12da952011ed9533f5f1a74815af843bd3f08a39",
+    "development/works/WORK-036/flow.json": "48377ff85dd5d7dc39862025b53910cd05f78f1e6a89111b7a2b448f90fb212e",
+    "development/works/WORK-036/40-decision-DECISION-020.md": "357c16c8b4359cee3f998ae7d8764589f42b19f91d31d291489e8bb72868f141",
+    "development/works/WORK-036/60-task-TASK-061.md": "5fb2f8fb719d23761a44c4e59fb6eda90424546f04ecf6a1b22eb1fe8cb36102",
+    "development/works/WORK-036/10-improvement-IMPROVEMENT-003.md": "0689dc1f1a618bd5165042169190daf0b3aa3a95afe0b194a2180088785f2ccf",
+    "development/works/WORK-036/60-task-TASK-064.md": "698305ee37da430223a1601a797cfae1331e8009a7379f634b0ecd9962d31fa3",
+    "development/works/WORK-036/60-task-TASK-060.md": "59d30925ea50ab39d497c2bdbf0e3d3fc464a1e9525ade2294ec9fb70f9b35d3",
+    "development/works/WORK-037/10-issue-ISSUE-009.md": "c20c02b78be9e26e4344806c38327795458ef9c92d803d1e9536619b3b01febb",
+    "development/works/WORK-037/60-task-TASK-067.md": "af834030eed00fac390d8f8637e14e11df7122db434640b34e4df5348dee2b96",
+    "development/works/WORK-037/80-memory-MEMORY-029.md": "b5327013475b42d8ea7d96d7143a4a9cc5c14982f2edcf82e0618896b7ee75c8",
+    "development/works/WORK-037/90-history-WORK-037.md": "49327076019448c5374ec9b8beb554701057405b7de0112af8b912b5dbdfa130",
+    "development/works/WORK-037/70-verify-VERIFY-038.md": "ddc1b45c06e491b04d1099163768e4aae2bbdc2687470801aa19b4b605c98ffd",
+    "development/works/WORK-037/60-task-TASK-066.md": "3c372a4a0c9a3b3c56df0b62db6f3d4fdf098ff9bf5794ae97a4a61e5883a11c",
+    "development/works/WORK-037/30-design-DESIGN-031.md": "45cb0e245f3b2beb10b254b1d29d373718da7500b194b7681ca4eec696f784fb",
+    "development/works/WORK-037/60-task-TASK-068.md": "e9929d1cd99a6d24ae86672e7579d85dd95b8669920b0ea60626f5416cb2a129",
+    "development/works/WORK-037/50-plan-PLAN-025.md": "537043389971f8df9f6a011689134e9c2d04a6db59ff2ffab4f82d1843534ad3",
+    "development/works/WORK-037/flow.json": "dc16320b1d9073109f43dd752b345c3bc951fc903a820af6e8ea403d402d876b",
+    "development/works/WORK-037/40-decision-DECISION-021.md": "c2bf485c17a0695112dc7531d033ba0fb6f9c0456ec59d165e9e98d40873f1be",
+    "development/works/WORK-037/60-task-TASK-065.md": "104c8985c0b4439d8242c768e24eaf35bf098d56c68ea3455b91d61174fec6b9",
+    "development/works/WORK-038/70-verify-VERIFY-039.md": "f53e66e8c865fcdb715a7f9385df78d216f3a43c7c565eb2b63d060c75ae4254",
+    "development/works/WORK-038/60-task-TASK-069.md": "f58f0cfbc4a5aa8b5ac181b3bcf1a4e944e9a185e5adb87b045c0efd69133470",
+    "development/works/WORK-038/90-history-WORK-038.md": "8090eba4c771712380f652e1e60bc872b45fd321b026c990e3d7c9410ee4e62c",
+    "development/works/WORK-038/flow.json": "329bdb333d016455ef9281d4e2188d4ec40aebbde3031d82f4586e303a517d21",
+    "development/works/WORK-038/30-design-DESIGN-032.md": "3174a4278ee9a8f50dccacb1c2aabc5f1dd21d17d6790f1ca66cd5db9bd758ad",
+    "development/works/WORK-038/10-issue-ISSUE-010.md": "6ce6a538c10ceb1e5393f587eb791c596d0890c91206c8ee318c4910fb253fc0",
+    "development/works/WORK-039/90-history-WORK-039.md": "c0e928970079743d652c8b22ef8d890fd227eebdcb847d2bf11d40f7af38350c",
+    "development/works/WORK-039/flow.json": "54d8e4d2515d2f9f9285ad7dc4dab2cf5e003bba86539a0f1c2c458d50a8be1b",
+    "development/works/WORK-039/10-issue-ISSUE-011.md": "f7c1047c739c1d4d9b1184217886158005de7b04f6fa276cfdcb0eed4978ada6",
+    "development/works/WORK-039/70-verify-VERIFY-040.md": "c0bd1d9ccd32a8446dfe3a0ed06663148f64dd5d027b0bb876e55895da768617",
+    "development/works/WORK-039/30-design-DESIGN-033.md": "ccc6e39bee192652a126eda4ee6cbf81f734c14b41bb4ecb510831f480e0451e",
+    "development/works/WORK-039/60-task-TASK-070.md": "c82541c01a16e3cb7a99ce1f83eed75c8ce274d6fa929533c5aff50480e35336",
+    "development/works/WORK-040/60-task-TASK-073.md": "4e116cb2af577ce56f979669bfd4d6ef9bcb1c876268367f996de2c6e0a1a7d6",
+    "development/works/WORK-040/60-task-TASK-072.md": "cb34360af2aa076fb4f261fbb4bbf748bb23b038915b80ae67baa7a3b39d19f5",
+    "development/works/WORK-040/30-design-DESIGN-034.md": "5e8f1c3cf3e08159099d771d1b1ece62b79c604ba00724f8492aab4d14a2bcf8",
+    "development/works/WORK-040/40-decision-DECISION-022.md": "525bb9c2a1594d2cd13b2dc812a6b96512a8520590d4cfd5f1ab6485350fa7b7",
+    "development/works/WORK-040/10-issue-ISSUE-012.md": "e98dc6cfe108f8cc1ec32777e727ef5398b9943e0f6e614a6748deebfa793b16",
+    "development/works/WORK-040/flow.json": "4f0f8cf2d708d8b4064ef2ba37fabe22ce64fbebf9a3abc0256b8d6f4a5df8b8",
+    "development/works/WORK-040/50-plan-PLAN-026.md": "a054cd3e0d81cddb38093289e15e66d0c7f954671212472d110d8cdca1a90ebe",
+    "development/works/WORK-040/70-verify-VERIFY-041.md": "81442119b18cf217426283d069474154589e6fb23b3187b37d150ed4a90276e7",
+    "development/works/WORK-040/80-memory-MEMORY-030.md": "c36928ca6ef5cb8146eac8fe6c6fc32eadac8d39c110d198e4524e4c92f98b29",
+    "development/works/WORK-040/60-task-TASK-071.md": "7388ca468c884b641b0723e69f0bdbc3c58c51c932d2401fd1ed99532ae1592f",
+    "development/works/WORK-040/90-history-WORK-040.md": "f50314c6313094d5e1e074f140bb714bb194d918c8b20fd32e5a3596b814888c",
+    "development/works/WORK-040/60-task-TASK-074.md": "ce92e687781fc286f8fa131d8c50b248f3c338453acec0c9159fb2a6a85f1b90",
+    "development/works/WORK-041/70-verify-VERIFY-042.md": "2d6aa90015bcccc80de37470871dae94ade0c659e60cfd52cd4522829769e1c1",
+    "development/works/WORK-041/30-design-DESIGN-035.md": "006f242c0d7fd7bff588c0e07eb6c0a81ac18c8b0dab4fd1393c436504d30f5f",
+    "development/works/WORK-041/flow.json": "8f7628e4d127ad15123f33f2c00717974427608c311c8d005cd91f401929fc81",
+    "development/works/WORK-041/20-experience-EXPERIENCE-018.md": "68835b348c6f714fb331e8bc8d07869eed364e8cb34810f29470bae2d9e6c3ef",
+    "development/works/WORK-041/80-memory-MEMORY-031.md": "380c30bfacf72004b522ef93654281cc3b4ceeae4a72c34d048699a27ac0ace6",
+    "development/works/WORK-041/10-feature-FEATURE-010.md": "84c5bbea5929e6453e15f7e1777374cb96a5a7d24468460dc126bdf7327289aa",
+    "development/works/WORK-041/50-plan-PLAN-027.md": "6ca2bf54580562fb5c678a716b63a69d44d44eb684b36cb4a031c861e32188af",
+    "development/works/WORK-041/60-task-TASK-075.md": "cc38b4c316bf1c6033292bb593c466de8fffa991de6960cb7d66015e5439e7f0",
+    "development/works/WORK-041/90-history-WORK-041.md": "e7137ed77970d5f15f30c61cd380990daffdcac8be3ea889b90546777b055f01",
+    "development/works/WORK-042/90-history-WORK-042.md": "84fba676505b4390dabf16f7813b79b6f6bfc87001114347cba85cffdcaf2374",
+    "development/works/WORK-042/60-task-TASK-081.md": "d121e16eda4509afbb553927fac77be4f2f1a1dd65592cc3444d506a24af3c83",
+    "development/works/WORK-042/10-issue-ISSUE-013.md": "bcdad57ba2594cc87dbe2c54db7558a6b75df1c8b7d5d834fde79ed3d6f9c719",
+    "development/works/WORK-042/40-decision-DECISION-023.md": "b64db739898a6baa9006ed790aa9a5c6fd53e46c1c901dfd130b45028419a7f1",
+    "development/works/WORK-042/80-memory-MEMORY-032.md": "08f57ef12dea4fb89f5a25d93bd1fc2b49034da7476125437406f00c49e1c06c",
+    "development/works/WORK-042/70-verify-VERIFY-043.md": "8cbd71b6503da82d5aa9c0e261c542fac3ab983cc8ddacd01726bfcbc62465c8",
+    "development/works/WORK-042/flow.json": "6ae6fb53af8ed934a734c257dbbb1ade6e5ca8d5bc6e59dc27d68e59c2266709",
+    "development/works/WORK-042/30-design-DESIGN-036.md": "dcf5abcb506013321b668fa3e96b0acf4b30ac789e682261aaf37e73217fc5da",
+    "development/works/WORK-042/50-plan-PLAN-028.md": "f3cdf58a83ae049562caa42cb422b6cb39f6de7b18c4b1cfd3d8af3ed4ff6afd",
+    "development/works/WORK-043/60-task-TASK-084.md": "0cbf79459f7e4323381074e2e83c11a95679393964203300abb676383b14e619",
+    "development/works/WORK-043/90-history-WORK-043.md": "ef660ec0df79051286275c3c1d1cb5bbfb1e08bb49fad7e448d11438a196f646",
+    "development/works/WORK-043/80-memory-MEMORY-033.md": "cc063511534a412759b38da4673c3d6179f62a4f1aad84292394dfd79bc8cd49",
+    "development/works/WORK-043/flow.json": "db2c6b181f7f805332ed19ded239960f2381e765d812d877d10538395240265a",
+    "development/works/WORK-043/70-verify-VERIFY-044.md": "769e7ff109b23b927abd992b61250187f968e091ff4ee419d187fcf31d736942",
+    "development/works/WORK-043/40-decision-DECISION-024.md": "c61b8930b9c5ab728d4f434726bb4b13acb6f7053b1eb622464679451218cb35",
+    "development/works/WORK-043/10-feature-FEATURE-011.md": "d23b7ff6a1d0a2185b202d172a091cb21fdc6b91d8eacef7b028ad6bbcb4b2d7",
+    "development/works/WORK-043/30-design-DESIGN-037.md": "1013fb6f4a6159bc12e6329c1ec6def968fa038713a68e7462e5f5b418bfd7b3",
+    "development/works/WORK-043/20-experience-EXPERIENCE-019.md": "71e6e0da5ac894b0fa5f8fbc75defbbf27977be50f8942a8fed3edbca0753300",
+    "development/works/WORK-043/60-task-TASK-082.md": "955b660cd5c3405955dca31cfbe25ef294b91d7731dc585088378c50805cbbda",
+    "development/works/WORK-043/60-task-TASK-083.md": "6010657c719f9da395623bcf110541e301b13de78e4e4d7ebbfe68bd7afc63d3",
+    "development/works/WORK-043/50-plan-PLAN-029.md": "e7dbdb32bb4d5ff7aa7fe5da80f12f6b65a90fc456a661755e15e29032d6f3a3",
+    "development/works/WORK-044/20-experience-EXPERIENCE-020.md": "c71631d23b7db7026c9ea6e5b8a9dc68e5b01c77d5cf42606400f2573f18d2e1",
+    "development/works/WORK-044/60-task-TASK-085.md": "81b4903c4079bbf2163233b9afb9136d354f11b09ff12d385a777cbc09d0d12c",
+    "development/works/WORK-044/50-plan-PLAN-030.md": "00e5e01fc25831a9a3d2cc98c1a87e486d2158e66140c97f12ee84a7955b5692",
+    "development/works/WORK-044/10-feature-FEATURE-012.md": "31b2bcc26db48f50900313871059a425b85d2e9b7849c41b355bd71429fe230d",
+    "development/works/WORK-044/flow.json": "a4574855f90233f67dcba2b05afb9aec574b663c56c21ff290c5a6c6ede9da75",
+    "development/works/WORK-044/60-task-TASK-088.md": "126cc3d1ff5fa164ee4c6ed8ea9a66d942ade1d18e595cd8e2f504d1989f9617",
+    "development/works/WORK-044/40-decision-DECISION-025.md": "038318475b154e30742bb0d655ba5ed37aa2175393ff2de10a06296492dabd6b",
+    "development/works/WORK-044/80-memory-MEMORY-034.md": "edd51a144d4140874ece09395d53151badb7b1b4588ef1159db1f7ebcb174074",
+    "development/works/WORK-044/60-task-TASK-089.md": "41ea707a5182291735a52d71ab6ab22fb37a744c69ad725a0105bcda128164b2",
+    "development/works/WORK-044/70-verify-VERIFY-045.md": "624b94265431e6f55122312b130959175154427319c40211585f951d85fccb26",
+    "development/works/WORK-044/30-design-DESIGN-038.md": "6d48b29e772a7cb2bccccdfdf015ec69a4c532dfb253fa58cc65d0975163267f",
+    "development/works/WORK-044/60-task-TASK-086.md": "860ac7a163e0cd8f89cc84842a9befbd4acb580fe228fe57f16ffa96295a5af5",
+    "development/works/WORK-044/90-history-WORK-044.md": "5ce5060e0e6b494f7c3b43cee66ae1a1b1e56a00e09838f82b4ff15d18f421da",
+    "development/works/WORK-044/60-task-TASK-087.md": "d7a34816eed7e9d478cfdb87a2d4f79dbfe36150df6366b6d29af1eb142dbf3d",
+    "development/works/WORK-044/30-design-DESIGN-039.md": "eca587f8419f99943841f26ac6cd05a33266b28a7757bd8ffbd069496dedb8f4",
+    "development/works/WORK-045/60-task-TASK-090.md": "8608fc28b9192b108b1efba68389802d34307e674e3c6e6dfbad9fa72d8728ed",
+    "development/works/WORK-045/10-change-CHANGE-011.md": "5a29cd9027ef7a7a23dff68851181de970623411fe8534872eb232a5e056702d",
+    "development/works/WORK-045/70-verify-VERIFY-046.md": "5072dff1e9668b200dc2855637c71e41495560a40bb9c2b2f0bc2b7cec2530f7",
+    "development/works/WORK-045/flow.json": "d5c9664066181fd80a468c1100e8d50324d1d4aa01f9f33e917453aeac65c294",
+    "development/works/WORK-045/90-history-WORK-045.md": "6c937a13d5099387503e32736e6f5bbd4bd61c0450b7a3c8b7917592bffb7398",
+    "development/works/WORK-046/90-history-WORK-046.md": "1efdbbfe0ff962e49f948e1edfeccb34eeb00f5a67dc1906e1feca3dcd61d2a1",
+    "development/works/WORK-046/60-task-TASK-091.md": "07fc80c32aba7cde978485d13dbdc1b3d1d1f0200aca6e9da7e483212392cda8",
+    "development/works/WORK-046/50-plan-PLAN-031.md": "035f39f62eefbec567f615357337c62be3c09bcaf262ff29bf138550dd9b410d",
+    "development/works/WORK-046/70-verify-VERIFY-047.md": "6a37b7b10c3f6679b5af10a32bb89923901fa1fc50a22a9efc22f4690c100da8",
+    "development/works/WORK-046/30-design-DESIGN-040.md": "3b62f2b2e6044e6799ad9932082885f64914f73242da1b3f7457de618ab7cdf6",
+    "development/works/WORK-046/flow.json": "f5a30775f7e8250242e06c3c3b2fc0e734b53bef816148827c141fb528a252ee",
+    "development/works/WORK-046/10-change-CHANGE-012.md": "07876c8d20b1346a4dcfcb88278085ddd1915b98a44fad6e083354da48d824a8",
+    "development/works/WORK-047/70-verify-VERIFY-048.md": "3834c362abc5cf257497cc2f27dda90a7958074d2e508b341c8edc74c5c2a630",
+    "development/works/WORK-047/90-history-WORK-047.md": "d048b0a242bcafcd065d1c190b052d436548ef87517b2265f3907af73d34a5c5",
+    "development/works/WORK-047/30-design-DESIGN-041.md": "b29db1ec46ee04f1b1c7f947a0c0a40c670862b47a08dceb86ec94921e7eaef2",
+    "development/works/WORK-047/flow.json": "8f587e95854f97f6f339a51a24cfc0ba9423132c68bc03fc3bba085e693ec5c6",
+    "development/works/WORK-047/10-issue-ISSUE-014.md": "401ad8a8857b2a747d80bf12c8ad748865b21f3bac848718d2a1cd3b000efb85",
+    "development/works/WORK-047/60-task-TASK-092.md": "31271c949f5712678eff701c7eb8302a2ea79b75419ed661389d236b2c1456c5",
+    "development/works/WORK-048/60-task-TASK-103.md": "3af9b3c5ba7fe02e15331e4c81a283f9b218d6e87a0e00c31e2188b91bcfb3c7",
+    "development/works/WORK-048/60-task-TASK-094.md": "6b1f41749d71986b3670d73be6a82d4fca0e5842c55ef16a9f6a506a15f372ac",
+    "development/works/WORK-048/10-improvement-IMPROVEMENT-004.md": "c69bc6a219fb1132da2f7cd17fa389b43704de76376e68db27346efb6448b044",
+    "development/works/WORK-048/60-task-TASK-102.md": "868e1cfaaf180e2be74c18e142eefed3cd91d118e458bb3446998227d544654d",
+    "development/works/WORK-048/60-task-TASK-095.md": "9756442221ee50ae1821e2914383d1a217e0983e10103a267f49e68adeb1a705",
+    "development/works/WORK-048/70-verify-VERIFY-049.md": "bd593e332b07ce9dc2002860e2c4f2b1b80a9bc4de3b9b358d008c37bd49e146",
+    "development/works/WORK-048/40-decision-DECISION-026.md": "4e0dd0106f57b8c350213b61ab168597e4d311183fbdbca04ac55244136e76e6",
+    "development/works/WORK-048/90-history-WORK-048.md": "1244f2d30eebf6e9fade3716e5bd8c6dac8fda3a1d7dec18beb39a91b4bf400a",
+    "development/works/WORK-048/60-task-TASK-108.md": "63fea069085d1ab0690c49456073d8ea9dac52deaa77813b6da9a168be8449ea",
+    "development/works/WORK-048/50-plan-PLAN-032.md": "0ce7ce66a4f56ce1c300a88038f026db5666726d8b47c0a1e6ff76dc05275f96",
+    "development/works/WORK-048/flow.json": "b0f42aa5eef5cac06c407b1c78c10e82c48dc7013d4f7fe40b2aed4777e71282",
+    "development/works/WORK-048/60-task-TASK-098.md": "cfd8122b6a74709b7e609d6dbbb2a1956d038d34733ded22a119bcf60b2f90fd",
+    "development/works/WORK-048/80-memory-MEMORY-035.md": "bc48453f0105c6e5e1e15c2a886b97b3e252d3182dbeaa694a560f6094437368",
+    "development/works/WORK-048/30-design-DESIGN-042.md": "554e98ff21b0bf89671504170c73667e46d6d862f129be4b87764833298f91a6",
+    "development/works/WORK-048/60-task-TASK-099.md": "906d6196424f5a5eb2bb8c6a320364c1a63cac5244f5ed708b8f0c871183d1ea",
+    "development/works/WORK-048/60-task-TASK-101.md": "1205f1d4d7c4b3de354d1c620d9e3fde9a8f2d13e07dc7529af934ce521d3cfa",
+    "development/works/WORK-048/60-task-TASK-096.md": "e6ccd4f445baee0702e69b8c57f5db2e03b3418d537173f46a73daa8581237be",
+    "development/works/WORK-048/60-task-TASK-100.md": "84666a29f6652924c0e95ae3095fd0099e59b7a4c8342aa864b85f3f6c6cf9e4",
+    "development/works/WORK-048/60-task-TASK-097.md": "f32d3fa4fd96047844e630070e4b195fe37096f6bac2f55426084c44c04e8101",
+    "development/works/WORK-048/60-task-TASK-093.md": "6612127b79d5b263e8e6248962cf3d6b26fccdbd800875e5b1b37cb343edd8db",
+    "development/works/WORK-049/60-task-TASK-107.md": "165e296373f097bc35c31bb47a204e144849909d0f78843be826a324ab199bd6",
+    "development/works/WORK-049/60-task-TASK-106.md": "4c265ca12fb2f8caac39f49be4eb4e412309c94cb6f74cea39bc3b2d51abea72",
+    "development/works/WORK-049/90-history-WORK-049.md": "dbc5523fe4c518a24f6846ec9c17e1bb2d25f93e570e0835919f3b83a8587baf",
+    "development/works/WORK-049/40-decision-DECISION-027.md": "17e6ecd63bd3de1ec015ee45b2a6589d59971edadcef9d85e222b66d6d8ea956",
+    "development/works/WORK-049/80-memory-MEMORY-036.md": "a4c321950baf4025691a8abc7236679fc28a366d4388cf4572367b8dfcc41c33",
+    "development/works/WORK-049/flow.json": "604ad596a69b877e0de325c6a069713290cf47d69197aefcf937c5f0c027723e",
+    "development/works/WORK-049/70-verify-VERIFY-050.md": "e93bdc30f8c92efd2e83d5b518f4e12e2be0c05d81e73ec5c2abd24b30eeb7fd",
+    "development/works/WORK-049/30-design-DESIGN-043.md": "7b817d946a29df09ba4fb4f1e0222e2b78d05657189f1733beab80d8082c7022",
+    "development/works/WORK-049/50-plan-PLAN-033.md": "aa02b4709fc9206f1b7dd11b6f92866379b0dac5b6819b1aabe11ed9304f62bc",
+    "development/works/WORK-049/60-task-TASK-105.md": "d684d893ce19fccae0e5ceabb140aec67201a510ff90c2b9910ff7f7985a3b36",
+    "development/works/WORK-049/60-task-TASK-104.md": "95c99de31a59ce97aeca5f96695b164377a4c2fb99a45f87e119b86e45ccdb56",
+    "development/works/WORK-049/10-change-CHANGE-013.md": "7e377b50966367d0303a03dc37c1632b323fe4d080c72d32c8e421972492ca71",
+    "development/works/WORK-050/60-task-TASK-113.md": "4e9efe9931e21320191a144c218ff400fecc9d31e194710b565b8c5c5176e0aa",
+    "development/works/WORK-050/40-decision-DECISION-028.md": "0c660ede4c5cf08484c9abe33bc128d716b132aaf83918c3f93c213a78b09f29",
+    "development/works/WORK-050/20-experience-EXPERIENCE-021.md": "14d11096a98738e584410d1a72b90feb298e40e4c096c58c4edae3b1def2fa1b",
+    "development/works/WORK-050/60-task-TASK-112.md": "304be9d1a4350312ca4385174165a93742d512e3279ddde3d2ad70eb78c52cd3",
+    "development/works/WORK-050/50-plan-PLAN-034.md": "a682e6ac445d3fb1f253b0b0c0c3d3711c0b29c328e126c893ce397f25ef0202",
+    "development/works/WORK-050/60-task-TASK-109.md": "1a83f96ce5ec0a1972cb2f8a4c2e981379d8be970ef520ae7113b77808389609",
+    "development/works/WORK-050/80-memory-MEMORY-037.md": "73b6bbfac60e4f91c66b125b6bba0855a1fc108bfdb76ffacce5ce3fc7cae807",
+    "development/works/WORK-050/30-design-DESIGN-044.md": "a54f6617e6be22d0c9d2dee39b481d441d7c6b53bfbce10c93daf8778a679b81",
+    "development/works/WORK-050/flow.json": "7dc2bc5557964039a082990408c59cb0b3930df171356a5b4f789f264e7c4aaf",
+    "development/works/WORK-050/70-verify-VERIFY-051.md": "0c84c62a6d7c74bde5b22261a56a34d67f11ae0d84e4d379bd69d85cfefa4c47",
+    "development/works/WORK-050/10-capability-CAPABILITY-008.md": "ed00eecf28762ea2018b88dbe7900e15b40ffae623eb46ed5ace492c78134bc4",
+    "development/works/WORK-050/90-history-WORK-050.md": "22b28602e43091bde4d1044b8c4340604fce979f96686a8abfe00969fb96ea66",
+    "development/works/WORK-050/60-task-TASK-115.md": "aad4406035ff4cea3a6f60fc26fcc34bed7291317e639fe18dce7190413582e3",
+    "development/works/WORK-050/60-task-TASK-111.md": "776550bb3a7600d7b7713d02953ff65249fa97b105d001c20d5ed0f5cc4ddece",
+    "development/works/WORK-050/60-task-TASK-110.md": "7bff9b39c03ffa6cbdf91412ff66ae375b1ec2f7b2de80586e29fd73c97e0e8c",
+    "development/works/WORK-051/40-decision-DECISION-029.md": "aaea904547fe9239a746760a6e52bbd4fceabec774da6e57ba4cab6bb4cce7e7",
+    "development/works/WORK-051/80-memory-MEMORY-038.md": "ff3a97eb54082a72fa0d2b336d62d47f6de527dd77490c739e7386ee1f42f311",
+    "development/works/WORK-051/70-verify-VERIFY-052.md": "ea0e63b8019409628b48028a7b075da383eedde5044baed28774eb9fd5da3f64",
+    "development/works/WORK-051/30-design-DESIGN-045.md": "af29dd4617e09396b32257163b3fba7fc39cba1241b45c41da2223bda4e15e26",
+    "development/works/WORK-051/50-plan-PLAN-035.md": "2b152eb49aac96613f296734d3159270e77b73998d640426ecd76d261ba773bb",
+    "development/works/WORK-051/flow.json": "8f50ff0440c4d0447e21075192628fef93f09748ec934b2c57cbf6f3a807293c",
+    "development/works/WORK-051/10-issue-ISSUE-015.md": "efe05321ff05a51e3705c19f0ec40ac7f25e48a68f7f94295606097b4ecc5486",
+    "development/works/WORK-051/90-history-WORK-051.md": "e079bedb8a174086541d84591ff59d74f59e2887d9b7b1dd6a626dd36f77ebee",
+    "development/works/WORK-051/60-task-TASK-114.md": "7781e4431d7c0aae113930c38fc1276e2d10bfaa5b5f294d52243e7b9c0ff31e",
+    "development/works/WORK-052/90-history-WORK-052.md": "77cee51918fa3cffd221d0d29a0872292d70e30f69c3148b1b1a65ee04e4b66c",
+    "development/works/WORK-052/80-memory-MEMORY-039.md": "3f4050699467135a29ed2966d5305e61d6a2a890252ed8d4db1f845279439dee",
+    "development/works/WORK-052/60-task-TASK-116.md": "5924f98829fecc604e72ef798f81c2039192e8bda7fd48911a08f9e717951508",
+    "development/works/WORK-052/10-issue-ISSUE-016.md": "0546d92acfbc69e1a952010d6b02d8e3f35244e1fe4673fe784d336fe189f6fc",
+    "development/works/WORK-052/70-verify-VERIFY-053.md": "6aa6e18c0026b4ff6bebcd9d3296cc0a7aa9daf3b946110e5b6ec6e7e2bbc9dc",
+    "development/works/WORK-052/flow.json": "2aed81898a11122a1faf71abdc2b739ae1f57246cc4a648e2205d44e35f53ac5",
+    "development/works/WORK-052/40-decision-DECISION-030.md": "27a8c6e99f41aea26aedfe25c09271ac514462ad77be9658ee1962e6901ee170",
+    "development/works/WORK-052/50-plan-PLAN-036.md": "f6bb157763f5105be1c73db87504ce5843cd9666f4397368cee32184ff265f74",
+    "development/works/WORK-052/30-design-DESIGN-046.md": "360a2d6817e744043e7802b79821c0121c105af765274a216cdb2ea3719301d9",
+    "development/works/WORK-053/60-task-TASK-117.md": "495f8047726e72b4507cc251ef368a9582e823bfe49937e50fd5828b7079f023",
+    "development/works/WORK-053/90-history-WORK-053.md": "925592b9318714331d8843bd49d7ebb8e4e01465dafe32dd95a9587a5fdc3206",
+    "development/works/WORK-053/10-issue-ISSUE-017.md": "7dcfd5be2fd6d9b416477634ae893fa69d85d5030e0b452d4dcdb6ef9baa9d30",
+    "development/works/WORK-053/flow.json": "8b999102a397ad55e0a4a8cc6abcb5a93d752a6d6ebc0bae80a3ef215c96f3ac",
+    "development/works/WORK-053/30-design-DESIGN-047.md": "dcf7ac57a80386c9241cceb0296b3c375cbc663c08fae09797cba8c2af51462a",
+    "development/works/WORK-053/70-verify-VERIFY-054.md": "38a9250fd5c2278a37a1c956ec5e8ca388e69883553cc3b35322f319bf4624b8",
+    "development/works/WORK-053/80-memory-MEMORY-040.md": "ab3bed0daef582e3aea46f3edbce975f8db9aa910899a08cdce0893a91c741ba",
+    "development/works/WORK-053/50-plan-PLAN-037.md": "821e3bba335dc24a3d6b18a9a71eb31110cff5806c90857f2bc6fd645449806b",
+    "development/works/WORK-053/40-decision-DECISION-031.md": "57eecd4d45f5901b5cb04b22d8b95c86bcc5b33b235128d59078e90a128b6cc7",
+    "development/works/WORK-054/10-issue-ISSUE-018.md": "fd4d80e250263d1252856f8312f0547ae02062fa9d6d4b4a720d3780139a48b1",
+    "development/works/WORK-054/40-decision-DECISION-032.md": "683327347934ac025a150fc7281717aa985756b0140542c1c3aba19ce435749a",
+    "development/works/WORK-054/60-task-TASK-118.md": "d26fcf82b4e2df253fdef3550f294d6c0a38f6a0fc4046d8648fbac47605200b",
+    "development/works/WORK-054/flow.json": "a96633a7c25c449df1138cc6cf5631d58e6d65d159fed87c98bb8479e8c644c6",
+    "development/works/WORK-054/80-memory-MEMORY-041.md": "5d7767b15b553c45120a088deed5aad2038c1cd0d7c52be2dc426377f26fbb52",
+    "development/works/WORK-054/70-verify-VERIFY-055.md": "eb380035e79e26b86d8ed28f90c71c8a0c0e24365918715147320267de925f0f",
+    "development/works/WORK-054/50-plan-PLAN-038.md": "b5975149f31f007d0f8e694eb5dbc3bbe9e3066dd4bfb5f230591b422b19b4d4",
+    "development/works/WORK-054/90-history-WORK-054.md": "a5a8273f58cbd781763300ff0ac3646bf3464460696c21f5d81e95225535ac09",
+    "development/works/WORK-054/30-design-DESIGN-048.md": "4fc2ce0789bed27098b6694ad32be64d27885c1e7420bb631b80b17dc376965c",
+    "development/works/WORK-055/10-improvement-IMPROVEMENT-005.md": "cb9fb23d7262b3a939ef83f29c9e5b8a971961580ab050b0106a523f498bbb0a",
+    "development/works/WORK-055/80-memory-MEMORY-042.md": "f97026e3263208f10424ce1f72ec827a15dc807b92cf709366a3a844a9446ba7",
+    "development/works/WORK-055/60-task-TASK-119.md": "52bb58ba1ab598a54f5ec2e1eb36669ef889493d1c8c9d783f50490d55f0ce62",
+    "development/works/WORK-055/70-verify-VERIFY-056.md": "41120c51a7d7e515efa89c92634201feae28002c5148c0b9d7c8e7606e8092c8",
+    "development/works/WORK-055/40-decision-DECISION-033.md": "9462775b1c915867daee9e7eda8dceb0b81aac0b4142e9206c27ae8b50e4e06e",
+    "development/works/WORK-055/flow.json": "098a9be23eb128ff04b378ba75df47e675dd764a3c2e464da84ef34a0c1a1902",
+    "development/works/WORK-055/30-design-DESIGN-049.md": "e4f5f3231d43d076d90c710868dd86ac5ed0da9f9911199ec9e5b726f5c5c366",
+    "development/works/WORK-055/90-history-WORK-055.md": "c37a231bf1c64094c499a90a5378df778fda938e0d5b73e993eeb2dfbbda1250",
+    "development/works/WORK-055/50-plan-PLAN-039.md": "2d57ceb30924922892f4599a5624c19e5b8e85977d1c7fb6e964b97c20593258",
+    "development/works/WORK-055/60-task-TASK-120.md": "39863780303904c1cd9ec41228d2eef0ca7e4c060dcf235d53c140e0acee52a7",
+    "development/works/WORK-056/90-history-WORK-056.md": "ed6151825ab85cfb8da8b3bda2a32b3c4cc332503e11a2d91a59f80d3284d039",
+    "development/works/WORK-056/60-task-TASK-123.md": "e25f11c7b7cf35c0844327591401e17757817665e94faa87b90ea84869d9abcd",
+    "development/works/WORK-056/60-task-TASK-122.md": "ee72e3e6097971ab5a23d30d5f5bd6bfe0712f8cc2f9630dfba6bf564b564496",
+    "development/works/WORK-056/70-verify-VERIFY-057.md": "08fd954e32cb93437521d49b9c7d0cf1c3b6f6667fbba946833a86d52ad6ea16",
+    "development/works/WORK-056/80-memory-MEMORY-043.md": "881dc9ed8f901a883f59ab0105df61b6f5dc80a9f687d9e3a74d91fef4e1a0a2",
+    "development/works/WORK-056/30-design-DESIGN-050.md": "0290e495ae35230cf1c473b39b584f1ef8b3a59225a2129fd057ebd844f325a9",
+    "development/works/WORK-056/50-plan-PLAN-040.md": "f99dbaf61d2c28cc50c0fe90a6e4c86b16ce812e951be0e6fde0790aef888816",
+    "development/works/WORK-056/flow.json": "e698532189f9c90405f3998d2e9b26f739bd12c40e0232fbab8100601a58facc",
+    "development/works/WORK-056/40-decision-DECISION-034.md": "2707c767e315d944b65b11271f738a2745185d9db68729d1fb51d3d23027b70e",
+    "development/works/WORK-056/60-task-TASK-121.md": "3af204565360b7eae7ffa8296ac7f66c6583cec038314c41e4fc4a852cceb0f1",
+    "development/works/WORK-056/10-improvement-IMPROVEMENT-006.md": "961c71a675ea329577be8f7cb58cd3319fdefbf0bdfdc49a1c7210227a3466b5",
+    "development/works/WORK-057/70-verify-VERIFY-058.md": "6408d62f94dfbdaf2026bbe527e61de5ac0f3ca682653faefe19606e2eed4d60",
+    "development/works/WORK-057/10-issue-ISSUE-019.md": "a3d066423cb8553b69795edd74f10116ac80133439af933e5f7766fe6f7c4add",
+    "development/works/WORK-057/90-history-WORK-057.md": "7d62afbbe0e4de786c9b20c72abff413555c52fa3fa493c7b2498977fef92d24",
+    "development/works/WORK-057/flow.json": "e6393660774b7cdde36e72cb71428e07390b8f9424abf3da3660cdddc3ed97be",
+    "development/works/WORK-057/60-task-TASK-124.md": "24fd2c134f5cf4fade9ee276ca5b672faec0c1133baa50424658bb707fa7d59e",
+    "development/works/WORK-058/10-change-CHANGE-014.md": "742b5f48e300cf600b67046916fd398998918fc63a5d9dfb109347dd0d847951",
+    "development/works/WORK-058/60-task-TASK-127.md": "e67c13489f9e19bdb5b47680946ae4ec6bc03460e6786a822579954e7fb20ab6",
+    "development/works/WORK-058/60-task-TASK-133.md": "1a4f794002209a92d477bebe0d848b3b409f835631e157287366a8c0931eaf37",
+    "development/works/WORK-058/70-verify-VERIFY-059.md": "f036a13ed8f9cbd827d51b4eb5493e0ecd76a5ee371a44b1c9eeafa751b204af",
+    "development/works/WORK-058/60-task-TASK-126.md": "c884710874f916b1f0e931a2c5d9597b8ade390dc294b230ba628fc7d4ff3f25",
+    "development/works/WORK-058/30-design-DESIGN-051.md": "930e614867fd03a0fac8346f6a05cfab2673fac78816b2746c7003f179aa31ba",
+    "development/works/WORK-058/50-plan-PLAN-041.md": "309224a6d6f9569568080a6927e759e8b6e597ff13440b86077383de4799520b",
+    "development/works/WORK-058/60-task-TASK-129.md": "417ef1a7e79d45a10eebe2a96da226fc7edfaacae0570d76ebe38e83503fe701",
+    "development/works/WORK-058/90-history-WORK-058.md": "97d44e6b5539789c978bfccf5a9a6da260e23b85c8f40826d34b133be52277a2",
+    "development/works/WORK-058/60-task-TASK-128.md": "c6e976d00cf7be117450576cdf73bfa5edb288bf5cff023a42760f281b5c85cc",
+    "development/works/WORK-058/80-memory-MEMORY-044.md": "30918a5faed3bbc58479f2c74bdfbe1acb07a2d59dda1f5cecf9b53fc77bd921",
+    "development/works/WORK-058/flow.json": "d2b423b46a8e9562fe54db28029d995d377197f8146f4153d81eab3b3d2d46b9",
+    "development/works/WORK-058/40-decision-DECISION-035.md": "2665033ca191232273f6123f28dc30e907b5334d958ef93f5ac07bde271f6988",
+    "development/works/WORK-058/60-task-TASK-131.md": "304c1d5c00e360b2e54d379129eba083f1a472debe79da60c324c0020badc935",
+    "development/works/WORK-058/60-task-TASK-125.md": "d860a89a05b73ee06ceca470bb5bc058a7bf5eecdafc6d30f9e50e9f47bdc032",
+    "development/works/WORK-058/60-task-TASK-130.md": "c49cc8c1c1ba68526f3011f3986fafc2dafa7e7bfc415a092ca4af192e92d9db",
+    "development/works/WORK-059/60-task-TASK-132.md": "4f0b8c3f42517745e0ea5af8c5daaf0f7202e51bb17875bd007adcb812208f5d",
+    "development/works/WORK-059/90-history-WORK-059.md": "62738663413948ca4f5f4daebe73af1d5bd69820a61749e9002390ffa3156238",
+    "development/works/WORK-059/flow.json": "a9bd6a8ddb3fed13dca214e489dfc8c7c7b6d3c599400024e670fb9fc10375d0",
+    "development/works/WORK-059/70-verify-VERIFY-060.md": "e1601f79d9783d09940e50f09ca5ea64ac7ffb50f59e498c4076a9c0f05f30c4",
+    "development/works/WORK-059/30-design-DESIGN-052.md": "c968d33ad64943ac2b8a9a62ea34334700e6243e49f0ecccff083fdddab962b8",
+    "development/works/WORK-059/10-issue-ISSUE-020.md": "818b0c499af167f48424aba50c66a2395d27283797c9f65a35bc8953537aabfe",
+    "development/works/WORK-060/flow.json": "51ed5519f4c83f866c004f0703f9f602fc8c6e6eaf6accc62bffca7af0163289",
+    "development/works/WORK-060/70-verify-VERIFY-061.md": "7e86ba9d6e288f9b6e72fa4e3d14cc0f58884c723a1389dd82faed2db1d95073",
+    "development/works/WORK-060/90-history-WORK-060.md": "a97bcb926b50a48f9b0393a4485de4925c8c76c9a112d6005c1dba2608a37614",
+    "development/works/WORK-061/70-verify-VERIFY-062.md": "4ddef4aacece49305a846063ac9bfb03def9a18a5f9a10cb51e0022e073c4225",
+    "development/works/WORK-061/flow.json": "557492659577a972fc449c8a8d774121777cef02ed2eafe60b81e293532d176f",
+    "development/works/WORK-061/90-history-WORK-061.md": "3b1bc869e8bbc84336eeb379031e219b53a3505deac07a69d16742f62a1c9f19",
+    "development/works/WORK-062/90-history-WORK-062.md": "0070642384f5a204edbe0f82c59c9195b2e42062ebd291740c2300334a7a4bdc",
+    "development/works/WORK-062/70-verify-VERIFY-063.md": "199f5a9ca2ef506b24274ee5e9f21896fabc67f346039d81ede3b651b01d9513",
+    "development/works/WORK-062/flow.json": "8b1dba280638a7b7e166296d27aede67efdd99f42faa4152cc18b5a3f4df56f9",
+    "development/works/WORK-062/30-design-DESIGN-053.md": "eabdeacaf971269de6a62ec28b355255176e7028b044559b5cd47acb71f4999b"
+  },
+  "works": [
+    {
+      "id": "WORK-001",
+      "title": "重建统一开发文档系统",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-001/90-history-WORK-001.md"
+    },
+    {
+      "id": "WORK-002",
+      "title": "交付 C++ ACM 答题闭环",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-002/90-history-WORK-002.md"
+    },
+    {
+      "id": "WORK-003",
+      "title": "按工作项聚合开发文档",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-003/90-history-WORK-003.md"
+    },
+    {
+      "id": "WORK-004",
+      "title": "按类型与风险编排开发流程",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-004/90-history-WORK-004.md"
+    },
+    {
+      "id": "WORK-005",
+      "title": "修复开发文档 CI 的 clean checkout 链接校验",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-005/90-history-WORK-005.md"
+    },
+    {
+      "id": "WORK-006",
+      "title": "按思维导图结构重写开发文档系统规范",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-006/90-history-WORK-006.md"
+    },
+    {
+      "id": "WORK-007",
+      "title": "校正全局 PRD 与当前 MVP 基线的漂移",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-007/90-history-WORK-007.md"
+    },
+    {
+      "id": "WORK-008",
+      "title": "建立 Web 到 Gateway 的 REST 基础连通模块",
+      "work_type": "infra",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-008/90-history-WORK-008.md"
+    },
+    {
+      "id": "WORK-009",
+      "title": "建立统一的 Web REST 交换协议与请求基建",
+      "work_type": "infra",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-009/90-history-WORK-009.md"
+    },
+    {
+      "id": "WORK-010",
+      "title": "建立跨语言可观测性基础设施",
+      "work_type": "infra",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-010/90-history-WORK-010.md"
+    },
+    {
+      "id": "WORK-011",
+      "title": "收敛 Go 领域日志调用",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-011/90-history-WORK-011.md"
+    },
+    {
+      "id": "WORK-012",
+      "title": "撤回可观测性实现并保留追溯契约",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-012/90-history-WORK-012.md"
+    },
+    {
+      "id": "WORK-013",
+      "title": "建立用户身份与访问控制服务",
+      "work_type": "infra",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-013/90-history-WORK-013.md"
+    },
+    {
+      "id": "WORK-014",
+      "title": "统一登录空闲过期配置并修复提前掉线",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-014/90-history-WORK-014.md"
+    },
+    {
+      "id": "WORK-015",
+      "title": "建立 Cherry OJ Web 设计系统",
+      "work_type": "infra",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-015/90-history-WORK-015.md"
+    },
+    {
+      "id": "WORK-016",
+      "title": "修复设计系统发布后的文档 CI",
+      "work_type": "fix",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-016/90-history-WORK-016.md"
+    },
+    {
+      "id": "WORK-017",
+      "title": "建立 Web 设计系统代码基建",
+      "work_type": "infra",
+      "status": "cancelled",
+      "gates": {
+        "intent": "pending",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-017/90-history-WORK-017.md"
+    },
+    {
+      "id": "WORK-018",
+      "title": "解除 Web 对设计系统文档目录的依赖",
+      "work_type": "maintenance",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-018/90-history-WORK-018.md"
+    },
+    {
+      "id": "WORK-019",
+      "title": "设计 Cherry OJ 任务入口主页",
+      "work_type": "product",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-019/90-history-WORK-019.md"
+    },
+    {
+      "id": "WORK-020",
+      "title": "搭建用户端与管理端应用布局",
+      "work_type": "product",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-020/90-history-WORK-020.md"
+    },
+    {
+      "id": "WORK-021",
+      "title": "修复 IDEA 错误按叶子工程构建 user-service",
+      "work_type": "fix",
+      "status": "cancelled",
+      "gates": {
+        "intent": "pending",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-021/90-history-WORK-021.md"
+    },
+    {
+      "id": "WORK-022",
+      "title": "微调双端应用布局页脚",
+      "work_type": "product",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-022/90-history-WORK-022.md"
+    },
+    {
+      "id": "WORK-023",
+      "title": "设计双端导航栏与导航功能组件",
+      "work_type": "product",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-023/90-history-WORK-023.md"
+    },
+    {
+      "id": "WORK-024",
+      "title": "重新设计登录页视觉与体验",
+      "work_type": "product",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-024/90-history-WORK-024.md"
+    },
+    {
+      "id": "WORK-025",
+      "title": "交付题库、题目与测试数据管理",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-025/90-history-WORK-025.md"
+    },
+    {
+      "id": "WORK-026",
+      "title": "为 Java 服务提供可直接启动的本地默认配置",
+      "work_type": "infra",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-026/90-history-WORK-026.md"
+    },
+    {
+      "id": "WORK-027",
+      "title": "把手写基础组件改为基于 shadcn 官方实现",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-027/90-history-WORK-027.md"
+    },
+    {
+      "id": "WORK-028",
+      "title": "修复后台用户列表偶发误跳登录页",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-028/90-history-WORK-028.md"
+    },
+    {
+      "id": "WORK-029",
+      "title": "新增页面主题切换入口",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-029/90-history-WORK-029.md"
+    },
+    {
+      "id": "WORK-030",
+      "title": "修复后台题目列表间歇性 502",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-030/90-history-WORK-030.md"
+    },
+    {
+      "id": "WORK-031",
+      "title": "统一页面任务优先布局并移除状态占位",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-031/90-history-WORK-031.md"
+    },
+    {
+      "id": "WORK-032",
+      "title": "修复 WORK-031 遗留的 CI 测试断言",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-032/90-history-WORK-032.md"
+    },
+    {
+      "id": "WORK-033",
+      "title": "重设计后台题目创建与编辑体验",
+      "work_type": "improvement",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-033/90-history-WORK-033.md"
+    },
+    {
+      "id": "WORK-034",
+      "title": "基于下载版重建 Web 设计系统并保留浅色主题",
+      "work_type": "improvement",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-034/90-history-WORK-034.md"
+    },
+    {
+      "id": "WORK-035",
+      "title": "收敛设计系统为单一真源",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-035/90-history-WORK-035.md"
+    },
+    {
+      "id": "WORK-036",
+      "title": "建立页面构图层并修复前景色层级",
+      "work_type": "improvement",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-036/90-history-WORK-036.md"
+    },
+    {
+      "id": "WORK-037",
+      "title": "重建内部身份信任链并消除管理请求 502",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-037/90-history-WORK-037.md"
+    },
+    {
+      "id": "WORK-038",
+      "title": "兼容常见测试数据 ZIP 并返回可操作校验错误",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-038/90-history-WORK-038.md"
+    },
+    {
+      "id": "WORK-039",
+      "title": "修复 JWT 签发 30 秒后被资源服务误拒绝",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-039/90-history-WORK-039.md"
+    },
+    {
+      "id": "WORK-040",
+      "title": "重构判题节点注册与测试数据交付",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-040/90-history-WORK-040.md"
+    },
+    {
+      "id": "WORK-041",
+      "title": "建立题目阅读与 Monaco 编码工作台",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-041/90-history-WORK-041.md"
+    },
+    {
+      "id": "WORK-042",
+      "title": "修复后台用户列表拒绝尚未过期的身份令牌",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-042/90-history-WORK-042.md"
+    },
+    {
+      "id": "WORK-043",
+      "title": "题目内提交记录与代码回看",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-043/90-history-WORK-043.md"
+    },
+    {
+      "id": "WORK-044",
+      "title": "题目内自定义输入运行",
+      "work_type": "product",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-044/90-history-WORK-044.md"
+    },
+    {
+      "id": "WORK-045",
+      "title": "统一本地judging服务启动入口",
+      "work_type": "maintenance",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-045/90-history-WORK-045.md"
+    },
+    {
+      "id": "WORK-046",
+      "title": "统一服务配置与环境启动管理",
+      "work_type": "maintenance",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-046/90-history-WORK-046.md"
+    },
+    {
+      "id": "WORK-047",
+      "title": "恢复自定义运行并移除运行冷却",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-047/90-history-WORK-047.md"
+    },
+    {
+      "id": "WORK-048",
+      "title": "Linux 沙箱隔离与资源计量硬化",
+      "work_type": "improvement",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-048/90-history-WORK-048.md"
+    },
+    {
+      "id": "WORK-049",
+      "title": "按命令执行顺序重构 Go 判题引擎源码",
+      "work_type": "maintenance",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-049/90-history-WORK-049.md"
+    },
+    {
+      "id": "WORK-050",
+      "title": "将沙箱已验收回归固化为重构 CI",
+      "work_type": "infra",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-050/90-history-WORK-050.md"
+    },
+    {
+      "id": "WORK-051",
+      "title": "修复沙箱连续请求完成与容量归还的竞态",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-051/90-history-WORK-051.md"
+    },
+    {
+      "id": "WORK-052",
+      "title": "修复沙箱启动通信被信号中断时的处理",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-052/90-history-WORK-052.md"
+    },
+    {
+      "id": "WORK-053",
+      "title": "修复登录会话期限在数据库往返后的精度不一致",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-053/90-history-WORK-053.md"
+    },
+    {
+      "id": "WORK-054",
+      "title": "为CI软件包下载增加有界同源地址回退",
+      "work_type": "fix",
+      "status": "todo",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-054/90-history-WORK-054.md"
+    },
+    {
+      "id": "WORK-055",
+      "title": "分离CI软件包准备与回归测试",
+      "work_type": "improvement",
+      "status": "todo",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-055/90-history-WORK-055.md"
+    },
+    {
+      "id": "WORK-056",
+      "title": "固定沙箱软件包来源与长期留存",
+      "work_type": "improvement",
+      "status": "todo",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-056/90-history-WORK-056.md"
+    },
+    {
+      "id": "WORK-057",
+      "title": "修复认证数据库回归的时钟夹具漂移",
+      "work_type": "fix",
+      "status": "verified",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-057/90-history-WORK-057.md"
+    },
+    {
+      "id": "WORK-058",
+      "title": "按信任与部署边界重切判题引擎模块结构",
+      "work_type": "maintenance",
+      "status": "implemented",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "passed"
+      },
+      "original": "development/works/WORK-058/90-history-WORK-058.md"
+    },
+    {
+      "id": "WORK-059",
+      "title": "业务闭环中 PATCH /api/admin/problems/{id} 偶发 500 且证据不可定位",
+      "work_type": "fix",
+      "status": "cancelled",
+      "gates": {
+        "intent": "passed",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-059/90-history-WORK-059.md"
+    },
+    {
+      "id": "WORK-060",
+      "title": "收敛个人 Agent 开发的审核材料与默认文档",
+      "work_type": "maintenance",
+      "status": "todo",
+      "gates": {
+        "intent": "pending",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-060/90-history-WORK-060.md"
+    },
+    {
+      "id": "WORK-061",
+      "title": "judge 进程内调用 C 执行器并移除 sandbox HTTP 服务",
+      "work_type": "maintenance",
+      "status": "todo",
+      "gates": {
+        "intent": "pending",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-061/90-history-WORK-061.md"
+    },
+    {
+      "id": "WORK-062",
+      "title": "将开发文档流程改为明确调用的仓库 skill",
+      "work_type": "maintenance",
+      "status": "todo",
+      "gates": {
+        "intent": "pending",
+        "acceptance": "pending"
+      },
+      "original": "development/works/WORK-062/90-history-WORK-062.md"
+    }
+  ]
+}

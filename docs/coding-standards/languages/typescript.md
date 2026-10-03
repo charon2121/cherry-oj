@@ -42,7 +42,7 @@ feature 的内部文件；跨 feature 协作通过路由、共享 API 模型或�
 
 - 注释解释「为什么这样设计、边界在哪里」，不复述代码字面行为。
 - 公共 hook、复杂 query options 和反直觉的浏览器兼容处理写短注释；显而易见的组件不写模板式注释。
-- 待办写 `TODO(TASK-001): 原因/退出条件` 并关联工作项，规则见 [`project-conventions.md`](../project-conventions.md) §1.8。
+- 待办写清原因和退出条件，有已有记录时附引用，不强制创建 TASK，规则见 [`project-conventions.md`](../project-conventions.md) §1.8。
 - **捕获异常先按 `unknown` 处理**，统一转换成应用错误类型；用户提示与诊断信息分开。
 - 公共 HTTP client 把失败区分为 `http | network | timeout | aborted | contract`，
   但不负责缓存、导航、toast 或自动重试。

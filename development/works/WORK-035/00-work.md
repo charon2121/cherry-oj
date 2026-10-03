@@ -1,72 +1,25 @@
----
-id: "WORK-035"
-type: "work"
-title: "收敛设计系统为单一真源"
-status: "verified"
-work: null
-owners: ["claude/root"]
-risk: "medium"
-impact: "multi-module"
-concerns: []
-depends_on: []
-related: ["CHANGE-010", "DESIGN-029", "PLAN-023", "TASK-056", "VERIFY-036", "TASK-057", "TASK-058"]
-implements: []
-verifies: []
-tags: []
-required_documents: ["change", "design", "plan", "task", "verify"]
-required_checks: ["definition", "scope", "automated-tests", "impact-analysis"]
-gates: {"intent": "passed", "acceptance": "passed"}
-blocking_items: []
-reversible: true
-data_change: false
-public_api_change: false
-security_sensitive: false
-user_visible: false
-created_at: "2026-09-03"
-updated_at: "2026-09-03"
-work_type: "maintenance"
----
-
 # WORK-035：收敛设计系统为单一真源
 
-<!--
-本文件是工作项的控制面入口，只回答一个问题：做到哪一步了。
+类型：维护 · 历史工作
 
-「为什么做、怎样算完成、有什么风险、影响哪里」属于定义层文档（FEATURE / CAPABILITY / ISSUE /
-CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自表述一定会漂移，而本文件既不在
-信息优先级链上，也不携带 REQ / AC 锚点，冲突时无法判定以谁为准。
+## 为什么做
 
-「流程」一节由 `scripts/work` 生成，请勿手工编辑；阶段状态的真源是各文档、TASK 与 VERIFY
-自己的状态，这里只是视图。
--->
+同一个设计值散落在多个文件里，改动容易不同步。
 
-## 流程
+## 打算怎么解决
 
-<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。交互式视图见 `scripts/work board`。 -->
+让设计值只在 Web 设计系统手写一次，其余产物自动生成。
 
-| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
-|---|---|---|---|---|
-| 改动说明与边界 | ✔ 完成 | 必需 | CHANGE-010 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
-| 技术方案 | ✔ 完成 | 必需 | DESIGN-029 `checked` | 确定技术方案、边界与取舍 |
-| 开发计划 | ✔ 完成 | 必需 | PLAN-023 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ✔ 完成 | 必需 | TASK-056 `done`、TASK-057 `done`、TASK-058 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ✔ 完成 | 必需 | TASK-056 `done`、TASK-057 `done`、TASK-058 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 回归验证 | ✔ 完成 | 必需 | VERIFY-036 `approved` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ⊘ 跳过 | 可选 | — | 留下未来仍有参考价值的判断、教训与重审条件 |
+## 范围和代价
 
-## 待确认项
+文档与校验器引用来源，不再维护另一套数值。
 
-暂无。
+## 怎样算完成
 
-## 变更记录
+改真源能一致生成消费者，移走文档不影响构建。
 
-- 2026-09-03：创建工作项并生成初始流程。
-- 2026-09-03：意图闸：passed。原因：确认收敛范围与三阶段顺序
-- 2026-09-03：根据文档、任务与 WORK 事实刷新流程阶段状态。
-- 2026-09-03：根据文档、任务与验证事实刷新状态：todo → implemented。
-- 2026-09-03：检查项 impact-analysis 记录结论：通过。原因：改动范围限于设计系统两棵树与三份入口文档；apps/web/src、后端、contracts、数据库未触及；三处边界扩大均在动手前记录理由
-- 2026-09-03：检查项 automated-tests 记录结论：通过。原因：check 32 文件 116 测试、build、storybook:build、e2e 30/30、docs_test 347 文档、work check 280 文档、source-lock 全部通过
-- 2026-09-03：流程阶段 复核：ready → done。原因：复核确认：三个 TASK 均在 write_paths 内，三条不变条件（主题值文件、apps/web、WORK-034）diff 为空，三处边界扩大均有事前记录
-- 2026-09-03：验收闸：passed。原因：WORK-035 通过验证
-- 2026-09-03：根据文档、任务与验证事实刷新状态：implemented → verified。
+## 历史结果与资料
+
+原记录已验证。这里沿用当时的结果，本次没有重新执行业务验收。
+
+[原定义](./10-change-CHANGE-010.md) · [原方案](./30-design-DESIGN-029.md) · [原验证](./70-verify-VERIFY-036.md) · [原始入口](./90-history-WORK-035.md) · [全部资料](./)

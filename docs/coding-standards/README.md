@@ -26,7 +26,7 @@ frameworks/             某个框架的写法：状态归属、接口协议、�
 | 写 React / Web UI | 上一行，外加 [`frameworks/react.md`](./frameworks/react.md) + [`design-system.md`](../design-system.md) |
 | 写 Python（`scripts/`、`deploy/`） | [`languages/python.md`](./languages/python.md) |
 | 提交、hooks、CI | [`git-workflow.md`](../git-workflow.md) |
-| 开发流程、工作项、闸 | [`development/README.md`](../../development/README.md) |
+| 明确启用的开发文档流程、工作记录 | [`development/README.md`](../../development/README.md) |
 
 尚未使用的技术栈（Rust、C#、FastAPI、Django、Next.js 等）**不预先建空文档**：真正引入时再在
 对应目录下新建，那时才知道本项目会踩哪些坑。空壳规范没人读，还会让路由表指向没有内容的文件。

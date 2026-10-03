@@ -1,56 +1,17 @@
-# 智能体协作开发文档系统规范
+# 按需开发文档规范
 
-版本：0.3
+本规范只在明确启用仓库 `$dev-work` 时使用。它保留原先讨论确定的职责分工，减少文件、状态和人工阅读负担。
 
-状态：当前规则（精简工作默认，历史分层格式兼容）
+| 要了解什么 | 去哪里 |
+|---|---|
+| 为什么改为按需使用 | [1. 定位](./specification/01-positioning.md) |
+| 一项工作怎么组织 | [2. 工作记录](./specification/02-work-item.md) |
+| 短说明、技术材料与全局事实的关系 | [3. 信息分层](./specification/03-information-layers.md) |
+| 五类任务各怎么做、需要什么材料 | [4. 流程与材料](./specification/04-workflows.md) |
+| 主文档怎么写、何时加附件 | [5. 文档写法](./specification/05-documents.md) |
+| 如何确认与交付 | [6. 确认与结果](./specification/06-status-and-gates.md) |
+| 怎么保存依据和证据 | [7. 追踪](./specification/07-tracing.md) |
+| 人与 Agent 各负责什么 | [8. 职责](./specification/08-responsibilities.md) |
+| 工具和历史迁移 | [9. 工具](./specification/09-tooling.md) |
 
-本规范定义一套适合人和智能体共同开发软件的项目文档系统，也作为后续文档管理工具的需求依据。
-
-它关注的不是“怎样多写几份文档”，而是怎样把人的意图、工程设计、智能体执行、验证证据和长期记忆连成一套可管理、可检查的开发系统。
-
-**本文是总览与索引**，只保留全局约定、术语速查和章节导航；每一章的完整条款拆分在
-[`specification/`](./specification/) 目录下。九章描述的是同一个闭环，不应被理解成九套彼此独立的规则。
-
----
-
-## 章节
-
-| 章 | 标题 | 回答什么 |
-|---|---|---|
-| 1 | [核心定位](./specification/01-positioning.md) | 为什么文档本身就是开发系统的一部分：要解决的问题、统一闭环、流程的目的与基本行为准则 |
-| 2 | [工作项](./specification/02-work-item.md) | 统一入口与流程决策：五种工作类型、额外关注、风险级别、影响面、当前未知与流程生成顺序 |
-| 3 | [信息分层](./specification/03-information-layers.md) | 内容边界与决策权：六个必须分开的问题、信息优先级、任务读写边界、三种改动升级与实现偏差 |
-| 4 | [差异化流程](./specification/04-workflows.md) | 从基础模板到实际 workflow：控制面与产物面、阶段必需性、五类工作默认流程、快速与强制完整流程 |
-| 5 | [文档体系](./specification/05-documents.md) | 从定义到证据的产物：文档类型、各层职责、统一元数据、永久编号、文档关系与工作项目录 |
-| 6 | [状态与关卡](./specification/06-status-and-gates.md) | 用事实定义“做到哪里”：三类状态机、状态推导、各层关卡与完成定义 |
-| 7 | [追踪、复核与验证](./specification/07-tracing.md) | 让每项要求都有证据：追踪链、局部要求编号、待确认项、风险点、验证矩阵与项目记忆 |
-| 8 | [人、智能体与脚本](./specification/08-responsibilities.md) | 责任和写权限：三方边界、逻辑角色、默认写权限、任务上下文包与人工确认 |
-| 9 | [文档管理工具](./specification/09-tooling.md) | 生成、校验、查询与状态刷新：工具边界、流程选择器、结构与内容校验、管理动作与查询 |
-
-## 全局约定
-
-- 默认主文档加证据，信息职责用章节区分，独立附件按实际用途拆分。
-- 人审核目标、边界、取舍与结果；Agent 负责执行与证据；脚本维护确定性约束。
-- 两道闸仍只能由人签署，批准主文档不代表审查全部技术细节。
-- 风险增加验证强度，不自动增加文档种类。
-- 进度只有一个来源，视图自动生成；实现完成不等于人工验收。
-- ID 与历史路径保留，旧工作不批量迁移。
-
-## 术语速查
-
-| 术语 | 含义 | 详见 |
-|---|---|---|
-| WORK | 工作项，整个体系的入口，`00-work.md` | [2](./specification/02-work-item.md)、[5](./specification/05-documents.md) |
-| 工作类型 | product / infra / fix / maintenance / improvement，明确工作语义 | [2](./specification/02-work-item.md) |
-| concern | 额外关注（安全、隐私、数据、性能…），增加专项检查 | [2](./specification/02-work-item.md) |
-| 风险 / 影响面 | low…critical / local…system，与 concern 共同决定验证强度 | [2](./specification/02-work-item.md) |
-| 阶段 | 控制面上的一步，带 requirement 与 progress 两个维度 | [4](./specification/04-workflows.md) |
-| artifacts | 阶段关联的文档，零到多、多到多 | [4](./specification/04-workflows.md) |
-| 意图闸 / 验收闸 | 每个工作仅有的两次人工确认 | [6](./specification/06-status-and-gates.md)、[8](./specification/08-responsibilities.md) |
-| approved / checked | 人签字的终态 / 工具校验通过的终态 | [6](./specification/06-status-and-gates.md) |
-| 追踪链 | 从定义要求到验收标准再到验证证据的引用链 | [7](./specification/07-tracing.md) |
-
----
-
-仓库当前的实现状态、目录结构和常用命令见 [`README.md`](./README.md)；全部工作项列表见
-[`WORKS.md`](./WORKS.md)。
+只读当前工作用得上的章节，不要求通读九章。原规范保存在[迁移快照](./history/README.md)，其中的状态机和签闸规则已退役。

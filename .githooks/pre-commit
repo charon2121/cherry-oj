@@ -25,7 +25,7 @@ json_files=$(printf '%s\n' "$staged" | grep '^contracts/.*\.json$' || true)
 development_files=$(printf '%s\n' "$staged" \
     | grep -E '^(development/|scripts/work$|scripts/work_test\.py$)' || true)
 documentation_files=$(printf '%s\n' "$staged" \
-    | grep -E '^(docs/|development/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test(_test)?\.py$)' || true)
+    | grep -E '^(docs/|development/|\.agents/skills/dev-work/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test(_test)?\.py$)' || true)
 web_format_files=$(printf '%s\n' "$staged" \
     | sed -n "s|^$WEB/||p" \
     | grep -E '\.(cjs|css|js|json|jsx|md|mjs|ts|tsx)$' || true)
@@ -105,9 +105,9 @@ except json.JSONDecodeError as e:
     done
 fi
 
-# ── development：统一工作项与开发文档 ─────────────────────
+# ── development：工作入口与历史原件完整性 ────────────────
 if [ -n "$development_files" ] && ! work_out=$(scripts/work check 2>&1); then
-    echo "✗ 开发文档系统校验失败："
+    echo "✗ 工作记录完整性校验失败："
     printf '%s\n' "$work_out" | sed 's/^/    /'
     fail=1
 fi

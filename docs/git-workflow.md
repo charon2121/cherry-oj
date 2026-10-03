@@ -66,7 +66,7 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 | job | 检查 | 为什么单独一条 |
 |---|---|---|
-| `development` | 工作项工具测试；元数据、流程、状态、引用、依赖与验证证据 | 开发输入和智能体执行边界不能漂移 |
+| `development` | 可选记录工具测试、文档链接与历史原件完整性 | 文档能在新克隆取得，历史依据不丢失 |
 | `contracts` | JSON 可解析 + `$ref` / v2 字段 / 事件安全边界 | 共享 DTO 坏了会同时影响多个服务与 Go；且一直是手改的 |
 | `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
 | `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
@@ -74,21 +74,17 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 `go` job 末尾会打印 g++ / python3 / java 版本：`language` 的集成测试缺工具链时会
 `t.Skip`，不打印的话某天镜像变了、测试静默跳过也没人发现。
 
-## 4.4 文档与开发状态
+## 4.4 文档与开发记录
 
-`docs/` 是已经确认的全局事实，`development/` 是具体工作的过程。开发中产生的未知、体验、方案、计划、
-任务和验证先留在对应 WORK；只有已经确认且会约束多个未来工作项的结论才整理进 `docs/`。
+`docs/` 保存已经确认的全局事实。只有明确调用 `$dev-work` 时，才使用 `development/` 的过程管理：
+每项工作一份短说明，复杂方案和较长证据按需拆附件，通过聊天确认目标和交付。普通开发不要求创建
+WORK、编号 TASK 或阶段状态；旧记录保留供查证。
 
-- 开始一项工作 → 先读 `development/README.md` 和 `development/WORKS.md`，查找或创建 WORK；
-- WORK Type 决定主流程，风险、影响面和 concern 只追加阶段与门禁；TASK 继承所属 WORK，不自行选择
-  产品、基建、修复或重构流程；
-- 工作项目录只使用永久编号，例如 `development/works/WORK-001/`；标题统一从 `WORKS.md` 和
-  `00-work.md` 阅读，不在目录名后添加 slug；
-- 用户行为变化 → 先完成 FEATURE/PRODUCT，解决 blocking 待确认项；
-- 技术路线变化 → 更新 DESIGN/DECISION 和影响面，不在 TASK 中偷偷改变；
-- 出现可执行工作或技术债 → 建立关联 TASK，代码锚点使用 `TODO(TASK-001): ...`；
-- 声明完成 → 记录实际 VERIFY；implemented 不等于 verified。MVP 阶段没有生产环境，流程里没有上线与
-  线上观察阶段，`verified` 就是终态。
+用户行为或技术路线变化时，先核对已确认规则、说明范围和关键代价，解决会影响决定的未知。
+完成后报告实际验证与遗留问题，不把测试成功当作人工接受。技术债写清原因和退出条件，有现成依据
+时附引用，不为待办强制创建过程文档。具体写法见 [`development/README.md`](../development/README.md)。
+
+只有已经确认且会约束多个未来工作的结论才整理进 `docs/`，保留来源。
 
 **契约先行**：改 `contracts/*.json` → 再改各语言类型 → 再改实现。反过来做必然漂移。
 

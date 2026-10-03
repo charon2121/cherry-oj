@@ -18,6 +18,7 @@ ACTIVE_ENTRYPOINTS = (
     ROOT / "README.md",
     ROOT / "docs" / "README.md",
     ROOT / "development" / "README.md",
+    ROOT / ".agents" / "skills" / "dev-work" / "SKILL.md",
 )
 
 
@@ -25,6 +26,7 @@ def markdown_paths() -> list[Path]:
     paths = list(ACTIVE_ENTRYPOINTS)
     paths.extend((ROOT / "docs").rglob("*.md"))
     paths.extend((ROOT / "development").rglob("*.md"))
+    paths.extend((ROOT / ".agents/skills/dev-work").rglob("*.md"))
     return sorted(set(paths))
 
 
@@ -82,7 +84,7 @@ def main() -> int:
         for line in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     }
-    for forbidden in ("docs/", "development/"):
+    for forbidden in ("docs/", "development/", ".agents/", ".agents/skills/"):
         if forbidden in ignore_lines:
             errors.append(f".gitignore 不能忽略全局或开发文档目录：{forbidden}")
 

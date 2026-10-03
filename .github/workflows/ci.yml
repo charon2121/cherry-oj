@@ -308,15 +308,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # development/ 是统一工作项与开发文档真源；流程、引用或验证证据断链会让智能体拿到错误输入。
+  # 只检查记录工具、文档链接与历史原件，不要求代码修改创建工作或推进状态。
   development:
-    name: 开发文档系统
+    name: 文档与历史记录
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: 工作项工具端到端测试
+      - name: 可选记录工具测试
         run: python3 scripts/work_test.py
-      - name: 校验元数据、流程、状态、引用与证据
+      - name: 校验工作入口与历史原件完整性
         run: scripts/work check
       - name: 文档链接校验器测试
         run: python3 scripts/docs_test_test.py

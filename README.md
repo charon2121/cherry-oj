@@ -12,24 +12,19 @@
 项目只维护两套文档：
 
 - [`docs/`](./docs/README.md)：已经确认、跨工作项长期有效的全局产品与技术文档；
-- [`development/`](./development/README.md)：具体功能或工程工作产生的定义、体验、设计、计划、任务、
-  验证与项目记忆。
+- [`development/`](./development/README.md)：明确启用文档流程的工作说明、必要技术材料和历史记录。
 
-所有开发工作先建立统一 WORK，不再分别维护产品需求中心和研发任务中心：
+开发文档流程默认关闭。需要它时，明确调用仓库 skill：
 
-```bash
-scripts/work list --type work
-scripts/work overview
-scripts/work flow WORK-002
-scripts/work show FEATURE-001
-scripts/work check
+```text
+$dev-work 开发题目收藏功能
+$dev-work 修复登录后立即掉线
 ```
 
-新工作使用 `scripts/work new`：先按 WORK Type 选择产品、基建、修复、重构或改进流程，再按风险、
-影响面和额外关注插入阶段与检查，并通过 artifacts 把阶段关联到零份或多份所需文档。
-TASK 进入开发前必须声明可查看、可修改和禁止修改的路径；`scripts/work context TASK-001` 可以组装
-受这些边界约束的智能体上下文。代码完成只会进入 `implemented`，有实际通过的 VERIFY 后才能进入
-`verified`。
+启用后，每个工作先写一份短说明，讲清背景、思路、范围与代价、验收结果；用户确认后实施，
+再补实际结果和验证。功能、修复、基建、维护和改进有各自流程，详细材料按需补充。
+普通开发不要求建立 WORK、编号任务或签闸，项目工程规范和必要测试继续生效。
+已有 WORK 已迁成短入口，原方案和证据保留，见[工作目录](./development/WORKS.md)。
 
 ## 应用开发入口
 
@@ -41,7 +36,7 @@ TASK 进入开发前必须声明可查看、可修改和禁止修改的路径；
 - [Java 服务工具链说明](./apps/server/TOOLCHAIN.md)：Maven、Spring Boot Parent、BOM、Plugin 和 Starter 的区别。
 
 这些应用文档解释“怎样工作、工具为何存在”；全局产品边界见 [`docs/product.md`](./docs/product.md)，
-具体功能验收口径见对应 WORK 下的 FEATURE 与 VERIFY。
+具体功能的历史验收口径可从对应工作短说明进入原定义与验证资料。
 
 ## Docker Compose 启动
 

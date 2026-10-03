@@ -90,7 +90,7 @@ Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑
 
 新增主题是“实现同一合同”，不是在组件中增加模式：
 
-1. 建立一个设计系统 WORK/TASK，把 `apps/web/design-system/` 与本文列入写入和验证范围。
+1. 明确主题扩展的范围与代价，把 `apps/web/design-system/` 与本文纳入同步和验证；启用 `$dev-work` 时记录在工作说明中。
 2. 在 `apps/web/design-system/` 新增完整 theme CSS，并在 `themes.manifest.json` 登记稳定 id、label、
    color scheme、文件、provenance 和版本；不得只覆盖相对默认主题的差值。
 3. 运行 `node design-system/tools/build.mjs` 重新生成 `tokens.css` 与 `design-tokens.json`，
@@ -99,7 +99,7 @@ Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑
 4. 用同一组件矩阵验证桌面、320px、键盘、长中文和 reduced-motion。
 
 新增完整主题不应修改 Tailwind adapter、组件或页面。删除/改义合同字段、改变默认主题或改变组件默认行为
-属于破坏性变更，必须先建立 WORK 并重新走 DECISION。
+属于破坏性变更，必须先说明影响与取舍并取得用户批准；启用 `$dev-work` 时同步工作说明与必要方案。
 
 ## 4. Token 消费规则
 
@@ -312,7 +312,7 @@ Shell 导航底部到页面第一个可见主内容的垂直距离统一为 `--d
 
 - 工具条第一行：标题、准确计数、搜索；第二行：过滤器与 toolbar 按钮。
 - **过滤即时生效，不放「筛选」提交按钮**；文本输入回车即应用，下拉选中即应用。
-  确需显式提交时，必须在对应 DESIGN 中说明该查询为何昂贵。
+  确需显式提交时，先说明该查询为何昂贵以及交互代价；启用 `$dev-work` 时写进工作说明。
 - 数据列表是**对齐的列**，不是卡片网格，不是 `flex-wrap`。列宽由列定义声明并跨行共享。
 - **声明列宽必须配 `table-fixed`。** `table-layout: auto` 会把列宽降级成"建议"，
   内容一长就撑开，列边缘跨行对不齐。度量值与标识列固定一行、超出省略。
@@ -357,13 +357,13 @@ diff——它能指到具体是哪个元素的哪个属性变了，而截图只�
 没有“只在这个页面写一个颜色”的快速例外。若现有语义不足：
 
 1. 先说明用户语义、允许 surface、对比类别和为什么现有 token 不能表达；
-2. 在 `development/` 建立或关联 WORK，评估两个主题、全部组件消费者和未来主题兼容性；
-3. 需要新增/改义合同、改变默认主题或组件默认行为时，先更新 DESIGN/DECISION 并获人工批准；
-4. 在同一 WORK/TASK 中修改 `apps/web/design-system/` 的主题、adapter 与合同并重新生成值锚点，
+2. 评估两个主题、全部组件消费者和未来主题兼容性；启用 `$dev-work` 时记录在工作说明中；
+3. 需要新增/改义合同、改变默认主题或组件默认行为时，先说明方案与取舍并获人工批准；
+4. 在同一改动中修改 `apps/web/design-system/` 的主题、adapter 与合同并重新生成值锚点，
    同时更新本文与组件合同的说明；不能只修调用处，也不能把设计值再复制到文档或校验器里。
 
-紧急兼容代码也不得引入 raw color 或 theme-id 分支；确需临时例外时使用带 TASK 退出条件的 TODO，并在
-同一工作项记录移除计划。
+紧急兼容代码也不得引入 raw color 或 theme-id 分支；确需临时例外时使用写清原因和退出条件的 TODO，
+有现成工作记录时链接移除计划，不为注释强制创建 TASK。
 
 ## 10. 当前实现边界
 

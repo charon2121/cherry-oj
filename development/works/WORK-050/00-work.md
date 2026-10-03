@@ -1,86 +1,25 @@
----
-id: "WORK-050"
-type: "work"
-title: "将沙箱已验收回归固化为重构 CI"
-status: "verified"
-work: null
-owners: ["codex/root"]
-risk: "high"
-impact: "multi-module"
-concerns: ["reliability", "security"]
-depends_on: ["WORK-048"]
-related: ["CAPABILITY-008", "EXPERIENCE-021", "DESIGN-044", "DECISION-028", "PLAN-034", "TASK-109", "VERIFY-051", "MEMORY-037", "TASK-110", "TASK-111", "TASK-112", "TASK-113", "WORK-049", "TASK-115"]
-implements: []
-verifies: []
-tags: []
-required_documents: ["capability", "experience", "design", "decision", "plan", "task", "verify", "memory"]
-required_checks: ["definition", "scope", "automated-tests", "impact-analysis", "independent-review", "rollback", "reliability", "security"]
-gates: {"intent": "passed", "acceptance": "passed"}
-blocking_items: []
-reversible: true
-data_change: false
-public_api_change: false
-security_sensitive: false
-user_visible: false
-created_at: "2026-09-10"
-updated_at: "2026-09-13"
-work_type: "infra"
----
-
 # WORK-050：将沙箱已验收回归固化为重构 CI
 
-<!--
-本文件是工作项的控制面入口，只回答一个问题：做到哪一步了。
+类型：基建 · 历史工作
 
-「为什么做、怎样算完成、有什么风险、影响哪里」属于定义层文档（FEATURE / CAPABILITY / ISSUE /
-CHANGE / IMPROVEMENT），不要在这里重复。同一个问题在两处各自表述一定会漂移，而本文件既不在
-信息优先级链上，也不携带 REQ / AC 锚点，冲突时无法判定以谁为准。
+## 为什么做
 
-「流程」一节由 `scripts/work` 生成，请勿手工编辑；阶段状态的真源是各文档、TASK 与 VERIFY
-自己的状态，这里只是视图。
--->
+关键沙箱回归主要靠手工，后续重构容易漏掉安全和清理问题。
 
-## 流程
+## 打算怎么解决
 
-<!-- 本节由 `scripts/work` 生成，请勿手工编辑；改动请运行 refresh。交互式视图见 `scripts/work board`。 -->
+把已验收场景固化为真实 Linux、部署和业务 CI 套件。
 
-| 阶段 | 状态 | 必需性 | 依据文档 | 说明 |
-|---|---|---|---|---|
-| 需求澄清 | ✔ 完成 | 必需 | WORK-050 `verified` | 把还没想清楚的问题问出来并得到答复，否则不开工 |
-| 能力定义 | ✔ 完成 | 必需 | CAPABILITY-008 `approved` | 说清楚这件事要达成什么、边界在哪、怎样算完成 |
-| 开发体验 / 运维要求 | ✔ 完成 | 必需 | EXPERIENCE-021 `approved` | 设计使用者实际看到和操作的流程，包含异常与失败状态 |
-| 技术方案 | ✔ 完成 | 必需 | DESIGN-044 `checked` | 确定技术方案、边界与取舍 |
-| 技术决策 | ✔ 完成 | 必需 | DECISION-028 `approved` |  |
-| 开发计划 | ✔ 完成 | 必需 | PLAN-034 `checked` | 拆成阶段与顺序，说明并行、依赖、迁移与回退 |
-| 开发任务 | ✔ 完成 | 必需 | TASK-109 `done`、TASK-110 `done`、TASK-111 `done`、TASK-112 `done`、TASK-113 `done`、TASK-115 `done` | 拆成可独立完成并验证的任务，划定可读、可写与禁止范围 |
-| 开发 | ✔ 完成 | 必需 | TASK-109 `done`、TASK-110 `done`、TASK-111 `done`、TASK-112 `done`、TASK-113 `done`、TASK-115 `done` | 按任务实施，产出代码与测试 |
-| 复核 | ✔ 完成 | 必需 | — | 独立复核实现是否符合定义与方案，边界有没有被越过 |
-| 验证 | ✔ 完成 | 必需 | VERIFY-051 `approved` | 用可复现的证据确认要求逐条满足 |
-| 项目记忆 | ✔ 完成 | 必需 | MEMORY-037 `checked` | 留下未来仍有参考价值的判断、教训与重审条件 |
+## 范围和代价
 
-## 待确认项
+只操作一次性测试环境；缺能力或跳过不能当通过。
 
-暂无。
+## 怎样算完成
 
-## 变更记录
+每个必需场景有真实结果，失败或缺报告能让 CI 失败。
 
-- 2026-09-10：创建工作项并生成初始流程。
-- 2026-09-10：意图闸：passed。原因：确认将已验收测试固化为分层CI，使用独立测试环境，作为重构回归基线
-- 2026-09-10：检查项 rollback 记录结论：通过。原因：PLAN-034明确仅回退新增CI与驱动，保持原六项CI、已验收实现和用户环境；一次性VM资源按本轮所有权清理
-- 2026-09-10：检查项 automated-tests 记录结论：未通过。原因：451b4d6正式CI34476081108为7/8成功，C++与Java功能测试触发5秒wall；内核63项及回收通过，但不能认定整体CI稳定
-- 2026-09-10：检查项 automated-tests 记录结论：未通过。原因：TASK-115期限回归与当前8项CI已通过；WORK-050仍缺原生部署/真实业务/总汇总执行，不能将已接入的通过等同全部93项通过
-- 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：TASK-111/116原生及生产修复已通过，TASK-112接入及本地74项基础检查通过但真实业务VM尚未执行，TASK-113总汇总未实施；不能声称全部93项通过
-- 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：7c8f9a2与3c0b0cc两轮其余9job成功；真实业务1PASS/1FAIL/13NOT_RUN，首次改密503且诊断为身份配置不一致；完整清理通过，WORK-053最小修复材料待人工审核，TASK-113汇总尚未实施
-- 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：WORK-053已人工验收交回；31b4019真实认证8/8及部署校准发布通过，业务浏览器失败3PASS/1FAIL/11NOT_RUN。TASK-112诊断本地82项与类型检查通过待Linux；TASK-113未实施
-- 2026-09-11：检查项 automated-tests 记录结论：未通过。原因：3a74fc7本地82基础及Web168测试通过；CI两次尝试均有三个Linux准备阶段TLS超时，浏览器诊断未实跑，TASK-112环境阻断，TASK-113未实施
-- 2026-09-12：根据文档、任务与验证事实刷新状态：todo → doing。
-- 2026-09-13：流程阶段 复核：ready → doing。原因：全部CI任务完成，已执行授权独立复核与两轮证据复验
-- 2026-09-13：检查项 impact-analysis 记录结论：通过。原因：仅已记录CI/测试适配，生产修复由独立WORK审批，原服务器与用户数据未操作，重构未开始
-- 2026-09-13：检查项 independent-review 记录结论：通过。原因：task113_review完成实现及取消/两轮基线独立复验，无阻断；前置任务复核记录保留
-- 2026-09-13：流程阶段 复核：doing → done。原因：独立实现与证据复核通过，风险边界和基线交接已记录
-- 2026-09-13：检查项 automated-tests 记录结论：通过。原因：8fe6e41完整冷34703661410和热34703991365各12job、93项成功，152项本地基础与反例通过
-- 2026-09-13：检查项 reliability 记录结论：通过。原因：1000次/并发/故障/原生恢复两轮通过，真实取消清理且汇总失败，未补造PASS
-- 2026-09-13：检查项 security 记录结论：通过。原因：隔离/权限/资源/文件/回收断言两轮通过，同批次有界证据及独立复核无阻断
-- 2026-09-13：根据文档、任务与验证事实刷新状态：doing → implemented。
-- 2026-09-13：验收闸：passed。原因：确认完整CI及冷热基线通过，接受已记录的取消验证范围与平台限制
-- 2026-09-13：根据文档、任务与验证事实刷新状态：implemented → verified。
+## 历史结果与资料
+
+原记录已验证。这里沿用当时的结果，本次没有重新执行业务验收。
+
+[原定义](./10-capability-CAPABILITY-008.md) · [原方案](./30-design-DESIGN-044.md) · [原取舍](./40-decision-DECISION-028.md) · [原验证](./70-verify-VERIFY-051.md) · [原始入口](./90-history-WORK-050.md) · [全部资料](./)

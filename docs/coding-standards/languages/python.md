@@ -3,7 +3,7 @@
 > 本项目跨语言约定见 [`project-conventions.md`](../project-conventions.md)，通用编码指令见
 > [`general.md`](../general.md)。
 
-本仓库的 Python 不是业务代码，而是**工具代码**：`scripts/work`（工作项与文档管理）、
+本仓库的 Python 不是业务代码，而是**工具代码**：`scripts/work`（可选工作记录助手）、
 `scripts/*_test.py`（文档与契约校验）、`deploy/sandbox-linux/ci/*.py`（沙箱镜像与 CI 流程）、
 各服务的 `scripts/*.py`。它们在 CI 里被直接调用，坏了会挡住所有人，所以约束比一般脚本严。
 
@@ -44,7 +44,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 ## 3. 类型注解
 
-- **所有函数签名写完整注解**，包括返回值（`scripts/work` 里 86 个 `def` 全部有 `->`）。
+- **所有函数签名写完整注解**，包括返回值。
   没有返回值写 `-> None`。
 - 用 `dataclass` 表达记录类型，不要传一路 dict 再靠 key 拼写正确来维持不变量。
 - `Any` 只用于确实无法表达的边界（解析完的 JSON），解析后尽快收敛到具体类型。
