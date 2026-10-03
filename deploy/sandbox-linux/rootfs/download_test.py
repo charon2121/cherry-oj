@@ -55,6 +55,18 @@ class ArchiveLocationTests(unittest.TestCase):
                 else:
                     self.assertEqual(log.getvalue(), 'verified ' + package['file'] + '\n')
 
+    def test_base_selects_where_indexes_and_packages_come_from(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            lock, package = self.fixture(root)
+            index = lzma.compress(b'Package: cpp\nFilename: pool/main/c/cpp/current.deb\n\n')
+            open_url = Mock(side_effect=lambda url, **_: io.BytesIO(index if url.endswith('.xz') else b'locked-package'))
+            with patch.object(module.urllib.request, 'urlopen', open_url), redirect_stdout(io.StringIO()):
+                module.download(lock, root / 'packages', base=module.SNAPSHOT)
+            urls = [call.args[0] for call in open_url.call_args_list]
+            self.assertTrue(all(url.startswith(module.SNAPSHOT) for url in urls), urls)
+            self.assertIn(module.SNAPSHOT + 'pool/main/c/cpp/' + package['file'], urls)
+
     def test_opt_in_http_body_and_hash_failures_are_not_retried(self):
         for kind in ('http', 'body', 'hash', 'oversize'):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp:

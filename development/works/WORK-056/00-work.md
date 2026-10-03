@@ -22,4 +22,15 @@
 
 原记录未收束；是否继续以当前用户安排为准。
 
+## 当前安排（2026-10-04）
+
+用户决定先简化：只钉死包锁，不发布 Release 资产，长期留存暂缓。原方案的 TASK-122（发布固定资产）
+与 TASK-123（CI 接入资产）不再执行；原生 sandbox CI 已整体移除。
+
+- `deploy/sandbox-linux/rootfs/download.py` 改为按包锁从生成包锁时的 Ubuntu 快照下载（`SNAPSHOT` 常量），
+  不再直连官方归档。2026-10-03 官方归档上已有 5 个锁定包（glibc 三个、libssl3t64、linux-libc-dev）404。
+- 测试服务器实测：空目录下载 56/56 包核验通过，构建的 rootfs manifest 摘要
+  `020f7caa36f037168b2aad57d19b7902836a60d810060842eb28fcb72aeb8e7c`，与正在运行的节点一致。
+- 快照取不到时构建会失败，届时再定方案；包锁升级见[后续计划](../2026-10-03-rootfs-lock-refresh/00-work.md)。
+
 [原定义](./10-improvement-IMPROVEMENT-006.md) · [原方案](./30-design-DESIGN-050.md) · [原取舍](./40-decision-DECISION-034.md) · [原验证](./70-verify-VERIFY-057.md) · [原始入口](./90-history-WORK-056.md) · [全部资料](./)

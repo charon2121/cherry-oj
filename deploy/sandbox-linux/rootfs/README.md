@@ -27,6 +27,21 @@ judge 开放 HTTP 端口前，进程内执行层会通过执行器运行 rootfs 
 
 `layout: "usr-merged"` 显式要求构建器为存在的 usr/bin、usr/sbin、usr/lib、usr/lib64 建立根目录固定相对别名。已有冲突或未知布局拒绝构建；省略 layout 不创建别名。布局计入锁与清单摘要。
 
-TASK-099补充本地复现：`download.py --lock <锁文件> --output <新目录>`从Ubuntu官方归档下载锁定包，逐个核验既有SHA256，不改版本、不运行安装器。索引仅用于定位pool目录，授权内容仍是锁文件摘要；`--resume`只复用哈希一致的已有文件。apt本地文件名中的epoch与pool文件名不同，下载器明确处理这一规则。
+## 取得锁定包
+
+```sh
+python3 deploy/sandbox-linux/rootfs/download.py --lock <锁文件> --output <新目录>
+```
+
+下载器按包锁从 Ubuntu 快照 `https://snapshot.ubuntu.com/ubuntu/20260910T000000Z/`（生成包锁时的时间点）
+取索引和包，逐个核验锁里的 SHA256，不改版本、不运行安装器。不再直连官方归档：它只保留每个包的当前
+版本，锁定版本被更新替换后就从 pool 删除（2026-10 实测 glibc、OpenSSL、linux-libc-dev 共 5 个包已 404）。
+快照地址写在 `download.py` 的 `SNAPSHOT` 常量里，更换包锁时一起更换。
+
+索引仅用于定位 pool 目录，授权内容仍是锁文件摘要；`--resume` 只复用哈希一致的已有文件。apt 本地文件名
+中的 epoch 与 pool 文件名不同，下载器明确处理这一规则。
+
+长期留存暂不处理：Ubuntu 说明快照预期至少保留两年但不承诺永久，快照取不到时构建会失败，届时再定方案。
+包锁的定期升级见[后续计划](../../../development/works/2026-10-03-rootfs-lock-refresh/00-work.md)。
 
 **构建输出必须在原生Linux文件系统。** macOS共享目录即使由Linux容器写入，也可能改变symlink模式或合并大小写不同的文件。本轮直接写macOS bind mount所得manifest与已验证版本不同；改在有界Linux tmpfs组装后，manifest恢复为上述固定摘要。导出tar归档后直接在目标Linux解包，不先在macOS展开rootfs再复制。跨架构解包不算执行验证。

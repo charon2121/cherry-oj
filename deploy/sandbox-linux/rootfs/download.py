@@ -12,14 +12,17 @@ import urllib.request
 from diagnostics import Diagnostics
 
 BASE = 'https://archive.ubuntu.com/ubuntu/'
+# The live archive keeps only current versions; locked packages vanish after updates.
+# Download from the snapshot taken when the lock was generated; change both together.
+SNAPSHOT = 'https://snapshot.ubuntu.com/ubuntu/20260910T000000Z/'
 
 
-def locations(open_url=urllib.request.urlopen, diagnostics=None):
+def locations(open_url=urllib.request.urlopen, diagnostics=None, base=BASE):
     diagnostics = diagnostics or Diagnostics(False)
     result = {}
     for number, suite in enumerate(('noble', 'noble-updates'), 1):
         with diagnostics.request(number, suite + '-Packages.xz') as observation:
-            url = BASE + 'dists/' + suite + '/main/binary-amd64/Packages.xz'
+            url = base + 'dists/' + suite + '/main/binary-amd64/Packages.xz'
             with observation.open(open_url, url) as response:
                 # Compressed indexes have a fixed size ceiling; never trust Content-Length.
                 observation.phase('body')
@@ -53,14 +56,14 @@ def archive_path(package, location):
     return path
 
 
-def download(lock, output, resume=False, address_failover=False):
+def download(lock, output, resume=False, address_failover=False, base=BASE):
     open_url = urllib.request.urlopen
     if address_failover:
         from transport import source_urlopen
-        open_url = source_urlopen(BASE)
+        open_url = source_urlopen(base)
     packages = json.loads(lock.read_text())['packages']
     diagnostics = Diagnostics(address_failover)
-    paths = locations(open_url, diagnostics)
+    paths = locations(open_url, diagnostics, base)
     output.mkdir(mode=0o755, exist_ok=resume)
     if output.is_symlink():
         raise ValueError("output must not be a symlink")
@@ -74,7 +77,7 @@ def download(lock, output, resume=False, address_failover=False):
             path = archive_path(package, paths[package['package']])
             if path.parts[0] != 'pool' or '..' in path.parts:
                 raise ValueError('unsafe archive location')
-            url = BASE + urllib.parse.quote(str(path))
+            url = base + urllib.parse.quote(str(path))
             target = output / filename
             if target.exists() or target.is_symlink():
                 if not resume or target.is_symlink() or not target.is_file():
@@ -115,4 +118,4 @@ if __name__ == '__main__':
     parser.add_argument('--resume', action='store_true', help='reuse only already hash-verified files')
     parser.add_argument('--address-failover', action='store_true', help='try same-origin DNS peers within the connection deadline (direct HTTPS only)')
     args = parser.parse_args()
-    download(args.lock, args.output, args.resume, args.address_failover)
+    download(args.lock, args.output, args.resume, args.address_failover, SNAPSHOT)
