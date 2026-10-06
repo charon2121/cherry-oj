@@ -30,7 +30,7 @@ RUN apt-get update \
     && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin cherry \
     && install -d -o cherry -g cherry -m 0750 /var/log/cherry-oj \
     && install -d -o cherry -g cherry -m 0700 /var/lib/cherry-oj/store \
-    && install -d -o cherry -g cherry -m 0700 /srv/cherry-oj/testdata
+    && install -d -o cherry -g cherry -m 0700 /var/lib/cherry-oj/testdata
 
 COPY --from=judge-build /out/judge /usr/local/bin/judge
 

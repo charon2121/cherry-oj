@@ -42,7 +42,13 @@ $dev-work 修复登录后立即掉线
 
 前置条件：Docker Engine / Docker Desktop，并启用 Compose v2。
 
+judge 按[测试数据协议](./docs/testdata-protocol.md)读取测试数据：每次判题请求带一个测试数据目录的地址。
+Compose 把 `PROBLEM_TESTDATA_ROOT` 指定的宿主机目录**按同一个绝对路径**只读挂进 judge 容器，所以题目上记的
+本地路径在容器里同样有效。该变量必须设置，没有默认值：
+
 ```bash
+export PROBLEM_TESTDATA_ROOT=$HOME/cherry-oj-testdata   # 任意绝对路径（放在仓库外）；problem-service 往这里写测试数据
+mkdir -p "$PROBLEM_TESTDATA_ROOT"
 docker compose build
 docker compose up -d --wait
 ```
@@ -50,10 +56,19 @@ docker compose up -d --wait
 默认部署行为：
 
 - judge 暴露在宿主机 `127.0.0.1:5051`。
-- 测试数据只读挂载到 judge；默认使用仓库中的 A+B 测试 fixture。
+- `PROBLEM_TESTDATA_ROOT` 只读挂载到 judge；每次判题把用到的测试数据复制到容器内的 `judge-testdata` volume，判完删除。
 - 执行层的 blob store 和执行工作区使用 tmpfs，容器停止后自动清空。
 - judge 的 JSON 文件日志写入 `engine-logs` volume，并按 UTC 日期拆分；stdout 日志仍然保留。
 - 容器使用非 root 用户、只读根文件系统、移除 Linux capabilities。
+
+先准备一份 A+B 测试数据：成对的 `.in`/`.out`，再用 `scripts/testdata_pack.py` 写出 `testdata.json`：
+
+```bash
+mkdir -p "$PROBLEM_TESTDATA_ROOT/a-plus-b"
+printf '1 2\n' > "$PROBLEM_TESTDATA_ROOT/a-plus-b/1.in";   printf '3\n'  > "$PROBLEM_TESTDATA_ROOT/a-plus-b/1.out"
+printf '100 -7\n' > "$PROBLEM_TESTDATA_ROOT/a-plus-b/2.in"; printf '93\n' > "$PROBLEM_TESTDATA_ROOT/a-plus-b/2.out"
+python3 scripts/testdata_pack.py "$PROBLEM_TESTDATA_ROOT/a-plus-b"
+```
 
 发送一个 A+B 判题请求：
 
@@ -63,15 +78,14 @@ curl -sS -X POST http://127.0.0.1:5051/judge \
   -d '{
     "submissionId":"docker-smoke",
     "problemId":"problem-a-plus-b",
-    "problemVersionId":"problem-a-plus-b-v1",
-    "testDataVersionId":"a-plus-b",
+    "testDataLocation":"'"$PROBLEM_TESTDATA_ROOT"'/a-plus-b",
     "languageId":"cpp",
     "source":"#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<\"\\n\";}",
     "limits":{"cpuNs":1000000000,"memoryBytes":268435456}
   }'
 ```
 
-期望返回 `"verdict":"AC"`，并且 `caseResults` 中三个测试点全部为 AC。
+期望返回 `"verdict":"AC"`，`caseResults` 中两个测试点全部为 AC，并带有 `testDataDigest`（这份数据的指纹）。
 
 查看状态和日志：
 
@@ -92,7 +106,7 @@ Compose 支持通过环境变量或项目根目录的 `.env` 文件覆盖：
 
 | 变量 | 默认值 | 用途 |
 |---|---:|---|
-| `TESTDATA_PATH` | 仓库测试 fixture | 宿主机测试数据目录，只读挂载给 judge |
+| `PROBLEM_TESTDATA_ROOT` | 无，必须设置 | 宿主机上存放测试数据的绝对路径，按同一路径只读挂载给 judge |
 | `JUDGE_BIND_ADDRESS` | `127.0.0.1` | judge 的宿主机监听地址 |
 | `JUDGE_PORT` | `5051` | judge 的宿主机端口 |
 | `JUDGE_CPUS` | `3.0` | judge 容器 CPU 配额（含执行层运行的用户程序） |

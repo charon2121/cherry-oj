@@ -62,7 +62,7 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
                  jobs=limits('/' + JUDGE_UNIT + '/jobs', oom_group=True),
                  command=[str(STATE / 'current/bin/judge'), '-config', str(ETC / 'judge.json')])
     judge = dict(logging=dict(path=str(JUDGE_DATA / 'logs')), judge=dict(
-        httpAddr='127.0.0.1:15051', testdataRoot=str(JUDGE_DATA / 'testdata'),
+        httpAddr='127.0.0.1:15051', testdata=dict(workRoot=str(JUDGE_DATA / 'testdata')),
         compile=dict(cpuNs=10_000_000_000, memoryBytes=256 << 20, clockNs=20_000_000_000),
         node=dict(enabled=True, id=node_id, controlPlaneURL=control_url,
                   advertiseURL=advertise_url, deploymentManifest=str(ETC/'deployment.json'),

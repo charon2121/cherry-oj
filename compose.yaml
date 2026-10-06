@@ -28,7 +28,8 @@ services:
       CHERRY_OJ_EXECUTION_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
       CHERRY_OJ_EXECUTION_STORE_ROOT: /var/lib/cherry-oj/store
       CHERRY_OJ_EXECUTION_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}
-      CHERRY_OJ_JUDGE_TESTDATA_ROOT: /srv/cherry-oj/testdata
+      # 测试数据按协议（docs/testdata-protocol.md）由请求里的地址读取；这里只是本地副本的工作目录。
+      CHERRY_OJ_JUDGE_TESTDATA_WORK_ROOT: /var/lib/cherry-oj/testdata
       CHERRY_OJ_JUDGE_STRICT_WHITESPACE: ${JUDGE_STRICT_WHITESPACE:-false}
       CHERRY_OJ_JUDGE_REVEAL_EXPECTED: ${JUDGE_REVEAL_EXPECTED:-false}
       CHERRY_OJ_JUDGE_NODE_ENABLED: "true"
@@ -42,8 +43,14 @@ services:
       - "${JUDGE_BIND_ADDRESS:-127.0.0.1}:${JUDGE_PORT:-5051}:5051"
     volumes:
       - engine-logs:/var/log/cherry-oj
-      # 节点拥有数据；Java 通过受保护的安装 API 交付 ZIP，不共享宿主机路径。
-      - judge-testdata:/srv/cherry-oj/testdata
+      # 测试数据的本地副本：每次判题复制一份，判完删除，启动时清空遗留。
+      - judge-testdata:/var/lib/cherry-oj/testdata
+      # problem-service 写出的测试数据目录，按**同一个绝对路径**只读挂进来：题目上记的是宿主机上的绝对路径，
+      # judge 容器里必须能用同一个路径读到。
+      - type: bind
+        source: ${PROBLEM_TESTDATA_ROOT:?set PROBLEM_TESTDATA_ROOT to the absolute directory problem-service writes test data to}
+        target: ${PROBLEM_TESTDATA_ROOT}
+        read_only: true
     tmpfs:
       # store 只放跨多次执行使用的临时 ref；容器停止后自动清空，且不需要执行权限。
       - /var/lib/cherry-oj/store:rw,nosuid,nodev,noexec,size=${SANDBOX_STORE_SIZE:-256m},mode=0700,uid=10001,gid=10001
