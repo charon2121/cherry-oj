@@ -51,18 +51,19 @@ public class SubmissionLifecycle {
             View before=json.readValue(row.readModel(),View.class);
             String verdict=null,message=null; Long cpu=null,memory=null; Integer passed=null,executed=null,total=null;
             if (type.equals("JudgeCompleted")) {
-                var input=json.readValue(store.input(id),Input.class);
                 verdict=text(result,"verdict"); cpu=number(result,"cpuNs"); memory=number(result,"memoryBytes");
                 if (result.has("executedCount")) {
                     executed=Math.toIntExact(number(result,"executedCount")); passed=Math.toIntExact(number(result,"passedCount"));
-                    total=input.totalCount();
-                    if (passed>executed || executed>total || (result.has("totalCount") && number(result,"totalCount")!=total.longValue())) throw invalid();
+                    // 总数由判题时的测试数据决定，只在判题结果里
+                    if (!result.has("totalCount")) throw invalid();
+                    total=Math.toIntExact(number(result,"totalCount"));
+                    if (passed>executed || executed>total) throw invalid();
                 }
                 if ("CE".equals(verdict) && result.has("message")) message=diagnostic(text(result,"message"));
                 if ("SE".equals(verdict)) message="平台判题暂时失败，请稍后重新提交。";
             } else if (type.equals("JudgeFailed")) { verdict="SE"; message="平台判题暂时失败，请稍后重新提交。"; }
             String next=finished==null?"JUDGING":"DONE";
-            var view=new View(before.id(),before.problemId(),before.problemVersionId(),before.problemVersionNo(),before.problemTitle(),
+            var view=new View(before.id(),before.problemId(),before.problemTitle(),
                     before.languageId(),next,before.createdAt(),verdict,cpu,memory,passed,executed,total,message,finished);
             if (store.update(id,next,json.writeValueAsString(view),task,attempt,row.rowVersion())!=1) throw new IllegalStateException("submission state conflict");
         });

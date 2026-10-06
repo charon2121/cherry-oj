@@ -107,10 +107,10 @@ class GatewaySessionRedisIntegrationTests {
 							.sendString(Mono.just("{\"code\":\"INVALID_TOKEN\",\"message\":\"\"}"))
 							.then();
 				})
-				.post("/internal/admin/problems/{problemId}/test-data", (request, response) -> {
+				.put("/internal/admin/problems/{problemId}/test-data", (request, response) -> {
 					TEST_DATA_UPLOAD_CALLS.incrementAndGet();
 					TEST_DATA_AUTHORIZATION.set(request.requestHeaders().get(HttpHeaders.AUTHORIZATION));
-					return request.receive().aggregate().then(response.status(HttpStatus.CREATED.value())
+					return request.receive().aggregate().then(response.status(HttpStatus.OK.value())
 							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 							.sendString(Mono.just(testDataJson())).then());
 				}))
@@ -267,13 +267,13 @@ class GatewaySessionRedisIntegrationTests {
 			}
 		}).contentType(MediaType.parseMediaType("application/zip"));
 
-		client.post().uri("/api/admin/problems/019c8e42-7f70-7000-8000-000000000101/test-data")
+		client.put().uri("/api/admin/problems/019c8e42-7f70-7000-8000-000000000101/test-data")
 				.cookie("CHERRY_SESSION", authenticatedCookie.getValue())
 				.header("X-CSRF-Token", token(csrf))
 				.body(BodyInserters.fromMultipartData(multipart.build()))
-				.exchange().expectStatus().isCreated()
-				.expectBody().jsonPath("$.data.id")
-				.isEqualTo("019c8e42-7f70-7000-8000-000000000103");
+				.exchange().expectStatus().isOk()
+				.expectBody().jsonPath("$.data.digest")
+				.isEqualTo("6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4");
 
 		assertThat(TEST_DATA_UPLOAD_CALLS.get() - uploadsBefore).isEqualTo(1);
 		assertThat(TEST_DATA_AUTHORIZATION).hasValue("Bearer internal-jwt-canary");
@@ -392,11 +392,9 @@ class GatewaySessionRedisIntegrationTests {
 
 	private static String testDataJson() {
 		return """
-				{"id":"019c8e42-7f70-7000-8000-000000000103",
-				 "problemId":"019c8e42-7f70-7000-8000-000000000101","status":"READY",
-				 "sourceType":"MANUAL_UPLOAD","contentSha256":null,"caseCount":2,
-				 "totalBytes":6,"manifest":null,"createdAt":"2026-09-05T00:00:00",
-				 "readyAt":"2026-09-05T00:00:00","errorMessage":null}
+				{"digest":"6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
+				 "caseCount":2,"totalBytes":16,"updatedAt":"2026-09-05T00:00:00",
+				 "manifest":{"caseCount":2,"totalBytes":16,"files":[]}}
 				""";
 	}
 }

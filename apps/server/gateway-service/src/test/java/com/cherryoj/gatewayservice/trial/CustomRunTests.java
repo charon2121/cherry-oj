@@ -40,10 +40,9 @@ class CustomRunTests {
 		when(access.identity(any(), any(), any())).thenReturn(
 				Mono.just(new DelegatedIdentity("delegated", Instant.now().plusSeconds(300), "req_" + "a".repeat(32))));
 		var problem = UUID.randomUUID();
-		var version = UUID.randomUUID();
 		var owner = UUID.randomUUID();
-		var request = new CustomRunController.Request(problem, version, "cpp", "int main(){}", "");
-		var result = new CustomRunController.Result(problem, version, 1, "cpp", "COMPLETED", 0L, 0L,
+		var request = new CustomRunController.Request(problem, "cpp", "int main(){}", "");
+		var result = new CustomRunController.Result(problem, "cpp", "COMPLETED", 0L, 0L,
 				new CustomRunController.Output("", 0, false), new CustomRunController.Output("", 0, false), null,
 				new CustomRunController.Limits(1, 1, 1));
 		var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -84,7 +83,7 @@ class CustomRunTests {
 				.httpMessageCodecs(new RunCodecConfig()::configureHttpMessageCodecs)
 				.webFilter(new RunBodyLimit())
 				.build();
-			var large = new CustomRunController.Request(problem, version, "cpp", "\n".repeat(250000) + "x", "");
+			var large = new CustomRunController.Request(problem, "cpp", "\n".repeat(250000) + "x", "");
 			browser.post()
 				.uri("/api/custom-runs")
 				.header("X-Expected-User-Id", UUID.randomUUID().toString())
@@ -185,10 +184,10 @@ class CustomRunTests {
 	}
 
 	@Test
-	void rejectsResultsForDifferentVersions() {
+	void rejectsResultsForADifferentProblem() {
 		var id = UUID.randomUUID();
-		var r = new CustomRunController.Request(id, id, "cpp", "int main(){}", "");
-		var result = new CustomRunController.Result(id, UUID.randomUUID(), 1, "cpp", "COMPLETED", 0L, 0L,
+		var r = new CustomRunController.Request(id, "cpp", "int main(){}", "");
+		var result = new CustomRunController.Result(UUID.randomUUID(), "cpp", "COMPLETED", 0L, 0L,
 				new CustomRunController.Output("", 0, false), new CustomRunController.Output("", 0, false), null,
 				new CustomRunController.Limits(1, 1, 1));
 		assertThrows(ApiProblemException.class, () -> CustomRunController.validate(result, r));
@@ -214,7 +213,7 @@ class CustomRunTests {
 		var controller = new CustomRunController(access, new InternalRequestFactory(), client, redis,
 				"http://submission.invalid", false);
 		var id = UUID.randomUUID();
-		var request = new CustomRunController.Request(id, id, "cpp", "int main(){}", "");
+		var request = new CustomRunController.Request(id, "cpp", "int main(){}", "");
 		var error = assertThrows(ApiProblemException.class,
 				() -> controller
 					.run(request, id, MockServerWebExchange.from(MockServerHttpRequest.post("/api/custom-runs")))

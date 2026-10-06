@@ -118,8 +118,7 @@ class ProblemGatewayHttpTests {
 		return """
 				{
 				  "items":[{"problemId":"019c8e42-7f70-7000-8000-000000000101",
-				    "slug":"a-plus-b","currentVersionId":"019c8e42-7f70-7000-8000-000000000102",
-				    "versionNo":1,"title":"A+B","difficulty":"EASY","tags":["intro"],
+				    "slug":"a-plus-b","title":"A+B","difficulty":"EASY","tags":["intro"],
 				    "codeMode":"ACM","allowedLanguages":[{"id":"cpp","displayName":"C++"}],
 				    "secretCanary":"must-not-leak"}],
 				  "nextCursor":"opaque.next-token","hasMore":true,"secretCanary":"must-not-leak"

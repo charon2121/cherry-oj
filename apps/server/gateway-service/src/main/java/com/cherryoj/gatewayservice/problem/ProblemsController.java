@@ -74,7 +74,7 @@ public class ProblemsController {
 	private static ProblemDtos.ProblemList validateList(ProblemDtos.ProblemList result) {
 		if (result == null || result.items() == null || result.items().size() > 100
 				|| result.items().stream().anyMatch(item -> item == null || item.problemId() == null
-						|| item.slug() == null || item.currentVersionId() == null || item.title() == null
+						|| item.slug() == null || item.title() == null
 						|| item.tags() == null || item.allowedLanguages() == null)
 				|| (result.hasMore() && result.nextCursor() == null)
 				|| (!result.hasMore() && result.nextCursor() != null)) {
@@ -84,7 +84,7 @@ public class ProblemsController {
 	}
 
 	private static ProblemDtos.ProblemDetail validateDetail(ProblemDtos.ProblemDetail detail) {
-		if (detail == null || detail.problemId() == null || detail.problemVersionId() == null
+		if (detail == null || detail.problemId() == null
 				|| detail.slug() == null || detail.codeMode() == null || detail.title() == null
 				|| detail.difficulty() == null || detail.tags() == null
 				|| detail.statementMarkdown() == null || detail.inputDescriptionMarkdown() == null

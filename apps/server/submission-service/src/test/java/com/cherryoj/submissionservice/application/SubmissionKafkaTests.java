@@ -42,12 +42,12 @@ class SubmissionKafkaTests {
     @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockitoBean SubmissionPrerequisites prerequisites;
     @Test void durableRequestCrossesKafkaAndDuplicateCompletionOnlyAppliesOnce() throws Exception {
-        UUID problem=UUID.randomUUID(),version=UUID.randomUUID();
-        String data=UUID.randomUUID().toString(),user=UUID.randomUUID().toString();
-        var snapshot=new Snapshot(problem.toString(),version.toString(),1,"A+B",data,"a".repeat(64),"cpp","ACM",1);
+        UUID problem=UUID.randomUUID();
+        String user=UUID.randomUUID().toString();
+        var snapshot=new Snapshot(problem.toString(),"A+B","cpp","ACM");
         when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
-        when(prerequisites.profile(snapshot)).thenReturn(new Profile(version.toString(),data,"cpp",UUID.randomUUID().toString(),new Limits(1000,2000,3000L),40000000000L));
-        var created=service.create(user,UUID.randomUUID().toString(),new Create(problem,version,"cpp","private source marker"));
+        when(prerequisites.profile(snapshot)).thenReturn(new Profile(problem.toString(),"cpp",UUID.randomUUID().toString(),new Limits(1000,2000,3000L),40000000000L));
+        var created=service.create(user,UUID.randomUUID().toString(),new Create(problem,"cpp","private source marker"));
         String id=created.view().id();
         Properties properties=new Properties();
         properties.put("bootstrap.servers",KAFKA.getBootstrapServers()); properties.put("group.id","test-"+UUID.randomUUID());

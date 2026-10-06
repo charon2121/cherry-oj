@@ -17,9 +17,8 @@ final class ProblemDtos {
 	}
 
 	record ProblemSummary(
-			String problemId, String slug, String currentVersionId, int versionNo, String title,
-			String difficulty, List<String> tags, String codeMode,
-			List<LanguageSummary> allowedLanguages) {
+			String problemId, String slug, String title, String difficulty, List<String> tags,
+			String codeMode, List<LanguageSummary> allowedLanguages) {
 	}
 
 	record ProblemList(List<ProblemSummary> items, String nextCursor, boolean hasMore) {
@@ -29,28 +28,22 @@ final class ProblemDtos {
 	}
 
 	record ProblemDetail(
-			String problemId, String problemVersionId, int versionNo, String slug, String codeMode,
-			String title, String difficulty, List<String> tags, String statementMarkdown,
-			String inputDescriptionMarkdown, String outputDescriptionMarkdown,
-			String constraintsMarkdown, String hintMarkdown, List<ProblemSample> samples,
-			List<ProblemLanguage> allowedLanguages) {
+			String problemId, String slug, String codeMode, String title, String difficulty,
+			List<String> tags, String statementMarkdown, String inputDescriptionMarkdown,
+			String outputDescriptionMarkdown, String constraintsMarkdown, String hintMarkdown,
+			List<ProblemSample> samples, List<ProblemLanguage> allowedLanguages) {
 	}
 
-	record VersionSummary(
-			String id, int versionNo, String status, String title, String updatedAt,
-			String publishedAt, long rowVersion) {
-	}
-
-	record AdminProblem(
-			String id, String slug, String visibility, String status, String currentPublishedVersionId,
-			List<VersionSummary> versions, String createdAt, String updatedAt, long rowVersion) {
+	record AdminProblemSummary(
+			String id, String slug, String title, String visibility, String status, String difficulty,
+			boolean hasTestData, String updatedAt, String publishedAt, long rowVersion) {
 	}
 
 	record AdminProblemPage(
-			List<AdminProblem> items, int page, int size, long totalElements, int totalPages) {
+			List<AdminProblemSummary> items, int page, int size, long totalElements, int totalPages) {
 	}
 
-	record AdminProblemListData(List<AdminProblem> items) {
+	record AdminProblemListData(List<AdminProblemSummary> items) {
 	}
 
 	record AdminLanguage(String id, String displayName, String starterCode) {
@@ -62,27 +55,16 @@ final class ProblemDtos {
 	record Manifest(int caseCount, long totalBytes, List<ManifestFile> files) {
 	}
 
-	record TestDataVersion(
-			String id, String problemId, String status, String sourceType, String contentSha256,
-			Integer caseCount, Long totalBytes, Manifest manifest, String createdAt, String readyAt,
-			String errorMessage) {
+	record TestData(String digest, int caseCount, long totalBytes, String updatedAt, Manifest manifest) {
 	}
 
-	record TestDataVersionListData(List<TestDataVersion> items) {
-	}
-
-	record AdminProblemVersion(
-			String id, String problemId, int versionNo, String status, String codeMode, String title,
+	/** 题目只有一份内容，管理端模型就是题目本身。 */
+	record AdminProblem(
+			String id, String slug, String visibility, String status, String codeMode, String title,
 			String statementMarkdown, String inputDescriptionMarkdown, String outputDescriptionMarkdown,
 			String constraintsMarkdown, String hintMarkdown, String difficulty, List<String> tags,
-			List<ProblemSample> samples, List<AdminLanguage> allowedLanguages,
-			TestDataVersion testDataVersion, String changeSummary, String createdAt, String updatedAt,
-			String publishedAt, long rowVersion) {
-	}
-
-	record TestDataDeployment(
-			String testDataVersionId, String nodeId, String expectedSha256, String status, String deployedSha256, String deployedAt,
-			String errorMessage, String updatedAt, long rowVersion) {
+			List<ProblemSample> samples, List<AdminLanguage> allowedLanguages, TestData testData,
+			String createdAt, String updatedAt, String publishedAt, long rowVersion) {
 	}
 
 	record BenchmarkSummary(
@@ -90,9 +72,10 @@ final class ProblemDtos {
 	}
 
 	record LanguageCalibration(
-			String id, String problemVersionId, String languageId, String status,
-			Long cpuNs, Long memoryBytes, Long clockNs, BenchmarkSummary benchmarkSummary,
-			String errorMessage, String createdAt, String updatedAt, long rowVersion) {
+			String id, String problemId, String languageId, String status,
+			Long cpuNs, Long memoryBytes, Long clockNs, String testDataDigest,
+			BenchmarkSummary benchmarkSummary, String errorMessage, String createdAt, String updatedAt,
+			long rowVersion) {
 	}
 
 	record PublishCheckItem(String code, boolean passed, String message) {

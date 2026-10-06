@@ -41,15 +41,15 @@ class SubmissionPersistenceTests {
     @MockitoBean SubmissionPrerequisites prerequisites;
     SubmissionService service;
     final String user=UUID.randomUUID().toString();
-    final UUID problem=UUID.randomUUID(), version=UUID.randomUUID();
-    final String data=UUID.randomUUID().toString(), calibration=UUID.randomUUID().toString();
+    final UUID problem=UUID.randomUUID();
+    final String calibration=UUID.randomUUID().toString();
     @BeforeEach void setup() {
         service=new SubmissionService(store,prerequisites,json,manager,true,true);
-        var snapshot=new Snapshot(problem.toString(),version.toString(),1,"A+B",data,"a".repeat(64),"cpp","ACM",3);
+        var snapshot=new Snapshot(problem.toString(),"A+B","cpp","ACM");
         when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
-        when(prerequisites.profile(snapshot)).thenReturn(new Profile(version.toString(),data,"cpp",calibration,new Limits(1000000000L,268435456L,3000000000L),40000000000L));
+        when(prerequisites.profile(snapshot)).thenReturn(new Profile(problem.toString(),"cpp",calibration,new Limits(1000000000L,268435456L,3000000000L),40000000000L));
     }
-    Create request(String source) { return new Create(problem,version,"cpp",source); }
+    Create request(String source) { return new Create(problem,"cpp",source); }
     @Test void concurrentRetriesCreateOneImmutableInputAndOneOutbox() throws Exception {
         String key=UUID.randomUUID().toString(); var request=request("int main() {return 0;}");
         var start=new CountDownLatch(1);
@@ -84,9 +84,11 @@ class SubmissionPersistenceTests {
         assertEquals(inputs,jdbc.queryForObject("SELECT COUNT(*) FROM judge_input",Long.class));
         assertNull(store.request(user,key));
     }
-    @Test void versionMismatchAndMissingProfileNeverCreateSubmission() {
+    @Test void mismatchedSnapshotAndMissingProfileNeverCreateSubmission() {
         long before=jdbc.queryForObject("SELECT COUNT(*) FROM submission",Long.class);
-        assertThrows(SubmissionException.class,() -> service.create(user,UUID.randomUUID().toString(),new Create(problem,UUID.randomUUID(),"cpp","source")));
+        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(UUID.randomUUID().toString(),"A+B","cpp","ACM"));
+        assertThrows(SubmissionException.class,() -> service.create(user,UUID.randomUUID().toString(),request("source")));
+        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(problem.toString(),"A+B","cpp","ACM"));
         when(prerequisites.profile(any())).thenReturn(null);
         assertThrows(SubmissionException.class,() -> service.create(user,UUID.randomUUID().toString(),request("source")));
         assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM submission",Long.class));
@@ -113,7 +115,7 @@ class SubmissionPersistenceTests {
         service.create(otherUser,UUID.randomUUID().toString(),request("// another account"));
         String otherProblem=UUID.randomUUID().toString();
         String foreignProblemId=UUID.randomUUID().toString();
-        var foreignView=new View(foreignProblemId,otherProblem,version.toString(),1,"Another title","cpp","PENDING",
+        var foreignView=new View(foreignProblemId,otherProblem,"Another title","cpp","PENDING",
                 Instant.now(),null,null,null,null,null,null,null,null);
         store.put(foreignProblemId,user,otherProblem,json.writeValueAsString(foreignView),"// another problem",java.time.LocalDateTime.now());
         jdbc.update("UPDATE submission SET created_at='2026-09-07 00:00:00' WHERE id IN (?,?)",first,second);
@@ -130,7 +132,6 @@ class SubmissionPersistenceTests {
         assertEquals(first,readService.history(user,problem.toString(),1,20,"AC").items().getFirst().id());
         reset(prerequisites); // History remains available without querying today's problem publication.
         assertEquals("// first original\nint main() {} ",readService.source(user,first).source());
-        assertEquals(version.toString(),readService.source(user,first).problemVersionId());
         assertFalse(readService.source(user,first).toString().contains("original"));
         assertEquals(readService.source(user,first).source(),service.input(first).completeSource());
         var denied=assertThrows(SubmissionException.class,() -> readService.source(otherUser,first));

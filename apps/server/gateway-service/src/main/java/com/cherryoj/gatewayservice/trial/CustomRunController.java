@@ -50,7 +50,7 @@ public class CustomRunController {
 		client = builder.clone().baseUrl(url).codecs(c -> c.defaultCodecs().maxInMemorySize(1024 * 1024)).build();
 	}
 
-	public record Request(@NotNull UUID problemId, @NotNull UUID expectedProblemVersionId,
+	public record Request(@NotNull UUID problemId,
 			@NotNull @Pattern(regexp = "cpp") String languageId, @NotBlank @Size(max = 262144) String source,
 			@NotNull @Size(max = 65536) String inputText) {
 		@Override
@@ -72,7 +72,7 @@ public class CustomRunController {
 	}
 
 	@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-	public record Result(UUID problemId, UUID problemVersionId, int problemVersionNo, String languageId, String status,
+	public record Result(UUID problemId, String languageId, String status,
 			Long cpuNs, Long memoryBytes, Output stdout, Output stderr, String compileDiagnostic,
 			Limits effectiveLimits) {
 		@Override
@@ -161,7 +161,6 @@ public class CustomRunController {
 
 	static Result validate(Result v, Request r) {
 		if (v == null || !r.problemId().equals(v.problemId())
-				|| !r.expectedProblemVersionId().equals(v.problemVersionId()) || v.problemVersionNo() < 1
 				|| !"cpp".equals(v.languageId()) || v.status() == null
 				|| !Set
 					.of("COMPLETED", "COMPILE_ERROR", "RUNTIME_ERROR", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED",

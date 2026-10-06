@@ -8,16 +8,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import org.junit.jupiter.api.Test;
-import org.reactivestreams.Subscription;
 import org.springframework.core.io.buffer.DataBuffer;
-import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -33,7 +30,6 @@ import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
 import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
 
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Mono;
 
 class ProblemServiceStreamingTests {
@@ -49,10 +45,10 @@ class ProblemServiceStreamingTests {
 		WebClient.Builder webClient = WebClient.builder().exchangeStrategies(strategies)
 				.exchangeFunction(request -> {
 					outgoingRequest.set(request);
-					MockClientHttpRequest sink = new MockClientHttpRequest(HttpMethod.POST, request.url());
+					MockClientHttpRequest sink = new MockClientHttpRequest(HttpMethod.PUT, request.url());
 					return request.writeTo(sink, strategies).then(Mono.defer(sink::getBodyAsString))
 							.doOnNext(outgoingBody::set)
-							.thenReturn(ClientResponse.create(HttpStatus.CREATED)
+							.thenReturn(ClientResponse.create(HttpStatus.OK)
 									.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 									.body(testDataJson()).build());
 				});
@@ -66,7 +62,7 @@ class ProblemServiceStreamingTests {
 					BUFFERS.wrap(java.util.Arrays.copyOfRange(zip, zip.length / 2, zip.length)));
 		});
 
-		ProblemDtos.TestDataVersion result = client.uploadTestData(identity("delegated-jwt-secret"),
+		ProblemDtos.TestData result = client.replaceTestData(identity("delegated-jwt-secret"),
 				"019c8e42-7f70-7000-8000-000000000101", content).block();
 
 		assertThat(result).isNotNull();
@@ -75,43 +71,6 @@ class ProblemServiceStreamingTests {
 				.isEqualTo("Bearer delegated-jwt-secret");
 		assertThat(outgoingBody.get()).contains("1.in", "1.out", "name=\"file\"")
 				.doesNotContain("delegated-jwt-secret");
-	}
-
-	@Test
-	void downloadBodyPreservesDemandAndCancellation() {
-		AtomicBoolean cancelled = new AtomicBoolean();
-		Flux<DataBuffer> upstream = Flux.just(buffer("zip-first"), buffer("zip-second"))
-				.doOnCancel(() -> cancelled.set(true));
-		WebClient.Builder webClient = WebClient.builder().exchangeFunction(request -> Mono.just(
-				ClientResponse.create(HttpStatus.OK)
-						.header(HttpHeaders.CONTENT_TYPE, "application/zip")
-						.header(HttpHeaders.CONTENT_LENGTH, "19")
-						.body(upstream).build()));
-		ProblemServiceClient.Download download = new ProblemServiceClient(
-				webClient, properties(), new InternalRequestFactory())
-				.downloadTestData(identity("delegated-jwt"),
-						"019c8e42-7f70-7000-8000-000000000101",
-						"019c8e42-7f70-7000-8000-000000000103")
-				.block();
-
-		assertThat(download).isNotNull();
-		assertThat(download.contentLength()).isEqualTo(19);
-		AtomicReference<String> first = new AtomicReference<>();
-		download.body().map(ProblemServiceStreamingTests::readAndRelease)
-				.subscribe(new BaseSubscriber<>() {
-					@Override
-					protected void hookOnSubscribe(Subscription subscription) {
-						request(1);
-					}
-
-					@Override
-					protected void hookOnNext(String value) {
-						first.set(value);
-						cancel();
-					}
-				});
-		assertThat(first).hasValue("zip-first");
-		assertThat(cancelled).isTrue();
 	}
 
 	@Test
@@ -125,7 +84,7 @@ class ProblemServiceStreamingTests {
 		ProblemServiceClient safe = new ProblemServiceClient(
 				safeUpstream, properties(), new InternalRequestFactory());
 
-		assertThatThrownBy(() -> safe.listTestData(
+		assertThatThrownBy(() -> safe.getTestData(
 				identity("delegated-jwt"), "019c8e42-7f70-7000-8000-000000000101").block())
 				.isInstanceOfSatisfying(ProblemServiceClientException.class,
 						error -> assertThat(error.detail())
@@ -139,7 +98,7 @@ class ProblemServiceStreamingTests {
 		ProblemServiceClient unsafe = new ProblemServiceClient(
 				unsafeUpstream, properties(), new InternalRequestFactory());
 
-		assertThatThrownBy(() -> unsafe.listTestData(
+		assertThatThrownBy(() -> unsafe.getTestData(
 				identity("delegated-jwt"), "019c8e42-7f70-7000-8000-000000000101").block())
 				.isInstanceOfSatisfying(ProblemServiceClientException.class,
 						error -> assertThat(error.detail()).isNull());
@@ -155,10 +114,6 @@ class ProblemServiceStreamingTests {
 				"req_0123456789abcdef0123456789abcdef");
 	}
 
-	private static DataBuffer buffer(String value) {
-		return BUFFERS.wrap(value.getBytes(StandardCharsets.UTF_8));
-	}
-
 	private static byte[] zipBytes() throws IOException {
 		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 		try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
@@ -172,20 +127,12 @@ class ProblemServiceStreamingTests {
 		return bytes.toByteArray();
 	}
 
-	private static String readAndRelease(DataBuffer buffer) {
-		byte[] bytes = new byte[buffer.readableByteCount()];
-		buffer.read(bytes);
-		DataBufferUtils.release(buffer);
-		return new String(bytes, StandardCharsets.UTF_8);
-	}
-
 	private static String testDataJson() {
 		return """
-				{"id":"019c8e42-7f70-7000-8000-000000000103",
-				 "problemId":"019c8e42-7f70-7000-8000-000000000101","status":"READY",
-				 "sourceType":"MANUAL_UPLOAD","contentSha256":null,"caseCount":null,
-				 "totalBytes":null,"manifest":null,"createdAt":"2026-08-30T00:00:00",
-				 "readyAt":null,"errorMessage":null}
-				""";
+				{"digest":"6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
+				 "caseCount":1,"totalBytes":6,"updatedAt":"2026-08-30T00:00:00",
+				 "manifest":{"caseCount":1,"totalBytes":6,"files":[
+				   {"name":"1.in","sizeBytes":4,"sha256":"%s"},{"name":"1.out","sizeBytes":2,"sha256":"%s"}]}}
+				""".formatted("a".repeat(64), "b".repeat(64));
 	}
 }

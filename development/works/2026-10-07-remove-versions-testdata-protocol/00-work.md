@@ -1,6 +1,6 @@
 # 去版本化与测试数据协议
 
-类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–4 步已实施（2026-10-07），其余待授权
+类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–5 步已实施（2026-10-07），其余待授权
 
 ## 为什么做
 
@@ -96,3 +96,17 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
   读 Java 写出的数据集，AC/WA/CE 判定正确（`CHERRY_REAL_JUDGE_URL` 测试）。
 - **没有验证 / 遗留：** submission-service、gateway、前端仍按旧接口（第 5、6 步）；`judging-service/scripts/node-e2e.py` 仍是旧流程（第 7 步）；
   本机私有 `application-local.yaml` 需自行加 `cherry.judging.problem.token`（与 problem-service 的 `judging-problem-tokens` 配对）。
+
+## 进度与验证（第 5 步：submission-service、gateway-service、web-api.openapi.json，2026-10-07）
+
+- **契约先行：** `contracts/web-api.openapi.json` 去掉全部版本与测试数据版本：删 `…/versions/*`、`…/test-data/{id}/download`、绑定、部署；题目管理改为
+  `GET/PATCH/DELETE /api/admin/problems/{id}`、`GET /preview`、`GET/PUT /test-data`（上传即替换，返回指纹、测试点数、清单）、`POST /calibration`、
+  `GET /publish-check`（六项）、`POST /publish`、`POST /unpublish`。`AdminProblem` 是题目本身（含 `testData`），列表项是 `AdminProblemSummary`（含 `hasTestData`）；
+  校准带 `testDataDigest`、不再带 `rowVersion`；提交与自测请求去掉 `expectedProblemVersionId`，各响应去掉版本字段。该文件重新序列化过，所以 diff 看起来整体改动，语义变化以上述为准。
+  `scripts/contracts_test.py` 里的临时例外已移除，现在所有契约文件一律不得含版本字段。
+- **submission-service：** DTO（`Create`、`View`、`Snapshot`、`Profile`、`Input`、`Source`）按契约去版本；`Input` 不再冻结测试数据版本、指纹、测试点数和预算；
+  执行配置按题目×语言请求；提交总数改由判题结果里的 `totalCount` 提供（有执行数时必须带）；删除 `PROBLEM_VERSION_CHANGED` 冲突；自测同步去版本。数据库 V1 的表结构本来就不含版本列，无需改。
+- **gateway-service：** 路由与 DTO 同步新契约；`ProblemServiceClient` 删除版本、下载、绑定、部署相关方法，新增 `replaceTestData`（PUT multipart 流式转发）、`unpublish`、`deleteProblem` 等；
+  新增 `OpenApiAlignmentTests`，把网关 DTO 的字段与 OpenAPI 逐一对齐，并断言契约里不再出现任何版本概念。
+- **验证：** 后端五个服务的完整测试通过（gateway 84、problem 89、submission 11、judging 30 + 1 个需真实 judge 的默认跳过）；契约测试通过。
+- **没有验证 / 遗留：** 前端（第 6 步）仍按旧 API，类型要重新生成；端到端脚本与全局文档（第 7 步）；全链路（第 8 步）。

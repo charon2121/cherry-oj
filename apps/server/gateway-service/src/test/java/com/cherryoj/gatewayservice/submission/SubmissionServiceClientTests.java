@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SubmissionServiceClientTests {
     @Test void readsLargeOriginalSourceAndRejectsMismatchedUpstreamIdentity() throws Exception {
-        var id=UUID.randomUUID(); var problem=UUID.randomUUID(); var version=UUID.randomUUID();
+        var id=UUID.randomUUID(); var problem=UUID.randomUUID();
         String source="\n\t\"".repeat(80_000); // Below 256 KiB raw, much larger after JSON escaping.
         var json=new tools.jackson.databind.ObjectMapper();
         var wrongId=new java.util.concurrent.atomic.AtomicBoolean();
@@ -25,7 +25,7 @@ class SubmissionServiceClientTests {
             assertNull(exchange.getRequestHeaders().getFirst("Cookie"));
             Object result;
             if(exchange.getRequestURI().getPath().endsWith("/source")) {
-                result=new SubmissionController.Source(wrongId.get()?UUID.randomUUID():id,problem,version,"cpp",source);
+                result=new SubmissionController.Source(wrongId.get()?UUID.randomUUID():id,problem,"cpp",source);
             } else {
                 assertTrue(exchange.getRequestURI().getQuery().contains("problemId="+problem));
                 assertTrue(exchange.getRequestURI().getQuery().contains("verdict=AC"));
@@ -49,7 +49,7 @@ class SubmissionServiceClientTests {
     }
     @Test void readsMaximumPageWithEscapedDiagnostics() throws Exception {
         var problem=UUID.randomUUID();
-        var row=new SubmissionController.View(UUID.randomUUID(),problem,UUID.randomUUID(),1,
+        var row=new SubmissionController.View(UUID.randomUUID(),problem,
                 "题目","cpp","DONE",Instant.now(),"CE",null,null,null,null,null,"\u0001".repeat(8192),Instant.now());
         var body=new tools.jackson.databind.ObjectMapper().writeValueAsBytes(
                 new SubmissionController.HistoryPage(java.util.Collections.nCopies(100,row),1,100,100,1));
@@ -89,7 +89,7 @@ class SubmissionServiceClientTests {
                     "http://127.0.0.1:"+server.getAddress().getPort());
             var identity=new DelegatedIdentity("test-delegated-token",Instant.now().plusSeconds(60),"req_"+"a".repeat(32));
             var error=assertThrows(ApiProblemException.class,() -> client.create(identity,key,
-                    new SubmissionController.Create(UUID.randomUUID(),UUID.randomUUID(),"cpp","int main(){}") ).block());
+                    new SubmissionController.Create(UUID.randomUUID(),"cpp","int main(){}") ).block());
             assertEquals(HttpStatus.SERVICE_UNAVAILABLE,error.status());
             assertFalse(error.getMessage().contains("private upstream"));
             assertEquals(1,calls.get());

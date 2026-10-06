@@ -7,7 +7,6 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePartEvent;
 import org.springframework.http.codec.multipart.PartEvent;
 import org.springframework.stereotype.Component;
@@ -25,8 +24,6 @@ import reactor.core.publisher.Mono;
 final class ProblemServiceClient {
 
 	private static final MediaType APPLICATION_ZIP = MediaType.parseMediaType("application/zip");
-	private static final ParameterizedTypeReference<List<ProblemDtos.TestDataVersion>> TEST_DATA_LIST =
-			new ParameterizedTypeReference<>() { };
 
 	private final WebClient client;
 	private final ProblemServiceProperties properties;
@@ -103,105 +100,58 @@ final class ProblemServiceClient {
 				.bodyValue(body), ProblemDtos.AdminProblem.class);
 	}
 
-	Mono<ProblemDtos.AdminProblemVersion> createRevision(
-			DelegatedIdentity identity, String problemId, Object body) {
-		return json(requests.authenticated(
-				client.post().uri("/internal/admin/problems/{problemId}/versions", problemId), identity)
-				.bodyValue(body), ProblemDtos.AdminProblemVersion.class);
-	}
-
-	Mono<ProblemDtos.AdminProblemVersion> getVersion(
-			DelegatedIdentity identity, String problemId, String versionId) {
-		return json(requests.authenticated(client.get().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}", problemId, versionId),
-				identity), ProblemDtos.AdminProblemVersion.class);
-	}
-
-	Mono<ProblemDtos.AdminProblemVersion> updateVersion(
-			DelegatedIdentity identity, String problemId, String versionId, Object body) {
-		return json(requests.authenticated(client.patch().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}", problemId, versionId),
-				identity).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
-	}
-
-	Mono<Void> deleteVersion(
-			DelegatedIdentity identity, String problemId, String versionId, long rowVersion) {
+	Mono<Void> deleteProblem(DelegatedIdentity identity, String problemId, long rowVersion) {
 		return noContent(requests.authenticated(client.delete().uri(builder -> builder
-				.path("/internal/admin/problems/{problemId}/versions/{versionId}")
-				.queryParam("rowVersion", rowVersion).build(problemId, versionId)), identity));
+				.path("/internal/admin/problems/{problemId}")
+				.queryParam("rowVersion", rowVersion).build(problemId)), identity));
 	}
 
-	Mono<ProblemDtos.ProblemDetail> preview(
-			DelegatedIdentity identity, String problemId, String versionId) {
-		return json(requests.authenticated(client.get().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}/preview", problemId, versionId),
-				identity), ProblemDtos.ProblemDetail.class);
+	Mono<ProblemDtos.ProblemDetail> preview(DelegatedIdentity identity, String problemId) {
+		return json(requests.authenticated(
+				client.get().uri("/internal/admin/problems/{problemId}/preview", problemId), identity),
+				ProblemDtos.ProblemDetail.class);
 	}
 
-	Mono<List<ProblemDtos.TestDataVersion>> listTestData(
-			DelegatedIdentity identity, String problemId) {
+	Mono<ProblemDtos.TestData> getTestData(DelegatedIdentity identity, String problemId) {
 		return json(requests.authenticated(
 				client.get().uri("/internal/admin/problems/{problemId}/test-data", problemId), identity),
-				TEST_DATA_LIST);
+				ProblemDtos.TestData.class);
 	}
 
-	Mono<ProblemDtos.TestDataVersion> uploadTestData(
+	Mono<ProblemDtos.TestData> replaceTestData(
 			DelegatedIdentity identity, String problemId, Flux<DataBuffer> content) {
 		Flux<PartEvent> parts = FilePartEvent.create(
 				"file", "test-data.zip", APPLICATION_ZIP, content).cast(PartEvent.class);
-		return streamingJson(requests.authenticated(client.post().uri(
+		return streamingJson(requests.authenticated(client.put().uri(
 				"/internal/admin/problems/{problemId}/test-data", problemId), identity)
 				.contentType(MediaType.MULTIPART_FORM_DATA)
 				.body(parts, PartEvent.class),
-				ProblemDtos.TestDataVersion.class);
-	}
-
-	Mono<Download> downloadTestData(
-			DelegatedIdentity identity, String problemId, String testDataVersionId) {
-		return requests.authenticated(client.get().uri(
-				"/internal/admin/problems/{problemId}/test-data/{testDataVersionId}/download",
-				problemId, testDataVersionId), identity)
-				.accept(APPLICATION_ZIP)
-				.retrieve()
-				.onStatus(status -> !status.is2xxSuccessful(), this::downloadError)
-				.toEntityFlux(DataBuffer.class)
-				.timeout(properties.metadataTimeout())
-				.map(entity -> download(entity, testDataVersionId));
-	}
-
-	Mono<ProblemDtos.AdminProblemVersion> bindTestData(
-			DelegatedIdentity identity, String problemId, String versionId, Object body) {
-		return json(requests.authenticated(client.put().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}/test-data", problemId, versionId),
-				identity).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
-	}
-
-	Mono<ProblemDtos.TestDataDeployment> deploy(
-			DelegatedIdentity identity, String problemId, String versionId, Object body) {
-		return streamingJson(requests.authenticated(client.post().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}/deployment", problemId, versionId),
-				identity).bodyValue(body), ProblemDtos.TestDataDeployment.class);
+				ProblemDtos.TestData.class);
 	}
 
 	Mono<ProblemDtos.LanguageCalibration> calibrate(
-			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+			DelegatedIdentity identity, String problemId, Object body) {
 		return streamingJson(requests.authenticated(client.post().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}/calibration", problemId, versionId),
-				identity).bodyValue(body), ProblemDtos.LanguageCalibration.class);
+				"/internal/admin/problems/{problemId}/calibration", problemId), identity)
+				.bodyValue(body), ProblemDtos.LanguageCalibration.class);
 	}
 
-	Mono<ProblemDtos.PublishCheck> publishCheck(
-			DelegatedIdentity identity, String problemId, String versionId) {
-		return json(requests.authenticated(client.get().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}/publish-check", problemId, versionId),
-				identity), ProblemDtos.PublishCheck.class);
+	Mono<ProblemDtos.PublishCheck> publishCheck(DelegatedIdentity identity, String problemId) {
+		return json(requests.authenticated(
+				client.get().uri("/internal/admin/problems/{problemId}/publish-check", problemId), identity),
+				ProblemDtos.PublishCheck.class);
 	}
 
-	Mono<ProblemDtos.AdminProblemVersion> publish(
-			DelegatedIdentity identity, String problemId, String versionId, Object body) {
+	Mono<ProblemDtos.AdminProblem> publish(DelegatedIdentity identity, String problemId, Object body) {
 		return streamingJson(requests.authenticated(client.post().uri(
-				"/internal/admin/problems/{problemId}/versions/{versionId}/publish", problemId, versionId),
-				identity).bodyValue(body), ProblemDtos.AdminProblemVersion.class);
+				"/internal/admin/problems/{problemId}/publish", problemId), identity)
+				.bodyValue(body), ProblemDtos.AdminProblem.class);
+	}
+
+	Mono<ProblemDtos.AdminProblem> unpublish(DelegatedIdentity identity, String problemId, Object body) {
+		return json(requests.authenticated(client.post().uri(
+				"/internal/admin/problems/{problemId}/unpublish", problemId), identity)
+				.bodyValue(body), ProblemDtos.AdminProblem.class);
 	}
 
 	private <T> Mono<T> json(WebClient.RequestHeadersSpec<?> request, Class<T> type) {
@@ -234,28 +184,6 @@ final class ProblemServiceClient {
 				.timeout(properties.metadataTimeout());
 	}
 
-	private Mono<? extends Throwable> downloadError(ClientResponse response) {
-		return response.bodyToMono(InternalError.class)
-				.onErrorReturn(new InternalError("UPSTREAM_ERROR"))
-				.defaultIfEmpty(new InternalError("UPSTREAM_ERROR"))
-				.map(error -> new ProblemServiceClientException(
-						response.statusCode(), safeCode(error.code()), safeDetail(error.detail())));
-	}
-
-	private Download download(ResponseEntity<Flux<DataBuffer>> entity, String testDataVersionId) {
-		MediaType contentType = entity.getHeaders().getContentType();
-		if (contentType == null || !APPLICATION_ZIP.isCompatibleWith(contentType)) {
-			throw new IllegalStateException("invalid download media type");
-		}
-		long length = entity.getHeaders().getContentLength();
-		Flux<DataBuffer> body = entity.getBody();
-		if (body == null) {
-			throw new IllegalStateException("empty download body");
-		}
-		return new Download(length >= 0 ? length : null, testDataVersionId + ".zip",
-				body.timeout(properties.streamingTimeout()));
-	}
-
 	private static <T> Mono<T> error(HttpStatusCode status, Mono<InternalError> body) {
 		return body.onErrorReturn(new InternalError("UPSTREAM_ERROR"))
 				.defaultIfEmpty(new InternalError("UPSTREAM_ERROR"))
@@ -282,9 +210,6 @@ final class ProblemServiceClient {
 			return null;
 		}
 		return candidate;
-	}
-
-	record Download(Long contentLength, String filename, Flux<DataBuffer> body) {
 	}
 
 	private record InternalError(String code, String detail) {

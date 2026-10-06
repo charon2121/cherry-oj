@@ -62,7 +62,7 @@ final class SubmissionServiceClient {
         return requests.authenticated(client.get().uri("/api/submissions/{id}/source",id),identity).exchangeToMono(response -> {
             if(response.statusCode().value()!=200) return failure(response);
             return response.bodyToMono(SubmissionController.Source.class).map(source -> {
-                if(!id.equals(source.submissionId()) || source.problemId()==null || source.problemVersionId()==null
+                if(!id.equals(source.submissionId()) || source.problemId()==null
                         || !"cpp".equals(source.languageId()) || source.source()==null
                         || source.source().getBytes(java.nio.charset.StandardCharsets.UTF_8).length>262144) throw unavailable();
                 return source;
@@ -70,7 +70,7 @@ final class SubmissionServiceClient {
         }).switchIfEmpty(Mono.error(unavailable())).timeout(Duration.ofSeconds(10)).onErrorMap(SubmissionServiceClient::map);
     }
     private static SubmissionController.View validate(SubmissionController.View view) {
-        if(view.id()==null || view.problemId()==null || view.problemVersionId()==null || view.problemTitle()==null
+        if(view.id()==null || view.problemId()==null || view.problemTitle()==null
                 || view.createdAt()==null || !"cpp".equals(view.languageId()) || view.status()==null
                 || !Set.of("PENDING","JUDGING","DONE").contains(view.status())
                 || ("DONE".equals(view.status()) && (view.verdict()==null
@@ -84,7 +84,6 @@ final class SubmissionServiceClient {
                     String code=error.code();
                     String detail=switch(code==null?"":code) {
                         case "PROBLEM_NOT_AVAILABLE" -> "题目当前不可提交，请返回题库确认公开状态。";
-                        case "PROBLEM_VERSION_CHANGED" -> "题目版本已更新，请打开新版本后重新提交。";
                         case "IDEMPOTENCY_CONFLICT" -> "此请求对应的代码不同，请先恢复原提交结果。";
                         case "SOURCE_TOO_LARGE" -> "源码超过 256 KiB，请缩减后提交。";
                         case "SUBMISSIONS_PAUSED" -> "暂未开放新提交，请稍后重试；已有结果仍可查询。";

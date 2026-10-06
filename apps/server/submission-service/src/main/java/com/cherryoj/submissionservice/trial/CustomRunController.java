@@ -42,7 +42,7 @@ public class CustomRunController {
 		this.token = token;
 	}
 
-	public record Request(@NotNull UUID problemId, @NotNull UUID expectedProblemVersionId,
+	public record Request(@NotNull UUID problemId,
 			@NotNull @Pattern(regexp = "cpp") String languageId, @NotBlank @Size(max = 262144) String source,
 			@NotNull @Size(max = 65536) String inputText) {
 		@Override
@@ -64,22 +64,15 @@ public class CustomRunController {
 			throw failure(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入超过大小限制。");
 		var s = prerequisites.snapshot(r.problemId().toString(), r.languageId());
 		if (s == null || !r.problemId().toString().equals(s.problemId()) || !"ACM".equals(s.codeMode())
-				|| !"cpp".equals(s.languageId()) || s.problemVersionId() == null || s.testDataVersionId() == null
-				|| s.problemVersionNo() < 1 || s.testDataContentSha256() == null
-				|| !s.testDataContentSha256().matches("[a-f0-9]{64}"))
+				|| !"cpp".equals(s.languageId()))
 			throw unavailable();
-		if (!r.expectedProblemVersionId().toString().equals(s.problemVersionId()))
-			throw failure(HttpStatus.CONFLICT, "PROBLEM_VERSION_CHANGED", "题目版本已更新，请打开新版本后再运行。");
 		try {
-			UUID.fromString(s.problemVersionId());
-			UUID.fromString(s.testDataVersionId());
 			ServiceCredentials.validate(token);
 		}
 		catch (RuntimeException invalid) {
 			throw unavailable();
 		}
-		var body = Map.of("problemId", s.problemId(), "problemVersionId", s.problemVersionId(), "testDataVersionId",
-				s.testDataVersionId(), "testDataContentSha256", s.testDataContentSha256(), "languageId", "cpp",
+		var body = Map.of("problemId", s.problemId(), "languageId", "cpp",
 				"source", r.source(), "inputText", r.inputText(), "deadlineEpochMs", deadline);
 		long remaining = deadline - System.currentTimeMillis();
 		if (remaining <= 0)
@@ -116,8 +109,6 @@ public class CustomRunController {
 				if (result.has(field))
 					output.set(field, result.get(field));
 			output.put("problemId", s.problemId());
-			output.put("problemVersionId", s.problemVersionId());
-			output.put("problemVersionNo", s.problemVersionNo());
 			output.put("languageId", "cpp");
 			return ResponseEntity.ok().header("Cache-Control", "no-store").body(output);
 		}

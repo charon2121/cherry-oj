@@ -42,18 +42,15 @@ public class SubmissionService {
         if (!accepting || !messaging) throw problem(HttpStatus.SERVICE_UNAVAILABLE,"SUBMISSIONS_PAUSED","正式提交暂时不可用。");
         var snapshot=prerequisites.snapshot(request.problemId().toString(),request.languageId());
         validateSnapshot(snapshot, request);
-        if (!request.expectedProblemVersionId().toString().equals(snapshot.problemVersionId())) {
-            throw problem(HttpStatus.CONFLICT,"PROBLEM_VERSION_CHANGED","题目已更新，请刷新题面后重新确认。");
-        }
         var profile=prerequisites.profile(snapshot);
         validateProfile(profile,snapshot);
         Instant now=Instant.now();
         String id=uuid7(), event=uuid7();
-        var view=new View(id,snapshot.problemId(),snapshot.problemVersionId(),snapshot.problemVersionNo(),snapshot.problemTitle(),
+        var view=new View(id,snapshot.problemId(),snapshot.problemTitle(),
                 request.languageId(),"PENDING",now,null,null,null,null,null,null,null,null);
-        var input=new Input(id,"2",snapshot.problemId(),snapshot.problemVersionId(),snapshot.testDataVersionId(),request.languageId(),
+        var input=new Input(id,"2",snapshot.problemId(),request.languageId(),
                 request.source(),sha(request.source()),profile.languageCalibrationId(),
-                profile.effectiveLimits(),now,snapshot.testDataContentSha256(),snapshot.totalCount(),profile.executionBudgetNs());
+                profile.effectiveLimits(),now);
         String payload=json.writeValueAsString(Map.of("eventId",event,"eventType","JudgeRequested","eventVersion",1,
                 "occurredAt",now.toString(),"traceId",traceId(),"aggregateId",id,
                 "payload",Map.of("submissionId",id,"judgeInputContractVersion","2")));
@@ -104,7 +101,7 @@ public class SubmissionService {
         var row = store.source(user, id);
         if (row == null) throw missing();
         var view = json.readValue(row.readModel(), View.class);
-        return new Source(row.id(), row.problemId(), view.problemVersionId(), view.languageId(), row.source());
+        return new Source(row.id(), row.problemId(), view.languageId(), row.source());
     }
     public Input input(String id) {
         String value=store.input(id); if (value==null) throw missing();
@@ -112,12 +109,10 @@ public class SubmissionService {
     }
     private static void validateSnapshot(Snapshot s,Create r) {
         if (s==null || !r.problemId().toString().equals(s.problemId()) || !"cpp".equals(s.languageId()) || !"ACM".equals(s.codeMode())
-                || s.problemVersionId()==null || s.testDataVersionId()==null || s.problemVersionNo()<1 || s.problemTitle()==null
-                || s.testDataContentSha256()==null || !s.testDataContentSha256().matches("[a-f0-9]{64}") || s.totalCount()<1 || s.totalCount()>1000) throw invalidSnapshot();
-        try { UUID.fromString(s.problemVersionId()); UUID.fromString(s.testDataVersionId()); } catch (IllegalArgumentException error) { throw invalidSnapshot(); }
+                || s.problemTitle()==null) throw invalidSnapshot();
     }
     private static void validateProfile(Profile p,Snapshot s) {
-        if (p==null || !s.problemVersionId().equals(p.problemVersionId()) || !s.testDataVersionId().equals(p.testDataVersionId())
+        if (p==null || !s.problemId().equals(p.problemId())
                 || !s.languageId().equals(p.languageId()) || p.languageCalibrationId()==null || p.effectiveLimits()==null) throw invalidSnapshot();
         var limits=p.effectiveLimits();
         if (p.executionBudgetNs()<=0 || limits.cpuNs()<=0 || limits.memoryBytes()<=0 || (limits.clockNs()!=null && limits.clockNs()<=0)) throw invalidSnapshot();

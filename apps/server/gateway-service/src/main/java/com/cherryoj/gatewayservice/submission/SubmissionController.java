@@ -67,15 +67,15 @@ public final class SubmissionController {
                 .map(view -> ResponseEntity.ok().header("Cache-Control","no-store").body(ApiSuccess.of(view,requestId)));
     }
     public record HistoryPage(java.util.List<View> items,int page,int size,long totalElements,int totalPages) {}
-    public record Source(UUID submissionId,UUID problemId,UUID problemVersionId,String languageId,String source) {
+    public record Source(UUID submissionId,UUID problemId,String languageId,String source) {
         @Override public String toString() { return "Source[submissionId="+submissionId+", source=<redacted>]"; }
     }
-    public record Create(@NotNull UUID problemId,@NotNull UUID expectedProblemVersionId,
+    public record Create(@NotNull UUID problemId,
             @NotBlank @Pattern(regexp="cpp") String languageId,@NotBlank @Size(max=262144) String source) {
         @Override public String toString() { return "Create[source=<redacted>]"; }
     }
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record View(UUID id,UUID problemId,UUID problemVersionId,int problemVersionNo,
+    public record View(UUID id,UUID problemId,
             String problemTitle,String languageId,String status,Instant createdAt,String verdict,
             Long cpuNs,Long memoryBytes,Integer passedCount,Integer executedCount,Integer totalCount,
             String message,Instant finishedAt) {}

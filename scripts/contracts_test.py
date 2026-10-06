@@ -126,10 +126,6 @@ class ContractsTest(unittest.TestCase):
             "testDataContentSha256",
         }
         for path in CONTRACTS.glob("*.json"):
-            # TODO: web-api.openapi.json 随 gateway 与前端一起去版本（development/works/2026-10-07-
-            # remove-versions-testdata-protocol 第 5、6 步），完成后移除这个例外。
-            if path.name == "web-api.openapi.json":
-                continue
             for node in walk(load(path.name)):
                 if isinstance(node, dict):
                     self.assertTrue(removed.isdisjoint(node), f"{path.name}: 仍含 {sorted(removed & set(node))}")
@@ -193,7 +189,7 @@ class ContractsTest(unittest.TestCase):
         request = document["components"]["schemas"]["CreateSubmissionRequest"]
         self.assertNotIn("userId", request["properties"])
         self.assertEqual(request["properties"]["source"]["x-max-utf8-bytes"], 262144)
-        self.assertIn("expectedProblemVersionId", request["required"])
+        self.assertEqual(set(request["required"]), {"problemId", "languageId", "source"})
         self.assertEqual(set(document["paths"]["/api/submission-requests/{key}"]), {"get"})
         self.assertTrue({"200", "201"}.issubset(document["paths"]["/api/submissions"]["post"]["responses"]))
 

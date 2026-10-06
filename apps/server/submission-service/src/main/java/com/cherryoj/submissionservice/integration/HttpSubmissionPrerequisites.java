@@ -36,8 +36,7 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
     }
     public Profile profile(Snapshot s) {
         return post(judgingUrl, "/internal/submission/execution-profile", judgingToken,
-                Map.of("problemVersionId",s.problemVersionId(),"testDataVersionId",s.testDataVersionId(),
-                        "testDataContentSha256",s.testDataContentSha256(),"languageId",s.languageId(),"totalCount",s.totalCount()), Profile.class);
+                Map.of("problemId",s.problemId(),"languageId",s.languageId(),"purpose","formal"), Profile.class);
     }
     private <T> T post(String base, String path, String token, Object body, Class<T> type) {
         CompletableFuture<HttpResponse<byte[]>> future = null;

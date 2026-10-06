@@ -13,19 +13,17 @@ import static org.junit.jupiter.api.Assertions.*;
 class CustomRunSnapshotTests {
 
 	@Test
-	void staleVersionIsRejectedBeforeAnyTrialCall() {
+	void snapshotOfAnotherProblemIsNeverForwarded() {
 		var prerequisite = mock(SubmissionPrerequisites.class);
 		var id = UUID.randomUUID();
-		var version = UUID.randomUUID();
 		when(prerequisite.snapshot(id.toString(), "cpp"))
-			.thenReturn(new SubmissionDtos.Snapshot(id.toString(), UUID.randomUUID().toString(), 2, "title",
-					UUID.randomUUID().toString(), "a".repeat(64), "cpp", "ACM", 1));
+			.thenReturn(new SubmissionDtos.Snapshot(UUID.randomUUID().toString(), "title", "cpp", "ACM"));
 		var controller = new CustomRunController(prerequisite, new ObjectMapper(), "http://127.0.0.1:1", "unused");
 		var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(UUID.randomUUID().toString()).build();
-		var request = new CustomRunController.Request(id, version, "cpp", "int main(){}", "");
+		var request = new CustomRunController.Request(id, "cpp", "int main(){}", "");
 		var error = assertThrows(SubmissionException.class,
 				() -> controller.run(request, new JwtAuthenticationToken(jwt), null, null));
-		assertEquals("PROBLEM_VERSION_CHANGED", error.code());
+		assertEquals("CUSTOM_RUN_UNAVAILABLE", error.code());
 		verify(prerequisite, never()).profile(any());
 	}
 
@@ -33,11 +31,9 @@ class CustomRunSnapshotTests {
 	void forwardsFrozenInputWithoutAnyDownstreamFeatureFlag() throws Exception {
 		var prerequisite = mock(SubmissionPrerequisites.class);
 		var id = UUID.randomUUID();
-		var version = UUID.randomUUID();
-		var data = UUID.randomUUID();
 		var json = new ObjectMapper();
 		when(prerequisite.snapshot(id.toString(), "cpp")).thenReturn(new SubmissionDtos.Snapshot(id.toString(),
-				version.toString(), 2, "title", data.toString(), "a".repeat(64), "cpp", "ACM", 1));
+				"title", "cpp", "ACM"));
 		var captured = new java.util.concurrent.atomic.AtomicReference<tools.jackson.databind.JsonNode>();
 		var authorization = new java.util.concurrent.atomic.AtomicReference<String>();
 		var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
@@ -57,13 +53,16 @@ class CustomRunSnapshotTests {
 			var controller = new CustomRunController(prerequisite, json,
 					"http://127.0.0.1:" + server.getAddress().getPort(), token);
 			var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(UUID.randomUUID().toString()).build();
-			var response = controller.run(new CustomRunController.Request(id, version, "cpp", "int main(){}", ""),
+			var response = controller.run(new CustomRunController.Request(id, "cpp", "int main(){}", ""),
 					new JwtAuthenticationToken(jwt), null, null);
 			assertEquals("COMPLETED", response.getBody().path("status").asText());
-			assertEquals(version.toString(), response.getBody().path("problemVersionId").asText());
+			assertEquals(id.toString(), response.getBody().path("problemId").asText());
+			assertFalse(response.getBody().has("problemVersionId"));
 			assertEquals("no-store", response.getHeaders().getFirst("Cache-Control"));
 			assertEquals("Bearer " + token, authorization.get());
-			assertEquals(data.toString(), captured.get().path("testDataVersionId").asText());
+			assertEquals(id.toString(), captured.get().path("problemId").asText());
+			assertFalse(captured.get().has("testDataVersionId"));
+			assertFalse(captured.get().has("problemVersionId"));
 			assertEquals("", captured.get().path("inputText").asText());
 			verify(prerequisite, never()).profile(any());
 		}
