@@ -84,10 +84,18 @@ func Load(ctx context.Context, opts Options, location string) (Set, error) {
 		if err == nil {
 			return set, nil
 		}
-		if attempt == 2 || ctx.Err() != nil || !(errors.Is(err, errChanged) || errors.Is(err, fs.ErrNotExist)) {
+		if attempt == 2 || ctx.Err() != nil || !retryable(err) {
 			return Set{}, fmt.Errorf("load test data from %s: %w", location, err)
 		}
 	}
+}
+
+// retryable 判断复制数据时的错误是不是「读取撞上写入方替换数据」：文件对不上、不见了，或者读本地文件时
+// 操作系统报错（macOS 上读取撞上符号链接被替换的瞬间会得到 EINVAL）。大小上限、HTTP 状态码这类错误
+// 重试也不会好，不在其内。
+func retryable(err error) bool {
+	var pathError *fs.PathError
+	return errors.Is(err, errChanged) || errors.Is(err, fs.ErrNotExist) || errors.As(err, &pathError)
 }
 
 func readMetadata(ctx context.Context, src source) (metadata, error) {
