@@ -5,8 +5,6 @@ import com.cherryoj.judgingservice.api.JudgingDtos;
 import com.cherryoj.judgingservice.api.JudgingDtos.BenchmarkSummary;
 import com.cherryoj.judgingservice.api.JudgingDtos.Calibration;
 import com.cherryoj.judgingservice.api.JudgingDtos.CalibrationRequest;
-import com.cherryoj.judgingservice.api.JudgingDtos.Deployment;
-import com.cherryoj.judgingservice.api.JudgingDtos.DeploymentMetadata;
 import com.cherryoj.judgingservice.api.JudgingDtos.ExecutionProfile;
 import com.cherryoj.judgingservice.api.JudgingDtos.Readiness;
 import com.cherryoj.judgingservice.api.JudgingDtos.ReadinessCheck;
@@ -16,7 +14,6 @@ import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeCallException;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.CalibrationRow;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -37,7 +34,6 @@ import tools.jackson.databind.ObjectMapper;
 public class JudgingReadinessService {
     private static final int MAX_SAFE_ERROR = 128;
     private final JudgeNodeRepository nodes;
-    private final NodeDeploymentService nodeDeployments;
     private final JudgingRepository repository;
     private final JudgeGateway judge;
     private final UuidV7 ids;
@@ -47,20 +43,14 @@ public class JudgingReadinessService {
 
     public JudgingReadinessService(JudgingRepository repository, JudgeGateway judge, UuidV7 ids, Clock clock,
                                    ObjectMapper json, PlatformTransactionManager transactionManager,
-                                   JudgeNodeRepository nodes,
-                                   NodeDeploymentService nodeDeployments) {
+                                   JudgeNodeRepository nodes) {
         this.repository = repository;
-        this.nodes = nodes; this.nodeDeployments = nodeDeployments;
+        this.nodes = nodes;
         this.judge = judge;
         this.ids = ids;
         this.clock = clock;
         this.json = json;
         this.transactions = new TransactionTemplate(transactionManager);
-    }
-
-    public Deployment deploy(DeploymentMetadata metadata, InputStream archive,
-                             String actorId, String traceId) {
-        return nodeDeployments.deploy(metadata, archive, traceId);
     }
 
     public Calibration calibrate(CalibrationRequest request, String actorId, String traceId) {
@@ -73,8 +63,8 @@ public class JudgingReadinessService {
         JudgeGateway.JudgeResult result;
         try {
             result = judge.judge(start.endpoint(), new JudgeGateway.JudgeRequest(
-                    start.calibrationId(), request.problemId(), request.problemVersionId(),
-                    request.testDataVersionId(), request.languageId(), request.referenceSource(),
+                    start.calibrationId(), request.problemId(), request.testDataLocation(),
+                    request.languageId(), request.referenceSource(),
                     new JudgeGateway.Limits(request.cpuNs(), request.memoryBytes(), request.clockNs()), "submit"), traceId);
         }
         catch (JudgeCallException error) {
@@ -90,27 +80,30 @@ public class JudgingReadinessService {
             finishFailedCalibration(start.calibrationId(), summary, "REFERENCE_" + verdict, actorId, traceId);
             return mapCalibration(repository.findCalibration(start.calibrationId()));
         }
+        // 判题读到的不是请求里的那份数据：标定中途数据被替换，这次标定对应不上任何一份数据，作废。
+        if (!request.testDataDigest().equals(result.testDataDigest())) {
+            finishFailedCalibration(start.calibrationId(), summary, "TEST_DATA_CHANGED", actorId, traceId);
+            return mapCalibration(repository.findCalibration(start.calibrationId()));
+        }
 
         return transactions.execute(status -> finishValidCalibration(
                 start, request, summary, actorId, traceId));
     }
 
-    public Readiness readiness(String problemVersionId, String testDataVersionId,
-                               String expectedSha256, String languageId) {
+    public Readiness readiness(String problemId, String languageId, String testDataDigest) {
         TransactionTemplate read = new TransactionTemplate(transactions.getTransactionManager());
         read.setReadOnly(true);
-        return read.execute(status -> resolveReadiness(problemVersionId, testDataVersionId,
-                expectedSha256, languageId));
+        return read.execute(status -> resolveReadiness(problemId, languageId, testDataDigest));
     }
 
     private CalibrationStart startCalibration(CalibrationRequest request, String actorId, String traceId) {
-        var node = requireReadyNode(request.languageId(), request.testDataVersionId(), request.expectedSha256());
+        var node = requireOnlineNode(request.languageId());
         String id = ids.next().toString();
-        repository.insertCalibration(id, request.problemVersionId(), request.languageId(),
+        repository.insertCalibration(id, request.problemId(), request.languageId(), request.testDataDigest(),
                 request.cpuNs(), request.memoryBytes(), request.clockNs(), now());
         audit("CALIBRATION", id, actorId, "CALIBRATION_STARTED", traceId,
-                Map.of("calibrationId", id, "problemVersionId", request.problemVersionId(),
-                        "testDataVersionId", request.testDataVersionId(), "nodeId", node.nodeId(),
+                Map.of("calibrationId", id, "problemId", request.problemId(),
+                        "testDataDigest", request.testDataDigest(), "nodeId", node.nodeId(),
                         "languageId", request.languageId(), "cpuNs", request.cpuNs(),
                         "memoryBytes", request.memoryBytes()));
         return new CalibrationStart(id, node.endpoint());
@@ -118,8 +111,8 @@ public class JudgingReadinessService {
 
     private Calibration finishValidCalibration(CalibrationStart start, CalibrationRequest request,
                                                BenchmarkSummary summary, String actorId, String traceId) {
-        requireReadyNode(request.languageId(), request.testDataVersionId(), request.expectedSha256());
-        CalibrationRow previous = repository.findValid(request.problemVersionId(), request.languageId(), true);
+        requireOnlineNode(request.languageId());
+        CalibrationRow previous = repository.findValid(request.problemId(), request.languageId(), true);
         if (previous != null && repository.supersede(previous.id(), now(), previous.rowVersion()) != 1) {
             throw conflict("CALIBRATION_STATE_CONFLICT", "有效校准已经改变，请重试。");
         }
@@ -128,7 +121,7 @@ public class JudgingReadinessService {
             throw conflict("CALIBRATION_STATE_CONFLICT", "校准状态已经改变，请重试。");
         }
         audit("CALIBRATION", start.calibrationId(), actorId, "CALIBRATION_VALIDATED", traceId,
-                Map.of("calibrationId", start.calibrationId(), "problemVersionId", request.problemVersionId(),
+                Map.of("calibrationId", start.calibrationId(), "problemId", request.problemId(),
                         "languageId", request.languageId(),
                         "sourceSha256", summary.sourceSha256(), "verdict", summary.verdict()));
         return mapCalibration(repository.findCalibration(start.calibrationId()));
@@ -146,34 +139,35 @@ public class JudgingReadinessService {
         });
     }
 
-    private Readiness resolveReadiness(String problemVersionId, String testDataVersionId,
-                                       String expectedSha256, String languageId) {
+    /** 题目当前的测试数据指纹 = 标定时的指纹，旧标定才算数；数据一换，标定即过期。 */
+    private Readiness resolveReadiness(String problemId, String languageId, String testDataDigest) {
         ArrayList<ReadinessCheck> checks = new ArrayList<>();
         boolean online = !nodes.online(now()).isEmpty();
         checks.add(check("ONLINE_JUDGE_NODE", online, online ? "在线判题节点可用。" : "当前没有在线判题节点，请启动节点并等待注册。"));
         boolean language = !nodes.online(languageId, now()).isEmpty();
         checks.add(check("LANGUAGE", language,
                 language ? "有在线节点支持该语言。" : "没有在线节点支持该语言。"));
-        var readyNode = nodes.ready(languageId, testDataVersionId, expectedSha256, now());
-        boolean deployed = readyNode != null;
-        checks.add(check("DEPLOYMENT", deployed,
-                deployed ? "测试数据已按预期摘要部署。" : "测试数据尚未 READY 或摘要不匹配。"));
-        CalibrationRow calibration = repository.findValid(problemVersionId, languageId, false);
-        boolean calibrated = calibration != null;
-        checks.add(check("CALIBRATION", calibrated,
-                calibrated ? "该语言存在 VALID 校准。" : "该语言缺少 VALID 校准。"));
+        CalibrationRow calibration = repository.findValid(problemId, languageId, false);
+        boolean current = calibration != null && testDataDigest.equals(calibration.testDataDigest());
+        checks.add(check("CALIBRATION", current,
+                current ? "该语言存在对应当前测试数据的 VALID 校准。"
+                        : calibration == null ? "该语言缺少 VALID 校准。" : "测试数据已更新，该语言的校准已过期，请重新校准。"));
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
-        ExecutionProfile profile = ready ? new ExecutionProfile(readyNode.endpoint(), calibration.id(),
+        ExecutionProfile profile = ready ? new ExecutionProfile(calibration.id(),
                 calibration.cpuNs(), calibration.memoryBytes(), calibration.clockNs()) : null;
         return new Readiness(ready, checks, profile);
     }
 
-    /** 持有这份测试数据、且声明了该语言的在线节点；没有就不能标定。 */
-    private JudgeNodeRepository.Node requireReadyNode(String languageId, String testDataVersionId, String expectedSha) {
-        if (nodes.online(languageId, now()).isEmpty()) throw NodeDeploymentService.noOnline();
-        var node = nodes.ready(languageId, testDataVersionId, expectedSha, now());
-        if (node == null) throw conflict("DEPLOYMENT_NOT_READY", "在线节点尚未安装匹配的测试数据，请先部署。");
-        return node;
+    /** 任何在线且声明了该语言的节点都行：它们按同一个地址读同一份测试数据。 */
+    private JudgeNodeRepository.Node requireOnlineNode(String languageId) {
+        var online = nodes.online(languageId, now());
+        if (online.isEmpty()) throw noOnline();
+        return online.getFirst();
+    }
+
+    public static JudgingApiException noOnline() {
+        return new JudgingApiException(HttpStatus.SERVICE_UNAVAILABLE, "NO_ONLINE_JUDGE_NODE",
+                "当前没有在线判题节点，请启动节点并等待注册后重试。");
     }
 
     private void audit(String type, String aggregateId, String actorId, String action,
@@ -185,7 +179,7 @@ public class JudgingReadinessService {
     private Calibration mapCalibration(CalibrationRow row) {
         BenchmarkSummary summary = row.benchmarkSummaryJson() == null ? null
                 : json.readValue(row.benchmarkSummaryJson(), BenchmarkSummary.class);
-        return new Calibration(row.id(), row.problemVersionId(), row.languageId(), row.status(), row.cpuNs(), row.memoryBytes(), row.clockNs(), summary, row.errorMessage(),
+        return new Calibration(row.id(), row.problemId(), row.languageId(), row.status(), row.cpuNs(), row.memoryBytes(), row.clockNs(), row.testDataDigest(), summary, row.errorMessage(),
                 row.createdAt(), row.updatedAt(), row.rowVersion());
     }
 

@@ -376,7 +376,7 @@ class ProblemPublicationIntegrationTests {
                     new JudgingDtos.ReadinessCheck("ONLINE_JUDGE_NODE", true, "Node online."),
                     new JudgingDtos.ReadinessCheck("LANGUAGE", true, "Language ready."),
                     new JudgingDtos.ReadinessCheck("CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
-                    ready ? new JudgingDtos.ExecutionProfile("endpoint",
+                    ready ? new JudgingDtos.ExecutionProfile(
                             UUID.randomUUID().toString(), 1, 1, null) : null);
             if (afterReadiness != null) afterReadiness.run();
             return result;

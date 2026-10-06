@@ -17,3 +17,7 @@ cherry:
   judging:
     node:
       control-token: ""
+    problem:
+      url: "http://127.0.0.1:8082"
+      # 必须属于 problem-service 的 cherry.service-calls.judging-problem-tokens；不填则判题取不到测试数据
+      token: ""

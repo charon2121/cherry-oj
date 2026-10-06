@@ -27,11 +27,11 @@ class HttpJudgeGatewaySizeTests {
         });
         server.start();
         try {
-            var properties=new JudgingProperties(1,Duration.ofSeconds(10));
+            var properties=new JudgingProperties(Duration.ofSeconds(10));
             var gateway=new HttpJudgeGateway(HttpClient.newHttpClient(),JsonMapper.builder()
                     .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build(),properties);
             var result=gateway.judge("http://127.0.0.1:"+server.getAddress().getPort(),
-                    new JudgeGateway.JudgeRequest("s","p","v","d","cpp","source",new JudgeGateway.Limits(1,1,null),"submit"),null);
+                    new JudgeGateway.JudgeRequest("s","p","/data/p","cpp","source",new JudgeGateway.Limits(1,1,null),"submit"),null);
             assertEquals("WA",result.verdict());
             assertEquals(300,result.caseResults().size());
             assertFalse(new tools.jackson.databind.ObjectMapper().writeValueAsString(result).contains("excerpt"));

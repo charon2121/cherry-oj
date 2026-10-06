@@ -7,15 +7,20 @@ public interface JudgeGateway {
         return judge(endpoint, request, trace);
     }
 
-    record JudgeRequest(String submissionId, String problemId, String problemVersionId,
-                        String testDataVersionId, String languageId, String source,
-                        Limits limits, String mode) {}
+    /** testDataLocation 只有 mode=submit 才带；节点按它读取测试数据，协议见 docs/testdata-protocol.md。 */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    record JudgeRequest(String submissionId, String problemId, String testDataLocation, String languageId,
+                        String source, Limits limits, String mode) {}
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
     record JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
-                       java.util.List<CaseResult> caseResults) {
+                       java.util.List<CaseResult> caseResults, String testDataDigest) {
         public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score) {
-            this(verdict,cpuNs,memoryBytes,score,null,null);
+            this(verdict,cpuNs,memoryBytes,score,null,null,null);
+        }
+        public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
+                           java.util.List<CaseResult> caseResults) {
+            this(verdict,cpuNs,memoryBytes,score,message,caseResults,null);
         }
     }
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown=true)

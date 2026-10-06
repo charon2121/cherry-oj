@@ -140,12 +140,13 @@ Compose 的 `judge-testdata` 是节点私有持久卷，无需 `TESTDATA_PATH` �
 Judge 注册前做启动自检：对端必须是 cherry-oj 的 sandbox；原生 Linux 部署还要核对部署清单里的
 发布文件摘要与 cgroup 上界。自检失败会拒绝节点上线。
 
-判题与标定都按节点路由：选一个在线、声明了该语言、且本会话已按摘要安装测试数据的节点。
-标定按「题目版本 × 语言」记录，升级判题机或换机器不会让已有标定失效；如果新机器的性能差异
-需要重新标定，在工作台对该题目版本重新校准即可，新的 VALID 标定会替换旧的。
+判题与标定不再绑定节点：任何在线、声明了该语言的节点都行。判题时 judging-service 向 problem-service 取题目此刻的
+测试数据地址与指纹（`cherry.judging.problem.token`，须属于 problem-service 的 `judging-problem-tokens`），
+把地址交给节点，节点按[测试数据协议](../../docs/testdata-protocol.md)读取；节点要能读到该地址
+（本地路径需挂载同一路径，见 Compose 的 `PROBLEM_TESTDATA_ROOT`）。
+标定按「题目 × 语言」记录并带标定时的数据指纹：题目的测试数据换了，旧标定过期，需在工作台重新校准。
 
-工作台每 10 秒刷新发布检查。节点离线后，部署按钮显示原因并禁用；节点恢复后可以重新部署，
-节点检查已有目录的 hash/manifest 后返回回执，无需重新上传 ZIP。
+> 注：下面的端到端脚本仍是旧流程，随第 7 步改写。
 
 隔离端到端验证：先运行 Maven package 和 `docker compose build judge`，再运行
 `python3 apps/server/judging-service/scripts/node-e2e.py`。脚本建立独立 MySQL/Redis、五服务、

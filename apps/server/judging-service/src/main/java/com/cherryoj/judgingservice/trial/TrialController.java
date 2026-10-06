@@ -45,8 +45,7 @@ public class TrialController {
 		this.http = http;
 	}
 
-	public record Request(@NotNull UUID problemId, @NotNull UUID problemVersionId, @NotNull UUID testDataVersionId,
-			@NotBlank @Pattern(regexp = "[a-f0-9]{64}") String testDataContentSha256,
+	public record Request(@NotNull UUID problemId,
 			@Pattern(regexp = "cpp") @NotNull String languageId, @NotBlank @Size(max = 262144) String source,
 			@NotNull @Size(max = 65536) String inputText, @Positive long deadlineEpochMs) {
 		@Override
@@ -135,21 +134,21 @@ public class TrialController {
 	}
 
 	private Result execute(Request r, String trace, long deadline) {
-		var profile = profiles.resolve(new SubmissionExecutionProfileController.Request(r.problemVersionId().toString(),
-				r.testDataVersionId().toString(), r.testDataContentSha256(), "cpp", 1, "trial"));
+		var profile = profiles.resolve(new SubmissionExecutionProfileController.Request(r.problemId().toString(),
+				"cpp", "trial"), trace);
 		var limits = profile.effectiveLimits();
 		long clock = limits.clockNs() != null ? limits.clockNs()
 				: Math.multiplyExact(limits.cpuNs(), budgets.wallRatio());
 		var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
 		if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline)))
 			throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
-		var node = nodes.ready("cpp", r.testDataVersionId().toString(), r.testDataContentSha256(),
-				LocalDateTime.now(ZoneOffset.UTC));
-		if (node == null)
+		// 自测只用请求里的输入，不读测试数据：任何在线、声明了 cpp 的节点都行。
+		var online = nodes.online("cpp", LocalDateTime.now(ZoneOffset.UTC));
+		if (online.isEmpty())
 			throw unavailable();
+		var node = online.getFirst();
 		Map<String, Object> body = Map.of("submissionId", UUID.randomUUID().toString(), "problemId", r.problemId(),
-				"problemVersionId", r.problemVersionId(), "testDataVersionId", r.testDataVersionId(), "languageId",
-				"cpp", "source", r.source(), "limits", effective, "mode", "trial", "cases",
+				"languageId", "cpp", "source", r.source(), "limits", effective, "mode", "trial", "cases",
 				List.of(Map.of("input", r.inputText())));
 		var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
 			.timeout(Duration.ofMillis(remaining(deadline)))

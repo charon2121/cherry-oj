@@ -1,10 +1,7 @@
 package com.cherryoj.judgingservice.api;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
@@ -17,31 +14,12 @@ public final class JudgingDtos {
     public static final String SHA_PATTERN = "^[a-f0-9]{64}$";
     public static final String LANGUAGE_PATTERN = "^[a-z][a-z0-9-]{0,31}$";
 
-    public record ManifestFile(
-            @NotBlank @Size(max = 132) String name,
-            @Min(0) long sizeBytes,
-            @NotBlank @Pattern(regexp = SHA_PATTERN) String sha256) {}
-
-    public record Manifest(
-            @Min(1) int caseCount,
-            @Min(0) long totalBytes,
-            @NotNull @Size(min = 2, max = 2000) List<@Valid ManifestFile> files) {}
-
-    public record DeploymentMetadata(
-            @NotBlank @Pattern(regexp = UUID_PATTERN) String testDataVersionId,
-            @NotBlank @Pattern(regexp = SHA_PATTERN) String expectedSha256,
-            @NotNull @Valid Manifest manifest) {}
-
-    public record Deployment(
-            String testDataVersionId, String nodeId, String expectedSha256, String status, String deployedSha256,
-            LocalDateTime deployedAt, String errorMessage, LocalDateTime updatedAt, long rowVersion) {}
-
+    /** testDataLocation 与 testDataDigest 是 problem-service 此刻给出的；判题结果里的指纹必须与之一致。 */
     public record CalibrationRequest(
             @NotBlank @Pattern(regexp = UUID_PATTERN) String problemId,
-            @NotBlank @Pattern(regexp = UUID_PATTERN) String problemVersionId,
-            @NotBlank @Pattern(regexp = UUID_PATTERN) String testDataVersionId,
-            @NotBlank @Pattern(regexp = SHA_PATTERN) String expectedSha256,
             @NotBlank @Pattern(regexp = LANGUAGE_PATTERN) String languageId,
+            @NotBlank @Size(max = 2048) String testDataLocation,
+            @NotBlank @Pattern(regexp = SHA_PATTERN) String testDataDigest,
             @Min(1) long cpuNs,
             @Min(1) long memoryBytes,
             @Min(1) Long clockNs,
@@ -51,15 +29,14 @@ public final class JudgingDtos {
                                    Long maxMemoryBytes, Long maxClockNs) {}
 
     public record Calibration(
-            String id, String problemVersionId, String languageId, String status, Long cpuNs, Long memoryBytes, Long clockNs,
-            BenchmarkSummary benchmarkSummary, String errorMessage,
+            String id, String problemId, String languageId, String status, Long cpuNs, Long memoryBytes, Long clockNs,
+            String testDataDigest, BenchmarkSummary benchmarkSummary, String errorMessage,
             LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion) {}
 
     public record ReadinessCheck(String code, boolean passed, String message) {}
 
-    /** endpointRef 是持有数据的在线节点地址，只在服务内部使用，不对外返回。 */
-    public record ExecutionProfile(
-            String endpointRef, String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
+    /** 判题不再绑定某个节点：任何在线、声明了该语言的节点都能读到同一份测试数据。 */
+    public record ExecutionProfile(String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
 
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

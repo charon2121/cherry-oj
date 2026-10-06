@@ -1,6 +1,6 @@
 # 去版本化与测试数据协议
 
-类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–3 步已实施（2026-10-07），其余待授权
+类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–4 步已实施（2026-10-07），其余待授权
 
 ## 为什么做
 
@@ -81,3 +81,18 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
 - **没有验证 / 遗留：** gateway、前端、submission-service、judging-service 仍按旧接口，系统要到第 8 步才能全链路跑通。judging-service 还没有实现
   取地址的客户端与令牌配置，`application-local.yaml`（私有、未入库）里需要自行加上 `cherry.service-calls.judging-problem-tokens`。
   测试数据目录对其他系统用户可读（judge 通常是另一个用户），隐藏数据的访问控制属于已知缺口，与地址白名单一起留到安全工作里。
+
+## 进度与验证（第 4 步：judging-service，2026-10-07）
+
+- **数据库：** V1–V5 合并为一个新的 V1，删除 `EnvironmentRemovalMigrationTests`。`language_calibration` 改按（题目、语言）唯一 VALID，并记录标定时的 `test_data_digest`；
+  `judge_attempt` 增加 `test_data_digest`（判题实际读取的数据指纹）；`test_data_node_deployment` 及相关逻辑全部删除。
+- **删除：** 节点部署服务、节点安装客户端与回执、`/internal/admin/deployments`、上传限额与 multipart 配置、节点"持有数据"的路由条件。
+- **新增：** `problem` 包（向 problem-service 取题目当前测试数据，令牌 `cherry.judging.problem.token`，须属于 problem-service 的 `judging-problem-tokens`）。
+- **改写：** 标定请求带 problem-service 给出的地址与指纹，判题结果指纹不一致则标定作废（`TEST_DATA_CHANGED`）；就绪检查只剩 `ONLINE_JUDGE_NODE`、`LANGUAGE`、`CALIBRATION`，
+  标定指纹与当前指纹不同视为过期；执行配置按题目×语言解析，预算用题目此刻的测试点数重算；正式判题在派发时取最新地址并任选在线节点，指纹随结果落库；
+  自测不读测试数据，任选在线节点。`JudgeRequest` 无版本字段，`JudgeResult` 带 `testDataDigest`。
+- **验证：** `mvnw -pl judging-service -am test` 通过（30 个，1 个需真实 judge 的测试默认跳过），含 MySQL 8.4 与 Kafka 的集成测试：数据更新后旧标定过期并要重新标定、
+  标定中途数据被换则作废、判题结果缺少指纹同样不算成功、执行预算随当前测试点数变化、指纹随尝试保存。另用 Java 网关对着 Go judge 容器、
+  读 Java 写出的数据集，AC/WA/CE 判定正确（`CHERRY_REAL_JUDGE_URL` 测试）。
+- **没有验证 / 遗留：** submission-service、gateway、前端仍按旧接口（第 5、6 步）；`judging-service/scripts/node-e2e.py` 仍是旧流程（第 7 步）；
+  本机私有 `application-local.yaml` 需自行加 `cherry.judging.problem.token`（与 problem-service 的 `judging-problem-tokens` 配对）。

@@ -1,6 +1,5 @@
 package com.cherryoj.judgingservice.api;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.util.List;
 
@@ -16,8 +15,4 @@ public final class JudgeNodeDtos {
     public record Heartbeat(@NotBlank @Pattern(regexp = NODE_ID) String nodeId,
                             @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String sessionId) {}
     public record Lease(String nodeId, long leaseDurationNs) {}
-    public record Install(String nodeId, String sessionId,
-                          String testDataVersionId, String expectedSha256, @Valid JudgingDtos.Manifest manifest) {}
-    public record Receipt(String nodeId, String sessionId,
-                          String testDataVersionId, String sha256, int fileCount) {}
 }

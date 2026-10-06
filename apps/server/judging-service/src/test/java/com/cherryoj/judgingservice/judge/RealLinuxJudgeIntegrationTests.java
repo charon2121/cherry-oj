@@ -16,7 +16,7 @@ class RealLinuxJudgeIntegrationTests {
     @Test
     void aPlusBReturnsAcWaAndCeThroughTheProductionHttpClient() throws Exception {
         String endpoint = System.getenv("CHERRY_REAL_JUDGE_URL");
-        var properties = new JudgingProperties(1, Duration.ofSeconds(60));
+        var properties = new JudgingProperties(Duration.ofSeconds(60));
         var client = new HttpJudgeGateway(HttpClient.newHttpClient(), new ObjectMapper(), properties);
 
         var ac = client.judge(endpoint, request("""
@@ -38,7 +38,7 @@ class RealLinuxJudgeIntegrationTests {
 
     private static JudgeGateway.JudgeRequest request(String source) {
         return new JudgeGateway.JudgeRequest(UUID.randomUUID().toString(), "a-plus-b",
-                "a-plus-b-v1", System.getenv().getOrDefault("CHERRY_REAL_JUDGE_TEST_DATA_VERSION_ID", "a-plus-b"), "cpp", source,
+                System.getenv().getOrDefault("CHERRY_REAL_JUDGE_TEST_DATA_LOCATION", "/data/problems/a-plus-b"), "cpp", source,
                 new JudgeGateway.Limits(1_000_000_000L, 268_435_456L, null), "submit");
     }
 }

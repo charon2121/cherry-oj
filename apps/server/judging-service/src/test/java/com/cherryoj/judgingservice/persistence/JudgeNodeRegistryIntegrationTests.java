@@ -76,15 +76,9 @@ class JudgeNodeRegistryIntegrationTests {
         when(clock.instant()).thenReturn(atExpiry.toInstant(ZoneOffset.UTC));
         registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.sessionId()));
         assertThat(nodes.online(atExpiry)).hasSize(1);
-        String version = UUID.randomUUID().toString();
-        nodes.recordReady(nodes.find(fixture.nodeId()), version, "a".repeat(64), 2, atExpiry);
-        assertThat(nodes.ready("cpp", version, "a".repeat(64), atExpiry)).isNotNull();
-        assertThat(nodes.ready("python", version, "a".repeat(64), atExpiry)).isNull();
-        // 同一 nodeId 的新进程接替旧进程：旧会话的回执不再可用，旧会话也不能夺回 nodeId。
+        // 同一 nodeId 的新进程接替旧进程，旧会话不能夺回 nodeId。
         registry.register(copy(fixture, fixture.nodeId(), UUID.randomUUID().toString()));
-        assertThat(nodes.ready("cpp", version, "a".repeat(64), atExpiry)).isNull();
         assertThatThrownBy(() -> registry.register(fixture)).hasMessageContaining("conflicts");
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM test_data_node_deployment", Integer.class)).isEqualTo(1);
         assertThatThrownBy(() -> registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.sessionId()))).hasMessageContaining("conflicts");
     }
     private Registration copy(Registration r, String id, String session) {

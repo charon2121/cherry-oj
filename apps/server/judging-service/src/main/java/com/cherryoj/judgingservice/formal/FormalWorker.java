@@ -2,6 +2,8 @@ package com.cherryoj.judgingservice.formal;
 
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
+import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
+import com.cherryoj.judgingservice.problem.ProblemTestDataException;
 import jakarta.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -19,14 +21,15 @@ public class FormalWorker {
     private final FormalInputClient inputs;
     private final JudgeNodeRepository nodes;
     private final JudgeGateway judge;
+    private final ProblemTestDataClient testData;
     private final FormalProperties properties;
     private final Clock clock;
     private final ExecutorService executor=Executors.newVirtualThreadPerTaskExecutor();
     private final ConcurrentMap<String,FormalTaskStore.Task> active=new ConcurrentHashMap<>();
     private final Semaphore slots;
     public FormalWorker(FormalTaskStore store,FormalInputClient inputs,JudgeNodeRepository nodes,
-                        JudgeGateway judge,FormalProperties properties,Clock clock) {
-        this.store=store; this.inputs=inputs; this.nodes=nodes; this.judge=judge;
+                        JudgeGateway judge,ProblemTestDataClient testData,FormalProperties properties,Clock clock) {
+        this.store=store; this.inputs=inputs; this.nodes=nodes; this.judge=judge; this.testData=testData;
         this.properties=properties; this.clock=clock; slots=new Semaphore(properties.parallelism());
     }
     @Scheduled(fixedDelay=500,scheduler="formalTaskScheduler")
@@ -51,21 +54,29 @@ public class FormalWorker {
             if(task.attemptNo()>properties.maxAttempts()) throw new FormalFailure("JUDGE_ATTEMPTS_EXHAUSTED");
             var input=inputs.get(task.submissionId(),task.traceParent());
             validate(input,task.submissionId());
-            Duration budget=Duration.ofNanos(input.executionBudgetNs());
+            // 地址不在提交时冻结：判题时向 problem-service 取题目此刻的测试数据，预算按当前测试点数重算。
+            var data=currentTestData(input.problemId(),task.traceParent());
+            Duration budget;
+            try { budget=properties.executionBudget(input.effectiveLimits().cpuNs(),input.effectiveLimits().clockNs(),data.caseCount()); }
+            catch(ArithmeticException | IllegalArgumentException error) { throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE"); }
             if(budget.isNegative() || budget.isZero() || clock.instant().plus(budget).isAfter(deadline)) throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE");
-            // 派发时再选节点：任何在线、声明了该语言、本会话持有这份数据的节点都行。
-            var node=nodes.ready(input.languageId(),input.testDataVersionId(),input.testDataContentSha256(),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC));
-            if(node==null) throw new FormalFailure("NO_MATCHING_JUDGE_NODE");
-            var result=judge.judge(node.endpoint(),new JudgeGateway.JudgeRequest(input.submissionId(),input.problemId(),input.problemVersionId(),
-                    input.testDataVersionId(),input.languageId(),input.completeSource(),input.effectiveLimits(),"submit"),task.traceParent(),budget);
+            // 派发时再选节点：任何在线、声明了该语言的节点都行，它们按同一个地址读同一份数据。
+            var online=nodes.online(input.languageId(),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC));
+            if(online.isEmpty()) throw new FormalFailure("NO_MATCHING_JUDGE_NODE");
+            var result=judge.judge(online.getFirst().endpoint(),new JudgeGateway.JudgeRequest(input.submissionId(),input.problemId(),
+                    data.location(),input.languageId(),input.completeSource(),input.effectiveLimits(),"submit"),task.traceParent(),budget);
             if("SE".equals(result.verdict())) throw new FormalFailure("JUDGE_SYSTEM_ERROR");
-            store.finish(task,safe(result,input.totalCount()),null,null);
+            store.finish(task,safe(result,data.caseCount()),result.testDataDigest(),null,null);
         } catch(Exception error) {
             String code=error instanceof FormalFailure ? error.getMessage() : "JUDGE_EXECUTION_FAILED";
             boolean retry=task.attemptNo()<properties.maxAttempts() && clock.instant().isBefore(deadline)
                     && !Set.of("INVALID_JUDGE_INPUT","JUDGE_BUDGET_UNAVAILABLE").contains(code);
-            store.finish(task,null,code,retry?Duration.ofSeconds(task.attemptNo()==1?1:5):null);
+            store.finish(task,null,null,code,retry?Duration.ofSeconds(task.attemptNo()==1?1:5):null);
         }
+    }
+    private com.cherryoj.judgingservice.problem.ProblemTestData currentTestData(String problemId,String trace) {
+        try { return testData.current(problemId,trace); }
+        catch(ProblemTestDataException error) { throw new FormalFailure(error.code()); }
     }
     private static void validate(FormalInput input,String id) {
         if(input==null || !id.equals(input.submissionId()) || !"2".equals(input.contractVersion()) || !"cpp".equals(input.languageId())
@@ -73,10 +84,9 @@ public class FormalWorker {
                 || input.sourceSha256()==null || !hash(input.completeSource()).equals(input.sourceSha256())
                 || input.effectiveLimits()==null || input.effectiveLimits().cpuNs()<=0 || input.effectiveLimits().memoryBytes()<=0
                 || (input.effectiveLimits().clockNs()!=null && input.effectiveLimits().clockNs()<=0)
-                || input.executionBudgetNs()<=0 || input.totalCount()<1 || input.totalCount()>1000 || input.createdAt()==null || input.testDataContentSha256()==null
-                || !input.testDataContentSha256().matches("[a-f0-9]{64}")) throw new FormalFailure("INVALID_JUDGE_INPUT");
+                || input.createdAt()==null) throw new FormalFailure("INVALID_JUDGE_INPUT");
         try {
-            for(String uuid:List.of(input.problemId(),input.problemVersionId(),input.testDataVersionId(),input.languageCalibrationId())) UUID.fromString(uuid);
+            for(String uuid:List.of(input.problemId(),input.languageCalibrationId())) UUID.fromString(uuid);
         } catch(RuntimeException error) { throw new FormalFailure("INVALID_JUDGE_INPUT"); }
     }
     static Map<String,Object> safe(JudgeGateway.JudgeResult result,int totalCount) {

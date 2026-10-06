@@ -24,6 +24,10 @@ class TrialControllerTests {
 		server.createContext("/judge", exchange -> {
 			var request = json.readTree(exchange.getRequestBody().readAllBytes());
 			assertEquals("trial", request.path("mode").asText());
+			// 自测不读测试数据：请求里没有地址，也没有任何版本字段
+			assertFalse(request.has("testDataLocation"));
+			assertFalse(request.has("problemVersionId"));
+			assertFalse(request.has("testDataVersionId"));
 			assertEquals(1, request.path("cases").size());
 			assertFalse(request.path("cases").get(0).has("expected"));
 			assertEquals("", request.path("cases").get(0).path("input").asText());
@@ -37,17 +41,15 @@ class TrialControllerTests {
 		var profiles = mock(SubmissionExecutionProfileController.class);
 		var nodes = mock(JudgeNodeRepository.class);
 		var problem = UUID.randomUUID();
-		var version = UUID.randomUUID();
-		var data = UUID.randomUUID();
-		when(profiles.resolve(any())).thenReturn(new SubmissionExecutionProfileController.Profile(version.toString(),
-				data.toString(), "cpp", "calibration",
+		when(profiles.resolve(any(), any())).thenReturn(new SubmissionExecutionProfileController.Profile(problem.toString(),
+				"cpp", "calibration",
 				new SubmissionExecutionProfileController.Limits(1000000000, 67108864, 2000000000L), 3000000000L));
 		var node = mock(JudgeNodeRepository.Node.class);
 		when(node.endpoint()).thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
-		when(nodes.ready(any(), any(), any(), any())).thenReturn(node);
+		when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
 		var controller = new TrialController(profiles, nodes, mock(FormalProperties.class), json,
 				HttpClient.newHttpClient());
-		var request = new TrialController.Request(problem, version, data, "a".repeat(64), "cpp", "int main(){}", "",
+		var request = new TrialController.Request(problem, "cpp", "int main(){}", "",
 				System.currentTimeMillis() + 45000);
 		try {
 			var result = controller.run(request, null).getBody();
@@ -62,7 +64,7 @@ class TrialControllerTests {
 			assertEquals("COMPILE_ERROR", ce.status());
 			assertNull(ce.cpuNs());
 			assertFalse(ce.compileDiagnostic().contains("/private"));
-			var expired = new TrialController.Request(problem, version, data, "a".repeat(64), "cpp", "int main(){}", "",
+			var expired = new TrialController.Request(problem, "cpp", "int main(){}", "",
 					1);
 			assertThrows(JudgingApiException.class, () -> controller.run(expired, null));
 		}

@@ -20,7 +20,6 @@ public final class JudgingDtos {
             String testDataDigest, BenchmarkSummary benchmarkSummary, String errorMessage,
             LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion) {}
     public record ReadinessCheck(String code, boolean passed, String message) {}
-    public record ExecutionProfile(
-            String endpointRef, String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
+    public record ExecutionProfile(String calibrationId, long cpuNs, long memoryBytes, Long clockNs) {}
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

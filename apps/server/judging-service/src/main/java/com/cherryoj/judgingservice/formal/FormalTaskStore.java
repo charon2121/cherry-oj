@@ -49,14 +49,14 @@ public class FormalTaskStore {
     public boolean renew(Task task,Duration lease) {
         return jdbc.update("UPDATE judge_task SET lease_until=? WHERE id=? AND lease_token=? AND status='RUNNING' AND lease_until>?",now().plus(lease),task.id(),task.leaseToken(),now())==1;
     }
-    public boolean finish(Task task,Map<String,Object> result,String errorCode,Duration retry) {
+    public boolean finish(Task task,Map<String,Object> result,String testDataDigest,String errorCode,Duration retry) {
         return Boolean.TRUE.equals(transaction.execute(status -> {
             var rows=jdbc.queryForList("SELECT id FROM judge_task WHERE id=? AND lease_token=? AND status='RUNNING' AND lease_until>? FOR UPDATE",String.class,task.id(),task.leaseToken(),now());
             if(rows.isEmpty()) return false;
             String state=retry==null?"DONE":"RETRY_WAITING";
             jdbc.update("UPDATE judge_task SET status=?,lease_token=NULL,lease_until=NULL,next_attempt_at=? WHERE id=?",state,retry==null?now():now().plus(retry),task.id());
-            jdbc.update("UPDATE judge_attempt SET status=?,error_code=?,finished_at=? WHERE task_id=? AND attempt_no=? AND lease_token=?",
-                    result!=null?"COMPLETED":"FAILED",errorCode,now(),task.id(),task.attemptNo(),task.leaseToken());
+            jdbc.update("UPDATE judge_attempt SET status=?,error_code=?,test_data_digest=?,finished_at=? WHERE task_id=? AND attempt_no=? AND lease_token=?",
+                    result!=null?"COMPLETED":"FAILED",errorCode,testDataDigest,now(),task.id(),task.attemptNo(),task.leaseToken());
             if(retry==null) {
                 if(result!=null) emit(task,"JudgeCompleted",Map.of("finishedAt",clock.instant().toString(),"result",result));
                 else emit(task,"JudgeFailed",Map.of("finishedAt",clock.instant().toString(),"errorCode",errorCode,"message","平台判题暂时失败。"));
