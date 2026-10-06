@@ -1,8 +1,5 @@
 package com.cherryoj.problemservice.api;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -17,26 +14,19 @@ public final class TestDataDtos {
     public record Manifest(int caseCount, long totalBytes, List<ManifestFile> files) {
     }
 
-    public record TestDataVersion(
-            String id,
-            String problemId,
-            Status status,
-            String sourceType,
-            String contentSha256,
-            Integer caseCount,
-            Long totalBytes,
-            Manifest manifest,
-            LocalDateTime createdAt,
-            LocalDateTime readyAt,
-            String errorMessage) {
+    /**
+     * 题目当前的测试数据。digest、测试点数和文件清单都来自地址下的 testdata.json，不对外暴露地址本身
+     * （那是服务器上的路径）。
+     */
+    public record TestData(
+            String digest,
+            int caseCount,
+            long totalBytes,
+            LocalDateTime updatedAt,
+            Manifest manifest) {
     }
 
-    public record BindTestDataRequest(
-            @NotBlank
-            @Pattern(regexp = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-            String testDataVersionId,
-            @Min(0) long rowVersion) {
+    /** problem-service 到 judging-service 的内部读取模型，契约见 contracts/problem-test-data.schema.json。 */
+    public record ProblemTestData(String location, String digest, int caseCount, long totalBytes) {
     }
-
-    public enum Status { UPLOADING, READY, FAILED }
 }

@@ -12,7 +12,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -33,34 +32,6 @@ public final class HttpJudgingClient implements JudgingClient {
     }
 
     @Override
-    public JudgingDtos.Deployment deploy(
-            JudgingDtos.DeploymentMetadata metadata,
-            InputStream archive,
-            String delegatedJwt,
-            String traceparent) {
-        String boundary = "cherry-" + UUID.randomUUID();
-        byte[] metadataBytes = writeJson(metadata);
-        byte[] prefix = ("--" + boundary + "\r\n"
-                + "Content-Disposition: form-data; name=\"metadata\"\r\n"
-                + "Content-Type: application/json\r\n\r\n").getBytes(StandardCharsets.US_ASCII);
-        byte[] middle = ("\r\n--" + boundary + "\r\n"
-                + "Content-Disposition: form-data; name=\"archive\"; filename=\"test-data.zip\"\r\n"
-                + "Content-Type: application/zip\r\n\r\n").getBytes(StandardCharsets.US_ASCII);
-        byte[] suffix = ("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.US_ASCII);
-        HttpRequest.BodyPublisher body = HttpRequest.BodyPublishers.concat(
-                HttpRequest.BodyPublishers.ofByteArray(prefix),
-                HttpRequest.BodyPublishers.ofByteArray(metadataBytes),
-                HttpRequest.BodyPublishers.ofByteArray(middle),
-                HttpRequest.BodyPublishers.ofInputStream(() -> archive),
-                HttpRequest.BodyPublishers.ofByteArray(suffix));
-        HttpRequest request = request("/internal/admin/deployments", delegatedJwt, traceparent)
-                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(body)
-                .build();
-        return send(request, JudgingDtos.Deployment.class);
-    }
-
-    @Override
     public JudgingDtos.Calibration calibrate(
             JudgingDtos.CalibrationRequest value,
             String delegatedJwt,
@@ -74,16 +45,14 @@ public final class HttpJudgingClient implements JudgingClient {
 
     @Override
     public JudgingDtos.Readiness readiness(
-            String problemVersionId,
-            String testDataVersionId,
-            String expectedSha256,
+            String problemId,
             String languageId,
+            String testDataDigest,
             String delegatedJwt,
             String traceparent) {
-        String query = "?problemVersionId=" + encode(problemVersionId)
-                + "&testDataVersionId=" + encode(testDataVersionId)
-                + "&expectedSha256=" + encode(expectedSha256)
-                + "&languageId=" + encode(languageId);
+        String query = "?problemId=" + encode(problemId)
+                + "&languageId=" + encode(languageId)
+                + "&testDataDigest=" + encode(testDataDigest);
         return send(request("/internal/admin/readiness" + query, delegatedJwt, traceparent).GET().build(),
                 JudgingDtos.Readiness.class);
     }
@@ -155,15 +124,12 @@ public final class HttpJudgingClient implements JudgingClient {
                 String detail = switch (code) {
                     case "NO_ONLINE_JUDGE_NODE" -> "当前没有在线判题节点，请启动节点并等待注册后重试。";
                     case "JUDGE_NODE_UNREACHABLE" -> "判题节点暂时无法连接，请等待节点恢复后重试。";
-                    case "JUDGE_NODE_DATA_REJECTED" -> "判题节点拒绝测试数据，请检查数据包后重新部署。";
-                    case "JUDGE_NODE_RECEIPT_MISMATCH" -> "判题节点返回的数据回执不匹配，请重新部署或联系管理员。";
                     default -> null;
                 };
                 if (detail != null) return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, code, detail);
             } catch (RuntimeException ignored) { /* 未知或非法正文始终收敛。 */ }
         }
         if (status == 409) return new ProblemApiException(HttpStatus.CONFLICT, "JUDGING_STATE_CONFLICT", "判题资源状态冲突。");
-        if (status == 413) return new ProblemApiException(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过判题服务限额。");
         if (status == 422 || status == 400) return new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "JUDGING_VALIDATION_FAILED", "判题服务拒绝了请求数据。");
         if (status >= 500) return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE", "判题服务暂时不可用。");
         return downstream("JUDGING_REJECTED", "判题服务拒绝了委托请求。");

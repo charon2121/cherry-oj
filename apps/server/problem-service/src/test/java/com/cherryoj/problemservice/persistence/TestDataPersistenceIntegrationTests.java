@@ -1,5 +1,6 @@
 package com.cherryoj.problemservice.persistence;
 
+import static com.cherryoj.problemservice.persistence.ProblemFixtures.ACTOR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -7,7 +8,6 @@ import com.cherryoj.problemservice.api.AdminProblemDtos.CodeMode;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CreateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Difficulty;
 import com.cherryoj.problemservice.api.ProblemApiException;
-import com.cherryoj.problemservice.api.TestDataDtos.BindTestDataRequest;
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.TestDataService;
 import com.cherryoj.problemservice.bootstrap.TestDataRecovery;
@@ -16,11 +16,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -29,14 +29,14 @@ import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.DefaultApplicationArguments;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.web.multipart.MultipartFile;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -47,8 +47,9 @@ import tools.jackson.databind.ObjectMapper;
 @Testcontainers(disabledWithoutDocker = true)
 class TestDataPersistenceIntegrationTests {
 
-    private static final String ACTOR = "019c8e42-7f70-7000-8000-000000000001";
     private static final Path STORAGE_ROOT = temporaryRoot();
+    /** docs/testdata-protocol.md 的算法对 {@link #goldenZip()} 的结果；Go、Python 的测试钉着同一个值。 */
+    private static final String GOLDEN_DIGEST = "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4";
 
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
@@ -80,164 +81,177 @@ class TestDataPersistenceIntegrationTests {
     TestDataRecovery recovery;
 
     @Test
-    void uploadIsImmutableDownloadableDeduplicatedAndBindableWithoutLeaks() throws Exception {
+    void uploadWritesAProtocolDirectoryRecordsOnlyTheAddressAndServesJudging() throws Exception {
         var problem = createProblem("asset");
-        String versionId = problem.versions().getFirst().id();
-        byte[] zip = validZip();
-
-        var uploaded = testData.upload(problem.id(), multipart(zip), ACTOR);
-
-        assertThat(uploaded.status().name()).isEqualTo("READY");
-        assertThat(uploaded.caseCount()).isEqualTo(2);
-        assertThat(uploaded.totalBytes()).isEqualTo(12);
-        assertThat(uploaded.manifest().files()).hasSize(4);
-        assertThat(json.writeValueAsString(uploaded))
-                .doesNotContain("storageRef", "1 2", "expectedOutput", "MANUAL_UPLOAD/");
-        try (var asset = testData.openReady(problem.id(), uploaded.id())) {
-            assertThat(asset.stream().readAllBytes()).isEqualTo(zip);
-            assertThat(asset.contentSha256()).isEqualTo(uploaded.contentSha256());
-        }
-
-        var duplicate = testData.upload(problem.id(), multipart(zip), ACTOR);
-        assertThat(duplicate.id()).isEqualTo(uploaded.id());
-        assertThat(jdbc.queryForObject("""
-                SELECT COUNT(*) FROM test_data_version
-                WHERE problem_id = UUID_TO_BIN(?) AND status = 'READY'
-                """, Integer.class, problem.id())).isEqualTo(1);
-
-        var bound = testData.bind(problem.id(), versionId, new BindTestDataRequest(uploaded.id(), 0), ACTOR);
-        assertThat(bound.rowVersion()).isEqualTo(1);
-        assertThat(bound.testDataVersion()).isEqualTo(uploaded);
-        assertThatThrownBy(() -> testData.bind(
-                problem.id(), versionId, new BindTestDataRequest(uploaded.id(), 0), ACTOR))
+        assertThatThrownBy(() -> testData.forJudging(problem.id()))
                 .isInstanceOfSatisfying(ProblemApiException.class,
-                        error -> assertThat(error.code()).isEqualTo("ROW_VERSION_CONFLICT"));
+                        error -> assertThat(error.code()).isEqualTo("TEST_DATA_NOT_FOUND"));
 
-        assertThat(Files.readAllBytes(STORAGE_ROOT.resolve("assets/" + uploaded.id() + ".zip"))).isEqualTo(zip);
+        var uploaded = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
+
+        assertThat(uploaded.digest()).isEqualTo(GOLDEN_DIGEST);
+        assertThat(uploaded.caseCount()).isEqualTo(2);
+        assertThat(uploaded.totalBytes()).isEqualTo(16);
+        assertThat(uploaded.manifest().files()).extracting(file -> file.name())
+                .containsExactly("1.in", "1.out", "2.in", "2.out");
+        // 对外的数据里没有服务器路径，也没有测试数据内容
+        assertThat(json.writeValueAsString(uploaded)).doesNotContain(STORAGE_ROOT.toString(), "location", "1 2\\n");
+
+        // 数据库里只有地址，没有指纹、清单或数据本身
+        String location = jdbc.queryForObject(
+                "SELECT test_data_location FROM problem WHERE id = UUID_TO_BIN(?)", String.class, problem.id());
+        assertThat(location).isEqualTo(STORAGE_ROOT.toAbsolutePath().normalize().resolve(problem.id()).toString());
+        assertThat(Files.readString(Path.of(location).resolve("testdata.json"))).contains(GOLDEN_DIGEST);
+        assertThat(Files.readString(Path.of(location).resolve("2.out"))).isEqualTo("93\n");
+
+        // judging-service 取到的就是这个地址和 testdata.json 里的指纹
+        var forJudging = testData.forJudging(problem.id());
+        assertThat(forJudging.location()).isEqualTo(location);
+        assertThat(forJudging.digest()).isEqualTo(GOLDEN_DIGEST);
+        assertThat(forJudging.caseCount()).isEqualTo(2);
+        assertThat(forJudging.totalBytes()).isEqualTo(16);
+
+        // 管理端读到同样的数据；上传不改乐观锁计数，免得让正在编辑题面的人白白冲突
+        var reloaded = admin.getProblem(problem.id());
+        assertThat(reloaded.testData().digest()).isEqualTo(GOLDEN_DIGEST);
+        assertThat(reloaded.rowVersion()).isEqualTo(problem.rowVersion());
         try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
             assertThat(temporaryFiles).isEmpty();
         }
     }
 
     @Test
-    void invalidUploadBecomesFailedAndCrossProblemBindingIsRejected() throws Exception {
-        var first = createProblem("invalid");
-        var second = createProblem("other");
+    void replacingTheDataKeepsTheAddressAndChangesTheDigestImmediately() throws Exception {
+        var problem = createProblem("replace");
+        var first = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
+        String address = testData.forJudging(problem.id()).location();
+
+        var second = testData.upload(problem.id(), multipart(zip(Map.of(
+                "1.in", bytes("5 6\n"), "1.out", bytes("11\n")))), ACTOR);
+
+        assertThat(second.digest()).isNotEqualTo(first.digest());
+        assertThat(second.caseCount()).isEqualTo(1);
+        // 地址不变，数据变了：「改了就是改了」
+        var current = testData.forJudging(problem.id());
+        assertThat(current.location()).isEqualTo(address);
+        assertThat(current.digest()).isEqualTo(second.digest());
+        assertThat(Files.readString(Path.of(address).resolve("1.out"))).isEqualTo("11\n");
+
+        // 再换一次：只保留当前与上一代，磁盘占用有界
+        testData.upload(problem.id(), multipart(zip(Map.of("1.in", bytes("7\n"), "1.out", bytes("8\n")))), ACTOR);
+        try (var generations = Files.list(STORAGE_ROOT.resolve(".store"))) {
+            assertThat(generations.map(path -> path.getFileName().toString())
+                    .filter(name -> name.startsWith(problem.id())).toList()).hasSize(2);
+        }
+        assertThat(jdbc.queryForList("""
+                SELECT action FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?) ORDER BY created_at
+                """, String.class, problem.id()))
+                .containsExactly("PROBLEM_CREATED", "TEST_DATA_UPLOADED", "TEST_DATA_UPLOADED", "TEST_DATA_UPLOADED");
+    }
+
+    @Test
+    void anInvalidUploadLeavesTheExistingDataUntouchedAndNoResidue() throws Exception {
+        var problem = createProblem("invalid");
+        var good = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
         byte[] orphan = zip(Map.of("1.in", bytes("1")));
 
-        assertThatThrownBy(() -> testData.upload(first.id(), multipart(orphan), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
-                        error -> {
-                            assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
-                            assertThat(error.getMessage())
-                                    .isEqualTo("每个测试点都必须同时包含同名的 .in 和 .out 文件。");
-                        });
-        assertThat(jdbc.queryForObject("""
-                SELECT COUNT(*) FROM test_data_version
-                WHERE problem_id = UUID_TO_BIN(?) AND status = 'FAILED' AND error_message = 'TEST_DATA_CASE_PAIR_REQUIRED'
-                """, Integer.class, first.id())).isEqualTo(1);
+        assertThatThrownBy(() -> testData.upload(problem.id(), multipart(orphan), ACTOR))
+                .isInstanceOfSatisfying(ProblemApiException.class, error -> {
+                    assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
+                    assertThat(error.getMessage()).isEqualTo("每个测试点都必须同时包含同名的 .in 和 .out 文件。");
+                });
+
+        assertThat(testData.forJudging(problem.id()).digest()).isEqualTo(good.digest());
         try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
             assertThat(temporaryFiles).isEmpty();
         }
+    }
 
-        var uploaded = testData.upload(first.id(), multipart(validZip()), ACTOR);
-        assertThatThrownBy(() -> testData.bind(
-                second.id(), second.versions().getFirst().id(), new BindTestDataRequest(uploaded.id(), 0), ACTOR))
+    @Test
+    void anInterruptedStreamLeavesNoDataAndNoResidue() throws Exception {
+        var problem = createProblem("interrupted");
+
+        assertThatThrownBy(() -> testData.upload(problem.id(), interruptedMultipart(goldenZip()), ACTOR))
+                .isInstanceOfSatisfying(ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("TEST_DATA_STORAGE_UNAVAILABLE"));
+
+        assertThat(admin.getProblem(problem.id()).testData()).isNull();
+        assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS)).isFalse();
+        try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
+            assertThat(temporaryFiles).isEmpty();
+        }
+    }
+
+    @Test
+    void archivedProblemsRejectUploads() throws Exception {
+        var problem = createProblem("archived");
+        admin.archive(problem.id(), problem.rowVersion(), ACTOR);
+
+        assertThatThrownBy(() -> testData.upload(problem.id(), multipart(goldenZip()), ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
+        assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS)).isFalse();
     }
 
+    /** 两个管理员同时上传不同的数据：两次都成功，最终只有一份完整、自洽的数据，地址与指纹始终对得上。 */
     @Test
-    void concurrentIdenticalUploadsConvergeOnOneReadyAsset() throws Exception {
-        var problem = createProblem("dedupe-race");
-        byte[] zip = validZip();
+    void concurrentUploadsOfDifferentDataEndInOneConsistentState() throws Exception {
+        var problem = createProblem("race");
+        byte[] first = goldenZip();
+        byte[] second = zip(Map.of("1.in", bytes("5 6\n"), "1.out", bytes("11\n")));
         CountDownLatch start = new CountDownLatch(1);
+        List<String> digests;
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> uploadAfter(start, problem.id(), zip));
-            var second = executor.submit(() -> uploadAfter(start, problem.id(), zip));
+            var one = executor.submit(() -> uploadAfter(start, problem.id(), first));
+            var two = executor.submit(() -> uploadAfter(start, problem.id(), second));
             start.countDown();
-            assertThat(first.get()).isEqualTo(second.get());
+            digests = List.of(one.get(), two.get());
         }
-        assertThat(jdbc.queryForObject("""
-                SELECT COUNT(*) FROM test_data_version
-                WHERE problem_id = UUID_TO_BIN(?) AND status = 'READY'
-                """, Integer.class, problem.id())).isEqualTo(1);
-        assertThat(jdbc.queryForObject("""
-                SELECT COUNT(*) FROM problem_audit_event
-                WHERE problem_id = UUID_TO_BIN(?) AND action = 'TEST_DATA_REUSED'
-                """, Integer.class, problem.id())).isEqualTo(1);
+
+        var current = testData.forJudging(problem.id());
+        assertThat(digests).contains(current.digest());
+        // 地址下的 testdata.json、数据文件与数据库读到的指纹是同一份
+        assertThat(Files.readString(Path.of(current.location()).resolve("testdata.json"))).contains(current.digest());
+        assertThat(admin.getProblem(problem.id()).testData().digest()).isEqualTo(current.digest());
     }
 
     @Test
-    void startupRecoveryFailsStaleUploadAndDeletesOnlyItsBoundedFiles() throws Exception {
-        var problem = createProblem("recovery");
-        String id = UUID.randomUUID().toString();
-        LocalDateTime old = LocalDateTime.now(ZoneOffset.UTC).minusDays(2);
-        jdbc.update("""
-                INSERT INTO test_data_version (id, problem_id, status, source_type, storage_ref,
-                    created_by, created_at)
-                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), 'UPLOADING', 'MANUAL_UPLOAD', ?, UUID_TO_BIN(?), ?)
-                """, id, problem.id(), "assets/" + id + ".zip", ACTOR, old);
-        Path partial = STORAGE_ROOT.resolve("tmp/" + id + ".upload");
-        Path orphan = STORAGE_ROOT.resolve("assets/" + id + ".zip");
-        Files.write(partial, bytes("partial"));
-        Files.write(orphan, bytes("orphan"));
-        FileTime oldTime = FileTime.from(Instant.now().minusSeconds(172_800));
-        Files.setLastModifiedTime(partial, oldTime);
-        Files.setLastModifiedTime(orphan, oldTime);
+    void startupRecoveryDeletesOnlyStaleTemporaryUploads() throws Exception {
+        Path stale = STORAGE_ROOT.resolve("tmp/" + UUID.randomUUID() + ".upload");
+        Path fresh = STORAGE_ROOT.resolve("tmp/" + UUID.randomUUID() + ".upload");
+        Files.write(stale, bytes("partial"));
+        Files.write(fresh, bytes("partial"));
+        Files.setLastModifiedTime(stale, FileTime.from(Instant.now().minusSeconds(172_800)));
 
         recovery.run(new DefaultApplicationArguments(new String[0]));
 
-        assertThat(jdbc.queryForObject("""
-                SELECT status FROM test_data_version WHERE id = UUID_TO_BIN(?)
-                """, String.class, id)).isEqualTo("FAILED");
-        assertThat(jdbc.queryForObject("""
-                SELECT error_message FROM test_data_version WHERE id = UUID_TO_BIN(?)
-                """, String.class, id)).isEqualTo("UPLOAD_INTERRUPTED");
-        assertThat(partial).doesNotExist();
-        assertThat(orphan).doesNotExist();
+        assertThat(stale).doesNotExist();
+        assertThat(fresh).exists();
+        Files.deleteIfExists(fresh);
     }
 
     @Test
-    void interruptedStreamAndDatabaseFinalizeFailureLeaveFailedMetadataWithoutAssets() throws Exception {
-        var interruptedProblem = createProblem("interrupted");
-        MultipartFile interrupted = interruptedMultipart(validZip());
+    void unreadableDataIsReportedDifferentlyFromMissingData() throws Exception {
+        var problem = createProblem("broken");
+        testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
+        Path metadata = Path.of(testData.forJudging(problem.id()).location()).resolve("testdata.json");
 
-        assertThatThrownBy(() -> testData.upload(interruptedProblem.id(), interrupted, ACTOR))
+        Files.writeString(metadata, "not json");
+        assertThatThrownBy(() -> testData.forJudging(problem.id()))
                 .isInstanceOfSatisfying(ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("TEST_DATA_STORAGE_UNAVAILABLE"));
-        assertThat(jdbc.queryForObject("""
-                SELECT status FROM test_data_version WHERE problem_id = UUID_TO_BIN(?) ORDER BY created_at DESC LIMIT 1
-                """, String.class, interruptedProblem.id())).isEqualTo("FAILED");
+        // 管理端按「没有」展示，公开检查会给出具体原因
+        assertThat(admin.getProblem(problem.id()).testData()).isNull();
 
-        var databaseProblem = createProblem("db-failure");
-        BlockingUpload blocked = blockingMultipart(validZip());
-        String failedId;
-        try (var executor = Executors.newSingleThreadExecutor()) {
-            var upload = executor.submit(() -> testData.upload(databaseProblem.id(), blocked.file(), ACTOR));
-            blocked.fullyRead().await();
-            failedId = jdbc.queryForObject("""
-                    SELECT BIN_TO_UUID(id) FROM test_data_version
-                    WHERE problem_id = UUID_TO_BIN(?) AND status = 'UPLOADING'
-                    ORDER BY created_at DESC LIMIT 1
-                    """, String.class, databaseProblem.id());
-            jdbc.update("""
-                    UPDATE test_data_version SET status = 'FAILED', error_message = 'INJECTED_STATE_CHANGE'
-                    WHERE id = UUID_TO_BIN(?) AND status = 'UPLOADING'
-                    """, failedId);
-            blocked.release().countDown();
-            assertThatThrownBy(upload::get)
-                    .hasCauseInstanceOf(ProblemApiException.class);
-        }
-        assertThat(STORAGE_ROOT.resolve("assets/" + failedId + ".zip")).doesNotExist();
-        try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
-            assertThat(temporaryFiles).isEmpty();
-        }
+        Files.delete(metadata);
+        assertThatThrownBy(() -> testData.forJudging(problem.id()))
+                .isInstanceOfSatisfying(ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("TEST_DATA_NOT_FOUND"));
     }
 
     private String uploadAfter(CountDownLatch start, String problemId, byte[] zip) throws Exception {
         start.await();
-        return testData.upload(problemId, multipart(zip), ACTOR).id();
+        return testData.upload(problemId, multipart(zip), ACTOR).digest();
     }
 
     private com.cherryoj.problemservice.api.AdminProblemDtos.Problem createProblem(String prefix) {
@@ -283,58 +297,10 @@ class TestDataPersistenceIntegrationTests {
         };
     }
 
-    private static BlockingUpload blockingMultipart(byte[] content) {
-        CountDownLatch fullyRead = new CountDownLatch(1);
-        CountDownLatch release = new CountDownLatch(1);
-        MultipartFile file = new MultipartFile() {
-            @Override public String getName() { return "file"; }
-            @Override public String getOriginalFilename() { return "cases.zip"; }
-            @Override public String getContentType() { return "application/zip"; }
-            @Override public boolean isEmpty() { return false; }
-            @Override public long getSize() { return content.length; }
-            @Override public byte[] getBytes() { return content.clone(); }
-            @Override public InputStream getInputStream() {
-                return new InputStream() {
-                    private int position;
-
-                    @Override
-                    public int read(byte[] buffer, int offset, int length) throws IOException {
-                        if (position == content.length) {
-                            fullyRead.countDown();
-                            try {
-                                release.await();
-                            }
-                            catch (InterruptedException error) {
-                                Thread.currentThread().interrupt();
-                                throw new IOException(error);
-                            }
-                            return -1;
-                        }
-                        int read = Math.min(length, content.length - position);
-                        System.arraycopy(content, position, buffer, offset, read);
-                        position += read;
-                        return read;
-                    }
-
-                    @Override
-                    public int read() throws IOException {
-                        byte[] one = new byte[1];
-                        return read(one, 0, 1) == -1 ? -1 : Byte.toUnsignedInt(one[0]);
-                    }
-                };
-            }
-            @Override public void transferTo(java.io.File destination) { throw new UnsupportedOperationException(); }
-        };
-        return new BlockingUpload(file, fullyRead, release);
-    }
-
-    private record BlockingUpload(MultipartFile file, CountDownLatch fullyRead, CountDownLatch release) {
-    }
-
-    private static byte[] validZip() throws Exception {
+    private static byte[] goldenZip() throws Exception {
         return zip(Map.of(
                 "1.in", bytes("1 2\n"), "1.out", bytes("3\n"),
-                "2.in", bytes("4 5\n"), "2.out", bytes("9\n")));
+                "2.in", bytes("100 -7\n"), "2.out", bytes("93\n")));
     }
 
     private static byte[] zip(Map<String, byte[]> entries) throws Exception {

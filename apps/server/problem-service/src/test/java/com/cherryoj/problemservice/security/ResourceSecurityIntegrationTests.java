@@ -26,7 +26,6 @@ import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.PublicProblemService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import com.cherryoj.problemservice.application.TestDataService;
-import com.cherryoj.problemservice.storage.TestDataAssetStore.Asset;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -63,7 +62,6 @@ import org.springframework.web.context.WebApplicationContext;
 @SpringBootTest(properties = {
 		"spring.flyway.enabled=false",
 		"cherry.problem.test-data.recovery-enabled=false",
-		"cherry.problem.validation.recovery-enabled=false",
 		"cherry.problem.test-data.root=${java.io.tmpdir}/cherry-oj-security-testdata"
 })
 @Import(ResourceSecurityIntegrationTests.SecurityProbeController.class)
@@ -157,7 +155,7 @@ class ResourceSecurityIntegrationTests {
 	@Test
 	@Order(2)
 	void adminProblemPreviewRequiresAdminAndIsNeverCached() throws Exception {
-		String path = "/internal/admin/problems/problem-1/versions/version-1/preview";
+		String path = "/internal/admin/problems/019c8e42-7f70-7000-8000-000000000010/preview";
 		mockMvc.perform(get(path)
 				.header("Authorization", "Bearer " + token(KEY, "USER", Map.of())))
 				.andExpect(status().isForbidden())
@@ -171,30 +169,31 @@ class ResourceSecurityIntegrationTests {
 
 	@Test
 	@Order(2)
-	void testDataMetadataAndDownloadRequireAdminAndAreNeverCached() throws Exception {
+	void testDataMetadataRequiresAdminAndIsNeverCached() throws Exception {
 		String problemId = "019c8e42-7f70-7000-8000-000000000010";
-		String dataId = "019c8e42-7f70-7000-8000-000000000011";
-		String listPath = "/internal/admin/problems/" + problemId + "/test-data";
-		mockMvc.perform(get(listPath)).andExpect(status().isUnauthorized());
-		mockMvc.perform(get(listPath)
+		String path = "/internal/admin/problems/" + problemId + "/test-data";
+		mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+		mockMvc.perform(get(path)
 				.header("Authorization", "Bearer " + token(KEY, "USER", Map.of())))
 				.andExpect(status().isForbidden());
-		mockMvc.perform(get(listPath)
+		mockMvc.perform(get(path)
 				.header("Authorization", "Bearer " + token(KEY, "ADMIN", Map.of())))
 				.andExpect(status().isOk())
 				.andExpect(header().string("Cache-Control", "no-store"));
+	}
 
-		byte[] archive = {1, 2, 3};
-		when(testData.openReady(problemId, dataId)).thenReturn(new TestDataService.ReadyAsset(
-				"019c8e42-7f70-7000-8000-000000000002", "00".repeat(32),
-				new Asset(new java.io.ByteArrayInputStream(archive), archive.length)));
-		mockMvc.perform(get(listPath + "/" + dataId + "/download")
+	/** 测试数据地址只给 judging-service：管理员和普通用户的令牌都不能读，匿名也不行。 */
+	@Test
+	@Order(2)
+	void theJudgingTestDataEndpointIsNotReachableWithUserIdentities() throws Exception {
+		String path = "/internal/judging/problems/019c8e42-7f70-7000-8000-000000000010/test-data";
+		mockMvc.perform(get(path)).andExpect(status().isUnauthorized());
+		mockMvc.perform(get(path)
 				.header("Authorization", "Bearer " + token(KEY, "ADMIN", Map.of())))
-				.andExpect(status().isOk())
-				.andExpect(header().string("Cache-Control", "no-store"))
-				.andExpect(header().string("Content-Disposition",
-						"attachment; filename=\"019c8e42-7f70-7000-8000-000000000002.zip\""))
-				.andExpect(content().bytes(archive));
+				.andExpect(status().isUnauthorized());
+		mockMvc.perform(get(path)
+				.header("Authorization", "Bearer " + token(KEY, "USER", Map.of())))
+				.andExpect(status().isUnauthorized());
 	}
 
 	@Test

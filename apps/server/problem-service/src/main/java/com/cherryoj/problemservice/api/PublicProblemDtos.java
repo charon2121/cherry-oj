@@ -19,8 +19,6 @@ public final class PublicProblemDtos {
     public record ProblemSummary(
             String problemId,
             String slug,
-            String currentVersionId,
-            int versionNo,
             String title,
             String difficulty,
             List<String> tags,
@@ -33,8 +31,6 @@ public final class PublicProblemDtos {
 
     public record ProblemDetail(
             String problemId,
-            String problemVersionId,
-            int versionNo,
             String slug,
             String codeMode,
             String title,

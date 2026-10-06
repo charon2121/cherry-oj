@@ -82,7 +82,7 @@ public class PublicProblemService {
         }
         Map<String, List<LanguageRow>> languages = languages(rows);
         List<ProblemSummary> items = rows.stream()
-                .map(row -> summary(row, languages.getOrDefault(row.versionId(), List.of())))
+                .map(row -> summary(row, languages.getOrDefault(row.problemId(), List.of())))
                 .toList();
         String nextCursor = hasMore && !rows.isEmpty()
                 ? cursorFor(rows.getLast(), sort, fingerprint)
@@ -102,16 +102,16 @@ public class PublicProblemService {
         if (row == null) {
             throw new ProblemApiException(HttpStatus.NOT_FOUND, "PROBLEM_NOT_FOUND", "公开题目不存在。");
         }
-        List<ProblemSample> samples = mapper.findSamples(row.versionId()).stream()
+        List<ProblemSample> samples = mapper.findSamples(row.problemId()).stream()
                 .map(sample -> new ProblemSample(
                         sample.ordinal(), sample.inputText(), sample.expectedOutputText(), sample.explanationMarkdown()))
                 .toList();
-        List<ProblemLanguage> languages = mapper.findLanguages(List.of(row.versionId())).stream()
+        List<ProblemLanguage> languages = mapper.findLanguages(List.of(row.problemId())).stream()
                 .map(languageRow -> new ProblemLanguage(
                         languageRow.languageId(), displayName(languageRow.languageId()), languageRow.starterCode()))
                 .toList();
         return new ProblemDetail(
-                row.problemId(), row.versionId(), row.versionNo(), row.slug(), row.codeMode(), row.title(),
+                row.problemId(), row.slug(), row.codeMode(), row.title(),
                 row.difficulty(), tags(row), row.statementMarkdown(), row.inputDescriptionMarkdown(),
                 row.outputDescriptionMarkdown(), row.constraintsMarkdown(), row.hintMarkdown(), samples, languages);
     }
@@ -120,9 +120,9 @@ public class PublicProblemService {
         if (rows.isEmpty()) {
             return Map.of();
         }
-        List<String> ids = rows.stream().map(ProblemRow::versionId).toList();
+        List<String> ids = rows.stream().map(ProblemRow::problemId).toList();
         return mapper.findLanguages(ids).stream().collect(Collectors.groupingBy(
-                LanguageRow::versionId,
+                LanguageRow::problemId,
                 Collectors.collectingAndThen(Collectors.toList(), values -> values.stream()
                         .sorted(Comparator.comparingInt(LanguageRow::displayOrder))
                         .toList())));
@@ -130,7 +130,7 @@ public class PublicProblemService {
 
     private ProblemSummary summary(ProblemRow row, List<LanguageRow> languages) {
         return new ProblemSummary(
-                row.problemId(), row.slug(), row.versionId(), row.versionNo(), row.title(), row.difficulty(),
+                row.problemId(), row.slug(), row.title(), row.difficulty(),
                 tags(row), row.codeMode(), languages.stream()
                         .map(language -> new LanguageSummary(language.languageId(), displayName(language.languageId())))
                         .toList());
@@ -141,7 +141,7 @@ public class PublicProblemService {
             return List.copyOf(objectMapper.readValue(row.tagsJson(), STRING_LIST));
         }
         catch (Exception error) {
-            throw new IllegalStateException("Published problem tags are invalid", error);
+            throw new IllegalStateException("Public problem tags are invalid", error);
         }
     }
 

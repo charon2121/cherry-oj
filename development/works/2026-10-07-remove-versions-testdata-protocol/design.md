@@ -130,9 +130,11 @@ submission-service 7、judge-engine 约 17，另有契约、生成物与 e2e。
   `ProblemPublicationService`（只剩 `calibrate`、`publish-check`、`publish`，作用在题目上）、
   `TestDataService`（上传 → 解压 → 校验成对 → 按协议写目录 → 更新题目上的数据信息）、
   `TestDataRecovery`（清理临时目录与过期旧目录）、`DevProblemSeed`。
-- **写目录的方式（建议）：** 每次上传写出内容寻址的真实目录 `<root>/.store/<problemId>-<digest前缀>/`，
-  最后写 `testdata.json`；题目地址 `<root>/<problemId>` 是指向它的符号链接，更新时用原子重命名换链接，旧目录
-  延迟清理，保证读取方要么看到旧的完整数据，要么看到新的完整数据。
+- **写目录的方式（已实现）：** 每次上传写出内容寻址的真实目录 `<root>/.store/<problemId>-<digest 前 16 位>/`，数据文件在前、
+  `testdata.json` 最后；题目地址 `<root>/<problemId>` 是指向它的**相对**符号链接（整个存储根按同一路径挂进容器后依然有效），
+  更新时先建新链接再用一次重命名换掉旧链接。慢的部分（读 ZIP、写文件）在数据库事务之外，事务里只有这一次切换。
+  只保留当前与上一代目录，上一代留给还在读旧数据的 judge 请求。目录与文件对其他用户可读（0755/0644），因为 judge 通常是另一个系统用户。
+  **数据库只存地址**（`problem.test_data_location`），指纹、测试点数、文件清单都从 `testdata.json` 读，不在库里抄一份。
 - **第一版只产生本地路径地址**（同机或共享卷）；通过 HTTP 对外提供目录是后续工作。judge 侧从第一天就
   同时支持两种地址。
 - **新增** `GET /internal/judging/problems/{problemId}/test-data`，供 judging-service 使用。
@@ -143,8 +145,20 @@ submission-service 7、judge-engine 约 17，另有契约、生成物与 e2e。
 |---|---|
 | `POST /problems/{id}/versions`、`GET/PATCH/DELETE …/versions/{vid}`、`…/preview` | 删；`PATCH /problems/{id}` 直接改全部内容，预览由前端用当前内容渲染 |
 | `PUT …/versions/{vid}/test-data`（绑定）、`POST …/deployment` | 删 |
-| `GET/POST /problems/{id}/test-data`、`…/{tdvId}/download` | `GET/PUT /problems/{id}/test-data`（上传即替换）；下载暂不提供 |
-| `POST …/versions/{vid}/calibration`、`GET …/publish-check`、`POST …/publish` | `POST /problems/{id}/calibration`、`GET /problems/{id}/publish-check`、`POST /problems/{id}/publish`，另加取消公开 |
+| `GET/POST /problems/{id}/test-data`、`…/{tdvId}/download` | `GET/PUT /problems/{id}/test-data`（上传即替换，返回指纹、测试点数、文件清单，不含服务器路径）；下载暂不提供 |
+| `POST …/versions/{vid}/calibration`、`GET …/publish-check`、`POST …/publish` | `POST /problems/{id}/calibration`（不再带 rowVersion：标定不改题目）、`GET /problems/{id}/publish-check`、`POST /problems/{id}/publish`，另加 `POST /problems/{id}/unpublish` |
+| `DELETE …/versions/{vid}`（删草稿） | `DELETE /problems/{id}?rowVersion=`：只能删从未公开过的题目（`published_at` 为空），审计事件、样例、语言和测试数据目录一并删除；公开过的只能归档 |
+
+### 3.3.1 problem-service 与 judging-service 之间的新接口（第 3 步已按此实现，第 4 步按此接入）
+
+- **judging → problem：** `GET /internal/judging/problems/{problemId}/test-data` → `{location, digest, caseCount, totalBytes}`
+  （契约 `problem-test-data.schema.json`），无数据 404，读不到或元数据损坏 503；只接受 judging-service 的服务令牌
+  （`cherry.service-calls.judging-problem-tokens`，不配置则端点关闭，管理员 JWT 和别的服务的令牌都不行）。
+- **problem → judging：** `POST /internal/admin/calibrations` 的请求体改为 `{problemId, languageId, testDataLocation, testDataDigest, cpuNs,
+  memoryBytes, clockNs, referenceSource}`——标定用的就是 problem-service 此刻给出的地址和指纹，judging-service 跑参考解后核对
+  判题结果里的 `testDataDigest`，不一致说明标定中途数据被换，标定作废；响应带 `testDataDigest` 供之后判断过期。
+  `GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=` 的检查项为 `ONLINE_JUDGE_NODE`、`LANGUAGE`、`CALIBRATION`
+  （`DEPLOYMENT` 取消；`TEST_DATA` 由 problem-service 本地检查），标定的 `testDataDigest` 与参数不一致就视为未标定。
 
 ### 3.4 judging-service
 
@@ -204,7 +218,7 @@ submission-service 7、judge-engine 约 17，另有契约、生成物与 e2e。
 | 0 ✅ | 改写 `product.md` 的产品规则（§5.1，A 已确认） | 文档检查 |
 | 1 ✅ | 契约：更新各 Schema 与 `contracts_test.py`，新增内部接口定义（`web-api.openapi.json` 推迟到第 5、6 步） | `contracts_test.py`、文档检查 |
 | 2 ✅ | Go：扩展 `testcase` 包、请求字段、删除安装接口与回执、配置、Compose、部署脚本渲染 | `go vet`、`go test -race`；用本地目录和 HTTP 夹具做协议读取测试 |
-| 3 | problem-service：V1 改写、实体合并、写协议目录、接口改写 | `mvnw clean verify`（含重写的集成测试） |
+| 3 ✅ | problem-service：V1 改写、实体合并、写协议目录、接口改写 | `mvnw clean verify`（含重写的集成测试） |
 | 4 | judging-service：V1 合并、删部署、标定改键、画像与 FormalWorker | 同上 |
 | 5 | submission-service 与 gateway | 同上 |
 | 6 | 前端：路由、页面、生成类型、e2e | `npm run check`、`npm run build` |

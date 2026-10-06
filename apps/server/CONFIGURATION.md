@@ -34,6 +34,7 @@ IDEA 打开期间仅修改磁盘上的 `.run` / `workspace.xml`，可能不会�
 | submission → problem | cherry.submission.problem-token | cherry.service-calls.submission-problem-tokens |
 | submission → judging | cherry.submission.judging-token | cherry.service-calls.submission-judging-tokens |
 | judging → submission | cherry.formal.submission-token | cherry.service-calls.judging-submission-tokens |
+| judging → problem（取题目当前的测试数据地址） | judging-service 侧的属性随判题服务改造引入 | cherry.service-calls.judging-problem-tokens；不配置则该内部端点关闭 |
 
 服务 token 是 32–512 位 URL-safe 字符，发送值必须属于接收列表。不要自动轮换或取轮换列表的首项。
 judging 节点 control-token 与现有 Go 引擎配置匹配。数据库仍使用各服务专有账号，不共用 root。

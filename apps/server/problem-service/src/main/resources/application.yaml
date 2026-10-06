@@ -27,6 +27,8 @@ cherry:
   service-calls:
     # 与 submission-service 的 CHERRY_SUBMISSION_PROBLEM_TOKEN 配对。
     submission-problem-tokens: "${CHERRY_SERVICE_CALLS_SUBMISSION_PROBLEM_TOKENS:}"
+    # 与 judging-service 取题目测试数据地址时带的服务令牌配对；不配置则该内部端点关闭。
+    judging-problem-tokens: "${CHERRY_SERVICE_CALLS_JUDGING_PROBLEM_TOKENS:}"
   problem:
     test-data:
       root: "${CHERRY_TEST_DATA_ROOT:./data/problem-testdata}"
@@ -41,9 +43,6 @@ cherry:
       base-url: "${CHERRY_JUDGING_BASE_URL:http://127.0.0.1:8084}"
       connect-timeout: "${CHERRY_JUDGING_CONNECT_TIMEOUT:2s}"
       request-timeout: "${CHERRY_JUDGING_REQUEST_TIMEOUT:120s}"
-    validation:
-      stale-age: "${CHERRY_PROBLEM_VALIDATION_STALE_AGE:15m}"
-      recovery-enabled: "${CHERRY_PROBLEM_VALIDATION_RECOVERY_ENABLED:true}"
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"

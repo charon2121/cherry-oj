@@ -3,23 +3,21 @@ package com.cherryoj.problemservice.application;
 import com.cherryoj.problemservice.api.AdminProblemDtos;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CodeMode;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CreateProblemRequest;
-import com.cherryoj.problemservice.api.AdminProblemDtos.CreateRevisionRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Problem;
 import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemPage;
 import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemStatus;
+import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemSummary;
 import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateProblemRequest;
-import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateVersionRequest;
-import com.cherryoj.problemservice.api.AdminProblemDtos.Version;
-import com.cherryoj.problemservice.api.AdminProblemDtos.VersionStatus;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Visibility;
 import com.cherryoj.problemservice.api.ProblemApiException;
 import com.cherryoj.problemservice.api.PublicProblemDtos;
+import com.cherryoj.problemservice.api.TestDataDtos;
 import com.cherryoj.problemservice.domain.UuidV7;
 import com.cherryoj.problemservice.persistence.AdminProblemMapper;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
-import com.cherryoj.problemservice.persistence.AdminProblemRows.VersionRow;
-import com.cherryoj.problemservice.persistence.TestDataMapper;
+import com.cherryoj.problemservice.persistence.AdminProblemRows.SampleRow;
+import com.cherryoj.problemservice.storage.TestDataStore;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -27,14 +25,19 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
+/**
+ * 题目没有版本：题面、样例、语言和测试数据地址都直接属于题目，改了就是改了。
+ * 可见性（私有/公开）由 {@link ProblemPublicationService} 管理，测试数据由 {@link TestDataService} 管理。
+ */
 @Service
 public class AdminProblemService {
 
@@ -44,22 +47,15 @@ public class AdminProblemService {
     private final UuidV7 ids;
     private final Clock clock;
     private final ObjectMapper json;
-    private final TestDataMapper testData;
-    private final TestDataViewMapper testDataViews;
+    private final TestDataStore testDataStore;
 
     public AdminProblemService(
-            AdminProblemMapper mapper,
-            UuidV7 ids,
-            Clock clock,
-            ObjectMapper json,
-            TestDataMapper testData,
-            TestDataViewMapper testDataViews) {
+            AdminProblemMapper mapper, UuidV7 ids, Clock clock, ObjectMapper json, TestDataStore testDataStore) {
         this.mapper = mapper;
         this.ids = ids;
         this.clock = clock;
         this.json = json;
-        this.testData = testData;
-        this.testDataViews = testDataViews;
+        this.testDataStore = testDataStore;
     }
 
     @Transactional(readOnly = true)
@@ -69,63 +65,79 @@ public class AdminProblemService {
         }
         String query = normalizeSearch(q);
         long total = mapper.countProblems(query, status);
-        List<ProblemRow> rows = mapper.listProblems(query, status, (long) (page - 1) * size, size);
-        Map<String, List<VersionRow>> versions = rows.isEmpty()
-                ? Map.of()
-                : mapper.findVersionsForProblems(rows.stream().map(ProblemRow::id).toList()).stream()
-                        .collect(Collectors.groupingBy(VersionRow::problemId));
-        List<Problem> items = rows.stream().map(row -> problem(row, versions.getOrDefault(row.id(), List.of()))).toList();
+        List<ProblemSummary> items = mapper.listProblems(query, status, (long) (page - 1) * size, size).stream()
+                .map(row -> new ProblemSummary(row.id(), row.slug(), row.title(), row.visibility(), row.status(),
+                        row.difficulty(), row.testDataLocation() != null, row.updatedAt(), row.publishedAt(),
+                        row.rowVersion()))
+                .toList();
         return new ProblemPage(items, page, size, total, total == 0 ? 0 : (int) ((total + size - 1) / size));
     }
 
     @Transactional(readOnly = true)
     public Problem getProblem(String problemId) {
-        ProblemRow row = requireProblem(problemId, false);
-        return problem(row, mapper.findVersions(problemId));
+        return problem(requireProblem(problemId, false));
     }
 
     @Transactional
     public Problem create(CreateProblemRequest request, String actorUserId) {
-        requireFirstVersion(request.codeMode(), request.languageId());
+        if (request.codeMode() != CodeMode.ACM || !"cpp".equals(request.languageId())) {
+            throw validation("目前只支持 C++ ACM 题目。");
+        }
         LocalDateTime now = now();
         String problemId = ids.next().toString();
-        String versionId = ids.next().toString();
-        ProblemRow problem = new ProblemRow(
-                problemId, request.slug(), Visibility.PRIVATE, ProblemStatus.ACTIVE, null, now, now, 0);
-        VersionRow version = new VersionRow(
-                versionId, problemId, 1, VersionStatus.DRAFT, CodeMode.ACM, request.title(), "", "", "",
-                null, null, request.difficulty(), "[]", null, null, now, now, null, 0);
+        ProblemRow row = new ProblemRow(
+                problemId, request.slug(), Visibility.PRIVATE, ProblemStatus.ACTIVE, CodeMode.ACM, request.title(),
+                "", "", "", null, null, request.difficulty(), "[]", null, null, now, now, null, 0);
         try {
-            mapper.insertProblem(problem, actorUserId);
-            mapper.insertVersion(version, actorUserId);
-            mapper.insertLanguage(versionId, "cpp", 1, "");
-            audit(problemId, actorUserId, "PROBLEM_CREATED", Map.of("versionNo", 1));
+            mapper.insertProblem(row, actorUserId);
+            mapper.insertLanguage(problemId, "cpp", 1, "");
+            audit(problemId, actorUserId, "PROBLEM_CREATED", Map.of());
         }
         catch (DuplicateKeyException error) {
-            throw new ProblemApiException(HttpStatus.CONFLICT, "SLUG_CONFLICT", "题目标识已存在。");
+            throw slugConflict();
         }
         return getProblem(problemId);
     }
 
     @Transactional
-    public Problem updateProblem(String problemId, UpdateProblemRequest request, String actorUserId) {
+    public Problem update(String problemId, UpdateProblemRequest request, String actorUserId) {
         ProblemRow current = requireProblem(problemId, true);
         requireRowVersion(current.rowVersion(), request.rowVersion());
         if (current.status() != ProblemStatus.ACTIVE) {
             throw state("归档题目不可修改。");
         }
-        if (request.visibility() == Visibility.PUBLIC && current.currentPublishedVersionId() == null) {
-            throw state("没有已发布版本的题目不能设为公开。");
+        List<String> tags = normalizeTags(request.tags());
+        validateSamples(request.samples());
+        // 公开题目的修改立即生效，所以不能把它改成用户看不懂的样子；要大改请先转为私有。
+        if (current.visibility() == Visibility.PUBLIC
+                && (!hasContent(request.title(), request.statementMarkdown(), request.inputDescriptionMarkdown(),
+                        request.outputDescriptionMarkdown()) || request.samples().isEmpty())) {
+            throw validation("已公开的题目必须保留完整题面和至少一个样例；需要大改请先转为私有。");
         }
+        LocalDateTime now = now();
+        ProblemRow changed = new ProblemRow(
+                current.id(), request.slug(), current.visibility(), current.status(), current.codeMode(),
+                request.title(), request.statementMarkdown(), request.inputDescriptionMarkdown(),
+                request.outputDescriptionMarkdown(), request.constraintsMarkdown(), request.hintMarkdown(),
+                request.difficulty(), writeJson(tags), current.testDataLocation(), current.testDataUpdatedAt(),
+                current.createdAt(), now, current.publishedAt(), current.rowVersion());
         try {
-            if (mapper.updateProblem(problemId, request.slug(), request.visibility(), now(), request.rowVersion()) != 1) {
+            if (mapper.updateContent(changed, request.rowVersion()) != 1) {
                 throw conflict();
             }
         }
         catch (DuplicateKeyException error) {
-            throw new ProblemApiException(HttpStatus.CONFLICT, "SLUG_CONFLICT", "题目标识已存在。");
+            throw slugConflict();
         }
-        audit(problemId, actorUserId, "PROBLEM_UPDATED", Map.of("visibility", request.visibility().name()));
+        mapper.deleteSamples(problemId);
+        mapper.deleteLanguages(problemId);
+        for (var sample : request.samples()) {
+            mapper.insertSample(ids.next().toString(), problemId, sample.ordinal(), sample.input(), sample.output(),
+                    sample.explanationMarkdown());
+        }
+        mapper.insertLanguage(problemId, "cpp", 1, request.starterCode());
+        audit(problemId, actorUserId, "PROBLEM_UPDATED", Map.of(
+                "sampleCount", request.samples().size(), "tagCount", tags.size()));
         return getProblem(problemId);
     }
 
@@ -140,146 +152,70 @@ public class AdminProblemService {
         return getProblem(problemId);
     }
 
-    @Transactional(readOnly = true)
-    public Version getVersion(String problemId, String versionId) {
-        requireProblem(problemId, false);
-        return version(requireVersion(problemId, versionId, false));
-    }
-
+    /** 只能删从未公开过的题目：它不可能有提交。公开过的题目只能归档。 */
     @Transactional
-    public Version updateVersion(
-            String problemId, String versionId, UpdateVersionRequest request, String actorUserId) {
-        requireProblem(problemId, true);
-        VersionRow current = requireVersion(problemId, versionId, true);
-        requireEditable(current);
-        requireRowVersion(current.rowVersion(), request.rowVersion());
-        List<String> tags = normalizeTags(request.tags());
-        validateSamples(request.samples());
-        LocalDateTime now = now();
-        VersionRow changed = new VersionRow(
-                current.id(), current.problemId(), current.versionNo(), current.status(), current.codeMode(),
-                request.title(), request.statementMarkdown(), request.inputDescriptionMarkdown(),
-                request.outputDescriptionMarkdown(), request.constraintsMarkdown(), request.hintMarkdown(),
-                request.difficulty(), writeJson(tags), current.testDataVersionId(), request.changeSummary(),
-                current.createdAt(), now, current.publishedAt(), current.rowVersion());
-        if (mapper.updateDraft(changed, request.rowVersion()) != 1) {
-            throw conflict();
-        }
-        mapper.deleteSamples(versionId);
-        mapper.deleteLanguages(versionId);
-        for (var sample : request.samples()) {
-            mapper.insertSample(ids.next().toString(), versionId, sample.ordinal(), sample.input(), sample.output(),
-                    sample.explanationMarkdown());
-        }
-        mapper.insertLanguage(versionId, "cpp", 1, request.starterCode());
-        audit(problemId, actorUserId, "DRAFT_UPDATED", Map.of(
-                "versionNo", current.versionNo(), "sampleCount", request.samples().size(), "tagCount", tags.size()));
-        return getVersion(problemId, versionId);
-    }
-
-    @Transactional
-    public Version createRevision(
-            String problemId, CreateRevisionRequest request, String actorUserId) {
-        ProblemRow problem = requireProblem(problemId, true);
-        requireRowVersion(problem.rowVersion(), request.rowVersion());
-        if (problem.status() != ProblemStatus.ACTIVE) {
-            throw state("归档题目不能创建修订。");
-        }
-        if (mapper.countDrafts(problemId) > 0) {
-            throw state("题目已经存在未发布版本。");
-        }
-        VersionRow source = problem.currentPublishedVersionId() == null
-                ? null
-                : requireVersion(problemId, problem.currentPublishedVersionId(), true);
-        if (source != null && source.status() != VersionStatus.PUBLISHED) {
-            throw state("当前公开版本状态无效。");
-        }
-        LocalDateTime now = now();
-        int versionNo = mapper.maxVersionNo(problemId) + 1;
-        String versionId = ids.next().toString();
-        VersionRow revision = source == null
-                ? new VersionRow(versionId, problemId, versionNo, VersionStatus.DRAFT, CodeMode.ACM,
-                        "未命名题目", "", "", "", null, null, AdminProblemDtos.Difficulty.UNRATED,
-                        "[]", null, null, now, now, null, 0)
-                : new VersionRow(versionId, problemId, versionNo, VersionStatus.DRAFT, source.codeMode(),
-                        source.title(), source.statementMarkdown(), source.inputDescriptionMarkdown(),
-                        source.outputDescriptionMarkdown(), source.constraintsMarkdown(), source.hintMarkdown(),
-                        source.difficulty(), source.tagsJson(), request.reuseTestData() ? source.testDataVersionId() : null,
-                        null, now, now, null, 0);
-        mapper.insertVersion(revision, actorUserId);
-        if (source == null) {
-            mapper.insertLanguage(versionId, "cpp", 1, "");
-        }
-        else {
-            for (var sample : mapper.findSamples(source.id())) {
-                mapper.insertSample(ids.next().toString(), versionId, sample.ordinal(), sample.inputText(),
-                        sample.expectedOutputText(), sample.explanationMarkdown());
-            }
-            for (LanguageRow language : mapper.findLanguages(source.id())) {
-                mapper.insertLanguage(versionId, language.languageId(), language.displayOrder(), language.starterCode());
-            }
-        }
-        if (mapper.touchProblem(problemId, now, request.rowVersion()) != 1) {
-            throw conflict();
-        }
-        audit(problemId, actorUserId, "REVISION_CREATED", Map.of(
-                "versionNo", versionNo, "reusedTestData", request.reuseTestData() && source != null));
-        return getVersion(problemId, versionId);
-    }
-
-    @Transactional
-    public void deleteDraft(String problemId, String versionId, long rowVersion, String actorUserId) {
-        requireProblem(problemId, true);
-        VersionRow current = requireVersion(problemId, versionId, true);
-        requireEditable(current);
+    public void delete(String problemId, long rowVersion) {
+        ProblemRow current = requireProblem(problemId, true);
         requireRowVersion(current.rowVersion(), rowVersion);
-        mapper.deleteSamples(versionId);
-        mapper.deleteLanguages(versionId);
-        if (mapper.deleteDraft(problemId, versionId) != 1) {
-            throw state("草稿已经被引用或状态已改变。");
+        if (current.publishedAt() != null) {
+            throw state("公开过的题目不能删除，请归档。");
         }
-        audit(problemId, actorUserId, "DRAFT_DELETED", Map.of("versionNo", current.versionNo()));
+        // 审计事件挂在题目上，题目删掉时一并删：这道题从未对外生效，没有需要保留的事实。
+        mapper.deleteSamples(problemId);
+        mapper.deleteLanguages(problemId);
+        mapper.deleteAudits(problemId);
+        if (mapper.deleteNeverPublished(problemId, rowVersion) != 1) {
+            throw conflict();
+        }
+        // 数据库提交之后才动文件：事务回滚时不能把测试数据已经删掉。
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                testDataStore.remove(problemId);
+            }
+        });
     }
 
     @Transactional(readOnly = true)
-    public PublicProblemDtos.ProblemDetail preview(String problemId, String versionId) {
-        ProblemRow problem = requireProblem(problemId, false);
-        Version value = version(requireVersion(problemId, versionId, false));
+    public PublicProblemDtos.ProblemDetail preview(String problemId) {
+        Problem value = problem(requireProblem(problemId, false));
         return new PublicProblemDtos.ProblemDetail(
-                problem.id(), value.id(), value.versionNo(), problem.slug(), value.codeMode().name(), value.title(),
-                value.difficulty().name(), value.tags(), value.statementMarkdown(), value.inputDescriptionMarkdown(),
+                value.id(), value.slug(), value.codeMode().name(), value.title(), value.difficulty().name(),
+                value.tags(), value.statementMarkdown(), value.inputDescriptionMarkdown(),
                 value.outputDescriptionMarkdown(), value.constraintsMarkdown(), value.hintMarkdown(), value.samples(),
                 value.allowedLanguages().stream().map(language -> new PublicProblemDtos.ProblemLanguage(
                         language.id(), language.displayName(), language.starterCode())).toList());
     }
 
-    private Problem problem(ProblemRow row, List<VersionRow> versions) {
-        return new Problem(
-                row.id(), row.slug(), row.visibility(), row.status(), row.currentPublishedVersionId(),
-                versions.stream().map(version -> new AdminProblemDtos.VersionSummary(
-                        version.id(), version.versionNo(), version.status(), version.title(), version.updatedAt(),
-                        version.publishedAt(), version.rowVersion())).toList(),
-                row.createdAt(), row.updatedAt(), row.rowVersion());
-    }
-
-    private Version version(VersionRow row) {
+    private Problem problem(ProblemRow row) {
         List<PublicProblemDtos.ProblemSample> samples = mapper.findSamples(row.id()).stream()
-                .map(sample -> new PublicProblemDtos.ProblemSample(
+                .map((SampleRow sample) -> new PublicProblemDtos.ProblemSample(
                         sample.ordinal(), sample.inputText(), sample.expectedOutputText(), sample.explanationMarkdown()))
                 .toList();
         List<AdminProblemDtos.Language> languages = mapper.findLanguages(row.id()).stream()
-                .map(language -> new AdminProblemDtos.Language(
+                .map((LanguageRow language) -> new AdminProblemDtos.Language(
                         language.languageId(), displayName(language.languageId()), language.starterCode()))
                 .toList();
-        return new Version(
-                row.id(), row.problemId(), row.versionNo(), row.status(), row.codeMode(), row.title(),
+        return new Problem(
+                row.id(), row.slug(), row.visibility(), row.status(), row.codeMode(), row.title(),
                 row.statementMarkdown(), row.inputDescriptionMarkdown(), row.outputDescriptionMarkdown(),
                 row.constraintsMarkdown(), row.hintMarkdown(), row.difficulty(), readTags(row.tagsJson()), samples,
-                languages,
-                row.testDataVersionId() == null
-                        ? null
-                        : testDataViews.map(testData.find(row.problemId(), row.testDataVersionId())),
-                row.changeSummary(), row.createdAt(), row.updatedAt(), row.publishedAt(), row.rowVersion());
+                languages, testData(row), row.createdAt(), row.updatedAt(), row.publishedAt(), row.rowVersion());
+    }
+
+    /** 读不到的测试数据按「没有」展示；公开检查会指出具体原因。 */
+    private TestDataDtos.TestData testData(ProblemRow row) {
+        if (row.testDataLocation() == null) {
+            return null;
+        }
+        try {
+            TestDataStore.Info info = testDataStore.describe(row.testDataLocation());
+            return new TestDataDtos.TestData(
+                    info.digest(), info.caseCount(), info.totalBytes(), row.testDataUpdatedAt(), info.manifest());
+        }
+        catch (TestDataStore.AssetException error) {
+            return null;
+        }
     }
 
     private ProblemRow requireProblem(String problemId, boolean forUpdate) {
@@ -290,26 +226,13 @@ public class AdminProblemService {
         return row;
     }
 
-    private VersionRow requireVersion(String problemId, String versionId, boolean forUpdate) {
-        VersionRow row = forUpdate
-                ? mapper.findVersionForUpdate(problemId, versionId)
-                : mapper.findVersion(problemId, versionId);
-        if (row == null) {
-            throw new ProblemApiException(HttpStatus.NOT_FOUND, "PROBLEM_VERSION_NOT_FOUND", "题目版本不存在。");
+    private static boolean hasContent(String... values) {
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                return false;
+            }
         }
-        return row;
-    }
-
-    private static void requireEditable(VersionRow version) {
-        if (version.status() != VersionStatus.DRAFT) {
-            throw state("只有 DRAFT 版本可以编辑或删除。");
-        }
-    }
-
-    private static void requireFirstVersion(CodeMode mode, String languageId) {
-        if (mode != CodeMode.ACM || !"cpp".equals(languageId)) {
-            throw validation("首版只支持 C++ ACM 题目。");
-        }
+        return true;
     }
 
     private static void requireRowVersion(long actual, long expected) {
@@ -356,7 +279,7 @@ public class AdminProblemService {
     }
 
     private void audit(String problemId, String actorUserId, String action, Map<String, Object> detail) {
-        mapper.insertAudit(ids.next().toString(), problemId, null, actorUserId, action, null, writeJson(detail), now());
+        mapper.insertAudit(ids.next().toString(), problemId, actorUserId, action, null, writeJson(detail), now());
     }
 
     private LocalDateTime now() {
@@ -388,5 +311,9 @@ public class AdminProblemService {
 
     private static ProblemApiException conflict() {
         return new ProblemApiException(HttpStatus.CONFLICT, "ROW_VERSION_CONFLICT", "资源已被其他窗口修改，请重新加载。");
+    }
+
+    private static ProblemApiException slugConflict() {
+        return new ProblemApiException(HttpStatus.CONFLICT, "SLUG_CONFLICT", "题目标识已存在。");
     }
 }

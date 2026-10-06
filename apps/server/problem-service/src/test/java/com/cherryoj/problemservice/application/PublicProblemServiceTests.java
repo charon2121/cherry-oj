@@ -62,14 +62,14 @@ class PublicProblemServiceTests {
     void detailOnlySerializesThePublicFieldWhitelist() throws Exception {
         ProblemRow row = row("101", "a-plus-b", "2026-08-30T01:00:03");
         when(mapper.findPublicProblemBySlug("a-plus-b")).thenReturn(row);
-        when(mapper.findSamples(row.versionId())).thenReturn(List.of(
-                new SampleRow(row.versionId(), 1, "1 2\n", "3\n", null)));
+        when(mapper.findSamples(row.problemId())).thenReturn(List.of(
+                new SampleRow(row.problemId(), 1, "1 2\n", "3\n", null)));
 
         String body = json.writeValueAsString(service.detail("a-plus-b"));
 
         assertThat(body).contains("a-plus-b", "statementMarkdown", "allowedLanguages");
         assertThat(body).doesNotContain(
-                "judgeTemplate", "testDataVersionId", "storageRef", "manifest", "createdBy", "publishedBy", "audit");
+                "judgeTemplate", "testDataLocation", "testData", "problemVersionId", "versionNo", "createdBy", "audit");
     }
 
     @Test
@@ -85,9 +85,8 @@ class PublicProblemServiceTests {
 
     private static ProblemRow row(String suffix, String slug, String updatedAt) {
         String id = "019c8e42-7f70-7000-8000-000000000" + suffix;
-        String versionId = "019c8e42-7f70-7000-8000-000000001" + suffix;
         return new ProblemRow(
-                id, slug, versionId, 1, "ACM", slug, "statement", "input", "output", null, null,
+                id, slug, "ACM", slug, "statement", "input", "output", null, null,
                 "EASY", "[\"入门\"]", LocalDateTime.parse(updatedAt));
     }
 }

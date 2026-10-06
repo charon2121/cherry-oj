@@ -1,17 +1,17 @@
 package com.cherryoj.problemservice.api;
 
+import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CreateProblemRequest;
-import com.cherryoj.problemservice.api.AdminProblemDtos.CreateRevisionRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemStatus;
 import com.cherryoj.problemservice.api.AdminProblemDtos.RowVersionRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateProblemRequest;
-import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateVersionRequest;
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import com.cherryoj.problemservice.security.CurrentIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
@@ -33,6 +33,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/internal/admin/problems")
 public class AdminProblemController {
+
+    private static final String ID = AdminProblemDtos.UUID_PATTERN;
 
     private final AdminProblemService problems;
     private final ProblemPublicationService publication;
@@ -60,108 +62,73 @@ public class AdminProblemController {
     }
 
     @GetMapping("/{problemId}")
-    AdminProblemDtos.Problem get(@PathVariable String problemId) {
-        return problems.getProblem(problemId);
+    ResponseEntity<AdminProblemDtos.Problem> get(@PathVariable @Pattern(regexp = ID) String problemId) {
+        return noStore(problems.getProblem(problemId));
     }
 
     @PatchMapping("/{problemId}")
     AdminProblemDtos.Problem update(
-            @PathVariable String problemId,
+            @PathVariable @Pattern(regexp = ID) String problemId,
             @Valid @RequestBody UpdateProblemRequest request,
             JwtAuthenticationToken authentication) {
-        return problems.updateProblem(problemId, request, actor(authentication));
+        return problems.update(problemId, request, actor(authentication));
+    }
+
+    @DeleteMapping("/{problemId}")
+    ResponseEntity<Void> delete(
+            @PathVariable @Pattern(regexp = ID) String problemId,
+            @RequestParam @Min(0) long rowVersion) {
+        problems.delete(problemId, rowVersion);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{problemId}/archive")
     AdminProblemDtos.Problem archive(
-            @PathVariable String problemId,
+            @PathVariable @Pattern(regexp = ID) String problemId,
             @Valid @RequestBody RowVersionRequest request,
             JwtAuthenticationToken authentication) {
         return problems.archive(problemId, request.rowVersion(), actor(authentication));
     }
 
-    @PostMapping("/{problemId}/versions")
-    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
-    AdminProblemDtos.Version createRevision(
-            @PathVariable String problemId,
-            @Valid @RequestBody CreateRevisionRequest request,
-            JwtAuthenticationToken authentication) {
-        return problems.createRevision(problemId, request, actor(authentication));
+    @GetMapping("/{problemId}/preview")
+    ResponseEntity<PublicProblemDtos.ProblemDetail> preview(@PathVariable @Pattern(regexp = ID) String problemId) {
+        return noStore(problems.preview(problemId));
     }
 
-    @GetMapping("/{problemId}/versions/{versionId}")
-    AdminProblemDtos.Version getVersion(@PathVariable String problemId, @PathVariable String versionId) {
-        return problems.getVersion(problemId, versionId);
-    }
-
-    @PatchMapping("/{problemId}/versions/{versionId}")
-    AdminProblemDtos.Version updateVersion(
-            @PathVariable String problemId,
-            @PathVariable String versionId,
-            @Valid @RequestBody UpdateVersionRequest request,
-            JwtAuthenticationToken authentication) {
-        return problems.updateVersion(problemId, versionId, request, actor(authentication));
-    }
-
-    @DeleteMapping("/{problemId}/versions/{versionId}")
-    ResponseEntity<Void> deleteVersion(
-            @PathVariable String problemId,
-            @PathVariable String versionId,
-            @RequestParam @Min(0) long rowVersion,
-            JwtAuthenticationToken authentication) {
-        problems.deleteDraft(problemId, versionId, rowVersion, actor(authentication));
-        return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/{problemId}/versions/{versionId}/preview")
-    ResponseEntity<PublicProblemDtos.ProblemDetail> preview(
-            @PathVariable String problemId, @PathVariable String versionId) {
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())
-                .body(problems.preview(problemId, versionId));
-    }
-
-    @PostMapping("/{problemId}/versions/{versionId}/deployment")
-    ResponseEntity<AdminProblemDtos.TestDataDeployment> deploy(
-            @PathVariable String problemId,
-            @PathVariable String versionId,
-            @Valid @RequestBody AdminProblemDtos.DeployTestDataRequest request,
-            @RequestHeader(name = "traceparent", required = false) String traceparent,
-            JwtAuthenticationToken authentication) {
-        return noStore(publication.deploy(problemId, versionId, request,
-                token(authentication), traceparent, actor(authentication)));
-    }
-
-    @PostMapping("/{problemId}/versions/{versionId}/calibration")
+    @PostMapping("/{problemId}/calibration")
     ResponseEntity<AdminProblemDtos.LanguageCalibration> calibrate(
-            @PathVariable String problemId,
-            @PathVariable String versionId,
-            @Valid @RequestBody AdminProblemDtos.CalibrateProblemRequest request,
+            @PathVariable @Pattern(regexp = ID) String problemId,
+            @Valid @RequestBody CalibrateProblemRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceparent,
             JwtAuthenticationToken authentication) {
-        return noStore(publication.calibrate(problemId, versionId, request,
+        return noStore(publication.calibrate(problemId, request,
                 token(authentication), traceparent, actor(authentication)));
     }
 
-    @GetMapping("/{problemId}/versions/{versionId}/publish-check")
+    @GetMapping("/{problemId}/publish-check")
     ResponseEntity<AdminProblemDtos.PublishCheck> publishCheck(
-            @PathVariable String problemId,
-            @PathVariable String versionId,
+            @PathVariable @Pattern(regexp = ID) String problemId,
             @RequestHeader(name = "traceparent", required = false) String traceparent,
             JwtAuthenticationToken authentication) {
-        return noStore(publication.publishCheck(
-                problemId, versionId, token(authentication), traceparent));
+        return noStore(publication.publishCheck(problemId, token(authentication), traceparent));
     }
 
-    @PostMapping("/{problemId}/versions/{versionId}/publish")
-    ResponseEntity<AdminProblemDtos.Version> publish(
-            @PathVariable String problemId,
-            @PathVariable String versionId,
-            @Valid @RequestBody AdminProblemDtos.PublishProblemRequest request,
+    @PostMapping("/{problemId}/publish")
+    ResponseEntity<AdminProblemDtos.Problem> publish(
+            @PathVariable @Pattern(regexp = ID) String problemId,
+            @Valid @RequestBody RowVersionRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceparent,
             JwtAuthenticationToken authentication) {
-        return noStore(publication.publish(problemId, versionId, request.rowVersion(),
+        return noStore(publication.publish(problemId, request.rowVersion(),
                 token(authentication), traceparent, actor(authentication)));
+    }
+
+    @PostMapping("/{problemId}/unpublish")
+    ResponseEntity<AdminProblemDtos.Problem> unpublish(
+            @PathVariable @Pattern(regexp = ID) String problemId,
+            @Valid @RequestBody RowVersionRequest request,
+            JwtAuthenticationToken authentication) {
+        return noStore(publication.unpublish(problemId, request.rowVersion(), actor(authentication)));
     }
 
     private static <T> ResponseEntity<T> noStore(T value) {

@@ -21,7 +21,7 @@ class SubmissionSnapshotSecurityTests {
         @Bean SubmissionSnapshotController controller() {
             var service = mock(SubmissionSnapshotService.class);
             when(service.resolve(anyString(), anyString())).thenReturn(new SubmissionSnapshotService.Snapshot(
-                    "p", "v", 1, "title", "d", "a".repeat(64), "cpp", "ACM", 2));
+                    "p", "title", "cpp", "ACM"));
             return new SubmissionSnapshotController(service);
         }
     }
@@ -40,7 +40,11 @@ class SubmissionSnapshotSecurityTests {
             mvc.perform(post("/internal/submission/problem-snapshot").header("Authorization", "Bearer " + token)
                     .contentType("application/json").content("{\"problemId\":\"0198cafe-0000-7000-8000-000000000002\",\"languageId\":\"cpp\"}"))
                     .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
-                    .andExpect(jsonPath("totalCount").value(2)).andExpect(jsonPath("storageRef").doesNotExist());
+                    .andExpect(jsonPath("problemTitle").value("title"))
+                    // 契约里没有版本、数据地址或存储位置
+                    .andExpect(jsonPath("problemVersionId").doesNotExist())
+                    .andExpect(jsonPath("testDataLocation").doesNotExist())
+                    .andExpect(jsonPath("storageRef").doesNotExist());
         }
     }
 }

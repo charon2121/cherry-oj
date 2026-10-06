@@ -8,7 +8,8 @@
 
 - `gateway-service`，端口 8080：浏览器唯一入口，后续负责路由、会话边界和入口级策略。
 - `user-service`，端口 8081：用户、认证与角色。
-- `problem-service`，端口 8082：题目版本、语言模板和测试数据元信息。
+- `problem-service`，端口 8082：题目（题面、样例、语言模板，没有版本）和测试数据：按[测试数据协议](../../docs/testdata-protocol.md)
+  把上传的 ZIP 写成目录，数据库只存目录地址。
 - `submission-service`，端口 8083：提交记录、不可变 JudgeInput 和判题状态。
 - `judging-service`，端口 8084：判题环境、任务编排，以及与 Go judge 的通信。
 

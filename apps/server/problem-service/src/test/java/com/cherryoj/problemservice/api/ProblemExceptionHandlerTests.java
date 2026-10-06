@@ -103,7 +103,7 @@ class ProblemExceptionHandlerTests {
 
 	@Test
 	void unexpectedPatchFailureReturnsSafeInternalProblemAndOnlyBoundedFacts() throws Exception {
-		when(problems.updateProblem(anyString(), any(), anyString()))
+		when(problems.update(anyString(), any(), anyString()))
 				.thenThrow(new IllegalStateException(PRIVATE_VALUE, new IllegalArgumentException(PRIVATE_VALUE)));
 
 		var result = mvc.perform(adminPatch().header("X-Request-Id", REQUEST_ID)
@@ -154,7 +154,7 @@ class ProblemExceptionHandlerTests {
 	@ParameterizedTest
 	@MethodSource("domainFailures")
 	void domainErrorsKeepTheirStatusAndCode(HttpStatus status, String code) throws Exception {
-		when(problems.updateProblem(anyString(), any(), anyString()))
+		when(problems.update(anyString(), any(), anyString()))
 				.thenThrow(new ProblemApiException(status, code, "已知业务错误。"));
 		mvc.perform(adminPatch()).andExpect(status().is(status.value()))
 				.andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
@@ -315,18 +315,21 @@ class ProblemExceptionHandlerTests {
 
 	@Test
 	void unauthenticatedAndNonAdminRequestsNeverReachTheApplication() throws Exception {
-		mvc.perform(patch("/internal/admin/problems/problem-1")).andExpect(status().isUnauthorized());
-		mvc.perform(patch("/internal/admin/problems/problem-1").with(user("member")))
+		mvc.perform(patch("/internal/admin/problems/019c8e42-7f70-7000-8000-000000000101")).andExpect(status().isUnauthorized());
+		mvc.perform(patch("/internal/admin/problems/019c8e42-7f70-7000-8000-000000000101").with(user("member")))
 				.andExpect(status().isForbidden());
 		org.mockito.Mockito.verifyNoInteractions(problems);
 		assertThat(events.list).isEmpty();
 	}
 
 	private static MockHttpServletRequestBuilder adminPatch() {
-		return patch("/internal/admin/problems/problem-1")
+		return patch("/internal/admin/problems/019c8e42-7f70-7000-8000-000000000101")
 				.with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"slug\":\"a-plus-b\",\"visibility\":\"PUBLIC\",\"rowVersion\":1}");
+				.content("""
+						{"slug":"a-plus-b","title":"A+B","statementMarkdown":"s","inputDescriptionMarkdown":"i",
+						 "outputDescriptionMarkdown":"o","difficulty":"EASY","tags":[],"samples":[],
+						 "starterCode":"","rowVersion":1}""");
 	}
 
 	private static Map<String, Object> fields(ILoggingEvent event) {

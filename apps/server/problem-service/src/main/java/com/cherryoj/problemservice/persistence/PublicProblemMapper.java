@@ -14,7 +14,7 @@ public interface PublicProblemMapper {
 
     ProblemRow findPublicProblemBySlug(@Param("slug") String slug);
 
-    List<SampleRow> findSamples(@Param("versionId") String versionId);
+    List<SampleRow> findSamples(@Param("problemId") String problemId);
 
-    List<LanguageRow> findLanguages(@Param("versionIds") List<String> versionIds);
+    List<LanguageRow> findLanguages(@Param("problemIds") List<String> problemIds);
 }

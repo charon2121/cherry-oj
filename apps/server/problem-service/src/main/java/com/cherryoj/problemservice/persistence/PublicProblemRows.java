@@ -10,8 +10,6 @@ public final class PublicProblemRows {
     public record ProblemRow(
             String problemId,
             String slug,
-            String versionId,
-            int versionNo,
             String codeMode,
             String title,
             String statementMarkdown,
@@ -25,13 +23,13 @@ public final class PublicProblemRows {
     }
 
     public record SampleRow(
-            String versionId,
+            String problemId,
             int ordinal,
             String inputText,
             String expectedOutputText,
             String explanationMarkdown) {
     }
 
-    public record LanguageRow(String versionId, String languageId, int displayOrder, String starterCode) {
+    public record LanguageRow(String problemId, String languageId, int displayOrder, String starterCode) {
     }
 }

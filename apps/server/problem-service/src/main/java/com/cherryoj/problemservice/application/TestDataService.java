@@ -1,27 +1,21 @@
 package com.cherryoj.problemservice.application;
 
-import com.cherryoj.problemservice.api.AdminProblemDtos;
 import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemStatus;
-import com.cherryoj.problemservice.api.AdminProblemDtos.VersionStatus;
 import com.cherryoj.problemservice.api.ProblemApiException;
 import com.cherryoj.problemservice.api.TestDataDtos;
-import com.cherryoj.problemservice.domain.UuidV7;
 import com.cherryoj.problemservice.config.TestDataStorageProperties;
+import com.cherryoj.problemservice.domain.UuidV7;
 import com.cherryoj.problemservice.persistence.AdminProblemMapper;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
-import com.cherryoj.problemservice.persistence.AdminProblemRows.VersionRow;
-import com.cherryoj.problemservice.persistence.TestDataMapper;
-import com.cherryoj.problemservice.persistence.TestDataRows.TestDataRow;
-import com.cherryoj.problemservice.storage.TestDataAssetStore;
-import com.cherryoj.problemservice.storage.TestDataAssetStore.Asset;
-import com.cherryoj.problemservice.storage.TestDataAssetStore.AssetException;
-import com.cherryoj.problemservice.storage.TestDataAssetStore.StagedAsset;
+import com.cherryoj.problemservice.storage.TestDataStore;
+import com.cherryoj.problemservice.storage.TestDataStore.AssetException;
+import com.cherryoj.problemservice.storage.TestDataStore.Info;
+import com.cherryoj.problemservice.storage.TestDataStore.Prepared;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -30,14 +24,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
+/**
+ * 题目的测试数据：上传 ZIP 后按协议（docs/testdata-protocol.md）写成目录，数据库只记目录的地址。
+ * 数据的指纹、测试点数和文件清单都从地址下的 testdata.json 读，不在数据库里再存一份。
+ */
 @Service
 public class TestDataService {
 
-    private final TestDataMapper mapper;
     private final AdminProblemMapper problems;
-    private final AdminProblemService adminProblems;
-    private final TestDataViewMapper views;
-    private final TestDataAssetStore assets;
+    private final TestDataStore store;
     private final UuidV7 ids;
     private final Clock clock;
     private final ObjectMapper json;
@@ -45,21 +40,15 @@ public class TestDataService {
     private final TestDataStorageProperties storageProperties;
 
     public TestDataService(
-            TestDataMapper mapper,
             AdminProblemMapper problems,
-            AdminProblemService adminProblems,
-            TestDataViewMapper views,
-            TestDataAssetStore assets,
+            TestDataStore store,
             UuidV7 ids,
             Clock clock,
             ObjectMapper json,
             TestDataStorageProperties storageProperties,
             PlatformTransactionManager transactionManager) {
-        this.mapper = mapper;
         this.problems = problems;
-        this.adminProblems = adminProblems;
-        this.views = views;
-        this.assets = assets;
+        this.store = store;
         this.ids = ids;
         this.clock = clock;
         this.json = json;
@@ -67,12 +56,15 @@ public class TestDataService {
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    public List<TestDataDtos.TestDataVersion> list(String problemId) {
-        requireProblem(problemId, false);
-        return mapper.list(problemId).stream().map(views::map).toList();
+    public TestDataDtos.TestData get(String problemId) {
+        ProblemRow problem = requireProblem(problemId, false);
+        Info info = describe(problem);
+        return new TestDataDtos.TestData(
+                info.digest(), info.caseCount(), info.totalBytes(), problem.testDataUpdatedAt(), info.manifest());
     }
 
-    public TestDataDtos.TestDataVersion upload(String problemId, MultipartFile file, String actorUserId) {
+    /** 上传并替换题目的测试数据。慢的部分（读 ZIP、写文件）在事务之外，事务里只有一次原子切换。 */
+    public TestDataDtos.TestData upload(String problemId, MultipartFile file, String actorUserId) {
         if (file == null || file.isEmpty()) {
             throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "TEST_DATA_EMPTY", "测试数据 ZIP 不能为空。");
         }
@@ -80,116 +72,73 @@ public class TestDataService {
             throw new ProblemApiException(
                     HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
         }
-        String id = ids.next().toString();
-        String storageRef = "assets/" + id + ".zip";
-        transactions.executeWithoutResult(status -> {
-            ProblemRow problem = requireProblem(problemId, true);
-            if (problem.status() != ProblemStatus.ACTIVE) throw state("归档题目不能上传测试数据。");
-            mapper.insertUploading(id, problemId, storageRef, actorUserId, now());
-        });
+        transactions.executeWithoutResult(status -> requireActive(requireProblem(problemId, false)));
 
-        StagedAsset staged;
+        Prepared prepared;
         try (InputStream source = file.getInputStream()) {
-            staged = assets.stage(id, source);
+            prepared = store.prepare(problemId, source);
         }
         catch (AssetException error) {
-            failUpload(id, error.getMessage(), problemId, actorUserId);
             throw assetProblem(error);
         }
         catch (Exception error) {
-            failUpload(id, "TEST_DATA_UPLOAD_INTERRUPTED", problemId, actorUserId);
             throw new ProblemApiException(
                     HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时无法保存。");
         }
 
-        var sealed = new boolean[] { false };
+        TestDataDtos.TestData result;
         try {
-            TestDataRow result = transactions.execute(status -> {
-                ProblemRow problem = requireProblem(problemId, true);
-                if (problem.status() != ProblemStatus.ACTIVE) throw state("归档题目不能上传测试数据。");
-                TestDataRow existing = mapper.findReadyByHash(problemId, staged.contentSha256());
-                if (existing != null) {
-                    if (mapper.deleteUploading(id) != 1) throw state("上传状态已经改变。");
-                    assets.discard(staged);
-                    audit(problemId, actorUserId, "TEST_DATA_REUSED", Map.of(
-                            "testDataVersionId", existing.id(), "contentSha256", existing.contentSha256()));
-                    return existing;
-                }
+            result = transactions.execute(status -> {
+                requireActive(requireProblem(problemId, true));
+                String location;
                 try {
-                    assets.seal(staged);
-                    sealed[0] = true;
+                    location = store.activate(problemId, prepared);
                 }
                 catch (AssetException error) {
                     throw new AssetRuntimeException(error);
                 }
-                if (mapper.markReady(
-                        id, staged.contentSha256(), staged.caseCount(), staged.totalBytes(),
-                        writeJson(staged.manifest()), now()) != 1) {
-                    throw state("上传状态已经改变。");
+                LocalDateTime now = now();
+                if (problems.updateTestData(problemId, location, now) != 1) {
+                    throw state("题目状态已改变。");
                 }
-                audit(problemId, actorUserId, "TEST_DATA_READY", Map.of(
-                        "testDataVersionId", id,
-                        "contentSha256", staged.contentSha256(),
-                        "caseCount", staged.caseCount(),
-                        "totalBytes", staged.totalBytes()));
-                return mapper.find(problemId, id);
+                audit(problemId, actorUserId, Map.of(
+                        "digest", prepared.info().digest(),
+                        "caseCount", prepared.info().caseCount(),
+                        "totalBytes", prepared.info().totalBytes()));
+                return new TestDataDtos.TestData(prepared.info().digest(), prepared.info().caseCount(),
+                        prepared.info().totalBytes(), now, prepared.info().manifest());
             });
-            return views.map(result);
         }
         catch (RuntimeException error) {
-            if (sealed[0]) assets.delete(staged.storageRef());
-            else assets.discard(staged);
-            Throwable cause = error instanceof AssetRuntimeException ? error.getCause() : error;
-            String failureCode = cause instanceof AssetException asset ? asset.getMessage() : "TEST_DATA_FINALIZE_FAILED";
-            failUpload(id, failureCode, problemId, actorUserId);
-            if (cause instanceof AssetException asset) throw assetProblem(asset);
+            // 没能切换时目录没有被任何地址指向，可以丢掉；已经切换成功的目录 discard 不会动。
+            store.discard(prepared);
+            if (error instanceof AssetRuntimeException asset) throw assetProblem(asset.cause());
             if (error instanceof ProblemApiException problem) throw problem;
             throw new ProblemApiException(
-                    HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时无法封存。");
+                    HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时无法保存。");
         }
+        store.prune(problemId);
+        return result;
     }
 
-    public ReadyAsset openReady(String problemId, String testDataVersionId) {
-        TestDataRow row = mapper.find(problemId, testDataVersionId);
-        if (row == null || row.status() != TestDataDtos.Status.READY) {
-            throw new ProblemApiException(HttpStatus.NOT_FOUND, "TEST_DATA_NOT_FOUND", "测试数据版本不存在。");
+    /** judging-service 判题与标定前来取题目当前的测试数据地址；每次都读 testdata.json，拿到的就是最新的。 */
+    public TestDataDtos.ProblemTestData forJudging(String problemId) {
+        ProblemRow problem = requireProblem(problemId, false);
+        Info info = describe(problem);
+        return new TestDataDtos.ProblemTestData(
+                problem.testDataLocation(), info.digest(), info.caseCount(), info.totalBytes());
+    }
+
+    private Info describe(ProblemRow problem) {
+        if (problem.testDataLocation() == null) {
+            throw new ProblemApiException(HttpStatus.NOT_FOUND, "TEST_DATA_NOT_FOUND", "题目还没有测试数据。");
         }
         try {
-            Asset asset = assets.open(row.storageRef());
-            return new ReadyAsset(row.id(), row.contentSha256(), views.map(row).manifest(), asset);
+            return store.describe(problem.testDataLocation());
         }
         catch (AssetException error) {
             throw assetProblem(error);
         }
-    }
-
-    public AdminProblemDtos.Version bind(
-            String problemId,
-            String versionId,
-            TestDataDtos.BindTestDataRequest request,
-            String actorUserId) {
-        transactions.executeWithoutResult(status -> {
-            ProblemRow problem = requireProblem(problemId, true);
-            if (problem.status() != ProblemStatus.ACTIVE) throw state("归档题目不能绑定测试数据。");
-            VersionRow version = problems.findVersionForUpdate(problemId, versionId);
-            if (version == null) {
-                throw new ProblemApiException(HttpStatus.NOT_FOUND, "PROBLEM_VERSION_NOT_FOUND", "题目版本不存在。");
-            }
-            if (version.status() != VersionStatus.DRAFT) throw state("只有 DRAFT 版本可以绑定测试数据。");
-            if (version.rowVersion() != request.rowVersion()) throw conflict();
-            TestDataRow testData = mapper.find(problemId, request.testDataVersionId());
-            if (testData == null || testData.status() != TestDataDtos.Status.READY) {
-                throw state("只能绑定本题 READY 测试数据。");
-            }
-            if (mapper.bindDraft(problemId, versionId, testData.id(), now(), request.rowVersion()) != 1) {
-                throw conflict();
-            }
-            audit(problemId, actorUserId, "TEST_DATA_BOUND", Map.of(
-                    "problemVersionId", versionId,
-                    "testDataVersionId", testData.id(),
-                    "contentSha256", testData.contentSha256()));
-        });
-        return adminProblems.getVersion(problemId, versionId);
     }
 
     private ProblemRow requireProblem(String problemId, boolean forUpdate) {
@@ -198,31 +147,17 @@ public class TestDataService {
         return row;
     }
 
-    private void failUpload(String id, String code, String problemId, String actorUserId) {
-        String safeCode = code == null ? "TEST_DATA_UPLOAD_FAILED" : code.substring(0, Math.min(code.length(), 128));
-        try {
-            transactions.executeWithoutResult(status -> {
-                if (mapper.markFailed(id, safeCode) == 1) {
-                    audit(problemId, actorUserId, "TEST_DATA_FAILED", Map.of("failureCode", safeCode));
-                }
-            });
-        }
-        catch (RuntimeException ignored) {
-            // The original safe error remains the response; startup recovery handles stale UPLOADING rows.
-        }
+    private static void requireActive(ProblemRow problem) {
+        if (problem.status() != ProblemStatus.ACTIVE) throw state("归档题目不能上传测试数据。");
     }
 
-    private void audit(String problemId, String actorUserId, String action, Map<String, Object> detail) {
-        problems.insertAudit(
-                ids.next().toString(), problemId, null, actorUserId, action, null, writeJson(detail), now());
-    }
-
-    private String writeJson(Object value) {
+    private void audit(String problemId, String actorUserId, Map<String, Object> detail) {
         try {
-            return json.writeValueAsString(value);
+            problems.insertAudit(ids.next().toString(), problemId, actorUserId, "TEST_DATA_UPLOADED", null,
+                    json.writeValueAsString(detail), now());
         }
-        catch (Exception error) {
-            throw new IllegalStateException("Could not serialize test data metadata", error);
+        catch (RuntimeException error) {
+            throw new IllegalStateException("Could not write test data audit", error);
         }
     }
 
@@ -236,8 +171,10 @@ public class TestDataService {
                     HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
             case INVALID_ARCHIVE -> new ProblemApiException(
                     HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TEST_DATA_ARCHIVE", invalidArchiveDetail(error));
-            case NOT_FOUND, STORAGE_UNAVAILABLE -> new ProblemApiException(
-                    HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据资产暂时不可用。");
+            case NOT_FOUND -> new ProblemApiException(
+                    HttpStatus.NOT_FOUND, "TEST_DATA_NOT_FOUND", "题目的测试数据读取不到，请重新上传。");
+            case STORAGE_UNAVAILABLE -> new ProblemApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时不可用。");
         };
     }
 
@@ -248,6 +185,7 @@ public class TestDataService {
                     "ZIP 只支持根目录或一个外层文件夹中的成对 .in/.out 文件，请移除其他目录和文件后重试。";
             case "TEST_DATA_CASE_PAIR_REQUIRED" -> "每个测试点都必须同时包含同名的 .in 和 .out 文件。";
             case "TEST_DATA_FILE_NOT_UTF8" -> "测试数据文件必须使用 UTF-8 文本编码。";
+            case "TEST_DATA_TOO_MANY_FILES" -> "测试点或文件数量超过上限。";
             default -> "测试数据 ZIP 格式无效。";
         };
     }
@@ -256,36 +194,17 @@ public class TestDataService {
         return new ProblemApiException(HttpStatus.CONFLICT, "RESOURCE_STATE_CONFLICT", message);
     }
 
-    private static ProblemApiException conflict() {
-        return new ProblemApiException(HttpStatus.CONFLICT, "ROW_VERSION_CONFLICT", "资源已被其他窗口修改，请重新加载。");
-    }
-
-    public record ReadyAsset(
-            String id,
-            String contentSha256,
-            TestDataDtos.Manifest manifest,
-            Asset asset) implements AutoCloseable {
-        public ReadyAsset(String id, String contentSha256, Asset asset) {
-            this(id, contentSha256, null, asset);
-        }
-
-        public InputStream stream() {
-            return asset.stream();
-        }
-
-        public long size() {
-            return asset.size();
-        }
-
-        @Override
-        public void close() throws java.io.IOException {
-            asset.close();
-        }
-    }
-
+    /** 事务回调里不能抛受检异常，包一层带出去。 */
     private static final class AssetRuntimeException extends RuntimeException {
+        private final AssetException cause;
+
         AssetRuntimeException(AssetException cause) {
             super(cause);
+            this.cause = cause;
+        }
+
+        AssetException cause() {
+            return cause;
         }
     }
 }
