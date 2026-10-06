@@ -17,12 +17,12 @@ STATUSES = {'PASS', 'FAIL', 'ENVIRONMENT_ERROR', 'CANCELLED', 'NOT_RUN'}
 MAX_EVIDENCE_BYTES = 20 << 20
 
 
-def harness_sha():
+def harness_sha() -> str:
     """Include tracked and new source files, excluding private/ignored runtime data."""
     paths = subprocess.check_output(['git', '-c', 'safe.directory=' + str(ROOT), 'ls-files', '--cached', '--others', '--exclude-standard',
                                      '-z', 'deploy/sandbox-linux', 'apps/sandbox/tests',
                                      'apps/web/e2e-live', 'apps/web/playwright.live.config.ts',
-                                     'apps/web/tsconfig.node.json', 'apps/web/eslint.config.js', '.github/workflows/ci.yml', '.github/workflows/sandbox-download-cold.yml'], cwd=ROOT)
+                                     'apps/web/tsconfig.node.json', 'apps/web/eslint.config.js', '.github/workflows/ci.yml'], cwd=ROOT)
     value = hashlib.sha256()
     for name in sorted(set(paths.split(b'\0')) - {b''}):
         path = ROOT / name.decode()

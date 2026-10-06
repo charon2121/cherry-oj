@@ -17,4 +17,4 @@ password
 **/application-local.yml
 
 # Private test-server connection and local agent notes
-/AGETNTS.local.md
+/AGENTS.local.md

@@ -93,4 +93,5 @@ sudo python3 tests/run_tests.py --binary build/sandbox --probe build/probe
 ```
 
 测试需要真实的 x86_64 Linux 内核并以 root 运行，会改动机器的用户、`/etc` 与 cgroup，
-只在 CI 的一次性虚拟机上跑（`.github/workflows/sandbox-executor.yml`）。
+只能在一次性、独占的 Linux 虚拟机上按需运行。当前核心 CI 只编译执行器，
+原真实内核工作流已删除；编译通过不代表隔离、计量和回收已验证。

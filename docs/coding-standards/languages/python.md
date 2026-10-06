@@ -4,8 +4,8 @@
 > [`general.md`](../general.md)。
 
 本仓库的 Python 不是业务代码，而是**工具代码**：`scripts/work`（可选工作记录助手）、
-`scripts/*_test.py`（文档与契约校验）、`deploy/sandbox-linux/ci/*.py`（沙箱镜像与 CI 流程）、
-各服务的 `scripts/*.py`。它们在 CI 里被直接调用，坏了会挡住所有人，所以约束比一般脚本严。
+`scripts/*_test.py`（文档与契约校验）、`deploy/sandbox-linux/ci/*.py`（按需沙箱回归）、
+各服务的 `scripts/*.py`。它们服务于核心 CI 和按需验证，错误会影响开发或部署，所以约束比一般脚本严。
 
 ## 1. 零第三方依赖
 

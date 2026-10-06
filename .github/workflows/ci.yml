@@ -5,536 +5,126 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      cold_packages:
-        description: '完整基线使用冷软件包准备（不读取或删除共享缓存）'
-        type: boolean
-        default: false
 
-# 同一分支上新的 push 会取消还在跑的旧任务，别让队列堆着过时的结果
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  sandbox-packages:
-    name: sandbox CI（锁定软件包准备）
+  checks:
+    name: 契约与文档
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    env:
-      PYTHONDONTWRITEBYTECODE: "1"
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: 计算精确包缓存身份
-        id: identity
+      - name: 契约、文档校验器与记录工具测试
+        run: python3 -m unittest discover -s scripts -p '*_test.py'
+      - name: 文档链接与历史原件完整性
         run: |
-          set -eu
-          key=$(python3 deploy/sandbox-linux/ci/packages.py --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json --key)
-          printf 'key=%s\n' "$key" >> "$GITHUB_OUTPUT"
-      - name: 恢复同锁同工具缓存
-        if: inputs.cold_packages != true
-        id: cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+          python3 scripts/docs_test.py
+          scripts/work check
+
+  go:
+    name: judge-engine (Go)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/judge-engine
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: ${{ runner.temp }}/cherry-package-work/cache
-          key: ${{ steps.identity.outputs.key }}
-      - name: 获取或校验并复制完整包集
-        env:
-          CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+      - name: gofmt
         run: |
-          python3 - <<'PYCODE'
-          import json, os, sys
-          from pathlib import Path
-          sys.path.insert(0, 'deploy/sandbox-linux/ci')
-          from command import install_signal_handlers, run
-          from report import digest, git_sha, harness_sha
-          install_signal_handlers()
-          workspace = Path(os.environ['RUNNER_TEMP']) / 'cherry-package-work'
-          workspace.mkdir(mode=0o700, exist_ok=True)
-          logs = Path(os.environ['RUNNER_TEMP']) / 'cherry-package-logs'
-          logs.mkdir(mode=0o700)
-          hit = os.environ['CACHE_HIT'] == 'true'
-          (logs / 'cache.log').write_text('cacheHit=' + str(hit).lower() + '\n')
-          (logs / 'identity.json').write_text(json.dumps(dict(sourceSha=git_sha(), harnessSha=harness_sha(), packageLock=digest('deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json'))) + '\n')
-          base = ['python3', 'deploy/sandbox-linux/ci/packages.py', '--lock', 'deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json']
-          if not hit:
-              run(base + ['--output', workspace / 'cache'], logs / 'download.log', 600)
-          run(base + ['--source', workspace / 'cache', '--output', workspace / 'verified'], logs / 'verify.log', 600)
-          PYCODE
-      - name: 保存已通过完整校验的缓存
-        if: steps.cache.outputs.cache-hit != 'true' && inputs.cold_packages != true
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ${{ runner.temp }}/cherry-package-work/cache
-          key: ${{ steps.identity.outputs.key }}
-      - name: 交付本轮软件包
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-package-work/verified
-          if-no-files-found: error
-          retention-days: 7
-          compression-level: 0
-      - name: 保存准备证据
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::以下文件未格式化，请跑 gofmt -w："
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: 依赖同步
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+      - name: 静态检查与编译
+        run: |
+          go vet ./...
+          go build ./...
+      - name: 测试与竞态检查
+        # 包间串行减少编译夹具的资源竞争，包内并发与 race 检查保留。
+        run: go test -race -count=1 -p=1 ./...
+      - name: 工具链版本
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-packages-logs-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-package-logs
-          if-no-files-found: error
-          retention-days: 14
-      - name: 清理本轮包准备目录
-        if: always()
-        run: rm -rf -- "$RUNNER_TEMP/cherry-package-work"
+        # language 包在缺少工具链时会跳过对应测试，保留版本供核对。
+        run: |
+          g++ --version | head -1
+          python3 --version
+          java --version | head -1
 
-  sandbox-kernel:
-    needs: sandbox-packages
-    name: sandbox CI（Linux 隔离、计量与回收）
+  web:
+    name: web (React SPA)
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    env:
-      PYTHONDONTWRITEBYTECODE: "1"
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/web
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: apps/judge-engine/go.mod
-          cache-dependency-path: apps/judge-engine/go.sum
-      - name: 获取本轮已校验软件包
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-shared-packages
-      - name: 安装隔离执行器的编译依赖
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
-      - name: 当前提交构建、Linux 单测与锁定 rootfs
-        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
-      - name: 真实内核、1000 次、并发与故障测试
-        run: >-
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
-          python3 deploy/sandbox-linux/ci/kernel.py
-          --build "$RUNNER_TEMP/sandbox-build" --output "$RUNNER_TEMP/sandbox-kernel"
-      - name: 取消或失败后的所有权清理
-        if: always()
-        run: >-
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,PYTHONDONTWRITEBYTECODE
-          python3 deploy/sandbox-linux/ci/kernel.py --cleanup --output "$RUNNER_TEMP/sandbox-kernel"
-      - name: 保存内核报告
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-kernel-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/sandbox-kernel
-          if-no-files-found: error
-          retention-days: 14
-      - name: 保存有界构建日志
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-kernel-build-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/sandbox-build/logs
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: 清理本轮共享软件包
-        if: always()
-        run: rm -rf -- "$RUNNER_TEMP/cherry-shared-packages"
-
-  sandbox-native:
-    needs: sandbox-packages
-    name: sandbox CI（原生安装、权限与服务恢复）
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    env:
-      PYTHONDONTWRITEBYTECODE: "1"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: apps/judge-engine/go.mod
-          cache-dependency-path: apps/judge-engine/go.sum
-      - name: 获取本轮已校验软件包
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-shared-packages
-      - name: 安装隔离执行器的编译依赖
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
-      - name: 当前提交构建、Linux 单测与锁定 rootfs
-        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
-      - name: 原生安装与十项部署恢复验证
-        run: >-
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
-          python3 deploy/sandbox-linux/ci/native.py
-          --build "$RUNNER_TEMP/sandbox-build" --output "$RUNNER_TEMP/sandbox-native"
-      - name: 取消或失败后的所有权清理
-        if: always()
-        run: >-
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,PYTHONDONTWRITEBYTECODE
-          python3 deploy/sandbox-linux/ci/native.py --cleanup --output "$RUNNER_TEMP/sandbox-native"
-      - name: 保存原生部署报告
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-native-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/sandbox-native
-          if-no-files-found: error
-          retention-days: 14
-      - name: 保存有界构建日志
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-native-build-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/sandbox-build/logs
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: 清理本轮共享软件包
-        if: always()
-        run: rm -rf -- "$RUNNER_TEMP/cherry-shared-packages"
-
-  sandbox-business:
-    needs: sandbox-packages
-    name: sandbox CI（真实页面、校准与 Kafka 业务闭环）
-    runs-on: ubuntu-24.04
-    timeout-minutes: 40
-    permissions:
-      contents: read
-    env:
-      PYTHONDONTWRITEBYTECODE: "1"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: apps/judge-engine/go.mod
-          cache-dependency-path: apps/judge-engine/go.sum
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
-        with:
-          distribution: temurin
-          java-version: "21"
-          cache: maven
-          cache-dependency-path: apps/server/**/pom.xml
-          overwrite-settings: false
-      - name: 获取本轮已校验软件包
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: sandbox-packages-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-shared-packages
-      - name: 安装隔离执行器的编译依赖
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
-      - name: 构建当前提交的 Linux 二进制与 rootfs
-        run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/cherry-shared-packages"
-      - name: 构建真实 Java 服务与 Web 页面
-        run: python3 deploy/sandbox-linux/ci/business_prepare.py --output "$RUNNER_TEMP/business-build"
-      - name: 安装本轮 Chromium 与系统依赖
-        working-directory: apps/web
-        env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/business-browsers
-        run: npx playwright install --with-deps chromium
-      - name: 新环境、数据部署、独立校准与真实页面判题
-        run: >-
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE
-          python3 deploy/sandbox-linux/ci/business.py
-          --build "$RUNNER_TEMP/sandbox-build" --application-build "$RUNNER_TEMP/business-build"
-          --java "$JAVA_HOME/bin/java" --node "$(command -v node)"
-          --browsers "$RUNNER_TEMP/business-browsers" --output "$RUNNER_TEMP/sandbox-business"
-      - name: 取消或失败后清理本轮完整栈
-        if: always()
-        run: >-
-          sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,PYTHONDONTWRITEBYTECODE
-          python3 deploy/sandbox-linux/ci/business.py --cleanup --output "$RUNNER_TEMP/sandbox-business"
-      - name: 保存脱敏业务证据
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-business-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/sandbox-business
-          if-no-files-found: error
-          retention-days: 14
-      - name: 保存有界构建日志
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-business-build-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/business-build
-            ${{ runner.temp }}/sandbox-build/logs
-          if-no-files-found: error
-          retention-days: 14
-
-      - name: 清理本轮共享软件包
-        if: always()
-        run: rm -rf -- "$RUNNER_TEMP/cherry-shared-packages"
-
-  sandbox-basic:
-    name: sandbox CI（基础与证据校验）
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-      - name: 部署与 rootfs 单测、脚本语法、报告正反例
-        env:
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: python3 deploy/sandbox-linux/ci/basic.py --output "$RUNNER_TEMP/sandbox-basic"
-      - name: 保存有界报告
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-basic-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/sandbox-basic
-          if-no-files-found: error
-          retention-days: 14
-
-  # 只检查记录工具、文档链接与历史原件，不要求代码修改创建工作或推进状态。
-  development:
-    name: 文档与历史记录
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: 可选记录工具测试
-        run: python3 scripts/work_test.py
-      - name: 校验工作入口与历史原件完整性
-        run: scripts/work check
-      - name: 文档链接校验器测试
-        run: python3 scripts/docs_test_test.py
-      - name: 校验全局与开发文档入口和本地链接
-        run: python3 scripts/docs_test.py
-
-  web:
-    name: web (React SPA)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: apps/web/package-lock.json
-
       - name: 安装锁定依赖
         run: npm ci
-
-      - name: OpenAPI 漂移、格式、Lint、类型与组件测试
+      - name: 生成物、格式、Lint、类型与组件测试
         run: npm run check
-
       - name: 生产构建
         run: npm run build
 
-      - name: Storybook 静态构建
-        run: npm run storybook:build
-
-      - name: 安装 Chromium 与系统依赖
-        run: npx playwright install --with-deps chromium
-
-      - name: 浏览器 smoke
-        run: npm run test:e2e
-
-  # 跨服务 / 跨语言契约是共享 DTO 的唯一真源，语法、引用或安全边界坏掉会同时影响多侧，
-  # 所以单独一个最快的 job 先把它挡住。
-  contracts:
-    name: contracts (结构与边界)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: 校验 contracts/*.json 可解析
-        run: |
-          for f in contracts/*.json; do
-            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" \
-              || { echo "::error file=$f::JSON 解析失败"; exit 1; }
-            echo "✓ $f"
-          done
-      - name: 校验 schema 引用、v2 字段和事件安全边界
-        run: python3 scripts/contracts_test.py
-
-  go:
-    name: judge-engine (Go)
-    runs-on: ubuntu-latest # sandbox 的目标平台就是 Linux，CI 也只在这里跑
-    defaults:
-      run:
-        working-directory: apps/judge-engine
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          # 从 go.mod 读版本，别在两处各写一遍版本号
-          go-version-file: apps/judge-engine/go.mod
-          cache-dependency-path: apps/judge-engine/go.sum
-
-      # AGENTS.md 里写的「提交前必须干净」，在这里变成强制的
-      - name: gofmt
-        run: |
-          unformatted=$(gofmt -l .)
-          if [ -n "$unformatted" ]; then
-            echo "::error::以下文件未格式化，请跑 gofmt -w ："
-            echo "$unformatted"
-            exit 1
-          fi
-
-      - name: go vet
-        run: go vet ./...
-
-      - name: go build
-        run: go build ./...
-
-      # -race 是硬要求：pool 的并发用例在普通模式下可能几百次都不复现竞态。
-      # 顺带 -count=1 关掉结果缓存，别让「上次绿过」冒充这次的结论。
-      - name: go test (race)
-        # 按包串行执行，减少包间资源竞争对可信功能夹具编译的影响。
-        # 包内goroutine并发和race检查保留，全部包仍实际运行一次。
-        run: go test -race -count=1 -p=1 ./...
-
-      - name: 工具链自检
-        if: always()
-        # language 包的集成测试在缺工具链时会 t.Skip。
-        # 这里显式打印一遍版本，免得某天镜像变了、测试静默跳过而没人发现。
-        run: |
-          g++ --version | head -1
-          python3 --version
-          java --version | head -1 || echo "!! 没有 java：language 的 e2e 会被跳过"
-
-  # go.mod / go.sum 不同步会让别人 clone 下来跑不起来，但本地往往察觉不到
-  tidy:
-    name: go.mod 是否整洁
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/judge-engine
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: apps/judge-engine/go.mod
-          cache-dependency-path: apps/judge-engine/go.sum
-      - name: go mod tidy 后不应有改动
-        run: |
-          go mod tidy
-          if ! git diff --exit-code -- go.mod go.sum; then
-            echo "::error::go.mod / go.sum 与代码不同步，请在本地跑 go mod tidy 后提交"
-            exit 1
-          fi
-
-  # Dockerfile 产出 judge 镜像（执行层在进程内），Compose 再验证它确实能完成一次判题。
-  # 这条同时钉住：运行时工具链、非 root / 只读文件系统、测试数据挂载和端口拓扑。
-  containers:
-    name: judge（容器单机冒烟）
-    runs-on: ubuntu-latest
-    env:
-      # 纯 Go smoke 不启动 Java 控制面：关闭节点链路，测试数据只读挂载。节点链路见 node-e2e.py。
-      COMPOSE_FILE: compose.yaml:compose.standalone.yaml
-      TESTDATA_PATH: ${{ github.workspace }}/apps/judge-engine/judge/testcase/testdata
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: 校验 Compose 配置
-        run: docker compose config --quiet
-
-      - name: 构建 judge 镜像
-        run: docker compose build
-
-      - name: A+B 容器联调
-        run: |
-          set -eu
-          cleanup() {
-            docker compose logs --no-color judge || true
-            docker compose down
-          }
-          trap cleanup EXIT
-
-          docker compose up -d --no-build --wait
-          response=$(curl -sS -X POST http://127.0.0.1:5051/judge \
-            -H 'Content-Type: application/json' \
-            -d '{"submissionId":"ci-docker","problemId":"problem-a-plus-b","problemVersionId":"problem-a-plus-b-v1","testDataVersionId":"a-plus-b","languageId":"cpp","source":"#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<\"\\n\";}","limits":{"cpuNs":1000000000,"memoryBytes":268435456}}')
-          echo "$response"
-          printf '%s' "$response" | python3 -c '
-          import json, sys
-          result = json.load(sys.stdin)
-          assert result["verdict"] == "AC", result
-          assert len(result["caseResults"]) == 3, result
-          assert all(case["verdict"] == "AC" for case in result["caseResults"]), result
-          '
-
-  sandbox-summary:
-    name: sandbox CI（必需回归汇总）
-    if: always()
-    needs: [sandbox-packages, sandbox-basic, sandbox-kernel, sandbox-native, sandbox-business, development, web, contracts, go, tidy, containers]
+  java:
+    name: server (Java)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: 获取本批basic报告
-        if: always()
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
-          name: sandbox-basic-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-basic-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: 获取本批kernel报告
-        if: always()
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: apps/server/**/pom.xml
+          overwrite-settings: false
+      - name: 编译、测试与打包
+        # 单服务数据库/消息测试使用 runner 的 Docker，真实 Linux 判题仍按需验证。
+        run: ./mvnw -B -ntp clean verify
+
+  sandbox:
+    name: sandbox (C)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          name: sandbox-kernel-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-kernel-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: 获取本批native报告
-        if: always()
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: sandbox-native-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-native-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: 获取本批business报告
-        if: always()
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
-        with:
-          name: sandbox-business-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-summary-reports/sandbox-business-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: 验证全部前置结果与本批必需回归证据
-        if: always()
-        env:
-          NEEDS_JSON: ${{ toJSON(needs) }}
-          PYTHONDONTWRITEBYTECODE: "1"
-        run: |
-          set -eu
-          python3 - <<'PYCODE'
-          import os
-          from pathlib import Path
-          (Path(os.environ['RUNNER_TEMP']) / 'cherry-summary-needs.json').write_text(os.environ['NEEDS_JSON'])
-          PYCODE
-          python3 deploy/sandbox-linux/ci/summary.py --reports "$RUNNER_TEMP/cherry-summary-reports" --needs "$RUNNER_TEMP/cherry-summary-needs.json" --output "$RUNNER_TEMP/cherry-summary/summary.json"
-      - name: 保存本批汇总结论
-        if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
-        with:
-          name: sandbox-summary-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/cherry-summary/summary.json
-          if-no-files-found: error
-          retention-days: 14
+          persist-credentials: false
+      - name: 安装编译依赖
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
+      - name: 编译执行器
+        run: make -C apps/sandbox

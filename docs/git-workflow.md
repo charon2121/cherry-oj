@@ -37,7 +37,7 @@ sh scripts/setup-hooks.sh
 cd apps/judge-engine && go mod tidy   # 之后确认 git diff 无输出
 ```
 
-hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会红。
+hook 提前运行部分检查；CI 还会验证完整构建和 Java 测试，本地通过不等于 CI 已通过。
 
 **② 分 commit，一个 commit 一件事。** 跨越多个关注点就拆开
 （例：一次改动拆成「契约」「配置模块」「sandbox 接线」三个）。
@@ -62,17 +62,24 @@ hook 和 CI 跑的是同一套命令，所以本地绿了推上去基本不会�
 
 ## 4.3 CI 会检查什么
 
-`.github/workflows/ci.yml`，push 到 main 和所有 PR 都跑：
+只保留 `.github/workflows/ci.yml`，push 到 main 和所有 PR 自动运行，也支持手动触发。
+五个任务独立执行，不再准备整套部署环境或汇总多份验收报告：
 
-| job | 检查 | 为什么单独一条 |
+| job | 检查 | 要守住什么 |
 |---|---|---|
-| `development` | 可选记录工具测试、文档链接与历史原件完整性 | 文档能在新克隆取得，历史依据不丢失 |
-| `contracts` | JSON 可解析 + `$ref` / v2 字段 / 事件安全边界 | 共享 DTO 坏了会同时影响多个服务与 Go；且一直是手改的 |
-| `go` | gofmt / vet / build / `test -race` | 跑在 ubuntu-latest —— sandbox 的目标平台就是 Linux，不做 macOS 矩阵 |
-| `tidy` | `go mod tidy` 后无改动 | 不同步会让别人 clone 下来跑不起来，而本地察觉不到（hook 没管这条） |
+| `checks` | 契约结构与引用、校验器和记录工具测试、文档链接、历史原件完整性 | 共享契约有效，文档可查，历史依据不丢失 |
+| `go` | gofmt、依赖同步、vet、build、`test -race -count=1 -p=1 ./...` | 判题机能编译，基础行为与并发安全不退化 |
+| `web` | `npm ci`、`npm run check`、`npm run build` | 生成物同步，格式、类型、组件测试和生产构建通过 |
+| `java` | JDK 21 与根 Maven wrapper 的 `clean verify` | 所有 Java 模块能编译、测试并打包，不以跳过测试代替验证 |
+| `sandbox` | 安装 libseccomp 编译依赖、`make -C apps/sandbox` | C 执行器能在目标 Linux 平台编译，保留 `-Werror` |
 
-`go` job 末尾会打印 g++ / python3 / java 版本：`language` 的集成测试缺工具链时会
-`t.Skip`，不打印的话某天镜像变了、测试静默跳过也没人发现。
+Go 的依赖检查并入 `go`，契约与文档检查合并为 `checks`。Go 任务仍打印 g++、Python、Java
+版本，方便核对依赖工具链的测试是否跳过。Java 中的单服务 MySQL、Redis、Kafka 测试通过
+Testcontainers 使用 runner 的 Docker；依赖外部真实 Linux 判题节点的测试需另行按需运行。
+
+完整部署、真实沙箱内核、容器联调、全栈浏览器、Storybook 构建、冷下载和语言诊断已退出日常 CI，
+相关独立工作流已删除。需要这些验证时使用保留的脚本和对应环境，实际结果单独报告；
+核心 CI 通过只证明上表所列检查通过。
 
 ## 4.4 文档与开发记录
 

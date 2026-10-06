@@ -86,10 +86,10 @@ class EvidenceTests(unittest.TestCase):
                 read_json(path)
 
 
-    def test_cold_workflow_change_invalidates_harness_identity(self):
+    def test_workflow_change_invalidates_harness_identity(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            name = '.github/workflows/sandbox-download-cold.yml'
+            name = '.github/workflows/ci.yml'
             path = root / name
             path.parent.mkdir(parents=True)
             path.write_text('first workflow')

@@ -83,7 +83,7 @@ Prettier 基线：`semi: true`、`singleQuote: true`、`trailingComma: 'all'`、
 - pre-commit 只检查暂存文件的 Prettier 和 ESLint 结果，**不自动修复、不重新 `git add`**。
 - pre-push 在 `apps/web` 有改动时跑 `npm run check` 和 `npm run build`。
 - OpenAPI 契约变化后跑 `generate:api` 并提交生成物，`generate:api:check` 会拒绝漂移。
-- CI 用 `npm ci`，跑 `check`、生产构建、Storybook 静态构建和 Playwright；
+- 核心 CI 用 `npm ci`，跑 `check` 和生产构建；Storybook 静态构建与 Playwright 按任务需要单独运行。
   **任何 warning 都不作为长期可忽略状态**。
 - **门禁分层：Prettier 管格式，ESLint 管代码风险，TypeScript 管类型，Vitest 管组件行为，
   Playwright 管端到端。某层通过不能替代下一层。**
