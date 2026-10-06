@@ -4,7 +4,7 @@
 # 只需要写要改的项，没写的保持默认——「不填」不等于「填 0」。
 #
 # 环境变量名由下面的路径推出来，全大写、下划线分隔，前缀 CHERRY_OJ_：
-#   judge.testdataRoot  → CHERRY_OJ_JUDGE_TESTDATA_ROOT
+#   judge.testdata.workRoot → CHERRY_OJ_JUDGE_TESTDATA_WORK_ROOT
 #   judge.compile.cpuNs → CHERRY_OJ_JUDGE_COMPILE_CPU_NS
 #
 # 这里只放**运行策略**（换个部署环境可能要改，但和某一次判题请求无关）。
@@ -23,10 +23,15 @@ logging:
 judge:
   httpAddr: 127.0.0.1:5051
 
-  # 测试数据根目录，下面按不可变 testDataVersionId 分目录：
-  # <root>/<testDataVersionId>/{1.in,1.out,...}
-  # 开发时可指向 ./testdata/problems
-  testdataRoot: /srv/cherry-oj/testdata
+  # 测试数据按协议（docs/testdata-protocol.md）读取：每次判题请求带一个地址（本地绝对路径或 http(s)），
+  # judge 读 <地址>/testdata.json，把数据复制到下面的 workRoot 并逐个核对 SHA-256，判完删除。
+  # 数据本身不在配置里，这里只限定读取时能用多少资源。
+  testdata:
+    # 本进程独占的目录；启动时会清空上一个进程遗留的内容。
+    workRoot: /var/lib/cherry-oj/testdata
+    maxFileBytes: 268435456 # 256 MiB，元数据里单个文件的大小上限
+    maxTotalBytes: 1073741824 # 1 GiB，全部文件的大小上限
+    fetchTimeout: 5m # 读取单个文件（HTTP 请求）的期限
 
   # ★ 选手输出的 token 全对、但空白排布和标准答案不一致时，判 PE 还是 AC。
   #
@@ -87,11 +92,6 @@ judge:
     controlToken: ""
     heartbeatInterval: 10s
     requestTimeout: 5s
-    maxArchiveBytes: 104857600
-    maxExpandedBytes: 1073741824
-    maxEntryBytes: 67108864
-    maxFiles: 2000
-    maxCompressionRatio: 100
 
 # Linux 执行器的 stdout/stderr 每路硬界为 1MiB；启用 linux 后端时同时把
 # judge.output.stdoutMaxBytes、stderrMaxBytes 设为 1048576，并使用新节点身份重新校准。其他Linux节点部署材料见WORK-048/TASK-099。

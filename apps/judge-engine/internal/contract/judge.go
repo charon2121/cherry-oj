@@ -6,7 +6,7 @@ import "fmt"
 type JudgeMode string
 
 const (
-	// ModeSubmit：正式提交。judge 按 testDataVersionId 从测试数据目录读取测例。
+	// ModeSubmit：正式提交。judge 按请求里的 testDataLocation 读取测例（协议见 docs/testdata-protocol.md）。
 	ModeSubmit JudgeMode = "submit"
 	// ModeTrial：试运行。用请求里带的 cases——题面样例（server 从库里取出内联发来）
 	// 和用户自己敲的输入都走这条。
@@ -22,8 +22,8 @@ func (m JudgeMode) IsValid() bool {
 	}
 }
 
-// UsesVersionedTestdata 报告这个模式是否按 testDataVersionId 从测试数据目录读盘。
-func (m JudgeMode) UsesVersionedTestdata() bool { return m == ModeSubmit }
+// UsesTestData 报告这个模式是否按 testDataLocation 读取题目的测试数据。
+func (m JudgeMode) UsesTestData() bool { return m == ModeSubmit }
 
 // CaseSpec：一个测试点的输入，以及可选的期望输出。
 // expected 缺省 = 只跑不比对（结果是 RAN，不是 AC/WA）。
@@ -61,15 +61,14 @@ func (l JudgeLimits) Validate() error {
 
 // JudgeRequest：判题请求
 type JudgeRequest struct {
-	SubmissionID      string      `json:"submissionId"`      // 只用于标识/对账，不参与判题逻辑
-	ProblemID         string      `json:"problemId"`         // 只用于日志/对账
-	ProblemVersionID  string      `json:"problemVersionId"`  // 只用于日志/对账
-	TestDataVersionID string      `json:"testDataVersionId"` // 正式测例目录键
-	LanguageID        string      `json:"languageId"`        // 决定编译/运行怎么编排
-	Source            string      `json:"source"`            // 完整源码；CORE 已在上游合并
-	Limits            JudgeLimits `json:"limits"`            // 环境相关绝对限制
-	Mode              JudgeMode   `json:"mode,omitempty"`    // 缺省由 flow 兜底为 submit
-	Cases             []CaseSpec  `json:"cases,omitempty"`   // 仅 mode=trial
+	SubmissionID     string      `json:"submissionId"`               // 只用于标识/对账，不参与判题逻辑
+	ProblemID        string      `json:"problemId"`                  // 只用于日志/对账
+	TestDataLocation string      `json:"testDataLocation,omitempty"` // 测试数据目录的地址；仅 mode=submit 使用
+	LanguageID       string      `json:"languageId"`                 // 决定编译/运行怎么编排
+	Source           string      `json:"source"`                     // 完整源码；CORE 已在上游合并
+	Limits           JudgeLimits `json:"limits"`                     // 环境相关绝对限制
+	Mode             JudgeMode   `json:"mode,omitempty"`             // 缺省由 flow 兜底为 submit
+	Cases            []CaseSpec  `json:"cases,omitempty"`            // 仅 mode=trial
 }
 
 // Output：用户程序的输出，非 AC 时带回供排查。
@@ -114,6 +113,9 @@ type JudgeResult struct {
 	MemoryBytes int64   `json:"memoryBytes,omitempty"` // 各点峰值最大值
 	Score       int     `json:"score"`
 	Message     string  `json:"message,omitempty"` // 如 CE 的编译器输出
+	// TestDataDigest 是 mode=submit 时本次实际读取的测试数据指纹（testdata.json 的 digest），
+	// 用来追溯「这次拿哪份数据判的」；题目没有版本号，数据的身份只有它。
+	TestDataDigest string `json:"testDataDigest,omitempty"`
 	// CaseResults 的顺序即实际执行顺序，Idx 从 1 递增。
 	// trial 模式下严格对应请求里的 Cases[i]——调用方靠这个把结果对回去，judge 不得重排。
 	CaseResults []CaseResult `json:"caseResults,omitempty"`

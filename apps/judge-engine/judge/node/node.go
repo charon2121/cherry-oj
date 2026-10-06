@@ -3,12 +3,10 @@ package node
 import (
 	"context"
 	"log/slog"
-	"net/http"
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/node/identity"
-	"cherry-oj/judge-engine/judge/node/install"
 	"cherry-oj/judge-engine/judge/node/preflight"
 	"cherry-oj/judge-engine/judge/node/registry"
 )
@@ -22,12 +20,11 @@ func Preflight(ctx context.Context, s config.Settings, sandbox Sandbox) error {
 }
 
 type Node struct {
-	identity  identity.Identity
-	registry  *registry.Registry
-	installer *install.Installer
+	identity identity.Identity
+	registry *registry.Registry
 }
 
-// New 由配置生成本次进程的身份，并打开数据安装与注册心跳。
+// New 由配置生成本次进程的身份，并准备好注册心跳。
 func New(j config.Settings, logger *slog.Logger) (*Node, error) {
 	if err := j.Node.Validate(); err != nil {
 		return nil, err
@@ -40,21 +37,11 @@ func New(j config.Settings, logger *slog.Logger) (*Node, error) {
 		return nil, err
 	}
 	registration := id.Registration()
-	installer, err := install.Open(j.Node, j.TestdataRoot, registration, logger)
-	if err != nil {
-		return nil, err
-	}
-	return &Node{identity: id, installer: installer,
-		registry: registry.New(j.Node, registration, logger)}, nil
+	return &Node{identity: id, registry: registry.New(j.Node, registration, logger)}, nil
 }
-
-func (n *Node) Close() error { return n.installer.Close() }
 
 // Registration 返回本节点这次进程的身份副本。
 func (n *Node) Registration() contract.NodeRegistration { return n.identity.Registration() }
 
 // Run 随进程 context 退出；控制面不可用只延迟注册，不关闭 Judge 健康入口。
 func (n *Node) Run(ctx context.Context) { n.registry.Run(ctx) }
-
-// Handler 在 Judge 的 HTTP 入口上挂载节点安装端点，其余路由回落给 fallback。
-func (n *Node) Handler(fallback http.Handler) http.Handler { return n.installer.Handler(fallback) }

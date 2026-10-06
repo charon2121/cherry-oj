@@ -3,6 +3,8 @@ package flow_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -78,12 +81,10 @@ func judgeConfig() config.Settings {
 
 func trialRequest(language string, cases ...contract.CaseSpec) contract.JudgeRequest {
 	return contract.JudgeRequest{
-		SubmissionID:      "submission-1",
-		ProblemID:         "problem-1",
-		ProblemVersionID:  "problem-version-1",
-		TestDataVersionID: "test-data-version-1",
-		LanguageID:        language,
-		Source:            "source code",
+		SubmissionID: "submission-1",
+		ProblemID:    "problem-1",
+		LanguageID:   language,
+		Source:       "source code",
 		Limits: contract.JudgeLimits{
 			CPUNs:       1_000,
 			MemoryBytes: 2_000,
@@ -193,19 +194,17 @@ func TestJudgeInterpretedLanguageSkipsCompile(t *testing.T) {
 }
 
 func TestJudgeDefaultsEmptyModeToSubmit(t *testing.T) {
-	root := writeTestData(t, "default-mode", map[string][2]string{
+	data := writeTestData(t, map[string][2]string{
 		"1": {"input", "answer"},
 	})
-	cfg := judgeConfig()
-	cfg.TestdataRoot = root
+	cfg := submitConfig(t)
 	req := contract.JudgeRequest{
-		SubmissionID:      "submission-1",
-		ProblemID:         "problem-1",
-		ProblemVersionID:  "problem-version-1",
-		TestDataVersionID: "default-mode",
-		LanguageID:        "python",
-		Source:            "print('answer')",
-		Limits:            contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+		SubmissionID:     "submission-1",
+		ProblemID:        "problem-1",
+		TestDataLocation: data.location,
+		LanguageID:       "python",
+		Source:           "print('answer')",
+		Limits:           contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
 		// Mode 故意留空：flow 入口应当兜底成 submit。
 	}
 	fake := &fakeSandbox{runs: []runReply{runOK("answer")}}
@@ -413,24 +412,22 @@ func TestJudgeCleanupSurvivesRequestCancellation(t *testing.T) {
 }
 
 func TestJudgeConcealsAndRevealsExpectedOutput(t *testing.T) {
-	root := writeTestData(t, "secret", map[string][2]string{
+	data := writeTestData(t, map[string][2]string{
 		"1": {"input\n", "secret-answer\n"},
 	})
 	req := contract.JudgeRequest{
-		SubmissionID:      "submission-1",
-		ProblemID:         "problem-1",
-		ProblemVersionID:  "problem-version-1",
-		TestDataVersionID: "secret",
-		LanguageID:        "python",
-		Source:            "print('wrong')",
-		Limits:            contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
-		Mode:              contract.ModeSubmit,
+		SubmissionID:     "submission-1",
+		ProblemID:        "problem-1",
+		TestDataLocation: data.location,
+		LanguageID:       "python",
+		Source:           "print('wrong')",
+		Limits:           contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+		Mode:             contract.ModeSubmit,
 	}
 
 	for _, reveal := range []bool{false, true} {
 		t.Run(fmt.Sprintf("reveal=%v", reveal), func(t *testing.T) {
-			cfg := judgeConfig()
-			cfg.TestdataRoot = root
+			cfg := submitConfig(t)
 			cfg.RevealExpected = reveal
 			fake := &fakeSandbox{runs: []runReply{runOK("wrong-answer\n")}}
 
@@ -522,27 +519,29 @@ func TestJudgeOutputExcerptPreservesUTF8Boundary(t *testing.T) {
 	}
 }
 
+// 判题读的是私有副本；副本里的答案文件在运行中消失，这个点必须判 SE，而不是当作答案为空。
 func TestJudgeExpectedFileDisappearsIsSE(t *testing.T) {
-	root := writeTestData(t, "vanishing", map[string][2]string{
+	data := writeTestData(t, map[string][2]string{
 		"1": {"input", "answer"},
 	})
-	outPath := filepath.Join(root, "vanishing", "1.out")
-	cfg := judgeConfig()
-	cfg.TestdataRoot = root
+	cfg := submitConfig(t)
 	req := contract.JudgeRequest{
-		SubmissionID:      "submission-1",
-		ProblemID:         "problem-1",
-		ProblemVersionID:  "problem-version-1",
-		TestDataVersionID: "vanishing",
-		LanguageID:        "python",
-		Source:            "print('answer')",
-		Limits:            contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
-		Mode:              contract.ModeSubmit,
+		SubmissionID:     "submission-1",
+		ProblemID:        "problem-1",
+		TestDataLocation: data.location,
+		LanguageID:       "python",
+		Source:           "print('answer')",
+		Limits:           contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+		Mode:             contract.ModeSubmit,
 	}
 	fake := &fakeSandbox{
 		runs: []runReply{runOK("answer")},
 		onRun: func(call int) {
-			if err := os.Remove(outPath); err != nil {
+			copies, err := filepath.Glob(filepath.Join(cfg.Testdata.WorkRoot, "run-*", "1.out"))
+			if err != nil || len(copies) != 1 {
+				t.Fatalf("local copy of 1.out: %v %v", copies, err)
+			}
+			if err := os.Remove(copies[0]); err != nil {
 				t.Errorf("remove expected output: %v", err)
 			}
 		},
@@ -554,22 +553,157 @@ func TestJudgeExpectedFileDisappearsIsSE(t *testing.T) {
 	}
 }
 
-func writeTestData(t *testing.T, testDataVersionID string, cases map[string][2]string) string {
+func TestJudgeReportsTheDigestOfTheTestData(t *testing.T) {
+	data := writeTestData(t, map[string][2]string{"1": {"input", "answer"}})
+	req := contract.JudgeRequest{
+		SubmissionID: "submission-1", ProblemID: "problem-1", TestDataLocation: data.location,
+		LanguageID: "python", Source: "print('answer')",
+		Limits: contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+	}
+	fake := &fakeSandbox{runs: []runReply{runOK("answer")}}
+
+	result := flow.Judge(context.Background(), fake, submitConfig(t), req, nil)
+	if result.Verdict != contract.VerdictAC || result.TestDataDigest != data.digest {
+		t.Fatalf("verdict=%s digest=%q, want AC and %q", result.Verdict, result.TestDataDigest, data.digest)
+	}
+}
+
+// 编译失败时测试数据已经读过，指纹照样带回；trial 模式没有数据，不带。
+func TestJudgeDigestIsReportedOnCompileErrorButNotForTrial(t *testing.T) {
+	data := writeTestData(t, map[string][2]string{"1": {"input", "answer"}})
+	submit := contract.JudgeRequest{
+		SubmissionID: "submission-1", ProblemID: "problem-1", TestDataLocation: data.location,
+		LanguageID: "cpp", Source: "int main(",
+		Limits: contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+	}
+	failedCompile := runReply{result: contract.RunResult{Status: contract.StatusNonzeroExit, ExitCode: 1, Stderr: "error"}}
+
+	result := flow.Judge(context.Background(), &fakeSandbox{runs: []runReply{failedCompile}}, submitConfig(t), submit, nil)
+	if result.Verdict != contract.VerdictCE || result.TestDataDigest != data.digest {
+		t.Errorf("CE: verdict=%s digest=%q, want CE and %q", result.Verdict, result.TestDataDigest, data.digest)
+	}
+
+	trial := flow.Judge(context.Background(), &fakeSandbox{runs: []runReply{runOK("answer")}}, judgeConfig(), oneCaseRequest("python"), nil)
+	if trial.TestDataDigest != "" {
+		t.Errorf("trial 结果不该带测试数据指纹: %q", trial.TestDataDigest)
+	}
+}
+
+// 本地副本属于这次判题：无论结论是什么，判完都要删，否则每次判题在磁盘上留一份数据。
+func TestJudgeRemovesTheLocalCopyWhateverTheVerdict(t *testing.T) {
+	tests := []struct {
+		name     string
+		language string
+		runs     []runReply
+		want     contract.Verdict
+	}{
+		{"AC", "python", []runReply{runOK("answer")}, contract.VerdictAC},
+		{"WA", "python", []runReply{runOK("wrong")}, contract.VerdictWA},
+		{"CE", "cpp", []runReply{{result: contract.RunResult{Status: contract.StatusNonzeroExit, ExitCode: 1}}}, contract.VerdictCE},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := writeTestData(t, map[string][2]string{"1": {"input", "answer"}})
+			cfg := submitConfig(t)
+			req := contract.JudgeRequest{
+				SubmissionID: "submission-1", ProblemID: "problem-1", TestDataLocation: data.location,
+				LanguageID: tt.language, Source: "source",
+				Limits: contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+			}
+
+			result := flow.Judge(context.Background(), &fakeSandbox{runs: tt.runs}, cfg, req, nil)
+			if result.Verdict != tt.want {
+				t.Fatalf("verdict = %s, want %s", result.Verdict, tt.want)
+			}
+			if left, _ := os.ReadDir(cfg.Testdata.WorkRoot); len(left) != 0 {
+				t.Errorf("判完后工作目录里还剩 %d 项", len(left))
+			}
+		})
+	}
+}
+
+// 测试数据读不到：整次判题是 SE，且连源码都不该上传给执行层。
+func TestJudgeWithUnreadableTestDataIsSEWithoutTouchingTheSandbox(t *testing.T) {
+	for name, location := range map[string]string{
+		"数据未就绪": filepath.Join(t.TempDir(), "not-written"),
+		"相对路径":  "problem/data",
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := contract.JudgeRequest{
+				SubmissionID: "submission-1", ProblemID: "problem-1", TestDataLocation: location,
+				LanguageID: "python", Source: "print('answer')",
+				Limits: contract.JudgeLimits{CPUNs: 1_000, MemoryBytes: 2_000},
+			}
+			fake := &fakeSandbox{}
+
+			result := flow.Judge(context.Background(), fake, submitConfig(t), req, nil)
+			if result.Verdict != contract.VerdictSE || !strings.Contains(result.Message, "load test cases") {
+				t.Fatalf("result = %+v", result)
+			}
+			if len(fake.uploaded) != 0 || len(fake.calls) != 0 {
+				t.Errorf("测试数据不可用时不该碰执行层: uploads=%d runs=%d", len(fake.uploaded), len(fake.calls))
+			}
+		})
+	}
+}
+
+// dataset 是一份按测试数据协议写好的目录。
+type dataset struct{ location, digest string }
+
+// writeTestData 在临时目录下按协议写出数据文件和 testdata.json；cases 的键是测试点名，按名字排序成 cases 的顺序。
+func writeTestData(t *testing.T, cases map[string][2]string) dataset {
 	t.Helper()
-	root := t.TempDir()
-	dir := filepath.Join(root, testDataVersionID)
+	dir := filepath.Join(t.TempDir(), "problem")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for name, pair := range cases {
-		if err := os.WriteFile(filepath.Join(dir, name+".in"), []byte(pair[0]), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(dir, name+".out"), []byte(pair[1]), 0o600); err != nil {
-			t.Fatal(err)
-		}
+	names := make([]string, 0, len(cases))
+	for name := range cases {
+		names = append(names, name)
 	}
-	return root
+	slices.Sort(names)
+
+	sum := func(content string) string {
+		h := sha256.Sum256([]byte(content))
+		return hex.EncodeToString(h[:])
+	}
+	var entries []map[string]any
+	var lines strings.Builder
+	var total int
+	for _, name := range names {
+		in, out := cases[name][0], cases[name][1]
+		for file, content := range map[string]string{name + ".in": in, name + ".out": out} {
+			if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		entries = append(entries, map[string]any{
+			"name":   name,
+			"input":  map[string]any{"sizeBytes": len(in), "sha256": sum(in)},
+			"output": map[string]any{"sizeBytes": len(out), "sha256": sum(out)},
+		})
+		fmt.Fprintf(&lines, "%s  %s.in\n%s  %s.out\n", sum(in), name, sum(out), name)
+		total += len(in) + len(out)
+	}
+	digest := sum(lines.String())
+	meta, err := json.Marshal(map[string]any{
+		"schemaVersion": 1, "caseCount": len(entries), "totalBytes": total, "digest": digest, "cases": entries,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "testdata.json"), meta, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return dataset{location: dir, digest: digest}
+}
+
+// submitConfig 给 submit 模式的用例一个独立的工作目录，判题结束后可以检查里面有没有残留。
+func submitConfig(t *testing.T) config.Settings {
+	t.Helper()
+	cfg := judgeConfig()
+	cfg.Testdata.WorkRoot = filepath.Join(t.TempDir(), "work")
+	return cfg
 }
 
 func deletedRefs(deleted []deletion) []string {

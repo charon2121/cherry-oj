@@ -23,8 +23,8 @@ type Config struct {
 type Settings struct {
 	Node     Node   `yaml:"node"`
 	HTTPAddr string `yaml:"httpAddr"`
-	// TestdataRoot：测试数据根目录，下面按 testDataVersionId 分子目录。
-	TestdataRoot string `yaml:"testdataRoot"`
+	// Testdata：读取题目测试数据时的资源策略。数据本身来自每次请求里的地址，不在配置里。
+	Testdata Testdata `yaml:"testdata"`
 
 	// StrictWhitespace：token 全对、但空白排布和标准答案不一致时，判 PE 还是 AC。
 	//
@@ -69,6 +69,18 @@ type Settings struct {
 	// Compile：编译那一步的资源上限。它和题目的时空限制无关——
 	// 出题人管的是「跑得多快算超时」，编译该给多少资源是判题机的事。
 	Compile Compile `yaml:"compile"`
+}
+
+// Testdata 限定 judge 按测试数据协议（docs/testdata-protocol.md）读取数据时能用多少资源。
+type Testdata struct {
+	// WorkRoot：每次判题把测试数据复制到它下面的一个子目录，判完删除。必须是本进程独占的目录，
+	// 启动时会清空上一个进程遗留的内容。
+	WorkRoot string `yaml:"workRoot"`
+	// MaxFileBytes、MaxTotalBytes：元数据声明的单个文件与全部文件的大小上限，超限整次判题失败（SE）。
+	MaxFileBytes  int64 `yaml:"maxFileBytes"`
+	MaxTotalBytes int64 `yaml:"maxTotalBytes"`
+	// FetchTimeout：读取单个文件（HTTP 请求）的期限，要大于对端传完最大文件所需的时间。
+	FetchTimeout platform.Duration `yaml:"fetchTimeout"`
 }
 
 type Output struct {

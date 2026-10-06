@@ -16,6 +16,7 @@ import (
 	judgeconfig "cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/flow"
 	"cherry-oj/judge-engine/judge/node"
+	"cherry-oj/judge-engine/judge/testcase"
 )
 
 // HTTP 连接的防护期限，与 sandbox 取值一致；不含写期限，理由见 Run。
@@ -39,7 +40,7 @@ func (s *judgeService) Judge(ctx context.Context, req contract.JudgeRequest) con
 		// SE 是平台自己的问题（sandbox 不可用、测试数据损坏……），原因只写在响应的 message 里；
 		// 不在这里留痕，排查就只能去调用方翻响应。WA、TLE 等正常结论不记。
 		s.logger.Warn("judge.result.system_error", "submissionId", req.SubmissionID,
-			"problemId", req.ProblemID, "testDataVersionId", req.TestDataVersionID, "reason", systemErrorReason(result))
+			"problemId", req.ProblemID, "testDataLocation", req.TestDataLocation, "reason", systemErrorReason(result))
 	}
 	return result
 }
@@ -80,6 +81,11 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			return err
 		}
 	}
+	// 测试数据的本地副本放在这个进程独占的目录里；先清掉上一个进程崩溃时遗留的副本。
+	if err := testcase.PrepareWorkRoot(cfg.Judge.Testdata.WorkRoot); err != nil {
+		logger.Error("process.testdata.init.failed", "error", err)
+		return err
+	}
 	service := &judgeService{
 		sandbox: engine,
 		config:  cfg.Judge,
@@ -93,11 +99,8 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			logger.Error("judge.node.init.failed", "error", err)
 			return err
 		}
-		defer judgeNode.Close()
-		handler = judgeNode.Handler(handler)
 	}
-	// 只限制读请求头与空闲连接：一次判题（编译加逐点运行）可能持续数分钟，不能设写期限；
-	// 节点安装端点要流式接收测试数据包，整体读期限由安装自身的大小上限约束。
+	// 只限制读请求头与空闲连接：一次判题（编译加逐点运行）可能持续数分钟，不能设写期限。
 	srv := &http.Server{
 		Addr:              cfg.Judge.HTTPAddr,
 		Handler:           tracing.Middleware(logger, handler),

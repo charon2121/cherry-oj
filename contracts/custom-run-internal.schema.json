@@ -7,9 +7,6 @@
   "additionalProperties": false,
   "required": [
     "problemId",
-    "problemVersionId",
-    "testDataVersionId",
-    "testDataContentSha256",
     "languageId",
     "source",
     "inputText",
@@ -19,18 +16,6 @@
     "problemId": {
       "type": "string",
       "format": "uuid"
-    },
-    "problemVersionId": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "testDataVersionId": {
-      "type": "string",
-      "format": "uuid"
-    },
-    "testDataContentSha256": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
     },
     "languageId": {
       "type": "string",

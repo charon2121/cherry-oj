@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/judge-input.schema.json",
   "title": "JudgeInput v2",
-  "description": "submission-service → judging-service 的受保护内部读取模型。它与 Submission 同事务创建且永久不可修改。源码不进入 Kafka；该响应必须通过服务身份鉴权、限制大小并禁止记录 completeSource。 WORK-002 正式提交必须填充新增摘要/测例数量字段；缺失时消费者拒绝执行，不推测默认值。",
+  "description": "submission-service → judging-service 的受保护内部读取模型。它与 Submission 同事务创建且永久不可修改，只冻结源码、语言、标定编号和限制；不含测试数据地址，地址由 judging-service 在判题时向 problem-service 取题目当前的值。源码不进入 Kafka；该响应必须通过服务身份鉴权、限制大小并禁止记录 completeSource。",
   "x-contract-version": 2,
   "type": "object",
   "additionalProperties": false,
@@ -10,8 +10,6 @@
     "submissionId",
     "contractVersion",
     "problemId",
-    "problemVersionId",
-    "testDataVersionId",
     "languageId",
     "completeSource",
     "sourceSha256",
@@ -31,16 +29,6 @@
       "description": "用于 judging-service 选择 JudgeRequest 适配器"
     },
     "problemId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "problemVersionId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "testDataVersionId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128
@@ -69,20 +57,6 @@
     "createdAt": {
       "type": "string",
       "format": "date-time"
-    },
-    "testDataContentSha256": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
-    "totalCount": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 1000
-    },
-    "executionBudgetNs": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "完整调用的传输预算 ns；由配置与测例数计算，不能改变判题限制。"
     }
   },
   "examples": [
@@ -90,8 +64,6 @@
       "submissionId": "0198cafe-0000-7000-8000-000000000001",
       "contractVersion": "2",
       "problemId": "0198cafe-0000-7000-8000-000000000002",
-      "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
-      "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
       "languageId": "cpp",
       "completeSource": "int main() { return 0; }",
       "sourceSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",

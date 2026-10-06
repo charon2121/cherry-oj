@@ -21,7 +21,7 @@ func TestNodeSchemaExamplesRoundTripWithoutDroppedFields(t *testing.T) {
 	if err := json.Unmarshal(b, &schema); err != nil {
 		t.Fatal(err)
 	}
-	types := map[string]any{"Registration": &contract.NodeRegistration{}, "Heartbeat": &contract.NodeHeartbeat{}, "Lease": &contract.NodeLease{}, "Install": &contract.NodeInstall{}, "Receipt": &contract.NodeReceipt{}}
+	types := map[string]any{"Registration": &contract.NodeRegistration{}, "Heartbeat": &contract.NodeHeartbeat{}, "Lease": &contract.NodeLease{}}
 	for name, value := range types {
 		t.Run(name, func(t *testing.T) {
 			if len(schema.Defs[name].Examples) != 1 {

@@ -13,7 +13,7 @@ import (
 //
 // 变量名由 yaml 路径推出来，全大写、下划线分隔：
 //
-//	judge.testdataRoot        → CHERRY_OJ_JUDGE_TESTDATA_ROOT
+//	judge.testdata.workRoot   → CHERRY_OJ_JUDGE_TESTDATA_WORK_ROOT
 //	judge.compile.cpuNs       → CHERRY_OJ_JUDGE_COMPILE_CPU_NS
 //	sandbox.store.maxBlobBytes → CHERRY_OJ_SANDBOX_STORE_MAX_BLOB_BYTES
 //
@@ -89,7 +89,7 @@ func setScalar(fv reflect.Value, raw string) error {
 
 // camelToUpperSnake 把 yaml 里的 camelCase 键名变成环境变量片段。
 //
-//	testdataRoot   → TESTDATA_ROOT
+//	workRoot       → WORK_ROOT
 //	cpuNs          → CPU_NS
 //	sandboxURL     → SANDBOX_URL   （连续大写不拆开）
 //	maxBlobBytes   → MAX_BLOB_BYTES

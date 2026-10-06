@@ -21,7 +21,7 @@ func TestTrialLinuxOutputIsolation(t *testing.T) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	run := func(source string) contract.JudgeResult {
 		t.Helper()
-		request := contract.JudgeRequest{SubmissionID: "work044-isolation-test", ProblemID: "problem-a-plus-b", ProblemVersionID: "problem-a-plus-b-v1", TestDataVersionID: "a-plus-b", LanguageID: "cpp", Source: source, Mode: contract.ModeTrial, Cases: []contract.CaseSpec{{Input: ""}}, Limits: contract.JudgeLimits{CPUNs: 2_000_000_000, ClockNs: 4_000_000_000, MemoryBytes: 268435456}}
+		request := contract.JudgeRequest{SubmissionID: "work044-isolation-test", ProblemID: "problem-a-plus-b", LanguageID: "cpp", Source: source, Mode: contract.ModeTrial, Cases: []contract.CaseSpec{{Input: ""}}, Limits: contract.JudgeLimits{CPUNs: 2_000_000_000, ClockNs: 4_000_000_000, MemoryBytes: 268435456}}
 		body, err := json.Marshal(request)
 		if err != nil {
 			t.Fatal(err)

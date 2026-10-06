@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/problem-test-data.schema.json",
+  "title": "ProblemTestData v1",
+  "description": "problem-service → judging-service 的内部读取模型：GET /internal/judging/problems/{problemId}/test-data，服务身份鉴权。返回题目当前测试数据的地址和摘要要素，judging-service 在判题时取最新值，不冻结。题目尚无测试数据时返回 404。地址与 testdata.json 的结构见 docs/testdata-protocol.md。",
+  "x-contract-version": 1,
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "location",
+    "digest",
+    "caseCount",
+    "totalBytes"
+  ],
+  "properties": {
+    "location": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "description": "测试数据目录的地址：以 / 开头的本地绝对路径，或 http(s) 地址"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "testdata.json 的 digest；标定据此判断是否过期"
+    },
+    "caseCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "totalBytes": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "examples": [
+    {
+      "location": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000002",
+      "digest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
+      "caseCount": 2,
+      "totalBytes": 16
+    }
+  ]
+}

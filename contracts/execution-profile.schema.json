@@ -2,24 +2,18 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/execution-profile.schema.json",
   "title": "ExecutionProfile v1",
-  "description": "judging-service 为 submission-service 解析的不可变执行配置。只有目标语言有在线节点、该节点已按 hash 安装测试数据、题目版本×语言的标定 VALID 时返回；失败时禁止生成默认限制。",
+  "description": "judging-service 为 submission-service 解析的执行配置。只有目标语言有在线节点、题目已有可读取的测试数据、题目×语言的标定 VALID 且标定时的测试数据指纹等于题目当前指纹时返回；失败时禁止生成默认限制。",
   "x-contract-version": 1,
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "problemVersionId",
-    "testDataVersionId",
+    "problemId",
     "languageId",
     "languageCalibrationId",
     "effectiveLimits"
   ],
   "properties": {
-    "problemVersionId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 128
-    },
-    "testDataVersionId": {
+    "problemId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128
@@ -47,34 +41,18 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "problemVersionId",
-        "testDataVersionId",
-        "testDataContentSha256",
+        "problemId",
         "languageId"
       ],
       "properties": {
-        "problemVersionId": {
+        "problemId": {
           "type": "string",
           "minLength": 1,
           "maxLength": 128
-        },
-        "testDataVersionId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "testDataContentSha256": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$"
         },
         "languageId": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]{0,31}$"
-        },
-        "totalCount": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 1000
         },
         "purpose": {
           "type": "string",
@@ -88,9 +66,7 @@
       },
       "examples": [
         {
-          "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
-          "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
-          "testDataContentSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+          "problemId": "0198cafe-0000-7000-8000-000000000002",
           "languageId": "cpp"
         }
       ]
@@ -98,8 +74,7 @@
   },
   "examples": [
     {
-      "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
-      "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
+      "problemId": "0198cafe-0000-7000-8000-000000000002",
       "languageId": "cpp",
       "languageCalibrationId": "0198cafe-0000-7000-8000-000000000006",
       "effectiveLimits": {

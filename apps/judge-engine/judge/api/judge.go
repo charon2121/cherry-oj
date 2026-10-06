@@ -35,15 +35,14 @@ func (s *Server) handleJudge(w http.ResponseWriter, r *http.Request) {
 // 这些 wire 类型用指针区分「字段没出现」与「字段出现但值是零值」。
 // contract 类型保持纯数据结构，不为 HTTP 解码细节引入一层指针。
 type judgeRequestJSON struct {
-	SubmissionID      *string            `json:"submissionId"`
-	ProblemID         *string            `json:"problemId"`
-	ProblemVersionID  *string            `json:"problemVersionId"`
-	TestDataVersionID *string            `json:"testDataVersionId"`
-	LanguageID        *string            `json:"languageId"`
-	Source            *string            `json:"source"`
-	Limits            *judgeLimitsJSON   `json:"limits"`
-	Mode              contract.JudgeMode `json:"mode"`
-	Cases             []caseSpecJSON     `json:"cases"`
+	SubmissionID     *string            `json:"submissionId"`
+	ProblemID        *string            `json:"problemId"`
+	TestDataLocation *string            `json:"testDataLocation"`
+	LanguageID       *string            `json:"languageId"`
+	Source           *string            `json:"source"`
+	Limits           *judgeLimitsJSON   `json:"limits"`
+	Mode             contract.JudgeMode `json:"mode"`
+	Cases            []caseSpecJSON     `json:"cases"`
 }
 
 type judgeLimitsJSON struct {
@@ -81,11 +80,9 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 	if wire.ProblemID == nil {
 		return contract.JudgeRequest{}, missing("problemId")
 	}
-	if wire.ProblemVersionID == nil {
-		return contract.JudgeRequest{}, missing("problemVersionId")
-	}
-	if wire.TestDataVersionID == nil {
-		return contract.JudgeRequest{}, missing("testDataVersionId")
+	// 只有 trial 模式的测例在请求里；缺省的 mode 是 submit，必须带测试数据的地址。
+	if wire.TestDataLocation == nil && wire.Mode != contract.ModeTrial {
+		return contract.JudgeRequest{}, missing("testDataLocation")
 	}
 	if wire.LanguageID == nil {
 		return contract.JudgeRequest{}, missing("languageId")
@@ -122,17 +119,19 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 		}
 	}
 
-	return contract.JudgeRequest{
-		SubmissionID:      *wire.SubmissionID,
-		ProblemID:         *wire.ProblemID,
-		ProblemVersionID:  *wire.ProblemVersionID,
-		TestDataVersionID: *wire.TestDataVersionID,
-		LanguageID:        *wire.LanguageID,
-		Source:            *wire.Source,
-		Limits:            limits,
-		Mode:              wire.Mode,
-		Cases:             cases,
-	}, nil
+	req := contract.JudgeRequest{
+		SubmissionID: *wire.SubmissionID,
+		ProblemID:    *wire.ProblemID,
+		LanguageID:   *wire.LanguageID,
+		Source:       *wire.Source,
+		Limits:       limits,
+		Mode:         wire.Mode,
+		Cases:        cases,
+	}
+	if wire.TestDataLocation != nil {
+		req.TestDataLocation = *wire.TestDataLocation
+	}
+	return req, nil
 }
 
 func missing(field string) error {

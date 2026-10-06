@@ -25,7 +25,7 @@ func TestOccupiedListenerDoesNotRegisterNode(t *testing.T) {
 	defer control.Close()
 	root := t.TempDir()
 	path := filepath.Join(root, "config.json")
-	settings := map[string]any{"logging": map[string]any{"path": root}, "judge": map[string]any{"httpAddr": occupied.Addr().String(), "testdataRoot": filepath.Join(root, "testdata"), "node": map[string]any{"enabled": true, "controlToken": "test-control", "controlPlaneURL": control.URL}},
+	settings := map[string]any{"logging": map[string]any{"path": root}, "judge": map[string]any{"httpAddr": occupied.Addr().String(), "testdata": map[string]any{"workRoot": filepath.Join(root, "testdata")}, "node": map[string]any{"enabled": true, "controlToken": "test-control", "controlPlaneURL": control.URL}},
 		"execution": map[string]any{"backend": "devhost", "allowUnsafeBackend": true, "store": map[string]any{"root": filepath.Join(root, "blobs")}}}
 	data, err := json.Marshal(settings)
 	if err != nil {

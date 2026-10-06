@@ -59,7 +59,8 @@ func TestLoadPartialYAMLKeepsDefaults(t *testing.T) {
 	p := writeYAML(t, `
 judge:
   revealExpected: true
-  testdataRoot: /data/testdata
+  testdata:
+    workRoot: /data/testdata-work
 `)
 	cfg, err := Load(p)
 	if err != nil {
@@ -69,8 +70,12 @@ judge:
 	if !cfg.Judge.RevealExpected {
 		t.Error("revealExpected 没被 YAML 覆盖")
 	}
-	if cfg.Judge.TestdataRoot != "/data/testdata" {
-		t.Errorf("testdataRoot=%q", cfg.Judge.TestdataRoot)
+	if cfg.Judge.Testdata.WorkRoot != "/data/testdata-work" {
+		t.Errorf("testdata.workRoot=%q", cfg.Judge.Testdata.WorkRoot)
+	}
+	// 同一小节里没写的项也要保持默认
+	if cfg.Judge.Testdata.MaxTotalBytes != Default().Judge.Testdata.MaxTotalBytes {
+		t.Errorf("testdata.maxTotalBytes 被覆盖成了 %d", cfg.Judge.Testdata.MaxTotalBytes)
 	}
 	// 没写的项必须还是默认值，不能变成零值
 	if cfg.Judge.ClockRatio != Default().Judge.ClockRatio {
@@ -105,7 +110,8 @@ func TestEnvOverridesYAML(t *testing.T) {
 
 	t.Setenv("CHERRY_OJ_JUDGE_CLOCK_RATIO", "7")
 	t.Setenv("CHERRY_OJ_JUDGE_REVEAL_EXPECTED", "true")
-	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_ROOT", "/srv/from-env")
+	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_WORK_ROOT", "/srv/from-env")
+	t.Setenv("CHERRY_OJ_JUDGE_TESTDATA_FETCH_TIMEOUT", "90s")
 	t.Setenv("CHERRY_OJ_JUDGE_NODE_HEARTBEAT_INTERVAL", "25s")
 	t.Setenv("CHERRY_OJ_JUDGE_COMPILE_CPU_NS", "999")
 
@@ -120,8 +126,11 @@ func TestEnvOverridesYAML(t *testing.T) {
 	if !cfg.Judge.RevealExpected {
 		t.Error("revealExpected 没被环境变量覆盖")
 	}
-	if cfg.Judge.TestdataRoot != "/srv/from-env" {
-		t.Errorf("testdataRoot=%q", cfg.Judge.TestdataRoot)
+	if cfg.Judge.Testdata.WorkRoot != "/srv/from-env" {
+		t.Errorf("testdata.workRoot=%q", cfg.Judge.Testdata.WorkRoot)
+	}
+	if cfg.Judge.Testdata.FetchTimeout.Std() != 90*time.Second {
+		t.Errorf("testdata.fetchTimeout=%s want 90s", cfg.Judge.Testdata.FetchTimeout)
 	}
 	if cfg.Judge.Node.HeartbeatInterval.Std() != 25*time.Second {
 		t.Errorf("heartbeatInterval=%s want 25s", cfg.Judge.Node.HeartbeatInterval)
@@ -154,7 +163,10 @@ func TestValidateCatchesZeroValues(t *testing.T) {
 		{"编译墙钟超过执行硬界", func(c *Config) { c.Judge.Compile.ClockNs = MaxClockNs + 1 }},
 		{"执行层并发为 0", func(c *Config) { c.Execution.Parallelism = 0 }},
 		{"stdoutMaxBytes 为 0", func(c *Config) { c.Judge.Output.StdoutMaxBytes = 0 }},
-		{"testdataRoot 为空", func(c *Config) { c.Judge.TestdataRoot = "" }},
+		{"testdata.workRoot 为空", func(c *Config) { c.Judge.Testdata.WorkRoot = "" }},
+		{"testdata.maxFileBytes 为 0", func(c *Config) { c.Judge.Testdata.MaxFileBytes = 0 }},
+		{"testdata.maxTotalBytes 为 0", func(c *Config) { c.Judge.Testdata.MaxTotalBytes = 0 }},
+		{"testdata.fetchTimeout 为 0", func(c *Config) { c.Judge.Testdata.FetchTimeout = 0 }},
 		{"compile 全零", func(c *Config) { c.Judge.Compile = Compile{} }},
 		{"日志目录为空", func(c *Config) { c.Logging.Path = "" }},
 		{"日志级别非法", func(c *Config) { c.Logging.Level = "TRACE" }},

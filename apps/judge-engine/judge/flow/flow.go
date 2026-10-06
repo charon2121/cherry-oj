@@ -33,12 +33,14 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.Ju
 }
 
 // judgment 只属于一次 Judge 调用。配置为值快照，源码和编译引用不能跨请求复用。
-// 测例输入的临时引用由 runCase 在每点结束时释放，不累积到整次判题结束。
+// 测例输入的临时引用由 runCase 在每点结束时释放，不累积到整次判题结束；
+// submit 模式下测试数据的本地副本（testData）随这次判题一起在 close 里删除。
 type judgment struct {
 	sandbox                  Sandbox
 	config                   config.Settings
 	request                  contract.JudgeRequest
 	language                 language.Language
+	testData                 testcase.Set
 	cases                    []testcase.TestCase
 	clockNs                  int64
 	sourceRef, executableRef string
@@ -50,6 +52,13 @@ func (j *judgment) run(ctx context.Context) contract.JudgeResult {
 	if err := j.prepare(ctx); err != nil {
 		return systemError("%v", err)
 	}
+	result := j.judge(ctx)
+	result.TestDataDigest = j.testData.Digest
+	return result
+}
+
+// judge 编译并逐点运行；调用前 prepare 已经成功，测试数据已经就绪。
+func (j *judgment) judge(ctx context.Context) contract.JudgeResult {
 	var early *contract.JudgeResult
 	j.executableRef, early = j.compile(ctx)
 	if early != nil {
@@ -83,10 +92,11 @@ func (j *judgment) prepare(ctx context.Context) error {
 		return fmt.Errorf("unknown language: %q", j.request.LanguageID)
 	}
 	var err error
-	j.cases, err = loadCases(j.config, j.request)
+	j.testData, err = loadCases(ctx, j.config, j.request)
 	if err != nil {
 		return fmt.Errorf("load test cases: %v", err)
 	}
+	j.cases = j.testData.Cases
 	if len(j.cases) == 0 {
 		return fmt.Errorf("no test cases")
 	}
@@ -110,6 +120,11 @@ func (j *judgment) prepare(ctx context.Context) error {
 	return nil
 }
 func (j *judgment) close(ctx context.Context) {
+	// 副本删不掉不影响结论，但持续失败会把磁盘占满，要留痕。
+	if err := j.testData.Close(); err != nil {
+		j.log.Warn("judge.testdata.cleanup.failed", "submissionId", j.request.SubmissionID, "error", err)
+	}
+	j.testData = testcase.Set{}
 	if j.executableRef != "" {
 		j.deleteRef(ctx, j.executableRef)
 		j.executableRef = ""
@@ -119,11 +134,16 @@ func (j *judgment) close(ctx context.Context) {
 		j.sourceRef = ""
 	}
 }
-func loadCases(cfg config.Settings, req contract.JudgeRequest) ([]testcase.TestCase, error) {
-	if req.Mode.UsesVersionedTestdata() {
-		return testcase.Load(cfg.TestdataRoot, req.TestDataVersionID)
+func loadCases(ctx context.Context, cfg config.Settings, req contract.JudgeRequest) (testcase.Set, error) {
+	if req.Mode.UsesTestData() {
+		return testcase.Load(ctx, testcase.Options{
+			WorkRoot:      cfg.Testdata.WorkRoot,
+			MaxFileBytes:  cfg.Testdata.MaxFileBytes,
+			MaxTotalBytes: cfg.Testdata.MaxTotalBytes,
+			FetchTimeout:  cfg.Testdata.FetchTimeout.Std(),
+		}, req.TestDataLocation)
 	}
-	return testcase.FromSpecs(req.Cases), nil
+	return testcase.Set{Cases: testcase.FromSpecs(req.Cases)}, nil
 }
 
 // deleteRef 用不随请求取消的上下文删除 blob。失败不影响判题结论（sandbox 的 store

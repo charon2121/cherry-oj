@@ -23,8 +23,15 @@ func (c Config) Validate() error {
 	if err := c.Execution.Validate("execution"); err != nil {
 		return err
 	}
-	if j.TestdataRoot == "" {
-		return fmt.Errorf("judge.testdataRoot must not be empty")
+	if j.Testdata.WorkRoot == "" {
+		return fmt.Errorf("judge.testdata.workRoot must not be empty")
+	}
+	if j.Testdata.MaxFileBytes <= 0 || j.Testdata.MaxTotalBytes <= 0 {
+		return fmt.Errorf("judge.testdata.maxFileBytes and maxTotalBytes must be positive, got %d and %d",
+			j.Testdata.MaxFileBytes, j.Testdata.MaxTotalBytes)
+	}
+	if j.Testdata.FetchTimeout <= 0 {
+		return fmt.Errorf("judge.testdata.fetchTimeout must be positive, got %s", j.Testdata.FetchTimeout)
 	}
 	if j.ClockRatio <= 0 {
 		return fmt.Errorf("judge.clockRatio must be positive, got %d", j.ClockRatio)

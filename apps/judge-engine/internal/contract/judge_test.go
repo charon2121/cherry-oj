@@ -18,8 +18,8 @@ func TestJudgeRequestUnmarshalsSchemaExample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if req.SubmissionID == "" || req.ProblemID == "" || req.ProblemVersionID == "" ||
-		req.TestDataVersionID == "" || req.LanguageID != "cpp" || req.Source == "" {
+	if req.SubmissionID == "" || req.ProblemID == "" || req.TestDataLocation == "" ||
+		req.LanguageID != "cpp" || req.Source == "" {
 		t.Errorf("必填字段没解全: %+v", req)
 	}
 	if req.Limits.CPUNs != 1000000000 || req.Limits.MemoryBytes != 268435456 {
@@ -44,6 +44,9 @@ func TestJudgeResultUnmarshalsSchemaExample(t *testing.T) {
 	}
 	if result.CaseResults[0].CPUNs == 0 || result.CaseResults[0].MemoryBytes == 0 {
 		t.Errorf("CaseResult v2 资源字段没有解码: %+v", result.CaseResults[0])
+	}
+	if len(result.TestDataDigest) != 64 {
+		t.Errorf("testDataDigest 没有解码: %q", result.TestDataDigest)
 	}
 }
 
@@ -122,18 +125,18 @@ func TestJudgeModeIsValid(t *testing.T) {
 	}
 }
 
-func TestJudgeModeUsesVersionedTestdata(t *testing.T) {
+func TestJudgeModeUsesTestData(t *testing.T) {
 	tests := []struct {
 		mode         JudgeMode
-		usesTestdata bool
+		usesTestData bool
 	}{
-		{ModeSubmit, true}, // 测例在磁盘上
+		{ModeSubmit, true}, // 测例在测试数据地址下
 		{ModeTrial, false}, // 测例在请求里
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {
-			if got := tt.mode.UsesVersionedTestdata(); got != tt.usesTestdata {
-				t.Errorf("UsesVersionedTestdata()=%v want %v", got, tt.usesTestdata)
+			if got := tt.mode.UsesTestData(); got != tt.usesTestData {
+				t.Errorf("UsesTestData()=%v want %v", got, tt.usesTestData)
 			}
 		})
 	}
@@ -231,7 +234,7 @@ func TestJudgeResultOmitsEmpty(t *testing.T) {
 			t.Errorf("%q 应当总是出现", key)
 		}
 	}
-	for _, key := range []string{"caseResults", "message", "cpuNs", "memoryBytes"} {
+	for _, key := range []string{"caseResults", "message", "cpuNs", "memoryBytes", "testDataDigest"} {
 		if _, ok := m[key]; ok {
 			t.Errorf("%q 为空时应被 omitempty 掉", key)
 		}

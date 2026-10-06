@@ -48,6 +48,7 @@ class ContractsTest(unittest.TestCase):
             "judge-node.schema.json",
             "submission.json",
             "problem-judge-snapshot.schema.json",
+            "problem-test-data.schema.json",
             "execution-profile.schema.json",
             "judge-input.schema.json",
             "judge-events.schema.json",
@@ -102,13 +103,11 @@ class ContractsTest(unittest.TestCase):
         result = definitions["JudgeResult"]
         case_result = definitions["CaseResult"]
 
-        self.assertTrue(
-            {
-                "problemVersionId",
-                "testDataVersionId",
-                "languageId",
-            }.issubset(request["required"])
-        )
+        self.assertTrue({"problemId", "languageId"}.issubset(request["required"]))
+        # 测试数据靠地址交付（docs/testdata-protocol.md）；地址只在 submit 模式必填，所以不进 required。
+        self.assertIn("testDataLocation", request["properties"])
+        self.assertNotIn("testDataLocation", request["required"])
+        self.assertIn("testDataDigest", result["properties"])
         self.assertNotIn("language", request["properties"])
         self.assertNotIn("environmentFingerprint", result["properties"])
         for schema in (result, case_result):
@@ -118,6 +117,29 @@ class ContractsTest(unittest.TestCase):
             self.assertNotIn("memory", schema["properties"])
         self.assertIn("caseResults", result["properties"])
         self.assertNotIn("cases", result["properties"])
+
+    def test_problem_and_test_data_versions_do_not_exist(self) -> None:
+        removed = {
+            "problemVersionId",
+            "problemVersionNo",
+            "testDataVersionId",
+            "testDataContentSha256",
+        }
+        for path in CONTRACTS.glob("*.json"):
+            # TODO: web-api.openapi.json 随 gateway 与前端一起去版本（development/works/2026-10-07-
+            # remove-versions-testdata-protocol 第 5、6 步），完成后移除这个例外。
+            if path.name == "web-api.openapi.json":
+                continue
+            for node in walk(load(path.name)):
+                if isinstance(node, dict):
+                    self.assertTrue(removed.isdisjoint(node), f"{path.name}: 仍含 {sorted(removed & set(node))}")
+                    properties = node.get("properties")
+                    if isinstance(properties, dict):
+                        self.assertTrue(removed.isdisjoint(properties), f"{path.name}: properties 仍含版本字段")
+
+    def test_install_and_receipt_are_gone_from_node_protocol(self) -> None:
+        definitions = load("judge-node.schema.json")["$defs"]
+        self.assertEqual(set(definitions), {"Registration", "Heartbeat", "Lease", "Error"})
 
     def test_event_payloads_are_closed_and_source_free(self) -> None:
         document = load("judge-events.schema.json")

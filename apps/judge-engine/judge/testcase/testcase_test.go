@@ -2,16 +2,11 @@ package testcase_test
 
 import (
 	"io"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/testcase"
 )
-
-const root = "testdata"
 
 // read 打开一个 Blob 并读完，失败直接 Fatal。
 func read(t *testing.T, b testcase.Blob) string {
@@ -26,194 +21,6 @@ func read(t *testing.T, b testcase.Blob) string {
 		t.Fatalf("ReadAll: %v", err)
 	}
 	return string(got)
-}
-
-// names 把测试点名按顺序取出来，方便断言排序。
-func names(cases []testcase.TestCase) []string {
-	out := make([]string, len(cases))
-	for i, c := range cases {
-		out[i] = c.Name
-	}
-	return out
-}
-
-func TestLoad(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b")
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if len(cases) != 3 {
-		t.Fatalf("测试点数 = %d, want 3 (%v)", len(cases), names(cases))
-	}
-
-	// 内容对得上，且和 Name 是同一个测试点的
-	want := []struct{ name, in, out string }{
-		{"1", "1 2\n", "3\n"},
-		{"2", "-5 8\n", "3\n"},
-		{"10", "100 200\n", "300\n"},
-	}
-	for i, w := range want {
-		c := cases[i]
-		if c.Name != w.name {
-			t.Errorf("cases[%d].Name = %q, want %q", i, c.Name, w.name)
-		}
-		if got := read(t, c.Input); got != w.in {
-			t.Errorf("cases[%d] input = %q, want %q", i, got, w.in)
-		}
-		if c.Expected == nil {
-			t.Fatalf("cases[%d].Expected 不该为 nil", i)
-		}
-		if got := read(t, *c.Expected); got != w.out {
-			t.Errorf("cases[%d] expected = %q, want %q", i, got, w.out)
-		}
-	}
-}
-
-// ★ 数值排序：目录里是 1/2/10，字符串排序会给出 1,10,2。
-// 顺序错了，「第几个点挂了」就是错的，用户照着去查只会更迷惑。
-func TestLoadSortsNumerically(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"1", "2", "10"}
-	got := names(cases)
-	if len(got) != len(want) {
-		t.Fatalf("got %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("顺序 = %v, want %v（字符串排序会给出 1,10,2）", got, want)
-		}
-	}
-}
-
-// 数值名排在非数值名前面；非数值之间按字符串排
-func TestLoadMixedNames(t *testing.T) {
-	cases, err := testcase.Load(root, "mixed-names")
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"1", "2", "big-1", "small"}
-	got := names(cases)
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("顺序 = %v, want %v", got, want)
-	}
-}
-
-// Size 必须和文件真实大小一致 —— flow 靠它决定内联还是走 store ref
-func TestLoadBlobSize(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range cases {
-		inPath := filepath.Join(root, "a-plus-b", c.Name+".in")
-		fi, err := os.Stat(inPath)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if c.Input.Size != fi.Size() {
-			t.Errorf("%s: Input.Size = %d, want %d", c.Name, c.Input.Size, fi.Size())
-		}
-		if int64(len(read(t, c.Input))) != c.Input.Size {
-			t.Errorf("%s: Size 和实际读到的字节数对不上", c.Name)
-		}
-	}
-}
-
-// ★ 这条锁住的是 testcase 包存在的理由：Load 只记「怎么打开」，不读内容。
-// 若哪天被改成加载时就读进内存，上面那些用例照样全绿，只有这条会响。
-func TestLoadDoesNotReadContents(t *testing.T) {
-	// 在临时目录里造一份，这样可以放心删文件
-	dir := filepath.Join(t.TempDir(), "probe")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for name, body := range map[string]string{"1.in": "1 2\n", "1.out": "3\n"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	cases, err := testcase.Load(filepath.Dir(dir), "probe")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cases) != 1 {
-		t.Fatalf("测试点数 = %d", len(cases))
-	}
-
-	// Load 之后把文件删掉：如果内容已经在内存里，Open 就还能成功
-	if err := os.Remove(filepath.Join(dir, "1.in")); err != nil {
-		t.Fatal(err)
-	}
-	if rc, err := cases[0].Input.Open(); err == nil {
-		rc.Close()
-		t.Error("文件已删除，Open 却成功了 —— Load 把内容读进内存了")
-	}
-}
-
-// ★ 落单的 .in 或 .out 让整次加载失败，而不是跳过：少判一个点，错解就可能拿到 AC，
-// 而且结论里完全看不出来。报错要列出缺的每个文件，运维才知道去补什么。
-func TestLoadRejectsUnpaired(t *testing.T) {
-	_, err := testcase.Load(root, "unpaired")
-	if err == nil {
-		t.Fatal("有落单的测试文件，加载却成功了")
-	}
-	for _, want := range []string{"unpaired", "2.out", "3.in"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("错误里缺少 %q，无法定位: %v", want, err)
-		}
-	}
-}
-
-// 一个都配不上 → 报错，别静默返回空切片让上层以为「这题就是没测试点」
-func TestLoadNoPairsIsError(t *testing.T) {
-	if _, err := testcase.Load(root, "no-pairs"); err == nil {
-		t.Error("目录里没有任何配对的 .in/.out，应当报错")
-	}
-}
-
-func TestLoadEmptyDirIsError(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "empty")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := testcase.Load(filepath.Dir(dir), "empty"); err == nil {
-		t.Error("空目录应当报错")
-	}
-}
-
-func TestLoadMissingDirIsError(t *testing.T) {
-	if _, err := testcase.Load(root, "no-such-problem"); err == nil {
-		t.Error("测试数据版本目录不存在应当报错")
-	}
-}
-
-// ★ testDataVersionId 来自 HTTP 请求，绝不能直接拼进路径。
-// 只断言 Load 报错，不去真造一个 ../ 目录 —— 测防护不该以触发它为代价。
-func TestLoadRejectsBadID(t *testing.T) {
-	bad := []string{
-		"",
-		"../a-plus-b",
-		"../../etc",
-		"/etc",
-		"a/b",
-		"A-PLUS-B", // 大写不合法
-		"a_plus_b", // 下划线不合法
-		"-leading", // 不能以连字符开头
-		".",
-		"..",
-		strings.Repeat("x", 65), // 超长
-	}
-	for _, id := range bad {
-		t.Run(id, func(t *testing.T) {
-			if _, err := testcase.Load(root, id); err == nil {
-				t.Errorf("Load(%q) 应当报错", id)
-			}
-		})
-	}
 }
 
 func TestFromSpecs(t *testing.T) {
@@ -261,19 +68,6 @@ func TestFromSpecsClosuresAreIndependent(t *testing.T) {
 		if got := read(t, cases[i].Input); got != want {
 			t.Errorf("cases[%d] input = %q, want %q", i, got, want)
 		}
-	}
-}
-
-// Blob 可以被打开多次 —— flow 里重试或先探大小再读都需要这一点
-func TestBlobIsReopenable(t *testing.T) {
-	cases, err := testcase.Load(root, "a-plus-b")
-	if err != nil {
-		t.Fatal(err)
-	}
-	first := read(t, cases[0].Input)
-	second := read(t, cases[0].Input)
-	if first != second {
-		t.Errorf("两次 Open 读到的内容不同: %q vs %q", first, second)
 	}
 }
 

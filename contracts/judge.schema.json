@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/judge.schema.json",
   "title": "Judge v2",
-  "description": "judging-service ↔ Go judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。正式判题按不可变 testDataVersionId 定位测试数据；problemId/problemVersionId 只用于日志与对账。source 对 ACM/CORE 都是 submission-service 已准备好的完整源码。Go judge 不知道用户、代码模式、模板、标定、Kafka 或 Submission 生命周期。",
+  "description": "judging-service ↔ Go judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。正式判题按 testDataLocation 指向的目录读取测试数据（协议见 docs/testdata-protocol.md）；problemId 只用于日志与对账。source 对 ACM/CORE 都是 submission-service 已准备好的完整源码。Go judge 不知道用户、代码模式、模板、标定、Kafka 或 Submission 生命周期。",
   "x-contract-version": 2,
   "x-transport-context": {
     "carrier": "http-headers",
@@ -18,7 +18,7 @@
   "definitions": {
     "JudgeMode": {
       "type": "string",
-      "description": "submit=按 testDataVersionId 从磁盘加载正式测例；trial=使用请求内 cases。它只决定测例来源，不决定结果是否入库。",
+      "description": "submit=按 testDataLocation 读取正式测例；trial=使用请求内 cases。它只决定测例来源，不决定结果是否入库。",
       "enum": [
         "submit",
         "trial"
@@ -129,8 +129,6 @@
       "required": [
         "submissionId",
         "problemId",
-        "problemVersionId",
-        "testDataVersionId",
         "languageId",
         "source",
         "limits"
@@ -148,16 +146,11 @@
           "maxLength": 128,
           "description": "稳定题目 id；只用于日志与对账"
         },
-        "problemVersionId": {
+        "testDataLocation": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128,
-          "description": "不可变题目版本 id；只用于日志与对账"
-        },
-        "testDataVersionId": {
-          "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
-          "description": "正式判题的测试数据目录键：<testdata-root>/<testDataVersionId>/"
+          "maxLength": 2048,
+          "description": "测试数据目录的地址：以 / 开头的本地绝对路径，或 http(s) 地址；其下有 testdata.json。mode=submit 时必填，mode=trial 时不使用"
         },
         "languageId": {
           "type": "string",
@@ -188,8 +181,7 @@
         {
           "submissionId": "0198cafe-0000-7000-8000-000000000001",
           "problemId": "0198cafe-0000-7000-8000-000000000002",
-          "problemVersionId": "0198cafe-0000-7000-8000-000000000003",
-          "testDataVersionId": "0198cafe-0000-7000-8000-000000000004",
+          "testDataLocation": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000002",
           "languageId": "cpp",
           "source": "int main() { return 0; }",
           "limits": {
@@ -271,6 +263,11 @@
           "type": "string",
           "maxLength": 8192
         },
+        "testDataDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "mode=submit 时本次判题实际读取的测试数据指纹，即 testdata.json 的 digest；用于追溯“这次拿哪份数据判的”"
+        },
         "caseResults": {
           "type": "array",
           "maxItems": 1000,
@@ -286,6 +283,7 @@
           "cpuNs": 1200000,
           "memoryBytes": 1048576,
           "score": 100,
+          "testDataDigest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
           "caseResults": [
             {
               "idx": 1,

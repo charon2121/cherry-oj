@@ -24,9 +24,14 @@ func Default() Config {
 			Level: "INFO",
 		},
 		Judge: Settings{
-			Node:                 defaultNode(),
-			HTTPAddr:             "127.0.0.1:5051",
-			TestdataRoot:         "/srv/cherry-oj/testdata",
+			Node:     defaultNode(),
+			HTTPAddr: "127.0.0.1:5051",
+			Testdata: Testdata{
+				WorkRoot:      "/var/lib/cherry-oj/testdata",
+				MaxFileBytes:  256 << 20,
+				MaxTotalBytes: 1 << 30,
+				FetchTimeout:  platform.Duration(5 * time.Minute),
+			},
 			StrictWhitespace:     false, // 默认宽松：一个换行不该卡住新手
 			RevealExpected:       false, // ★ 默认不泄题；教学部署自己打开
 			ClockRatio:           10,
