@@ -29,6 +29,7 @@ DECISION，避免历史原因丢失。
 - [`data-model.md`](./data-model.md)：跨服务领域模型和所有权；
 - [`database-design.md`](./database-design.md)：数据库级设计；
 - [`engine.md`](./engine.md)：judge 与 sandbox 引擎设计；
+- [`testdata-protocol.md`](./testdata-protocol.md)：测试数据协议（草案）：地址、`testdata.json` 与读写双方的责任；
 - [`backend.md`](./backend.md)：Java 服务工程与实现边界；
 - [`logging.md`](./logging.md)：Java/Go 统一日志字段、Trace 传播与文件滚动规范；
 - [`frontend.md`](./frontend.md)：Web 架构、状态、组件和工程规则；
