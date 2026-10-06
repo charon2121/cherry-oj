@@ -9,7 +9,7 @@
 | 部分 | 状态 |
 |---|---|
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events；verdict 保持稳定 |
-| 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；执行器有真实内核测试 |
+| 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ |
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内 |
