@@ -15,7 +15,7 @@
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内 |
 | Docker 部署 | ✅ 单 judge 容器 Compose（开发与 MVP，devhost 后端） |
 | `apps/server`（五个 Java 服务） | ✅ 业务链路已实现；2026-10-07 起题目无版本、测试数据写成协议目录；单元与 Testcontainers 测试通过 |
-| 五服务 + judge 全链路 | ✅ `scripts/work-002-e2e.py` 在隔离栈（MySQL/Redis/Kafka + 真实 judge 容器）通过：上传→校准→公开→AC/WA/CE/TLE、Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题原地修改与取消公开（2026-10-07）；Linux 原生部署路径（`deploy/sandbox-linux/ci`）已改写但未在 Linux 机器上运行 |
+| 五服务 + judge 全链路 | ✅ `scripts/work-002-e2e.py` 在隔离栈（MySQL/Redis/Kafka + 真实 judge 容器）通过：上传→校准→公开→AC/WA/CE/TLE、Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题原地修改与取消公开（2026-10-07）；测试服务器上的原生节点已按新发布重装并实测（真实 systemd 单元与 setuid 执行器下按地址判题、篡改得 SE、崩溃恢复，2026-10-07）；`deploy/sandbox-linux/ci/business*` 已改写但需一次性独占 Linux VM，未运行 |
 | `apps/web` | ✅ 题库、答题、提交、自测与管理工作台；`npm run check` 与 Playwright（mock 后端）通过；`judge-node` 与 `e2e-live` 需要真实栈，尚未对新栈运行 |
 
 状态变化跟着实现走：某个模块从骨架变成可用时，在对应 WORK 的 VERIFY 里记下证据，再回来改这张表。

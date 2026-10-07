@@ -1,6 +1,6 @@
 # 去版本化与测试数据协议
 
-类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–8 步中本机可验证的部分已完成（2026-10-07）；测试服务器节点升级与 Linux 原生 CI 待决定
+类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–8 步已完成（2026-10-07）；Linux 原生业务 CI（需一次性独占 VM）未运行
 
 ## 为什么做
 
@@ -154,3 +154,16 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
   所以没有运行。(3) `apps/web/e2e-live` 依赖上一项产生的 `live-context.json`，同样没有运行。
 - **Mac 上的 judge 用 devhost 后端**（无真实内核隔离）：协议读取、摘要校验、HTTP/本地路径两种地址都已实测，但"原生 systemd 单元（ProtectSystem=strict、PrivateTmp）下读取测试数据根目录"
   这一点只有在 Linux 上重装节点后才能验证；理论上只要根目录不在 `/tmp`、`/home`、`/root` 下就可读。
+
+### 第 8 步补充：测试服务器节点卸载重装并实测（2026-10-07，用户明确同意）
+
+- **做法：** 安装器的初装会拒绝已有的 `/etc/cherry-sandbox`、`/var/lib/cherry-sandbox` 和账号，而 `uninstall` 又保留它们，所以"卸载重装"不能只靠 `manage.py`。
+  先用 `manage.py uninstall` 停掉并移除两个单元，再只删除本项目拥有的资源（两个目录与 `cherry-judge`、`cherry-payload-0..3`、`cherry-init-0..3` 九个账号；删除前确认无这些身份的进程、无残留单元），
+  然后用新的发布清单重装：judge 用本机交叉编译的新版（`CGO_ENABLED=0 GOOS=linux GOARCH=amd64`），隔离执行器与 rootfs 沿用旧发布（本次重构没有改动它们，rootfs manifest 摘要不变），
+  发布名 `cherry-testdata-v1`，节点 `cherry-linux-3`，不 enable，手动 start。
+- **实测（真实 systemd 单元 + setuid 隔离执行器）：** `verify-native.py` PASS（线程降权、24 项限额中的 16 项核对、无残留进程/cgroup/工作区）；
+  对 `/srv/cherry-testdata/a-plus-b`（`testdata_pack.py` 生成的协议目录，root 所有、目录 0755/文件 0644）按地址判题：AC、WA 正确，结果带回与 `testdata.json` 一致的 `testDataDigest`；
+  篡改 `2.out` 得到 **SE（不是 WA）**，还原后恢复 AC；地址不存在、相对路径都是 SE；`verify-faults.py --case judge` 与 `--case executor` PASS（崩溃后恢复）。
+  结论：原生单元的 `ProtectSystem=strict`、`PrivateTmp` 下可以读取放在 `/srv` 下的测试数据根目录，推断得到证实。
+- **仍未验证：** 节点没有连上控制面（本机没起 judging-service，日志里是预期的 `judge.node.control.failed`）；`ci/business*` 的 CI 把测试数据根目录放在 0700 的运行目录下，
+  judge 用户穿不过去，需要在一次性 Linux VM 上改成可遍历的目录后再跑；`e2e-live` 依赖它。
