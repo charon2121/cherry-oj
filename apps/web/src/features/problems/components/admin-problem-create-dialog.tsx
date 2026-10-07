@@ -105,10 +105,8 @@ export function AdminProblemCreateDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>新建题目草稿</DialogTitle>
-          <DialogDescription>
-            先建立一个可保存的草稿，再进入工作台完善题面、样例和测试数据。
-          </DialogDescription>
+          <DialogTitle>新建题目</DialogTitle>
+          <DialogDescription>先建立题目，再进入工作台完善题面、样例和测试数据。</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-5"
@@ -199,8 +197,8 @@ export function AdminProblemCreateDialog({
             <DialogClose render={<Button variant="secondary" />} disabled={creating}>
               取消
             </DialogClose>
-            <Button type="submit" loading={creating} loadingLabel="正在创建草稿…">
-              创建草稿
+            <Button type="submit" loading={creating} loadingLabel="正在创建题目…">
+              创建题目
             </Button>
           </DialogFooter>
         </form>

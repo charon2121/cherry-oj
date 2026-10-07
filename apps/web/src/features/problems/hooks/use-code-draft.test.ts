@@ -29,7 +29,6 @@ beforeEach(() => {
   options = {
     userId: `draft-hook-user-${++identitySequence}`,
     problemId: 'problem',
-    problemVersionId: 'v1',
     languageId: 'cpp',
     starterCode: 'starter',
   };
@@ -48,7 +47,7 @@ it('flushes the old identity on unmount without a delayed write to a new account
     first.result.current.setValue('old account source');
   });
   first.unmount();
-  const changed = { ...options, userId: 'next-account', problemVersionId: 'v2' };
+  const changed = { ...options, userId: 'next-account', problemId: 'problem-2' };
   const second = renderHook(() => useCodeDraft(changed));
   expect(second.result.current.value).toBe('starter');
   act(() => {

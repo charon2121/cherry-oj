@@ -7,9 +7,7 @@ import { expect, test } from '@playwright/test';
 import { themeRegistry, themeStorageKey } from '../src/generated/design-system/themes.js';
 
 // Run against node-e2e.py --keep; all API responses come from the isolated real stack.
-test('real node offline, recovery and deployment remain usable in the workbench', async ({
-  page,
-}, testInfo) => {
+test('real node offline and recovery are shown in the workbench', async ({ page }, testInfo) => {
   test.skip(!process.env.WORK040_E2E_DIRECTORY, 'requires isolated node-e2e.py --keep stack');
   test.setTimeout(150_000);
   const directory = process.env.WORK040_E2E_DIRECTORY!;
@@ -17,8 +15,6 @@ test('real node offline, recovery and deployment remain usable in the workbench'
     project: string;
     ports: { gateway: number };
     problemId: string;
-    versionId: string;
-    workbenchVersionId?: string;
   };
   const environment = JSON.parse(
     readFileSync(resolve(directory, 'compose.env.json'), 'utf8'),
@@ -47,13 +43,15 @@ test('real node offline, recovery and deployment remain usable in the workbench'
     });
     await route.fulfill({ response });
   });
-  const path = `/admin/problems/${evidence.problemId}/versions/${evidence.workbenchVersionId ?? evidence.versionId}?step=test-and-calibrate`;
-  await page.goto(path);
-  const deploy = page.getByRole('button', { name: '部署测试数据', exact: true });
-  await expect(deploy).toBeEnabled();
+  // 测试数据由节点按地址读取，没有部署动作：节点离线时，校准区显示“没有在线判题节点”并禁用校准。
+  await page.goto(`/admin/problems/${evidence.problemId}?step=test-and-calibrate`);
+  const calibrate = page.getByRole('button', { name: '运行参考程序校准', exact: true });
+  const offline = page.getByRole('status').filter({ hasText: '在线判题节点' });
+  await expect(offline).toHaveCount(0);
   try {
     compose('stop', 'judge');
-    await expect(deploy).toBeDisabled({ timeout: 20_000 });
+    await expect(offline).toBeVisible({ timeout: 20_000 });
+    await expect(calibrate).toBeDisabled();
     await expect(page.getByRole('status').filter({ hasText: '在线判题节点' })).toBeVisible();
     for (const theme of themeRegistry) {
       await page.evaluate(({ key, id }) => localStorage.setItem(key, id), {
@@ -61,9 +59,9 @@ test('real node offline, recovery and deployment remain usable in the workbench'
         id: theme.id,
       });
       await page.reload();
-      await expect(deploy).toBeDisabled();
+      await expect(calibrate).toBeDisabled();
       await expect(page.getByRole('status').filter({ hasText: '在线判题节点' })).toBeVisible();
-      await deploy.scrollIntoViewIfNeeded();
+      await calibrate.scrollIntoViewIfNeeded();
       await page.screenshot({
         path: testInfo.outputPath(`offline-${theme.id}.png`),
         fullPage: true,
@@ -90,9 +88,6 @@ test('real node offline, recovery and deployment remain usable in the workbench'
   } finally {
     compose('start', 'judge');
   }
-  await expect(deploy).toBeEnabled({ timeout: 20_000 });
-  await deploy.click();
-  await expect(page.getByRole('status').filter({ hasText: '部署可用' })).toBeVisible({
-    timeout: 20_000,
-  });
+  // 节点恢复后，提示消失；不需要重新部署任何东西。
+  await expect(offline).toHaveCount(0, { timeout: 20_000 });
 });

@@ -5,7 +5,6 @@ export const recoverySchema = z.object({
   key: z.string().uuid(),
   body: z.object({
     problemId: z.string().uuid(),
-    expectedProblemVersionId: z.string().uuid(),
     languageId: z.literal('cpp'),
     source,
   }),
@@ -13,7 +12,7 @@ export const recoverySchema = z.object({
 });
 export type SubmissionRecovery = z.infer<typeof recoverySchema>;
 export function recoveryKey(userId: string, problemId: string) {
-  return `cherry-oj.submission.v1:${userId}:${problemId}:cpp`;
+  return `cherry-oj.submission.v2:${userId}:${problemId}:cpp`;
 }
 export function loadRecovery(key: string): SubmissionRecovery | undefined {
   const value = localStorage.getItem(key);

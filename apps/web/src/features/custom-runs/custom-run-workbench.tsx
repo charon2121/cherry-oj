@@ -105,7 +105,6 @@ export function CustomRunWorkbench({
     const current = ++sequence.current;
     const body: CustomRunRequest = {
       problemId: problem.problemId,
-      expectedProblemVersionId: problem.problemVersionId,
       languageId: 'cpp',
       source,
       inputText: input,
@@ -237,11 +236,7 @@ export function CustomRunWorkbench({
                 <p className="text-fg-muted">登录或题目状态暂时无法确认，运行结果已隐藏。</p>
               ) : (
                 <>
-                  {attempt ? (
-                    <p className="text-fg-meta text-xs">
-                      {attempt.started} · v{problem.versionNo} · C++
-                    </p>
-                  ) : null}
+                  {attempt ? <p className="text-fg-meta text-xs">{attempt.started} · C++</p> : null}
                   {busy ? <p role="status">正在运行…</p> : null}
                   {error ? (
                     <p role="alert" className="text-fg-2">

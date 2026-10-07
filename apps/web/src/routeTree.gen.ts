@@ -23,7 +23,7 @@ import { Route as SiteAccountPasswordRouteImport } from './routes/_site.account.
 import { Route as SiteProblemsIndexRouteImport } from './routes/_site.problems.index'
 import { Route as SiteProblemsSlugRouteImport } from './routes/_site.problems.$slug'
 import { Route as AdminProblemsIndexRouteImport } from './routes/admin.problems.index'
-import { Route as AdminProblemsProblemIdVersionsVersionIdRouteImport } from './routes/admin.problems.$problemId.versions.$versionId'
+import { Route as AdminProblemsProblemIdRouteImport } from './routes/admin.problems.$problemId'
 
 const SiteRoute = SiteRouteImport.update({
   id: '/_site',
@@ -94,12 +94,11 @@ const AdminProblemsIndexRoute = AdminProblemsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminProblemsRoute,
 } as any)
-const AdminProblemsProblemIdVersionsVersionIdRoute =
-  AdminProblemsProblemIdVersionsVersionIdRouteImport.update({
-    id: '/$problemId/versions/$versionId',
-    path: '/$problemId/versions/$versionId',
-    getParentRoute: () => AdminProblemsRoute,
-  } as any)
+const AdminProblemsProblemIdRoute = AdminProblemsProblemIdRouteImport.update({
+  id: '/$problemId',
+  path: '/$problemId',
+  getParentRoute: () => AdminProblemsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof SiteIndexRoute
@@ -113,9 +112,9 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/account/password': typeof SiteAccountPasswordRoute
   '/problems/$slug': typeof SiteProblemsSlugRoute
+  '/admin/problems/$problemId': typeof AdminProblemsProblemIdRoute
   '/problems/': typeof SiteProblemsIndexRoute
   '/admin/problems/': typeof AdminProblemsIndexRoute
-  '/admin/problems/$problemId/versions/$versionId': typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
   '/forbidden': typeof SiteForbiddenRoute
@@ -126,9 +125,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/account/password': typeof SiteAccountPasswordRoute
   '/problems/$slug': typeof SiteProblemsSlugRoute
+  '/admin/problems/$problemId': typeof AdminProblemsProblemIdRoute
   '/problems': typeof SiteProblemsIndexRoute
   '/admin/problems': typeof AdminProblemsIndexRoute
-  '/admin/problems/$problemId/versions/$versionId': typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,9 +143,9 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/_site/account/password': typeof SiteAccountPasswordRoute
   '/_site/problems/$slug': typeof SiteProblemsSlugRoute
+  '/admin/problems/$problemId': typeof AdminProblemsProblemIdRoute
   '/_site/problems/': typeof SiteProblemsIndexRoute
   '/admin/problems/': typeof AdminProblemsIndexRoute
-  '/admin/problems/$problemId/versions/$versionId': typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -162,9 +161,9 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/account/password'
     | '/problems/$slug'
+    | '/admin/problems/$problemId'
     | '/problems/'
     | '/admin/problems/'
-    | '/admin/problems/$problemId/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forbidden'
@@ -175,9 +174,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/account/password'
     | '/problems/$slug'
+    | '/admin/problems/$problemId'
     | '/problems'
     | '/admin/problems'
-    | '/admin/problems/$problemId/versions/$versionId'
   id:
     | '__root__'
     | '/_site'
@@ -192,9 +191,9 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/_site/account/password'
     | '/_site/problems/$slug'
+    | '/admin/problems/$problemId'
     | '/_site/problems/'
     | '/admin/problems/'
-    | '/admin/problems/$problemId/versions/$versionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -302,11 +301,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProblemsIndexRouteImport
       parentRoute: typeof AdminProblemsRoute
     }
-    '/admin/problems/$problemId/versions/$versionId': {
-      id: '/admin/problems/$problemId/versions/$versionId'
-      path: '/$problemId/versions/$versionId'
-      fullPath: '/admin/problems/$problemId/versions/$versionId'
-      preLoaderRoute: typeof AdminProblemsProblemIdVersionsVersionIdRouteImport
+    '/admin/problems/$problemId': {
+      id: '/admin/problems/$problemId'
+      path: '/$problemId'
+      fullPath: '/admin/problems/$problemId'
+      preLoaderRoute: typeof AdminProblemsProblemIdRouteImport
       parentRoute: typeof AdminProblemsRoute
     }
   }
@@ -345,14 +344,13 @@ const SiteRouteChildren: SiteRouteChildren = {
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
 interface AdminProblemsRouteChildren {
+  AdminProblemsProblemIdRoute: typeof AdminProblemsProblemIdRoute
   AdminProblemsIndexRoute: typeof AdminProblemsIndexRoute
-  AdminProblemsProblemIdVersionsVersionIdRoute: typeof AdminProblemsProblemIdVersionsVersionIdRoute
 }
 
 const AdminProblemsRouteChildren: AdminProblemsRouteChildren = {
+  AdminProblemsProblemIdRoute: AdminProblemsProblemIdRoute,
   AdminProblemsIndexRoute: AdminProblemsIndexRoute,
-  AdminProblemsProblemIdVersionsVersionIdRoute:
-    AdminProblemsProblemIdVersionsVersionIdRoute,
 }
 
 const AdminProblemsRouteWithChildren = AdminProblemsRoute._addFileChildren(

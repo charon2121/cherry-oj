@@ -38,7 +38,7 @@ function AdminDashboardPage() {
               <CardHeader>
                 <BookOpen aria-hidden="true" className="text-brand size-5" />
                 <CardTitle>管理题目</CardTitle>
-                <CardDescription>查找题目、创建草稿并进入题目工作台。</CardDescription>
+                <CardDescription>查找题目、创建题目并进入题目工作台。</CardDescription>
                 <CardAction>
                   <ArrowRight aria-hidden="true" className="text-fg-meta size-4" />
                 </CardAction>

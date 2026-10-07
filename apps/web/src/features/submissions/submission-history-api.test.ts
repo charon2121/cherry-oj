@@ -53,7 +53,6 @@ describe('history identity and source boundaries', () => {
     const data = {
       submissionId: userId,
       problemId: userId,
-      problemVersionId: userId,
       languageId: 'cpp',
       source: '中'.repeat(90_000),
     };

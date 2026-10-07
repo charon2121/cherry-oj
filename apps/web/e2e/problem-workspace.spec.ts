@@ -3,12 +3,10 @@ import { expect, test } from '@playwright/test';
 
 const requestId = 'req_01K37XZ3MFXBK92WMG67G4XFN0';
 const problemId = '5f16b8c1-9c31-4d46-a2aa-9ba02cf65772';
-const versionId = '454ef3b0-082e-4de6-a3d0-0f75d9a81137';
-const nextVersionId = '873d4d76-103e-4978-a592-dd05ba776780';
 const userId = 'd0e35399-6487-4ac8-8138-8d5bd60eb003';
 const secondUserId = 'c8fa9ec9-0709-445c-9e72-185c690e2eba';
 const starterCode = 'int main() { return 0; }';
-const draftPrefix = 'cherry-oj.code-draft.v1:';
+const draftPrefix = 'cherry-oj.code-draft.v2:';
 
 async function success(route: Route, data: object, meta: object = {}) {
   await route.fulfill({
@@ -34,11 +32,9 @@ function session(role: 'USER' | 'ADMIN' = 'USER', id = userId, passwordChangeReq
   };
 }
 
-function problem(problemVersionId = versionId, versionNo = 1, source = starterCode) {
+function problem(source = starterCode) {
   return {
     problemId,
-    problemVersionId,
-    versionNo,
     slug: 'workspace-sum',
     codeMode: 'ACM',
     title: '求和练习：用于验证左右读题与编码的长中文题目标题',
@@ -98,11 +94,11 @@ async function expectCode(page: Page, source: string) {
     .toBe(source.trim());
 }
 
-async function draftSources(page: Page, owner = userId, version = versionId) {
+async function draftSources(page: Page, owner = userId) {
   return page.evaluate(
-    ({ prefix, owner, problemId, version }) =>
+    ({ prefix, owner, problemId }) =>
       Object.entries(localStorage)
-        .filter(([key]) => key.startsWith(`${prefix}${owner}:${problemId}:${version}:cpp:`))
+        .filter(([key]) => key.startsWith(`${prefix}${owner}:${problemId}:cpp:`))
         .map(([, serialized]) => {
           if (typeof serialized !== 'string') return null;
           const record: unknown = JSON.parse(serialized);
@@ -110,12 +106,12 @@ async function draftSources(page: Page, owner = userId, version = versionId) {
             ? record.source
             : null;
         }),
-    { prefix: draftPrefix, owner, problemId, version },
+    { prefix: draftPrefix, owner, problemId },
   );
 }
 
-async function expectSaved(page: Page, source: string, owner = userId, version = versionId) {
-  await expect.poll(() => draftSources(page, owner, version)).toContain(source);
+async function expectSaved(page: Page, source: string, owner = userId) {
+  await expect.poll(() => draftSources(page, owner)).toContain(source);
   await expect(page.getByText('已保存到本机', { exact: true })).toBeVisible();
 }
 
@@ -298,25 +294,20 @@ test('a touch phone uses the lightweight editor and keeps its draft between pane
   }
 });
 
-test('refreshing a published version never replaces an open buffer without an explicit switch', async ({
-  page,
-}) => {
+test('an administrator edit to the problem never replaces an open buffer', async ({ page }) => {
   let currentProblem = problem();
   await page.route('**/api/problems/workspace-sum', (route) => success(route, currentProblem));
   await page.route('**/api/auth/session', (route) => success(route, session()));
   await page.goto('/problems/workspace-sum');
-  const source = 'int oldVersionAnswer = 7;';
+  const source = 'int myAnswer = 7;';
   await replaceCode(page, source);
   await expectSaved(page, source);
 
-  currentProblem = problem(nextVersionId, 2, 'int main() { return 2; }');
+  // 题目没有版本：管理员改了题目，学生刷新后看到新题面；正在编辑的代码和草稿不动。
+  currentProblem = problem('int main() { return 2; }');
   await refocusAfterStaleTime(page, Date.now() + 60_000);
-  await expect(page.getByRole('button', { name: '打开新版本' })).toBeVisible();
   await expectCode(page, source);
-  await page.getByRole('button', { name: '打开新版本' }).click();
-  await expectCode(page, currentProblem.allowedLanguages[0]?.starterCode ?? '');
-  await replaceCode(page, 'int newVersionAnswer = 8;');
-  await expectSaved(page, 'int newVersionAnswer = 8;', userId, nextVersionId);
+  await expect(page.getByRole('button', { name: '打开新版本' })).toHaveCount(0);
   expect(await draftSources(page)).toContain(source);
 });
 
@@ -531,8 +522,6 @@ function submission(status: 'PENDING' | 'DONE' = 'DONE') {
   return {
     id: submissionId,
     problemId,
-    problemVersionId: versionId,
-    problemVersionNo: 1,
     problemTitle: '求和练习',
     languageId: 'cpp',
     status,
@@ -602,7 +591,6 @@ test('formal submission freezes code, restores a result on refresh, and stops at
   expect(posts).toHaveLength(1);
   expect(posts[0]?.body).toEqual({
     problemId,
-    expectedProblemVersionId: versionId,
     languageId: 'cpp',
     source: 'int answer = 42;',
   });
@@ -631,7 +619,7 @@ test('formal submission freezes code, restores a result on refresh, and stops at
   await page.screenshot({ path: '/tmp/work002-visual/result-narrow-forced.png' });
 });
 
-test('a lost response survives a published version change and retries the original code and key', async ({
+test('a lost response survives a problem edit and retries the original code and key', async ({
   page,
 }) => {
   await submissionSetup(page);
@@ -652,7 +640,7 @@ test('a lost response survives a published version change and retries the origin
   await replaceCode(page, 'int edited = 2;');
   await expectSaved(page, 'int edited = 2;');
   await page.route('**/api/problems/workspace-sum', (route) =>
-    success(route, problem(nextVersionId, 2)),
+    success(route, problem('int main() { return 3; }')),
   );
   await page.reload();
   await expect(page.getByRole('button', { name: '用原代码重试同一次提交' })).toBeEnabled();
@@ -661,7 +649,8 @@ test('a lost response survives a published version change and retries the origin
   await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
   expect(posts).toHaveLength(2);
   expect(posts[1]).toEqual(posts[0]);
-  await expectCode(page, starterCode);
+  // 题目没有版本：本机草稿按题目保存，刷新后仍是用户改过的代码，而不是新的起始代码。
+  await expectCode(page, 'int edited = 2;');
 });
 
 test('CSRF refresh keeps the editor owner precondition after another tab switches account', async ({

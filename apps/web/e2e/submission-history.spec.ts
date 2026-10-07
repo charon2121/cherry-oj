@@ -3,16 +3,12 @@ import { expect, type Page, type Route, test } from '@playwright/test';
 const requestId = 'req_01K37XZ3MFXBK92WMG67G4XFN0';
 const userId = 'd0e35399-6487-4ac8-8138-8d5bd60eb003';
 const problemId = '5f16b8c1-9c31-4d46-a2aa-9ba02cf65772';
-const versionId = '454ef3b0-082e-4de6-a3d0-0f75d9a81137';
-const oldVersion = '873d4d76-103e-4978-a592-dd05ba776780';
 const submissionId = '273d4d76-103e-4978-a592-dd05ba776781';
 const historicalSource = '// historical attempt\nint main() { return 1; }';
 const starter = 'int main() { return 0; }';
 const row = {
   id: submissionId,
   problemId,
-  problemVersionId: oldVersion,
-  problemVersionNo: 1,
   problemTitle: '求和练习',
   languageId: 'cpp',
   status: 'DONE',
@@ -59,8 +55,6 @@ async function setup(page: Page) {
   await page.route('**/api/problems/history-sum', (route) =>
     success(route, {
       problemId,
-      problemVersionId: versionId,
-      versionNo: 2,
       slug: 'history-sum',
       codeMode: 'ACM',
       title: '求和练习',
@@ -87,7 +81,6 @@ async function setup(page: Page) {
       return success(route, {
         submissionId,
         problemId,
-        problemVersionId: oldVersion,
         languageId: 'cpp',
         source: historicalSource,
       });
@@ -148,7 +141,7 @@ test('tabs and history preserve the editor; load requires confirmation and retai
   await openHistory(page);
   await expect.poll(() => code(page)).toBe('// current draft');
   await page.getByRole('button', { name: '载入编辑器', exact: true }).click();
-  await expect(page.getByRole('dialog')).toContainText('历史提交与当前题目版本不同');
+  await expect(page.getByRole('dialog')).toContainText('新提交按题目当前的测试数据判题');
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await expect.poll(() => code(page)).toBe('// current draft');
   await page.getByRole('tab', { name: '题目描述', exact: true }).click();

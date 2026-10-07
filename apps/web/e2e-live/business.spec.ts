@@ -77,7 +77,6 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
       expect(body.length).toBeLessThan(200_000);
       const { data, meta } = runResponse.parse(JSON.parse(body.toString()));
       expect(data.problemId).toBe(context.problemId);
-      expect(data.problemVersionId).toBe(context.problemVersionId);
       expect(data.status).toBe(status);
       expect(data.effectiveLimits.cpuNs).toBe(1_000_000_000);
       expect(data.effectiveLimits.memoryBytes).toBe(268_435_456);
@@ -117,7 +116,6 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
         stdoutTruncated: data.stdout?.truncated,
         bodyBytes: body.length,
         problemId: data.problemId,
-        problemVersionId: data.problemVersionId,
       });
     });
   }
@@ -155,7 +153,6 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
         )
         .toBe('DONE');
       expect(final.data.verdict).toBe(verdict);
-      expect(final.data.problemVersionId).toBe(context.problemVersionId);
       expect(final.data.totalCount).toBe(6);
       const panel = page.getByRole('region', { name: '本次提交结果' });
       await expect(
@@ -172,7 +169,6 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
         requestId: initial.meta.requestId,
         passedCount: final.data.passedCount,
         totalCount: final.data.totalCount,
-        problemVersionId: final.data.problemVersionId,
       });
     });
   }
@@ -216,7 +212,6 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
     expect([...owners][0]).toMatch(/^[0-9a-f-]{36}$/);
     record('history', {
       submissionId: history.data.submissionId,
-      problemVersionId: history.data.problemVersionId,
       requestId: history.meta.requestId,
       draftPreserved: true,
       customPosts,

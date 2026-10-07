@@ -3,20 +3,16 @@ import { z } from 'zod';
 
 import type {
   AdminProblem,
-  AdminProblemVersion,
-  BindTestDataRequest,
+  AdminProblemSummary,
   CalibrateProblemRequestWritable,
   CreateProblemRequest,
-  CreateProblemRevisionRequest,
-  DeployTestDataRequest,
+  LanguageCalibration,
   ProblemDetail,
   ProblemStatus,
   ProblemSummary,
   PublishCheck,
-  TestDataDeployment,
-  TestDataVersion,
+  TestData,
   UpdateProblemRequest,
-  UpdateProblemVersionRequest,
 } from '@/generated/api';
 import { requestJson, requestMultipart, requestVoid } from '@/lib/api/api-client';
 import { withCsrf } from '@/lib/api/csrf';
@@ -32,14 +28,13 @@ const sampleSchema = z
   })
   .strip();
 const languageSummarySchema = z.object({ id: z.string(), displayName: z.string() }).strip();
+const difficulty = z.enum(['UNRATED', 'EASY', 'MEDIUM', 'HARD']);
 const problemSummarySchema = z
   .object({
     problemId: id,
     slug: z.string(),
-    currentVersionId: id,
-    versionNo: z.number().int().min(1),
     title: z.string(),
-    difficulty: z.enum(['UNRATED', 'EASY', 'MEDIUM', 'HARD']),
+    difficulty,
     tags: z.array(z.string()),
     codeMode: z.enum(['ACM', 'CORE']),
     allowedLanguages: z.array(languageSummarySchema),
@@ -48,12 +43,10 @@ const problemSummarySchema = z
 const problemDetailSchema = z
   .object({
     problemId: id,
-    problemVersionId: id,
-    versionNo: z.number().int().min(1),
     slug: z.string(),
     codeMode: z.enum(['ACM', 'CORE']),
     title: z.string(),
-    difficulty: z.enum(['UNRATED', 'EASY', 'MEDIUM', 'HARD']),
+    difficulty,
     tags: z.array(z.string()),
     statementMarkdown: z.string(),
     inputDescriptionMarkdown: z.string(),
@@ -66,13 +59,10 @@ const problemDetailSchema = z
   .strip() satisfies z.ZodType<ProblemDetail>;
 const testDataSchema = z
   .object({
-    id,
-    problemId: id,
-    status: z.enum(['UPLOADING', 'READY', 'FAILED']),
-    sourceType: z.literal('MANUAL_UPLOAD'),
-    contentSha256: z.string().nullable(),
-    caseCount: z.number().int().nullable(),
-    totalBytes: z.number().int().nullable(),
+    digest: z.string().regex(/^[a-f0-9]{64}$/),
+    caseCount: z.number().int(),
+    totalBytes: z.number().int(),
+    updatedAt: date,
     manifest: z
       .object({
         caseCount: z.number().int(),
@@ -81,43 +71,30 @@ const testDataSchema = z
           z.object({ name: z.string(), sizeBytes: z.number().int(), sha256: z.string() }).loose(),
         ),
       })
-      .loose()
-      .nullable(),
-    createdAt: date,
-    readyAt: date.nullable(),
-    errorMessage: z.string().nullable(),
+      .loose(),
   })
-  .loose() satisfies z.ZodType<TestDataVersion>;
-const versionSummarySchema = z
+  .loose() satisfies z.ZodType<TestData>;
+const adminSummarySchema = z
   .object({
     id,
-    versionNo: z.number().int(),
-    status: z.enum(['DRAFT', 'VALIDATING', 'READY_FOR_REVIEW', 'PUBLISHED', 'ARCHIVED']),
+    slug: z.string(),
     title: z.string(),
+    visibility: z.enum(['PRIVATE', 'PUBLIC']),
+    status: z.enum(['ACTIVE', 'ARCHIVED']),
+    difficulty,
+    hasTestData: z.boolean(),
     updatedAt: date,
     publishedAt: date.nullable(),
     rowVersion: z.number().int(),
   })
-  .loose();
+  .loose() satisfies z.ZodType<AdminProblemSummary>;
+/** 题目只有一份内容：管理端模型就是题目本身，没有草稿或版本。 */
 const adminProblemSchema = z
   .object({
     id,
     slug: z.string(),
     visibility: z.enum(['PRIVATE', 'PUBLIC']),
     status: z.enum(['ACTIVE', 'ARCHIVED']),
-    currentPublishedVersionId: id.nullable(),
-    versions: z.array(versionSummarySchema),
-    createdAt: date,
-    updatedAt: date,
-    rowVersion: z.number().int(),
-  })
-  .loose() satisfies z.ZodType<AdminProblem>;
-const adminVersionSchema = z
-  .object({
-    id,
-    problemId: id,
-    versionNo: z.number().int(),
-    status: z.enum(['DRAFT', 'VALIDATING', 'READY_FOR_REVIEW', 'PUBLISHED', 'ARCHIVED']),
     codeMode: z.literal('ACM'),
     title: z.string(),
     statementMarkdown: z.string(),
@@ -125,40 +102,35 @@ const adminVersionSchema = z
     outputDescriptionMarkdown: z.string(),
     constraintsMarkdown: z.string().nullable(),
     hintMarkdown: z.string().nullable(),
-    difficulty: z.enum(['UNRATED', 'EASY', 'MEDIUM', 'HARD']),
+    difficulty,
     tags: z.array(z.string()),
     samples: z.array(sampleSchema),
-    allowedLanguages: z.array(languageSummarySchema.extend({ starterCode: z.string() }).loose()),
-    testDataVersion: testDataSchema.nullable(),
-    changeSummary: z.string().nullable(),
+    allowedLanguages: z.tuple([
+      z
+        .object({
+          id: z.literal('cpp'),
+          displayName: z.literal('C++'),
+          starterCode: z.string(),
+        })
+        .loose(),
+    ]),
+    testData: testDataSchema.nullable(),
     createdAt: date,
     updatedAt: date,
     publishedAt: date.nullable(),
     rowVersion: z.number().int(),
   })
-  .loose();
-const deploymentSchema = z
-  .object({
-    testDataVersionId: id,
-    nodeId: z.string(),
-    expectedSha256: z.string(),
-    status: z.enum(['PENDING', 'DEPLOYING', 'READY', 'FAILED']),
-    deployedSha256: z.string().nullable(),
-    deployedAt: date.nullable(),
-    errorMessage: z.string().nullable(),
-    updatedAt: date,
-    rowVersion: z.number().int(),
-  })
-  .loose() satisfies z.ZodType<TestDataDeployment>;
+  .loose() satisfies z.ZodType<AdminProblem>;
 const calibrationSchema = z
   .object({
     id,
-    problemVersionId: id,
+    problemId: id,
     languageId: z.string(),
     status: z.enum(['DRAFT', 'RUNNING', 'VALID', 'FAILED', 'SUPERSEDED']),
     cpuNs: z.number().int().nullable(),
     memoryBytes: z.number().int().nullable(),
     clockNs: z.number().int().nullable(),
+    testDataDigest: z.string(),
     benchmarkSummary: z
       .object({
         sourceSha256: z.string(),
@@ -174,7 +146,7 @@ const calibrationSchema = z
     updatedAt: date,
     rowVersion: z.number().int(),
   })
-  .loose();
+  .loose() satisfies z.ZodType<LanguageCalibration>;
 const publishCheckSchema = z
   .object({
     ready: z.boolean(),
@@ -203,11 +175,8 @@ export const problemKeys = {
   adminList: (q: string, status: ProblemStatus | 'ALL', page: number) =>
     [...problemKeys.admin, 'list', q, status, page] as const,
   adminProblem: (id: string) => [...problemKeys.admin, id] as const,
-  version: (problemId: string, versionId: string) =>
-    [...problemKeys.admin, problemId, 'version', versionId] as const,
   testData: (problemId: string) => [...problemKeys.admin, problemId, 'test-data'] as const,
-  publishCheck: (problemId: string, versionId: string) =>
-    [...problemKeys.admin, problemId, versionId, 'publish-check'] as const,
+  publishCheck: (problemId: string) => [...problemKeys.admin, problemId, 'publish-check'] as const,
 };
 
 function query(search: Record<string, string | number | string[] | undefined>) {
@@ -256,7 +225,7 @@ export async function listAdminProblems(
   const apiStatus = status === 'ALL' ? undefined : status;
   const response = await requestJson(
     `/api/admin/problems?${query({ q, status: apiStatus, page, size: 20 })}`,
-    z.object({ items: z.array(adminProblemSchema) }).loose(),
+    z.object({ items: z.array(adminSummarySchema) }).loose(),
     { ...(signal === undefined ? {} : { signal }) },
   );
   if (response.meta.pagination?.kind !== 'page') throw new Error('管理列表缺少分页。');
@@ -293,149 +262,70 @@ export async function updateProblem(problemId: string, request: UpdateProblemReq
       ).data,
   );
 }
-export async function getVersion(problemId: string, versionId: string, signal?: AbortSignal) {
-  return (
-    await requestJson(
-      `/api/admin/problems/${problemId}/versions/${versionId}`,
-      adminVersionSchema,
-      { ...(signal === undefined ? {} : { signal }) },
-    )
-  ).data as AdminProblemVersion;
-}
-export async function updateVersion(
+function problemRequest<T>(
   problemId: string,
-  versionId: string,
-  request: UpdateProblemVersionRequest,
+  path: string,
+  schema: z.ZodType<T>,
+  method: 'POST' | 'PUT',
+  payload: object,
 ) {
   return withCsrf(
     async (csrfToken) =>
       (
-        await requestJson(
-          `/api/admin/problems/${problemId}/versions/${versionId}`,
-          adminVersionSchema,
-          { method: 'PATCH', body: request, csrfToken },
-        )
+        await requestJson(`/api/admin/problems/${problemId}${path}`, schema, {
+          method,
+          body: payload,
+          csrfToken,
+        })
       ).data,
   );
 }
-export async function listTestData(problemId: string, signal?: AbortSignal) {
+/** 题目还没有测试数据时后端返回 404 TEST_DATA_NOT_FOUND；工作台用题目里的 testData 判断有没有。 */
+export async function getTestData(problemId: string, signal?: AbortSignal) {
   return (
-    await requestJson(
-      `/api/admin/problems/${problemId}/test-data`,
-      z.object({ items: z.array(testDataSchema) }).loose(),
-      { ...(signal === undefined ? {} : { signal }) },
-    )
-  ).data.items;
+    await requestJson(`/api/admin/problems/${problemId}/test-data`, testDataSchema, {
+      ...(signal === undefined ? {} : { signal }),
+    })
+  ).data;
 }
-export async function uploadTestData(problemId: string, file: File, signal?: AbortSignal) {
+/** 上传即替换：题目只有一份测试数据，数据一换，旧的校准就过期了。 */
+export async function replaceTestData(problemId: string, file: File, signal?: AbortSignal) {
   const form = new FormData();
   form.set('file', file, file.name);
   return withCsrf(
     async (csrfToken) =>
       (
         await requestMultipart(`/api/admin/problems/${problemId}/test-data`, form, testDataSchema, {
+          method: 'PUT',
           csrfToken,
           ...(signal === undefined ? {} : { signal }),
         })
       ).data,
   );
 }
-export async function bindTestData(
-  problemId: string,
-  versionId: string,
-  request: BindTestDataRequest,
-) {
-  return withCsrf(
-    async (csrfToken) =>
-      (
-        await requestJson(
-          `/api/admin/problems/${problemId}/versions/${versionId}/test-data`,
-          adminVersionSchema,
-          { method: 'PUT', body: request, csrfToken },
-        )
-      ).data,
-  );
+export async function calibrate(problemId: string, request: CalibrateProblemRequestWritable) {
+  return problemRequest(problemId, '/calibration', calibrationSchema, 'POST', request);
 }
-export async function deployTestData(
-  problemId: string,
-  versionId: string,
-  request: DeployTestDataRequest,
-) {
-  return withCsrf(
-    async (csrfToken) =>
-      (
-        await requestJson(
-          `/api/admin/problems/${problemId}/versions/${versionId}/deployment`,
-          deploymentSchema,
-          { method: 'POST', body: request, csrfToken },
-        )
-      ).data,
-  );
-}
-export async function calibrate(
-  problemId: string,
-  versionId: string,
-  request: CalibrateProblemRequestWritable,
-) {
-  return withCsrf(
-    async (csrfToken) =>
-      (
-        await requestJson(
-          `/api/admin/problems/${problemId}/versions/${versionId}/calibration`,
-          calibrationSchema,
-          { method: 'POST', body: request, csrfToken },
-        )
-      ).data,
-  );
-}
-export async function getPublishCheck(problemId: string, versionId: string, signal?: AbortSignal) {
+export async function getPublishCheck(problemId: string, signal?: AbortSignal) {
   return (
-    await requestJson(
-      `/api/admin/problems/${problemId}/versions/${versionId}/publish-check`,
-      publishCheckSchema,
-      { ...(signal === undefined ? {} : { signal }) },
-    )
+    await requestJson(`/api/admin/problems/${problemId}/publish-check`, publishCheckSchema, {
+      ...(signal === undefined ? {} : { signal }),
+    })
   ).data as PublishCheck;
 }
-export async function publish(problemId: string, versionId: string, rowVersion: number) {
-  return withCsrf(
-    async (csrfToken) =>
-      (
-        await requestJson(
-          `/api/admin/problems/${problemId}/versions/${versionId}/publish`,
-          adminVersionSchema,
-          { method: 'POST', body: { rowVersion }, csrfToken },
-        )
-      ).data,
-  );
+export async function publish(problemId: string, rowVersion: number) {
+  return problemRequest(problemId, '/publish', adminProblemSchema, 'POST', { rowVersion });
 }
-export async function createRevision(problemId: string, request: CreateProblemRevisionRequest) {
-  return withCsrf(
-    async (csrfToken) =>
-      (
-        await requestJson(`/api/admin/problems/${problemId}/versions`, adminVersionSchema, {
-          method: 'POST',
-          body: request,
-          csrfToken,
-        })
-      ).data,
-  );
+export async function unpublish(problemId: string, rowVersion: number) {
+  return problemRequest(problemId, '/unpublish', adminProblemSchema, 'POST', { rowVersion });
 }
 export async function archiveProblem(problemId: string, rowVersion: number) {
-  return withCsrf(
-    async (csrfToken) =>
-      (
-        await requestJson(`/api/admin/problems/${problemId}/archive`, adminProblemSchema, {
-          method: 'POST',
-          body: { rowVersion },
-          csrfToken,
-        })
-      ).data,
-  );
+  return problemRequest(problemId, '/archive', adminProblemSchema, 'POST', { rowVersion });
 }
-export async function deleteVersion(problemId: string, versionId: string, rowVersion: number) {
+/** 只能删除从未公开过的题目；公开过的只能归档。 */
+export async function deleteProblem(problemId: string, rowVersion: number) {
   return withCsrf((csrfToken) =>
-    requestVoid(`/api/admin/problems/${problemId}/versions/${versionId}?rowVersion=${rowVersion}`, {
+    requestVoid(`/api/admin/problems/${problemId}?rowVersion=${rowVersion}`, {
       method: 'DELETE',
       csrfToken,
     }),

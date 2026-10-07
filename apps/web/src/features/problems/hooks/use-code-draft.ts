@@ -4,8 +4,8 @@ import { CodeDraftController, type CodeDraftIdentity } from '../lib/code-draft';
 
 /**
  * Mount only for a confirmed authenticated identity. The parent keys this editor by
- * account/problem/version/language, so unmount flushes the old controller's own key.
- * starterCode changes for the same version never replace an existing edit buffer.
+ * account/problem/language, so unmount flushes the old controller's own key.
+ * starterCode changes for the same problem never replace an existing edit buffer.
  */
 export function useCodeDraft(options: CodeDraftIdentity & { starterCode: string }) {
   const [controller] = useState(() => new CodeDraftController(options, options.starterCode));

@@ -22,7 +22,6 @@ export const historyKeys = {
 export const sourceSchema = z.object({
   submissionId: z.string().uuid(),
   problemId: z.string().uuid(),
-  problemVersionId: z.string().uuid(),
   languageId: z.literal('cpp'),
   source: z
     .string()

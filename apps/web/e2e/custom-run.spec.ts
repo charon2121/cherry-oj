@@ -1,7 +1,6 @@
 import { expect, type Page, type Route, test } from '@playwright/test';
 const requestId = 'req_01K37XZ3MFXBK92WMG67G4XFN0';
 const problemId = '5f16b8c1-9c31-4d46-a2aa-9ba02cf65772';
-const versionId = '454ef3b0-082e-4de6-a3d0-0f75d9a81137';
 const userId = 'd0e35399-6487-4ac8-8138-8d5bd60eb003';
 const starterCode = 'int main() { return 0; }';
 async function success(route: Route, data: object, meta: object = {}) {
@@ -28,11 +27,9 @@ function session(role: 'USER' | 'ADMIN' = 'USER', id = userId, passwordChangeReq
   };
 }
 
-function problem(problemVersionId = versionId, versionNo = 1, source = starterCode) {
+function problem(source = starterCode) {
   return {
     problemId,
-    problemVersionId,
-    versionNo,
     slug: 'workspace-sum',
     codeMode: 'ACM',
     title: '求和练习：用于验证左右读题与编码的长中文题目标题',
@@ -50,8 +47,6 @@ function problem(problemVersionId = versionId, versionNo = 1, source = starterCo
 
 const result = {
   problemId,
-  problemVersionId: versionId,
-  problemVersionNo: 1,
   languageId: 'cpp',
   status: 'COMPLETED',
   cpuNs: 1000000,
@@ -83,7 +78,7 @@ test('empty input snapshot, edits during execution and tabs never resubmit or st
     expect(route.request().postDataJSON()).toMatchObject({
       inputText: '',
       source: starterCode,
-      expectedProblemVersionId: versionId,
+      problemId,
     });
     expect(route.request().headers()['x-expected-user-id']).toBe(userId);
     await pending;

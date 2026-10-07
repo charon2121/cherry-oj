@@ -13,19 +13,18 @@ const stepSchema = z.object({
     .default('basic'),
 });
 
-export const Route = createFileRoute('/admin/problems/$problemId/versions/$versionId')({
+export const Route = createFileRoute('/admin/problems/$problemId')({
   validateSearch: stepSchema,
   component: ProblemWorkbenchRoute,
 });
 
 function ProblemWorkbenchRoute() {
-  const { problemId, versionId } = Route.useParams();
+  const { problemId } = Route.useParams();
   const { step } = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
     <AdminProblemWorkbench
       problemId={problemId}
-      versionId={versionId}
       step={step}
       onStepChange={(nextStep: ProblemWorkbenchStep) =>
         void navigate({ search: { step: nextStep } })

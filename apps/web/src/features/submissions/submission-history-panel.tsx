@@ -23,7 +23,7 @@ import {
 import { labels, SubmissionResult } from './submission-panel';
 import { getSubmission } from './submissions-api';
 
-export type HistoryLoad = { userId: string; source: SubmissionSourceData; versionNo: number };
+export type HistoryLoad = { userId: string; source: SubmissionSourceData };
 
 type Props = { problem: ProblemDetail; canLoad: boolean; onLoad: (value: HistoryLoad) => void };
 
@@ -318,17 +318,14 @@ function HistoryDetail({
               variant="secondary"
               disabled={!canLoad || !result.data || result.isError}
               onClick={() => {
-                if (result.data)
-                  onLoad({ userId, source: code, versionNo: result.data.problemVersionNo });
+                if (result.data) onLoad({ userId, source: code });
               }}
             >
               载入编辑器
             </Button>
           </div>
           {!canLoad ? (
-            <p className="text-fg-muted text-xs">
-              当前题目或登录状态尚不可编辑；若题目已更新，请先打开新版本。
-            </p>
+            <p className="text-fg-muted text-xs">当前题目或登录状态尚不可编辑。</p>
           ) : null}
           <TextEditor
             value={code.source}

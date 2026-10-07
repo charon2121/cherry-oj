@@ -6,12 +6,11 @@ export const codeDraftSaveDelayMs = 500;
 export interface CodeDraftIdentity {
   userId: string;
   problemId: string;
-  problemVersionId: string;
   languageId: string;
 }
 
 export function codeDraftKey(identity: CodeDraftIdentity) {
-  return `cherry-oj.code-draft.v1:${[identity.userId, identity.problemId, identity.problemVersionId, identity.languageId].map(encodeURIComponent).join(':')}:`;
+  return `cherry-oj.code-draft.v2:${[identity.userId, identity.problemId, identity.languageId].map(encodeURIComponent).join(':')}:`;
 }
 
 const revisionSchema = z.string().regex(/^[\w-]+:[1-9]\d*$/);

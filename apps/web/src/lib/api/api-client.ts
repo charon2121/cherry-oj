@@ -264,14 +264,14 @@ export async function requestMultipart<T>(
   path: ApiPath,
   formData: FormData,
   dataSchema: z.ZodType<T>,
-  options: Pick<ApiRequestOptions, 'csrfToken' | 'signal'> = {},
+  options: Pick<ApiRequestOptions, 'csrfToken' | 'signal'> & { method?: 'POST' | 'PUT' } = {},
 ): Promise<ApiJsonResponse<T>> {
   const headers = new Headers({ Accept: 'application/json, application/problem+json' });
   if (options.csrfToken !== undefined) headers.set('X-CSRF-Token', options.csrfToken);
   let response: Response;
   try {
     response = await fetch(path, {
-      method: 'POST',
+      method: options.method ?? 'POST',
       credentials: 'include',
       headers,
       body: formData,

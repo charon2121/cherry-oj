@@ -13,7 +13,6 @@ export const runResponse = z.object({
   meta,
   data: z.object({
     problemId: id,
-    problemVersionId: id,
     languageId: z.literal('cpp'),
     status: z.enum([
       'COMPLETED',
@@ -36,7 +35,6 @@ export const submissionResponse = z.object({
   data: z.object({
     id,
     problemId: id,
-    problemVersionId: id,
     status: z.enum(['PENDING', 'JUDGING', 'DONE']),
     verdict: z.enum(['AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'SE']).optional(),
     passedCount: counter.optional(),
@@ -49,7 +47,6 @@ export const historyResponse = z.object({
   data: z.object({
     submissionId: id,
     problemId: id,
-    problemVersionId: id,
     source: z.string().max(262_144),
   }),
 });

@@ -44,7 +44,6 @@ beforeEach(() => {
   identity = {
     userId: `draft-test-user-${++identitySequence}`,
     problemId: 'problem',
-    problemVersionId: 'v1',
     languageId: 'cpp',
   };
   storage = createStorage();
@@ -294,9 +293,9 @@ describe('local code drafts', () => {
     expect(controller('reload').getSnapshot().value).toBe('source');
   });
 
-  it('isolates encoded account, problem, version and language identities', () => {
+  it('isolates encoded account, problem and language identities', () => {
     const prefix = codeDraftKey(identity);
-    for (const field of ['userId', 'problemId', 'problemVersionId', 'languageId'] as const) {
+    for (const field of ['userId', 'problemId', 'languageId'] as const) {
       expect(codeDraftKey({ ...identity, [field]: identity[field] + ':other' })).not.toBe(prefix);
     }
     expect(codeDraftKey({ ...identity, userId: 'a:b', problemId: 'c' })).not.toBe(

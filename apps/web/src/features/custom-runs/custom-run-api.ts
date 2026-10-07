@@ -15,8 +15,6 @@ const output = z
 export const runSchema = z
   .object({
     problemId: z.string().uuid(),
-    problemVersionId: z.string().uuid(),
-    problemVersionNo: z.number().int().positive(),
     languageId: z.literal('cpp'),
     status: z.enum([
       'COMPLETED',
@@ -71,7 +69,7 @@ export async function createCustomRun(body: CustomRunRequest, userId: string, si
     csrfToken: csrf.data.token,
     signal,
   });
-  if (data.problemId !== body.problemId || data.problemVersionId !== body.expectedProblemVersionId)
-    throw new ApiError('运行结果与当前请求版本不一致。', { kind: 'contract' });
+  if (data.problemId !== body.problemId)
+    throw new ApiError('运行结果与当前请求的题目不一致。', { kind: 'contract' });
   return data;
 }

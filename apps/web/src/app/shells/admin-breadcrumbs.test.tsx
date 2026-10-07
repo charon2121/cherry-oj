@@ -16,7 +16,7 @@ describe('adminBreadcrumbsFor', () => {
   });
 
   it('keeps nested routes on their owning entry', () => {
-    expect(adminBreadcrumbsFor('/admin/problems/abc/versions/1')).toEqual([{ label: '题目管理' }]);
+    expect(adminBreadcrumbsFor('/admin/problems/abc')).toEqual([{ label: '题目管理' }]);
   });
 
   it('resolves the admin root to its own dashboard entry', () => {

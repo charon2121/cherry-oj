@@ -11,13 +11,11 @@ import {
   ChevronRight,
   Circle,
   Copy,
-  Download,
   FileCheck2,
   LoaderCircle,
   RotateCcw,
   Save,
   Trash2,
-  Upload,
   XCircle,
 } from 'lucide-react';
 import {
@@ -51,26 +49,21 @@ import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
 import { SelectField } from '@/components/ui/select';
 import { TextEditor } from '@/components/ui/text-editor';
 import { Heading, Text } from '@/components/ui/typography';
-import type { AdminProblemVersion, ProblemDifficulty, ProblemSample } from '@/generated/api';
+import type { AdminProblem, ProblemDifficulty, ProblemSample } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
 
 import {
   archiveProblem,
-  bindTestData,
   calibrate,
-  createRevision,
-  deleteVersion,
-  deployTestData,
+  deleteProblem,
   getAdminProblem,
   getPublishCheck,
-  getVersion,
-  listTestData,
   problemKeys,
   publish,
+  replaceTestData,
+  unpublish,
   updateProblem,
-  updateVersion,
-  uploadTestData,
 } from '../api/problems-api';
 import { ProblemMarkdownEditor } from './problem-markdown-editor';
 import { type EditableProblemSample, ProblemSampleList } from './problem-sample-list';
@@ -92,7 +85,6 @@ type WorkbenchValues = {
   tags: string[];
   samples: EditableProblemSample[];
   starterCode: string;
-  changeSummary: string;
 };
 
 type SaveSubmission = {
@@ -106,7 +98,7 @@ const steps: ReadonlyArray<{ id: ProblemWorkbenchStep; label: string }> = [
   { id: 'samples', label: '样例' },
   { id: 'starter-code', label: '起始代码' },
   { id: 'test-and-calibrate', label: '测试与校准' },
-  { id: 'publish', label: '检查与发布' },
+  { id: 'publish', label: '检查与公开' },
 ];
 
 const difficultyItems = [
@@ -116,7 +108,7 @@ const difficultyItems = [
   { value: 'HARD', label: '困难' },
 ];
 
-function toFormValues(version: AdminProblemVersion): WorkbenchValues {
+function toFormValues(version: AdminProblem): WorkbenchValues {
   return {
     title: version.title,
     statementMarkdown: version.statementMarkdown,
@@ -131,8 +123,7 @@ function toFormValues(version: AdminProblemVersion): WorkbenchValues {
       output: sample.output,
       explanationMarkdown: sample.explanationMarkdown ?? '',
     })),
-    starterCode: version.allowedLanguages[0]?.starterCode ?? '',
-    changeSummary: version.changeSummary ?? '',
+    starterCode: version.allowedLanguages[0].starterCode,
   };
 }
 
@@ -197,25 +188,19 @@ function cloneWorkbenchValues(value: WorkbenchValues): WorkbenchValues {
 
 export function AdminProblemWorkbench({
   problemId,
-  versionId,
   step,
   onStepChange,
 }: {
   problemId: string;
-  versionId: string;
   step: ProblemWorkbenchStep;
   onStepChange: (step: ProblemWorkbenchStep) => void;
 }) {
-  const version = useQuery({
-    queryKey: problemKeys.version(problemId, versionId),
-    queryFn: ({ signal }) => getVersion(problemId, versionId, signal),
-  });
   const problem = useQuery({
     queryKey: problemKeys.adminProblem(problemId),
     queryFn: ({ signal }) => getAdminProblem(problemId, signal),
   });
 
-  if (version.isPending || problem.isPending) {
+  if (problem.isPending) {
     return (
       <Container>
         <Section>
@@ -232,8 +217,7 @@ export function AdminProblemWorkbench({
     );
   }
 
-  if (version.isError || problem.isError) {
-    const error = version.error ?? problem.error;
+  if (problem.isError) {
     return (
       <Container>
         <Section>
@@ -242,43 +226,28 @@ export function AdminProblemWorkbench({
             size="page"
             title="工作台无法加载"
             action={
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  void version.refetch();
-                  void problem.refetch();
-                }}
-              >
+              <Button variant="secondary" onClick={() => void problem.refetch()}>
                 <RotateCcw aria-hidden="true" />
                 重新加载
               </Button>
             }
           >
-            {apiErrorMessage(error, '没有覆盖本地数据，请检查权限或链接。')}
+            {apiErrorMessage(problem.error, '没有覆盖本地数据，请检查权限或链接。')}
           </AsyncState>
         </Section>
       </Container>
     );
   }
 
-  return (
-    <WorkbenchEditor
-      problem={problem.data}
-      version={version.data}
-      step={step}
-      onStepChange={onStepChange}
-    />
-  );
+  return <WorkbenchEditor problem={problem.data} step={step} onStepChange={onStepChange} />;
 }
 
 function WorkbenchEditor({
   problem,
-  version,
   step,
   onStepChange,
 }: {
-  problem: Awaited<ReturnType<typeof getAdminProblem>>;
-  version: AdminProblemVersion;
+  problem: AdminProblem;
   step: ProblemWorkbenchStep;
   onStepChange: (step: ProblemWorkbenchStep) => void;
 }) {
@@ -291,10 +260,10 @@ function WorkbenchEditor({
   const [lastSavedAt, setLastSavedAt] = useState<Date>();
   const [formError, setFormError] = useState<string>();
   const [referenceSource, setReferenceSource] = useState('');
-  const [selectedTestDataId, setSelectedTestDataId] = useState(version.testDataVersion?.id ?? '');
   const [uploadState, setUploadState] = useState<string>();
   const [limits, setLimits] = useState({ cpuSeconds: '1', memoryMib: '256', clockSeconds: '' });
-  const editable = version.status === 'DRAFT' || version.status === 'READY_FOR_REVIEW';
+  // 题目没有草稿：除归档外都可直接编辑，公开题目的修改立即对学生生效。
+  const editable = problem.status === 'ACTIVE';
 
   useEffect(
     () => () => {
@@ -306,14 +275,13 @@ function WorkbenchEditor({
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: problemKeys.adminProblem(problem.id) }),
-      queryClient.invalidateQueries({ queryKey: problemKeys.version(problem.id, version.id) }),
-      queryClient.invalidateQueries({ queryKey: problemKeys.testData(problem.id) }),
-      queryClient.invalidateQueries({ queryKey: problemKeys.publishCheck(problem.id, version.id) }),
+      queryClient.invalidateQueries({ queryKey: problemKeys.admin }),
+      queryClient.invalidateQueries({ queryKey: problemKeys.publishCheck(problem.id) }),
     ]);
   };
 
   const form = useForm({
-    defaultValues: toFormValues(version),
+    defaultValues: toFormValues(problem),
     onSubmit: async ({ value }) => {
       setFormError(undefined);
       if (!value.title.trim()) {
@@ -330,7 +298,8 @@ function WorkbenchEditor({
 
   const save = useMutation({
     mutationFn: ({ values: value }: SaveSubmission) =>
-      updateVersion(problem.id, version.id, {
+      updateProblem(problem.id, {
+        slug: problem.slug,
         title: value.title.trim(),
         statementMarkdown: value.statementMarkdown,
         inputDescriptionMarkdown: value.inputDescriptionMarkdown,
@@ -341,24 +310,20 @@ function WorkbenchEditor({
         tags: [...new Set(value.tags.map((tag) => tag.trim()).filter(Boolean))],
         samples: toProblemSamples(value.samples),
         starterCode: value.starterCode,
-        changeSummary: value.changeSummary.trim() || null,
-        rowVersion: version.rowVersion,
+        rowVersion: problem.rowVersion,
       }),
     onSuccess: async (saved, submitted) => {
-      const nextVersion = saved as AdminProblemVersion;
-      queryClient.setQueryData(problemKeys.version(problem.id, version.id), nextVersion);
+      queryClient.setQueryData(problemKeys.adminProblem(problem.id), saved);
       if (
         editRevision.current === submitted.editRevision &&
         sameWorkbenchValues(form.state.values, submitted.values)
       ) {
-        form.reset(toFormValues(nextVersion));
+        form.reset(toFormValues(saved));
       }
       setLastSavedAt(new Date());
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: problemKeys.admin }),
-        queryClient.invalidateQueries({
-          queryKey: problemKeys.publishCheck(problem.id, version.id),
-        }),
+        queryClient.invalidateQueries({ queryKey: problemKeys.publishCheck(problem.id) }),
       ]);
     },
   });
@@ -396,63 +361,23 @@ function WorkbenchEditor({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [editable, form, isDirty, save.isPending]);
 
-  const testData = useQuery({
-    queryKey: problemKeys.testData(problem.id),
-    queryFn: ({ signal }) => listTestData(problem.id, signal),
-  });
-
-  const bind = useMutation({
-    mutationFn: (testDataVersionId: string) =>
-      bindTestData(problem.id, version.id, {
-        testDataVersionId,
-        rowVersion: version.rowVersion,
-      }),
-    onSuccess: async (updated) => {
-      queryClient.setQueryData(problemKeys.version(problem.id, version.id), updated);
-      setSelectedTestDataId(updated.testDataVersion?.id ?? '');
-      await refresh();
-    },
-  });
-
   const upload = useMutation({
     mutationFn: ({ file, signal }: { file: File; signal: AbortSignal }) =>
-      uploadTestData(problem.id, file, signal),
+      replaceTestData(problem.id, file, signal),
     onMutate: () => setUploadState('正在上传并检查 ZIP…'),
     onSuccess: async (uploaded) => {
       uploadController.current = undefined;
-      setSelectedTestDataId(uploaded.id);
-      setUploadState(`上传完成，共 ${uploaded.caseCount ?? 0} 组；正在用于当前版本…`);
-      await queryClient.invalidateQueries({ queryKey: problemKeys.testData(problem.id) });
-      try {
-        await bind.mutateAsync(uploaded.id);
-        setUploadState(`已上传并用于当前版本，共 ${uploaded.caseCount ?? 0} 组。`);
-      } catch {
-        setUploadState('上传已完成，但自动绑定失败。数据仍保留，可点击“用于此版本”重试。');
-      }
+      setUploadState(`已替换测试数据，共 ${uploaded.caseCount} 组。旧的校准已过期，请重新校准。`);
+      await refresh();
     },
     onError: (error) => {
       uploadController.current = undefined;
       setUploadState(
         error instanceof ApiError && error.kind === 'aborted'
           ? '上传已取消。'
-          : apiErrorMessage(error, '上传或 ZIP 检查失败。'),
+          : apiErrorMessage(error, '上传或 ZIP 检查失败；原有测试数据保持不变。'),
       );
     },
-  });
-
-  const deploy = useMutation({
-    mutationFn: () => {
-      const selected = testData.data?.find((item) => item.id === selectedTestDataId);
-      if (!selected?.contentSha256 || selected.status !== 'READY') {
-        throw new Error('请先选择一份可用的测试数据。');
-      }
-      return deployTestData(problem.id, version.id, {
-        testDataVersionId: selected.id,
-        expectedSha256: selected.contentSha256,
-        rowVersion: version.rowVersion,
-      });
-    },
-    onSuccess: refresh,
   });
 
   const calibration = useMutation({
@@ -460,13 +385,12 @@ function WorkbenchEditor({
       const cpuNs = secondsToNanoseconds(limits.cpuSeconds);
       const clockNs = secondsToNanoseconds(limits.clockSeconds, true);
       if (cpuNs === null) throw new Error('请填写 CPU 时间限制。');
-      return calibrate(problem.id, version.id, {
+      return calibrate(problem.id, {
         languageId: 'cpp',
         cpuNs,
         memoryBytes: mebibytesToBytes(limits.memoryMib),
         clockNs,
         referenceSource,
-        rowVersion: version.rowVersion,
       });
     },
     onSuccess: async (result) => {
@@ -484,54 +408,32 @@ function WorkbenchEditor({
   });
 
   const check = useQuery({
-    queryKey: problemKeys.publishCheck(problem.id, version.id),
-    queryFn: ({ signal }) => getPublishCheck(problem.id, version.id, signal),
+    queryKey: problemKeys.publishCheck(problem.id),
+    queryFn: ({ signal }) => getPublishCheck(problem.id, signal),
     refetchInterval: 10_000,
     retry: false,
   });
 
   const publishing = useMutation({
-    mutationFn: () => publish(problem.id, version.id, version.rowVersion),
+    mutationFn: () => publish(problem.id, problem.rowVersion),
     onSuccess: refresh,
   });
-  const revision = useMutation({
-    mutationFn: (reuseTestData: boolean) =>
-      createRevision(problem.id, { rowVersion: problem.rowVersion, reuseTestData }),
-    onSuccess: async (created) => {
-      await refresh();
-      await navigate({
-        to: '/admin/problems/$problemId/versions/$versionId',
-        params: { problemId: problem.id, versionId: created.id },
-        search: { step: 'basic' },
-      });
-    },
+  const unpublishing = useMutation({
+    mutationFn: () => unpublish(problem.id, problem.rowVersion),
+    onSuccess: refresh,
   });
   const archive = useMutation({
     mutationFn: () => archiveProblem(problem.id, problem.rowVersion),
     onSuccess: refresh,
   });
   const remove = useMutation({
-    mutationFn: () => deleteVersion(problem.id, version.id, version.rowVersion),
+    mutationFn: () => deleteProblem(problem.id, problem.rowVersion),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: problemKeys.admin });
       await navigate({ to: '/admin/problems', search: { page: 1, q: '', status: 'ALL' } });
     },
   });
-  const visibility = useMutation({
-    mutationFn: () =>
-      updateProblem(problem.id, {
-        slug: problem.slug,
-        visibility: problem.visibility === 'PUBLIC' ? 'PRIVATE' : 'PUBLIC',
-        rowVersion: problem.rowVersion,
-      }),
-    onSuccess: refresh,
-  });
 
-  const selectedTestData = testData.data?.find((item) => item.id === selectedTestDataId);
-  const boundTestData = version.testDataVersion?.id === selectedTestDataId;
-  const deploymentReady = check.data?.checks.some(
-    (item) => item.code === 'DEPLOYMENT' && item.passed,
-  );
   const nodeUnavailable = check.data?.checks.find(
     (item) => item.code === 'ONLINE_JUDGE_NODE' && !item.passed,
   );
@@ -539,9 +441,7 @@ function WorkbenchEditor({
     (item) => item.code === 'CALIBRATION' && item.passed,
   );
   const canUseTestActions = editable && !isDirty;
-  // 重部署恢复当前节点的数据回执，不修改已发布题目的内容或绑定关系。
-  const canDeployTestData =
-    problem.status === 'ACTIVE' && (editable || version.status === 'PUBLISHED') && !isDirty;
+  const isPublic = problem.visibility === 'PUBLIC';
 
   const derivedStepStatuses = useMemo<Record<ProblemWorkbenchStep, StepStatus>>(
     () => ({
@@ -563,12 +463,12 @@ function WorkbenchEditor({
       'starter-code': formValues.starterCode.trim() ? 'complete' : 'not-started',
       'test-and-calibrate': calibrationReady
         ? 'complete'
-        : version.testDataVersion
+        : problem.testData
           ? 'needs-attention'
           : 'not-started',
       publish: check.data?.ready ? 'complete' : 'needs-attention',
     }),
-    [calibrationReady, check.data?.ready, formValues, version.testDataVersion],
+    [calibrationReady, check.data?.ready, formValues, problem.testData],
   );
   const stepStatuses: Record<ProblemWorkbenchStep, StepStatus> = {
     ...derivedStepStatuses,
@@ -579,9 +479,9 @@ function WorkbenchEditor({
     save.error instanceof ApiError &&
     (save.error.status === 409 || save.error.code?.includes('CONFLICT'));
 
-  const reloadLatestVersion = async () => {
-    const latest = await getVersion(problem.id, version.id);
-    queryClient.setQueryData(problemKeys.version(problem.id, version.id), latest);
+  const reloadLatest = async () => {
+    const latest = await getAdminProblem(problem.id);
+    queryClient.setQueryData(problemKeys.adminProblem(problem.id), latest);
     form.reset(toFormValues(latest));
     editRevision.current = 0;
     setFormError(undefined);
@@ -618,13 +518,13 @@ function WorkbenchEditor({
             <div className="min-w-0">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Heading level={1} size="sm" className="truncate">
-                  {formValues.title || version.title}
+                  {formValues.title || problem.title}
                 </Heading>
-                <Badge>{version.status}</Badge>
+                <Badge>{problem.status}</Badge>
                 <Badge>{problem.visibility}</Badge>
               </div>
               <Text size="cap" tone="meta">
-                {problem.slug} · v{version.versionNo} · ACM / C++
+                {problem.slug} · ACM / C++
               </Text>
             </div>
           </div>
@@ -644,40 +544,44 @@ function WorkbenchEditor({
               onClick={() => void form.handleSubmit()}
             >
               <Save aria-hidden="true" />
-              保存草稿
+              保存
             </Button>
             <Button size="sm" variant="secondary" onClick={() => setStep('publish')}>
               <FileCheck2 aria-hidden="true" />
-              检查发布
+              检查与公开
             </Button>
           </div>
         </div>
       </div>
 
       {!editable ? (
-        <UiInlineNotice className="mt-4" variant="info" title="这个版本当前为只读状态">
-          已发布或归档版本不能直接修改；请在“检查与发布”中创建新修订。
+        <UiInlineNotice className="mt-4" variant="info" title="这道题已归档，当前为只读状态">
+          归档的题目不能再修改。
+        </UiInlineNotice>
+      ) : isPublic ? (
+        <UiInlineNotice className="mt-4" variant="warning" title="这道题已公开">
+          保存会立即对学生生效；公开题目不能被改成空题面或没有样例。
         </UiInlineNotice>
       ) : null}
 
       {save.isError ? (
         <Panel className="mt-4" role="alert">
           <Heading level={2} size="lg">
-            {conflict ? '服务端已有更新，本地内容仍保留' : '草稿保存失败'}
+            {conflict ? '服务端已有更新，本地内容仍保留' : '保存失败'}
           </Heading>
           <Text className="text-danger mt-2" size="sm">
             {conflict
-              ? '先复制本地草稿，再加载服务端最新版本并手动合并；不会自动覆盖。'
+              ? '先复制本地内容，再加载服务端最新版本并手动合并；不会自动覆盖。'
               : apiErrorMessage(save.error, '请检查内容后重试。')}
           </Text>
           <Cluster className="mt-3" gap={2}>
             {conflict ? (
               <Button variant="secondary" onClick={() => void copyLocalDraft()}>
                 <Copy aria-hidden="true" />
-                复制本地草稿
+                复制本地内容
               </Button>
             ) : null}
-            <Button variant="secondary" onClick={() => void reloadLatestVersion()}>
+            <Button variant="secondary" onClick={() => void reloadLatest()}>
               <RotateCcw aria-hidden="true" />
               加载服务端最新版本
             </Button>
@@ -752,23 +656,6 @@ function WorkbenchEditor({
                         disabled={!editable}
                         onChange={(value) => {
                           field.handleChange(value);
-                          markChanged();
-                        }}
-                      />
-                    </FormField>
-                  )}
-                </form.Field>
-                <form.Field name="changeSummary">
-                  {(field) => (
-                    <FormField
-                      label="本次修改说明"
-                      description="可选，用一句话说明这次修订的目的。"
-                    >
-                      <Input
-                        value={field.state.value}
-                        disabled={!editable}
-                        onChange={(event) => {
-                          field.handleChange(event.target.value);
                           markChanged();
                         }}
                       />
@@ -901,19 +788,19 @@ function WorkbenchEditor({
           {step === 'test-and-calibrate' ? (
             <Stack gap={6}>
               {isDirty ? (
-                <UiInlineNotice variant="warning" title="先保存草稿">
-                  再执行绑定、部署或校准，避免使用过期版本。
+                <UiInlineNotice variant="warning" title="先保存">
+                  再上传测试数据或校准，避免使用过期内容。
                 </UiInlineNotice>
               ) : null}
               <ProcessSection
                 number={1}
-                title="准备测试数据"
-                status={version.testDataVersion ? '可用' : '未开始'}
+                title="上传测试数据"
+                status={problem.testData ? '可用' : '未开始'}
               >
                 <div className="grid gap-3 sm:grid-cols-[minmax(14rem,1fr)_auto]">
                   <FormField
                     label="测试数据 ZIP"
-                    description="文件名需安全，.in/.out 必须成对；上传完成后自动用于当前版本。"
+                    description="文件名需安全，.in/.out 必须成对。题目只有一份测试数据：上传即替换，替换后旧的校准过期。"
                   >
                     <Input
                       type="file"
@@ -947,136 +834,24 @@ function WorkbenchEditor({
                 {upload.isPending ? (
                   <progress className="mt-3 w-full" aria-label="测试数据正在上传并检查" />
                 ) : null}
-                {testData.isPending ? (
-                  <AsyncState
-                    className="mt-4"
-                    variant="loading"
-                    size="inline"
-                    title="正在读取测试数据…"
-                    progressLabel="正在读取测试数据…"
-                  >
-                    {null}
-                  </AsyncState>
-                ) : null}
-                {testData.isError ? (
-                  <Text className="text-danger mt-4" role="alert">
-                    {apiErrorMessage(testData.error, '测试数据列表加载失败。')}
+                {problem.testData ? (
+                  <div className="border-border bg-surface-translucent mt-4 min-w-0 rounded-sm border p-3">
+                    <strong>当前测试数据</strong> · {problem.testData.caseCount} 组 ·{' '}
+                    {formatBytes(problem.testData.totalBytes)}
+                    <details className="text-muted-foreground mt-1 text-sm">
+                      <summary>技术详情</summary>
+                      <span className="font-mono wrap-anywhere">{problem.testData.digest}</span>
+                    </details>
+                  </div>
+                ) : (
+                  <Text className="mt-4" size="sm" tone="muted">
+                    还没有测试数据。
                   </Text>
-                ) : null}
-                <div className="mt-4 grid gap-2">
-                  {testData.data?.map((item) => (
-                    <label
-                      key={item.id}
-                      className="border-border bg-surface-translucent duration-fast hover:bg-surface-translucent-hover flex min-w-0 flex-wrap items-center gap-3 rounded-sm border p-3 transition-colors motion-reduce:transition-none"
-                    >
-                      <input
-                        type="radio"
-                        name="test-data"
-                        value={item.id}
-                        checked={selectedTestDataId === item.id}
-                        onChange={() => setSelectedTestDataId(item.id)}
-                      />
-                      <span className="min-w-48 flex-1">
-                        <strong>
-                          {item.status === 'READY'
-                            ? '可用'
-                            : item.status === 'FAILED'
-                              ? '检查失败'
-                              : '处理中'}
-                        </strong>{' '}
-                        · {item.caseCount ?? '—'} 组 · {formatBytes(item.totalBytes)}
-                        {version.testDataVersion?.id === item.id ? (
-                          <Badge className="ml-2" variant="success">
-                            当前版本正在使用
-                          </Badge>
-                        ) : null}
-                        <details className="text-muted-foreground mt-1 text-sm">
-                          <summary>技术详情</summary>
-                          <span className="font-mono wrap-anywhere">
-                            {item.contentSha256 ?? item.errorMessage ?? item.id}
-                          </span>
-                        </details>
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        <a
-                          className={buttonVariants({ size: 'sm', variant: 'secondary' })}
-                          href={`/api/admin/problems/${problem.id}/test-data/${item.id}/download`}
-                          download
-                        >
-                          <Download aria-hidden="true" />
-                          下载
-                        </a>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={
-                            !canUseTestActions ||
-                            item.status !== 'READY' ||
-                            version.testDataVersion?.id === item.id
-                          }
-                          loading={bind.isPending && selectedTestDataId === item.id}
-                          onClick={() => {
-                            setSelectedTestDataId(item.id);
-                            bind.mutate(item.id);
-                          }}
-                        >
-                          <Upload aria-hidden="true" />
-                          用于此版本
-                        </Button>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                {bind.isError ? (
-                  <Text className="text-danger mt-3" role="alert">
-                    {apiErrorMessage(bind.error, '绑定失败；已上传的数据仍保留。')}
-                  </Text>
-                ) : null}
+                )}
               </ProcessSection>
 
               <ProcessSection
                 number={2}
-                title="部署到当前环境"
-                status={deploymentReady ? '可用' : '未完成'}
-              >
-                <Button
-                  variant="secondary"
-                  loading={deploy.isPending}
-                  disabled={
-                    !canDeployTestData ||
-                    !boundTestData ||
-                    selectedTestData?.status !== 'READY' ||
-                    !!nodeUnavailable
-                  }
-                  onClick={() => deploy.mutate()}
-                >
-                  部署测试数据
-                </Button>
-                {!boundTestData ? (
-                  <Text className="mt-2" size="sm" tone="muted">
-                    先选择一份可用数据并用于当前版本。
-                  </Text>
-                ) : null}
-                {nodeUnavailable ? (
-                  <Text className="mt-2" size="sm" tone="muted" role="status">
-                    {nodeUnavailable.message}
-                  </Text>
-                ) : null}
-                {deploy.data && !nodeUnavailable ? (
-                  <Text className="mt-3" role="status">
-                    判题节点 {deploy.data.nodeId}：
-                    {deploy.data.status === 'READY' ? '部署可用' : deploy.data.status}
-                  </Text>
-                ) : null}
-                {deploy.isError ? (
-                  <Text className="text-danger mt-3" role="alert">
-                    {apiErrorMessage(deploy.error, '部署失败或结果不明，请刷新状态后再试。')}
-                  </Text>
-                ) : null}
-              </ProcessSection>
-
-              <ProcessSection
-                number={3}
                 title="运行参考程序校准"
                 status={calibrationReady ? '可用' : '未完成'}
               >
@@ -1113,7 +888,7 @@ function WorkbenchEditor({
                   </FormField>
                 </div>
                 <Text className="mt-3" size="sm" tone="muted">
-                  提交时会换算为判题系统使用的纳秒和字节，不需要手工计算。
+                  提交时会换算为判题系统使用的纳秒和字节，不需要手工计算。校准针对当前测试数据；数据更新后需要重新校准。
                 </Text>
                 <div className="mt-4">
                   <FormField
@@ -1135,21 +910,21 @@ function WorkbenchEditor({
                   loading={calibration.isPending}
                   disabled={
                     !canUseTestActions ||
-                    !boundTestData ||
-                    !deploymentReady ||
+                    !problem.testData ||
+                    !!nodeUnavailable ||
                     !referenceSource.trim()
                   }
                   onClick={() => calibration.mutate()}
                 >
                   运行参考程序校准
                 </Button>
-                {!boundTestData ? (
+                {!problem.testData ? (
                   <Text className="mt-2" size="sm" tone="muted">
-                    先选中当前版本正在使用的测试数据。
+                    先上传测试数据。
                   </Text>
-                ) : !deploymentReady ? (
-                  <Text className="mt-2" size="sm" tone="muted">
-                    先完成当前环境的测试数据部署。
+                ) : nodeUnavailable ? (
+                  <Text className="mt-2" size="sm" tone="muted" role="status">
+                    {nodeUnavailable.message}
                   </Text>
                 ) : null}
                 {calibration.data ? (
@@ -1171,10 +946,10 @@ function WorkbenchEditor({
               <div className="border-border-soft flex flex-wrap items-center justify-between gap-3 border-b pb-4">
                 <div>
                   <Text weight="medium">
-                    {check.data?.ready ? '已满足发布条件' : '仍有项目需要处理'}
+                    {check.data?.ready ? '已满足公开条件' : '仍有项目需要处理'}
                   </Text>
                   <Text size="sm" tone="muted">
-                    服务端检查是最终发布依据。
+                    服务端检查是最终公开依据。
                   </Text>
                 </div>
                 <Button
@@ -1188,7 +963,7 @@ function WorkbenchEditor({
               </div>
               {check.isError ? (
                 <Text className="text-danger" role="alert">
-                  {apiErrorMessage(check.error, '发布检查失败，请刷新版本状态。')}
+                  {apiErrorMessage(check.error, '公开检查失败，请刷新题目状态。')}
                 </Text>
               ) : null}
               <div className="grid gap-2">
@@ -1196,8 +971,8 @@ function WorkbenchEditor({
                   <AsyncState
                     variant="loading"
                     size="inline"
-                    title="正在运行发布检查…"
-                    progressLabel="正在运行发布检查…"
+                    title="正在运行公开检查…"
+                    progressLabel="正在运行公开检查…"
                   >
                     {null}
                   </AsyncState>
@@ -1226,62 +1001,59 @@ function WorkbenchEditor({
                 })}
               </div>
               <div className="border-border-soft flex flex-wrap items-center justify-between gap-3 border-b pb-6">
-                <Text size="sm" tone="muted">
-                  发布后该版本不可直接修改，旧公开版本只会在发布成功后切换。
-                </Text>
-                <ConfirmationDialog
-                  title={`发布 ${problem.slug} v${version.versionNo}`}
-                  description="确认后，公开题库会切换到这个不可变版本。发布失败时旧公开版本保持不变。"
-                  confirmLabel="发布此版本"
-                  loading={publishing.isPending}
-                  disabled={!check.data?.ready || isDirty || !editable}
-                  trigger={
-                    <Button disabled={!check.data?.ready || isDirty || !editable}>
-                      发布此版本
-                    </Button>
-                  }
-                  onConfirm={() => publishing.mutateAsync().then(() => undefined)}
-                />
+                {isPublic ? (
+                  <>
+                    <Text size="sm" tone="muted">
+                      题目已公开。取消公开后变回私有，已有提交记录保留。
+                    </Text>
+                    <ConfirmationDialog
+                      title={`取消公开 ${problem.slug}`}
+                      description="确认后题目从公开题库消失，学生不能再提交。"
+                      confirmLabel="取消公开"
+                      loading={unpublishing.isPending}
+                      disabled={isDirty || !editable}
+                      trigger={
+                        <Button variant="secondary" disabled={isDirty || !editable}>
+                          取消公开
+                        </Button>
+                      }
+                      onConfirm={() => unpublishing.mutateAsync().then(() => undefined)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Text size="sm" tone="muted">
+                      公开后学生立即可见；之后的修改也会立即生效。
+                    </Text>
+                    <ConfirmationDialog
+                      title={`公开 ${problem.slug}`}
+                      description="确认后，这道题进入公开题库。检查之后测试数据被替换则公开失败。"
+                      confirmLabel="公开题目"
+                      loading={publishing.isPending}
+                      disabled={!check.data?.ready || isDirty || !editable}
+                      trigger={
+                        <Button disabled={!check.data?.ready || isDirty || !editable}>
+                          公开题目
+                        </Button>
+                      }
+                      onConfirm={() => publishing.mutateAsync().then(() => undefined)}
+                    />
+                  </>
+                )}
               </div>
               {isDirty ? (
                 <Text size="sm" tone="muted">
-                  先保存草稿，再发布此版本。
+                  先保存，再公开或取消公开。
                 </Text>
               ) : null}
-              {publishing.isError ? (
+              {publishing.isError || unpublishing.isError ? (
                 <Text className="text-danger" role="alert">
-                  {apiErrorMessage(publishing.error, '发布失败，旧公开版本保持不变。')}
+                  {apiErrorMessage(
+                    publishing.error ?? unpublishing.error,
+                    '操作失败，题目状态保持不变。',
+                  )}
                 </Text>
               ) : null}
-
-              <section className="grid gap-4" aria-labelledby="version-actions-heading">
-                <Heading id="version-actions-heading" level={2} size="lg">
-                  版本操作
-                </Heading>
-                <div className="flex flex-wrap gap-2">
-                  <ConfirmationDialog
-                    title="创建新修订"
-                    description="以当前版本内容创建可编辑的新草稿，并复用当前测试数据绑定。"
-                    confirmLabel="创建并打开"
-                    loading={revision.isPending}
-                    disabled={hasUnsavedContent}
-                    trigger={<Button variant="secondary">创建新修订</Button>}
-                    onConfirm={() => revision.mutateAsync(true).then(() => undefined)}
-                  />
-                  <Button
-                    variant="secondary"
-                    loading={visibility.isPending}
-                    onClick={() => visibility.mutate()}
-                  >
-                    {problem.visibility === 'PUBLIC' ? '转为私有' : '转为公开'}
-                  </Button>
-                </div>
-                {hasUnsavedContent ? (
-                  <Text size="sm" tone="muted">
-                    保存或清除当前未提交内容后才能执行版本与危险操作。
-                  </Text>
-                ) : null}
-              </section>
 
               <section
                 className="bg-danger-soft border-danger-border grid gap-4 rounded-sm border p-4"
@@ -1292,17 +1064,17 @@ function WorkbenchEditor({
                     危险操作
                   </Heading>
                   <Text className="mt-1" size="sm" tone="muted">
-                    这些动作会影响整个题目或永久删除草稿版本。
+                    这些动作会影响整道题。
                   </Text>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <ConfirmationDialog
                     title={`归档题目 ${problem.slug}`}
-                    description="归档会让整道题退出正常管理流程；已有公开版本不会被当成草稿编辑。"
+                    description="归档会让整道题退出正常管理流程，之后不能再修改。已公开的题目要先取消公开。"
                     confirmLabel="归档题目"
                     danger
                     loading={archive.isPending}
-                    disabled={hasUnsavedContent || problem.status === 'ARCHIVED'}
+                    disabled={hasUnsavedContent || problem.status === 'ARCHIVED' || isPublic}
                     trigger={
                       <Button variant="danger">
                         <Archive aria-hidden="true" />
@@ -1312,16 +1084,16 @@ function WorkbenchEditor({
                     onConfirm={() => archive.mutateAsync().then(() => undefined)}
                   />
                   <ConfirmationDialog
-                    title={`删除草稿 v${version.versionNo}`}
-                    description="这个动作不可恢复。只有草稿版本允许删除，题目本身不会被删除。"
-                    confirmLabel="永久删除草稿"
+                    title={`删除题目 ${problem.slug}`}
+                    description="这个动作不可恢复，题面、样例和测试数据一并删除。只有从未公开过的题目允许删除，公开过的只能归档。"
+                    confirmLabel="永久删除题目"
                     danger
                     loading={remove.isPending}
-                    disabled={hasUnsavedContent || version.status !== 'DRAFT'}
+                    disabled={hasUnsavedContent || problem.publishedAt !== null}
                     trigger={
                       <Button variant="danger">
                         <Trash2 aria-hidden="true" />
-                        删除草稿
+                        删除题目
                       </Button>
                     }
                     onConfirm={() => remove.mutateAsync().then(() => undefined)}
@@ -1366,7 +1138,7 @@ function WorkbenchEditor({
           <DialogHeader>
             <DialogTitle>离开前确认未提交内容</DialogTitle>
             <DialogDescription>
-              {isDirty ? '题目草稿尚未保存。' : ''}
+              {isDirty ? '题目修改尚未保存。' : ''}
               {referenceSource.trim() ? '参考程序只在当前页面内存中，离开后会丢失。' : ''}
             </DialogDescription>
           </DialogHeader>
@@ -1529,12 +1301,7 @@ function publishCheckStep(code: string): ProblemWorkbenchStep {
   if (code === 'CONTENT') return 'statement';
   if (code === 'SAMPLES') return 'samples';
   if (code === 'LANGUAGE') return 'starter-code';
-  if (
-    code === 'TEST_DATA' ||
-    code === 'DEPLOYMENT' ||
-    code === 'CALIBRATION' ||
-    code === 'ONLINE_JUDGE_NODE'
-  ) {
+  if (code === 'TEST_DATA' || code === 'CALIBRATION' || code === 'ONLINE_JUDGE_NODE') {
     return 'test-and-calibrate';
   }
   return 'publish';

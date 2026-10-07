@@ -68,7 +68,6 @@ type DraftEditorProps = {
 
   userId: string;
   problemId: string;
-  problemVersionId: string;
   languageId: string;
   starterCode: string;
   readOnly: boolean;
@@ -167,11 +166,8 @@ export function DraftEditor({
           <DialogHeader>
             <DialogTitle>载入历史代码？</DialogTitle>
             <DialogDescription>
-              将使用提交 v{pendingLoad?.value.versionNo}{' '}
-              的代码替换右侧当前草稿。需要保留时，请先取消并复制或下载。
-              {pendingLoad?.value.source.problemVersionId !== identity.problemVersionId
-                ? ' 历史提交与当前题目版本不同；新提交将按当前版本判题。'
-                : ''}
+              将使用这次提交的代码替换右侧当前草稿。需要保留时，请先取消并复制或下载。
+              新提交按题目当前的测试数据判题。
             </DialogDescription>
           </DialogHeader>
           {loadChanged ? (

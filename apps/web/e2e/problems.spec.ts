@@ -3,7 +3,6 @@ import { expect, test } from '@playwright/test';
 
 const requestId = 'req_01K37XZ3MFXBK92WMG67G4XFN0';
 const problemId = '5f16b8c1-9c31-4d46-a2aa-9ba02cf65772';
-const versionId = '454ef3b0-082e-4de6-a3d0-0f75d9a81137';
 const canary = 's3://private-bucket/reference-source.cpp';
 
 async function success(route: Route, data: object, meta: object = {}) {
@@ -21,8 +20,6 @@ async function anonymous(page: Page) {
 const summary = {
   problemId,
   slug: 'two-sum',
-  currentVersionId: versionId,
-  versionNo: 1,
   title: '两数之和：一段很长但仍然能够换行显示的中文题目标题',
   difficulty: 'EASY',
   tags: ['数组', '哈希表'],
@@ -45,8 +42,6 @@ test('anonymous URL filters restore and a real detail link stays safe at 320px',
   await page.route('**/api/problems/two-sum', (route) =>
     success(route, {
       problemId,
-      problemVersionId: versionId,
-      versionNo: 1,
       slug: 'two-sum',
       codeMode: 'ACM',
       title: summary.title,
@@ -119,7 +114,7 @@ test('invalid cursor is rendered as an error instead of an empty library', async
   await expect(page.getByText('题库还没有公开题目')).toHaveCount(0);
 });
 
-test('an admin creates a draft and restores the complete version workbench', async ({ page }) => {
+test('an admin creates a problem and restores the complete workbench', async ({ page }) => {
   let adminListRequestUrl: string | undefined;
   let savedTitle: string | undefined;
   let savedStatement: string | undefined;
@@ -129,31 +124,11 @@ test('an admin creates a draft and restores the complete version workbench', asy
     releaseFirstSave = resolve;
   });
   const timestamp = '2026-08-30T01:00:00Z';
-  const versionSummary = {
-    id: versionId,
-    versionNo: 1,
-    status: 'DRAFT',
-    title: '两数之和',
-    updatedAt: timestamp,
-    publishedAt: null,
-    rowVersion: 0,
-  };
-  const problem = {
+  let problem = {
     id: problemId,
     slug: 'two-sum',
     visibility: 'PRIVATE',
     status: 'ACTIVE',
-    currentPublishedVersionId: null,
-    versions: [versionSummary],
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    rowVersion: 0,
-  };
-  let version = {
-    id: versionId,
-    problemId,
-    versionNo: 1,
-    status: 'DRAFT',
     codeMode: 'ACM',
     title: '两数之和',
     statementMarkdown: '# 题意',
@@ -165,8 +140,7 @@ test('an admin creates a draft and restores the complete version workbench', asy
     tags: ['数组'],
     samples: [],
     allowedLanguages: [{ id: 'cpp', displayName: 'C++', starterCode: 'int main() {}' }],
-    testDataVersion: null,
-    changeSummary: null,
+    testData: null,
     createdAt: timestamp,
     updatedAt: timestamp,
     publishedAt: null,
@@ -209,8 +183,7 @@ test('an admin creates a draft and restores the complete version workbench', asy
       body: JSON.stringify({ data: problem, meta: { requestId } }),
     }),
   );
-  await page.route(`**/api/admin/problems/${problemId}`, (route) => success(route, problem));
-  await page.route(`**/api/admin/problems/${problemId}/versions/${versionId}`, async (route) => {
+  await page.route(`**/api/admin/problems/${problemId}`, async (route) => {
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON() as {
         title: string;
@@ -220,27 +193,22 @@ test('an admin creates a draft and restores the complete version workbench', asy
       savedStatement = body.statementMarkdown;
       saveRequestCount += 1;
       if (saveRequestCount === 1) await firstSaveResponse;
-      version = { ...version, title: body.title, rowVersion: version.rowVersion + 1 };
+      problem = { ...problem, title: body.title, rowVersion: problem.rowVersion + 1 };
     }
-    await success(route, version);
+    await success(route, problem);
   });
-  await page.route(`**/api/admin/problems/${problemId}/test-data`, (route) =>
-    success(route, { items: [] }),
-  );
-  await page.route(
-    `**/api/admin/problems/${problemId}/versions/${versionId}/publish-check`,
-    (route) =>
-      success(route, {
-        ready: false,
-        checks: [
-          { code: 'CONTENT', passed: true, message: '题面完整' },
-          { code: 'SAMPLES', passed: true, message: '样例完整' },
-          { code: 'LANGUAGE', passed: true, message: '语言配置完整' },
-          { code: 'TEST_DATA', passed: false, message: '尚未绑定测试数据' },
-          { code: 'DEPLOYMENT', passed: false, message: '尚未部署测试数据' },
-          { code: 'CALIBRATION', passed: false, message: '尚未校准' },
-        ],
-      }),
+  await page.route(`**/api/admin/problems/${problemId}/publish-check`, (route) =>
+    success(route, {
+      ready: false,
+      checks: [
+        { code: 'CONTENT', passed: true, message: '题面完整' },
+        { code: 'SAMPLES', passed: true, message: '样例完整' },
+        { code: 'LANGUAGE', passed: true, message: '语言配置完整' },
+        { code: 'TEST_DATA', passed: false, message: '还没有测试数据' },
+        { code: 'CALIBRATION', passed: false, message: '尚未校准' },
+        { code: 'ONLINE_JUDGE_NODE', passed: true, message: '在线判题节点可用' },
+      ],
+    }),
   );
 
   await page.goto('/admin/problems?page=1&q=&status=ALL');
@@ -252,16 +220,14 @@ test('an admin creates a draft and restores the complete version workbench', asy
   expect(adminListUrl.searchParams.get('page')).toBe('1');
   expect(adminListUrl.searchParams.get('size')).toBe('20');
   await page.getByRole('button', { name: '新建题目' }).click();
-  await expect(page.getByRole('dialog', { name: '新建题目草稿' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '新建题目' })).toBeVisible();
   await page.getByLabel('题目标题').fill('两数之和');
   await page.getByLabel('题目标识').fill('two-sum');
   await page.getByRole('combobox', { name: '初始难度' }).click();
   await page.getByRole('option', { name: '简单' }).click();
-  await page.getByRole('button', { name: '创建草稿' }).click();
+  await page.getByRole('button', { name: '创建题目' }).click();
 
-  await expect(page).toHaveURL(
-    new RegExp(`/admin/problems/${problemId}/versions/${versionId}(?:\\?.*)?$`),
-  );
+  await expect(page).toHaveURL(new RegExp(`/admin/problems/${problemId}(?:\\?.*)?$`));
   await expect(page.getByRole('region', { name: '基本信息编辑' })).toBeVisible();
   await expect(page.getByText('没有未保存修改')).toBeVisible();
 

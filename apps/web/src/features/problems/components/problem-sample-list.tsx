@@ -188,7 +188,7 @@ export function ProblemSampleList({
           <DialogHeader>
             <DialogTitle>删除样例 {deleteIndex === undefined ? '' : deleteIndex + 1}</DialogTitle>
             <DialogDescription>
-              这个样例的输入、输出和解释会从当前草稿中移除；保存草稿后才会写入服务端。
+              这个样例的输入、输出和解释会从当前内容中移除；保存后才会写入服务端。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

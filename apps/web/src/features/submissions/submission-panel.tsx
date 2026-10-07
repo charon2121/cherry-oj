@@ -158,7 +158,6 @@ export function SubmissionPanel({
       key: newSubmissionKey(),
       body: {
         problemId: problem.problemId,
-        expectedProblemVersionId: problem.problemVersionId,
         languageId: 'cpp' as const,
         source,
       },
@@ -267,9 +266,7 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
             ? '正在判题'
             : '等待判题'}
       </p>
-      <p className="text-fg-meta font-mono break-all">
-        {value.id} · v{value.problemVersionNo}
-      </p>
+      <p className="text-fg-meta font-mono break-all">{value.id}</p>
       <div className="text-fg-2 flex flex-wrap gap-x-4 gap-y-1 font-mono">
         {value.passedCount !== undefined && value.totalCount !== undefined ? (
           <span>

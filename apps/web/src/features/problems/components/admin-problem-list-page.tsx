@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section } from '@/components/ui/layout';
 import { SelectField } from '@/components/ui/select';
 import { Heading, Text } from '@/components/ui/typography';
-import type { AdminProblem } from '@/generated/api';
+import type { AdminProblemSummary } from '@/generated/api';
 
 import { createProblem, listAdminProblems, problemKeys } from '../api/problems-api';
 import { AdminProblemCreateDialog } from './admin-problem-create-dialog';
@@ -21,18 +21,15 @@ import { AdminProblemCreateDialog } from './admin-problem-create-dialog';
 export type AdminProblemSearch = { page: number; q: string; status: 'ALL' | 'ACTIVE' | 'ARCHIVED' };
 
 const features = tableFeatures({});
-const columnHelper = createColumnHelper<typeof features, AdminProblem>();
+const columnHelper = createColumnHelper<typeof features, AdminProblemSummary>();
 const columns = columnHelper.columns([
   columnHelper.accessor('slug', { header: '标识' }),
-  columnHelper.display({
-    id: 'title',
-    header: '当前版本',
-    cell: ({ row }) => {
-      const latest = row.original.versions[0];
-      return latest ? `${latest.title} · v${latest.versionNo}` : '—';
-    },
-  }),
+  columnHelper.accessor('title', { header: '标题' }),
   columnHelper.accessor('visibility', { header: '可见性' }),
+  columnHelper.accessor('hasTestData', {
+    header: '测试数据',
+    cell: ({ getValue }) => (getValue() ? '已上传' : '未上传'),
+  }),
   columnHelper.accessor('status', {
     header: '状态',
     cell: ({ getValue }) => (
@@ -42,20 +39,15 @@ const columns = columnHelper.columns([
   columnHelper.display({
     id: 'action',
     header: '操作',
-    cell: ({ row }) => {
-      const version = row.original.versions[0];
-      return version ? (
-        <Link
-          className={buttonVariants({ size: 'sm', variant: 'secondary' })}
-          to="/admin/problems/$problemId/versions/$versionId"
-          params={{ problemId: row.original.id, versionId: version.id }}
-        >
-          打开工作台
-        </Link>
-      ) : (
-        '—'
-      );
-    },
+    cell: ({ row }) => (
+      <Link
+        className={buttonVariants({ size: 'sm', variant: 'secondary' })}
+        to="/admin/problems/$problemId"
+        params={{ problemId: row.original.id }}
+      >
+        打开工作台
+      </Link>
+    ),
   }),
 ]);
 
@@ -77,13 +69,7 @@ export function AdminProblemListPage({
     mutationFn: createProblem,
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: problemKeys.admin });
-      const version = created.versions[0];
-      if (version) {
-        await routeNavigate({
-          to: '/admin/problems/$problemId/versions/$versionId',
-          params: { problemId: created.id, versionId: version.id },
-        });
-      }
+      await routeNavigate({ to: '/admin/problems/$problemId', params: { problemId: created.id } });
     },
   });
   const data = useMemo(() => problems.data?.items ?? [], [problems.data?.items]);
@@ -196,7 +182,7 @@ export function AdminProblemListPage({
                 ))}
                 {data.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center" colSpan={5}>
+                    <td className="px-4 py-8 text-center" colSpan={6}>
                       没有符合条件的题目。
                     </td>
                   </tr>

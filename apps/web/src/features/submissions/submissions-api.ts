@@ -8,8 +8,6 @@ export const submissionSchema = z
   .object({
     id: z.string().uuid(),
     problemId: z.string().uuid(),
-    problemVersionId: z.string().uuid(),
-    problemVersionNo: z.number().int().positive(),
     problemTitle: z.string(),
     languageId: z.literal('cpp'),
     status: z.enum(['PENDING', 'JUDGING', 'DONE']),

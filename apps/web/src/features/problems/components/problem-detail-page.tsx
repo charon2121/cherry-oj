@@ -5,14 +5,6 @@ import { type Ref, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button, buttonVariants } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Container, Section } from '@/components/ui/layout';
 import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -79,29 +71,19 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
   return (
     <ProblemWorkbench
       key={problem.data.problemId}
-      latest={problem.data}
+      data={problem.data}
       unavailable={problem.isError}
     />
   );
 }
 
-function ProblemWorkbench({
-  latest,
-  unavailable,
-}: {
-  latest: ProblemDetail;
-  unavailable: boolean;
-}) {
-  // 后台刷新只通知新版本；必须由用户切换，避免换掉正在编辑的题面和草稿身份。
-  const [data, setData] = useState(latest);
+function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavailable: boolean }) {
+  // 题目没有版本：管理员改了题面，学生刷新后看到的就是新题面；本机草稿按题目保存，不受影响。
   const [pane, setPane] = useState('statement');
-  const [unsaved, setUnsaved] = useState(false);
-  const [switchOpen, setSwitchOpen] = useState(false);
   const wide = useWorkbenchMedia('(min-width: 1024px)');
   const historyEditor = useRef<HistoryEditorHandle>(null);
   const historySearch = useSearch({ from: '/_site/problems/$slug' });
   const navigate = useNavigate({ from: '/problems/$slug' });
-  const newerVersion = data.problemVersionId !== latest.problemVersionId;
   return (
     <WorkbenchPageTemplate
       variant="coding"
@@ -119,7 +101,7 @@ function ProblemWorkbench({
           </Link>
           <span className="min-w-0 flex-1 text-sm break-words">{data.title}</span>
           <span className="text-fg-meta max-w-full shrink-0 font-mono text-xs break-all">
-            {data.slug} · v{data.versionNo}
+            {data.slug}
           </span>
         </div>
       }
@@ -139,26 +121,6 @@ function ProblemWorkbench({
             代码
           </TabsTrigger>
         </TabsList>
-        {newerVersion ? (
-          <div
-            role="status"
-            className="border-border-soft bg-surface-subtle text-fg-2 flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs"
-          >
-            <span>
-              题目已发布 v{latest.versionNo}，当前仍在编辑 v{data.versionNo}。切换后保留旧版本草稿。
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                if (unsaved) setSwitchOpen(true);
-                else setData(latest);
-              }}
-            >
-              打开新版本
-            </Button>
-          </div>
-        ) : null}
         <div className="grid min-h-0 min-w-0 flex-1 lg:grid-cols-2">
           <TabsContent
             keepMounted
@@ -200,9 +162,9 @@ function ProblemWorkbench({
               <TabsContent value="submissions">
                 <SubmissionHistoryPanel
                   problem={data}
-                  canLoad={!newerVersion && !unavailable}
+                  canLoad={!unavailable}
                   onLoad={(value) => {
-                    if (!newerVersion && !unavailable) historyEditor.current?.requestLoad(value);
+                    if (!unavailable) historyEditor.current?.requestLoad(value);
                   }}
                 />
               </TabsContent>
@@ -222,39 +184,14 @@ function ProblemWorkbench({
             )}
           >
             <ProblemCode
-              key={data.problemVersionId}
+              key={data.problemId}
               data={data}
-              onUnsavedChange={setUnsaved}
               historyRef={historyEditor}
               unavailable={unavailable}
             />
           </TabsContent>
         </div>
       </Tabs>
-      <Dialog open={switchOpen} onOpenChange={setSwitchOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>切换前请保存代码</DialogTitle>
-            <DialogDescription>
-              当前修改还未保存到本机。请先复制或下载备份，再打开新版本。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setSwitchOpen(false)}>
-              返回编辑
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                setSwitchOpen(false);
-                setData(latest);
-              }}
-            >
-              已备份，切换版本
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </WorkbenchPageTemplate>
   );
 }
@@ -342,12 +279,10 @@ function ProblemStatement({ data }: { data: ProblemDetail }) {
 
 function ProblemCode({
   data,
-  onUnsavedChange,
   historyRef,
   unavailable,
 }: {
   data: ProblemDetail;
-  onUnsavedChange: (unsaved: boolean) => void;
   historyRef: Ref<HistoryEditorHandle>;
   unavailable: boolean;
 }) {
@@ -406,14 +341,12 @@ function ProblemCode({
       ) : null}
       {editableIdentity && language ? (
         <DraftEditor
-          key={`${user.id}:${data.problemVersionId}:${language.id}`}
+          key={`${user.id}:${data.problemId}:${language.id}`}
           userId={user.id}
           problemId={data.problemId}
-          problemVersionId={data.problemVersionId}
           languageId={language.id}
           starterCode={language.starterCode}
           readOnly={session.isError || unavailable}
-          onUnsavedChange={onUnsavedChange}
           historyRef={historyRef}
           renderSubmission={(source) => (
             <CustomRunWorkbench

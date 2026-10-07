@@ -22,7 +22,6 @@ function field(key: string): string {
 export const context = {
   slug: field('slug'),
   problemId: field('problemId'),
-  problemVersionId: field('problemVersionId'),
   username: field('username'),
   password: field('password'),
 };

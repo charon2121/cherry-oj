@@ -4,11 +4,17 @@ import { expect, test } from 'vitest';
 import { ApiError } from '@/lib/api/api-client';
 import { server } from '@/test/mocks/server';
 
-import { getProblem, listAdminProblems, listProblems } from './problems-api';
+import {
+  deleteProblem,
+  getProblem,
+  listAdminProblems,
+  listProblems,
+  replaceTestData,
+  unpublish,
+} from './problems-api';
 
 const requestId = 'req_problem_contract_test';
 const problemId = '5f16b8c1-9c31-4d46-a2aa-9ba02cf65772';
-const versionId = '454ef3b0-082e-4de6-a3d0-0f75d9a81137';
 const canary = 'storageRef=s3://secret/reference-source.cpp';
 
 function response(data: object, meta: object = {}) {
@@ -27,8 +33,6 @@ test('validates public list fields, accepts additive fields, and strips sensitiv
             {
               problemId,
               slug: 'two-sum',
-              currentVersionId: versionId,
-              versionNo: 1,
               title: '两数之和',
               difficulty: 'EASY',
               tags: ['array'],
@@ -54,7 +58,7 @@ test('validates public list fields, accepts additive fields, and strips sensitiv
 test('rejects malformed required public detail fields as a contract error', async () => {
   server.use(
     http.get('/api/problems/two-sum', () =>
-      response({ problemId, problemVersionId: versionId, slug: 'two-sum', title: '缺少字段' }),
+      response({ problemId, slug: 'two-sum', title: '缺少字段' }),
     ),
   );
 
@@ -99,4 +103,79 @@ test('keeps valid admin filters in the backend query', async () => {
   expect(requestUrl?.searchParams.get('status')).toBe('ARCHIVED');
   expect(requestUrl?.searchParams.get('page')).toBe('2');
   expect(requestUrl?.searchParams.get('size')).toBe('20');
+});
+
+const digest = '6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4';
+const csrf = http.get('/api/auth/csrf', () =>
+  response({ token: 'csrf-token-for-problem-tests', headerName: 'X-CSRF-Token' }),
+);
+
+test('replaces the single test data with PUT and no version in the path', async () => {
+  let method: string | undefined;
+  let path: string | undefined;
+  server.use(
+    csrf,
+    http.put(`/api/admin/problems/${problemId}/test-data`, ({ request }) => {
+      method = request.method;
+      path = new URL(request.url).pathname;
+      return response({
+        digest,
+        caseCount: 2,
+        totalBytes: 16,
+        updatedAt: '2026-10-07T00:00:00',
+        manifest: { caseCount: 2, totalBytes: 16, files: [] },
+      });
+    }),
+  );
+
+  const result = await replaceTestData(problemId, new File(['zip'], 'data.zip'));
+
+  expect(method).toBe('PUT');
+  expect(path).toBe(`/api/admin/problems/${problemId}/test-data`);
+  expect(result).toMatchObject({ digest, caseCount: 2 });
+});
+
+test('unpublish and delete address the problem itself', async () => {
+  const seen: string[] = [];
+  server.use(
+    csrf,
+    http.post(`/api/admin/problems/${problemId}/unpublish`, ({ request }) => {
+      seen.push(`${request.method} ${new URL(request.url).pathname}`);
+      return response({
+        id: problemId,
+        slug: 'two-sum',
+        visibility: 'PRIVATE',
+        status: 'ACTIVE',
+        codeMode: 'ACM',
+        title: '两数之和',
+        statementMarkdown: 's',
+        inputDescriptionMarkdown: 'i',
+        outputDescriptionMarkdown: 'o',
+        constraintsMarkdown: null,
+        hintMarkdown: null,
+        difficulty: 'EASY',
+        tags: [],
+        samples: [],
+        allowedLanguages: [{ id: 'cpp', displayName: 'C++', starterCode: '' }],
+        testData: null,
+        createdAt: '2026-10-07T00:00:00',
+        updatedAt: '2026-10-07T00:00:00',
+        publishedAt: '2026-10-07T00:00:00',
+        rowVersion: 4,
+      });
+    }),
+    http.delete(`/api/admin/problems/${problemId}`, ({ request }) => {
+      const url = new URL(request.url);
+      seen.push(`${request.method} ${url.pathname}?${url.searchParams.toString()}`);
+      return new HttpResponse(null, { status: 204, headers: { 'X-Request-Id': requestId } });
+    }),
+  );
+
+  await unpublish(problemId, 3);
+  await deleteProblem(problemId, 4);
+
+  expect(seen).toEqual([
+    `POST /api/admin/problems/${problemId}/unpublish`,
+    `DELETE /api/admin/problems/${problemId}?rowVersion=4`,
+  ]);
 });
