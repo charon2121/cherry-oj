@@ -1,6 +1,6 @@
 # 去版本化与测试数据协议
 
-类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–7 步已实施（2026-10-07），其余待授权
+类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–8 步中本机可验证的部分已完成（2026-10-07）；测试服务器节点升级与 Linux 原生 CI 待决定
 
 ## 为什么做
 
@@ -141,3 +141,16 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
 - **没有验证 / 遗留：** Linux 原生路径（`ci/business_*` 用的是原生安装的 judge）没有在 Linux 机器上运行，且原生 judge 以另一个系统用户运行，
   能否读到 `CHERRY_TEST_DATA_ROOT`（CI 里该目录在 0700 的运行目录下）需要在 Linux 上确认；测试服务器上的节点 `cherry-linux-3` 仍是旧版 judge，尚未升级。
   `judge-node` 与 `e2e-live` 的 Playwright 对真实栈运行归第 8 步。
+
+## 进度与验证（第 8 步：全链路验证，2026-10-07）
+
+- **整仓检查（本机）：** Go `gofmt`、`go vet`、`go test -race -p=1 ./...` 20 个包全部通过；五个 Java 服务完整测试通过；`npm run check` 与 Playwright 61 个通过（1 个需真实栈，见下）；
+  文档检查、契约测试、`deploy/sandbox-linux` 的 Python 单测通过。
+- **真实栈：** `scripts/work-002-e2e.py` 在隔离栈上整条链路通过（两次，含 `--keep`）。用 `--keep` 保留的栈跑 `apps/web/e2e/judge-node.spec.ts`：
+  真实 judge 容器停止后工作台出现“没有在线判题节点”并禁用校准，容器恢复后提示消失——**通过**。
+- **没有做：** (1) 测试服务器 `cherry-linux-3`（43.139.124.239）上的原生节点仍是旧版 judge。安装器明确"拒绝覆盖已有安装"，部署清单绑定 judge 二进制摘要，
+  换版本需要卸载后用新发布清单重装，属于系统级变更，而 `AGENTS.local.md` 的授权写的是"登记与只读探测，其余遵循工作项审核"，所以没有擅自动它，只做了只读探测
+  （服务运行中，`/version` 正常）。(2) `deploy/sandbox-linux/ci/business*`（原生 judge + 真实业务链路）按其 README 只能在一次性独占的 Linux/amd64 VM 上运行，不在已有服务的服务器上跑，
+  所以没有运行。(3) `apps/web/e2e-live` 依赖上一项产生的 `live-context.json`，同样没有运行。
+- **Mac 上的 judge 用 devhost 后端**（无真实内核隔离）：协议读取、摘要校验、HTTP/本地路径两种地址都已实测，但"原生 systemd 单元（ProtectSystem=strict、PrivateTmp）下读取测试数据根目录"
+  这一点只有在 Linux 上重装节点后才能验证；理论上只要根目录不在 `/tmp`、`/home`、`/root` 下就可读。
