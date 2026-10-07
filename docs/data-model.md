@@ -1,6 +1,6 @@
 # cherry-oj 微服务数据模型
 
-> 状态：MVP 目标设计，contracts v2 已对齐，2026-08-20
+> 状态：MVP 目标设计，contracts v2 已对齐；2026-10-07 起题目没有版本、测试数据按[协议](./testdata-protocol.md)交付
 > 产品需求真源：[`product.md`](./product.md)
 > 系统拓扑：[architecture.md](./architecture.md)
 > 后端技术基线：[backend.md](./backend.md)
@@ -16,14 +16,14 @@
 
 - 单工作空间；MVP 不建立 Workspace / Tenant。
 - 普通答题角色统一叫 `USER`，管理员叫 `ADMIN`。
-- 支持 `ACM | CORE`；CORE 使用题目版本语言级源码模板，不建立通用函数类型系统。
+- 支持 `ACM | CORE`；CORE 使用题目语言级源码模板，不建立通用函数类型系统。
 - C++ 优先。
-- Problem 与不可变 ProblemVersion 分离。
-- 限制按「题目版本 × 语言」保存绝对值；判题节点只带身份，不归并成「判题环境」。
+- 题目**没有版本**：题面、样例、语言、测试数据都直接属于 Problem，改了就是改了；只有 PRIVATE/PUBLIC 与 ACTIVE/ARCHIVED 两组状态。
+- 限制按「题目 × 语言」保存绝对值，并记录标定时的测试数据指纹；判题节点只带身份，不归并成「判题环境」。
 - 正式提交通过 Kafka 异步判题；web 轮询 Submission。
 - Kafka 至少一次投递；Outbox、Inbox、条件更新和租约负责幂等。
 - 每个服务独立 MySQL schema；不跨库 JOIN，不共享 Mapper，不建立跨服务数据库外键。
-- 大测试数据不进数据库或 Kafka；源码不进 Kafka。
+- 大测试数据不进数据库或 Kafka（数据库只存目录地址）；源码不进 Kafka。
 - Agent 不属于 MVP。
 
 命名约定：
@@ -42,17 +42,15 @@ user-service
   └─ User / 用户安全审计
 
 problem-service
-  ├─ Problem ──current──► ProblemVersion
-  │                         ├─ ProblemSample[]
-  │                         ├─ ProblemVersionLanguage[]
-  │                         └─ TestDataVersion
-  └─ 题目发布审计
+  ├─ Problem ──► ProblemSample[]
+  │            ├─ ProblemLanguage[]
+  │            └─ test_data_location（协议目录的地址；指纹等在目录里的 testdata.json）
+  └─ 题目审计
 
 judging-service
   ├─ JudgeNode ──► JudgeNodeSession[]
-  ├─ TestDataVersion(ref) + JudgeNode ──► TestDataNodeDeployment
-  ├─ ProblemVersion(ref) + Language ──► LanguageCalibration
-  └─ JudgeTask ──► JudgeAttempt[]
+  ├─ Problem(ref) + Language ──► LanguageCalibration（带 testDataDigest）
+  └─ JudgeTask ──► JudgeAttempt[]（带实际读取的 testDataDigest）
 
 submission-service
   ├─ Submission ──1:1──► JudgeInput
@@ -66,9 +64,9 @@ submission-service
 | 事实 | 唯一写入服务 | 其它服务如何读取 |
 |---|---|---|
 | 用户、密码、角色、账号状态 | user-service | 内部 JWT / 受权用户接口 |
-| 题目、版本、样例、CORE 模板 | problem-service | ProblemJudgeSnapshot HTTP |
-| 测试数据版本元信息与内容 hash | problem-service | 快照 / 管理内部 API |
-| 判题节点、数据部署、语言标定 | judging-service | ExecutionProfile HTTP |
+| 题目、样例、CORE 模板 | problem-service | ProblemJudgeSnapshot HTTP |
+| 测试数据（协议目录）与它的地址 | problem-service | 内部 `GET /internal/judging/problems/{id}/test-data`（地址、指纹、测试点数） |
+| 判题节点、语言标定 | judging-service | ExecutionProfile HTTP |
 | 用户原始源码与 Submission 状态 | submission-service | Gateway API；内部 JudgeInput API |
 | 完整送判源码与限制快照 | submission-service | judging-service 内部拉取 |
 | 调度、租约、尝试与重试 | judging-service | 管理 API / 生命周期事件 |
@@ -78,19 +76,19 @@ submission-service
 
 ---
 
-## 2. 版本、快照与删除规则
+## 2. 题目没有版本：快照与删除规则
 
-### 2.1 ProblemVersion 是内容快照
+### 2.1 题目就是它此刻的样子
 
 ```text
-Problem p-a-plus-b
-  ├─ pv-1 (PUBLISHED)
-  ├─ pv-2 (DRAFT)
-  └─ currentPublishedVersionId = pv-1
+Problem p-a-plus-b  （PUBLIC / ACTIVE）
+  ├─ 题面、样例、语言、模板
+  └─ test_data_location → <root>/p-a-plus-b → .store/p-a-plus-b-<digest 前缀>/
 ```
 
-发布后冻结：题面、codeMode、样例、checker、testDataVersionId、允许语言、starterCode 和 judgeTemplate。
-修改任一项都创建新版本。服务器迁移或重新标定只新增 judging-service 数据，不复制 ProblemVersion。
+管理员改了题目，改动立即生效；公开题目不能被改成空题面或没有样例。测试数据上传即整体替换：判题时读到的是此刻
+地址下的那份数据，判题结果记录它读取的数据指纹（`testDataDigest`），用于追溯「这次拿哪份数据判的」。
+标定绑定数据指纹：数据换了，旧标定过期，新提交被挡住，直到按新数据重新标定。
 
 ### 2.2 Submission 与 JudgeInput
 
@@ -99,24 +97,24 @@ Submission 是用户可见事实，JudgeInput 是内部执行事实：
 ```text
 Submission
   ├─ 用户原始 source
-  ├─ 历史题目/版本标识
+  ├─ 题目标识与提交时的标题快照
   └─ PENDING / JUDGING / DONE + result
 
 JudgeInput
   ├─ 完整 completeSource（CORE 已合并）
-  ├─ problemVersionId / testDataVersionId
+  ├─ problemId / languageId（不含测试数据地址：判题时才向 problem-service 取）
   ├─ languageCalibrationId / effectiveLimits
   └─ 创建后永久不可修改
 ```
 
-JudgeInput 与 Submission 在同一个 submission-service 本地事务创建。发布新题目版本或替换标定
+JudgeInput 与 Submission 在同一个 submission-service 本地事务创建。修改题目、替换测试数据或重新标定
 都不会改变已有 JudgeInput。
 
 ### 2.3 删除规则
 
-- 未发布且未被引用的草稿可以删除。
-- 已发布 ProblemVersion、READY TestDataVersion、被 JudgeInput 引用的 LanguageCalibration
-  均不得物理删除，只能归档、停用或替代。
+- 从未公开过的题目（`published_at` 为空）可以删除：它不可能有提交；题面、样例、语言、审计事件和测试数据目录一并删除。
+- 公开过的题目只能归档，不得物理删除。
+- 被 JudgeInput 引用的 LanguageCalibration 不得物理删除，只能被新的标定替代（SUPERSEDED）。
 - Submission、JudgeInput、JudgeTask、JudgeAttempt 和审计事件默认不级联删除。
 - 跨服务删除不依赖数据库 cascade；将来实现用户数据删除时单独设计保留与匿名化流程。
 
@@ -165,28 +163,8 @@ user_audit_event
 | `slug` | 是 | 全局唯一短名 |
 | `visibility` | 是 | `PRIVATE | PUBLIC` |
 | `status` | 是 | `ACTIVE | ARCHIVED` |
-| `currentPublishedVersionId` | 否 | 当前发布版本；本库外键 |
-| `createdBy` | 是 | user-service 的 userId，仅作外部引用 |
-| `createdAt` | 是 | 创建时间 |
-| `updatedAt` | 是 | 容器属性更新时间 |
-| `rowVersion` | 是 | 乐观锁 |
-
-不变量：
-
-- currentPublishedVersionId 必须属于同一 Problem，且状态为 PUBLISHED。
-- PUBLIC Problem 必须存在当前发布版本。
-- 归档不删除历史版本；当前版本指针切走后旧版本才能归档。
-
-### 4.2 ProblemVersion
-
-| 字段 | 必填 | 含义 |
-|---|---:|---|
-| `id` | 是 | 版本 UUIDv7 |
-| `problemId` | 是 | 本库外键 |
-| `versionNo` | 是 | 题内递增，从 1 开始 |
-| `status` | 是 | `DRAFT | VALIDATING | READY_FOR_REVIEW | PUBLISHED | ARCHIVED` |
 | `codeMode` | 是 | `ACM | CORE` |
-| `title` | 是 | 历史标题 |
+| `title` | 是 | 标题 |
 | `statementMarkdown` | 是 | 题面 |
 | `inputDescriptionMarkdown` | 是 | 输入说明 |
 | `outputDescriptionMarkdown` | 是 | 输出说明 |
@@ -195,64 +173,54 @@ user_audit_event
 | `difficulty` | 是 | `UNRATED | EASY | MEDIUM | HARD` |
 | `tags` | 是 | JSON 字符串数组 |
 | `checkerType` | 是 | MVP 固定 DEFAULT |
-| `testDataVersionId` | 否 | 本库 TestDataVersion；审核前必填 |
-| `changeSummary` | 否 | 版本说明 |
-| `createdBy` | 是 | 外部 userId |
-| `publishedBy` | 否 | 外部 userId |
-| `createdAt` | 是 | 创建时间 |
-| `updatedAt` | 是 | 草稿修改时间 |
-| `publishedAt` | 否 | 发布时间 |
-| `rowVersion` | 是 | 乐观锁 |
+| `testDataLocation` | 否 | 测试数据目录的地址（本地路径或 http(s)）；公开前必填。指纹、测试点数、清单都在地址下的 `testdata.json` |
+| `testDataUpdatedAt` | 否 | 最近一次替换测试数据的时间，与地址同有同无 |
+| `createdBy` | 是 | user-service 的 userId，仅作外部引用 |
+| `publishedAt` | 否 | **首次**公开的时间；为空表示从未公开过（只有这样的题目允许删除） |
+| `createdAt` / `updatedAt` | 是 | 创建与最近修改时间 |
+| `rowVersion` | 是 | 乐观锁（与「题目版本」无关；测试数据上传不递增它） |
 
-`(problemId, versionNo)` 唯一。PUBLISHED 后业务字段与所有子记录不可修改。
+不变量：
 
-### 4.3 ProblemSample
+- PUBLIC Problem 必须有测试数据地址和 `publishedAt`（数据库约束）。
+- 公开题目的修改立即生效，但不能被改成空题面或没有样例。
+- 归档后只读。
+
+### 4.2 ProblemSample
 
 | 字段 | 必填 | 含义 |
 |---|---:|---|
 | `id` | 是 | UUIDv7 |
-| `problemVersionId` | 是 | 本库外键 |
+| `problemId` | 是 | 本库外键 |
 | `ordinal` | 是 | 从 1 开始的展示顺序 |
 | `inputText` | 是 | stdin 文本 |
 | `expectedOutputText` | 是 | 期望 stdout |
 | `explanationMarkdown` | 否 | 样例解释 |
 
-`(problemVersionId, ordinal)` 唯一。ACM 与 CORE 都使用文本 stdin/stdout。
+`(problemId, ordinal)` 唯一。ACM 与 CORE 都使用文本 stdin/stdout。
 
-### 4.4 ProblemVersionLanguage
+### 4.3 ProblemLanguage
 
 | 字段 | 必填 | 含义 |
 |---|---:|---|
-| `problemVersionId` | 是 | 本库外键 |
+| `problemId` | 是 | 本库外键 |
 | `languageId` | 是 | 稳定 token，例如 cpp |
 | `displayOrder` | 是 | 前端顺序 |
 | `starterCode` | 是 | 用户编辑器起始内容 |
 | `judgeTemplate` | 条件 | CORE 必填；ACM 必须为空 |
 
-`(problemVersionId, languageId)` 唯一。
+`(problemId, languageId)` 唯一。
 
 CORE judgeTemplate 必须包含且只包含一个字面量 `{{USER_CODE}}`。平台不解析函数签名、参数和返回值；
-模板负责 include/import、输入解析、函数调用和 stdout 输出。starterCode 与模板发布后一起冻结。
+模板负责 include/import、输入解析、函数调用和 stdout 输出。
 
-### 4.5 TestDataVersion
+### 4.4 测试数据
 
-| 字段 | 必填 | 含义 |
-|---|---:|---|
-| `id` | 是 | UUIDv7，也是 judge 测例目录名 |
-| `problemId` | 是 | 本库外键；允许同题版本复用 |
-| `status` | 是 | `UPLOADING | READY | FAILED` |
-| `sourceType` | 是 | MVP `MANUAL_UPLOAD`；后续 GENERATED |
-| `storageRef` | 是 | 长期资产私有引用 |
-| `contentSha256` | 否 | READY 后必填 |
-| `caseCount` | 否 | READY 后必填 |
-| `totalBytes` | 否 | READY 后必填 |
-| `manifest` | 否 | READY 后必填的受 schema 约束 JSON |
-| `createdBy` | 是 | 外部 userId |
-| `createdAt` | 是 | 创建时间 |
-| `readyAt` | 否 | 封存时间 |
-| `errorMessage` | 否 | 失败摘要 |
-
-manifest 至少记录每个 `.in/.out` 的 name、bytes 和 sha256。READY 后内容不可覆盖；新数据生成新 id。
+没有单独的表：一道题只有一份测试数据，就是 `Problem.testDataLocation` 指向的目录。目录格式由
+[测试数据协议](./testdata-protocol.md)规定：`testdata.json`（`schemaVersion`、`caseCount`、`totalBytes`、`digest`、
+`cases[]`）加成对的 `<name>.in/.out`。problem-service 把上传的 ZIP 校验后写成内容寻址的真实目录
+`<root>/.store/<problemId>-<digest 前 16 位>/`，再把相对符号链接 `<root>/<problemId>` 原子切换过去；
+只保留当前与上一代目录。数据库不抄指纹、测试点数或清单，避免两处不一致。
 
 ### 4.6 ProblemJudgeSnapshot
 
@@ -261,40 +229,34 @@ manifest 至少记录每个 `.in/.out` 的 name、bytes 和 sha256。READY 后�
 ```text
 ProblemJudgeSnapshot {
   problemId,
-  problemVersionId,
-  problemVersionNo,
   problemTitle,
-  testDataVersionId,
-  testDataContentSha256,
   languageId,
   codeMode,
   judgeTemplate?       // CORE 必填；内部接口字段
 }
 ```
 
-解析条件：Problem ACTIVE/PUBLIC、当前版本 PUBLISHED、语言已允许、测试数据 READY。这个响应只引用
-不可变记录；返回后即使 currentPublishedVersionId 改变，响应内容仍有稳定含义。
+解析条件：Problem ACTIVE/PUBLIC、语言已允许、测试数据此刻可读。响应不含测试数据地址（地址由 judging-service
+判题时向 problem-service 取最新的值）。
 
-### 4.7 发布流程与跨服务检查
+### 4.7 公开流程与跨服务检查
 
-problem-service 在发布前完成本库检查，并调用 judging-service 的只读 readiness API：
+problem-service 在公开前完成本库检查，并调用 judging-service 的只读 readiness API：
 
-1. 校验题面、样例、测试数据、语言和模板。
-2. CORE 用参考核心代码替换模板，调用 judging-service trial/validation 证明可编译并通过样例。
-3. 以明确 `problemVersionId + testDataVersionId + languageId + contentSha256` 检查在线节点的数据部署和
-   标定是否齐全。
-4. 检查成功后，仅在 problem-service 本地事务写 PUBLISHED、更新当前指针和审计事件。
+1. 校验题面、样例、语言、模板和测试数据（`CONTENT / SAMPLES / LANGUAGE / TEST_DATA`）。
+2. 以 `problemId + languageId + testDataDigest` 检查在线节点和标定是否齐全且标定对应当前数据
+   （`ONLINE_JUDGE_NODE / CALIBRATION`）。
+3. 检查成功后，仅在 problem-service 本地事务写 PUBLIC、首次公开时间和审计事件；若检查之后测试数据被替换，拒绝公开。
 
-没有跨服务事务。readiness 是发布前置证据，最终创建 Submission 时仍会重新解析 ExecutionProfile。
+没有跨服务事务。readiness 是公开前置证据，最终创建 Submission 时仍会重新解析 ExecutionProfile。取消公开把题目变回
+PRIVATE，已有提交保留。
 
 ### 4.8 problem-service 表
 
 ```text
 problem
-problem_version
 problem_sample
-problem_version_language
-test_data_version
+problem_language
 problem_audit_event
 ```
 
@@ -317,28 +279,14 @@ problem_audit_event
 
 已接受过的会话记在 `judge_node_session`，已被接替的旧会话不能再夺回 nodeId。
 
-### 5.2 TestDataNodeDeployment
-
-| 字段 | 必填 | 含义 |
-|---|---:|---|
-| `testDataVersionId` | 是 | problem-service 外部引用 |
-| `nodeId` | 是 | 本库外键 |
-| `expectedSha256` | 是 | 部署时的内容 hash；同一节点同一版本不能换摘要 |
-| `sessionId` | 是 | 安装时节点的会话 |
-| `fileCount` | 是 | 节点回执中的文件数 |
-| `available` | 是 | 当前会话是否可用 |
-| `deployedAt` | 是 | 最近一次确认时间 |
-
-`(testDataVersionId, nodeId)` 唯一。它只是一张回执，不保存测例内容。节点换会话后回执保留但不可用，
-再次部署时节点幂等核对本地文件即可恢复。
-
-### 5.3 LanguageCalibration
+### 5.2 LanguageCalibration
 
 | 字段 | 必填 | 含义 |
 |---|---:|---|
 | `id` | 是 | UUIDv7 |
-| `problemVersionId` | 是 | problem-service 外部引用 |
+| `problemId` | 是 | problem-service 外部引用 |
 | `languageId` | 是 | 如 cpp |
+| `testDataDigest` | 是 | 标定时所用测试数据的指纹；与题目当前指纹不同即已过期 |
 | `status` | 是 | `DRAFT | RUNNING | VALID | FAILED | SUPERSEDED` |
 | `sourceType` | 是 | `MANUAL | BENCHMARK` |
 | `cpuNs` | 条件 | VALID 时正整数 |
@@ -350,32 +298,33 @@ problem_audit_event
 | `createdAt` | 是 | 创建时间 |
 | `supersedesId` | 否 | 本库旧标定 |
 
-同一 `(problemVersionId, languageId)` 同时最多一个当前 VALID。标定不绑定机器；重新标定产生新的 VALID
-记录并把旧记录转为 SUPERSEDED，已冻结进 JudgeInput 的限制不受影响。
+同一 `(problemId, languageId)` 同时最多一个当前 VALID。标定不绑定机器，但绑定数据指纹；重新标定产生新的 VALID
+记录并把旧记录转为 SUPERSEDED，已冻结进 JudgeInput 的限制不受影响。标定请求带 problem-service 给出的地址与指纹，
+判题结果里的指纹与之不一致说明标定中途数据被替换，这次标定作废。
 
-### 5.4 可用节点
+### 5.3 可用节点
 
-标定、自测和正式判题都路由给「可用节点」：租约未过期、声明了该语言、且本会话已按摘要安装这份
-测试数据。任务不绑定某台机器，派发时再选节点。
+标定、自测和正式判题都路由给「可用节点」：租约未过期、声明了该语言。节点不持有数据，按请求里的地址自己读取。
+任务不绑定某台机器，派发时再选节点。
 
-### 5.5 ExecutionProfile
+### 5.4 ExecutionProfile
 
 judging-service 向 submission-service 返回的只读 DTO：
 
 ```text
 ExecutionProfile {
-  problemVersionId,
-  testDataVersionId,
+  problemId,
   languageId,
   languageCalibrationId,
-  effectiveLimits { cpuNs, memoryBytes, clockNs? }
+  effectiveLimits { cpuNs, memoryBytes, clockNs? },
+  executionBudgetNs      // 按题目此刻的测试点数算出的传输预算
 }
 ```
 
-解析必须同时验证：存在支持该语言的可用节点且其回执 hash 与 problem snapshot 一致、标定 VALID。
-任何一项缺失都返回明确不可提交原因，不生成默认值。
+解析必须同时验证：存在支持该语言的在线节点、题目有可读的测试数据、该语言存在 VALID 标定且其数据指纹等于
+题目当前指纹。任何一项缺失都返回明确不可提交原因，不生成默认值。
 
-### 5.6 JudgeTask
+### 5.5 JudgeTask
 
 | 字段 | 必填 | 含义 |
 |---|---:|---|
@@ -395,7 +344,7 @@ ExecutionProfile {
 
 JudgeRequested 重复投递时依靠 Inbox.eventId 和 `judge_task(submission_id)` unique 去重。
 
-### 5.7 JudgeAttempt
+### 5.6 JudgeAttempt
 
 | 字段 | 必填 | 含义 |
 |---|---:|---|
@@ -404,6 +353,7 @@ JudgeRequested 重复投递时依靠 Inbox.eventId 和 `judge_task(submission_id
 | `attemptNo` | 是 | 题内递增 |
 | `leaseToken` | 是 | 本次 fencing token |
 | `nodeId` | 否 | 实际派发的节点 |
+| `testDataDigest` | 否 | 这次判题实际读取的测试数据指纹（judge 随结果返回） |
 | `startedAt` | 是 | 开始时间 |
 | `finishedAt` | 否 | 结束时间 |
 | `outcome` | 否 | `COMPLETED | RETRYABLE_FAILURE | TERMINAL_FAILURE | STALE` |
@@ -414,18 +364,16 @@ JudgeRequested 重复投递时依靠 Inbox.eventId 和 `judge_task(submission_id
 `(taskId, attemptNo)` 唯一。只有 task 当前 leaseToken 与本 attempt 一致时才能把结果落为有效；迟到
 Worker 记录 STALE 或直接丢弃，不能发布完成事件。
 
-### 5.8 judging-service 表
+### 5.7 judging-service 表
 
-节点、数据可用性与标定互相独立：`judge_node` 以稳定 nodeId 记录节点身份、语言与租约，已接受会话
-由 `judge_node_session` 留存，拒绝旧进程抢回身份；`test_data_node_deployment` 保存版本、节点、摘要与
-进程 sessionId；`language_calibration` 按题目版本 × 语言保存绝对限制。
+节点与标定互相独立：`judge_node` 以稳定 nodeId 记录节点身份、语言与租约，已接受会话由 `judge_node_session` 留存，
+拒绝旧进程抢回身份；`language_calibration` 按题目 × 语言保存绝对限制与数据指纹。
 
 
 ```text
 judge_node_registry_lock
 judge_node
 judge_node_session
-test_data_node_deployment
 language_calibration
 judge_task
 judge_attempt
@@ -445,10 +393,7 @@ judging_audit_event
 | `id` | 是 | UUIDv7 |
 | `userId` | 是 | user-service 外部引用 |
 | `problemId` | 是 | problem-service 外部引用 |
-| `problemVersionId` | 是 | 不可变版本外部引用 |
-| `problemVersionNo` | 是 | 展示快照 |
 | `problemTitle` | 是 | 展示快照，避免历史页面显示新标题 |
-| `testDataVersionId` | 是 | 实际数据版本 |
 | `languageId` | 是 | 如 cpp |
 | `codeMode` | 是 | `ACM | CORE` 快照 |
 | `languageCalibrationId` | 是 | judging-service 外部引用 |
@@ -474,9 +419,7 @@ JudgeInput 与 Submission 一对一，只能由 submission-service 内部读取�
 |---|---:|---|
 | `submissionId` | 是 | 主键、本库外键 |
 | `contractVersion` | 是 | JudgeRequest 契约版本 |
-| `problemId` | 是 | 日志与对账 |
-| `problemVersionId` | 是 | 日志与对账 |
-| `testDataVersionId` | 是 | judge 正式测例定位键 |
+| `problemId` | 是 | 日志与对账；判题时凭它向 problem-service 取测试数据地址 |
 | `languageId` | 是 | language registry token |
 | `completeSource` | 是 | ACM 原源码；CORE 已合并完整源码 |
 | `sourceSha256` | 是 | completeSource 完整性摘要 |
@@ -627,7 +570,7 @@ CreateSubmissionRequest { problemId, languageId, source }
 1. Gateway 验证 Session；submission-service 从已验证 JWT 取得 userId。
 2. 校验 Idempotency-Key 和 source 大小。
 3. HTTP 调 problem-service 获取 ProblemJudgeSnapshot。
-4. HTTP 调 judging-service，使用明确版本、数据、语言和内容 hash 解析 ExecutionProfile。
+4. HTTP 调 judging-service，按题目和语言解析 ExecutionProfile。
 5. ACM 令 completeSource=source；CORE 校验模板唯一占位符并做一次非递归字面量替换。
 6. 校验 completeSource 大小并计算 sha256。
 7. 本地事务插入 Submission、JudgeInput、SubmissionRequest 和 JudgeRequested Outbox。
@@ -641,9 +584,10 @@ CreateSubmissionRequest { problemId, languageId, source }
 2. Worker 通过条件更新领取 leaseToken，提交事务后执行外部调用。
 3. 发布 JudgeStarted。
 4. 使用服务身份从 submission-service 拉取 JudgeInput；校验 source sha256。
-5. 选一个可用节点（在线、支持该语言、本会话持有这份数据），构造 JudgeRequest；没有可用节点按可重试故障处理。
-6. Go judge 按 testDataVersionId 加载数据并按冻结的限制返回 JudgeResult。
-7. 当前 leaseToken 匹配时保存 Attempt 并发布 JudgeCompleted；可重试故障进入 RETRY_WAITING。
+5. 向 problem-service 取题目此刻的测试数据地址与指纹（取不到按可重试故障处理），按当前测试点数重算执行预算；
+   选一个可用节点（在线、支持该语言），构造带 `testDataLocation` 的 JudgeRequest；没有可用节点按可重试故障处理。
+6. Go judge 按地址读取数据并按冻结的限制返回 JudgeResult（含实际读取的数据指纹）。
+7. 当前 leaseToken 匹配时保存 Attempt（含数据指纹）并发布 JudgeCompleted；可重试故障进入 RETRY_WAITING。
 8. 重试耗尽或不可重试错误进入 DEAD 并发布 JudgeFailed。
 
 ### 8.3 自定义测试
@@ -658,18 +602,22 @@ submission-service 复用 ProblemJudgeSnapshot、ExecutionProfile 和 CORE 合�
 judging-service trial API。judging-service 使用独立限流调用 Go judge `mode=trial`，返回 stdout/stderr、
 资源用量和运行状态。结果不影响通过状态。
 
-### 8.4 发布题目版本
+### 8.4 公开题目
 
-1. problem-service 锁定 READY_FOR_REVIEW 草稿。
-2. 完成本库字段、样例、语言、模板和 TestDataVersion READY 检查。
-3. 调 judging-service 验证模板/参考代码和 readiness（在线节点、数据部署、有效标定）。
-4. 本地事务写 PUBLISHED、更新 Problem.currentPublishedVersionId、追加审计。
+1. problem-service 做本库检查（内容、样例、语言、模板、测试数据）。
+2. 调 judging-service 验证 readiness（在线节点、语言、对应当前数据指纹的有效标定）。
+3. 本地事务写 PUBLIC、首次公开时间、追加审计；检查之后数据被替换则拒绝。
 
-### 8.5 更换或升级判题节点
+### 8.5 更换测试数据
 
-新节点以自己的 nodeId 注册后即可参与路由，不需要环境切换。它上线后要为已发布版本重新部署测试数据
-（节点幂等核对本地文件）；标定不绑定机器，只有性能差异需要重新标定时，才对题目版本重做一次标定。
-已有 JudgeInput 冻结的限制不受影响。
+管理员上传 ZIP：problem-service 校验后写成新的协议目录并原子切换地址，立即生效。旧标定因指纹不同而过期，
+新提交被挡住（`JUDGING_NOT_READY`）直到重新标定；已冻结的 JudgeInput 不变，进行中的判题读到的是完整的旧数据或新数据，
+不会读到半份。
+
+### 8.6 更换或升级判题节点
+
+新节点以自己的 nodeId 注册后即可参与路由，不需要环境切换，也不需要交付任何数据（它按地址自己读）。标定不绑定机器，
+只有性能差异需要重新标定时，才对题目重做一次标定。已有 JudgeInput 冻结的限制不受影响。
 
 ---
 
@@ -681,8 +629,7 @@ judging-service trial API。judging-service 使用独立限流调用 Go judge `m
 JudgeRequest {
   submissionId,
   problemId,             // 日志/对账
-  problemVersionId,      // 日志/对账
-  testDataVersionId,     // 正式测例目录
+  testDataLocation,      // 正式测例目录的地址（submit 必填，trial 不用）
   languageId,
   source,                // 始终为完整源码
   limits { cpuNs, memoryBytes, clockNs? },
@@ -692,9 +639,9 @@ JudgeRequest {
 ```
 
 Go judge 不知道：userId、codeMode、judgeTemplate、LanguageCalibration、Submission 状态、Kafka 或 Java
-数据库。它只按请求执行。
+数据库。它只按请求执行；JudgeResult 带回 `testDataDigest`（这次读取的数据指纹）。
 
-执行层（judge 进程内）与 sandbox 执行器不需要因微服务、题目版本或 CORE 改变。
+执行层（judge 进程内）与 sandbox 执行器不需要因微服务、测试数据交付方式或 CORE 改变。
 
 ---
 
@@ -705,7 +652,7 @@ Go judge 不知道：userId、codeMode、judgeTemplate、LanguageCalibration、S
 problem-service 返回题目事实：
 
 ```text
-problemId, slug, currentVersionId, versionNo,
+problemId, slug,
 title, difficulty, tags, codeMode, allowedLanguages
 ```
 
@@ -715,14 +662,14 @@ title, difficulty, tags, codeMode, allowedLanguages
 ### 10.2 ProblemDetail
 
 ```text
-problemId, problemVersionId, versionNo, codeMode,
+problemId, slug, codeMode,
 title, statementMarkdown,
 inputDescriptionMarkdown, outputDescriptionMarkdown,
 constraintsMarkdown?, hintMarkdown?, samples[],
 allowedLanguages[] { languageId, starterCode }
 ```
 
-judgeTemplate、TestDataVersion 内部标识、manifest、标定和隐藏数据不返回普通用户。
+judgeTemplate、测试数据地址与指纹、manifest、标定和隐藏数据不返回普通用户。
 
 ### 10.3 SubmissionDetail
 
@@ -730,23 +677,23 @@ submission-service 可独立返回：
 
 ```text
 id, userId,
-problemId, problemVersionId, problemVersionNo, problemTitle,
+problemId, problemTitle,
 languageId, codeMode,
 status, verdict?, cpuNs?, memoryBytes?, score?, message?, caseResults?,
 createdAt, startedAt?, finishedAt?
 ```
 
-因为标题和版本号已在创建时快照，查询不需要跨服务 JOIN。用户默认只能读取自己的 source。
+因为标题已在创建时快照，查询不需要跨服务 JOIN。用户默认只能读取自己的 source。
 
 ### 10.4 管理读模型
 
 管理页面可以由 Gateway/BFF 组合：
 
-- problem-service：版本、语言、模板、TestDataVersion。
-- judging-service：节点、部署、标定、任务和 Attempt。
+- problem-service：题目、语言、模板、测试数据摘要。
+- judging-service：节点、标定、任务和 Attempt。
 - submission-service：结果与失败分布。
 
-组合查询不是跨服务写事务；各响应必须保留 source service 和版本语义。
+组合查询不是跨服务写事务；各响应必须保留 source service。
 
 ---
 
@@ -763,17 +710,16 @@ user_audit_event(actor_user_id, created_at) index
 
 ```text
 problem(slug) unique
-problem_version(problem_id, version_no) unique
-problem_sample(problem_version_id, ordinal) unique
-problem_version_language(problem_version_id, language_id) unique
-test_data_version(problem_id, created_at) index
+problem(visibility, status, updated_at, id) index
+problem_sample(problem_id, ordinal) unique
+problem_language(problem_id, language_id) unique
 ```
 
 ### submission-service schema
 
 ```text
 submission(user_id, created_at) index
-submission(problem_version_id, created_at) index
+submission(problem_id, created_at) index
 submission(status, created_at) index
 judge_input(submission_id) primary key
 submission_request(user_id, idempotency_key) unique
@@ -786,8 +732,7 @@ inbox_event(event_id) unique
 ```text
 judge_node(node_id) primary key
 judge_node_session(node_id, session_id) primary key
-test_data_node_deployment(test_data_version_id, node_id) primary key
-同一 problemVersion/language 最多一个当前 VALID calibration
+同一 problem/language 最多一个当前 VALID calibration
 judge_task(submission_id) unique
 judge_task(status, next_attempt_at, lease_until) index
 judge_attempt(task_id, attempt_no) unique
@@ -805,28 +750,27 @@ inbox_event(event_id) unique
 
 ```text
 problem-service:
-  pv-1(codeMode=ACM, testDataVersionId=td-1)
-  pv-1/cpp(starterCode 含 main, judgeTemplate=null)
+  p-1(codeMode=ACM, testDataLocation=<root>/p-1)
+  p-1/cpp(starterCode 含 main, judgeTemplate=null)
 
 judging-service:
-  td-1 + env-1 → deployment READY
-  pv-1 + cpp + env-1 → cal-1 VALID(1s, 256MB)
+  p-1 + cpp → cal-1 VALID(1s, 256MB, testDataDigest=d-1)
 
 submission-service:
   source = 完整 C++
   completeSource = source
   Submission + JudgeInput + JudgeRequested
 
-judging-service → Go judge:
-  source=完整 C++，testDataVersionId=td-1
+judging-service → Go judge（判题时才向 problem-service 取地址）:
+  source=完整 C++，testDataLocation=<root>/p-1
 ```
 
 ### 12.2 CORE A+B
 
 ```text
 problem-service:
-  pv-core-1(codeMode=CORE, testDataVersionId=td-core-1)
-  pv-core-1/cpp:
+  p-core-1(codeMode=CORE, testDataLocation=<root>/p-core-1)
+  p-core-1/cpp:
     starterCode = "int add(int a, int b) { ... }"
     judgeTemplate = "#include ... {{USER_CODE}} ... int main(){...}"
 
@@ -841,8 +785,7 @@ judging-service → Go judge:
   与 ACM 完全相同的完整源码 + 文本 .in/.out
 ```
 
-模板发布后不可修改；旧 Submission 通过 problemVersionId + languageId 追溯模板，同时 JudgeInput 已保留
-实际完整源码，因此不会被新模板重新解释。
+模板修改立即对新提交生效；旧 Submission 的 JudgeInput 已保留实际完整源码，因此不会被新模板重新解释。
 
 ---
 
@@ -858,7 +801,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 `contracts/submission.json`：
 
-- 新增 problemVersionId、testDataVersionId、languageCalibrationId。
+- 新增 languageCalibrationId。题目没有版本，不含 problemVersionId 或 testDataVersionId。
 - 新增 codeMode、effectiveLimits。
 - language 统一为 languageId。
 - time/memory 统一为 cpuNs/memoryBytes。
@@ -867,8 +810,8 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 `contracts/judge.schema.json`：
 
-- submit 使用 testDataVersionId 定位目录；problemId 只作日志。
-- 新增 problemVersionId。
+- submit 使用 testDataLocation 定位测试数据目录（协议见 testdata-protocol.md）；problemId 只作日志。
+- JudgeResult 新增可选 testDataDigest。
 - source 对 ACM/CORE 都是完整源码。
 - time/memory 迁移到 cpuNs/memoryBytes。
 
@@ -878,13 +821,14 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 - `execution-profile.schema.json`
 - `judge-events.schema.json`
 - `judge-input.schema.json`（submission-service 内部读取）
+- `problem-test-data.schema.json`（problem-service → judging-service：测试数据的地址、指纹、测试点数）
 
 事件 schema 通过封闭 payload 字段、诊断长度/结果数量约束和 1 MiB 总消息语义明确禁止源码与隐藏数据；
 总序列化字节上限由 producer 和 broker 执行。
 
 ### 13.3 不变化
 
-- 执行层的 `RunSpec`（`internal/contract`）不知道题目版本或 CORE。
+- 执行层的 `RunSpec`（`internal/contract`）不知道题目或 CORE。
 - `contracts/verdict.json` 保持 verdict 集合真源。
 - 执行层 Status 与 judge Verdict 继续分离。
 
@@ -909,9 +853,9 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 - [ ] 每个核心实体只有一个写入服务。
 - [ ] role 枚举严格使用 USER/ADMIN。
-- [ ] ProblemVersion 发布后内容、语言和 CORE 模板不可修改。
-- [ ] ProblemJudgeSnapshot 只返回已发布不可变版本。
-- [ ] ExecutionProfile 同时验证在线节点、部署、hash 和有效标定。
+- [ ] 公开题目的修改立即生效，但不能被改成空题面或没有样例；只有从未公开过的题目可以删除。
+- [ ] ProblemJudgeSnapshot 只在题目公开且测试数据可读时返回，不含测试数据地址。
+- [ ] ExecutionProfile 同时验证在线节点、可读测试数据和对应当前数据指纹的有效标定。
 - [ ] 创建提交失败时不留下半条 Submission。
 - [ ] Submission、JudgeInput、幂等记录和 JudgeRequested Outbox 同事务创建。
 - [ ] CORE 只替换唯一占位符，完整源码冻结在 JudgeInput。
@@ -919,7 +863,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 - [ ] 重复 JudgeRequested 只产生一个 JudgeTask。
 - [ ] 租约过期 Worker 的迟到结果不能覆盖当前结果。
 - [ ] Submission DONE 不回退，最终基础设施失败映射为 DONE + SE。
-- [x] judge 按 testDataVersionId 加载数据。
+- [x] judge 按 testDataLocation 读取数据，结果带回数据指纹。
 - [ ] 重新标定不修改旧 JudgeInput，旧任务仍按冻结的限制判题。
 - [ ] 普通用户 API 不返回 judgeTemplate、隐藏数据或完整标准答案。
 - [x] contracts 先于 Go/Java/web 实现迁移。

@@ -110,12 +110,12 @@ class Business:
         save(self.report.output, 'node-registration.json', context)
         self.report.record([self.active], 'PASS', ['node-registration.json', 'native.log'])
         api = API(self.report.output)
-        self.active = 'business.deploy'
+        self.active = 'business.prepare'
         api.login(self.stack.credentials)
         prepared, base = api.prepare(self.owned.identity)
         context.update(prepared)
-        save(self.report.output, 'deployment.json', evidence.deployment(context))
-        self.report.record([self.active], 'PASS', ['deployment.json'])
+        save(self.report.output, 'test-data.json', evidence.test_data(context))
+        self.report.record([self.active], 'PASS', ['test-data.json'])
         self.active = 'business.calibrate'
         api.calibrate(base)
         api.make_public(context)
@@ -155,10 +155,10 @@ class Business:
             self.report.record([self.active], 'PASS', ['live.json', key + '-kafka.json'])
         self.report.record(['business.history'], 'PASS', ['live.json'])
         self.active = 'business.cleanup'
-        # Recheck online session and deployment; a restart must not hide OLE/empty leakage.
+        # Recheck online session and test data; a restart must not hide OLE/empty leakage.
         if evidence.identity(self.native.node)['sessionId'] != context['sessionId']:
             raise ValueError('node restarted during business cases')
-        evidence.deployment(context)
+        evidence.test_data(context)
         deadline = time.monotonic() + 5
         while any((remaining := idle()).values()) and time.monotonic() < deadline:
             time.sleep(.05)

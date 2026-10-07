@@ -44,29 +44,28 @@ class Evidence:
             time.sleep(.25)
         raise TimeoutError('fresh node registration did not arrive')
 
-    def deployment(self, context):
-        rows = self.rows('judging', "SELECT JSON_OBJECT('nodeId',d.node_id,'sha256',LOWER(HEX(d.expected_sha256)),"
-            "'fileCount',d.file_count,'available',d.available,'sessionId',BIN_TO_UUID(d.session_id),"
-            "'online',n.lease_expires_at>UTC_TIMESTAMP(6)) "
-            'FROM test_data_node_deployment d JOIN judge_node n ON n.node_id=d.node_id AND n.session_id=d.session_id '
-            f"WHERE test_data_version_id=UUID_TO_BIN('{uuid(context['testDataVersionId'])}') LIMIT 2")
+    def test_data(self, context):
+        """测试数据没有“部署回执”：只核对在线节点身份，以及校准记录的数据指纹就是上传时的指纹。"""
+        rows = self.rows('judging', "SELECT JSON_OBJECT('nodeId',n.node_id,'sessionId',BIN_TO_UUID(n.session_id),"
+            "'online',n.lease_expires_at>UTC_TIMESTAMP(6)) FROM judge_node n LIMIT 2")
         if len(rows) != 1:
-            raise ValueError('expected exactly one new deployment receipt')
+            raise ValueError('expected exactly one online node')
         row = rows[0]
-        expected = dict(nodeId=context['nodeId'], sha256=context['dataSha256'], fileCount=12, available=1,
-                        sessionId=context['sessionId'], online=1)
+        expected = dict(nodeId=context['nodeId'], sessionId=context['sessionId'], online=1)
         if row != expected:
-            raise ValueError('deployment receipt does not belong to the fresh node/data')
-        return row
+            raise ValueError('node identity changed')
+        return dict(row, testDataDigest=context['testDataDigest'])
 
     def calibration(self, context):
         rows = self.rows('judging', "SELECT JSON_OBJECT('id',BIN_TO_UUID(id),"
-            "'cpuNs',cpu_ns,'memoryBytes',memory_bytes,'clockNs',clock_ns,'sourceType',source_type,"
+            "'cpuNs',cpu_ns,'memoryBytes',memory_bytes,'clockNs',clock_ns,'sourceType',source_type,'testDataDigest',test_data_digest,"
             "'benchmark',benchmark_summary_json) FROM language_calibration WHERE status='VALID' AND language_id='cpp' "
-            f"AND problem_version_id=UUID_TO_BIN('{uuid(context['problemVersionId'])}') LIMIT 2")
+            f"AND problem_id=UUID_TO_BIN('{uuid(context['problemId'])}') LIMIT 2")
         if len(rows) != 1:
             raise ValueError('expected one fresh valid calibration')
         row = rows[0]
+        if row['testDataDigest'] != context['testDataDigest']:
+            raise ValueError('calibration was not made against the uploaded test data')
         if row['cpuNs'] != 1000000000 or row['memoryBytes'] != 268435456:
             raise ValueError('calibration limits mismatch')
         if row['sourceType'] != 'BENCHMARK' or row['benchmark']['verdict'] != 'AC' or row['benchmark']['sourceSha256'] != hashlib.sha256((FIXTURES / 'calibration.cpp').read_bytes()).hexdigest():
@@ -76,16 +75,19 @@ class Evidence:
     def formal(self, context, submission_id, source):
         sid = uuid(submission_id)
         rows = self.rows('submission', "SELECT JSON_OBJECT('input',JSON_REMOVE(i.payload,'$.completeSource'),"
-            "'status',s.status,'attempt',s.attempt_no,'userId',s.user_id,'sourceSha256',LOWER(SHA2(s.source,256))) "
+            "'status',s.status,'attempt',s.attempt_no,'userId',s.user_id,'sourceSha256',LOWER(SHA2(s.source,256)),"
+            "'totalCount',JSON_EXTRACT(s.read_model,'$.totalCount'),"
+            "'judgedDigest',(SELECT a.test_data_digest FROM cherry_ci_judging.judge_attempt a JOIN cherry_ci_judging.judge_task t ON t.id=a.task_id "
+            "WHERE t.submission_id=s.id AND a.status='COMPLETED' ORDER BY a.attempt_no DESC LIMIT 1)) "
             f"FROM submission s JOIN judge_input i ON i.submission_id=s.id WHERE s.id='{sid}' LIMIT 2")
         if len(rows) != 1 or rows[0]['status'] != 'DONE' or rows[0]['attempt'] != 1:
             raise ValueError('submission missing, unfinished or retried')
         row = rows[0]
-        for field in ('problemId', 'problemVersionId', 'testDataVersionId', 'languageCalibrationId'):
+        for field in ('problemId', 'languageCalibrationId'):
             if row['input'][field] != context[field]:
                 raise ValueError('JudgeInput identity mismatch: ' + field)
         expected_sha = hashlib.sha256(source.encode()).hexdigest()
-        if row['sourceSha256'] != expected_sha or row['input']['sourceSha256'] != expected_sha or row['input']['totalCount'] != 6 or row['input']['testDataContentSha256'] != context['dataSha256']:
+        if row['sourceSha256'] != expected_sha or row['input']['sourceSha256'] != expected_sha or row['totalCount'] != 6 or row['judgedDigest'] != context['testDataDigest']:
             raise ValueError('frozen source/test data differs from submitted fixture')
         # Cross-database SELECT is read-only and uses only the run's four fresh databases.
         links = self.rows('judging', "SELECT JSON_OBJECT('taskId',t.id,'status',t.status,'attempt',t.attempt_no,"

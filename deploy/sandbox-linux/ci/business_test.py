@@ -21,7 +21,7 @@ from business_results import (AUTHENTICATION_TESTS, LIVE_CASES, STATUSES, authen
 
 
 def live_fixture():
-    result = {key: dict(requestId='request-' + key, problemVersionId='version') for key in LIVE_CASES}
+    result = {key: dict(requestId='request-' + key) for key in LIVE_CASES}
     for key, status in STATUSES.items():
         result[key].update(status=status, problemId='problem', httpNs=2_000_000_000, cpuNs=1_010_000_000,
             memoryBytes=1 << 20, bodyBytes=1024, effectiveLimits=dict(cpuNs=1000000000, memoryBytes=268435456))
@@ -70,30 +70,28 @@ class BusinessTests(unittest.TestCase):
             self.assertEqual(observer.failure, 'IsADirectoryError')
 
     def test_public_fixture_requires_published_identity_and_public_readback(self):
-        context = dict(problemId='problem', problemVersionId='version', slug='ci-business-test')
-        problem = dict(id='problem', slug=context['slug'], currentPublishedVersionId='version', rowVersion=7)
+        context = dict(problemId='problem', slug='ci-business-test', testDataDigest='a' * 64)
+        problem = dict(id='problem', slug=context['slug'], visibility='PUBLIC', testData=dict(digest='a' * 64), rowVersion=7)
+        public = dict(problemId='problem', slug=context['slug'])
         api = API()
-        api.request = Mock(side_effect=[problem, None, context])
+        api.request = Mock(side_effect=[problem, public])
         api.make_public(context)
-        self.assertEqual(api.request.call_args_list[1].args,
-                         ('PATCH', '/api/admin/problems/problem',
-                          dict(slug=context['slug'], visibility='PUBLIC', rowVersion=7)))
-        self.assertEqual(api.request.call_args_list[2].args, ('GET', '/api/problems/' + context['slug']))
-        for key in ('id', 'slug', 'currentPublishedVersionId'):
-            api.request = Mock(return_value=dict(problem, **{key: 'wrong'}))
-            with self.subTest(admin=key), self.assertRaisesRegex(ValueError, 'published problem identity'):
+        self.assertEqual(api.request.call_args_list[0].args, ('GET', '/api/admin/problems/problem'))
+        self.assertEqual(api.request.call_args_list[1].args, ('GET', '/api/problems/' + context['slug']))
+        # 题目没有版本：公开状态、数据指纹与身份任何一项对不上都必须失败，且不会继续读公开页。
+        for change in (dict(id='wrong'), dict(slug='wrong'), dict(visibility='PRIVATE'),
+                       dict(testData=dict(digest='b' * 64))):
+            api.request = Mock(return_value=dict(problem, **change))
+            with self.subTest(admin=tuple(change)), self.assertRaisesRegex(ValueError, 'published problem identity'):
                 api.make_public(context)
             self.assertEqual(api.request.call_count, 1)
-        for key in context:
-            api.request = Mock(side_effect=[problem, None, dict(context, **{key: 'wrong'})])
+        for key in public:
+            api.request = Mock(side_effect=[problem, dict(public, **{key: 'wrong'})])
             with self.subTest(public=key), self.assertRaisesRegex(ValueError, 'public problem identity'):
                 api.make_public(context)
-        for response in (RuntimeError('HTTP 409'), RuntimeError('HTTP 404')):
-            replies = [problem, response] if '409' in str(response) else [problem, None, response]
-            api.request = Mock(side_effect=replies)
-            with self.assertRaises(RuntimeError):
-                api.make_public(context)
-            self.assertEqual(api.request.call_count, len(replies))
+        api.request = Mock(side_effect=[problem, RuntimeError('HTTP 404')])
+        with self.assertRaises(RuntimeError):
+            api.make_public(context)
 
     def test_browser_diagnostics_reject_private_text_and_unbounded_positions(self):
         good = dict(phase='login', status='failed', failures=[dict(file='support.ts', line=52, column=7)])
@@ -284,7 +282,7 @@ class BusinessTests(unittest.TestCase):
             api.request('GET', '/api/auth/csrf')
 
     def test_missing_case_duplicate_request_and_relaxed_budget_are_rejected(self):
-        context = dict(problemId='problem', problemVersionId='version')
+        context = dict(problemId='problem')
         verify_live(live_fixture(), context)
         def missing(v): del v['signal']
         def duplicate(v): v['re']['requestId'] = v['io']['requestId']

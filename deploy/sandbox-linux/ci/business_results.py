@@ -113,8 +113,6 @@ def verify_live(value, context):
     request_ids = []
     for key, row in value.items():
         request_ids.append(row['requestId'])
-        if row['problemVersionId'] != context['problemVersionId']:
-            raise ValueError('live result version mismatch')
         if key in STATUSES:
             if row['status'] != STATUSES[key] or row['problemId'] != context['problemId']:
                 raise ValueError('custom-run outcome mismatch')

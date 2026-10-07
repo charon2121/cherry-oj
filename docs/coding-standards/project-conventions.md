@@ -69,9 +69,9 @@
   写成「查不到返回 a」的话，某天加了新 verdict 忘了进表，结果是**错题判成 AC**。
 - **错误信息要能定位。** 带上路径、字段名、对方返回的 body 片段。
   `unexpected status 400` 会让人调试到怀疑人生。
-- **外部字符串拼进路径前先用正则关死。** `testDataVersionId`、`ref` 都来自 HTTP 请求，
+- **外部字符串拼进路径前先用正则关死。** 测试点名（`testdata.json` 里的 `name`）、`ref` 都来自外部输入，
   `filepath.Join(root, "../../etc")` 会老老实实跳出去。
-  已出现三次：`container.resolve`、`store.refPattern`、`testcase.idPattern`。
+  已出现三次：`container.resolve`、`store.refPattern`、`testcase.namePattern`。
 - **不返回恒为 nil 的 error**——只会让每个调用点白写一次 `if err != nil`。
 
 ## 1.6 资源

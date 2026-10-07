@@ -85,9 +85,9 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 
 职责：
 
-- 题目、不可变题目版本、样例、checker 配置和测试数据版本元信息。
-- 保存每个题目版本允许的语言，以及 CORE 的 starterCode 和 judgeTemplate。
-- 发布题目修订版本；向 submission-service 提供不可变 `ProblemJudgeSnapshot`。
+- 题目（没有版本，改了就是改了）、样例、checker 配置和测试数据：上传 ZIP 写成协议目录，库里只存目录地址。
+- 保存题目允许的语言，以及 CORE 的 starterCode 和 judgeTemplate。
+- 公开/取消公开题目；向 submission-service 提供 `ProblemJudgeSnapshot`，向 judging-service 提供当前测试数据的地址与指纹。
 - 不保存用户提交，不选择判题节点，不保存标定后的绝对限制，不执行判题。
 
 技术：Spring MVC、MyBatis、MySQL、Flyway。
@@ -111,8 +111,8 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 职责：
 
 - 消费判题请求，创建和调度 JudgeTask / JudgeAttempt。
-- 持有判题节点（身份、租约、语言）、逐节点测试数据回执和按「题目版本 × 语言」的 LanguageCalibration。
-- 根据明确的题目版本、数据版本和语言解析当前可用 ExecutionProfile。
+- 持有判题节点（身份、租约、语言）和按「题目 × 语言」的 LanguageCalibration（带标定时的测试数据指纹）。
+- 根据题目和语言解析当前可用 ExecutionProfile；判题时向 problem-service 取最新的测试数据地址。
 - 通过租约领取任务，调用 Go judge，并处理超时、退避重试和死任务。
 - Worker 根据 submissionId 从 submission-service 内部 API 拉取不可变 JudgeInput。
 - 通过 fencing token 拒绝旧 Worker 的迟到结果。
@@ -316,14 +316,15 @@ Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日�
 
 这些选型需要单独形成 ADR；在有真实需求和容量数据之前，不进入核心链路。
 
-## WORK-040 节点生命周期与数据交付
+## 节点生命周期与测试数据读取
 
 节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 注册只带节点身份：稳定的 nodeId、
 每次进程启动新生成的 sessionId、访问地址和能判的语言；不上报机器信息，也没有「判题环境」分组。
 注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
-重试且不关闭健康入口；控制面租约过期后停止部署和路由。安装接口通过独立共享 token 保护，使用有界
-multipart 流、摘要和 manifest 二次校验、节点私有目录和原子 rename。数据回执绑定 nodeId、sessionId、
-版本、hash 与文件数。重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
+重试且不关闭健康入口；控制面租约过期后停止路由。
 
-本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路；
+测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./testdata-protocol.md)写出目录，judging-service
+判题时只把目录地址放进 `JudgeRequest.testDataLocation`，Go judge 自己读 `testdata.json`、复制并校验文件。
+没有安装接口、没有逐节点回执，节点重启也不需要重新交付数据。本地路径要求节点能读到同一个路径：
+Compose 用必填的 `PROBLEM_TESTDATA_ROOT` 按同一绝对路径只读挂载（`judge-testdata` 卷只是每次判题的私有工作目录）。
 具体参数见 `apps/server/README.md`。

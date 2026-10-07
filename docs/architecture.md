@@ -70,8 +70,8 @@ submission-service：Pending → Judging → Done + verdict
 - MySQL 8.4：每个有状态 Java 服务独立 schema 和账号。
 - Redis：Gateway Session；不作为业务事实真源。
 - Kafka：正式提交的判题请求和生命周期事件。
-- 文件/对象存储：测试数据包和后续题目资产；具体供应商暂不锁定。
-- judge 节点本地只读测试数据目录：按 `testDataVersionId` 定位已部署测例。
+- 测试数据目录：problem-service 按[测试数据协议](./testdata-protocol.md)写出的目录（`testdata.json` + 成对 `.in/.out`），
+  本地路径或 http(s) 地址；judge 节点按请求里的地址读取，不预先安装。
 
 ---
 
@@ -102,16 +102,15 @@ MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约�
 
 唯一写入：
 
-- Problem、ProblemVersion、ProblemSample。
-- ProblemVersionLanguage，包括 CORE `starterCode` 与 `judgeTemplate`。
-- TestDataVersion 元信息、manifest、内容 hash 和长期资产引用。
-- 题目发布审计。
+- Problem（题面、模式、难度、标签、公开状态都在题目本身，**没有版本**）、ProblemSample、ProblemLanguage，包括 CORE `starterCode` 与 `judgeTemplate`。
+- 测试数据：只存目录**地址**（`test_data_location`）；指纹、测试点数和文件清单都从地址下的 `testdata.json` 读，不在库里抄一份。
+- 题目审计。
 
 提供两类接口：
 
-- 面向用户/管理员的题库、详情、草稿、发布 API。
-- 面向 submission-service 的不可变 `ProblemJudgeSnapshot`：明确版本、语言、代码模式、模板和
-  `testDataVersionId`。
+- 面向用户/管理员的题库、详情、编辑、公开 API；测试数据上传即整体替换。
+- 面向 submission-service 的 `ProblemJudgeSnapshot`：题目、标题、语言和代码模式（CORE 另含模板），不含测试数据地址。
+- 面向 judging-service 的内部读取 `GET /internal/judging/problems/{id}/test-data`：当前测试数据的地址、指纹、测试点数（只认 judging-service 的服务令牌）。
 
 problem-service 不保存 Submission，不选择判题节点，不保存标定后的绝对限制，不执行判题。
 
@@ -127,8 +126,8 @@ problem-service 不保存 Submission，不选择判题节点，不保存标定�
 
 它是正式提交的业务编排者：
 
-1. 从 problem-service 取得不可变题目快照。
-2. 从 judging-service 取得与该快照匹配的 ExecutionProfile。
+1. 从 problem-service 取得题目快照（题目必须公开、有可读的测试数据）。
+2. 从 judging-service 取得该题目×语言的 ExecutionProfile。
 3. ACM 直接使用用户源码；CORE 将用户源码替换进唯一 `{{USER_CODE}}`。
 4. 在一个本地事务内写 Submission、JudgeInput、幂等记录和 `JudgeRequested` Outbox。
 5. 消费生命周期事件，以条件更新推进用户可见状态。
@@ -139,27 +138,28 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
 
 唯一写入：
 
-- JudgeNode 与 TestDataNodeDeployment：节点身份、租约、声明的语言与逐节点安装回执。
-- LanguageCalibration：按「题目版本 × 语言」的绝对限制。
+- JudgeNode：节点身份、租约、声明的语言（没有逐节点的数据安装记录）。
+- LanguageCalibration：按「题目 × 语言」的绝对限制，并记录标定时的测试数据指纹。
 - JudgeTask、JudgeAttempt、租约和重试状态。
 - Outbox / Inbox 与执行侧审计。
 
 它提供：
 
-- `ResolveExecutionProfile`：输入明确的 `problemVersionId + testDataVersionId +
-  testDataContentSha256 + languageId`，确认有在线节点持有这份数据，解析出有效标定和绝对限制。
-- 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput，派发时选一个可用节点调用 Go judge。
+- `ResolveExecutionProfile`：输入 `problemId + languageId`，向 problem-service 取当前测试数据的指纹和测试点数，
+  确认有在线节点声明了该语言、且标定的数据指纹等于当前指纹，解析出绝对限制和执行预算。
+- 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput，**判题时**再向 problem-service 取最新的测试数据地址，
+  任选一个在线节点调用 Go judge，并保存判题实际读取的数据指纹。
 - 自定义测试内部接口：接收已经准备好的完整源码和文本 cases，同步调用 Go judge 的 trial 模式。
-- 节点自注册/心跳、节点侧测试数据安装和标定能力。
+- 节点自注册/心跳和标定能力（标定请求带 problem-service 给出的地址与指纹，判题结果指纹不一致则标定作废）。
 
 节点控制协议以 `contracts/judge-node.schema.json` 为准。节点只带身份：nodeId、每次进程启动新生成的
 sessionId、访问地址和能判的语言，不上报机器信息，也不归并成「判题环境」。同一 nodeId 的新进程以
-新 sessionId 注册即接替旧进程，历史回执保留但不可用，必须经节点幂等安装重新校验；已被接替的旧
-sessionId 不能再夺回 nodeId。租约过期只停止路由，不删除节点或历史事实。
+新 sessionId 注册即接替旧进程；已被接替的旧 sessionId 不能再夺回 nodeId。租约过期只停止路由，不删除节点或
+历史事实。节点不需要交付任何数据：它按请求里的地址自己读取。
 
-可用节点 = 租约未过期 + 声明了该语言 + 本会话已按摘要安装这份测试数据。标定、自测和正式判题都
-路由给可用节点，不把任务绑定到某一台机器；换机器或升级判题机不会让已有标定失效，需要时对题目
-版本重新标定即可。
+可用节点 = 租约未过期 + 声明了该语言。标定、自测和正式判题都路由给可用节点，不把任务绑定到某一台机器；
+换机器或升级判题机不会让已有标定失效，需要时对题目重新标定即可。题目的测试数据换了（指纹变了），旧标定
+才会过期。
 
 judging-service 不读取 problem-service 或 submission-service 数据库；需要的内容来自版本化 HTTP
 响应或 Kafka 事件。
@@ -168,7 +168,7 @@ judging-service 不读取 problem-service 或 submission-service 数据库；需
 
 输入一个完整 JudgeRequest，负责：
 
-- 按 `testDataVersionId` 加载正式 `.in/.out`。
+- 按请求里的 `testDataLocation` 读 `testdata.json`，复制并校验成对 `.in/.out`（任何失败都是 SE，不会误判为答案错误）。
 - 根据 language registry 编译完整源码。
 - 逐测试点调用进程内执行层。
 - 使用 checker 比对 stdout 与标准答案。
@@ -210,42 +210,36 @@ judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限�
 公开响应允许增加未知可选字段；删除、改名、改类型、收紧 enum 或改变 status/code 语义属于破坏性
 变更。初期保持 `/api`，只有无法兼容迁移时才启用 `/api/v2`。
 
-### 4.2 可判题题目快照
+### 4.2 可判题题目快照（不含测试数据地址）
 
 submission-service 调用 problem-service：
 
 ```text
 ResolveProblemJudgeSnapshot(problemId, languageId)
-  → problemId
-  → problemVersionId / versionNo / title
-  → testDataVersionId
+  → problemId / title
   → languageId / codeMode
   → starterCode（用户查询需要时返回）
   → judgeTemplate（仅 CORE，内部接口返回）
 ```
 
-这个响应指向已经发布且不可变的记录。客户端不能提交 `problemVersionId` 或 `judgeTemplate` 来覆盖它。
+题目没有版本，快照只是校验题目此刻公开、语言可用、数据可读。客户端不能提交 `judgeTemplate` 来覆盖它。
 
 ### 4.3 执行配置解析
 
 submission-service 调用 judging-service：
 
 ```text
-ResolveExecutionProfile(
-  problemVersionId,
-  testDataVersionId,
-  testDataContentSha256,
-  languageId
-)
+ResolveExecutionProfile(problemId, languageId, purpose?)
   → languageCalibrationId
   → effectiveLimits { cpuNs, memoryBytes, clockNs? }
+  → executionBudgetNs   （按题目此刻的测试点数算出的传输预算）
 ```
 
 只有同时满足以下条件才成功：
 
 - 有在线节点声明了目标语言。
-- 其中至少一个节点在本会话里按 hash 安装了 `testDataVersionId`。
-- `problemVersionId + languageId` 存在当前 VALID 标定。
+- 题目有可读的测试数据（judging-service 向 problem-service 取到当前指纹）。
+- `problemId + languageId` 存在 VALID 标定，且标定时的数据指纹等于当前指纹（数据换了就过期，需重新标定）。
 
 失败时不创建 Submission，不用默认限制降级。
 
@@ -333,7 +327,7 @@ EventEnvelope {
 1. 浏览器 POST /api/submissions { problemId, languageId, source }
 2. Gateway 验证 Session，转发内部 JWT
 3. submission-service 从 JWT 取得 userId，校验幂等键
-4. HTTP → problem-service：解析不可变 ProblemJudgeSnapshot
+4. HTTP → problem-service：解析 ProblemJudgeSnapshot
 5. HTTP → judging-service：解析 ExecutionProfile
 6. submission-service 准备完整源码
      ACM  = source
@@ -342,9 +336,9 @@ EventEnvelope {
 8. 返回 202 Accepted + Location
 9. judging-service Inbox 去重，创建 JudgeTask(READY)
 10. Worker 领取租约，发布 JudgeStarted
-11. Worker HTTP 拉取 JudgeInput，选一个可用节点调用 Go judge
-12. Go judge 按 testDataVersionId 与冻结的限制判题
-13. 保存 attempt，发布 JudgeCompleted 或 JudgeFailed
+11. Worker HTTP 拉取 JudgeInput，向 problem-service 取题目此刻的测试数据地址，选一个可用节点调用 Go judge
+12. Go judge 按 testDataLocation 读取数据，用冻结的限制判题，结果带回读取的数据指纹
+13. 保存 attempt（含数据指纹），发布 JudgeCompleted 或 JudgeFailed
 14. submission-service Inbox 去重并条件更新 Submission
 15. web 轮询看到 PENDING → JUDGING → DONE + verdict
 ```
@@ -358,7 +352,7 @@ EventEnvelope {
 
 CORE 不是一种新的 judge 协议，只是一种用户源码准备方式。
 
-`ProblemVersionLanguage.judgeTemplate` 保存完整源码，其中必须恰有一个字面量 `{{USER_CODE}}`。例如：
+`ProblemLanguage.judgeTemplate` 保存完整源码，其中必须恰有一个字面量 `{{USER_CODE}}`。例如：
 
 ```cpp
 #include <iostream>
@@ -375,7 +369,7 @@ int main() {
 
 规则：
 
-- 模板、starterCode 与语言都随 ProblemVersion 发布后冻结。
+- 模板、starterCode 与语言属于题目本身，修改立即生效；已提交的 JudgeInput 已冻结合并后的完整源码，不受影响。
 - submission-service 只对模板执行一次非递归字面量替换。
 - 用户源码原文保存在 Submission；合并后的完整源码保存在 JudgeInput。
 - judgeTemplate 不返回普通用户 API。
@@ -386,32 +380,39 @@ int main() {
 
 ## 8. 测试数据、节点与标定
 
-### 8.1 TestDataVersion
+### 8.1 测试数据（协议目录）
 
-problem-service 保存不可变数据包元信息和长期资产引用。judge 节点的正式目录为：
+题目只有一份测试数据，上传 ZIP 即整体替换。problem-service 把它写成[测试数据协议](./testdata-protocol.md)规定的目录：
 
 ```text
-<testdata-root>/<testDataVersionId>/
+<root>/<problemId>  →（相对符号链接）.store/<problemId>-<digest 前 16 位>/
+  testdata.json          schemaVersion、caseCount、totalBytes、digest、cases[]（含每个文件的大小与 SHA-256）
   1.in  1.out
   2.in  2.out
 ```
 
-### 8.2 TestDataNodeDeployment
+写入内容寻址的真实目录后再原子切换符号链接，读取方任何时刻都读到一份完整的数据。数据库只存目录地址，
+指纹、测试点数、文件清单都从 `testdata.json` 读。
 
-judging-service 保存数据送达某个节点、某次会话的回执。可用表示该节点这次进程能够按
-`testDataVersionId` 读取数据，且节点回报的 hash 与 problem-service 提供的内容 hash 一致。
-节点重启换了会话后回执失效，重新部署时节点幂等核对本地文件即可恢复，无需重新上传。
+### 8.2 节点读取
+
+节点不预先安装数据：每次判题请求带 `testDataLocation`（本地绝对路径或 http(s) 地址），Go judge 读 `testdata.json`，
+把文件复制到私有工作目录并核对大小与 SHA-256（撞上写入方替换时重读重试一次），`.out` 不进入沙箱，`.in` 作为标准输入。
+本地路径要求节点能读到同一个路径（Compose 用必填的 `PROBLEM_TESTDATA_ROOT` 按同一绝对路径只读挂载）。
+安全（地址白名单、隐藏数据的访问控制）暂未作为约束，是已知缺口。
 
 ### 8.3 LanguageCalibration
 
 由 judging-service 保存，唯一对应：
 
 ```text
-problemVersionId + languageId
+problemId + languageId
   → cpuNs + memoryBytes + clockNs?
+  → testDataDigest（标定时所用测试数据的指纹）
 ```
 
-标定不绑定机器。重新标定产生新的 VALID 记录并替换旧记录；已经冻结进 JudgeInput 的限制不受影响。
+标定不绑定机器，但绑定数据：题目的测试数据换了，旧标定过期，新提交被挡住，直到按新数据重新标定。重新标定产生
+新的 VALID 记录并替换旧记录；已经冻结进 JudgeInput 的限制不受影响。
 
 ---
 
@@ -419,7 +420,7 @@ problemVersionId + languageId
 
 自定义测试不创建正式 Submission，也不进入 Kafka 和通过状态统计：
 
-1. submission-service 解析当前 ProblemJudgeSnapshot 和 ExecutionProfile。
+1. submission-service 解析当前 ProblemJudgeSnapshot 和 ExecutionProfile（trial 用单测试点预算）。
 2. CORE 使用相同规则合并模板。
 3. submission-service 同步调用 judging-service 的内部 trial API。
 4. judging-service 调用 Go judge，使用请求内文本 cases。
@@ -484,7 +485,7 @@ cherry-oj/
 
 ```text
 1. [x] 更新 contracts：Submission / Judge / Kafka 事件 / 内部快照
-2. [x] 同步 Go contract 与 judge 的 testDataVersionId 加载
+2. [x] 同步 Go contract 与 judge 按地址读取测试数据（testDataLocation）
 3. 初始化 Java 父工程、基础设施和服务骨架
 4. 实现 problem snapshot + execution profile
 5. 实现 Submission + JudgeInput + Outbox/Inbox

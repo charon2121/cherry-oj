@@ -90,10 +90,7 @@ export function SubmissionPanel({
     },
     onError: (error) => {
       if (!alive.current) return;
-      if (
-        (error instanceof ApiError && [400, 403, 404, 413, 422].includes(error.status ?? 0)) ||
-        (error instanceof ApiError && error.code === 'PROBLEM_VERSION_CHANGED')
-      ) {
+      if (error instanceof ApiError && [400, 403, 404, 413, 422].includes(error.status ?? 0)) {
         try {
           localStorage.removeItem(storageKey);
           setRecovery(undefined);

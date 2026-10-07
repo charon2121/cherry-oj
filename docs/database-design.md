@@ -1,6 +1,6 @@
 # cherry-oj MVP MySQL 物理数据模型
 
-> 状态：MVP 目标设计，2026-08-20
+> 状态：MVP 目标设计；2026-10-07 起题目没有版本、测试数据只存地址（见[测试数据协议](./testdata-protocol.md)）
 > 产品需求真源：[`product.md`](./product.md)
 > 服务与数据所有权：[architecture.md](./architecture.md)
 > 领域模型：[data-model.md](./data-model.md)
@@ -27,10 +27,10 @@ judging-service     → cherry_oj_judging
 ```
 
 `gateway-service` 的浏览器 Session 存 Redis，不建立业务表。Go judge 与 sandbox 不读取 Java 服务
-数据库。测试数据包、生成产物和大报告进入私有文件/对象存储，MySQL 只保存引用、版本、摘要和状态。
+数据库。测试数据按协议写成目录，生成产物和大报告进入私有文件/对象存储，MySQL 只保存目录地址和必要状态。
 
-本设计覆盖传统 OJ 纵向 MVP：用户、不可变题目版本、ACM/CORE 模板、测试数据版本元信息、判题节点、部署、
-人工标定、提交快照、Outbox/Inbox、判题任务与尝试。PRD 阶段 2 的生成器、校验器、oracle、参考程序、
+本设计覆盖传统 OJ 纵向 MVP：用户、题目（无版本）、ACM/CORE 模板、测试数据地址、判题节点、
+按数据指纹过期的标定、提交快照、Outbox/Inbox、判题任务与尝试。PRD 阶段 2 的生成器、校验器、oracle、参考程序、
 原始基准样本和验证报告需要在题目工厂开工前另行扩展，不在首批 migration 中提前建空表。
 
 ### 1.2 明确不做
@@ -39,7 +39,7 @@ judging-service     → cherry_oj_judging
 - 不跨 database 建外键、JOIN、视图或共享 Mapper。
 - 不使用 XA/2PC、数据库触发器、存储过程或事件调度器承载业务流程。
 - 不用 JPA `ddl-auto` 或应用启动时自动改表；所有 DDL 只通过 Flyway。
-- 不把测试数据正文、标准答案、完整编译产物、JWT、Cookie 或密钥写入业务表。
+- 不把测试数据正文、标准答案、完整编译产物、JWT、Cookie 或密钥写入业务表；测试数据的指纹、测试点数和清单不在库里抄一份，以地址下的 `testdata.json` 为准。
 - 不为 `caseResults` 提前建立子表；MVP 保持受限 JSON 快照。
 
 ---
@@ -96,15 +96,14 @@ UUID 以 RFC 4122/9562 网络字节序原样保存，不使用 `UUID_TO_BIN(uuid
   `idx_<table>_<meaning>`；外键使用 `fk_<child>_<parent>`。
 - 服务内稳定关系建立外键，默认 `ON DELETE RESTRICT ON UPDATE RESTRICT`。
 - 跨服务 UUID 只保存值，不建立外键。例如 `submission.user_id` 不引用 user-service 数据库。
-- 不使用 `CASCADE` 删除历史。已发布版本、提交、JudgeInput、任务、Attempt 和审计默认不物理删除。
-- 未发布草稿的删除由应用按依赖顺序显式执行，便于记录审计并避免意外级联。
+- 不使用 `CASCADE` 删除历史。公开过的题目、提交、JudgeInput、任务、Attempt 和审计默认不物理删除。
+- 从未公开过的题目（`published_at` 为空）的删除由应用按依赖顺序显式执行（审计、样例、语言、题目），便于记录审计并避免意外级联。
 
 ### 2.4 JSON 使用边界
 
 以下内容使用 JSON：
 
-- `problem_version.tags_json`
-- `test_data_version.manifest_json`
+- `problem.tags_json`
 - `language_calibration.benchmark_summary_json`
 - `submission.case_results_json`
 - `judge_attempt.judge_result_json`
@@ -215,18 +214,14 @@ CREATE TABLE user_audit_event (
 
 ```text
 problem
-  ├─ test_data_version
-  ├─ problem_version
-  │    ├─ problem_sample
-  │    └─ problem_version_language
+  ├─ problem_sample
+  ├─ problem_language
   └─ problem_audit_event
-
-problem.current_published_version_id ──► problem_version.id
-problem_version.test_data_version_id ──► test_data_version.id
 ```
 
-`ProblemJudgeSnapshot` 不建表。它从 `problem.current_published_version_id` 出发，在一个只读查询中连接
-已发布版本、目标语言和 READY 测试数据，返回 contracts 定义的不可变 DTO。
+题目没有版本：题面、样例、语言、模板都直接属于 `problem`。测试数据只是 `problem.test_data_location` 这一个地址列，
+地址指向[测试数据协议](./testdata-protocol.md)规定的目录；摘要、测试点数和文件清单从目录里的 `testdata.json` 读取，
+数据库不再抄一份。`ProblemJudgeSnapshot` 不建表，由 `problem` 与目标语言在一个只读查询中组装。
 
 ### 4.2 字段字典
 
@@ -236,171 +231,69 @@ problem_version.test_data_version_id ──► test_data_version.id
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `slug` | `VARCHAR(128)` | 否 | 题目的全局唯一、大小写敏感短标识。 |
-| `visibility` | `VARCHAR(16)` | 否 | 题目可见性，PRIVATE 或 PUBLIC。 |
-| `status` | `VARCHAR(16)` | 否 | 该记录当前状态；允许值和必需字段组合由 CHECK 约束。 |
-| `current_published_version_id` | `BINARY(16)` | 是 | 当前对用户生效的已发布题目版本 UUID。 |
-| `created_by` | `BINARY(16)` | 否 | 创建人的 user-service UUID，仅作跨服务引用。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
-| `updated_at` | `DATETIME(6)` | 否 | 记录最后更新时间，使用 UTC。 |
-| `row_version` | `BIGINT` | 否 | 乐观锁版本；每次成功更新递增。 |
-
-#### `test_data_version`
-
-| 字段 | MySQL 类型 | 可空 | 功能 |
-|---|---|---:|---|
-| `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `problem_id` | `BINARY(16)` | 否 | 稳定题目 UUID；跨服务表中仅保存值，不建立跨库外键。 |
-| `status` | `VARCHAR(16)` | 否 | 测试数据版本状态：UPLOADING、READY 或 FAILED。 |
-| `source_type` | `VARCHAR(32)` | 否 | 测试数据来源；首批 migration 仅允许 MANUAL_UPLOAD。 |
-| `storage_ref` | `VARCHAR(1024)` | 否 | 私有文件或对象存储引用，不包含访问凭证。 |
-| `content_sha256` | `BINARY(32)` | 是 | READY 测试数据包内容的 SHA-256 二进制摘要。 |
-| `case_count` | `INT UNSIGNED` | 是 | 测试数据版本包含的测试点数量。 |
-| `total_bytes` | `BIGINT` | 是 | 测试数据版本全部文件的总字节数。 |
-| `manifest_json` | `JSON` | 是 | 受 schema 约束的测试数据文件清单、大小与摘要。 |
-| `created_by` | `BINARY(16)` | 否 | 创建人的 user-service UUID，仅作跨服务引用。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
-| `ready_at` | `DATETIME(6)` | 是 | 测试数据版本封存为 READY 的时间。 |
-| `error_message` | `TEXT` | 是 | 受长度限制且可安全展示/聚合的失败摘要。 |
-
-#### `problem_version`
-
-| 字段 | MySQL 类型 | 可空 | 功能 |
-|---|---|---:|---|
-| `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `problem_id` | `BINARY(16)` | 否 | 稳定题目 UUID；跨服务表中仅保存值，不建立跨库外键。 |
-| `version_no` | `INT UNSIGNED` | 否 | 题目内部从 1 开始递增的版本号。 |
-| `status` | `VARCHAR(32)` | 否 | 题目版本生命周期状态。 |
-| `code_mode` | `VARCHAR(8)` | 否 | 提交代码模式，ACM 或 CORE。 |
-| `title` | `VARCHAR(512)` | 否 | 该题目版本冻结的标题。 |
-| `statement_markdown` | `MEDIUMTEXT` | 否 | 题目正文 Markdown。 |
-| `input_description_markdown` | `MEDIUMTEXT` | 否 | 输入格式说明 Markdown。 |
-| `output_description_markdown` | `MEDIUMTEXT` | 否 | 输出格式说明 Markdown。 |
-| `constraints_markdown` | `MEDIUMTEXT` | 是 | 数据范围与约束 Markdown。 |
-| `hint_markdown` | `MEDIUMTEXT` | 是 | 题目提示 Markdown。 |
-| `difficulty` | `VARCHAR(16)` | 否 | 题目难度快照。 |
-| `tags_json` | `JSON` | 否 | 题目标签字符串数组。 |
-| `checker_type` | `VARCHAR(16)` | 否 | 判题比对器类型；MVP 固定 DEFAULT。 |
-| `test_data_version_id` | `BINARY(16)` | 是 | 该题目版本绑定的本服务 TestDataVersion UUID。 |
-| `change_summary` | `TEXT` | 是 | 该题目版本相对上一版本的修改说明。 |
-| `created_by` | `BINARY(16)` | 否 | 创建人的 user-service UUID，仅作跨服务引用。 |
-| `published_by` | `BINARY(16)` | 是 | 批准发布的 user-service 用户 UUID。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
-| `updated_at` | `DATETIME(6)` | 否 | 记录最后更新时间，使用 UTC。 |
-| `published_at` | `DATETIME(6)` | 是 | 题目版本正式发布并进入不可变状态的时间。 |
-| `row_version` | `BIGINT` | 否 | 乐观锁版本；每次成功更新递增。 |
+| `id` | `BINARY(16)` | 否 | 稳定题目 UUIDv7 主键。 |
+| `slug` | `VARCHAR(128)` | 否 | 全局唯一短名，用于公开访问地址。 |
+| `visibility` | `VARCHAR(16)` | 否 | `PRIVATE` 或 `PUBLIC`。 |
+| `status` | `VARCHAR(16)` | 否 | `ACTIVE` 或 `ARCHIVED`；归档后只读。 |
+| `code_mode` | `VARCHAR(8)` | 否 | `ACM` 或 `CORE`。 |
+| `title` | `VARCHAR(512)` | 否 | 标题。 |
+| `statement_markdown` / `input_description_markdown` / `output_description_markdown` | `MEDIUMTEXT` | 否 | 题面、输入说明、输出说明。 |
+| `constraints_markdown` / `hint_markdown` | `MEDIUMTEXT` | 是 | 约束与提示。 |
+| `difficulty` | `VARCHAR(16)` | 否 | `UNRATED`、`EASY`、`MEDIUM`、`HARD`。 |
+| `tags_json` | `JSON` | 否 | 标签字符串数组。 |
+| `checker_type` | `VARCHAR(16)` | 否 | MVP 固定 `DEFAULT`。 |
+| `test_data_location` | `VARCHAR(1024)` | 是 | 测试数据目录的地址（本地绝对路径或 http(s)）；公开前必填。 |
+| `test_data_updated_at` | `DATETIME(6)` | 是 | 最近一次替换测试数据的时间；与地址同有同无。 |
+| `created_by` | `BINARY(16)` | 否 | 创建者的 user-service 用户 UUID，仅作跨服务引用。 |
+| `created_at` / `updated_at` | `DATETIME(6)` | 否 | 创建与最近修改时间，UTC。 |
+| `published_at` | `DATETIME(6)` | 是 | **第一次**公开的时间；为空表示从未公开过，只有这样的题目可以物理删除。 |
+| `row_version` | `BIGINT` | 否 | 乐观锁计数，与题目版本无关；上传测试数据不递增它。 |
 
 #### `problem_sample`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `problem_version_id` | `BINARY(16)` | 否 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
-| `ordinal` | `INT UNSIGNED` | 否 | 样例从 1 开始的展示顺序。 |
-| `input_text` | `MEDIUMTEXT` | 否 | 样例标准输入文本。 |
-| `expected_output_text` | `MEDIUMTEXT` | 否 | 样例期望标准输出文本。 |
-| `explanation_markdown` | `MEDIUMTEXT` | 是 | 样例解释 Markdown。 |
+| `id` | `BINARY(16)` | 否 | UUIDv7 主键。 |
+| `problem_id` | `BINARY(16)` | 否 | 所属题目（服务内外键）。 |
+| `ordinal` | `INT UNSIGNED` | 否 | 从 1 开始的展示顺序；`(problem_id, ordinal)` 唯一。 |
+| `input_text` / `expected_output_text` | `MEDIUMTEXT` | 否 | 样例的 stdin 与期望 stdout。 |
+| `explanation_markdown` | `MEDIUMTEXT` | 是 | 样例解释。 |
 
-#### `problem_version_language`
+#### `problem_language`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `problem_version_id` | `BINARY(16)` | 否 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
+| `problem_id` | `BINARY(16)` | 否 | 所属题目；与 `language_id` 组成主键。 |
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
-| `display_order` | `SMALLINT UNSIGNED` | 否 | 该题目版本中语言选项的展示顺序。 |
-| `starter_code` | `MEDIUMTEXT` | 否 | 用户编辑器初始代码。 |
-| `judge_template` | `MEDIUMTEXT` | 是 | CORE 完整源码模板；必须恰含一个用户代码占位符，ACM 为空。 |
+| `display_order` | `SMALLINT UNSIGNED` | 否 | 前端展示顺序。 |
+| `starter_code` | `MEDIUMTEXT` | 否 | 用户编辑器起始内容。 |
+| `judge_template` | `MEDIUMTEXT` | 是 | CORE 必填、ACM 必须为空；恰含一个 `{{USER_CODE}}`。 |
 
 #### `problem_audit_event`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
-| `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `problem_id` | `BINARY(16)` | 否 | 稳定题目 UUID；跨服务表中仅保存值，不建立跨库外键。 |
-| `problem_version_id` | `BINARY(16)` | 是 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
+| `id` | `BINARY(16)` | 否 | UUIDv7 主键。 |
+| `problem_id` | `BINARY(16)` | 否 | 所属题目（服务内外键）。 |
 | `actor_user_id` | `BINARY(16)` | 否 | 执行题目操作的 user-service 用户 UUID，仅作跨服务引用。 |
-| `action` | `VARCHAR(64)` | 否 | 稳定的审计操作类型。 |
+| `action` | `VARCHAR(64)` | 否 | 稳定的审计操作类型（含测试数据上传、公开、取消公开）。 |
 | `trace_id` | `VARCHAR(128)` | 是 | 跨服务调用与日志关联标识。 |
 | `detail_json` | `JSON` | 是 | 受控审计详情；不得包含密码、源码、JWT 或其它敏感正文。 |
-| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
+| `created_at` | `DATETIME(6)` | 否 | 记录创建时间，UTC。 |
 
 ### 4.3 DDL
 
+以下就是 `V1__create_problem_tables.sql` 的内容（项目仍在开发期，已直接改写 V1，不写迁移）：
+
 ```sql
+-- 题目没有版本：题面、样例、语言和测试数据地址都直接属于 problem。
+-- 测试数据只存地址（协议见 docs/testdata-protocol.md），数据本身与它的指纹、测试点数都在地址下的 testdata.json 里，
+-- 数据库不再抄一份，避免两处不一致。
 CREATE TABLE problem (
     id                              BINARY(16) NOT NULL,
     slug                            VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     visibility                      VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     status                          VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    current_published_version_id    BINARY(16) NULL,
-    created_by                      BINARY(16) NOT NULL,
-    created_at                      DATETIME(6) NOT NULL,
-    updated_at                      DATETIME(6) NOT NULL,
-    row_version                     BIGINT NOT NULL DEFAULT 0,
-
-    PRIMARY KEY (id),
-    CONSTRAINT uq_problem_slug UNIQUE (slug),
-    KEY idx_problem_current_version (current_published_version_id),
-    KEY idx_problem_listing (visibility, status, updated_at, id),
-    CONSTRAINT ck_problem_visibility CHECK (visibility IN ('PRIVATE', 'PUBLIC')),
-    CONSTRAINT ck_problem_status CHECK (status IN ('ACTIVE', 'ARCHIVED')),
-    CONSTRAINT ck_problem_public_version CHECK (
-        visibility <> 'PUBLIC' OR current_published_version_id IS NOT NULL
-    ),
-    CONSTRAINT ck_problem_row_version CHECK (row_version >= 0),
-    CONSTRAINT ck_problem_time_order CHECK (updated_at >= created_at)
-) ENGINE = InnoDB;
-
-CREATE TABLE test_data_version (
-    id                  BINARY(16) NOT NULL,
-    problem_id          BINARY(16) NOT NULL,
-    status              VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    source_type         VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    storage_ref         VARCHAR(1024) COLLATE utf8mb4_bin NOT NULL,
-    content_sha256      BINARY(32) NULL,
-    case_count          INT UNSIGNED NULL,
-    total_bytes         BIGINT NULL,
-    manifest_json       JSON NULL,
-    created_by          BINARY(16) NOT NULL,
-    created_at          DATETIME(6) NOT NULL,
-    ready_at            DATETIME(6) NULL,
-    error_message       TEXT NULL,
-
-    PRIMARY KEY (id),
-    KEY idx_test_data_problem_created (problem_id, created_at, id),
-    KEY idx_test_data_status_created (status, created_at, id),
-    CONSTRAINT fk_test_data_problem FOREIGN KEY (problem_id)
-        REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT ck_test_data_status CHECK (status IN ('UPLOADING', 'READY', 'FAILED')),
-    CONSTRAINT ck_test_data_source CHECK (source_type IN ('MANUAL_UPLOAD')),
-    CONSTRAINT ck_test_data_total_bytes CHECK (total_bytes IS NULL OR total_bytes >= 0),
-    CONSTRAINT ck_test_data_manifest CHECK (
-        manifest_json IS NULL OR JSON_TYPE(manifest_json) = 'OBJECT'
-    ),
-    CONSTRAINT ck_test_data_error_length CHECK (
-        error_message IS NULL OR CHAR_LENGTH(error_message) <= 8192
-    ),
-    CONSTRAINT ck_test_data_ready CHECK (
-        status <> 'READY' OR (
-            content_sha256 IS NOT NULL
-            AND case_count IS NOT NULL AND case_count > 0
-            AND total_bytes IS NOT NULL AND total_bytes >= 0
-            AND manifest_json IS NOT NULL
-            AND ready_at IS NOT NULL
-            AND error_message IS NULL
-        )
-    ),
-    CONSTRAINT ck_test_data_failed CHECK (
-        status <> 'FAILED' OR error_message IS NOT NULL
-    )
-) ENGINE = InnoDB;
-
-CREATE TABLE problem_version (
-    id                              BINARY(16) NOT NULL,
-    problem_id                      BINARY(16) NOT NULL,
-    version_no                      INT UNSIGNED NOT NULL,
-    status                          VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     code_mode                       VARCHAR(8) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     title                           VARCHAR(512) NOT NULL,
     statement_markdown              MEDIUMTEXT NOT NULL,
@@ -411,42 +304,33 @@ CREATE TABLE problem_version (
     difficulty                      VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     tags_json                       JSON NOT NULL,
     checker_type                    VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    test_data_version_id            BINARY(16) NULL,
-    change_summary                  TEXT NULL,
+    test_data_location              VARCHAR(1024) COLLATE utf8mb4_bin NULL,
+    test_data_updated_at            DATETIME(6) NULL,
     created_by                      BINARY(16) NOT NULL,
-    published_by                    BINARY(16) NULL,
     created_at                      DATETIME(6) NOT NULL,
     updated_at                      DATETIME(6) NOT NULL,
+    -- 第一次公开的时间。从没公开过的题目不可能有提交，所以只有它们可以被物理删除。
     published_at                    DATETIME(6) NULL,
+    -- 乐观锁计数，与题目版本无关。
     row_version                     BIGINT NOT NULL DEFAULT 0,
 
     PRIMARY KEY (id),
-    CONSTRAINT uq_problem_version_no UNIQUE (problem_id, version_no),
-    KEY idx_problem_version_status_updated (status, updated_at, id),
-    KEY idx_problem_version_test_data (test_data_version_id),
-    CONSTRAINT fk_problem_version_problem FOREIGN KEY (problem_id)
-        REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT fk_problem_version_test_data FOREIGN KEY (test_data_version_id)
-        REFERENCES test_data_version (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT ck_problem_version_version_no CHECK (version_no > 0),
-    CONSTRAINT ck_problem_version_status CHECK (
-        status IN ('DRAFT', 'VALIDATING', 'READY_FOR_REVIEW', 'PUBLISHED', 'ARCHIVED')
+    CONSTRAINT uq_problem_slug UNIQUE (slug),
+    KEY idx_problem_listing (visibility, status, updated_at, id),
+    CONSTRAINT ck_problem_visibility CHECK (visibility IN ('PRIVATE', 'PUBLIC')),
+    CONSTRAINT ck_problem_status CHECK (status IN ('ACTIVE', 'ARCHIVED')),
+    CONSTRAINT ck_problem_code_mode CHECK (code_mode IN ('ACM', 'CORE')),
+    CONSTRAINT ck_problem_difficulty CHECK (difficulty IN ('UNRATED', 'EASY', 'MEDIUM', 'HARD')),
+    CONSTRAINT ck_problem_checker CHECK (checker_type IN ('DEFAULT')),
+    CONSTRAINT ck_problem_tags CHECK (JSON_TYPE(tags_json) = 'ARRAY'),
+    CONSTRAINT ck_problem_public CHECK (
+        visibility <> 'PUBLIC' OR (test_data_location IS NOT NULL AND published_at IS NOT NULL)
     ),
-    CONSTRAINT ck_problem_version_code_mode CHECK (code_mode IN ('ACM', 'CORE')),
-    CONSTRAINT ck_problem_version_difficulty CHECK (
-        difficulty IN ('UNRATED', 'EASY', 'MEDIUM', 'HARD')
+    CONSTRAINT ck_problem_test_data CHECK (
+        (test_data_location IS NULL) = (test_data_updated_at IS NULL)
     ),
-    CONSTRAINT ck_problem_version_checker CHECK (checker_type IN ('DEFAULT')),
-    CONSTRAINT ck_problem_version_tags CHECK (JSON_TYPE(tags_json) = 'ARRAY'),
-    CONSTRAINT ck_problem_version_published CHECK (
-        status NOT IN ('PUBLISHED', 'ARCHIVED') OR (
-            test_data_version_id IS NOT NULL
-            AND published_by IS NOT NULL
-            AND published_at IS NOT NULL
-        )
-    ),
-    CONSTRAINT ck_problem_version_row_version CHECK (row_version >= 0),
-    CONSTRAINT ck_problem_version_time_order CHECK (
+    CONSTRAINT ck_problem_row_version CHECK (row_version >= 0),
+    CONSTRAINT ck_problem_time_order CHECK (
         updated_at >= created_at
         AND (published_at IS NULL OR published_at >= created_at)
     )
@@ -454,30 +338,30 @@ CREATE TABLE problem_version (
 
 CREATE TABLE problem_sample (
     id                          BINARY(16) NOT NULL,
-    problem_version_id          BINARY(16) NOT NULL,
+    problem_id                  BINARY(16) NOT NULL,
     ordinal                     INT UNSIGNED NOT NULL,
     input_text                  MEDIUMTEXT NOT NULL,
     expected_output_text        MEDIUMTEXT NOT NULL,
     explanation_markdown        MEDIUMTEXT NULL,
 
     PRIMARY KEY (id),
-    CONSTRAINT uq_problem_sample_ordinal UNIQUE (problem_version_id, ordinal),
-    CONSTRAINT fk_problem_sample_version FOREIGN KEY (problem_version_id)
-        REFERENCES problem_version (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT uq_problem_sample_ordinal UNIQUE (problem_id, ordinal),
+    CONSTRAINT fk_problem_sample_problem FOREIGN KEY (problem_id)
+        REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_problem_sample_ordinal CHECK (ordinal > 0)
 ) ENGINE = InnoDB;
 
-CREATE TABLE problem_version_language (
-    problem_version_id      BINARY(16) NOT NULL,
+CREATE TABLE problem_language (
+    problem_id              BINARY(16) NOT NULL,
     language_id             VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     display_order           SMALLINT UNSIGNED NOT NULL,
     starter_code            MEDIUMTEXT NOT NULL,
     judge_template          MEDIUMTEXT NULL,
 
-    PRIMARY KEY (problem_version_id, language_id),
-    CONSTRAINT uq_problem_language_order UNIQUE (problem_version_id, display_order),
-    CONSTRAINT fk_problem_language_version FOREIGN KEY (problem_version_id)
-        REFERENCES problem_version (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    PRIMARY KEY (problem_id, language_id),
+    CONSTRAINT uq_problem_language_order UNIQUE (problem_id, display_order),
+    CONSTRAINT fk_problem_language_problem FOREIGN KEY (problem_id)
+        REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_problem_language_id CHECK (
         REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
     )
@@ -486,7 +370,6 @@ CREATE TABLE problem_version_language (
 CREATE TABLE problem_audit_event (
     id                      BINARY(16) NOT NULL,
     problem_id              BINARY(16) NOT NULL,
-    problem_version_id      BINARY(16) NULL,
     actor_user_id           BINARY(16) NOT NULL,
     action                  VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     trace_id                VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NULL,
@@ -498,31 +381,22 @@ CREATE TABLE problem_audit_event (
     KEY idx_problem_audit_actor_created (actor_user_id, created_at, id),
     CONSTRAINT fk_problem_audit_problem FOREIGN KEY (problem_id)
         REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT fk_problem_audit_version FOREIGN KEY (problem_version_id)
-        REFERENCES problem_version (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_problem_audit_detail CHECK (
         detail_json IS NULL OR JSON_TYPE(detail_json) = 'OBJECT'
     )
 ) ENGINE = InnoDB;
-
-ALTER TABLE problem
-    ADD CONSTRAINT fk_problem_current_version
-    FOREIGN KEY (current_published_version_id)
-    REFERENCES problem_version (id)
-    ON DELETE RESTRICT ON UPDATE RESTRICT;
 ```
 
 ### 4.4 数据库不能单独表达的不变量
 
 以下规则跨行或跨表，必须由 problem-service 在事务中校验，并用 MySQL 集成测试钉住：
 
-1. `current_published_version_id` 必须属于同一个 Problem，且版本状态为 `PUBLISHED`。
-2. `problem_version.test_data_version_id` 必须属于同一个 Problem，发布时对应数据必须是 `READY`。
-3. ACM 的 `judge_template` 必须为空；CORE 的每门允许语言都必须有模板，且模板恰好包含一个字面量
-   `{{USER_CODE}}`。
-4. `PUBLISHED` 后 ProblemVersion、Sample、Language 和 TestDataVersion 不允许 UPDATE；修改时创建新版本。
-5. 发布使用 `SELECT ... FOR UPDATE` 锁定 Problem 与目标版本，在同一事务内更新版本状态、当前指针和
-   `problem_audit_event`。
+1. ACM 的 `judge_template` 必须为空；CORE 的每门允许语言都必须有模板，且模板恰好包含一个字面量 `{{USER_CODE}}`。
+2. 公开题目的修改立即生效，但不能被改成空题面或没有样例（数据库只约束「PUBLIC 必有地址和首次公开时间」）。
+3. 公开前，样例、语言、测试数据和 judging-service 的就绪检查（含对应当前数据指纹的有效标定）必须通过；
+   检查之后测试数据被替换则拒绝公开。
+4. 上传测试数据：慢的部分（读 ZIP、写目录）在数据库事务之外，事务里只有「切换地址 + 更新 `test_data_updated_at` + 审计」。
+5. 只有 `published_at` 为空的题目可以删除；删除时样例、语言、审计事件一并删除，测试数据目录在提交后清理。
 
 ---
 
@@ -554,10 +428,7 @@ contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON �
 | `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
 | `user_id` | `BINARY(16)` | 否 | user-service 用户 UUID；仅作跨服务引用。 |
 | `problem_id` | `BINARY(16)` | 否 | 稳定题目 UUID；跨服务表中仅保存值，不建立跨库外键。 |
-| `problem_version_id` | `BINARY(16)` | 否 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
-| `problem_version_no` | `INT UNSIGNED` | 否 | 创建 Submission 时冻结的题目版本号。 |
 | `problem_title` | `VARCHAR(512)` | 否 | 创建 Submission 时冻结的题目标题。 |
-| `test_data_version_id` | `BINARY(16)` | 否 | 实际绑定的不可变测试数据版本 UUID。 |
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
 | `code_mode` | `VARCHAR(8)` | 否 | 提交代码模式，ACM 或 CORE。 |
 | `language_calibration_id` | `BINARY(16)` | 否 | 本次绝对限制来源的语言标定 UUID。 |
@@ -585,8 +456,6 @@ contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON �
 | `submission_id` | `BINARY(16)` | 否 | Submission UUID；在相关服务中作为稳定外部关联键。 |
 | `contract_version` | `VARCHAR(8)` | 否 | JudgeInput 跨服务契约版本。 |
 | `problem_id` | `BINARY(16)` | 否 | 稳定题目 UUID；跨服务表中仅保存值，不建立跨库外键。 |
-| `problem_version_id` | `BINARY(16)` | 否 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
-| `test_data_version_id` | `BINARY(16)` | 否 | 实际绑定的不可变测试数据版本 UUID。 |
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
 | `complete_source` | `MEDIUMTEXT` | 否 | 实际送往 Go judge 的完整源码；CORE 已合并模板。 |
 | `source_sha256` | `BINARY(32)` | 否 | complete_source UTF-8 字节的 SHA-256 摘要。 |
@@ -651,10 +520,7 @@ CREATE TABLE submission (
     id                          BINARY(16) NOT NULL,
     user_id                     BINARY(16) NOT NULL,
     problem_id                  BINARY(16) NOT NULL,
-    problem_version_id          BINARY(16) NOT NULL,
-    problem_version_no          INT UNSIGNED NOT NULL,
     problem_title               VARCHAR(512) NOT NULL,
-    test_data_version_id        BINARY(16) NOT NULL,
     language_id                 VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     code_mode                   VARCHAR(8) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     language_calibration_id     BINARY(16) NOT NULL,
@@ -677,10 +543,9 @@ CREATE TABLE submission (
 
     PRIMARY KEY (id),
     KEY idx_submission_user_created (user_id, created_at, id),
-    KEY idx_submission_problem_version_created (problem_version_id, created_at, id),
+    KEY idx_submission_problem_created (problem_id, created_at, id),
     KEY idx_submission_status_created (status, created_at, id),
     KEY idx_submission_user_problem_created (user_id, problem_id, created_at, id),
-    CONSTRAINT ck_submission_problem_version_no CHECK (problem_version_no > 0),
     CONSTRAINT ck_submission_language CHECK (
         REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
     ),
@@ -725,8 +590,6 @@ CREATE TABLE judge_input (
     submission_id              BINARY(16) NOT NULL,
     contract_version           VARCHAR(8) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     problem_id                 BINARY(16) NOT NULL,
-    problem_version_id         BINARY(16) NOT NULL,
-    test_data_version_id       BINARY(16) NOT NULL,
     language_id                VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     complete_source            MEDIUMTEXT NOT NULL,
     source_sha256              BINARY(32) NOT NULL,
@@ -862,12 +725,11 @@ submission-service 和 judging-service 各自创建同名 Outbox/Inbox 表；它
 ### 6.1 表关系
 
 ```text
-judge_node_registry_lock   串行化注册、心跳与部署确认
+judge_node_registry_lock   串行化注册与心跳
 judge_node
-  ├─ judge_node_session
-  └─ test_data_node_deployment
+  └─ judge_node_session
 
-language_calibration        按题目版本 × 语言，不关联节点
+language_calibration        按题目 × 语言，带标定时的测试数据指纹，不关联节点
 
 judge_task
   └─ judge_attempt
@@ -877,10 +739,10 @@ inbox_event      消费 JudgeRequested
 judging_audit_event
 ```
 
-`ExecutionProfile` 不建表。它找一个可用节点（租约未过期、`languages_json` 含目标语言、本会话的
-`test_data_node_deployment` 可用且摘要一致），再取该题目版本 × 语言当前 VALID 的 calibration，
-返回冻结所需字段。节点只带身份，不归并成「判题环境」。`valid_slot` 是生成列：MySQL 唯一索引允许
-多个 NULL，但只允许一个值为 1，因此可以在数据库层约束“每个题目版本 × 语言最多一个 VALID”。
+`ExecutionProfile` 不建表。它找一个可用节点（租约未过期、`languages_json` 含目标语言），再取该题目 × 语言当前 VALID
+且 `test_data_digest` 等于题目当前指纹的 calibration，返回冻结所需字段。节点只带身份，不归并成「判题环境」，也不持有数据
+（按请求里的地址自己读）。`valid_slot` 是生成列：MySQL 唯一索引允许多个 NULL，但只允许一个值为 1，因此可以在数据库层约束
+“每个题目 × 语言最多一个 VALID”。
 
 ### 6.2 字段字典
 
@@ -906,26 +768,14 @@ judging_audit_event
 | `session_id` | `BINARY(16)` | 否 | 曾被接受的会话；已被接替的会话不能再夺回 nodeId。 |
 | `registered_at` | `DATETIME(6)` | 否 | 该会话首次注册时间，使用 UTC。 |
 
-#### `test_data_node_deployment`
-
-| 字段 | MySQL 类型 | 可空 | 功能 |
-|---|---|---:|---|
-| `test_data_version_id` | `BINARY(16)` | 否 | 不可变测试数据版本 UUID。 |
-| `node_id` | `VARCHAR(64)` | 否 | 持有这份数据的节点。 |
-| `expected_sha256` | `BINARY(32)` | 否 | 部署时的内容摘要；同一节点同一版本不能换摘要。 |
-| `session_id` | `BINARY(16)` | 否 | 回执所属的节点会话。 |
-| `file_count` | `INT` | 否 | 节点回执中的文件数。 |
-| `available` | `BOOLEAN` | 否 | 当前会话是否可用；节点换会话后置为不可用，重新安装确认后恢复。 |
-| `deployed_at` | `DATETIME(6)` | 否 | 最近一次确认时间，使用 UTC。 |
-| `row_version` | `BIGINT` | 否 | 乐观锁版本；防止迟到的失败撤销后来的成功。 |
-
 #### `language_calibration`
 
 | 字段 | MySQL 类型 | 可空 | 功能 |
 |---|---|---:|---|
 | `id` | `BINARY(16)` | 否 | 该记录的 UUIDv7 主键。 |
-| `problem_version_id` | `BINARY(16)` | 否 | 不可变题目版本 UUID；跨服务表中仅保存值。 |
+| `problem_id` | `BINARY(16)` | 否 | problem-service 的题目 UUID；跨服务表中仅保存值。 |
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
+| `test_data_digest` | `CHAR(64)` | 否 | 标定时所用测试数据的指纹；与题目当前指纹不同即已过期，需要重新标定。 |
 | `status` | `VARCHAR(16)` | 否 | 标定状态：DRAFT、RUNNING、VALID、FAILED 或 SUPERSEDED。 |
 | `valid_slot` | `TINYINT` | 生成列 | 仅 VALID 行生成 1 的内部列，用唯一索引限制同组合最多一个有效标定。 |
 | `source_type` | `VARCHAR(16)` | 否 | 限制来源：MANUAL 或 BENCHMARK。 |
@@ -970,6 +820,7 @@ judging_audit_event
 | `attempt_no` | `INT UNSIGNED` | 否 | 该 Attempt 在所属任务中的递增序号。 |
 | `lease_token` | `BINARY(16)` | 否 | 创建本 Attempt 时冻结的 Worker fencing token。 |
 | `node_id` | `VARCHAR(64)` | 是 | 本次派发的节点；派发前失败时为空。 |
+| `test_data_digest` | `CHAR(64)` | 是 | 这次判题实际读取的测试数据指纹（judge 随结果返回），用于追溯「拿哪份数据判的」。 |
 | `started_at` | `DATETIME(6)` | 否 | 首次开始处理或执行的时间。 |
 | `finished_at` | `DATETIME(6)` | 是 | 本次调用完成或失败的时间。 |
 | `outcome` | `VARCHAR(32)` | 是 | 本次 Attempt 的完成结果分类。 |
@@ -1032,7 +883,7 @@ judging_audit_event
 ### 6.3 DDL
 
 ```sql
--- 串行化注册、心跳与部署确认：在线检查与回执提交之间不会被换会话。
+-- 串行化注册与心跳，防止同一 nodeId 的两个进程竞争。
 CREATE TABLE judge_node_registry_lock (id TINYINT NOT NULL PRIMARY KEY);
 
 CREATE TABLE judge_node (
@@ -1061,80 +912,39 @@ CREATE TABLE judge_node_session (
     CONSTRAINT fk_node_session_node FOREIGN KEY (node_id) REFERENCES judge_node (node_id)
 ) ENGINE = InnoDB;
 
-CREATE TABLE test_data_node_deployment (
-    test_data_version_id    BINARY(16) NOT NULL,
-    node_id                 VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    expected_sha256         BINARY(32) NOT NULL,
-    session_id              BINARY(16) NOT NULL,
-    file_count              INT NOT NULL,
-    available               BOOLEAN NOT NULL,
-    deployed_at             DATETIME(6) NOT NULL,
-    row_version             BIGINT NOT NULL DEFAULT 0,
-
-    PRIMARY KEY (test_data_version_id, node_id),
-    KEY idx_node_deployment_available (node_id, available, test_data_version_id),
-    CONSTRAINT fk_node_deployment_node FOREIGN KEY (node_id) REFERENCES judge_node (node_id),
-    CONSTRAINT ck_node_deployment_count CHECK (file_count BETWEEN 2 AND 2000),
-    CONSTRAINT ck_node_deployment_available CHECK (available IN (0, 1))
-) ENGINE = InnoDB;
-
 CREATE TABLE language_calibration (
-    id                      BINARY(16) NOT NULL,
-    problem_version_id      BINARY(16) NOT NULL,
-    language_id             VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    status                  VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    valid_slot              TINYINT GENERATED ALWAYS AS (
-                                CASE WHEN status = 'VALID' THEN 1 ELSE NULL END
-                            ) STORED,
-    source_type             VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-    cpu_ns                  BIGINT NULL,
-    memory_bytes            BIGINT NULL,
-    clock_ns                BIGINT NULL,
-    benchmark_summary_json  JSON NULL,
-    approved_by             BINARY(16) NULL,
-    approved_at             DATETIME(6) NULL,
-    supersedes_id           BINARY(16) NULL,
-    error_message           TEXT NULL,
-    created_at              DATETIME(6) NOT NULL,
-    updated_at              DATETIME(6) NOT NULL,
-    row_version             BIGINT NOT NULL DEFAULT 0,
-
+    id BINARY(16) NOT NULL,
+    problem_id BINARY(16) NOT NULL,
+    language_id VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    test_data_digest CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    valid_slot TINYINT GENERATED ALWAYS AS (CASE WHEN status = 'VALID' THEN 1 ELSE NULL END) STORED,
+    source_type VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    cpu_ns BIGINT NULL,
+    memory_bytes BIGINT NULL,
+    clock_ns BIGINT NULL,
+    benchmark_summary_json JSON NULL,
+    approved_by BINARY(16) NULL,
+    approved_at DATETIME(6) NULL,
+    supersedes_id BINARY(16) NULL,
+    error_message TEXT NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    row_version BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    CONSTRAINT uq_calibration_one_valid UNIQUE (problem_version_id, language_id, valid_slot),
-    KEY idx_calibration_resolve (problem_version_id, language_id, status),
+    CONSTRAINT uq_calibration_one_valid UNIQUE (problem_id, language_id, valid_slot),
+    KEY idx_calibration_resolve (problem_id, language_id, status),
     KEY idx_calibration_supersedes (supersedes_id),
-    CONSTRAINT fk_calibration_supersedes FOREIGN KEY (supersedes_id)
-        REFERENCES language_calibration (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
-    CONSTRAINT ck_calibration_language CHECK (
-        REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
-    ),
-    CONSTRAINT ck_calibration_status CHECK (
-        status IN ('DRAFT', 'RUNNING', 'VALID', 'FAILED', 'SUPERSEDED')
-    ),
+    CONSTRAINT fk_calibration_supersedes FOREIGN KEY (supersedes_id) REFERENCES language_calibration (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
+    CONSTRAINT ck_calibration_language CHECK (REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')),
+    CONSTRAINT ck_calibration_digest CHECK (REGEXP_LIKE(test_data_digest, '^[a-f0-9]{64}$', 'c')),
+    CONSTRAINT ck_calibration_status CHECK (status IN ('DRAFT', 'RUNNING', 'VALID', 'FAILED', 'SUPERSEDED')),
     CONSTRAINT ck_calibration_source CHECK (source_type IN ('MANUAL', 'BENCHMARK')),
-    CONSTRAINT ck_calibration_limits CHECK (
-        (cpu_ns IS NULL OR cpu_ns > 0)
-        AND (memory_bytes IS NULL OR memory_bytes > 0)
-        AND (clock_ns IS NULL OR clock_ns > 0)
-    ),
-    CONSTRAINT ck_calibration_valid CHECK (
-        status <> 'VALID' OR (
-            cpu_ns IS NOT NULL
-            AND memory_bytes IS NOT NULL
-            AND approved_by IS NOT NULL
-            AND approved_at IS NOT NULL
-            AND error_message IS NULL
-        )
-    ),
-    CONSTRAINT ck_calibration_failed CHECK (
-        status <> 'FAILED' OR error_message IS NOT NULL
-    ),
-    CONSTRAINT ck_calibration_benchmark CHECK (
-        benchmark_summary_json IS NULL OR JSON_TYPE(benchmark_summary_json) = 'OBJECT'
-    ),
-    CONSTRAINT ck_calibration_error_length CHECK (
-        error_message IS NULL OR CHAR_LENGTH(error_message) <= 8192
-    ),
+    CONSTRAINT ck_calibration_limits CHECK ((cpu_ns IS NULL OR cpu_ns > 0) AND (memory_bytes IS NULL OR memory_bytes > 0) AND (clock_ns IS NULL OR clock_ns > 0)),
+    CONSTRAINT ck_calibration_valid CHECK (status <> 'VALID' OR (cpu_ns IS NOT NULL AND memory_bytes IS NOT NULL AND approved_by IS NOT NULL AND approved_at IS NOT NULL AND error_message IS NULL)),
+    CONSTRAINT ck_calibration_failed CHECK (status <> 'FAILED' OR error_message IS NOT NULL),
+    CONSTRAINT ck_calibration_benchmark CHECK (benchmark_summary_json IS NULL OR JSON_TYPE(benchmark_summary_json) = 'OBJECT'),
+    CONSTRAINT ck_calibration_error_length CHECK (error_message IS NULL OR CHAR_LENGTH(error_message) <= 8192),
     CONSTRAINT ck_calibration_row_version CHECK (row_version >= 0),
     CONSTRAINT ck_calibration_time CHECK (updated_at >= created_at)
 ) ENGINE = InnoDB;
@@ -1191,6 +1001,7 @@ CREATE TABLE judge_attempt (
     attempt_no                  INT UNSIGNED NOT NULL,
     lease_token                 BINARY(16) NOT NULL,
     node_id                     VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+    test_data_digest            CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
     started_at                  DATETIME(6) NOT NULL,
     finished_at                 DATETIME(6) NULL,
     outcome                     VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL,
@@ -1319,21 +1130,21 @@ CREATE TABLE judging_audit_event (
 
 ### 6.4 ExecutionProfile 解析
 
-解析请求携带 `problem_version_id + test_data_version_id + expected_sha256 + language_id`。实现必须在
-同一只读事务/一致性视图中完成：
+解析请求携带 `problem_id + language_id`。实现先向 problem-service 取题目此刻的测试数据指纹和测试点数（取不到即不可提交），
+再在同一只读事务/一致性视图中完成：
 
 1. 至少一个在线节点（`lease_expires_at` 未过期）的 `languages_json` 含目标语言。
-2. 其中有节点在当前会话里持有该版本的可用回执（`available = 1`、`session_id` 等于节点当前会话），
-   且 `expected_sha256` 与请求 hash 一致。
-3. 读取该题目版本 × 语言唯一的 `status = 'VALID'` calibration。
-4. 返回标定 ID 和拆列后的绝对限制；任一缺失都返回明确不可提交原因，不生成默认值。
+2. 读取该题目 × 语言唯一的 `status = 'VALID'` calibration，且其 `test_data_digest` 等于当前指纹（否则视为已过期）。
+3. 返回标定 ID 和拆列后的绝对限制，并按当前测试点数算出执行预算；任一缺失都返回明确不可提交原因，不生成默认值。
 
 ### 6.5 标定生效
 
-- 生效新标定时锁定同一 `(problem_version_id, language_id)` 的当前 VALID 记录，先把旧 VALID 改为
+- 生效新标定时锁定同一 `(problem_id, language_id)` 的当前 VALID 记录，先把旧 VALID 改为
   SUPERSEDED，再把新记录改为 VALID；`uq_calibration_one_valid` 防止并发双生效。
-- 标定不绑定节点；换机器或升级判题机不会让已有标定失效，需要时对题目版本重新标定。
-- 跨服务的 problemVersionId、testDataVersionId、approvedBy 只保存 UUID，不建立外键。
+- 标定请求带 problem-service 给出的测试数据地址与指纹；judge 返回的结果指纹与之不一致（或没有指纹），
+  说明标定中途数据被替换，这次标定作废（FAILED，`TEST_DATA_CHANGED`），不会替代旧 VALID。
+- 标定不绑定节点；换机器或升级判题机不会让已有标定失效，需要时对题目重新标定。
+- 跨服务的 problem_id、approved_by 只保存 UUID，不建立外键。
 - 历史 JudgeInput 已冻结旧标定和旧限制；标定被替代不能修改历史输入。
 
 ### 6.6 租约、Attempt 与迟到结果
@@ -1359,18 +1170,15 @@ keyset pagination；管理后台确需跳页时才使用受限 offset pagination
 ### 7.1 problem-service
 
 - 题库列表：`visibility + status + updated_at + id` 使用 `idx_problem_listing`。
-- 当前可判题版本：先由 Problem 主键读取 `current_published_version_id`，再通过各表主键/唯一键连接；
-  `problem_version_language` 的复合主键直接支持语言解析。
-- 版本历史：`uq_problem_version_no(problem_id, version_no)` 同时支持题内版本倒序查询。
-- 测试数据历史：`idx_test_data_problem_created(problem_id, created_at, id)`。
-- 发布审计：`idx_problem_audit_problem_created(problem_id, created_at, id)`。
+- 可判题解析：由 Problem 主键读取题目，`problem_language` 的复合主键直接支持语言解析。
+- 题目审计：`idx_problem_audit_problem_created(problem_id, created_at, id)`。
 
 ### 7.2 submission-service
 
 - 我的提交：`idx_submission_user_created(user_id, created_at, id)`。
 - 某题尝试历史/通过状态：`idx_submission_user_problem_created(user_id, problem_id, created_at, id)`；通过状态
   用是否存在 `verdict = 'AC'` 派生，规模增长后再根据 EXPLAIN 决定是否增加专用索引或投影表。
-- 版本结果分布：`idx_submission_problem_version_created(problem_version_id, created_at, id)`。
+- 题目结果分布：`idx_submission_problem_created(problem_id, created_at, id)`。
 - 状态巡检：`idx_submission_status_created(status, created_at, id)`。
 - Outbox Relay：`idx_outbox_delivery(status, next_attempt_at, created_at, event_id)`；过期 Relay 租约使用
   `idx_outbox_lease`。
@@ -1378,7 +1186,7 @@ keyset pagination；管理后台确需跳页时才使用受限 offset pagination
 ### 7.3 judging-service
 
 - 在线节点：`idx_node_online(lease_expires_at, node_id)`；语言用 `JSON_CONTAINS` 在在线节点上过滤。
-- ExecutionProfile：节点部署主键和 calibration resolve 索引覆盖精确查询。
+- ExecutionProfile：`idx_calibration_resolve(problem_id, language_id, status)` 覆盖精确查询。
 - 可领取任务：`idx_judge_task_available(status, next_attempt_at, id)`。
 - 过期租约：`idx_judge_task_expired_lease(status, lease_until, id)`。
 - 节点任务/Attempt 排障：`idx_judge_attempt_node_started`。
@@ -1394,12 +1202,12 @@ keyset pagination；管理后台确需跳页时才使用受限 offset pagination
 
 必须原子提交的组合：
 
-- problem-service：版本发布 + 当前版本指针 + 题目审计。
+- problem-service：公开/取消公开 + 题目审计；上传测试数据的「切换地址 + 更新时间 + 审计」。
 - submission-service：Submission + JudgeInput + SubmissionRequest + JudgeRequested Outbox。
 - judging-service：JudgeRequested Inbox + 唯一 JudgeTask。
 - judging-service：Attempt 完成 + Task 状态 + lifecycle Outbox。
 - submission-service：lifecycle Inbox + Submission 条件更新。
-- judging-service：部署确认 + 审计；标定替代 + 审计。
+- judging-service：标定替代 + 审计。
 
 HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在上述数据库事务内部。
 
@@ -1407,7 +1215,7 @@ HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在
 
 - 默认使用 MySQL `READ COMMITTED`，减少长事务和范围锁；需要稳定多表快照的只读解析显式在同一事务中
   完成。
-- 发布、标定生效和任务领取使用精确主键/唯一键 `SELECT ... FOR UPDATE`；节点注册、心跳与部署确认共用单行 registry lock。
+- 发布、标定生效和任务领取使用精确主键/唯一键 `SELECT ... FOR UPDATE`；节点注册与心跳共用单行 registry lock。
 - Relay 和 Worker 批量领取允许使用 `FOR UPDATE SKIP LOCKED`，批次必须小，领取后立即提交。
 - 乐观更新同时校验 `row_version`；状态机更新还必须在 `WHERE` 中带当前状态，不能只按 ID 覆盖。
 
@@ -1415,18 +1223,17 @@ HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在
 
 数据库直接约束：
 
-- 本服务内引用存在性、唯一用户名/slug/版本号/幂等键/Submission Task。
+- 本服务内引用存在性、唯一用户名/slug/幂等键/Submission Task。
 - 状态和基础字段取值、正数资源限制、终态字段组合。
-- 每个题目版本 × 语言最多一个 VALID 标定。
+- 每个题目 × 语言最多一个 VALID 标定。
 - EventId Inbox 去重、Kafka position 唯一、任务和 Attempt 次数唯一。
 
 应用事务约束：
 
-- Problem 当前版本属于自身且已发布。
-- TestDataVersion 与 ProblemVersion 属于同题。
 - ACM/CORE 模板条件和唯一占位符。
-- 发布后内容、JudgeInput 和历史有效事实不可修改。
-- deployment 的请求 hash 与 problem-service 快照 hash 一致。
+- 公开题目的修改不能清空题面或样例；只有从未公开过的题目可以删除。
+- 标定对应的测试数据指纹等于 judge 实际读取的指纹。
+- JudgeInput 和历史有效事实不可修改。
 - lifecycle 事件的 `aggregateId`、Kafka key 与 payload submissionId 一致。
 - 只有当前 fencing token 可以接受 Attempt 结果。
 
@@ -1451,21 +1258,18 @@ apps/server/submission-service/src/main/resources/db/migration/
   V2__create_submission_messaging_tables.sql
 
 apps/server/judging-service/src/main/resources/db/migration/
-  V1__create_judging_readiness_tables.sql
-  V2__create_judge_node_registry.sql
-  V3__create_formal_judging_tasks.sql
-  V4__drop_legacy_local_deployment.sql
-  V5__drop_judge_environment.sql
+  V1__create_judging_tables.sql
 ```
 
-拆成 V1/V2 只表达同一服务内清晰的基础设施边界，不意味着运行时可以缺少 V2。首个正式环境从空库执行
-所有 migration；已有 migration 发布后禁止改写校验和，只能追加新版本。
+首个正式环境从空库执行所有 migration。项目仍在开发期：2026-10-07 去掉版本时直接改写了 problem-service 与 judging-service
+的 V1（judging-service 把原 V1–V5 合并为一个新的 V1），已有数据一律不保留、不写迁移；**第一次正式部署之后**，
+migration 发布后禁止改写校验和，只能追加新版本。
 
 ### 9.1 Migration 规则
 
 - 一个 migration 只操作本服务 database，不写 `USE other_database`。
 - 不在业务 migration 中 `CREATE DATABASE`、`CREATE USER` 或 `GRANT`；这些属于部署层。
-- 建表顺序遵守服务内外键依赖；`problem.current_published_version_id` 的循环外键最后 `ALTER TABLE`。
+- 建表顺序遵守服务内外键依赖。
 - DDL 明确写 `ENGINE = InnoDB`、字符集敏感列的 collation 和全部约束名。
 - 生产 migration 不夹带演示用户、密码或业务题目。C++ A+B 验收数据使用独立的开发 profile seed，不能
   混入生产 migration。
@@ -1478,10 +1282,10 @@ apps/server/judging-service/src/main/resources/db/migration/
 1. 空库 Flyway 全量迁移成功，重复 `migrate` 幂等。
 2. 所有 `CHECK`、唯一约束和服务内 FK 确实拒绝非法数据；不使用 H2 替代。
 3. UUIDv7 TypeHandler 写入/读取的 16 字节布局一致，标准字符串可往返。
-4. problem 发布并发只有一个当前指针结果，已发布记录的应用层更新被拒绝。
+4. problem 公开并发只有一个结果；上传测试数据并发收敛到一致状态；公开题目不能被改成空题面；只有从未公开过的题目可删除。
 5. Submission 创建事务在任一步故障时不留下半条数据；幂等键并发只产生一个 Submission。
 6. Inbox 重投不重复推进状态；DONE 不回退。
-7. 同一题目版本 × 语言并发标定只允许一个 VALID。
+7. 同一题目 × 语言并发标定只允许一个 VALID；测试数据指纹不同的旧标定视为过期。
 8. 两个 Worker 竞争只会有一个租约成功；旧 token 的迟到结果不能改变 Task 或发布完成事件。
 9. Outbox `SKIP LOCKED` 多 Relay 领取不重复占用同一行，过期租约可以恢复。
 10. 关键查询使用预期索引；准备代表性数据后保存 `EXPLAIN ANALYZE` 断言或基线报告。
@@ -1509,7 +1313,7 @@ Markdown、模板、样例和错误摘要设置更小的业务上限。Outbox �
 
 MVP 不自动物理删除以下记录：
 
-- 已发布/归档 ProblemVersion 及其样例、语言模板和 READY TestDataVersion 元信息。
+- 公开过的题目及其样例、语言模板（只能归档，不能删除）。
 - Submission、JudgeInput、SubmissionRequest。
 - JudgeTask、JudgeAttempt、Inbox、审计事件。
 
@@ -1526,14 +1330,12 @@ Outbox 的 PUBLISHED 行可以在具备监控和备份后按策略归档；Inbox
 由以下表查询组装，不单独持久化：
 
 ```text
-problem
-  → current PUBLISHED problem_version
-  → problem_version_language(languageId)
-  → READY test_data_version
+problem（ACTIVE/PUBLIC，测试数据此刻可读）
+  → problem_language(languageId)
 ```
 
-`content_sha256 BINARY(32)` 转小写 hex；UUID 转标准带连字符字符串；CORE 返回 `judge_template`，ACM 不
-返回。普通用户题目详情只能返回 starterCode，不能复用内部快照序列化器泄漏 judgeTemplate。
+UUID 转标准带连字符字符串；CORE 返回 `judge_template`，ACM 不返回。快照不含测试数据地址；judging-service 判题时通过
+独立的内部接口取地址与指纹。普通用户题目详情只能返回 starterCode，不能复用内部快照序列化器泄漏 judgeTemplate。
 
 ### 11.2 ExecutionProfile
 
@@ -1541,8 +1343,8 @@ problem
 
 ```text
 online judge_node declaring the language
-  → available test_data_node_deployment in the node's current session with matching hash
-  → unique VALID language_calibration for problem version × language
+  → unique VALID language_calibration for problem × language
+    whose test_data_digest equals the problem's current digest
 ```
 
 calibration 的 `cpu_ns / memory_bytes / clock_ns` 组装为 contracts 的 `effectiveLimits`。解析结果随后被
@@ -1554,7 +1356,7 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来标定变�
 
 - `complete_source` → `source`
 - `limit_cpu_ns / limit_memory_bytes / limit_clock_ns` → `limits`
-- `test_data_version_id` UUID → 标准小写 UUID 字符串目录键
+- 测试数据地址不在 `judge_input` 里：判题时由 judging-service 向 problem-service 取，放进 `testDataLocation`
 
 ---
 
@@ -1563,12 +1365,11 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来标定变�
 - [x] 四个有状态服务分别拥有独立 database/schema；Gateway 无业务数据库。
 - [x] 服务内关系有 FK，跨服务 UUID 无 FK、无 JOIN。
 - [x] UUIDv7 使用 `BINARY(16)`；hash 使用 `BINARY(32)`；UTC 时间使用 `DATETIME(6)`。
-- [x] Problem 与不可变 ProblemVersion 分离，当前发布版本使用稳定指针。
-- [x] ACM/CORE 模板按 ProblemVersion × Language 保存，发布后不可修改。
-- [x] 大测试数据不进 MySQL，只保存 storageRef、manifest、hash 和版本状态。
-- [x] 判题节点、数据部署和语言标定属于 judging-service，绝对限制按题目版本 × 语言保存。
-- [x] 数据库约束每个题目版本 × 语言最多一个 VALID calibration。
-- [x] Submission 冻结题目、数据、语言、标定和绝对限制快照。
+- [x] 题目没有版本；ACM/CORE 模板按 Problem × Language 保存。
+- [x] 大测试数据不进 MySQL，只保存目录地址，指纹与清单以 `testdata.json` 为准。
+- [x] 判题节点和语言标定属于 judging-service，绝对限制按题目 × 语言保存并带测试数据指纹。
+- [x] 数据库约束每个题目 × 语言最多一个 VALID calibration。
+- [x] Submission 冻结题目标题、语言、标定和绝对限制快照（不冻结测试数据地址）。
 - [x] 用户源码与完整送判源码分开；JudgeInput 与 Submission 一对一且同事务创建。
 - [x] 创建幂等键、Inbox eventId、Task submissionId 和 Attempt 次数都有唯一约束。
 - [x] Outbox/Inbox、任务租约、fencing token 和迟到结果边界可由物理列支持。
@@ -1595,20 +1396,10 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来标定变�
 不得跳过 migration/约束测试直接靠 Java 内存模型模拟数据库；也不得把本文 DDL 复制成一个所有服务共享
 的 schema。物理表一旦进入 Flyway 并被部署，后续演进必须追加 migration，而不是回改 V1。
 
-### WORK-040 节点注册增量
+### 2026-10-07：去掉题目版本与测试数据版本
 
-V2 migration 仅新增 `judge_node_registry_lock`、`judge_node`、`judge_node_session` 和 `test_data_node_deployment`。
-注册事务锁住单行 registry lock，串行化注册、心跳与部署确认。节点以 node_id 为主键，
-以 `(lease_expires_at, node_id)` 索引查询在线节点（V5 去掉环境外键后）。
-安装回执以 `(test_data_version_id, node_id)` 唯一，摘要不可变，记录 session_id、file_count、
-available、deployed_at 和 row_version；会话变化撤销可用性，历史行不删除。
-`judge_node_session` 保留已接受的会话，防止旧进程重新注册抢回身份。安装拒绝按 row_version 条件撤销旧回执，
-旧请求失败不能覆盖较新的成功结果。查询 READY 同时匹配当前会话和租约。
-DDL 以 judging-service 的 `V2__create_judge_node_registry.sql` 为执行依据；不修改 V1 或回滚 schema。
-
-### 取消判题环境（V4、V5）
-
-V4 删除只有 legacy-local 模式写入的 `test_data_deployment`。V5 取消「判题环境」：删除
-`judge_environment` 与 `judge_environment_language`；`judge_node` 去掉环境外键与整份注册元数据，
-只留 `languages_json`；`language_calibration` 去掉 `judge_environment_id`，唯一约束变为「题目版本 ×
-语言」，迁移时同一组合只保留最近批准的 VALID，其余转为 SUPERSEDED；环境审计记录不保留。
+problem-service 的 `problem_version`、`test_data_version` 两张表合并进 `problem`（题面、模式、标签、测试数据地址、首次公开时间），
+样例、语言、审计事件改挂在题目上。judging-service 把原 V1–V5 合并为一个新的 V1：保留 `judge_node`（只留 `languages_json`）、
+`judge_node_session`、`judge_node_registry_lock`、`judge_task`、`judge_attempt`（新增 `test_data_digest`）、`outbox_event`、
+`inbox_event`、`judging_audit_event`（类型 `CALIBRATION`、`TASK`）；`language_calibration` 的键改为（`problem_id`、`language_id`、
+`valid_slot`）并新增 `test_data_digest`；`test_data_node_deployment` 及相关逻辑删除。已有数据一律不保留。

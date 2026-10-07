@@ -6,15 +6,16 @@ import { expect, test } from '@playwright/test';
 
 import { themeRegistry, themeStorageKey } from '../src/generated/design-system/themes.js';
 
-// Run against node-e2e.py --keep; all API responses come from the isolated real stack.
+// Run against `scripts/work-002-e2e.py --keep`; all API responses come from the isolated real stack.
 test('real node offline and recovery are shown in the workbench', async ({ page }, testInfo) => {
-  test.skip(!process.env.WORK040_E2E_DIRECTORY, 'requires isolated node-e2e.py --keep stack');
+  test.skip(!process.env.WORK002_E2E_DIRECTORY, 'requires isolated work-002-e2e.py --keep stack');
   test.setTimeout(150_000);
-  const directory = process.env.WORK040_E2E_DIRECTORY!;
+  const directory = process.env.WORK002_E2E_DIRECTORY!;
   const evidence = JSON.parse(readFileSync(resolve(directory, 'evidence.json'), 'utf8')) as {
     project: string;
     ports: { gateway: number };
     problemId: string;
+    webOrigin: string;
   };
   const environment = JSON.parse(
     readFileSync(resolve(directory, 'compose.env.json'), 'utf8'),
@@ -31,15 +32,15 @@ test('real node offline and recovery are shown in the workbench', async ({ page 
   };
   const csrf = csrfResponse.data.token;
   const login = await page.request.post(`${gateway}/api/auth/login`, {
-    headers: { Origin: 'http://localhost:5173', 'X-CSRF-Token': csrf },
-    data: { username: 'work040admin', password: 'Work040-Changed-Password' },
+    headers: { Origin: evidence.webOrigin, 'X-CSRF-Token': csrf },
+    data: { username: 'work002admin', password: 'Work002-Changed-Password' },
   });
   expect(login.ok()).toBeTruthy();
   await page.route('**/api/**', async (route) => {
     const url = new URL(route.request().url());
     const response = await route.fetch({
       url: gateway + url.pathname + url.search,
-      headers: { ...route.request().headers(), origin: 'http://localhost:5173' },
+      headers: { ...route.request().headers(), origin: evidence.webOrigin },
     });
     await route.fulfill({ response });
   });

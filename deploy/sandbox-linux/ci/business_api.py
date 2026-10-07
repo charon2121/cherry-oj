@@ -112,52 +112,43 @@ class API:
         slug = 'ci-business-' + identity
         problem = self.request('POST', '/api/admin/problems',
                                dict(slug=slug, title='CI A+B', difficulty='EASY', codeMode='ACM', languageId='cpp'), expected=201)
-        problem_id, version_id = problem['id'], problem['versions'][0]['id']
-        base = f'/api/admin/problems/{problem_id}/versions/{version_id}'
-        version = self.request('GET', base)
-        version = self.request('PATCH', base, dict(title='CI A+B', statementMarkdown='计算两个整数的和。',
+        problem_id = problem['id']
+        base = f'/api/admin/problems/{problem_id}'
+        problem = self.request('PATCH', base, dict(slug=slug, title='CI A+B', statementMarkdown='计算两个整数的和。',
             inputDescriptionMarkdown='输入两个整数。', outputDescriptionMarkdown='输出它们的和。',
             constraintsMarkdown=None, hintMarkdown=None, difficulty='EASY', tags=[],
             samples=[dict(ordinal=1, input='1 2', output='3', explanationMarkdown=None)],
-            starterCode='', changeSummary=None, rowVersion=version['rowVersion']))
+            starterCode='', rowVersion=problem['rowVersion']))
         archive = fixture_zip()
         boundary = 'cherry-ci-' + secrets.token_hex(16)
         multipart = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="cases.zip"\r\n'
                      'Content-Type: application/zip\r\n\r\n').encode() + archive + f'\r\n--{boundary}--\r\n'.encode()
-        asset = self.request('POST', f'/api/admin/problems/{problem_id}/test-data', multipart,
-                             expected=201, content_type='multipart/form-data; boundary=' + boundary)
-        if asset['status'] != 'READY' or asset['contentSha256'] != hashlib.sha256(archive).hexdigest():
+        # 上传即替换：problem-service 把 ZIP 写成协议目录，节点按地址读取，没有“部署”这一步。
+        data = self.request('PUT', base + '/test-data', multipart,
+                            expected=200, content_type='multipart/form-data; boundary=' + boundary)
+        if data['caseCount'] != 6 or len(data['digest']) != 64:
             raise ValueError('uploaded data identity mismatch')
-        version = self.request('PUT', base + '/test-data', dict(testDataVersionId=asset['id'], rowVersion=version['rowVersion']))
-        deployment = self.request('POST', base + '/deployment', dict(testDataVersionId=asset['id'],
-                                  expectedSha256=asset['contentSha256'], rowVersion=version['rowVersion']))
-        if deployment['status'] != 'READY':
-            raise ValueError('data was not deployed')
-        return dict(slug=slug, problemId=problem_id, problemVersionId=version_id, testDataVersionId=asset['id'],
-                    dataSha256=asset['contentSha256']), base
+        return dict(slug=slug, problemId=problem_id, testDataDigest=data['digest']), base
 
     def calibrate(self, base):
-        version = self.request('GET', base)
         calibration = self.request('POST', base + '/calibration', dict(languageId='cpp', cpuNs=1000000000,
-            memoryBytes=268435456, clockNs=None, referenceSource=(FIXTURES / 'calibration.cpp').read_text(),
-            rowVersion=version['rowVersion']))
+            memoryBytes=268435456, clockNs=None, referenceSource=(FIXTURES / 'calibration.cpp').read_text()))
         if calibration['status'] != 'VALID':
             raise ValueError('new calibration did not become VALID')
         check = self.request('GET', base + '/publish-check')
         if check['ready'] is not True:
             raise ValueError('normal publication checks failed')
-        version = self.request('GET', base)
-        self.request('POST', base + '/publish', dict(rowVersion=version['rowVersion']))
+        problem = self.request('GET', base)
+        self.request('POST', base + '/publish', dict(rowVersion=problem['rowVersion']))
         return calibration
 
     def make_public(self, context):
-        # Publishing a version leaves the problem private; use the normal admin transition.
+        # 题目没有版本：公开就是同一道题变成 PUBLIC，核对身份即可。
         base = '/api/admin/problems/' + context['problemId']
         problem = self.request('GET', base)
         if (problem['id'] != context['problemId'] or problem['slug'] != context['slug']
-                or problem['currentPublishedVersionId'] != context['problemVersionId']):
+                or problem['visibility'] != 'PUBLIC' or problem['testData']['digest'] != context['testDataDigest']):
             raise ValueError('published problem identity mismatch')
-        self.request('PATCH', base, dict(slug=context['slug'], visibility='PUBLIC', rowVersion=problem['rowVersion']))
         public = self.request('GET', '/api/problems/' + context['slug'])
-        if any(public[key] != context[key] for key in ('problemId', 'problemVersionId', 'slug')):
+        if any(public[key] != context[key] for key in ('problemId', 'slug')):
             raise ValueError('public problem identity mismatch')

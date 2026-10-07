@@ -94,25 +94,25 @@ Apache Commons Compress 只在 problem-service 内处理私有测试数据 ZIP�
 限额拒绝 ZIP 穿越与解压炸弹。原包保存到 `CHERRY_TEST_DATA_ROOT` 配置根内，READY 文件
 只读封存，不与 judging-service 共享目录。
 
-## judging-service 的部署与校准工具
+## judging-service 的标定与判题调度
 
 judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J 与测试阶段的 Testcontainers MySQL。
-它只连接 `cherry_oj_judging`，保存节点与租约、逐节点测试数据回执、按「题目版本 × 语言」的标定、
-判题任务和审计；不读取 problem-service 数据库。
+它只连接 `cherry_oj_judging`，保存节点与租约、按「题目 × 语言」的标定（带标定时的测试数据指纹）、
+判题任务（含每次尝试实际读取的数据指纹）和审计；不读取 problem-service 数据库。
 
-测试数据由受 ADMIN JWT 保护的接口以 manifest 与 ZIP 流传入，经独立 control token 传给在线 Judge，
-Go 在私有目录二次校验并原子安装；控制面核对节点、会话、版本、hash 与文件数后才记录逐节点回执。
-校准和 ExecutionProfile 选择在线、声明了该语言且持有对应数据的节点。
-Java 不创建 Judge 数据目录，也不要求共享 Unix UID 或挂载路径。
+测试数据不再由 Java 推送给节点：problem-service 按[测试数据协议](../../docs/testdata-protocol.md)写成目录，
+judging-service 判题或标定时通过服务令牌向 problem-service 取题目此刻的地址与指纹，把地址交给任意在线、
+声明了该语言的节点，节点自己按地址读取。Java 不创建 Judge 数据目录，也不要求共享 Unix UID；
+节点需要能读到该地址（本地路径要挂载同一路径）。
 
 节点上线自行注册，只带节点身份（nodeId + 会话）与语言，没有环境分组。默认心跳 10 秒、租约 35 秒；
-节点重启保留旧回执但撤销可用性，通过再次部署幂等检查本地文件后恢复。参数分别为
+节点重启换新会话重新注册，不需要重新交付任何数据（测试数据由节点按地址读取）。参数分别为
 `JUDGE_HEARTBEAT_INTERVAL` 和 `CHERRY_JUDGE_NODE_LEASE_DURATION`。
 
 控制 token 通过 `CHERRY_JUDGE_CONTROL_TOKEN` 配给两端，本地默认值仅用于本机开发；生产必须显式
 提供 token 和数据库连接，节点 advertise URL 必须能被 Java 访问。测试用临时 MySQL 8.4 验证
-约束、并发注册、租约边界、迁移和回执；真实五服务 Compose 回归入口为
-`apps/server/judging-service/scripts/node-e2e.py`。
+约束、并发注册、租约边界、标定过期和任务租约；真实五服务 Compose 回归入口为
+`scripts/work-002-e2e.py`。
 
 ## 本地启动默认与生产配置边界
 

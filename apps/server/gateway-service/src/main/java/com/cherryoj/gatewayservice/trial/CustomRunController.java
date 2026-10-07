@@ -110,7 +110,6 @@ public class CustomRunController {
 					return response.releaseBody().then(Mono.defer(() -> {
 						ApiProblemException failure = switch (status) {
 							case 404 -> error(HttpStatus.NOT_FOUND, "PROBLEM_NOT_AVAILABLE", "题目不存在或不再公开。");
-							case 409 -> error(HttpStatus.CONFLICT, "PROBLEM_VERSION_CHANGED", "题目版本已更新，请打开新版本后再运行。");
 							case 413 -> error(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入过大。");
 							case 422 ->
 								error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行配置暂不支持自测。");

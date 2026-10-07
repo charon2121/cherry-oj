@@ -155,12 +155,11 @@ apps/judge-engine/
 │   ├── flow/                   #   一次判题：编译 → 逐点跑 → 比对 → 汇总
 │   ├── checker/                #   单遍流式比对选手输出与标准答案
 │   ├── language/               #   某语言怎么编译、产物叫什么、怎么运行
-│   ├── testcase/               #   从磁盘读某个 testDataVersionId 的测试点
+│   ├── testcase/               #   按 testDataLocation 读 testdata.json，复制并校验测试点
 │   ├── config/                 #   judge 的配置与校验（含 execution 段）
-│   └── node/                   #   节点身份与数据交付（见 §5.5）
+│   └── node/                   #   节点身份与注册（见 §5.5）
 │       ├── identity/           #     节点身份：nodeId、会话号、语言
 │       ├── registry/           #     向 judging-service 注册与心跳
-│       ├── install/            #     接收测试数据并原子落盘
 │       ├── preflight/          #     注册前自检：执行层隔离后端、原生部署清单
 │       └── wire/               #     严格 JSON 解码
 │
@@ -283,15 +282,13 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
 |---|---|
 | `POST /judge` | 判一次提交，同步返回 `JudgeResult` |
 | `GET /version` | 自报名字与版本 |
-| `POST /internal/judge-node/v1/install` | 控制面下发测试数据（仅在节点模式启用时挂载） |
 
 ```json
 // 请求 POST /judge
 {
   "submissionId": "s1",
   "problemId": "p-a-plus-b",
-  "problemVersionId": "pv-a-plus-b-v1",
-  "testDataVersionId": "tdv-a-plus-b-v1",
+  "testDataLocation": "/srv/cherry-oj/testdata/p-a-plus-b",
   "languageId": "cpp",
   "source": "#include <iostream>\n...",
   "limits": { "cpuNs": 1000000000, "memoryBytes": 268435456 }
@@ -303,6 +300,7 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
   "cpuNs": 1447000,
   "memoryBytes": 1048576,
   "score": 100,
+  "testDataDigest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
   "caseResults": [
     { "idx": 1, "verdict": "AC", "cpuNs": 1200000, "memoryBytes": 1000000 },
     { "idx": 2, "verdict": "AC", "cpuNs": 1447000, "memoryBytes": 1048576 }
@@ -312,22 +310,26 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
 
 ### 5.2 测试数据在磁盘上长什么样？
 
+格式由[测试数据协议](./testdata-protocol.md)规定。judge 只认请求里的 `testDataLocation`（以 `/` 开头的本地绝对路径，
+或 http(s) 地址），其下：
+
 ```
-<testdata-root>/tdv-a-plus-b-v1/
-├── 1.in
-├── 1.out
-├── 2.in
-└── 2.out
+<testDataLocation>/
+├── testdata.json      # schemaVersion、caseCount、totalBytes、digest、cases[]（name + 输入/输出的大小与 SHA-256）
+├── 1.in  1.out
+└── 2.in  2.out
 ```
 
-**只放测试数据，不放元信息。** 目录名是不可变 `testDataVersionId`；`problemId` 和
-`problemVersionId` 只用于日志、追踪与对账，不能用于定位正式测例。这样同一道题的新旧版本可以并存，
-历史提交不会因为题目当前版本变化而读到另一份数据。
+读取顺序：读 `testdata.json` → 按 `cases` 的显式顺序把 `<name>.in/.out` 复制到本次判题的私有工作目录并核对大小与
+SHA-256 → 只有 `.in` 作为标准输入进入沙箱，`.out` 永远不进沙箱。任何一步失败（地址读不到、文件缺失、摘要不符、超限）
+都是 SE，绝不会判成 WA；撞上写入方替换数据（文件缺失、摘要不符或本地读文件报错）时重读元数据并重试一次。
+判题结果带回 `testDataDigest`，也就是这次实际读取的那份数据的指纹，用于追溯与标定核对。
 
-文件名规约**宽松匹配**：任何 `X.in`，只要同目录下有 `X.out`，就配成一对，`X` 即测试点名。排序时 `X` 能转整数的按数值排（否则 `1, 10, 2` 会乱），转不成的按字符串排在后面。落单的 `.in` 跳过并记 warning。
+`problemId` 只用于日志、追踪与对账，不能用于定位测例；定位只看地址。题目没有版本：数据换了就是换了，
+读取方每次都读到一份完整的数据（写入方先写内容寻址目录，再原子切换符号链接）。
 
-时空限制由 judging-service 根据题目版本和语言的标定解析成绝对值，冻结进 JudgeInput 后随
-`JudgeRequest` 下发。测试数据部署用 content hash 校验，节点回执绑定本次进程的会话号。
+时空限制由 judging-service 根据题目和语言的标定解析成绝对值，冻结进 JudgeInput 后随 `JudgeRequest` 下发；
+地址不冻结，由 judging-service 判题时向 problem-service 取最新的值。
 
 ### 5.3 语言配置
 
@@ -402,11 +404,10 @@ judge 作为判题节点时，只向控制面报身份：`nodeId`（配置）、
 
 这曾经是另一套设计：机器事实、判题策略和 judge 二进制摘要被揉成一个「环境指纹」，控制面按指纹把
 节点归并成「判题环境」，标定也挂在环境上。结果是任何一次发版都会轮换指纹，新节点只能以 REGISTERED
-出现，必须人工切换 ACTIVE 环境并重新部署、重新标定。现在控制面按节点路由（在线、声明了该语言、
-本会话持有数据），标定按「题目版本 × 语言」记录；换机器需要重新标定时，由管理员对题目版本显式重做。
+出现，必须人工切换 ACTIVE 环境并重新部署、重新标定。现在控制面按节点路由（在线、声明了该语言），
+标定按「题目 × 语言」记录并带标定时的测试数据指纹；换机器需要重新标定时，由管理员对题目显式重做。
 
-`node/identity` 只负责生成这份身份。`sessionId` 让控制面区分同一 nodeId 的新旧进程：进程重启后旧的
-数据安装回执失效，必须重新安装证明持有。
+`node/identity` 只负责生成这份身份。`sessionId` 让控制面区分同一 nodeId 的新旧进程；已被接替的旧会话不能夺回 nodeId。
 
 `node/preflight` 在注册前自检，任何一项不满足都拒绝上线：执行层报告 linux 隔离与配置了部署清单
 必须同时成立——只有一边成立，说明部署与配置不一致。执行层在装配时已经用一次真实执行冒烟过整条链
@@ -784,14 +785,15 @@ server              judge（判题编排 → 执行层）                 执行
 
 先读设计建立地图；动手时只打开 `tutorial/` 对应阶段。
 
-## WORK-040 节点生命周期与数据交付
+## 节点生命周期与测试数据读取
 
 节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 注册只带节点身份：稳定的 nodeId、
 每次进程启动新生成的 sessionId、访问地址和能判的语言；不上报机器信息，也没有「判题环境」分组。
-注册前先做启动自检：进程内执行层须报告 linux 隔离，原生部署还要核对部署清单。后台心跳失败时
-重试且不关闭健康入口；控制面租约过期后停止部署和路由。安装接口通过独立共享 token 保护，使用有界
-multipart 流、摘要和 manifest 二次校验、节点私有目录和原子 rename。数据回执绑定 nodeId、sessionId、
-版本、hash 与文件数。重启后旧回执不可直接调度，再次部署会幂等检查本地文件并恢复当前会话的可用性。
+注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
+重试且不关闭健康入口；控制面租约过期后停止路由。
 
-本地 Compose 的 Judge 使用私有 `judge-testdata` 卷，Java 不挂载该目录。生产使用相同链路；
+测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./testdata-protocol.md)写出目录，judging-service
+判题时只把目录地址放进 `JudgeRequest.testDataLocation`，Go judge 自己读 `testdata.json`、复制并校验文件。
+没有安装接口、没有逐节点回执，节点重启也不需要重新交付数据。本地路径要求节点能读到同一个路径：
+Compose 用必填的 `PROBLEM_TESTDATA_ROOT` 按同一绝对路径只读挂载（`judge-testdata` 卷只是每次判题的私有工作目录）。
 具体参数见 `apps/server/README.md`。

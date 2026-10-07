@@ -37,6 +37,8 @@ def environment(directory, credentials):
                CHERRY_SUBMISSION_JUDGING_TOKENS=credentials['submission_judging'],
                CHERRY_JUDGING_SUBMISSION_TOKEN=credentials['judging_submission'],
                CHERRY_JUDGING_SUBMISSION_TOKENS=credentials['judging_submission'],
+               CHERRY_JUDGING_PROBLEM_TOKEN=credentials['judging_problem'],
+               CHERRY_SERVICE_CALLS_JUDGING_PROBLEM_TOKENS=credentials['judging_problem'],
                LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE='1MB',
                LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP='8MB',
                LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY='1')
@@ -56,7 +58,7 @@ def create(directory):
     directory.mkdir(mode=0o700)
     (directory / 'logs').mkdir(mode=0o700)
     credentials = {key: secrets.token_hex(32) for key in (*DATABASES, 'root', 'redis', 'control',
-                   'submission_problem', 'submission_judging', 'judging_submission')}
+                   'submission_problem', 'submission_judging', 'judging_submission', 'judging_problem')}
     credentials.update(username='ci_admin', initialPassword='Ci-A!' + secrets.token_hex(16),
                        password='Ci-B!' + secrets.token_hex(16))
     private(directory / 'credentials.json', json.dumps(credentials))

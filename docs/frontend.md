@@ -207,8 +207,8 @@ Query key factory、失效范围、重试策略和 loader 预取规则见
 
 ### 4.4 代码草稿
 
-- WORK-041 使用 localStorage 同步保存小型单文件草稿，键包含版本化命名空间及
-  `userId + problemId + problemVersionId + languageId`。每页面 writer 使用独立恢复副本，
+- WORK-041 使用 localStorage 同步保存小型单文件草稿，键包含版本化命名空间（当前 v2）及
+  `userId + problemId + languageId`（题目没有版本，管理员改题不影响本机草稿）。每页面 writer 使用独立恢复副本，
   revision、父 revision 和合并记录用于发现分支；不把“读后写”当成原子 CAS。
 - 约 500ms 防抖保存，空字符串是有效草稿；pagehide/unmount flush 到旧身份键。UTF-8 256 KiB
   以上不截断，保留内存并提示复制/下载备份。存储拒绝、损坏、冲突有独立状态与恢复动作。
@@ -218,7 +218,7 @@ Query key factory、失效范围、重试策略和 loader 预取规则见
   草稿属于当前浏览器，不代表提交或跨设备同步，也不抵御同设备开发者工具访问。
 - 用户端题目页复用 `GET /api/auth/session` 的现有 Query；15 秒及窗口恢复时重新确认会话，
   网络失败保留已有文本并暂停编辑；确认失效后隐藏旧账号内容。普通用户和管理员均可编写代码。
-- Monaco 本地异步加载，C++ ACM 起始代码来自发布版本；手机触控回退 CodeMirror。后台仍使用
+- Monaco 本地异步加载，C++ ACM 起始代码来自题目；手机触控回退 CodeMirror。后台仍使用
   `TextEditor`。本轮运行、提交为禁用能力且显示“暂未开放”，不发请求或展示模拟判题结果。
 
 ### 4.5 提交与判题轮询

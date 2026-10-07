@@ -80,8 +80,8 @@ LIMITS = dict(cpuNs=1_000_000_000, memoryBytes=64 << 20, clockNs=5_000_000_000)
 
 
 def request(cases, limits=None, language='cpp', source=SOURCE):
-    return dict(submissionId='work061-kernel', problemId='work061-probe', problemVersionId='v1',
-                testDataVersionId='unused', languageId=language, source=source, mode='trial',
+    return dict(submissionId='work061-kernel', problemId='work061-probe',
+                languageId=language, source=source, mode='trial',
                 cases=cases, limits=dict(LIMITS, **(limits or {})))
 
 

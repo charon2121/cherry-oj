@@ -1,6 +1,6 @@
 # 去版本化与测试数据协议
 
-类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–6 步已实施（2026-10-07），其余待授权
+类型：维护（含产品规则调整） · 创建：2026-10-07 · 状态：第 0–7 步已实施（2026-10-07），其余待授权
 
 ## 为什么做
 
@@ -124,3 +124,20 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
   留到第 8 步）。重写与新增：`published-problem.spec.ts`（公开题原地编辑、取消公开、整体替换测试数据、归档只读）取代 `published-deployment.spec.ts`；
   `problem-workspace` 里"发布新版本后需手动切换"的用例改为"管理员改题不会替换正在编辑的代码"，丢失响应重试用例改为"题目被改后仍重试原代码与原请求键"。
 - **没有验证 / 遗留：** `e2e/judge-node.spec.ts` 与 `e2e-live/*` 已按新契约改写但没有对真实栈运行；全链路（含这两处）在第 8 步。
+
+## 进度与验证（第 7 步：脚本、部署与全局文档，2026-10-07）
+
+- **端到端脚本：** `scripts/work-002-e2e.py` 按协议模型重写并在隔离栈上**实际跑通**（MySQL/Redis/Kafka + 五服务 + 真实 judge 容器）：上传 ZIP → problem-service 写协议目录 →
+  按地址标定 → 公开 → AC/WA/CE/TLE → Kafka 与节点故障恢复 → worker 崩溃后租约回收 → **替换测试数据后旧校准过期、新提交被挡住、重新校准后读到新数据，
+  已冻结的 JudgeInput 不变，判题结果记录所读数据的指纹** → 公开题原地修改立即生效、取消公开后不能提交、重新公开恢复 → 回滚开关与账号归属。
+  顺手删除了脚本里已不存在的 sandbox 服务引用。旧的 `judging-service/scripts/node-e2e.py`（旧部署流程，且缺 submission 库与 Kafka）已删除，
+  节点离线/恢复由 `work-002-e2e.py --keep` + `apps/web/e2e/judge-node.spec.ts` 覆盖（后者已改用新脚本的证据文件与环境变量 `WORK002_E2E_DIRECTORY`）。
+- **Linux 部署脚本：** `deploy/sandbox-linux/{tests/judge_program.py,install/verify-faults.py,install/verify-native.py}` 的 JudgeRequest 去掉版本字段；
+  `ci/business_*` 的真实业务流程改为新模型（上传即替换、无部署回执、标定核对数据指纹、判题尝试核对所读指纹），并加了 `judging_problem` 服务令牌。
+  这些脚本的 Python 单元测试（ci 114 个、install 15 个）通过。
+- **清理遗留：** gateway 与前端里已不会出现的 `PROBLEM_VERSION_CHANGED`、`PROBLEM_VERSION_NOT_FOUND` 删除。
+- **全局文档：** `architecture.md`、`data-model.md`、`database-design.md`（问题与判题两部分直接据实际 V1 SQL 重写）、`engine.md`、`backend.md`、`frontend.md`、
+  `status.md`、`apps/server/{README,TOOLCHAIN}.md`、编码规范中的一条示例同步。`docs_test` 与契约测试通过。
+- **没有验证 / 遗留：** Linux 原生路径（`ci/business_*` 用的是原生安装的 judge）没有在 Linux 机器上运行，且原生 judge 以另一个系统用户运行，
+  能否读到 `CHERRY_TEST_DATA_ROOT`（CI 里该目录在 0700 的运行目录下）需要在 Linux 上确认；测试服务器上的节点 `cherry-linux-3` 仍是旧版 judge，尚未升级。
+  `judge-node` 与 `e2e-live` 的 Playwright 对真实栈运行归第 8 步。
