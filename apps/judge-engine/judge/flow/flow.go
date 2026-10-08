@@ -33,7 +33,7 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.Ju
 }
 
 // judgment 只属于一次 Judge 调用。配置为值快照，源码和编译引用不能跨请求复用。
-// 测例输入的临时引用由 runCase 在每点结束时释放，不累积到整次判题结束；
+// 测试点输入的临时引用由 runCase 在每点结束时释放，不累积到整次判题结束；
 // submit 模式下测试数据的本地副本（testData）随这次判题一起在 close 里删除。
 type judgment struct {
 	sandbox                  Sandbox
@@ -94,11 +94,11 @@ func (j *judgment) prepare(ctx context.Context) error {
 	var err error
 	j.testData, err = loadCases(ctx, j.config, j.request)
 	if err != nil {
-		return fmt.Errorf("load test cases: %v", err)
+		return fmt.Errorf("load testcases: %v", err)
 	}
 	j.cases = j.testData.Cases
 	if len(j.cases) == 0 {
-		return fmt.Errorf("no test cases")
+		return fmt.Errorf("no testcases")
 	}
 	j.clockNs, err = effectiveClockNs(j.request.Limits, j.config.ClockRatio)
 	if err != nil {

@@ -2,11 +2,11 @@ package contract
 
 import "fmt"
 
-// JudgeMode 决定「测例从哪来」
+// JudgeMode 决定「测试点从哪来」
 type JudgeMode string
 
 const (
-	// ModeSubmit：正式提交。judge 按请求里的 testDataLocation 读取测例（协议见 docs/testdata-protocol.md）。
+	// ModeSubmit：正式提交。judge 按请求里的 testDataLocation 读取测试点（协议见 docs/testdata-protocol.md）。
 	ModeSubmit JudgeMode = "submit"
 	// ModeTrial：试运行。用请求里带的 cases——题面样例（server 从库里取出内联发来）
 	// 和用户自己敲的输入都走这条。

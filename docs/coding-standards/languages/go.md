@@ -113,7 +113,7 @@ func New(exec Executor, st store.Store, opts Options) *Server {
 ## 6. 资源与生命周期
 
 - **能流式就别攒全量。** 用 `io.Copy` 搬，别 `io.ReadAll`。只存「怎么打开」
-  而不是内容（`testcase.Blob`）。几十 MB 的测例乘以并发数就是几个 GB。
+  而不是内容（`testcase.Blob`）。几十 MB 的测试点乘以并发数就是几个 GB。
 - **`defer` 是函数级的，不是块级。** 写在 `for` 里，100 个资源会攒到函数返回
   才一起释放，量一大就撞 `too many open files`。**循环内的资源循环内关。**
 - **清理动作别用那个正在被取消的 ctx。** 请求取消后 `ctx` 已死，

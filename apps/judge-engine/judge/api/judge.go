@@ -80,7 +80,7 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 	if wire.ProblemID == nil {
 		return contract.JudgeRequest{}, missing("problemId")
 	}
-	// 只有 trial 模式的测例在请求里；缺省的 mode 是 submit，必须带测试数据的地址。
+	// 只有 trial 模式的测试点在请求里；缺省的 mode 是 submit，必须带测试数据的地址。
 	if wire.TestDataLocation == nil && wire.Mode != contract.ModeTrial {
 		return contract.JudgeRequest{}, missing("testDataLocation")
 	}

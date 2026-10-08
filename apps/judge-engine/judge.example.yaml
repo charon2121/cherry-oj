@@ -8,7 +8,7 @@
 #   judge.compile.cpuNs → CHERRY_OJ_JUDGE_COMPILE_CPU_NS
 #
 # 这里只放**运行策略**（换个部署环境可能要改，但和某一次判题请求无关）。
-# 随请求变的东西——题目的时空限制、源码、测例——走 JudgeRequest，不在这里。
+# 随请求变的东西——题目的时空限制、源码、测试点——走 JudgeRequest，不在这里。
 
 
 # 每个服务只加载自己的配置：另一个服务的段配错了，本服务照样能启动。
@@ -60,7 +60,7 @@ judge:
   # 太大则死锁的程序要吊很久才被杀。
   clockRatio: 10
 
-  # 测例输入超过这个大小，就先传进 sandbox 的 store 走 ref，否则内联进 /run 的 JSON。
+  # 测试点输入超过这个大小，就先传进 sandbox 的 store 走 ref，否则内联进 /run 的 JSON。
   # 小数据内联省一次 HTTP 往返，大数据走 ref 省内存。
   inlineThresholdBytes: 262144 # 256 KiB
 

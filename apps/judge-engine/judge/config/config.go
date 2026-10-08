@@ -49,7 +49,7 @@ type Settings struct {
 	// 程序可能在等 IO（不烧 CPU 但耗墙钟），要留富余；太大则死锁的程序要吊很久才被杀。
 	ClockRatio int64 `yaml:"clockRatio"`
 
-	// InlineThresholdBytes：测例输入超过这个大小就先放进执行层的 store 走 ref，否则以内联文本
+	// InlineThresholdBytes：测试点输入超过这个大小就先放进执行层的 store 走 ref，否则以内联文本
 	// 交给执行层。小数据内联省一次落盘，大数据走 ref 避免在请求里复制一整份。
 	InlineThresholdBytes int64 `yaml:"inlineThresholdBytes"`
 

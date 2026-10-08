@@ -130,8 +130,8 @@ func TestJudgeModeUsesTestData(t *testing.T) {
 		mode         JudgeMode
 		usesTestData bool
 	}{
-		{ModeSubmit, true}, // 测例在测试数据地址下
-		{ModeTrial, false}, // 测例在请求里
+		{ModeSubmit, true}, // 测试点在测试数据地址下
+		{ModeTrial, false}, // 测试点在请求里
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.mode), func(t *testing.T) {

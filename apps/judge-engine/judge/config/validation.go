@@ -55,7 +55,7 @@ func (c Config) Validate() error {
 		return fmt.Errorf("all three judge.compile values must be positive, got %+v", j.Compile)
 	}
 	// 编译墙钟超过执行层的硬界，每次编译都会被执行器拒绝，表现成一连串 SE；启动时就挡住。
-	// 测例墙钟（显式值或 cpuNs × clockRatio）随请求变化，由 flow 在上传源码前检查。
+	// 测试点墙钟（显式值或 cpuNs × clockRatio）随请求变化，由 flow 在上传源码前检查。
 	if j.Compile.ClockNs > MaxClockNs {
 		return fmt.Errorf("judge.compile.clockNs (%s) exceeds the execution wall-clock hard limit (%s)",
 			time.Duration(j.Compile.ClockNs), time.Duration(MaxClockNs))

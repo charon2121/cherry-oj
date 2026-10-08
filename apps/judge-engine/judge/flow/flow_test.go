@@ -637,7 +637,7 @@ func TestJudgeWithUnreadableTestDataIsSEWithoutTouchingTheSandbox(t *testing.T) 
 			fake := &fakeSandbox{}
 
 			result := flow.Judge(context.Background(), fake, submitConfig(t), req, nil)
-			if result.Verdict != contract.VerdictSE || !strings.Contains(result.Message, "load test cases") {
+			if result.Verdict != contract.VerdictSE || !strings.Contains(result.Message, "load testcases") {
 				t.Fatalf("result = %+v", result)
 			}
 			if len(fake.uploaded) != 0 || len(fake.calls) != 0 {

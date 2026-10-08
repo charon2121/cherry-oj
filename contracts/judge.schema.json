@@ -18,7 +18,7 @@
   "definitions": {
     "JudgeMode": {
       "type": "string",
-      "description": "submit=按 testDataLocation 读取正式测例；trial=使用请求内 cases。它只决定测例来源，不决定结果是否入库。",
+      "description": "submit=按 testDataLocation 读取正式测试点；trial=使用请求内 cases。它只决定测试点来源，不决定结果是否入库。",
       "enum": [
         "submit",
         "trial"

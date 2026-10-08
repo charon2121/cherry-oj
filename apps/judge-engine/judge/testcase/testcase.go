@@ -17,7 +17,7 @@ type TestCase struct {
 	Expected *Blob // nil = 只跑不比对（结果是 RAN）
 }
 
-// FromSpecs 把请求里内联的测例转成同样的 TestCase，供 trial 模式用。
+// FromSpecs 把请求里内联的测试点转成同样的 TestCase，供 trial 模式用。
 //
 // 不返回 error：这里只是把内存里的字符串包一层，没有任何会失败的动作。
 // 硬加一个恒为 nil 的 error，只会让每个调用点白写一次 if err != nil。

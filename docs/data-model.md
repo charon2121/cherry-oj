@@ -629,7 +629,7 @@ judging-service trial API。judging-service 使用独立限流调用 Go judge `m
 JudgeRequest {
   submissionId,
   problemId,             // 日志/对账
-  testDataLocation,      // 正式测例目录的地址（submit 必填，trial 不用）
+  testDataLocation,      // 测试数据目录的地址（submit 必填，trial 不用）
   languageId,
   source,                // 始终为完整源码
   limits { cpuNs, memoryBytes, clockNs? },

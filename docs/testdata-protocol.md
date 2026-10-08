@@ -6,6 +6,17 @@
 本协议规定一份题目的测试数据放在哪里、长什么样、谁写谁读，让 problem-service（Java）、
 judging-service（Java）和 judge（Go）围绕**同一个地址**协作，不再各自维护一套交付机制。
 
+## 术语
+
+| 词 | 含义 | 出现在哪里 |
+|---|---|---|
+| **testdata / 测试数据** | 一道题的**整套**数据：一个目录，由一堆 testcase 加一份 `testdata.json` 组成 | 本协议、`testDataLocation`、`testDataDigest`、`/test-data` 接口、`problem.test_data_location` |
+| **testcase / 测试点** | 其中的**一对** `<name>.in` / `<name>.out`；判题按它逐个运行，结果里的序号 `idx` 就是它在 `cases` 里的位置 | `cases[]`、`caseCount`、`caseResults`、`passedCount` |
+
+一句话：**testdata 是一堆 testcase。** 英文只写 testcase、中文只写「测试点」，不再用「测例」「测试用例」「test case」
+等同义词。Go 包 `judge/testcase` 产出的是测试点（`Set`、`Case`），它读取的是整套 testdata；包名不能叫 `testdata`，
+因为 Go 工具链会忽略名为 `testdata` 的目录。JSON 字段 `cases`、`caseCount` 沿用 case 这个短写，含义就是 testcase。
+
 ## 1. 谁做什么
 
 ```
