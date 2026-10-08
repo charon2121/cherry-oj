@@ -177,4 +177,4 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
 (4) 整套数据只叫 testdata（去掉 `dataset`、`problem-assets`）；(5) 中文里 digest 统一叫「指纹」，不再与「摘要」混用。
 本记录和 `design.md` 里仍是改名前的字段名，属于当时的历史，以 `docs/testdata-protocol.md` 与 `contracts/` 为准。
 验证：Go、五个 Java 服务、`npm run check`、Playwright、部署脚本的 Python 单测都通过，`work-002-e2e.py` 隔离栈全链路通过。
-**测试服务器上的原生节点还是改名前的 judge 与 `testdata.json` 字段，需要重装后才与契约一致。**
+测试服务器上的原生节点已按同样步骤再重装为新版（发布名 `cherry-testdata-v2`），用 `testcases`/`testcaseCount` 的新协议目录实测：AC、WA 正确，结果带回与 `testdata.json` 一致的指纹，篡改 `.out` 得 SE，`verify-native.py` 与 judge/executor 崩溃恢复都 PASS。
