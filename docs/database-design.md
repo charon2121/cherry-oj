@@ -40,7 +40,7 @@ judging-service     → cherry_oj_judging
 - 不使用 XA/2PC、数据库触发器、存储过程或事件调度器承载业务流程。
 - 不用 JPA `ddl-auto` 或应用启动时自动改表；所有 DDL 只通过 Flyway。
 - 不把测试数据正文、标准答案、完整编译产物、JWT、Cookie 或密钥写入业务表；测试数据的指纹、测试点数和清单不在库里抄一份，以地址下的 `testdata.json` 为准。
-- 不为 `caseResults` 提前建立子表；MVP 保持受限 JSON 快照。
+- 不为 `testcaseResults` 提前建立子表；MVP 保持受限 JSON 快照。
 
 ---
 
@@ -105,7 +105,7 @@ UUID 以 RFC 4122/9562 网络字节序原样保存，不使用 `UUID_TO_BIN(uuid
 
 - `problem.tags_json`
 - `language_calibration.benchmark_summary_json`
-- `submission.case_results_json`
+- `submission.testcase_results_json`
 - `judge_attempt.judge_result_json`
 - `outbox_event.payload_json`
 - 各服务审计详情
@@ -220,7 +220,7 @@ problem
 ```
 
 题目没有版本：题面、样例、语言、模板都直接属于 `problem`。测试数据只是 `problem.test_data_location` 这一个地址列，
-地址指向[测试数据协议](./testdata-protocol.md)规定的目录；摘要、测试点数和文件清单从目录里的 `testdata.json` 读取，
+地址指向[测试数据协议](./testdata-protocol.md)规定的目录；指纹、测试点数和文件清单从目录里的 `testdata.json` 读取，
 数据库不再抄一份。`ProblemJudgeSnapshot` 不建表，由 `problem` 与目标语言在一个只读查询中组装。
 
 ### 4.2 字段字典
@@ -442,8 +442,8 @@ contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON �
 | `memory_bytes` | `BIGINT` | 是 | 全部测试点内存峰值最大值，单位 bytes。 |
 | `score` | `INT UNSIGNED` | 是 | 用户可见得分；MVP 为 AC 100、其它 0。 |
 | `message` | `TEXT` | 是 | 受长度和泄密规则限制的用户可见判题摘要。 |
-| `case_results_json` | `JSON` | 是 | 受 contracts 和 reveal 策略约束的测试点结果数组。 |
-| `case_results_bytes` | `INT UNSIGNED` | 是 | case_results_json 序列化字节数，用于执行 1 MiB 上限。 |
+| `testcase_results_json` | `JSON` | 是 | 受 contracts 和 reveal 策略约束的测试点结果数组。 |
+| `testcase_results_bytes` | `INT UNSIGNED` | 是 | testcase_results_json 序列化字节数，用于执行 1 MiB 上限。 |
 | `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
 | `started_at` | `DATETIME(6)` | 是 | 首次开始处理或执行的时间。 |
 | `finished_at` | `DATETIME(6)` | 是 | 记录进入终态或执行完成的时间。 |
@@ -534,8 +534,8 @@ CREATE TABLE submission (
     memory_bytes                BIGINT NULL,
     score                       INT UNSIGNED NULL,
     message                     TEXT NULL,
-    case_results_json           JSON NULL,
-    case_results_bytes          INT UNSIGNED NULL,
+    testcase_results_json           JSON NULL,
+    testcase_results_bytes          INT UNSIGNED NULL,
     created_at                  DATETIME(6) NOT NULL,
     started_at                  DATETIME(6) NULL,
     finished_at                 DATETIME(6) NULL,
@@ -566,13 +566,13 @@ CREATE TABLE submission (
     CONSTRAINT ck_submission_message_length CHECK (
         message IS NULL OR CHAR_LENGTH(message) <= 8192
     ),
-    CONSTRAINT ck_submission_case_results CHECK (
-        (case_results_json IS NULL AND case_results_bytes IS NULL)
+    CONSTRAINT ck_submission_testcase_results CHECK (
+        (testcase_results_json IS NULL AND testcase_results_bytes IS NULL)
         OR (
-            case_results_json IS NOT NULL
-            AND JSON_TYPE(case_results_json) = 'ARRAY'
-            AND case_results_bytes IS NOT NULL
-            AND case_results_bytes <= 1048576
+            testcase_results_json IS NOT NULL
+            AND JSON_TYPE(testcase_results_json) = 'ARRAY'
+            AND testcase_results_bytes IS NOT NULL
+            AND testcase_results_bytes <= 1048576
         )
     ),
     CONSTRAINT ck_submission_terminal CHECK (
@@ -1301,7 +1301,7 @@ migration 发布后禁止改写校验和，只能追加新版本。
 - `judge_template` 只允许 problem-service 内部和受保护的快照接口读取，不进入普通用户 API。
 - `endpoint_ref` 只能是受控路由标识，不能嵌入用户名、密码、token 或私钥。
 - 数据库备份、传输和磁盘需要加密；生产账号使用最小权限，并分别轮换。
-- `case_results_json` 和 `judge_result_json` 在入库前执行 reveal 策略，禁止隐藏输入和标准答案全文。
+- `testcase_results_json` 和 `judge_result_json` 在入库前执行 reveal 策略，禁止隐藏输入和标准答案全文。
 
 ### 10.2 大字段与大小限制
 

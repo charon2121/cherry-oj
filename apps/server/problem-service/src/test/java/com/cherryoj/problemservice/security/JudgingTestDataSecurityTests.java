@@ -57,7 +57,7 @@ class JudgingTestDataSecurityTests {
                     .andExpect(status().isOk())
                     .andExpect(header().string("Cache-Control", "no-store"))
                     .andExpect(jsonPath("location").value("/srv/problem/p"))
-                    .andExpect(jsonPath("caseCount").value(2));
+                    .andExpect(jsonPath("testcaseCount").value(2));
         }
     }
 

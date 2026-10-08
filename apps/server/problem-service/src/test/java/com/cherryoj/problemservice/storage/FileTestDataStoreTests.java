@@ -55,7 +55,7 @@ class FileTestDataStoreTests {
 
         assertThat(location).isEqualTo(root.toAbsolutePath().normalize().resolve(PROBLEM).toString());
         assertThat(prepared.info().digest()).isEqualTo(GOLDEN_DIGEST);
-        assertThat(prepared.info().caseCount()).isEqualTo(2);
+        assertThat(prepared.info().testcaseCount()).isEqualTo(2);
         assertThat(prepared.info().totalBytes()).isEqualTo(16);
         assertThat(prepared.generation()).isEqualTo(PROBLEM + "-" + GOLDEN_DIGEST.substring(0, 16));
 
@@ -114,7 +114,7 @@ class FileTestDataStoreTests {
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(entries)));
         String location = store.activate(PROBLEM, prepared);
 
-        assertThat(prepared.info().caseCount()).isOne();
+        assertThat(prepared.info().testcaseCount()).isOne();
         assertThat(prepared.info().totalBytes()).isEqualTo(6);
         try (var files = Files.list(Path.of(location))) {
             assertThat(files.map(path -> path.getFileName().toString()).sorted().toList())

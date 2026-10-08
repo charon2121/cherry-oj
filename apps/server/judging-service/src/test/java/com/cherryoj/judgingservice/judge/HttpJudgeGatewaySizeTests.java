@@ -16,7 +16,7 @@ class HttpJudgeGatewaySizeTests {
         String cases=IntStream.rangeClosed(1,300).mapToObj(i -> "{\"idx\":"+i
                 +",\"verdict\":\"WA\",\"output\":{\"excerpt\":\""+"x".repeat(4096)+"\"}}")
                 .collect(Collectors.joining(","));
-        byte[] body=("{\"verdict\":\"WA\",\"caseResults\":["+cases+"]}")
+        byte[] body=("{\"verdict\":\"WA\",\"testcaseResults\":["+cases+"]}")
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
         assertTrue(body.length>1_048_576);
         var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
@@ -33,7 +33,7 @@ class HttpJudgeGatewaySizeTests {
             var result=gateway.judge("http://127.0.0.1:"+server.getAddress().getPort(),
                     new JudgeGateway.JudgeRequest("s","p","/data/p","cpp","source",new JudgeGateway.Limits(1,1,null),"submit"),null);
             assertEquals("WA",result.verdict());
-            assertEquals(300,result.caseResults().size());
+            assertEquals(300,result.testcaseResults().size());
             assertFalse(new tools.jackson.databind.ObjectMapper().writeValueAsString(result).contains("excerpt"));
         } finally { server.stop(0); }
     }

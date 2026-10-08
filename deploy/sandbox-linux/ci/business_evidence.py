@@ -76,7 +76,7 @@ class Evidence:
         sid = uuid(submission_id)
         rows = self.rows('submission', "SELECT JSON_OBJECT('input',JSON_REMOVE(i.payload,'$.completeSource'),"
             "'status',s.status,'attempt',s.attempt_no,'userId',s.user_id,'sourceSha256',LOWER(SHA2(s.source,256)),"
-            "'totalCount',JSON_EXTRACT(s.read_model,'$.totalCount'),"
+            "'testcaseCount',JSON_EXTRACT(s.read_model,'$.testcaseCount'),"
             "'judgedDigest',(SELECT a.test_data_digest FROM cherry_ci_judging.judge_attempt a JOIN cherry_ci_judging.judge_task t ON t.id=a.task_id "
             "WHERE t.submission_id=s.id AND a.status='COMPLETED' ORDER BY a.attempt_no DESC LIMIT 1)) "
             f"FROM submission s JOIN judge_input i ON i.submission_id=s.id WHERE s.id='{sid}' LIMIT 2")
@@ -87,7 +87,7 @@ class Evidence:
             if row['input'][field] != context[field]:
                 raise ValueError('JudgeInput identity mismatch: ' + field)
         expected_sha = hashlib.sha256(source.encode()).hexdigest()
-        if row['sourceSha256'] != expected_sha or row['input']['sourceSha256'] != expected_sha or row['totalCount'] != 6 or row['judgedDigest'] != context['testDataDigest']:
+        if row['sourceSha256'] != expected_sha or row['input']['sourceSha256'] != expected_sha or row['testcaseCount'] != 6 or row['judgedDigest'] != context['testDataDigest']:
             raise ValueError('frozen source/test data differs from submitted fixture')
         # Cross-database SELECT is read-only and uses only the run's four fresh databases.
         links = self.rows('judging', "SELECT JSON_OBJECT('taskId',t.id,'status',t.status,'attempt',t.attempt_no,"

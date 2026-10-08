@@ -30,7 +30,7 @@ func TestSystemErrorIsLoggedWithReason(t *testing.T) {
 		logger: slog.New(slog.NewJSONHandler(&logs, nil))}
 	req := contract.JudgeRequest{SubmissionID: "s-7", LanguageID: "python", Source: "print(1)",
 		Mode: contract.ModeTrial, Limits: contract.JudgeLimits{CPUNs: 1e9, MemoryBytes: 64 << 20},
-		Cases: []contract.CaseSpec{{Input: "1\n", Expected: "1\n"}}}
+		Testcases: []contract.TestcaseSpec{{Input: "1\n", Expected: "1\n"}}}
 	if result := s.Judge(context.Background(), req); result.Verdict != contract.VerdictSE {
 		t.Fatalf("sandbox 不可用应判 SE: %+v", result)
 	}

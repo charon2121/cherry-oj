@@ -148,7 +148,7 @@ public class TrialController {
 			throw unavailable();
 		var node = online.getFirst();
 		Map<String, Object> body = Map.of("submissionId", UUID.randomUUID().toString(), "problemId", r.problemId(),
-				"languageId", "cpp", "source", r.source(), "limits", effective, "mode", "trial", "cases",
+				"languageId", "cpp", "source", r.source(), "limits", effective, "mode", "trial", "testcases",
 				List.of(Map.of("input", r.inputText())));
 		var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
 			.timeout(Duration.ofMillis(remaining(deadline)))
@@ -177,10 +177,10 @@ public class TrialController {
 				case "OLE" -> "OUTPUT_LIMIT_EXCEEDED";
 				default -> throw unavailable();
 			};
-			var cases = tree.path("caseResults");
-			if (!cases.isArray() || cases.size() != 1)
+			var testcases = tree.path("testcaseResults");
+			if (!testcases.isArray() || testcases.size() != 1)
 				throw unavailable();
-			var c = cases.get(0);
+			var c = testcases.get(0);
 			if (!verdict.equals(c.path("verdict").asText()) || c.path("idx").asInt() != 1)
 				throw unavailable();
 			// Missing streams indicate an old judge binary; never pretend stderr was

@@ -15,8 +15,8 @@ public final class SubmissionDtos {
     }
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record View(String id, String problemId, String problemTitle, String languageId, String status, Instant createdAt,
-                       String verdict, Long cpuNs, Long memoryBytes, Integer passedCount, Integer executedCount,
-                       Integer totalCount, String message, Instant finishedAt) {}
+                       String verdict, Long cpuNs, Long memoryBytes, Integer passedTestcaseCount, Integer executedTestcaseCount,
+                       Integer testcaseCount, String message, Instant finishedAt) {}
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
     /** 契约 problem-judge-snapshot：题目没有版本，也不含测试数据地址。 */

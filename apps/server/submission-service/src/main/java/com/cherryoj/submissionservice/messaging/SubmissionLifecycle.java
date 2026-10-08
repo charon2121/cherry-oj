@@ -52,11 +52,11 @@ public class SubmissionLifecycle {
             String verdict=null,message=null; Long cpu=null,memory=null; Integer passed=null,executed=null,total=null;
             if (type.equals("JudgeCompleted")) {
                 verdict=text(result,"verdict"); cpu=number(result,"cpuNs"); memory=number(result,"memoryBytes");
-                if (result.has("executedCount")) {
-                    executed=Math.toIntExact(number(result,"executedCount")); passed=Math.toIntExact(number(result,"passedCount"));
+                if (result.has("executedTestcaseCount")) {
+                    executed=Math.toIntExact(number(result,"executedTestcaseCount")); passed=Math.toIntExact(number(result,"passedTestcaseCount"));
                     // 总数由判题时的测试数据决定，只在判题结果里
-                    if (!result.has("totalCount")) throw invalid();
-                    total=Math.toIntExact(number(result,"totalCount"));
+                    if (!result.has("testcaseCount")) throw invalid();
+                    total=Math.toIntExact(number(result,"testcaseCount"));
                     if (passed>executed || executed>total) throw invalid();
                 }
                 if ("CE".equals(verdict) && result.has("message")) message=diagnostic(text(result,"message"));
@@ -69,15 +69,15 @@ public class SubmissionLifecycle {
         });
     }
     private static void validateResult(JsonNode result) {
-        fields(result,Set.of("verdict","cpuNs","memoryBytes","passedCount","executedCount","totalCount","message"));
+        fields(result,Set.of("verdict","cpuNs","memoryBytes","passedTestcaseCount","executedTestcaseCount","testcaseCount","message"));
         if (!VERDICTS.contains(text(result,"verdict"))) throw invalid();
         for (String field:ListHolder.NUMBERS) if(result.has(field)) number(result,field);
-        for (String field:Set.of("passedCount","executedCount","totalCount")) if(result.has(field) && number(result,field)>1000) throw invalid();
+        for (String field:Set.of("passedTestcaseCount","executedTestcaseCount","testcaseCount")) if(result.has(field) && number(result,field)>1000) throw invalid();
         if (result.has("message") && text(result,"message").length()>8192) throw invalid();
-        if (result.has("passedCount")!=result.has("executedCount")) throw invalid();
+        if (result.has("passedTestcaseCount")!=result.has("executedTestcaseCount")) throw invalid();
         if (result.has("message") && (!"CE".equals(text(result,"verdict")) && !"SE".equals(text(result,"verdict")))) throw invalid();
     }
-    private static class ListHolder { static final Set<String> NUMBERS=Set.of("cpuNs","memoryBytes","passedCount","executedCount","totalCount"); }
+    private static class ListHolder { static final Set<String> NUMBERS=Set.of("cpuNs","memoryBytes","passedTestcaseCount","executedTestcaseCount","testcaseCount"); }
     private static Long number(JsonNode node,String field) {
         var value=node.path(field); if(value.isMissingNode()) return null;
         if(!value.isIntegralNumber() || !value.canConvertToLong() || value.asLong()<0) throw invalid(); return value.asLong();

@@ -27,23 +27,23 @@ class PackTest(unittest.TestCase):
             write(directory, {"1.in": "1 2\n", "1.out": "3\n", "2.in": "100 -7\n", "2.out": "93\n"})
             metadata = testdata_pack.build(directory)
         self.assertEqual(metadata["digest"], GOLDEN_DIGEST)
-        self.assertEqual((metadata["caseCount"], metadata["totalBytes"]), (2, 16))
+        self.assertEqual((metadata["testcaseCount"], metadata["totalBytes"]), (2, 16))
 
     def test_cases_are_ordered_numerically_then_by_name(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
             for name in ("10", "2", "1", "big-1", "small"):
                 write(directory, {f"{name}.in": "i", f"{name}.out": "o"})
-            order = [case["name"] for case in testdata_pack.build(directory)["cases"]]
+            order = [case["name"] for case in testdata_pack.build(directory)["testcases"]]
         self.assertEqual(order, ["1", "2", "10", "big-1", "small"])
 
     def test_unpaired_or_empty_or_badly_named_directories_are_refused(self) -> None:
-        cases = {
+        testcases = {
             "落单的 .in": {"1.in": "i", "1.out": "o", "2.in": "i"},
             "没有数据": {},
             "名字以点开头": {".hidden.in": "i", ".hidden.out": "o"},
         }
-        for name, files in cases.items():
+        for name, files in testcases.items():
             with self.subTest(name), tempfile.TemporaryDirectory() as tmp:
                 directory = Path(tmp)
                 write(directory, files)
@@ -60,7 +60,7 @@ class PackTest(unittest.TestCase):
             with mock.patch.object(sys, "argv", ["testdata_pack.py", str(directory)]):
                 self.assertEqual(testdata_pack.main(), 0)
                 written = json.loads((directory / "testdata.json").read_text(encoding="utf-8"))
-                self.assertEqual(written["caseCount"], 1)
+                self.assertEqual(written["testcaseCount"], 1)
                 self.assertEqual(testdata_pack.main(), 1)
 
 

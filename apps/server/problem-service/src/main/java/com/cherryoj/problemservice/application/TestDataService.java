@@ -60,7 +60,7 @@ public class TestDataService {
         ProblemRow problem = requireProblem(problemId, false);
         Info info = describe(problem);
         return new TestDataDtos.TestData(
-                info.digest(), info.caseCount(), info.totalBytes(), problem.testDataUpdatedAt(), info.manifest());
+                info.digest(), info.testcaseCount(), info.totalBytes(), problem.testDataUpdatedAt(), info.manifest());
     }
 
     /** 上传并替换题目的测试数据。慢的部分（读 ZIP、写文件）在事务之外，事务里只有一次原子切换。 */
@@ -103,9 +103,9 @@ public class TestDataService {
                 }
                 audit(problemId, actorUserId, Map.of(
                         "digest", prepared.info().digest(),
-                        "caseCount", prepared.info().caseCount(),
+                        "testcaseCount", prepared.info().testcaseCount(),
                         "totalBytes", prepared.info().totalBytes()));
-                return new TestDataDtos.TestData(prepared.info().digest(), prepared.info().caseCount(),
+                return new TestDataDtos.TestData(prepared.info().digest(), prepared.info().testcaseCount(),
                         prepared.info().totalBytes(), now, prepared.info().manifest());
             });
         }
@@ -126,7 +126,7 @@ public class TestDataService {
         ProblemRow problem = requireProblem(problemId, false);
         Info info = describe(problem);
         return new TestDataDtos.ProblemTestData(
-                problem.testDataLocation(), info.digest(), info.caseCount(), info.totalBytes());
+                problem.testDataLocation(), info.digest(), info.testcaseCount(), info.totalBytes());
     }
 
     private Info describe(ProblemRow problem) {

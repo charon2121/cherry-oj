@@ -301,7 +301,7 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
   "memoryBytes": 1048576,
   "score": 100,
   "testDataDigest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
-  "caseResults": [
+  "testcaseResults": [
     { "idx": 1, "verdict": "AC", "cpuNs": 1200000, "memoryBytes": 1000000 },
     { "idx": 2, "verdict": "AC", "cpuNs": 1447000, "memoryBytes": 1048576 }
   ]
@@ -315,14 +315,14 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
 
 ```
 <testDataLocation>/
-├── testdata.json      # schemaVersion、caseCount、totalBytes、digest、cases[]（name + 输入/输出的大小与 SHA-256）
+├── testdata.json      # schemaVersion、testcaseCount、totalBytes、digest、testcases[]（name + 输入/输出的大小与 SHA-256）
 ├── 1.in  1.out
 └── 2.in  2.out
 ```
 
-读取顺序：读 `testdata.json` → 按 `cases` 的显式顺序把 `<name>.in/.out` 复制到本次判题的私有工作目录并核对大小与
-SHA-256 → 只有 `.in` 作为标准输入进入沙箱，`.out` 永远不进沙箱。任何一步失败（地址读不到、文件缺失、摘要不符、超限）
-都是 SE，绝不会判成 WA；撞上写入方替换数据（文件缺失、摘要不符或本地读文件报错）时重读元数据并重试一次。
+读取顺序：读 `testdata.json` → 按 `testcases` 的显式顺序把 `<name>.in/.out` 复制到本次判题的私有工作目录并核对大小与
+SHA-256 → 只有 `.in` 作为标准输入进入沙箱，`.out` 永远不进沙箱。任何一步失败（地址读不到、文件缺失、SHA-256 不符、超限）
+都是 SE，绝不会判成 WA；撞上写入方替换数据（文件缺失、SHA-256 不符或本地读文件报错）时重读元数据并重试一次。
 判题结果带回 `testDataDigest`，也就是这次实际读取的那份数据的指纹，用于追溯与标定核对。
 
 `problemId` 只用于日志、追踪与对账，不能用于定位测试数据；定位只看地址。题目没有版本：数据换了就是换了，
@@ -795,5 +795,5 @@ server              judge（判题编排 → 执行层）                 执行
 测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./testdata-protocol.md)写出目录，judging-service
 判题时只把目录地址放进 `JudgeRequest.testDataLocation`，Go judge 自己读 `testdata.json`、复制并校验文件。
 没有安装接口、没有逐节点回执，节点重启也不需要重新交付数据。本地路径要求节点能读到同一个路径：
-Compose 用必填的 `PROBLEM_TESTDATA_ROOT` 按同一绝对路径只读挂载（`judge-testdata` 卷只是每次判题的私有工作目录）。
+Compose 用必填的 `CHERRY_TEST_DATA_ROOT` 按同一绝对路径只读挂载（`judge-testdata` 卷只是每次判题的私有工作目录）。
 具体参数见 `apps/server/README.md`。

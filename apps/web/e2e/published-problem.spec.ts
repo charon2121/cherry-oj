@@ -7,10 +7,10 @@ const requestId = 'req_01K37XZ3MFXBK92WMG67G4XFN0';
 
 const testData = {
   digest,
-  caseCount: 2,
+  testcaseCount: 2,
   totalBytes: 16,
   updatedAt: time,
-  manifest: { caseCount: 2, totalBytes: 16, files: [] },
+  manifest: { testcaseCount: 2, totalBytes: 16, files: [] },
 };
 
 function adminProblem(overrides: object = {}) {
@@ -94,7 +94,7 @@ async function mockBackend(
         ].map((code) => ({ code, passed: true, message: code })),
       });
     if (path === `/api/admin/problems/${problemId}/test-data` && request.method() === 'PUT')
-      return success(route, { ...testData, digest: 'b'.repeat(64), caseCount: 3 });
+      return success(route, { ...testData, digest: 'b'.repeat(64), testcaseCount: 3 });
     if (path === `/api/admin/problems/${problemId}/unpublish`) {
       state.problem = adminProblem({ visibility: 'PRIVATE', rowVersion: 5 });
       return success(route, state.problem);

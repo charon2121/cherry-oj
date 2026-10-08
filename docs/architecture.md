@@ -149,7 +149,7 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
   确认有在线节点声明了该语言、且标定的数据指纹等于当前指纹，解析出绝对限制和执行预算。
 - 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput，**判题时**再向 problem-service 取最新的测试数据地址，
   任选一个在线节点调用 Go judge，并保存判题实际读取的数据指纹。
-- 自定义测试内部接口：接收已经准备好的完整源码和文本 cases，同步调用 Go judge 的 trial 模式。
+- 自定义测试内部接口：接收已经准备好的完整源码和文本 testcases，同步调用 Go judge 的 trial 模式。
 - 节点自注册/心跳和标定能力（标定请求带 problem-service 给出的地址与指纹，判题结果指纹不一致则标定作废）。
 
 节点控制协议以 `contracts/judge-node.schema.json` 为准。节点只带身份：nodeId、每次进程启动新生成的
@@ -386,7 +386,7 @@ int main() {
 
 ```text
 <root>/<problemId>  →（相对符号链接）.store/<problemId>-<digest 前 16 位>/
-  testdata.json          schemaVersion、caseCount、totalBytes、digest、cases[]（含每个文件的大小与 SHA-256）
+  testdata.json          schemaVersion、testcaseCount、totalBytes、digest、testcases[]（含每个文件的大小与 SHA-256）
   1.in  1.out
   2.in  2.out
 ```
@@ -398,7 +398,7 @@ int main() {
 
 节点不预先安装数据：每次判题请求带 `testDataLocation`（本地绝对路径或 http(s) 地址），Go judge 读 `testdata.json`，
 把文件复制到私有工作目录并核对大小与 SHA-256（撞上写入方替换时重读重试一次），`.out` 不进入沙箱，`.in` 作为标准输入。
-本地路径要求节点能读到同一个路径（Compose 用必填的 `PROBLEM_TESTDATA_ROOT` 按同一绝对路径只读挂载）。
+本地路径要求节点能读到同一个路径（Compose 用必填的 `CHERRY_TEST_DATA_ROOT` 按同一绝对路径只读挂载）。
 安全（地址白名单、隐藏数据的访问控制）暂未作为约束，是已知缺口。
 
 ### 8.3 LanguageCalibration
@@ -423,7 +423,7 @@ problemId + languageId
 1. submission-service 解析当前 ProblemJudgeSnapshot 和 ExecutionProfile（trial 用单测试点预算）。
 2. CORE 使用相同规则合并模板。
 3. submission-service 同步调用 judging-service 的内部 trial API。
-4. judging-service 调用 Go judge，使用请求内文本 cases。
+4. judging-service 调用 Go judge，使用请求内文本 testcases。
 5. 返回 stdout/stderr、资源用量和运行状态。
 
 自定义测试需要独立限流和更短超时，不能挤占正式判题 Worker。

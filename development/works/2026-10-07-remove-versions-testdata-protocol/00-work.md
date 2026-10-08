@@ -167,3 +167,14 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
   结论：原生单元的 `ProtectSystem=strict`、`PrivateTmp` 下可以读取放在 `/srv` 下的测试数据根目录，推断得到证实。
 - **仍未验证：** 节点没有连上控制面（本机没起 judging-service，日志里是预期的 `judge.node.control.failed`）；`ci/business*` 的 CI 把测试数据根目录放在 0700 的运行目录下，
   judge 用户穿不过去，需要在一次性 Linux VM 上改成可遍历的目录后再跑；`e2e-live` 依赖它。
+
+### 补充：统一叫法（2026-10-08）
+
+用户的标准是「写法不同可以，叫法不同不行」。盘点后统一了五组同一概念的不同叫法，并把术语表写进 `docs/testdata-protocol.md`：
+(1) 单个测试点：`case` 一律改成 `testcase`（`cases`→`testcases`、`CaseSpec`→`TestcaseSpec`、`caseResults`→`testcaseResults` 等，含契约字段与 `testdata.json` 字段）；
+(2) 测试点个数：`caseCount` 与 `totalCount` 统一为 `testcaseCount`，结果里的 `passedCount`/`executedCount` 对应改为 `passedTestcaseCount`/`executedTestcaseCount`；
+(3) 测试数据根目录的环境变量只留 `CHERRY_TEST_DATA_ROOT`（原 `PROBLEM_TESTDATA_ROOT` 与之重复）；
+(4) 整套数据只叫 testdata（去掉 `dataset`、`problem-assets`）；(5) 中文里 digest 统一叫「指纹」，不再与「摘要」混用。
+本记录和 `design.md` 里仍是改名前的字段名，属于当时的历史，以 `docs/testdata-protocol.md` 与 `contracts/` 为准。
+验证：Go、五个 Java 服务、`npm run check`、Playwright、部署脚本的 Python 单测都通过，`work-002-e2e.py` 隔离栈全链路通过。
+**测试服务器上的原生节点还是改名前的 judge 与 `testdata.json` 字段，需要重装后才与契约一致。**

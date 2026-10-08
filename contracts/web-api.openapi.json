@@ -903,7 +903,7 @@
       "get": {
         "operationId": "getAdminProblem",
         "summary": "读取题目管理详情",
-        "description": "题目只有一份内容：题面、样例、语言模板与测试数据摘要都在这里。",
+        "description": "题目只有一份内容：题面、样例、语言模板与测试数据指纹都在这里。",
         "security": [
           {
             "cookieAuth": []
@@ -1982,17 +1982,17 @@
             "type": "integer",
             "minimum": 0
           },
-          "passedCount": {
+          "passedTestcaseCount": {
             "type": "integer",
             "minimum": 0,
             "maximum": 1000
           },
-          "executedCount": {
+          "executedTestcaseCount": {
             "type": "integer",
             "minimum": 0,
             "maximum": 1000
           },
-          "totalCount": {
+          "testcaseCount": {
             "type": "integer",
             "minimum": 0,
             "maximum": 1000
@@ -3475,12 +3475,12 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
-          "caseCount",
+          "testcaseCount",
           "totalBytes",
           "files"
         ],
         "properties": {
-          "caseCount": {
+          "testcaseCount": {
             "type": "integer",
             "minimum": 1
           },
@@ -3841,7 +3841,7 @@
         "additionalProperties": false,
         "required": [
           "digest",
-          "caseCount",
+          "testcaseCount",
           "totalBytes",
           "updatedAt",
           "manifest"
@@ -3852,7 +3852,7 @@
             "pattern": "^[a-f0-9]{64}$",
             "description": "testdata.json 的 digest：所有文件的 SHA-256 按固定格式再哈希，内容变则指纹变。"
           },
-          "caseCount": {
+          "testcaseCount": {
             "type": "integer",
             "minimum": 1,
             "maximum": 1000

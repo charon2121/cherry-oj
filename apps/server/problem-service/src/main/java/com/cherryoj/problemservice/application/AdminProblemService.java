@@ -211,7 +211,7 @@ public class AdminProblemService {
         try {
             TestDataStore.Info info = testDataStore.describe(row.testDataLocation());
             return new TestDataDtos.TestData(
-                    info.digest(), info.caseCount(), info.totalBytes(), row.testDataUpdatedAt(), info.manifest());
+                    info.digest(), info.testcaseCount(), info.totalBytes(), row.testDataUpdatedAt(), info.manifest());
         }
         catch (TestDataStore.AssetException error) {
             return null;

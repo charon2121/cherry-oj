@@ -393,8 +393,8 @@ class GatewaySessionRedisIntegrationTests {
 	private static String testDataJson() {
 		return """
 				{"digest":"6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
-				 "caseCount":2,"totalBytes":16,"updatedAt":"2026-09-05T00:00:00",
-				 "manifest":{"caseCount":2,"totalBytes":16,"files":[]}}
+				 "testcaseCount":2,"totalBytes":16,"updatedAt":"2026-09-05T00:00:00",
+				 "manifest":{"testcaseCount":2,"totalBytes":16,"files":[]}}
 				""";
 	}
 }

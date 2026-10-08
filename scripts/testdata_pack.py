@@ -27,7 +27,7 @@ def sort_key(name: str) -> tuple[int, int, str]:
     return (0, int(name), name) if name.isdigit() else (1, 0, name)
 
 
-def case_names(directory: Path) -> list[str]:
+def testcase_names(directory: Path) -> list[str]:
     inputs = {p.name[:-3] for p in directory.glob("*.in")}
     outputs = {p.name[:-4] for p in directory.glob("*.out")}
     if inputs != outputs:
@@ -45,10 +45,10 @@ def case_names(directory: Path) -> list[str]:
 
 
 def build(directory: Path) -> dict[str, Any]:
-    cases: list[dict[str, Any]] = []
+    testcases: list[dict[str, Any]] = []
     lines: list[str] = []
     total = 0
-    for name in case_names(directory):
+    for name in testcase_names(directory):
         entry: dict[str, Any] = {"name": name}
         for field, suffix in (("input", ".in"), ("output", ".out")):
             path = directory / (name + suffix)
@@ -57,13 +57,13 @@ def build(directory: Path) -> dict[str, Any]:
             entry[field] = {"sizeBytes": size, "sha256": digest}
             lines.append(f"{digest}  {name}{suffix}\n")
             total += size
-        cases.append(entry)
+        testcases.append(entry)
     return {
         "schemaVersion": 1,
-        "caseCount": len(cases),
+        "testcaseCount": len(testcases),
         "totalBytes": total,
         "digest": hashlib.sha256("".join(lines).encode()).hexdigest(),
-        "cases": cases,
+        "testcases": testcases,
     }
 
 
@@ -81,7 +81,7 @@ def main() -> int:
         print(f"错误：{error}", file=sys.stderr)
         return 1
     target.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    print(f"✓ 写入 {target}：{metadata['caseCount']} 个测试点，digest {metadata['digest']}")
+    print(f"✓ 写入 {target}：{metadata['testcaseCount']} 个测试点，digest {metadata['digest']}")
     return 0
 
 

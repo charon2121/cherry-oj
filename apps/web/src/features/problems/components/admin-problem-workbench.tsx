@@ -367,7 +367,9 @@ function WorkbenchEditor({
     onMutate: () => setUploadState('正在上传并检查 ZIP…'),
     onSuccess: async (uploaded) => {
       uploadController.current = undefined;
-      setUploadState(`已替换测试数据，共 ${uploaded.caseCount} 组。旧的校准已过期，请重新校准。`);
+      setUploadState(
+        `已替换测试数据，共 ${uploaded.testcaseCount} 组。旧的校准已过期，请重新校准。`,
+      );
       await refresh();
     },
     onError: (error) => {
@@ -836,7 +838,7 @@ function WorkbenchEditor({
                 ) : null}
                 {problem.testData ? (
                   <div className="border-border bg-surface-translucent mt-4 min-w-0 rounded-sm border p-3">
-                    <strong>当前测试数据</strong> · {problem.testData.caseCount} 组 ·{' '}
+                    <strong>当前测试数据</strong> · {problem.testData.testcaseCount} 组 ·{' '}
                     {formatBytes(problem.testData.totalBytes)}
                     <details className="text-muted-foreground mt-1 text-sm">
                       <summary>技术详情</summary>

@@ -45,7 +45,7 @@ cherry:
     deadline: 10m
     compile-budget: 30s
     wall-ratio: 10
-    case-overhead: 1s
+    testcase-overhead: 1s
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"

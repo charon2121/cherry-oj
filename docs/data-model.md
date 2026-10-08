@@ -217,8 +217,8 @@ CORE judgeTemplate 必须包含且只包含一个字面量 `{{USER_CODE}}`。平
 ### 4.4 测试数据
 
 没有单独的表：一道题只有一份测试数据，就是 `Problem.testDataLocation` 指向的目录。目录格式由
-[测试数据协议](./testdata-protocol.md)规定：`testdata.json`（`schemaVersion`、`caseCount`、`totalBytes`、`digest`、
-`cases[]`）加成对的 `<name>.in/.out`。problem-service 把上传的 ZIP 校验后写成内容寻址的真实目录
+[测试数据协议](./testdata-protocol.md)规定：`testdata.json`（`schemaVersion`、`testcaseCount`、`totalBytes`、`digest`、
+`testcases[]`）加成对的 `<name>.in/.out`。problem-service 把上传的 ZIP 校验后写成内容寻址的真实目录
 `<root>/.store/<problemId>-<digest 前 16 位>/`，再把相对符号链接 `<root>/<problemId>` 原子切换过去；
 只保留当前与上一代目录。数据库不抄指纹、测试点数或清单，避免两处不一致。
 
@@ -405,7 +405,7 @@ judging_audit_event
 | `memoryBytes` | 否 | 所有测试点峰值最大值 |
 | `score` | 否 | MVP AC=100，其它=0 |
 | `message` | 否 | 受限安全摘要 |
-| `caseResults` | 否 | 受 schema 约束 JSON |
+| `testcaseResults` | 否 | 受 schema 约束 JSON |
 | `createdAt` | 是 | 创建时间 |
 | `startedAt` | 否 | 首次 JudgeStarted 时间 |
 | `finishedAt` | 否 | DONE 时间 |
@@ -443,12 +443,12 @@ JudgeInput 创建后禁止 UPDATE。它不包含密码、JWT、题面、隐藏�
 
 `(userId, idempotencyKey)` 唯一。同键同摘要返回原 Submission；同键不同摘要返回冲突。
 
-### 6.4 CaseResult
+### 6.4 TestcaseResult
 
-MVP 保存在 Submission.caseResults JSON：
+MVP 保存在 Submission.testcaseResults JSON：
 
 ```text
-CaseResult {
+TestcaseResult {
   idx,
   name?,
   verdict,
@@ -523,7 +523,7 @@ JudgeCompleted {
   taskId,
   attemptNo,
   finishedAt,
-  result { verdict, cpuNs?, memoryBytes?, score?, message?, caseResults? }
+  result { verdict, cpuNs?, memoryBytes?, score?, message?, testcaseResults? }
 }
 
 JudgeFailed {
@@ -634,7 +634,7 @@ JudgeRequest {
   source,                // 始终为完整源码
   limits { cpuNs, memoryBytes, clockNs? },
   mode?,                 // submit | trial
-  cases?                 // trial 文本 cases
+  testcases?             // trial 文本 testcases
 }
 ```
 
@@ -679,7 +679,7 @@ submission-service 可独立返回：
 id, userId,
 problemId, problemTitle,
 languageId, codeMode,
-status, verdict?, cpuNs?, memoryBytes?, score?, message?, caseResults?,
+status, verdict?, cpuNs?, memoryBytes?, score?, message?, testcaseResults?,
 createdAt, startedAt?, finishedAt?
 ```
 
@@ -689,7 +689,7 @@ createdAt, startedAt?, finishedAt?
 
 管理页面可以由 Gateway/BFF 组合：
 
-- problem-service：题目、语言、模板、测试数据摘要。
+- problem-service：题目、语言、模板、测试数据指纹。
 - judging-service：节点、标定、任务和 Attempt。
 - submission-service：结果与失败分布。
 
@@ -805,7 +805,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 - 新增 codeMode、effectiveLimits。
 - language 统一为 languageId。
 - time/memory 统一为 cpuNs/memoryBytes。
-- cases 统一为 caseResults。
+- 测试点结果统一为 testcaseResults。
 - CreateSubmissionRequest 仍只有 problemId、languageId、source。
 
 `contracts/judge.schema.json`：
@@ -843,7 +843,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 - WebSocket/SSE 推送；web 先轮询。
 - Agent、模型供应商和提示词模型。
 - 语言倍率作为最终限制。
-- caseResults 正规化子表。
+- testcaseResults 正规化子表。
 - Kafka 携带源码、模板、测试数据或完整标准答案。
 - 服务共享数据库、跨服务 JOIN 或 XA/2PC。
 

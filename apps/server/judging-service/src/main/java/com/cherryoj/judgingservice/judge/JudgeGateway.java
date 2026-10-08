@@ -14,17 +14,17 @@ public interface JudgeGateway {
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
     record JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
-                       java.util.List<CaseResult> caseResults, String testDataDigest) {
+                       java.util.List<TestcaseResult> testcaseResults, String testDataDigest) {
         public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score) {
             this(verdict,cpuNs,memoryBytes,score,null,null,null);
         }
         public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
-                           java.util.List<CaseResult> caseResults) {
-            this(verdict,cpuNs,memoryBytes,score,message,caseResults,null);
+                           java.util.List<TestcaseResult> testcaseResults) {
+            this(verdict,cpuNs,memoryBytes,score,message,testcaseResults,null);
         }
     }
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown=true)
-    record CaseResult(int idx, String verdict, Long cpuNs, Long memoryBytes) {}
+    record TestcaseResult(int idx, String verdict, Long cpuNs, Long memoryBytes) {}
 
     final class JudgeCallException extends Exception {
         public JudgeCallException(String message) { super(message); }

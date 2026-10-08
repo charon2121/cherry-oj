@@ -32,7 +32,7 @@ public interface TestDataStore {
     /** 清理中断的上传留下的临时文件。 */
     RecoveryResult recover();
 
-    record Info(String digest, int caseCount, long totalBytes, Manifest manifest) {
+    record Info(String digest, int testcaseCount, long totalBytes, Manifest manifest) {
     }
 
     record Prepared(String problemId, String generation, Info info) {

@@ -18,7 +18,7 @@
   "definitions": {
     "JudgeMode": {
       "type": "string",
-      "description": "submit=按 testDataLocation 读取正式测试点；trial=使用请求内 cases。它只决定测试点来源，不决定结果是否入库。",
+      "description": "submit=按 testDataLocation 读取正式测试点；trial=使用请求内 testcases。它只决定测试点来源，不决定结果是否入库。",
       "enum": [
         "submit",
         "trial"
@@ -77,7 +77,7 @@
         }
       }
     },
-    "CaseSpec": {
+    "TestcaseSpec": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -168,11 +168,11 @@
           "$ref": "#/definitions/JudgeMode",
           "description": "缺省 submit"
         },
-        "cases": {
+        "testcases": {
           "type": "array",
           "maxItems": 1000,
           "items": {
-            "$ref": "#/definitions/CaseSpec"
+            "$ref": "#/definitions/TestcaseSpec"
           },
           "description": "mode=trial 时使用；mode=submit 时忽略"
         }
@@ -191,7 +191,7 @@
         }
       ]
     },
-    "CaseResult": {
+    "TestcaseResult": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -268,12 +268,12 @@
           "pattern": "^[a-f0-9]{64}$",
           "description": "mode=submit 时本次判题实际读取的测试数据指纹，即 testdata.json 的 digest；用于追溯“这次拿哪份数据判的”"
         },
-        "caseResults": {
+        "testcaseResults": {
           "type": "array",
           "maxItems": 1000,
           "description": "严格按实际执行顺序排列，idx 从 1 递增",
           "items": {
-            "$ref": "#/definitions/CaseResult"
+            "$ref": "#/definitions/TestcaseResult"
           }
         }
       },
@@ -284,7 +284,7 @@
           "memoryBytes": 1048576,
           "score": 100,
           "testDataDigest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
-          "caseResults": [
+          "testcaseResults": [
             {
               "idx": 1,
               "name": "1",

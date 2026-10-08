@@ -26,7 +26,7 @@ def live_fixture():
         result[key].update(status=status, problemId='problem', httpNs=2_000_000_000, cpuNs=1_010_000_000,
             memoryBytes=1 << 20, bodyBytes=1024, effectiveLimits=dict(cpuNs=1000000000, memoryBytes=268435456))
     result['output'].update(stdoutTruncated=True, stdoutBytes=1 << 20)
-    result['ac'].update(verdict='AC', passedCount=6, totalCount=6)
+    result['ac'].update(verdict='AC', passedTestcaseCount=6, testcaseCount=6)
     result['wa'].update(verdict='WA')
     result['history'].update(draftPreserved=True, customPosts=8, formalPosts=2)
     return result
@@ -290,7 +290,7 @@ class BusinessTests(unittest.TestCase):
         def peak(v): v['empty']['memoryBytes'] = 256 << 20
         def budget(v): v['cpu']['effectiveLimits']['cpuNs'] = 2_000_000_000
         def retry(v): v['history']['formalPosts'] = 3
-        def count(v): v['ac']['passedCount'] = 5
+        def count(v): v['ac']['passedTestcaseCount'] = 5
         for change in (missing, duplicate, wrong_signal, peak, budget, retry, count):
             value = live_fixture()
             change(value)

@@ -20,7 +20,7 @@ class HttpProblemTestDataClientTests {
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
     private int status = 200;
-    private String body = "{\"location\":\"/data/problems/p\",\"digest\":\"" + DIGEST + "\",\"caseCount\":2,\"totalBytes\":16}";
+    private String body = "{\"location\":\"/data/problems/p\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":2,\"totalBytes\":16}";
 
     @BeforeEach
     void start() throws Exception {
@@ -49,7 +49,7 @@ class HttpProblemTestDataClientTests {
         var data = client(TOKEN).current(PROBLEM, null);
         assertThat(data.location()).isEqualTo("/data/problems/p");
         assertThat(data.digest()).isEqualTo(DIGEST);
-        assertThat(data.caseCount()).isEqualTo(2);
+        assertThat(data.testcaseCount()).isEqualTo(2);
         assertThat(path.get()).isEqualTo("/internal/judging/problems/" + PROBLEM + "/test-data");
         assertThat(authorization.get()).isEqualTo("Bearer " + TOKEN);
     }
@@ -60,9 +60,9 @@ class HttpProblemTestDataClientTests {
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_MISSING");
         status = 503;
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_UNAVAILABLE");
-        status = 200; body = "{\"location\":\"/x\",\"digest\":\"bad\",\"caseCount\":2,\"totalBytes\":1}";
+        status = 200; body = "{\"location\":\"/x\",\"digest\":\"bad\",\"testcaseCount\":2,\"totalBytes\":1}";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
-        body = "{\"location\":\"/x\",\"digest\":\"" + DIGEST + "\",\"caseCount\":0,\"totalBytes\":1}";
+        body = "{\"location\":\"/x\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":0,\"totalBytes\":1}";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
         body = "not json";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_UNAVAILABLE");

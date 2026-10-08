@@ -17,7 +17,7 @@ func TestJudgeChecksExecutionWallAgainstHardLimitBeforeUpload(t *testing.T) {
 		for _, delta := range []int64{-1, 0, 1} {
 			cfg := judgeConfig()
 			cfg.ClockRatio = 1
-			req := oneCaseRequest("cpp")
+			req := oneTestcaseRequest("cpp")
 			wall := config.MaxClockNs + delta
 			if explicit {
 				req.Limits.ClockNs = wall

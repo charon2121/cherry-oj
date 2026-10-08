@@ -38,7 +38,7 @@ func TestJudgesThroughInProcessExecution(t *testing.T) {
 	s := &judgeService{sandbox: sb, config: cfg.Judge, logger: quietLogger()}
 	req := contract.JudgeRequest{SubmissionID: "s-local", LanguageID: "python", Source: "print(input())",
 		Mode: contract.ModeTrial, Limits: contract.JudgeLimits{CPUNs: 2e9, MemoryBytes: 256 << 20},
-		Cases: []contract.CaseSpec{{Input: "7\n", Expected: "7\n"}}}
+		Testcases: []contract.TestcaseSpec{{Input: "7\n", Expected: "7\n"}}}
 	if result := s.Judge(context.Background(), req); result.Verdict != contract.VerdictAC {
 		t.Fatalf("result = %+v", result)
 	}

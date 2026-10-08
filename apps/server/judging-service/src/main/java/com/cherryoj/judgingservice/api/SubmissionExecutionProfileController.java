@@ -31,7 +31,7 @@ public class SubmissionExecutionProfileController {
         if (!readiness.ready() || profile == null) throw unavailable();
         boolean trial = "trial".equals(request.purpose());
         long budget;
-        try { budget = budgets.executionBudget(profile.cpuNs(), profile.clockNs(), trial ? 1 : data.caseCount()).toNanos(); }
+        try { budget = budgets.executionBudget(profile.cpuNs(), profile.clockNs(), trial ? 1 : data.testcaseCount()).toNanos(); }
         catch (ArithmeticException invalid) { throw unavailable(); }
         if (trial && budget > java.time.Duration.ofSeconds(45).toNanos()) throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
         if (!trial && budget >= budgets.deadline().toNanos()) throw unavailable();

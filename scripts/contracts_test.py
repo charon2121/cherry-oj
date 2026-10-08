@@ -101,7 +101,7 @@ class ContractsTest(unittest.TestCase):
         definitions = load("judge.schema.json")["definitions"]
         request = definitions["JudgeRequest"]
         result = definitions["JudgeResult"]
-        case_result = definitions["CaseResult"]
+        testcase_result = definitions["TestcaseResult"]
 
         self.assertTrue({"problemId", "languageId"}.issubset(request["required"]))
         # 测试数据靠地址交付（docs/testdata-protocol.md）；地址只在 submit 模式必填，所以不进 required。
@@ -110,12 +110,12 @@ class ContractsTest(unittest.TestCase):
         self.assertIn("testDataDigest", result["properties"])
         self.assertNotIn("language", request["properties"])
         self.assertNotIn("environmentFingerprint", result["properties"])
-        for schema in (result, case_result):
+        for schema in (result, testcase_result):
             self.assertIn("cpuNs", schema["properties"])
             self.assertIn("memoryBytes", schema["properties"])
             self.assertNotIn("time", schema["properties"])
             self.assertNotIn("memory", schema["properties"])
-        self.assertIn("caseResults", result["properties"])
+        self.assertIn("testcaseResults", result["properties"])
         self.assertNotIn("cases", result["properties"])
 
     def test_problem_and_test_data_versions_do_not_exist(self) -> None:
@@ -181,7 +181,7 @@ class ContractsTest(unittest.TestCase):
         for schema in (definitions["SafeJudgeResult"],
                        load("web-api.openapi.json")["components"]["schemas"]["SubmissionData"]):
             self.assertIs(schema["additionalProperties"], False)
-            for forbidden in ("source", "completeSource", "output", "diff", "caseResults", "stdout", "stderr"):
+            for forbidden in ("source", "completeSource", "output", "diff", "testcaseResults", "stdout", "stderr"):
                 self.assertNotIn(forbidden, schema["properties"])
 
     def test_submission_creation_and_recovery_contract(self) -> None:

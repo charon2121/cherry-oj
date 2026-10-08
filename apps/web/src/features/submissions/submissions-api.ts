@@ -15,9 +15,9 @@ export const submissionSchema = z
     verdict: z.enum(['AC', 'WA', 'PE', 'CE', 'RE', 'TLE', 'MLE', 'OLE', 'SE']).optional(),
     cpuNs: z.number().int().nonnegative().optional(),
     memoryBytes: z.number().int().nonnegative().optional(),
-    passedCount: z.number().int().nonnegative().optional(),
-    executedCount: z.number().int().nonnegative().optional(),
-    totalCount: z.number().int().positive().optional(),
+    passedTestcaseCount: z.number().int().nonnegative().optional(),
+    executedTestcaseCount: z.number().int().nonnegative().optional(),
+    testcaseCount: z.number().int().positive().optional(),
     message: z.string().max(8192).optional(),
     finishedAt: z.string().datetime().optional(),
   })

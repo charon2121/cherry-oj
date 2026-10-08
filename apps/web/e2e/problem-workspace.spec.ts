@@ -531,9 +531,9 @@ function submission(status: 'PENDING' | 'DONE' = 'DONE') {
           verdict: 'WA',
           cpuNs: 1230000,
           memoryBytes: 1024,
-          passedCount: 1,
-          executedCount: 2,
-          totalCount: 3,
+          passedTestcaseCount: 1,
+          executedTestcaseCount: 2,
+          testcaseCount: 3,
         }
       : {}),
   };

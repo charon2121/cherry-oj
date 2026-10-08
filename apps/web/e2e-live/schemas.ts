@@ -37,9 +37,9 @@ export const submissionResponse = z.object({
     problemId: id,
     status: z.enum(['PENDING', 'JUDGING', 'DONE']),
     verdict: z.enum(['AC', 'WA', 'PE', 'TLE', 'MLE', 'OLE', 'RE', 'CE', 'SE']).optional(),
-    passedCount: counter.optional(),
-    executedCount: counter.optional(),
-    totalCount: counter.optional(),
+    passedTestcaseCount: counter.optional(),
+    executedTestcaseCount: counter.optional(),
+    testcaseCount: counter.optional(),
   }),
 });
 export const historyResponse = z.object({

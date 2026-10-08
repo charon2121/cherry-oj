@@ -27,13 +27,13 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.Ju
 	if logger == nil {
 		logger = slog.Default()
 	}
-	req.Cases = slices.Clone(req.Cases)
+	req.Testcases = slices.Clone(req.Testcases)
 	job := judgment{sandbox: sb, config: cfg, request: req, log: logger}
 	return job.run(ctx)
 }
 
 // judgment 只属于一次 Judge 调用。配置为值快照，源码和编译引用不能跨请求复用。
-// 测试点输入的临时引用由 runCase 在每点结束时释放，不累积到整次判题结束；
+// 测试点输入的临时引用由 runTestcase 在每点结束时释放，不累积到整次判题结束；
 // submit 模式下测试数据的本地副本（testData）随这次判题一起在 close 里删除。
 type judgment struct {
 	sandbox                  Sandbox
@@ -41,7 +41,7 @@ type judgment struct {
 	request                  contract.JudgeRequest
 	language                 language.Language
 	testData                 testcase.Set
-	cases                    []testcase.TestCase
+	testcases                []testcase.TestCase
 	clockNs                  int64
 	sourceRef, executableRef string
 	log                      *slog.Logger
@@ -65,12 +65,12 @@ func (j *judgment) judge(ctx context.Context) contract.JudgeResult {
 		return *early
 	}
 	result := contract.JudgeResult{Verdict: contract.VerdictAC}
-	for i, tc := range j.cases {
-		caseResult := j.runCase(ctx, i+1, tc)
-		result.CaseResults = append(result.CaseResults, caseResult)
-		result.CPUNs = max(result.CPUNs, caseResult.CPUNs)
-		result.MemoryBytes = max(result.MemoryBytes, caseResult.MemoryBytes)
-		result.Verdict = worse(result.Verdict, caseResult.Verdict)
+	for i, tc := range j.testcases {
+		testcaseResult := j.runTestcase(ctx, i+1, tc)
+		result.TestcaseResults = append(result.TestcaseResults, testcaseResult)
+		result.CPUNs = max(result.CPUNs, testcaseResult.CPUNs)
+		result.MemoryBytes = max(result.MemoryBytes, testcaseResult.MemoryBytes)
+		result.Verdict = worse(result.Verdict, testcaseResult.Verdict)
 	}
 	result.Score = scoreOf(result.Verdict)
 	return result
@@ -92,12 +92,12 @@ func (j *judgment) prepare(ctx context.Context) error {
 		return fmt.Errorf("unknown language: %q", j.request.LanguageID)
 	}
 	var err error
-	j.testData, err = loadCases(ctx, j.config, j.request)
+	j.testData, err = loadTestcases(ctx, j.config, j.request)
 	if err != nil {
 		return fmt.Errorf("load testcases: %v", err)
 	}
-	j.cases = j.testData.Cases
-	if len(j.cases) == 0 {
+	j.testcases = j.testData.Testcases
+	if len(j.testcases) == 0 {
 		return fmt.Errorf("no testcases")
 	}
 	j.clockNs, err = effectiveClockNs(j.request.Limits, j.config.ClockRatio)
@@ -134,7 +134,7 @@ func (j *judgment) close(ctx context.Context) {
 		j.sourceRef = ""
 	}
 }
-func loadCases(ctx context.Context, cfg config.Settings, req contract.JudgeRequest) (testcase.Set, error) {
+func loadTestcases(ctx context.Context, cfg config.Settings, req contract.JudgeRequest) (testcase.Set, error) {
 	if req.Mode.UsesTestData() {
 		return testcase.Load(ctx, testcase.Options{
 			WorkRoot:      cfg.Testdata.WorkRoot,
@@ -143,7 +143,7 @@ func loadCases(ctx context.Context, cfg config.Settings, req contract.JudgeReque
 			FetchTimeout:  cfg.Testdata.FetchTimeout.Std(),
 		}, req.TestDataLocation)
 	}
-	return testcase.Set{Cases: testcase.FromSpecs(req.Cases)}, nil
+	return testcase.Set{Testcases: testcase.FromSpecs(req.Testcases)}, nil
 }
 
 // deleteRef 用不随请求取消的上下文删除 blob。失败不影响判题结论（sandbox 的 store

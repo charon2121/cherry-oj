@@ -45,7 +45,7 @@ func (o Options) withDefaults() Options {
 
 // Set 是一次 Load 得到的测试数据：本地副本里的测试点，加上这份数据的指纹。
 type Set struct {
-	Cases []TestCase
+	Testcases []TestCase
 	// Digest 是 testdata.json 的 digest，判题结果带着它，用来追溯这次拿哪份数据判的。
 	Digest string
 	dir    string
@@ -64,7 +64,7 @@ var errChanged = errors.New("test data does not match testdata.json")
 
 // Load 按协议读取 location 下的测试数据并复制到本地。
 //
-// 测试点顺序以 testdata.json 的 cases 为准。文件缺失、大小或 SHA-256 对不上时，重读一次
+// 测试点顺序以 testdata.json 的 testcases 为准。文件缺失、大小或 SHA-256 对不上时，重读一次
 // testdata.json 并重试一次，容忍读取撞上写入方的替换；testdata.json 本身读不到或不合规不重试。
 func Load(ctx context.Context, opts Options, location string) (Set, error) {
 	opts = opts.withDefaults()
@@ -118,7 +118,7 @@ func copyData(ctx context.Context, src source, meta metadata, opts Options) (Set
 	if meta.TotalBytes > opts.MaxTotalBytes {
 		return Set{}, fmt.Errorf("test data is %d bytes, over the %d byte limit", meta.TotalBytes, opts.MaxTotalBytes)
 	}
-	for _, c := range meta.Cases {
+	for _, c := range meta.Testcases {
 		for _, f := range []fileMetadata{c.Input, c.Output} {
 			if f.SizeBytes > opts.MaxFileBytes {
 				return Set{}, fmt.Errorf("case %q has a %d byte file, over the %d byte limit", c.Name, f.SizeBytes, opts.MaxFileBytes)
@@ -139,7 +139,7 @@ func copyData(ctx context.Context, src source, meta metadata, opts Options) (Set
 		}
 	}()
 	set := Set{Digest: meta.Digest, dir: dir}
-	for _, c := range meta.Cases {
+	for _, c := range meta.Testcases {
 		if err := ctx.Err(); err != nil {
 			return Set{}, err
 		}
@@ -151,13 +151,13 @@ func copyData(ctx context.Context, src source, meta metadata, opts Options) (Set
 		if err != nil {
 			return Set{}, err
 		}
-		set.Cases = append(set.Cases, TestCase{Name: c.Name, Input: in, Expected: &out})
+		set.Testcases = append(set.Testcases, TestCase{Name: c.Name, Input: in, Expected: &out})
 	}
 	complete = true
 	return set, nil
 }
 
-// copyFile 把一个文件流式复制到 dir，同时算 SHA-256，复制完成后核对大小与摘要。
+// copyFile 把一个文件流式复制到 dir，同时算 SHA-256，复制完成后核对大小与 SHA-256。
 func copyFile(ctx context.Context, src source, dir, name string, want fileMetadata) (Blob, error) {
 	rc, err := src.open(ctx, name)
 	if err != nil {

@@ -39,30 +39,30 @@ func TestJudgeResultUnmarshalsSchemaExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Verdict != VerdictAC ||
-		result.CPUNs == 0 || result.MemoryBytes == 0 || len(result.CaseResults) != 1 {
+		result.CPUNs == 0 || result.MemoryBytes == 0 || len(result.TestcaseResults) != 1 {
 		t.Errorf("JudgeResult 示例没有完整落入 Go 类型: %+v", result)
 	}
-	if result.CaseResults[0].CPUNs == 0 || result.CaseResults[0].MemoryBytes == 0 {
-		t.Errorf("CaseResult v2 资源字段没有解码: %+v", result.CaseResults[0])
+	if result.TestcaseResults[0].CPUNs == 0 || result.TestcaseResults[0].MemoryBytes == 0 {
+		t.Errorf("TestcaseResult v2 资源字段没有解码: %+v", result.TestcaseResults[0])
 	}
 	if len(result.TestDataDigest) != 64 {
 		t.Errorf("testDataDigest 没有解码: %q", result.TestDataDigest)
 	}
 }
 
-// trial case 的 name 是跨语言契约字段：server 发来后，judge 会原样回填到 CaseResult.Name。
-func TestCaseSpecNameRoundTrip(t *testing.T) {
-	want := CaseSpec{Input: "1 2\n", Expected: "3\n", Name: "样例 1"}
+// trial case 的 name 是跨语言契约字段：server 发来后，judge 会原样回填到 TestcaseResult.Name。
+func TestTestcaseSpecNameRoundTrip(t *testing.T) {
+	want := TestcaseSpec{Input: "1 2\n", Expected: "3\n", Name: "样例 1"}
 
 	body, err := json.Marshal(want)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(body), `"name":"样例 1"`) {
-		t.Fatalf("CaseSpec.name 没有编码进 JSON: %s", body)
+		t.Fatalf("TestcaseSpec.name 没有编码进 JSON: %s", body)
 	}
 
-	var got CaseSpec
+	var got TestcaseSpec
 	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatal(err)
 	}
@@ -143,8 +143,8 @@ func TestJudgeModeUsesTestData(t *testing.T) {
 }
 
 // Output / Diff 是指针字段：不填时必须整个消失，不能出现 "output":null
-func TestCaseResultOmitsOutputAndDiff(t *testing.T) {
-	b, err := json.Marshal(CaseResult{Idx: 1, Verdict: VerdictAC})
+func TestTestcaseResultOmitsOutputAndDiff(t *testing.T) {
+	b, err := json.Marshal(TestcaseResult{Idx: 1, Verdict: VerdictAC})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestCaseResultOmitsOutputAndDiff(t *testing.T) {
 // revealExpected 关掉时 Diff 不能带 want —— 带了等于把题库答案送给用户。
 // 这条断言保护的是「不泄题」这个不变量，而不是某段实现。
 func TestDiffOmitsWantWhenNotRevealed(t *testing.T) {
-	concealed := CaseResult{
+	concealed := TestcaseResult{
 		Idx:     1,
 		Verdict: VerdictWA,
 		Diff:    &Diff{Line: 17, Got: "42"}, // Want 留空
@@ -181,7 +181,7 @@ func TestDiffOmitsWantWhenNotRevealed(t *testing.T) {
 	}
 
 	// 配置打开时（教学场景）才允许带 want
-	revealed := CaseResult{Idx: 1, Verdict: VerdictWA, Diff: &Diff{Line: 17, Got: "42", Want: "43"}}
+	revealed := TestcaseResult{Idx: 1, Verdict: VerdictWA, Diff: &Diff{Line: 17, Got: "42", Want: "43"}}
 	b2, err := json.Marshal(revealed)
 	if err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestJudgeResultOmitsEmpty(t *testing.T) {
 			t.Errorf("%q 应当总是出现", key)
 		}
 	}
-	for _, key := range []string{"caseResults", "message", "cpuNs", "memoryBytes", "testDataDigest"} {
+	for _, key := range []string{"testcaseResults", "message", "cpuNs", "memoryBytes", "testDataDigest"} {
 		if _, ok := m[key]; ok {
 			t.Errorf("%q 为空时应被 omitempty 掉", key)
 		}
@@ -246,7 +246,7 @@ func TestJudgeResultUsesV2ResourceNames(t *testing.T) {
 		Verdict:     VerdictAC,
 		CPUNs:       12,
 		MemoryBytes: 34,
-		CaseResults: []CaseResult{{
+		TestcaseResults: []TestcaseResult{{
 			Idx:         1,
 			Verdict:     VerdictAC,
 			CPUNs:       10,
@@ -258,7 +258,7 @@ func TestJudgeResultUsesV2ResourceNames(t *testing.T) {
 	}
 
 	encoded := string(b)
-	for _, key := range []string{`"cpuNs"`, `"memoryBytes"`, `"caseResults"`} {
+	for _, key := range []string{`"cpuNs"`, `"memoryBytes"`, `"testcaseResults"`} {
 		if !strings.Contains(encoded, key) {
 			t.Errorf("v2 字段 %s 没有编码: %s", key, encoded)
 		}

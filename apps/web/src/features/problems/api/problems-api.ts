@@ -60,12 +60,12 @@ const problemDetailSchema = z
 const testDataSchema = z
   .object({
     digest: z.string().regex(/^[a-f0-9]{64}$/),
-    caseCount: z.number().int(),
+    testcaseCount: z.number().int(),
     totalBytes: z.number().int(),
     updatedAt: date,
     manifest: z
       .object({
-        caseCount: z.number().int(),
+        testcaseCount: z.number().int(),
         totalBytes: z.number().int(),
         files: z.array(
           z.object({ name: z.string(), sizeBytes: z.number().int(), sha256: z.string() }).loose(),

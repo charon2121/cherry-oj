@@ -9,7 +9,7 @@
   "required": [
     "location",
     "digest",
-    "caseCount",
+    "testcaseCount",
     "totalBytes"
   ],
   "properties": {
@@ -24,7 +24,7 @@
       "pattern": "^[a-f0-9]{64}$",
       "description": "testdata.json 的 digest；标定据此判断是否过期"
     },
-    "caseCount": {
+    "testcaseCount": {
       "type": "integer",
       "minimum": 1,
       "maximum": 1000
@@ -38,7 +38,7 @@
     {
       "location": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000002",
       "digest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
-      "caseCount": 2,
+      "testcaseCount": 2,
       "totalBytes": 16
     }
   ]

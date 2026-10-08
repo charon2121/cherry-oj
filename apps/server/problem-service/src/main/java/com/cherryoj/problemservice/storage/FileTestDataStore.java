@@ -318,18 +318,18 @@ public final class FileTestDataStore implements TestDataStore {
     }
 
     private static TestDataMetadata.Document documentFor(Validation validation) {
-        Map<String, Map<String, ValidatedFile>> byCase = new HashMap<>();
+        Map<String, Map<String, ValidatedFile>> byTestcase = new HashMap<>();
         for (ValidatedFile file : validation.files()) {
             int dot = file.name().lastIndexOf('.');
-            byCase.computeIfAbsent(file.name().substring(0, dot), ignored -> new HashMap<>())
+            byTestcase.computeIfAbsent(file.name().substring(0, dot), ignored -> new HashMap<>())
                     .put(file.name().substring(dot + 1), file);
         }
-        List<TestDataMetadata.CaseEntry> cases = byCase.keySet().stream()
+        List<TestDataMetadata.TestcaseEntry> testcases = byTestcase.keySet().stream()
                 .sorted(TestDataMetadata.defaultOrder())
-                .map(name -> new TestDataMetadata.CaseEntry(name,
-                        entry(byCase.get(name).get("in")), entry(byCase.get(name).get("out"))))
+                .map(name -> new TestDataMetadata.TestcaseEntry(name,
+                        entry(byTestcase.get(name).get("in")), entry(byTestcase.get(name).get("out"))))
                 .toList();
-        return TestDataMetadata.Document.of(cases);
+        return TestDataMetadata.Document.of(testcases);
     }
 
     private static TestDataMetadata.FileEntry entry(ValidatedFile file) {
@@ -338,12 +338,12 @@ public final class FileTestDataStore implements TestDataStore {
 
     private static Info info(TestDataMetadata.Document document) {
         List<ManifestFile> files = new ArrayList<>();
-        for (TestDataMetadata.CaseEntry entry : document.cases()) {
+        for (TestDataMetadata.TestcaseEntry entry : document.testcases()) {
             files.add(new ManifestFile(entry.name() + ".in", entry.input().sizeBytes(), entry.input().sha256()));
             files.add(new ManifestFile(entry.name() + ".out", entry.output().sizeBytes(), entry.output().sha256()));
         }
-        return new Info(document.digest(), document.caseCount(), document.totalBytes(),
-                new Manifest(document.caseCount(), document.totalBytes(), List.copyOf(files)));
+        return new Info(document.digest(), document.testcaseCount(), document.totalBytes(),
+                new Manifest(document.testcaseCount(), document.totalBytes(), List.copyOf(files)));
     }
 
     private String currentGeneration(String problemId) {
@@ -397,18 +397,18 @@ public final class FileTestDataStore implements TestDataStore {
                     directoryMarkers.add(trimTrailingSlash(name));
                     continue;
                 }
-                CasePath casePath = casePath(name);
-                if (casePath == null || !isRegularFile(entry) || !archive.canReadEntryData(entry)) {
+                TestcasePath testcasePath = testcasePath(name);
+                if (testcasePath == null || !isRegularFile(entry) || !archive.canReadEntryData(entry)) {
                     throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
                 }
                 if (!logicalRootSelected) {
-                    wrapper = casePath.wrapper();
+                    wrapper = testcasePath.wrapper();
                     logicalRootSelected = true;
                 }
-                else if (!Objects.equals(wrapper, casePath.wrapper())) {
+                else if (!Objects.equals(wrapper, testcasePath.wrapper())) {
                     throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
                 }
-                if (!logicalNames.add(casePath.logicalName())) {
+                if (!logicalNames.add(testcasePath.logicalName())) {
                     throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
                 }
                 if (entry.getSize() > properties.maxEntrySize().toBytes()) {
@@ -424,8 +424,8 @@ public final class FileTestDataStore implements TestDataStore {
                         || (double) digest.size() / compressed > properties.maxCompressionRatio())) {
                     throw tooLarge("TEST_DATA_COMPRESSION_RATIO_EXCEEDED");
                 }
-                files.add(new ValidatedFile(casePath.logicalName(), name, digest.size(), digest.sha256()));
-                pairs.computeIfAbsent(casePath.caseName(), ignored -> new HashSet<>()).add(casePath.extension());
+                files.add(new ValidatedFile(testcasePath.logicalName(), name, digest.size(), digest.sha256()));
+                pairs.computeIfAbsent(testcasePath.testcaseName(), ignored -> new HashSet<>()).add(testcasePath.extension());
             }
         }
         catch (AssetException error) {
@@ -531,7 +531,7 @@ public final class FileTestDataStore implements TestDataStore {
         return new MetadataPath(slash < 0 ? "" : candidate.substring(0, slash));
     }
 
-    private static CasePath casePath(String name) {
+    private static TestcasePath testcasePath(String name) {
         int slash = name.indexOf('/');
         if (slash >= 0 && name.indexOf('/', slash + 1) >= 0) return null;
         String wrapper = slash < 0 ? null : name.substring(0, slash);
@@ -539,7 +539,7 @@ public final class FileTestDataStore implements TestDataStore {
         if (wrapper != null && !WRAPPER_NAME.matcher(wrapper).matches()) return null;
         Matcher matcher = FILE_NAME.matcher(logicalName);
         return matcher.matches()
-                ? new CasePath(wrapper, logicalName, matcher.group(1), matcher.group(2))
+                ? new TestcasePath(wrapper, logicalName, matcher.group(1), matcher.group(2))
                 : null;
     }
 
@@ -677,6 +677,6 @@ public final class FileTestDataStore implements TestDataStore {
     private record MetadataPath(String wrapper) {
     }
 
-    private record CasePath(String wrapper, String logicalName, String caseName, String extension) {
+    private record TestcasePath(String wrapper, String logicalName, String testcaseName, String extension) {
     }
 }

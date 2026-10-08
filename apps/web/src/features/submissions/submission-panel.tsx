@@ -265,12 +265,14 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
       </p>
       <p className="text-fg-meta font-mono break-all">{value.id}</p>
       <div className="text-fg-2 flex flex-wrap gap-x-4 gap-y-1 font-mono">
-        {value.passedCount !== undefined && value.totalCount !== undefined ? (
+        {value.passedTestcaseCount !== undefined && value.testcaseCount !== undefined ? (
           <span>
-            通过 {value.passedCount} / {value.totalCount}
+            通过 {value.passedTestcaseCount} / {value.testcaseCount}
           </span>
         ) : null}
-        {value.executedCount !== undefined ? <span>已执行 {value.executedCount}</span> : null}
+        {value.executedTestcaseCount !== undefined ? (
+          <span>已执行 {value.executedTestcaseCount}</span>
+        ) : null}
         {value.cpuNs !== undefined ? <span>CPU {value.cpuNs / 1_000_000} ms</span> : null}
         {value.memoryBytes !== undefined ? <span>内存 {value.memoryBytes / 1024} KiB</span> : null}
       </div>

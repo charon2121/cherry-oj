@@ -114,7 +114,7 @@ class JudgingReadinessIntegrationTests {
     }
 
     @Test
-    void calibrationIsVoidedWhenJudgeReadsADifferentDatasetThanRequested() throws Exception {
+    void calibrationIsVoidedWhenJudgeReadsADifferentTestDataThanRequested() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac("c".repeat(64)));
         var result = service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);

@@ -49,7 +49,7 @@ class FormalKafkaTests {
         when(inputs.get(eq(id),nullable(String.class))).thenReturn(input);
         when(testData.current(eq(problem),nullable(String.class))).thenReturn(new com.cherryoj.judgingservice.problem.ProblemTestData("/data/p","a".repeat(64),1,10));
         when(nodes.online(eq("cpp"),any())).thenReturn(List.of(new JudgeNodeRepository.Node("node",UUID.randomUUID().toString(),"http://test-node",LocalDateTime.now().plusMinutes(1))));
-        when(judge.judge(anyString(),any(),nullable(String.class),any())).thenReturn(new JudgeGateway.JudgeResult("WA",1L,2L,0,"must not expose runtime text",List.of(new JudgeGateway.CaseResult(1,"WA",1L,2L))));
+        when(judge.judge(anyString(),any(),nullable(String.class),any())).thenReturn(new JudgeGateway.JudgeResult("WA",1L,2L,0,"must not expose runtime text",List.of(new JudgeGateway.TestcaseResult(1,"WA",1L,2L))));
         String event=json.writeValueAsString(Map.of("eventId",UUID.randomUUID().toString(),"eventType","JudgeRequested","eventVersion",1,
                 "occurredAt",input.createdAt().toString(),"traceId","a".repeat(32),"aggregateId",id,"payload",Map.of("submissionId",id,"judgeInputContractVersion","2")));
         kafka.send("judge.requests.v1",id,event).get(15,TimeUnit.SECONDS);

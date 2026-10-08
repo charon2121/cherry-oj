@@ -128,7 +128,7 @@ def verify_live(value, context):
         raise ValueError('unbounded output')
     if value['empty']['memoryBytes'] >= 16 << 20:
         raise ValueError('empty run inherited a prior memory peak')
-    if value['ac']['verdict'] != 'AC' or value['ac']['passedCount'] != 6 or value['ac']['totalCount'] != 6 or value['wa']['verdict'] != 'WA':
+    if value['ac']['verdict'] != 'AC' or value['ac']['passedTestcaseCount'] != 6 or value['ac']['testcaseCount'] != 6 or value['wa']['verdict'] != 'WA':
         raise ValueError('formal verdict/count mismatch')
     if value['history']['draftPreserved'] is not True or value['history']['customPosts'] != 8 or value['history']['formalPosts'] != 2:
         raise ValueError('history changed draft or caused extra execution')

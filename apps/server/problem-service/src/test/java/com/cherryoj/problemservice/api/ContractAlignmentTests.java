@@ -27,7 +27,7 @@ class ContractAlignmentTests {
 
         assertThat(decoded.location()).startsWith("/");
         assertThat(decoded.digest()).matches("[a-f0-9]{64}");
-        assertThat(decoded.caseCount()).isEqualTo(2);
+        assertThat(decoded.testcaseCount()).isEqualTo(2);
         assertThat(decoded.totalBytes()).isEqualTo(16);
         assertThat(fieldNames(schema.get("properties"))).isEqualTo(components(TestDataDtos.ProblemTestData.class));
         assertThat(required(schema)).isEqualTo(components(TestDataDtos.ProblemTestData.class));

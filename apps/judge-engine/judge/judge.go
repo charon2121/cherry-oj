@@ -50,7 +50,7 @@ func systemErrorReason(r contract.JudgeResult) string {
 	if r.Message != "" {
 		return r.Message
 	}
-	for _, c := range r.CaseResults {
+	for _, c := range r.TestcaseResults {
 		if c.Verdict == contract.VerdictSE {
 			return fmt.Sprintf("case %d: %s", c.Idx, c.Message)
 		}

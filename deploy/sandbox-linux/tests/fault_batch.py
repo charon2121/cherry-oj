@@ -115,13 +115,13 @@ def task_uids():
 
 
 def verdict(result, name):
-    rows = {c['name']: c for c in result.get('caseResults', [])}
+    rows = {c['name']: c for c in result.get('testcaseResults', [])}
     return rows[name]['verdict'] if name in rows else result['verdict']
 
 
 def identity():
     result = judge(PORT, [case('identity')])
-    row = result['caseResults'][0]
+    row = result['testcaseResults'][0]
     assert row['verdict'] == 'RAN', result
     fields = dict(line.split(':', 1) for line in row['output']['excerpt'].splitlines() if ':' in line)
     assert set(fields['Uid'].split()) <= ({'61002', '61003'} if CAPACITY else {'61002'}), fields
@@ -289,8 +289,8 @@ def capacity_cases():
             time.sleep(.005)
         assert payload_ids == {61002, 61003} and init_ids == {61006, 61007}, (payload_ids, init_ids)
         for future in paired:
-            assert future.result()['caseResults'][0]['verdict'] == 'AC', future.result()
-    escalation = judge(PORT, [case('privilege', 'denied\n')])['caseResults'][0]
+            assert future.result()['testcaseResults'][0]['verdict'] == 'AC', future.result()
+    escalation = judge(PORT, [case('privilege', 'denied\n')])['testcaseResults'][0]
     # 降权后 setuid(0) 要么返回失败，要么直接被 seccomp 杀掉（RE）；绝不能成功。
     assert escalation['verdict'] in ('AC', 'RE'), escalation
     drained()
@@ -318,7 +318,7 @@ def capacity_cases():
             results = [future.result() for future in futures]
         after = events()
         assert after['memory.events']['oom_kill'] > before['memory.events']['oom_kill'], (before, after)
-        rows = [r['caseResults'][0] for r in results]
+        rows = [r['testcaseResults'][0] for r in results]
         assert all(r['verdict'] == 'SE' for r in rows), results
         assert any('without task-local OOM' in r.get('message', '') for r in rows), results
         wait_for(lambda: not group_paths(), 'aggregate OOM groups remained')
@@ -329,7 +329,7 @@ def capacity_cases():
         memory.write_text(old_memory)
         oom_group.write_text(old_group)
     identity()
-    task_oom = judge(PORT, [case('memory')])['caseResults'][0]
+    task_oom = judge(PORT, [case('memory')])['testcaseResults'][0]
     assert task_oom['verdict'] == 'MLE', task_oom
     report('task-local-memory', verdict=task_oom['verdict'], memoryBytes=task_oom.get('memoryBytes', 0))
     identity()

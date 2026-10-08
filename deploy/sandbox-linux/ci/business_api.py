@@ -126,7 +126,7 @@ class API:
         # 上传即替换：problem-service 把 ZIP 写成协议目录，节点按地址读取，没有“部署”这一步。
         data = self.request('PUT', base + '/test-data', multipart,
                             expected=200, content_type='multipart/form-data; boundary=' + boundary)
-        if data['caseCount'] != 6 or len(data['digest']) != 64:
+        if data['testcaseCount'] != 6 or len(data['digest']) != 64:
             raise ValueError('uploaded data identity mismatch')
         return dict(slug=slug, problemId=problem_id, testDataDigest=data['digest']), base
 

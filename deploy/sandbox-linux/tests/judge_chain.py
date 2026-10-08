@@ -29,7 +29,7 @@ def report(name, **facts):
 def verdicts(result):
     """trial 的测试点结果按请求顺序返回；按名字取出，便于逐项断言。"""
     assert result['verdict'] != 'CE', result
-    return {c['name']: c for c in result['caseResults']}
+    return {c['name']: c for c in result['testcaseResults']}
 
 
 def snapshot():
@@ -74,7 +74,7 @@ def smoke():
                           case('kill'), case('nonzero'), case('threads', 'denied\n'), case('hostfile', 'hidden\n'),
                           case('network'), case('mount'), case('ptrace'),
                           case('symlink'), case('magiclink'), case('hardlink')])
-    report('compile', verdict=result['verdict'], cases=len(result['caseResults']))
+    report('compile', verdict=result['verdict'], testcases=len(result['testcaseResults']))
     got = verdicts(result)
     expected = dict(echo='AC', cpu='TLE', tree='TLE', memory='MLE', output='OLE', empty='RAN',
                     kill='RE', nonzero='RE', threads='AC', hostfile='AC', network='RE', mount='RE', ptrace='RE',
@@ -117,7 +117,7 @@ def repeat():
     start = time.monotonic()
     for batch in range(10):
         result = judge(PORT, [case('empty') for _ in range(100)], limits=dict(clockNs=2_000_000_000))
-        rows = result['caseResults']
+        rows = result['testcaseResults']
         assert len(rows) == 100 and all(r['verdict'] == 'RAN' for r in rows), result
         cpus += [r.get('cpuNs', 0) for r in rows]
         peaks += [r.get('memoryBytes', 0) for r in rows]

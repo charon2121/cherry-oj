@@ -42,7 +42,7 @@ type judgeRequestJSON struct {
 	Source           *string            `json:"source"`
 	Limits           *judgeLimitsJSON   `json:"limits"`
 	Mode             contract.JudgeMode `json:"mode"`
-	Cases            []caseSpecJSON     `json:"cases"`
+	Testcases        []testcaseSpecJSON `json:"testcases"`
 }
 
 type judgeLimitsJSON struct {
@@ -51,7 +51,7 @@ type judgeLimitsJSON struct {
 	ClockNs     *int64 `json:"clockNs"`
 }
 
-type caseSpecJSON struct {
+type testcaseSpecJSON struct {
 	Input    *string `json:"input"`
 	Expected *string `json:"expected"`
 	Name     string  `json:"name"`
@@ -108,14 +108,14 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 		limits.ClockNs = *wire.Limits.ClockNs
 	}
 
-	cases := make([]contract.CaseSpec, len(wire.Cases))
-	for i, c := range wire.Cases {
+	testcases := make([]contract.TestcaseSpec, len(wire.Testcases))
+	for i, c := range wire.Testcases {
 		if c.Input == nil {
-			return contract.JudgeRequest{}, missing(fmt.Sprintf("cases[%d].input", i))
+			return contract.JudgeRequest{}, missing(fmt.Sprintf("testcases[%d].input", i))
 		}
-		cases[i] = contract.CaseSpec{Input: *c.Input, Name: c.Name}
+		testcases[i] = contract.TestcaseSpec{Input: *c.Input, Name: c.Name}
 		if c.Expected != nil {
-			cases[i].Expected = *c.Expected
+			testcases[i].Expected = *c.Expected
 		}
 	}
 
@@ -126,7 +126,7 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 		Source:       *wire.Source,
 		Limits:       limits,
 		Mode:         wire.Mode,
-		Cases:        cases,
+		Testcases:    testcases,
 	}
 	if wire.TestDataLocation != nil {
 		req.TestDataLocation = *wire.TestDataLocation

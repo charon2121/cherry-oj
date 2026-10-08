@@ -37,7 +37,7 @@ class SubmissionExecutionProfileControllerTests {
         assertFalse(profile.toString().contains("/data/p"));
     }
 
-    @Test void budgetFollowsTheCurrentCaseCountAndTrialUsesOneCase() {
+    @Test void budgetFollowsTheCurrentTestcaseCountAndTrialUsesOneCase() {
         var service = mock(JudgingReadinessService.class);
         var testData = mock(ProblemTestDataClient.class);
         var controller = new SubmissionExecutionProfileController(service, budgets(), testData);

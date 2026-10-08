@@ -11,8 +11,8 @@ import (
 	"cherry-oj/judge-engine/judge/testcase"
 )
 
-func evalCase(idx int, tc testcase.TestCase, run contract.RunResult, cfg config.Settings) contract.CaseResult {
-	result := contract.CaseResult{
+func evalTestcase(idx int, tc testcase.TestCase, run contract.RunResult, cfg config.Settings) contract.TestcaseResult {
+	result := contract.TestcaseResult{
 		Idx:         idx,
 		Name:        tc.Name,
 		CPUNs:       run.CPUNs,

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """WORK-002: isolated MySQL/Redis + five real Java services + production Compose Judge.
-Test data follows docs/testdata-protocol.md: problem-service writes a directory under <output>/problem-assets, the judge
+Test data follows docs/testdata-protocol.md: problem-service writes a directory under <output>/problem-testdata, the judge
 container reads the same absolute path (read-only bind mount), and only the address crosses services.
 Run after Maven package and the local Judge image build (the sandbox executor is built into the judge image). Never uses the user's databases/volumes.
 --keep leaves the test stack alive until <output>/stop exists, for browser verification.
@@ -13,8 +13,8 @@ args=parser.parse_args()
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 OUT=pathlib.Path(tempfile.mkdtemp(prefix='cherry-work002-')).resolve()
 # 测试数据根目录：problem-service 写，judge 容器按同一个绝对路径只读挂载（见 compose.yaml）。
-ASSETS=OUT/'problem-assets';ASSETS.mkdir(mode=0o755)
-ASSETS.chmod(0o755)
+TESTDATA_ROOT=OUT/'problem-testdata';TESTDATA_ROOT.mkdir(mode=0o755)
+TESTDATA_ROOT.chmod(0o755)
 NAME='cherry-work002-'+uuid.uuid4().hex[:8]
 processes=[];containers=[];logs=[];extra_volumes=[]
 def run(cmd,**kw):
@@ -29,7 +29,7 @@ print('E2E output:',OUT,flush=True)
 env={key:os.environ[key] for key in ['PATH','HOME','TMPDIR','JAVA_HOME','LANG','LC_ALL',
  'DOCKER_HOST','DOCKER_CONTEXT','DOCKER_CONFIG','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH'] if key in os.environ}
 env.update(JUDGE_BIND_ADDRESS='127.0.0.1',CHERRY_JUDGE_CONTROL_TOKEN='work002-isolated-control',JUDGE_NODE_ID=NAME,
- JUDGE_TESTDATA_VOLUME=NAME+'-testdata',PROBLEM_TESTDATA_ROOT=str(ASSETS),JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
+ JUDGE_TESTDATA_VOLUME=NAME+'-testdata',CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
  JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s')
 env.update(WORK002_DB_PASSWORD=secrets.token_urlsafe(24),WORK002_MYSQL_PORT=str(ports['mysql']),
  WORK002_REDIS_PORT=str(ports['redis']),WORK002_KAFKA_PORT=str(ports['kafka']))
@@ -57,7 +57,7 @@ def start(service,extra=None):
  CHERRY_USER_SERVICE_URL=f"http://127.0.0.1:{ports['user']}",CHERRY_PROBLEM_SERVICE_URL=f"http://127.0.0.1:{ports['problem']}",
  CHERRY_JUDGING_BASE_URL=f"http://127.0.0.1:{ports['judging']}",CHERRY_IDENTITY_JWKS_URI=f"http://127.0.0.1:{ports['user']}/.well-known/jwks.json",
  CHERRY_IDENTITY_METADATA_URI=f"http://127.0.0.1:{ports['user']}/internal/identity/metadata",CHERRY_REDIS_PORT=str(ports['redis']),
- CHERRY_TEST_DATA_ROOT=str(ASSETS),
+ CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),
  CHERRY_JUDGE_NODE_LEASE_DURATION='4s',CHERRY_WEB_ORIGIN=f"http://{NAME}.localhost:{ports['web']}",
  CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:'+str(OUT/'keys/active-private.pem'),CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:'+str(OUT/'keys/active-public.pem'))
  for database in ['user','problem','judging','submission']:
@@ -147,11 +147,11 @@ try:
  assert 'versions' not in problem and problem['testData'] is None and problem['visibility']=='PRIVATE',problem
  problem=request(problem_path,'PATCH',content(problem))
  asset=put_test_data(pid,[('1',b'1 2\n',b'3\n')])
- assert asset['caseCount']==1 and len(asset['digest'])==64 and 'location' not in asset,asset
+ assert asset['testcaseCount']==1 and len(asset['digest'])==64 and 'location' not in asset,asset
  assert request(problem_path)['testData']['digest']==asset['digest']
  # 协议目录由 problem-service 写出：地址只存在服务器上，浏览器永远看不到；数据文件与 testdata.json 齐全。
- directory=ASSETS/pid
- assert (directory/'testdata.json').is_file() and (directory/'1.in').is_file(),list(ASSETS.rglob('*'))
+ directory=TESTDATA_ROOT/pid
+ assert (directory/'testdata.json').is_file() and (directory/'1.in').is_file(),list(TESTDATA_ROOT.rglob('*'))
  before=request(problem_path+'/publish-check');assert any(c['code']=='ONLINE_JUDGE_NODE' and not c['passed'] for c in before['checks']),before
  source='#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<"\\n";}'
  calibration_payload={'languageId':'cpp','cpuNs':1000000000,'memoryBytes':268435456,'clockNs':None,'referenceSource':source}
@@ -178,7 +178,7 @@ try:
    return result if result['status']=='DONE' else None
   result=wait(terminal,'submission '+sid,seconds)
   assert result['verdict']==verdict,(sid,result['verdict'],verdict)
-  forbidden={'caseResults','output','diff','source','completeSource','testDataDigest','testDataLocation'}
+  forbidden={'testcaseResults','output','diff','source','completeSource','testDataDigest','testDataLocation'}
   assert not forbidden.intersection(result),list(result)
   if verdict not in ['CE','SE']:assert 'message' not in result
   submissions.append({'id':sid,'verdict':verdict})
@@ -227,13 +227,13 @@ try:
  # 替换测试数据：旧校准立即过期，新提交被挡住，直到按新数据重新校准；已冻结的 JudgeInput 不变。
  frozen_input=sql("SELECT payload FROM cherry_submission.judge_input WHERE submission_id='"+first['id']+"'")
  second=put_test_data(pid,[('1',b'1 2\n',b'3\n'),('2',b'100 -7\n',b'93\n')])
- assert second['caseCount']==2 and second['digest']!=asset['digest'],second
+ assert second['testcaseCount']==2 and second['digest']!=asset['digest'],second
  stale=request(problem_path+'/publish-check');assert any(c['code']=='CALIBRATION' and not c['passed'] for c in stale['checks']),stale
  assert submit(source,expect=503)[1]['code']=='JUDGING_NOT_READY'
  recalibrated=request(problem_path+'/calibration','POST',calibration_payload)
  assert recalibrated['status']=='VALID' and recalibrated['testDataDigest']==second['digest'],recalibrated
  _,fresh=submit(source);done=finished(fresh['id'],'AC')
- assert done['totalCount']==2 and done['passedCount']==2,done
+ assert done['testcaseCount']==2 and done['passedTestcaseCount']==2,done
  assert digest_of(fresh['id'])==second['digest']
  assert frozen_input==sql("SELECT payload FROM cherry_submission.judge_input WHERE submission_id='"+first['id']+"'")
  assert digest_of(first['id'])==asset['digest']
@@ -280,7 +280,7 @@ try:
  # The broker and persisted events may contain references/safe summaries, never source or hidden fields.
  for database in ['submission','judging']:
   payloads=sql('SELECT payload FROM cherry_'+database+'.outbox_event')
-  for marker in ['completeSource','caseResults','testDataLocation','iostream']:
+  for marker in ['completeSource','testcaseResults','testDataLocation','iostream']:
    assert marker not in payloads,(database,marker)
  node_id=sql('SELECT node_id FROM cherry_judging.judge_node LIMIT 1')
  evidence={'project':NAME,'ports':ports,'problemId':pid,'slug':'work002-plus',
@@ -290,7 +290,7 @@ try:
  evidence['webOrigin']=f"http://{NAME}.localhost:{ports['web']}"
  (OUT/'evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
  # apps/web/e2e/judge-node.spec.ts 用它们停止/恢复同一个 Compose 项目里的 judge 节点。
- (OUT/'compose.env.json').write_text(json.dumps({k:v for k,v in env.items() if k.startswith('JUDGE_') or k in ('CHERRY_JUDGE_CONTROL_TOKEN','PROBLEM_TESTDATA_ROOT')}));os.chmod(OUT/'compose.env.json',0o600)
+ (OUT/'compose.env.json').write_text(json.dumps({k:v for k,v in env.items() if k.startswith('JUDGE_') or k in ('CHERRY_JUDGE_CONTROL_TOKEN','CHERRY_TEST_DATA_ROOT')}));os.chmod(OUT/'compose.env.json',0o600)
  print('E2E PASS:',OUT/'evidence.json',flush=True)
  if args.keep:
   import http.server, threading, urllib.parse

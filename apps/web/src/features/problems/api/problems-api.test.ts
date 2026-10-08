@@ -120,10 +120,10 @@ test('replaces the single test data with PUT and no version in the path', async 
       path = new URL(request.url).pathname;
       return response({
         digest,
-        caseCount: 2,
+        testcaseCount: 2,
         totalBytes: 16,
         updatedAt: '2026-10-07T00:00:00',
-        manifest: { caseCount: 2, totalBytes: 16, files: [] },
+        manifest: { testcaseCount: 2, totalBytes: 16, files: [] },
       });
     }),
   );
@@ -132,7 +132,7 @@ test('replaces the single test data with PUT and no version in the path', async 
 
   expect(method).toBe('PUT');
   expect(path).toBe(`/api/admin/problems/${problemId}/test-data`);
-  expect(result).toMatchObject({ digest, caseCount: 2 });
+  expect(result).toMatchObject({ digest, testcaseCount: 2 });
 });
 
 test('unpublish and delete address the problem itself', async () => {

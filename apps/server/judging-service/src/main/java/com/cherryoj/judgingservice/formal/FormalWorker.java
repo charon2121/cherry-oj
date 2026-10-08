@@ -57,7 +57,7 @@ public class FormalWorker {
             // 地址不在提交时冻结：判题时向 problem-service 取题目此刻的测试数据，预算按当前测试点数重算。
             var data=currentTestData(input.problemId(),task.traceParent());
             Duration budget;
-            try { budget=properties.executionBudget(input.effectiveLimits().cpuNs(),input.effectiveLimits().clockNs(),data.caseCount()); }
+            try { budget=properties.executionBudget(input.effectiveLimits().cpuNs(),input.effectiveLimits().clockNs(),data.testcaseCount()); }
             catch(ArithmeticException | IllegalArgumentException error) { throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE"); }
             if(budget.isNegative() || budget.isZero() || clock.instant().plus(budget).isAfter(deadline)) throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE");
             // 派发时再选节点：任何在线、声明了该语言的节点都行，它们按同一个地址读同一份数据。
@@ -66,7 +66,7 @@ public class FormalWorker {
             var result=judge.judge(online.getFirst().endpoint(),new JudgeGateway.JudgeRequest(input.submissionId(),input.problemId(),
                     data.location(),input.languageId(),input.completeSource(),input.effectiveLimits(),"submit"),task.traceParent(),budget);
             if("SE".equals(result.verdict())) throw new FormalFailure("JUDGE_SYSTEM_ERROR");
-            store.finish(task,safe(result,data.caseCount()),result.testDataDigest(),null,null);
+            store.finish(task,safe(result,data.testcaseCount()),result.testDataDigest(),null,null);
         } catch(Exception error) {
             String code=error instanceof FormalFailure ? error.getMessage() : "JUDGE_EXECUTION_FAILED";
             boolean retry=task.attemptNo()<properties.maxAttempts() && clock.instant().isBefore(deadline)
@@ -89,21 +89,21 @@ public class FormalWorker {
             for(String uuid:List.of(input.problemId(),input.languageCalibrationId())) UUID.fromString(uuid);
         } catch(RuntimeException error) { throw new FormalFailure("INVALID_JUDGE_INPUT"); }
     }
-    static Map<String,Object> safe(JudgeGateway.JudgeResult result,int totalCount) {
+    static Map<String,Object> safe(JudgeGateway.JudgeResult result,int testcaseCount) {
         Set<String> verdicts=Set.of("AC","WA","PE","TLE","MLE","OLE","RE","CE");
         if(result==null || result.verdict()==null || !verdicts.contains(result.verdict())) throw new FormalFailure("INVALID_JUDGE_RESULT");
         var safe=new LinkedHashMap<String,Object>();
         safe.put("verdict",result.verdict());
         if(result.cpuNs()!=null) { if(result.cpuNs()<0) throw new FormalFailure("INVALID_JUDGE_RESULT"); safe.put("cpuNs",result.cpuNs()); }
         if(result.memoryBytes()!=null) { if(result.memoryBytes()<0) throw new FormalFailure("INVALID_JUDGE_RESULT"); safe.put("memoryBytes",result.memoryBytes()); }
-        if(result.caseResults()!=null) {
-            if(result.caseResults().size()>totalCount) throw new FormalFailure("INVALID_JUDGE_RESULT");
+        if(result.testcaseResults()!=null) {
+            if(result.testcaseResults().size()>testcaseCount) throw new FormalFailure("INVALID_JUDGE_RESULT");
             int passed=0,index=0;
-            for(var test:result.caseResults()) {
+            for(var test:result.testcaseResults()) {
                 if(test.idx()!=++index || !verdicts.contains(test.verdict())) throw new FormalFailure("INVALID_JUDGE_RESULT");
                 if("AC".equals(test.verdict())) passed++;
             }
-            safe.put("passedCount",passed); safe.put("executedCount",index); safe.put("totalCount",totalCount);
+            safe.put("passedTestcaseCount",passed); safe.put("executedTestcaseCount",index); safe.put("testcaseCount",testcaseCount);
         }
         if("CE".equals(result.verdict()) && result.message()!=null && !result.message().isBlank()) {
             String diagnostic=result.message().replaceAll("\\u001B\\[[;\\d]*[ -/]*[@-~]", "")

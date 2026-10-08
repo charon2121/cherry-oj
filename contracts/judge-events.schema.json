@@ -297,17 +297,17 @@
           "type": "integer",
           "minimum": 0
         },
-        "passedCount": {
+        "passedTestcaseCount": {
           "type": "integer",
           "minimum": 0,
           "maximum": 1000
         },
-        "executedCount": {
+        "executedTestcaseCount": {
           "type": "integer",
           "minimum": 0,
           "maximum": 1000
         },
-        "totalCount": {
+        "testcaseCount": {
           "type": "integer",
           "minimum": 0,
           "maximum": 1000

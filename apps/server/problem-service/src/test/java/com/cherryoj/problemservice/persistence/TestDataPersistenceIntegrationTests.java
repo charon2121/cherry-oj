@@ -90,7 +90,7 @@ class TestDataPersistenceIntegrationTests {
         var uploaded = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
 
         assertThat(uploaded.digest()).isEqualTo(GOLDEN_DIGEST);
-        assertThat(uploaded.caseCount()).isEqualTo(2);
+        assertThat(uploaded.testcaseCount()).isEqualTo(2);
         assertThat(uploaded.totalBytes()).isEqualTo(16);
         assertThat(uploaded.manifest().files()).extracting(file -> file.name())
                 .containsExactly("1.in", "1.out", "2.in", "2.out");
@@ -108,7 +108,7 @@ class TestDataPersistenceIntegrationTests {
         var forJudging = testData.forJudging(problem.id());
         assertThat(forJudging.location()).isEqualTo(location);
         assertThat(forJudging.digest()).isEqualTo(GOLDEN_DIGEST);
-        assertThat(forJudging.caseCount()).isEqualTo(2);
+        assertThat(forJudging.testcaseCount()).isEqualTo(2);
         assertThat(forJudging.totalBytes()).isEqualTo(16);
 
         // 管理端读到同样的数据；上传不改乐观锁计数，免得让正在编辑题面的人白白冲突
@@ -130,7 +130,7 @@ class TestDataPersistenceIntegrationTests {
                 "1.in", bytes("5 6\n"), "1.out", bytes("11\n")))), ACTOR);
 
         assertThat(second.digest()).isNotEqualTo(first.digest());
-        assertThat(second.caseCount()).isEqualTo(1);
+        assertThat(second.testcaseCount()).isEqualTo(1);
         // 地址不变，数据变了：「改了就是改了」
         var current = testData.forJudging(problem.id());
         assertThat(current.location()).isEqualTo(address);

@@ -27,7 +27,7 @@ def environment(directory, credentials):
                CHERRY_IDENTITY_METADATA_URI='http://127.0.0.1:8081/internal/identity/metadata',
                CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:' + str(directory / 'keys/active-private.pem'),
                CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:' + str(directory / 'keys/active-public.pem'),
-               CHERRY_TEST_DATA_ROOT=str(directory / 'problem-assets'),
+               CHERRY_TEST_DATA_ROOT=str(directory / 'problem-testdata'),
                CHERRY_JUDGE_CONTROL_TOKEN=credentials['control'],
                CHERRY_SUBMISSION_ACCEPTING='true', CHERRY_SUBMISSION_MESSAGING_ENABLED='true',
                CHERRY_FORMAL_JUDGING_ENABLED='true', CHERRY_CUSTOM_RUN_ENABLED='true',

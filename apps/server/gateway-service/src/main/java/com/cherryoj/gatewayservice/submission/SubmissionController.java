@@ -77,6 +77,6 @@ public final class SubmissionController {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record View(UUID id,UUID problemId,
             String problemTitle,String languageId,String status,Instant createdAt,String verdict,
-            Long cpuNs,Long memoryBytes,Integer passedCount,Integer executedCount,Integer totalCount,
+            Long cpuNs,Long memoryBytes,Integer passedTestcaseCount,Integer executedTestcaseCount,Integer testcaseCount,
             String message,Instant finishedAt) {}
 }

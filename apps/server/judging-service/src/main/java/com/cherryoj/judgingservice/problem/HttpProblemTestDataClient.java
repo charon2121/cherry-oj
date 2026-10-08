@@ -39,7 +39,7 @@ public class HttpProblemTestDataClient implements ProblemTestDataClient {
             if (response.statusCode() != 200) throw new ProblemTestDataException("TEST_DATA_UNAVAILABLE");
             var data = json.readValue(response.body(), ProblemTestData.class);
             if (data.location() == null || data.location().isBlank() || data.digest() == null
-                    || !data.digest().matches("[a-f0-9]{64}") || data.caseCount() < 1 || data.caseCount() > 1000) {
+                    || !data.digest().matches("[a-f0-9]{64}") || data.testcaseCount() < 1 || data.testcaseCount() > 1000) {
                 throw new ProblemTestDataException("TEST_DATA_INVALID");
             }
             return data;

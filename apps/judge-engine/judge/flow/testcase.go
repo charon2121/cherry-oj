@@ -10,14 +10,14 @@ import (
 	"cherry-oj/judge-engine/judge/testcase"
 )
 
-func (j *judgment) runCase(ctx context.Context, idx int, tc testcase.TestCase) contract.CaseResult {
+func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCase) contract.TestcaseResult {
 	sb, cfg, lang := j.sandbox, j.config, j.language
 	limits, clockNs := j.request.Limits, j.clockNs
 	sourceRef, executableRef := j.sourceRef, j.executableRef
 	trial := j.request.Mode == contract.ModeTrial
 	stdin, cleanup, err := j.stdinFor(ctx, tc.Input)
 	if err != nil {
-		return contract.CaseResult{
+		return contract.TestcaseResult{
 			Idx:     idx,
 			Name:    tc.Name,
 			Verdict: contract.VerdictSE,
@@ -40,14 +40,14 @@ func (j *judgment) runCase(ctx context.Context, idx int, tc testcase.TestCase) c
 	cleanup() // 循环内资源必须在本轮释放，不能 defer 到整个 Judge 返回。
 
 	if runErr != nil {
-		return contract.CaseResult{
+		return contract.TestcaseResult{
 			Idx:     idx,
 			Name:    tc.Name,
 			Verdict: contract.VerdictSE,
 			Message: fmt.Sprintf("run sandbox command: %v", runErr),
 		}
 	}
-	result := evalCase(idx, tc, run, cfg)
+	result := evalTestcase(idx, tc, run, cfg)
 	if trial {
 		result.Stderr = makeOutput(run.Stderr, cfg.OutputExcerptBytes)
 	}

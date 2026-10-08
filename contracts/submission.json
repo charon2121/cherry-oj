@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/submission.json",
   "title": "Submission v2",
-  "description": "submission-service 拥有的用户提交读模型。它保存用户原始源码、语言、标定和绝对限制快照；完整送判源码只存在 JudgeInput。题目没有版本，结果里的测试数据摘要由判题结果携带。时间单位 ns，内存单位 bytes。",
+  "description": "submission-service 拥有的用户提交读模型。它保存用户原始源码、语言、标定和绝对限制快照；完整送判源码只存在 JudgeInput。题目没有版本，结果里的测试数据指纹由判题结果携带。时间单位 ns，内存单位 bytes。",
   "x-contract-version": 2,
   "type": "object",
   "additionalProperties": false,
@@ -57,10 +57,10 @@
     },
     "score": { "type": "integer", "minimum": 0 },
     "message": { "type": "string", "maxLength": 8192 },
-    "caseResults": {
+    "testcaseResults": {
       "type": "array",
       "maxItems": 1000,
-      "items": { "$ref": "judge.schema.json#/definitions/CaseResult" }
+      "items": { "$ref": "judge.schema.json#/definitions/TestcaseResult" }
     },
     "createdAt": { "type": "string", "format": "date-time" },
     "startedAt": { "type": "string", "format": "date-time" },

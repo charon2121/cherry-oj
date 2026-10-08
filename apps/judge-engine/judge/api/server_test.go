@@ -61,7 +61,7 @@ func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
       "source":"",
       "limits":{"cpuNs":1000,"memoryBytes":2000,"clockNs":3000},
       "mode":"trial",
-      "cases":[{"input":"1 2\n","expected":"3\n","name":"sample"}]
+      "testcases":[{"input":"1 2\n","expected":"3\n","name":"sample"}]
     }`
 	type contextKey string
 	const key contextKey = "request-id"
@@ -84,9 +84,9 @@ func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
 	if fake.got.Limits.CPUNs != 1000 || fake.got.Limits.MemoryBytes != 2000 || fake.got.Limits.ClockNs != 3000 {
 		t.Errorf("limits = %+v", fake.got.Limits)
 	}
-	if len(fake.got.Cases) != 1 || fake.got.Cases[0].Input != "1 2\n" ||
-		fake.got.Cases[0].Expected != "3\n" || fake.got.Cases[0].Name != "sample" {
-		t.Errorf("cases = %+v", fake.got.Cases)
+	if len(fake.got.Testcases) != 1 || fake.got.Testcases[0].Input != "1 2\n" ||
+		fake.got.Testcases[0].Expected != "3\n" || fake.got.Testcases[0].Name != "sample" {
+		t.Errorf("testcases = %+v", fake.got.Testcases)
 	}
 	if got := fake.ctx.Value(key); got != "trace-1" {
 		t.Errorf("request context was not forwarded: %v", got)
@@ -142,7 +142,7 @@ func TestJudgeRejectsMalformedOrIncompleteJSON(t *testing.T) {
 		{"missing limits", `{"submissionId":"s","problemId":"p","testDataLocation":"/data/p","languageId":"cpp","source":"x"}`, "limits"},
 		{"missing cpuNs", `{"submissionId":"s","problemId":"p","testDataLocation":"/data/p","languageId":"cpp","source":"x","limits":{"memoryBytes":1}}`, "limits.cpuNs"},
 		{"missing memoryBytes", `{"submissionId":"s","problemId":"p","testDataLocation":"/data/p","languageId":"cpp","source":"x","limits":{"cpuNs":1}}`, "limits.memoryBytes"},
-		{"missing case input", `{"submissionId":"s","problemId":"p","testDataLocation":"/data/p","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1},"mode":"trial","cases":[{"expected":"3"}]}`, "cases[0].input"},
+		{"missing case input", `{"submissionId":"s","problemId":"p","testDataLocation":"/data/p","languageId":"cpp","source":"x","limits":{"cpuNs":1,"memoryBytes":1},"mode":"trial","testcases":[{"expected":"3"}]}`, "testcases[0].input"},
 	}
 
 	for _, tt := range tests {

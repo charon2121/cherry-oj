@@ -79,10 +79,10 @@ int main() {
 LIMITS = dict(cpuNs=1_000_000_000, memoryBytes=64 << 20, clockNs=5_000_000_000)
 
 
-def request(cases, limits=None, language='cpp', source=SOURCE):
+def request(testcases, limits=None, language='cpp', source=SOURCE):
     return dict(submissionId='work061-kernel', problemId='work061-probe',
                 languageId=language, source=source, mode='trial',
-                cases=cases, limits=dict(LIMITS, **(limits or {})))
+                testcases=testcases, limits=dict(LIMITS, **(limits or {})))
 
 
 def case(mode, expected=None, rest=''):
@@ -112,5 +112,5 @@ def finish(c, disconnected=False):
         c.close()
 
 
-def judge(port, cases, **kwargs):
-    return finish(begin(port, request(cases, **kwargs)))
+def judge(port, testcases, **kwargs):
+    return finish(begin(port, request(testcases, **kwargs)))

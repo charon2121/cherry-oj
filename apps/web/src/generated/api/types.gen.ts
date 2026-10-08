@@ -45,9 +45,9 @@ export type SubmissionData = {
     verdict?: 'AC' | 'WA' | 'PE' | 'TLE' | 'MLE' | 'OLE' | 'RE' | 'CE' | 'SE';
     cpuNs?: number;
     memoryBytes?: number;
-    passedCount?: number;
-    executedCount?: number;
-    totalCount?: number;
+    passedTestcaseCount?: number;
+    executedTestcaseCount?: number;
+    testcaseCount?: number;
     message?: string;
     finishedAt?: string;
 };
@@ -412,7 +412,7 @@ export type TestDataManifestFile = {
 };
 
 export type TestDataManifest = {
-    caseCount: number;
+    testcaseCount: number;
     totalBytes: number;
     files: Array<TestDataManifestFile>;
 };
@@ -508,7 +508,7 @@ export type TestData = {
      * testdata.json 的 digest：所有文件的 SHA-256 按固定格式再哈希，内容变则指纹变。
      */
     digest: string;
-    caseCount: number;
+    testcaseCount: number;
     totalBytes: number;
     updatedAt: string;
     manifest: TestDataManifest;

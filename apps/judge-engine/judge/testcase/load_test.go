@@ -33,11 +33,11 @@ func sum(s string) string {
 
 // metadataFor 按协议为 pairs 生成 testdata.json 的内容（map 形式，方便各用例改坏某个字段）。
 func metadataFor(pairs []pair) map[string]any {
-	cases := make([]any, 0, len(pairs))
+	testcases := make([]any, 0, len(pairs))
 	var lines strings.Builder
 	var total int64
 	for _, p := range pairs {
-		cases = append(cases, map[string]any{
+		testcases = append(testcases, map[string]any{
 			"name":   p.name,
 			"input":  map[string]any{"sizeBytes": len(p.in), "sha256": sum(p.in)},
 			"output": map[string]any{"sizeBytes": len(p.out), "sha256": sum(p.out)},
@@ -47,10 +47,10 @@ func metadataFor(pairs []pair) map[string]any {
 	}
 	return map[string]any{
 		"schemaVersion": 1,
-		"caseCount":     len(pairs),
+		"testcaseCount": len(pairs),
 		"totalBytes":    total,
 		"digest":        sum(lines.String()),
-		"cases":         cases,
+		"testcases":     testcases,
 	}
 }
 
@@ -63,8 +63,8 @@ func marshal(t *testing.T, v any) []byte {
 	return b
 }
 
-// writeDataset 在 dir 下按协议写出数据文件和 testdata.json（元数据最后写，与协议对写入方的要求一致）。
-func writeDataset(t *testing.T, dir string, pairs []pair, meta map[string]any) {
+// writeTestData 在 dir 下按协议写出数据文件和 testdata.json（元数据最后写，与协议对写入方的要求一致）。
+func writeTestData(t *testing.T, dir string, pairs []pair, meta map[string]any) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
@@ -81,10 +81,10 @@ func writeDataset(t *testing.T, dir string, pairs []pair, meta map[string]any) {
 	}
 }
 
-func newDataset(t *testing.T, pairs []pair) (dir string) {
+func newTestData(t *testing.T, pairs []pair) (dir string) {
 	t.Helper()
 	dir = filepath.Join(t.TempDir(), "problem")
-	writeDataset(t, dir, pairs, metadataFor(pairs))
+	writeTestData(t, dir, pairs, metadataFor(pairs))
 	return dir
 }
 
@@ -106,41 +106,41 @@ func entries(t *testing.T, dir string) []string {
 	return names
 }
 
-func names(cases []testcase.TestCase) []string {
-	out := make([]string, len(cases))
-	for i, c := range cases {
+func names(testcases []testcase.TestCase) []string {
+	out := make([]string, len(testcases))
+	for i, c := range testcases {
 		out[i] = c.Name
 	}
 	return out
 }
 
 func TestLoadLocalDirectory(t *testing.T) {
-	set, err := testcase.Load(context.Background(), options(t), newDataset(t, golden))
+	set, err := testcase.Load(context.Background(), options(t), newTestData(t, golden))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 	defer set.Close()
 
-	if len(set.Cases) != 2 {
-		t.Fatalf("测试点数 = %d, want 2", len(set.Cases))
+	if len(set.Testcases) != 2 {
+		t.Fatalf("测试点数 = %d, want 2", len(set.Testcases))
 	}
 	for i, want := range golden {
-		c := set.Cases[i]
+		c := set.Testcases[i]
 		if c.Name != want.name {
-			t.Errorf("cases[%d].Name = %q, want %q", i, c.Name, want.name)
+			t.Errorf("testcases[%d].Name = %q, want %q", i, c.Name, want.name)
 		}
 		if got := read(t, c.Input); got != want.in {
-			t.Errorf("cases[%d] input = %q, want %q", i, got, want.in)
+			t.Errorf("testcases[%d] input = %q, want %q", i, got, want.in)
 		}
 		if c.Expected == nil {
-			t.Fatalf("cases[%d].Expected 不该为 nil", i)
+			t.Fatalf("testcases[%d].Expected 不该为 nil", i)
 		}
 		if got := read(t, *c.Expected); got != want.out {
-			t.Errorf("cases[%d] expected = %q, want %q", i, got, want.out)
+			t.Errorf("testcases[%d] expected = %q, want %q", i, got, want.out)
 		}
 		// Size 必须和文件真实大小一致 —— flow 靠它决定内联还是走 store ref
 		if c.Input.Size != int64(len(want.in)) || c.Expected.Size != int64(len(want.out)) {
-			t.Errorf("cases[%d] 的 Size = %d/%d, want %d/%d", i, c.Input.Size, c.Expected.Size, len(want.in), len(want.out))
+			t.Errorf("testcases[%d] 的 Size = %d/%d, want %d/%d", i, c.Input.Size, c.Expected.Size, len(want.in), len(want.out))
 		}
 	}
 }
@@ -148,18 +148,18 @@ func TestLoadLocalDirectory(t *testing.T) {
 // 顺序以 testdata.json 为准，读取方不再按文件名推断。
 func TestLoadKeepsTheOrderOfTestdataJSON(t *testing.T) {
 	pairs := []pair{{"10", "a", "b"}, {"2", "c", "d"}, {"1", "e", "f"}, {"big-1", "g", "h"}}
-	set, err := testcase.Load(context.Background(), options(t), newDataset(t, pairs))
+	set, err := testcase.Load(context.Background(), options(t), newTestData(t, pairs))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer set.Close()
-	if got, want := strings.Join(names(set.Cases), ","), "10,2,1,big-1"; got != want {
-		t.Errorf("顺序 = %s, want %s（数值排序或字符串排序都不对，要照 cases 的顺序）", got, want)
+	if got, want := strings.Join(names(set.Testcases), ","), "10,2,1,big-1"; got != want {
+		t.Errorf("顺序 = %s, want %s（数值排序或字符串排序都不对，要照 testcases 的顺序）", got, want)
 	}
 }
 
 func TestLoadReturnsTheDigestOfTheData(t *testing.T) {
-	set, err := testcase.Load(context.Background(), options(t), newDataset(t, golden))
+	set, err := testcase.Load(context.Background(), options(t), newTestData(t, golden))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestLoadReturnsTheDigestOfTheData(t *testing.T) {
 // ★ 本地副本是一份快照：复制完成后写入方再改动地址，不能影响这次判题。
 // Close 要把副本整个删掉，否则每次判题都在磁盘上留一份数据。
 func TestLoadCopiesDataAndCloseRemovesIt(t *testing.T) {
-	dir := newDataset(t, golden)
+	dir := newTestData(t, golden)
 	opts := options(t)
 	set, err := testcase.Load(context.Background(), opts, dir)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestLoadCopiesDataAndCloseRemovesIt(t *testing.T) {
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
-	if got := read(t, set.Cases[0].Input); got != "1 2\n" {
+	if got := read(t, set.Testcases[0].Input); got != "1 2\n" {
 		t.Errorf("原目录删除后读到 %q，副本应当独立", got)
 	}
 	if left := entries(t, opts.WorkRoot); len(left) != 1 {
@@ -199,13 +199,13 @@ func TestLoadCopiesDataAndCloseRemovesIt(t *testing.T) {
 
 // Blob 可以被打开多次 —— flow 里重试或先探大小再读都需要这一点
 func TestBlobIsReopenable(t *testing.T) {
-	set, err := testcase.Load(context.Background(), options(t), newDataset(t, golden))
+	set, err := testcase.Load(context.Background(), options(t), newTestData(t, golden))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer set.Close()
-	first := read(t, set.Cases[0].Input)
-	second := read(t, set.Cases[0].Input)
+	first := read(t, set.Testcases[0].Input)
+	second := read(t, set.Testcases[0].Input)
 	if first != second {
 		t.Errorf("两次 Open 读到的内容不同: %q vs %q", first, second)
 	}
@@ -219,21 +219,21 @@ func TestLoadRejectsInvalidMetadata(t *testing.T) {
 	}{
 		{"协议版本不认识", func(m map[string]any) { m["schemaVersion"] = 2 }, "schemaVersion"},
 		{"缺少协议版本", func(m map[string]any) { delete(m, "schemaVersion") }, "schemaVersion"},
-		{"caseCount 与 cases 不一致", func(m map[string]any) { m["caseCount"] = 3 }, "caseCount"},
-		{"caseCount 为 0", func(m map[string]any) { m["caseCount"] = 0; m["cases"] = []any{} }, "caseCount"},
-		{"caseCount 超过 1000", func(m map[string]any) { m["caseCount"] = 1001 }, "caseCount"},
+		{"testcaseCount 与 testcases 不一致", func(m map[string]any) { m["testcaseCount"] = 3 }, "testcaseCount"},
+		{"testcaseCount 为 0", func(m map[string]any) { m["testcaseCount"] = 0; m["testcases"] = []any{} }, "testcaseCount"},
+		{"testcaseCount 超过 1000", func(m map[string]any) { m["testcaseCount"] = 1001 }, "testcaseCount"},
 		{"totalBytes 对不上", func(m map[string]any) { m["totalBytes"] = 1 }, "totalBytes"},
 		{"digest 对不上", func(m map[string]any) { m["digest"] = strings.Repeat("0", 64) }, "digest"},
 		{"有未知字段", func(m map[string]any) { m["extra"] = true }, "extra"},
-		{"名字含路径分隔符", func(m map[string]any) { m["cases"].([]any)[0].(map[string]any)["name"] = "a/b" }, "name"},
-		{"名字向上跳目录", func(m map[string]any) { m["cases"].([]any)[0].(map[string]any)["name"] = "../x" }, "name"},
-		{"名字以点开头", func(m map[string]any) { m["cases"].([]any)[0].(map[string]any)["name"] = ".hidden" }, "name"},
-		{"名字重复", func(m map[string]any) { m["cases"].([]any)[1].(map[string]any)["name"] = "1" }, "duplicated"},
+		{"名字含路径分隔符", func(m map[string]any) { m["testcases"].([]any)[0].(map[string]any)["name"] = "a/b" }, "name"},
+		{"名字向上跳目录", func(m map[string]any) { m["testcases"].([]any)[0].(map[string]any)["name"] = "../x" }, "name"},
+		{"名字以点开头", func(m map[string]any) { m["testcases"].([]any)[0].(map[string]any)["name"] = ".hidden" }, "name"},
+		{"名字重复", func(m map[string]any) { m["testcases"].([]any)[1].(map[string]any)["name"] = "1" }, "duplicated"},
 		{"sha256 不是小写十六进制", func(m map[string]any) {
-			m["cases"].([]any)[0].(map[string]any)["input"].(map[string]any)["sha256"] = strings.Repeat("A", 64)
+			m["testcases"].([]any)[0].(map[string]any)["input"].(map[string]any)["sha256"] = strings.Repeat("A", 64)
 		}, "sha256"},
 		{"文件大小为负", func(m map[string]any) {
-			m["cases"].([]any)[0].(map[string]any)["output"].(map[string]any)["sizeBytes"] = -1
+			m["testcases"].([]any)[0].(map[string]any)["output"].(map[string]any)["sizeBytes"] = -1
 		}, "sizeBytes"},
 	}
 	for _, tt := range tests {
@@ -241,7 +241,7 @@ func TestLoadRejectsInvalidMetadata(t *testing.T) {
 			meta := metadataFor(golden)
 			tt.mutate(meta)
 			dir := filepath.Join(t.TempDir(), "problem")
-			writeDataset(t, dir, golden, meta)
+			writeTestData(t, dir, golden, meta)
 			opts := options(t)
 
 			_, err := testcase.Load(context.Background(), opts, dir)
@@ -262,7 +262,7 @@ func TestLoadRejectsUnparsableMetadata(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "problem")
-			writeDataset(t, dir, golden, metadataFor(golden))
+			writeTestData(t, dir, golden, metadataFor(golden))
 			if err := os.WriteFile(filepath.Join(dir, "testdata.json"), []byte(content), 0o644); err != nil {
 				t.Fatal(err)
 			}
@@ -275,7 +275,7 @@ func TestLoadRejectsUnparsableMetadata(t *testing.T) {
 
 // 读不到 testdata.json 就是数据未就绪，整次失败，且错误里点名这个文件。
 func TestLoadWithoutMetadataFails(t *testing.T) {
-	dir := newDataset(t, golden)
+	dir := newTestData(t, golden)
 	if err := os.Remove(filepath.Join(dir, "testdata.json")); err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func TestLoadRejectsFilesThatDoNotMatchTheMetadata(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dir := newDataset(t, golden)
+			dir := newTestData(t, golden)
 			tt.change(t, dir)
 			opts := options(t)
 
@@ -316,7 +316,7 @@ func TestLoadRejectsFilesThatDoNotMatchTheMetadata(t *testing.T) {
 }
 
 func TestLoadEnforcesSizeLimits(t *testing.T) {
-	dir := newDataset(t, golden) // 最大的文件 7 字节，全部 16 字节
+	dir := newTestData(t, golden) // 最大的文件 7 字节，全部 16 字节
 	t.Run("单个文件超限", func(t *testing.T) {
 		opts := options(t)
 		opts.MaxFileBytes = 6
@@ -360,7 +360,7 @@ func TestLoadRejectsUnsupportedLocations(t *testing.T) {
 }
 
 func TestLoadRequiresAWorkRoot(t *testing.T) {
-	if _, err := testcase.Load(context.Background(), testcase.Options{}, newDataset(t, golden)); err == nil {
+	if _, err := testcase.Load(context.Background(), testcase.Options{}, newTestData(t, golden)); err == nil {
 		t.Fatal("没有配置工作目录应当报错，而不是悄悄用系统临时目录")
 	}
 }
@@ -369,7 +369,7 @@ func TestLoadHonorsCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	opts := options(t)
-	if _, err := testcase.Load(ctx, opts, newDataset(t, golden)); err == nil {
+	if _, err := testcase.Load(ctx, opts, newTestData(t, golden)); err == nil {
 		t.Fatal("上下文已取消应当报错")
 	}
 	if left := entries(t, opts.WorkRoot); len(left) != 0 {
@@ -456,7 +456,7 @@ func TestLoadOverHTTP(t *testing.T) {
 				t.Fatalf("Load: %v", err)
 			}
 			defer set.Close()
-			if got := read(t, set.Cases[1].Input); got != "100 -7\n" {
+			if got := read(t, set.Testcases[1].Input); got != "100 -7\n" {
 				t.Errorf("input = %q", got)
 			}
 			if set.Digest != goldenDigest {
@@ -483,8 +483,8 @@ func TestLoadRetriesOnceWhenDataChangesWhileReading(t *testing.T) {
 		t.Fatalf("应当重试一次后成功: %v", err)
 	}
 	defer set.Close()
-	if set.Digest != goldenDigest || len(set.Cases) != 2 {
-		t.Errorf("重试后应读到新数据: digest=%s cases=%v", set.Digest, names(set.Cases))
+	if set.Digest != goldenDigest || len(set.Testcases) != 2 {
+		t.Errorf("重试后应读到新数据: digest=%s testcases=%v", set.Digest, names(set.Testcases))
 	}
 	if n := s.hitCount("/data/testdata.json"); n != 2 {
 		t.Errorf("testdata.json 被请求 %d 次，want 2", n)

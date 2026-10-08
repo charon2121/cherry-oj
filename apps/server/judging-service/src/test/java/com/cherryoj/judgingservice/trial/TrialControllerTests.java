@@ -19,7 +19,7 @@ class TrialControllerTests {
 	void trialUsesOnlySuppliedInputAndKeepsIndependentStreams() throws Exception {
 		var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
 		var payload = new AtomicReference<>(
-				"{\"verdict\":\"RAN\",\"caseResults\":[{\"idx\":1,\"verdict\":\"RAN\",\"cpuNs\":0,\"memoryBytes\":0,\"output\":{\"excerpt\":\"\",\"bytes\":0},\"stderr\":{\"excerpt\":\"debug\",\"bytes\":5}}]}");
+				"{\"verdict\":\"RAN\",\"testcaseResults\":[{\"idx\":1,\"verdict\":\"RAN\",\"cpuNs\":0,\"memoryBytes\":0,\"output\":{\"excerpt\":\"\",\"bytes\":0},\"stderr\":{\"excerpt\":\"debug\",\"bytes\":5}}]}");
 		var json = new ObjectMapper();
 		server.createContext("/judge", exchange -> {
 			var request = json.readTree(exchange.getRequestBody().readAllBytes());
@@ -28,9 +28,9 @@ class TrialControllerTests {
 			assertFalse(request.has("testDataLocation"));
 			assertFalse(request.has("problemVersionId"));
 			assertFalse(request.has("testDataVersionId"));
-			assertEquals(1, request.path("cases").size());
-			assertFalse(request.path("cases").get(0).has("expected"));
-			assertEquals("", request.path("cases").get(0).path("input").asText());
+			assertEquals(1, request.path("testcases").size());
+			assertFalse(request.path("testcases").get(0).has("expected"));
+			assertEquals("", request.path("testcases").get(0).path("input").asText());
 			byte[] bytes = payload.get().getBytes();
 			exchange.sendResponseHeaders(200, bytes.length);
 			try (var out = exchange.getResponseBody()) {

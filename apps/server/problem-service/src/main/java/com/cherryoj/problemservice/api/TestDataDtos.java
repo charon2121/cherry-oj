@@ -11,7 +11,7 @@ public final class TestDataDtos {
     public record ManifestFile(String name, long sizeBytes, String sha256) {
     }
 
-    public record Manifest(int caseCount, long totalBytes, List<ManifestFile> files) {
+    public record Manifest(int testcaseCount, long totalBytes, List<ManifestFile> files) {
     }
 
     /**
@@ -20,13 +20,13 @@ public final class TestDataDtos {
      */
     public record TestData(
             String digest,
-            int caseCount,
+            int testcaseCount,
             long totalBytes,
             LocalDateTime updatedAt,
             Manifest manifest) {
     }
 
     /** problem-service 到 judging-service 的内部读取模型，契约见 contracts/problem-test-data.schema.json。 */
-    public record ProblemTestData(String location, String digest, int caseCount, long totalBytes) {
+    public record ProblemTestData(String location, String digest, int testcaseCount, long totalBytes) {
     }
 }

@@ -21,8 +21,8 @@ type TestCase struct {
 //
 // 不返回 error：这里只是把内存里的字符串包一层，没有任何会失败的动作。
 // 硬加一个恒为 nil 的 error，只会让每个调用点白写一次 if err != nil。
-func FromSpecs(specs []contract.CaseSpec) []TestCase {
-	cases := make([]TestCase, 0, len(specs))
+func FromSpecs(specs []contract.TestcaseSpec) []TestCase {
+	testcases := make([]TestCase, 0, len(specs))
 	for _, spec := range specs {
 		c := TestCase{
 			Name: spec.Name,
@@ -40,7 +40,7 @@ func FromSpecs(specs []contract.CaseSpec) []TestCase {
 				Open: func() (io.ReadCloser, error) { return io.NopCloser(strings.NewReader(spec.Expected)), nil },
 			}
 		}
-		cases = append(cases, c)
+		testcases = append(testcases, c)
 	}
-	return cases
+	return testcases
 }

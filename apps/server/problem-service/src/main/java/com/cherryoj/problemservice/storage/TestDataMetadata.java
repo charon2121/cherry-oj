@@ -27,15 +27,15 @@ public final class TestDataMetadata {
     public record FileEntry(long sizeBytes, String sha256) {
     }
 
-    public record CaseEntry(String name, FileEntry input, FileEntry output) {
+    public record TestcaseEntry(String name, FileEntry input, FileEntry output) {
     }
 
-    public record Document(int schemaVersion, int caseCount, long totalBytes, String digest, List<CaseEntry> cases) {
+    public record Document(int schemaVersion, int testcaseCount, long totalBytes, String digest, List<TestcaseEntry> testcases) {
 
         /** 按给定顺序（即判题顺序）生成文档：总字节数与 digest 都由测试点算出。 */
-        public static Document of(List<CaseEntry> cases) {
-            long total = cases.stream().mapToLong(c -> c.input().sizeBytes() + c.output().sizeBytes()).sum();
-            return new Document(SCHEMA_VERSION, cases.size(), total, digestOf(cases), List.copyOf(cases));
+        public static Document of(List<TestcaseEntry> testcases) {
+            long total = testcases.stream().mapToLong(c -> c.input().sizeBytes() + c.output().sizeBytes()).sum();
+            return new Document(SCHEMA_VERSION, testcases.size(), total, digestOf(testcases), List.copyOf(testcases));
         }
 
         /** 文件不合规时返回原因，合规返回 null。读取方用它拒绝被改坏或不认识的元数据。 */
@@ -43,11 +43,11 @@ public final class TestDataMetadata {
             if (schemaVersion != SCHEMA_VERSION) {
                 return "schemaVersion is " + schemaVersion + ", only " + SCHEMA_VERSION + " is supported";
             }
-            if (cases == null || caseCount < 1 || caseCount > MAX_CASES || cases.size() != caseCount) {
-                return "caseCount must be between 1 and " + MAX_CASES + " and match cases";
+            if (testcases == null || testcaseCount < 1 || testcaseCount > MAX_CASES || testcases.size() != testcaseCount) {
+                return "testcaseCount must be between 1 and " + MAX_CASES + " and match testcases";
             }
             long total = 0;
-            for (CaseEntry entry : cases) {
+            for (TestcaseEntry entry : testcases) {
                 if (entry == null || entry.name() == null || !NAME.matcher(entry.name()).matches()
                         || !valid(entry.input()) || !valid(entry.output())) {
                     return "a case has an invalid name or file entry";
@@ -57,8 +57,8 @@ public final class TestDataMetadata {
             if (total != totalBytes) {
                 return "totalBytes is " + totalBytes + " but the files add up to " + total;
             }
-            if (!digestOf(cases).equals(digest)) {
-                return "digest does not match the cases";
+            if (!digestOf(testcases).equals(digest)) {
+                return "digest does not match the testcases";
             }
             return null;
         }
@@ -73,9 +73,9 @@ public final class TestDataMetadata {
      * 对每个测试点按顺序生成两行 {@code "<sha256>  <name>.in\n"}、{@code "<sha256>  <name>.out\n"}，拼接后取 SHA-256。
      * 可以用 {@code sha256sum} 的输出格式复现；顺序是内容指纹的一部分。
      */
-    public static String digestOf(List<CaseEntry> cases) {
+    public static String digestOf(List<TestcaseEntry> testcases) {
         StringBuilder lines = new StringBuilder();
-        for (CaseEntry entry : cases) {
+        for (TestcaseEntry entry : testcases) {
             lines.append(entry.input().sha256()).append("  ").append(entry.name()).append(".in\n");
             lines.append(entry.output().sha256()).append("  ").append(entry.name()).append(".out\n");
         }

@@ -153,22 +153,22 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
         )
         .toBe('DONE');
       expect(final.data.verdict).toBe(verdict);
-      expect(final.data.totalCount).toBe(6);
+      expect(final.data.testcaseCount).toBe(6);
       const panel = page.getByRole('region', { name: '本次提交结果' });
       await expect(
         panel.getByText(key === 'ac' ? 'AC · 通过' : 'WA · 答案错误', { exact: true }),
       ).toBeVisible();
       if (key === 'ac') {
-        expect(final.data.passedCount).toBe(6);
-        expect(final.data.executedCount).toBe(6);
+        expect(final.data.passedTestcaseCount).toBe(6);
+        expect(final.data.executedTestcaseCount).toBe(6);
         await expect(panel.getByText('通过 6 / 6', { exact: true })).toBeVisible();
       }
       record(key, {
         submissionId: final.data.id,
         verdict: final.data.verdict,
         requestId: initial.meta.requestId,
-        passedCount: final.data.passedCount,
-        totalCount: final.data.totalCount,
+        passedTestcaseCount: final.data.passedTestcaseCount,
+        testcaseCount: final.data.testcaseCount,
       });
     });
   }

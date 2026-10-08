@@ -96,7 +96,7 @@ class SubmissionPersistenceTests {
     @Test void completedCanArriveBeforeStartedButHiddenFieldsAndStateRegressionCannot() {
         String id=service.create(user,UUID.randomUUID().toString(),request("source")).view().id();
         String task=UUID.randomUUID().toString();
-        Map<String,Object> result=new LinkedHashMap<>(Map.of("verdict","WA","passedCount",1,"executedCount",3,"totalCount",3));
+        Map<String,Object> result=new LinkedHashMap<>(Map.of("verdict","WA","passedTestcaseCount",1,"executedTestcaseCount",3,"testcaseCount",3));
         result.put("output",Map.of("text","hidden"));
         assertThrows(IllegalArgumentException.class,() -> lifecycle.apply(id,event(id,task,"JudgeCompleted",2,result)));
         assertEquals("PENDING",service.get(user,id).status());
@@ -105,7 +105,7 @@ class SubmissionPersistenceTests {
         lifecycle.apply(id,completed); lifecycle.apply(id,completed);
         lifecycle.apply(id,event(id,task,"JudgeStarted",1,null));
         var view=service.get(user,id);
-        assertEquals("DONE",view.status()); assertEquals("WA",view.verdict()); assertEquals(1,view.passedCount());
+        assertEquals("DONE",view.status()); assertEquals("WA",view.verdict()); assertEquals(1,view.passedTestcaseCount());
         assertFalse(json.writeValueAsString(view).contains("source"));
     }
     @Test void historyIsOwnerAndProblemScopedStableAndNeverIncludesSource() {
@@ -128,7 +128,7 @@ class SubmissionPersistenceTests {
         assertFalse(json.writeValueAsString(page).contains("original"));
         assertEquals(0,readService.history(user,problem.toString(),1,20,"AC").totalElements());
         lifecycle.apply(first,event(first,UUID.randomUUID().toString(),"JudgeCompleted",1,
-                Map.of("verdict","AC","passedCount",3,"executedCount",3,"totalCount",3)));
+                Map.of("verdict","AC","passedTestcaseCount",3,"executedTestcaseCount",3,"testcaseCount",3)));
         assertEquals(first,readService.history(user,problem.toString(),1,20,"AC").items().getFirst().id());
         reset(prerequisites); // History remains available without querying today's problem publication.
         assertEquals("// first original\nint main() {} ",readService.source(user,first).source());

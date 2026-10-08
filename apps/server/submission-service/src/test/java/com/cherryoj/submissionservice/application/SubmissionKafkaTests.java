@@ -66,7 +66,7 @@ class SubmissionKafkaTests {
         String event=json.writeValueAsString(Map.of("eventId",UUID.randomUUID().toString(),"eventType","JudgeCompleted","eventVersion",1,
                 "occurredAt",Instant.now().toString(),"traceId","a".repeat(32),"aggregateId",id,
                 "payload",Map.of("submissionId",id,"taskId",UUID.randomUUID().toString(),"attemptNo",1,"finishedAt",Instant.now().toString(),
-                        "result",Map.of("verdict","AC","passedCount",1,"executedCount",1,"totalCount",1))));
+                        "result",Map.of("verdict","AC","passedTestcaseCount",1,"executedTestcaseCount",1,"testcaseCount",1))));
         kafka.send("judge.lifecycle.v1",id,event).get(15,TimeUnit.SECONDS);
         kafka.send("judge.lifecycle.v1",id,event).get(15,TimeUnit.SECONDS);
         String lateStarted=json.writeValueAsString(Map.of("eventId",UUID.randomUUID().toString(),"eventType","JudgeStarted","eventVersion",1,

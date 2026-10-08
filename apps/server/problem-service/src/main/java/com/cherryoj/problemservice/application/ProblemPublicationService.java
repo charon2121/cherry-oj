@@ -198,7 +198,7 @@ public class ProblemPublicationService {
         checks.add(item(PublishCheckCode.LANGUAGE, language,
                 language ? "C++ ACM 语言配置有效。" : "目前只支持单一 C++ ACM 语言配置。"));
         checks.add(item(PublishCheckCode.TEST_DATA, data,
-                data ? "测试数据就绪：" + local.info().caseCount() + " 个测试点。" : local.dataProblem()));
+                data ? "测试数据就绪：" + local.info().testcaseCount() + " 个测试点。" : local.dataProblem()));
         return checks;
     }
 

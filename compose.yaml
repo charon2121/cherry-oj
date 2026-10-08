@@ -48,8 +48,8 @@ services:
       # problem-service 写出的测试数据目录，按**同一个绝对路径**只读挂进来：题目上记的是宿主机上的绝对路径，
       # judge 容器里必须能用同一个路径读到。
       - type: bind
-        source: ${PROBLEM_TESTDATA_ROOT:?set PROBLEM_TESTDATA_ROOT to the absolute directory problem-service writes test data to}
-        target: ${PROBLEM_TESTDATA_ROOT}
+        source: ${CHERRY_TEST_DATA_ROOT:?set CHERRY_TEST_DATA_ROOT to the absolute directory problem-service writes test data to}
+        target: ${CHERRY_TEST_DATA_ROOT}
         read_only: true
     tmpfs:
       # store 只放跨多次执行使用的临时 ref；容器停止后自动清空，且不需要执行权限。

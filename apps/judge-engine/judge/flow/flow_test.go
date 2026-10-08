@@ -79,7 +79,7 @@ func judgeConfig() config.Settings {
 	return config.Default().Judge
 }
 
-func trialRequest(language string, cases ...contract.CaseSpec) contract.JudgeRequest {
+func trialRequest(language string, testcases ...contract.TestcaseSpec) contract.JudgeRequest {
 	return contract.JudgeRequest{
 		SubmissionID: "submission-1",
 		ProblemID:    "problem-1",
@@ -89,13 +89,13 @@ func trialRequest(language string, cases ...contract.CaseSpec) contract.JudgeReq
 			CPUNs:       1_000,
 			MemoryBytes: 2_000,
 		},
-		Mode:  contract.ModeTrial,
-		Cases: cases,
+		Mode:      contract.ModeTrial,
+		Testcases: testcases,
 	}
 }
 
-func oneCaseRequest(language string) contract.JudgeRequest {
-	return trialRequest(language, contract.CaseSpec{Input: "input\n", Expected: "answer\n", Name: "sample"})
+func oneTestcaseRequest(language string) contract.JudgeRequest {
+	return trialRequest(language, contract.TestcaseSpec{Input: "input\n", Expected: "answer\n", Name: "sample"})
 }
 
 func compileOK() runReply {
@@ -112,8 +112,8 @@ func runOK(stdout string) runReply {
 func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 	cfg := judgeConfig()
 	req := trialRequest("cpp",
-		contract.CaseSpec{Input: "1 2\n", Expected: "3\n", Name: "first"},
-		contract.CaseSpec{Input: "3 4\n", Expected: "7\n", Name: "second"},
+		contract.TestcaseSpec{Input: "1 2\n", Expected: "3\n", Name: "first"},
+		contract.TestcaseSpec{Input: "3 4\n", Expected: "7\n", Name: "second"},
 	)
 	fake := &fakeSandbox{runs: []runReply{
 		compileOK(),
@@ -126,14 +126,14 @@ func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 	if result.Verdict != contract.VerdictAC || result.Score != 100 {
 		t.Fatalf("result = %+v", result)
 	}
-	if len(result.CaseResults) != 2 || result.CaseResults[0].Name != "first" || result.CaseResults[1].Name != "second" {
-		t.Fatalf("cases = %+v", result.CaseResults)
+	if len(result.TestcaseResults) != 2 || result.TestcaseResults[0].Name != "first" || result.TestcaseResults[1].Name != "second" {
+		t.Fatalf("testcases = %+v", result.TestcaseResults)
 	}
 	if result.CPUNs != 22 || result.MemoryBytes != 40 {
 		t.Errorf("aggregate time/memory = %d/%d, want 22/40", result.CPUNs, result.MemoryBytes)
 	}
 	if len(fake.calls) != 3 {
-		t.Fatalf("Run calls = %d, want compile + 2 cases", len(fake.calls))
+		t.Fatalf("Run calls = %d, want compile + 2 testcases", len(fake.calls))
 	}
 
 	compile := fake.calls[0]
@@ -171,7 +171,7 @@ func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 	if got := deletedRefs(fake.deleted); !reflect.DeepEqual(got, []string{"executable-ref", "ref-1"}) {
 		t.Errorf("deleted refs = %v", got)
 	}
-	for _, c := range result.CaseResults {
+	for _, c := range result.TestcaseResults {
 		if c.Output != nil {
 			t.Errorf("AC case should not include output: %+v", c)
 		}
@@ -180,7 +180,7 @@ func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 
 func TestJudgeInterpretedLanguageSkipsCompile(t *testing.T) {
 	fake := &fakeSandbox{runs: []runReply{runOK("answer\n")}}
-	result := flow.Judge(context.Background(), fake, judgeConfig(), oneCaseRequest("python"), nil)
+	result := flow.Judge(context.Background(), fake, judgeConfig(), oneTestcaseRequest("python"), nil)
 
 	if result.Verdict != contract.VerdictAC {
 		t.Fatalf("result = %+v", result)
@@ -210,7 +210,7 @@ func TestJudgeDefaultsEmptyModeToSubmit(t *testing.T) {
 	fake := &fakeSandbox{runs: []runReply{runOK("answer")}}
 
 	result := flow.Judge(context.Background(), fake, cfg, req, nil)
-	if result.Verdict != contract.VerdictAC || len(result.CaseResults) != 1 {
+	if result.Verdict != contract.VerdictAC || len(result.TestcaseResults) != 1 {
 		t.Fatalf("result = %+v", result)
 	}
 }
@@ -218,7 +218,7 @@ func TestJudgeDefaultsEmptyModeToSubmit(t *testing.T) {
 func TestJudgeExplicitClockLimitOverridesConfiguredRatio(t *testing.T) {
 	cfg := judgeConfig()
 	cfg.ClockRatio = 999
-	req := oneCaseRequest("python")
+	req := oneTestcaseRequest("python")
 	req.Limits.ClockNs = 77
 	fake := &fakeSandbox{runs: []runReply{runOK("answer\n")}}
 
@@ -256,15 +256,15 @@ func TestJudgeMapsRunStatuses(t *testing.T) {
 				Stderr: "runtime failed",
 				Error:  tt.message,
 			}}}}
-			result := flow.Judge(context.Background(), fake, judgeConfig(), oneCaseRequest("python"), nil)
-			if result.Verdict != tt.want || len(result.CaseResults) != 1 || result.CaseResults[0].Verdict != tt.want {
+			result := flow.Judge(context.Background(), fake, judgeConfig(), oneTestcaseRequest("python"), nil)
+			if result.Verdict != tt.want || len(result.TestcaseResults) != 1 || result.TestcaseResults[0].Verdict != tt.want {
 				t.Fatalf("result = %+v, want %s", result, tt.want)
 			}
-			if result.CaseResults[0].Output == nil {
+			if result.TestcaseResults[0].Output == nil {
 				t.Error("non-AC case should include captured output")
 			}
-			if tt.message != "" && !strings.Contains(result.CaseResults[0].Message, tt.message) {
-				t.Errorf("message = %q, want %q", result.CaseResults[0].Message, tt.message)
+			if tt.message != "" && !strings.Contains(result.TestcaseResults[0].Message, tt.message) {
+				t.Errorf("message = %q, want %q", result.TestcaseResults[0].Message, tt.message)
 			}
 		})
 	}
@@ -290,7 +290,7 @@ func TestJudgeCompileOutcomes(t *testing.T) {
 			cfg := judgeConfig()
 			cfg.MessageExcerptBytes = 4
 			fake := &fakeSandbox{runs: []runReply{tt.reply}}
-			result := flow.Judge(context.Background(), fake, cfg, oneCaseRequest("cpp"), nil)
+			result := flow.Judge(context.Background(), fake, cfg, oneTestcaseRequest("cpp"), nil)
 			if result.Verdict != tt.want {
 				t.Fatalf("result = %+v, want %s", result, tt.want)
 			}
@@ -298,7 +298,7 @@ func TestJudgeCompileOutcomes(t *testing.T) {
 				t.Errorf("message = %q, want substring %q", result.Message, tt.wantMessage)
 			}
 			if len(fake.calls) != 1 {
-				t.Errorf("compile failure should stop before cases, calls = %d", len(fake.calls))
+				t.Errorf("compile failure should stop before testcases, calls = %d", len(fake.calls))
 			}
 		})
 	}
@@ -311,24 +311,24 @@ func TestJudgeValidatesBeforeCallingSandbox(t *testing.T) {
 		req  contract.JudgeRequest
 	}{
 		{"invalid mode", judgeConfig(), func() contract.JudgeRequest {
-			r := oneCaseRequest("python")
+			r := oneTestcaseRequest("python")
 			r.Mode = "official"
 			return r
 		}()},
 		{"zero limits", judgeConfig(), func() contract.JudgeRequest {
-			r := oneCaseRequest("python")
+			r := oneTestcaseRequest("python")
 			r.Limits = contract.JudgeLimits{}
 			return r
 		}()},
-		{"unknown language", judgeConfig(), oneCaseRequest("brainfuck")},
-		{"no trial cases", judgeConfig(), trialRequest("python")},
+		{"unknown language", judgeConfig(), oneTestcaseRequest("brainfuck")},
+		{"no trial testcases", judgeConfig(), trialRequest("python")},
 		{"invalid clock ratio", func() config.Settings {
 			c := judgeConfig()
 			c.ClockRatio = 0
 			return c
-		}(), oneCaseRequest("python")},
+		}(), oneTestcaseRequest("python")},
 		{"clock overflow", judgeConfig(), func() contract.JudgeRequest {
-			r := oneCaseRequest("python")
+			r := oneTestcaseRequest("python")
 			r.Limits.CPUNs = math.MaxInt64
 			return r
 		}()},
@@ -350,7 +350,7 @@ func TestJudgeValidatesBeforeCallingSandbox(t *testing.T) {
 
 func TestJudgeUploadFailureIsSE(t *testing.T) {
 	fake := &fakeSandbox{uploadErrors: map[int]error{1: errors.New("store unavailable")}}
-	result := flow.Judge(context.Background(), fake, judgeConfig(), oneCaseRequest("python"), nil)
+	result := flow.Judge(context.Background(), fake, judgeConfig(), oneTestcaseRequest("python"), nil)
 	if result.Verdict != contract.VerdictSE || !strings.Contains(result.Message, "store unavailable") {
 		t.Fatalf("result = %+v", result)
 	}
@@ -363,8 +363,8 @@ func TestJudgeSmallInputInlinesAndLargeInputUsesRef(t *testing.T) {
 	cfg := judgeConfig()
 	cfg.InlineThresholdBytes = 3
 	req := trialRequest("python",
-		contract.CaseSpec{Input: "abc", Expected: "ok"},
-		contract.CaseSpec{Input: "abcd", Expected: "ok"},
+		contract.TestcaseSpec{Input: "abc", Expected: "ok"},
+		contract.TestcaseSpec{Input: "abcd", Expected: "ok"},
 	)
 	fake := &fakeSandbox{runs: []runReply{runOK("ok"), runOK("ok")}}
 
@@ -397,7 +397,7 @@ func TestJudgeCleanupSurvivesRequestCancellation(t *testing.T) {
 		},
 	}
 
-	result := flow.Judge(ctx, fake, cfg, trialRequest("python", contract.CaseSpec{Input: "large"}), nil)
+	result := flow.Judge(ctx, fake, cfg, trialRequest("python", contract.TestcaseSpec{Input: "large"}), nil)
 	if result.Verdict != contract.VerdictSE {
 		t.Fatalf("result = %+v", result)
 	}
@@ -432,15 +432,15 @@ func TestJudgeConcealsAndRevealsExpectedOutput(t *testing.T) {
 			fake := &fakeSandbox{runs: []runReply{runOK("wrong-answer\n")}}
 
 			result := flow.Judge(context.Background(), fake, cfg, req, nil)
-			if result.Verdict != contract.VerdictWA || len(result.CaseResults) != 1 || result.CaseResults[0].Diff == nil {
+			if result.Verdict != contract.VerdictWA || len(result.TestcaseResults) != 1 || result.TestcaseResults[0].Diff == nil {
 				t.Fatalf("result = %+v", result)
 			}
 			want := ""
 			if reveal {
 				want = "secret-answer"
 			}
-			if result.CaseResults[0].Diff.Want != want {
-				t.Errorf("Diff.Want = %q, want %q", result.CaseResults[0].Diff.Want, want)
+			if result.TestcaseResults[0].Diff.Want != want {
+				t.Errorf("Diff.Want = %q, want %q", result.TestcaseResults[0].Diff.Want, want)
 			}
 			encoded, err := json.Marshal(result)
 			if err != nil {
@@ -466,8 +466,8 @@ func TestJudgeWhitespacePolicyAndRAN(t *testing.T) {
 		cfg.StrictWhitespace = true
 		fake := &fakeSandbox{runs: []runReply{runOK("3")}}
 		result := flow.Judge(context.Background(), fake, cfg,
-			trialRequest("python", contract.CaseSpec{Input: "", Expected: "3\n"}), nil)
-		if result.Verdict != contract.VerdictPE || result.CaseResults[0].Diff != nil {
+			trialRequest("python", contract.TestcaseSpec{Input: "", Expected: "3\n"}), nil)
+		if result.Verdict != contract.VerdictPE || result.TestcaseResults[0].Diff != nil {
 			t.Fatalf("result = %+v", result)
 		}
 	})
@@ -475,8 +475,8 @@ func TestJudgeWhitespacePolicyAndRAN(t *testing.T) {
 	t.Run("missing expected produces RAN", func(t *testing.T) {
 		fake := &fakeSandbox{runs: []runReply{runOK("diagnostic output")}}
 		result := flow.Judge(context.Background(), fake, judgeConfig(),
-			trialRequest("python", contract.CaseSpec{Input: "input"}), nil)
-		if result.Verdict != contract.VerdictRAN || result.Score != 0 || result.CaseResults[0].Output == nil {
+			trialRequest("python", contract.TestcaseSpec{Input: "input"}), nil)
+		if result.Verdict != contract.VerdictRAN || result.Score != 0 || result.TestcaseResults[0].Output == nil {
 			t.Fatalf("result = %+v", result)
 		}
 	})
@@ -484,15 +484,15 @@ func TestJudgeWhitespacePolicyAndRAN(t *testing.T) {
 
 func TestJudgeRunsAllCasesAndKeepsWorstVerdict(t *testing.T) {
 	req := trialRequest("python",
-		contract.CaseSpec{Input: "1", Expected: "x"},
-		contract.CaseSpec{Input: "2", Expected: "x"},
+		contract.TestcaseSpec{Input: "1", Expected: "x"},
+		contract.TestcaseSpec{Input: "2", Expected: "x"},
 	)
 	fake := &fakeSandbox{runs: []runReply{
 		{result: contract.RunResult{Status: contract.StatusTimeLimitExceeded, CPUNs: 50, MemoryBytes: 10}},
 		{result: contract.RunResult{Status: contract.StatusMemoryLimitExceeded, CPUNs: 20, MemoryBytes: 90}},
 	}}
 	result := flow.Judge(context.Background(), fake, judgeConfig(), req, nil)
-	if result.Verdict != contract.VerdictMLE || len(result.CaseResults) != 2 || len(fake.calls) != 2 {
+	if result.Verdict != contract.VerdictMLE || len(result.TestcaseResults) != 2 || len(fake.calls) != 2 {
 		t.Fatalf("result = %+v calls=%d", result, len(fake.calls))
 	}
 	if result.CPUNs != 50 || result.MemoryBytes != 90 {
@@ -505,9 +505,9 @@ func TestJudgeOutputExcerptPreservesUTF8Boundary(t *testing.T) {
 	cfg.OutputExcerptBytes = 3 // "a你" 需要 4 字节，不能留下半个“你”
 	fake := &fakeSandbox{runs: []runReply{runOK("a你b")}}
 	result := flow.Judge(context.Background(), fake, cfg,
-		trialRequest("python", contract.CaseSpec{Input: "", Expected: "different"}), nil)
+		trialRequest("python", contract.TestcaseSpec{Input: "", Expected: "different"}), nil)
 
-	output := result.CaseResults[0].Output
+	output := result.TestcaseResults[0].Output
 	if output == nil {
 		t.Fatal("WA should include output")
 	}
@@ -548,7 +548,7 @@ func TestJudgeExpectedFileDisappearsIsSE(t *testing.T) {
 	}
 
 	result := flow.Judge(context.Background(), fake, cfg, req, nil)
-	if result.Verdict != contract.VerdictSE || !strings.Contains(result.CaseResults[0].Message, "open expected output") {
+	if result.Verdict != contract.VerdictSE || !strings.Contains(result.TestcaseResults[0].Message, "open expected output") {
 		t.Fatalf("result = %+v", result)
 	}
 }
@@ -583,7 +583,7 @@ func TestJudgeDigestIsReportedOnCompileErrorButNotForTrial(t *testing.T) {
 		t.Errorf("CE: verdict=%s digest=%q, want CE and %q", result.Verdict, result.TestDataDigest, data.digest)
 	}
 
-	trial := flow.Judge(context.Background(), &fakeSandbox{runs: []runReply{runOK("answer")}}, judgeConfig(), oneCaseRequest("python"), nil)
+	trial := flow.Judge(context.Background(), &fakeSandbox{runs: []runReply{runOK("answer")}}, judgeConfig(), oneTestcaseRequest("python"), nil)
 	if trial.TestDataDigest != "" {
 		t.Errorf("trial 结果不该带测试数据指纹: %q", trial.TestDataDigest)
 	}
@@ -647,18 +647,18 @@ func TestJudgeWithUnreadableTestDataIsSEWithoutTouchingTheSandbox(t *testing.T) 
 	}
 }
 
-// dataset 是一份按测试数据协议写好的目录。
-type dataset struct{ location, digest string }
+// writtenTestData 是一份按测试数据协议写好的目录。
+type writtenTestData struct{ location, digest string }
 
-// writeTestData 在临时目录下按协议写出数据文件和 testdata.json；cases 的键是测试点名，按名字排序成 cases 的顺序。
-func writeTestData(t *testing.T, cases map[string][2]string) dataset {
+// writeTestData 在临时目录下按协议写出数据文件和 testdata.json；testcases 的键是测试点名，按名字排序成 testcases 的顺序。
+func writeTestData(t *testing.T, testcases map[string][2]string) writtenTestData {
 	t.Helper()
 	dir := filepath.Join(t.TempDir(), "problem")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	names := make([]string, 0, len(cases))
-	for name := range cases {
+	names := make([]string, 0, len(testcases))
+	for name := range testcases {
 		names = append(names, name)
 	}
 	slices.Sort(names)
@@ -671,7 +671,7 @@ func writeTestData(t *testing.T, cases map[string][2]string) dataset {
 	var lines strings.Builder
 	var total int
 	for _, name := range names {
-		in, out := cases[name][0], cases[name][1]
+		in, out := testcases[name][0], testcases[name][1]
 		for file, content := range map[string]string{name + ".in": in, name + ".out": out} {
 			if err := os.WriteFile(filepath.Join(dir, file), []byte(content), 0o600); err != nil {
 				t.Fatal(err)
@@ -687,7 +687,7 @@ func writeTestData(t *testing.T, cases map[string][2]string) dataset {
 	}
 	digest := sum(lines.String())
 	meta, err := json.Marshal(map[string]any{
-		"schemaVersion": 1, "caseCount": len(entries), "totalBytes": total, "digest": digest, "cases": entries,
+		"schemaVersion": 1, "testcaseCount": len(entries), "totalBytes": total, "digest": digest, "testcases": entries,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -695,7 +695,7 @@ func writeTestData(t *testing.T, cases map[string][2]string) dataset {
 	if err := os.WriteFile(filepath.Join(dir, "testdata.json"), meta, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return dataset{location: dir, digest: digest}
+	return writtenTestData{location: dir, digest: digest}
 }
 
 // submitConfig 给 submit 模式的用例一个独立的工作目录，判题结束后可以检查里面有没有残留。
@@ -716,11 +716,11 @@ func deletedRefs(deleted []deletion) []string {
 
 func TestTrialPreservesSuccessfulStderr(t *testing.T) {
 	sb := &fakeSandbox{runs: []runReply{{result: contract.RunResult{Status: contract.StatusOK, Stderr: "debug\n", Stdout: "answer\n"}}}}
-	result := flow.Judge(context.Background(), sb, judgeConfig(), trialRequest("python", contract.CaseSpec{Input: ""}), nil)
-	if result.Verdict != contract.VerdictRAN || len(result.CaseResults) != 1 {
+	result := flow.Judge(context.Background(), sb, judgeConfig(), trialRequest("python", contract.TestcaseSpec{Input: ""}), nil)
+	if result.Verdict != contract.VerdictRAN || len(result.TestcaseResults) != 1 {
 		t.Fatalf("unexpected result: %s", result.Verdict)
 	}
-	c := result.CaseResults[0]
+	c := result.TestcaseResults[0]
 	if c.Stderr == nil || c.Stderr.Excerpt != "debug\n" || c.Output == nil || c.Output.Excerpt != "answer\n" {
 		t.Fatal("trial lost independent output streams")
 	}
@@ -728,7 +728,7 @@ func TestTrialPreservesSuccessfulStderr(t *testing.T) {
 
 func TestEmptyTrialInputSurvivesSandboxWireEncoding(t *testing.T) {
 	sb := &fakeSandbox{runs: []runReply{{result: contract.RunResult{Status: contract.StatusOK}}}}
-	result := flow.Judge(context.Background(), sb, judgeConfig(), trialRequest("python", contract.CaseSpec{Input: ""}), nil)
+	result := flow.Judge(context.Background(), sb, judgeConfig(), trialRequest("python", contract.TestcaseSpec{Input: ""}), nil)
 	if result.Verdict != contract.VerdictRAN {
 		t.Fatal(result.Verdict)
 	}
@@ -750,7 +750,7 @@ func TestEmptyTrialInputSurvivesSandboxWireEncoding(t *testing.T) {
 func TestJudgeLogsFailedBlobDeleteWithoutChangingVerdict(t *testing.T) {
 	var logs bytes.Buffer
 	fake := &fakeSandbox{runs: []runReply{runOK("answer\n")}, deleteErr: errors.New("store unavailable")}
-	req := oneCaseRequest("python")
+	req := oneTestcaseRequest("python")
 	req.SubmissionID = "s-42"
 	result := flow.Judge(context.Background(), fake, judgeConfig(), req, slog.New(slog.NewJSONHandler(&logs, nil)))
 	if result.Verdict != contract.VerdictAC {

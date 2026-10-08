@@ -8,14 +8,21 @@ judging-service（Java）和 judge（Go）围绕**同一个地址**协作，不�
 
 ## 术语
 
-| 词 | 含义 | 出现在哪里 |
-|---|---|---|
-| **testdata / 测试数据** | 一道题的**整套**数据：一个目录，由一堆 testcase 加一份 `testdata.json` 组成 | 本协议、`testDataLocation`、`testDataDigest`、`/test-data` 接口、`problem.test_data_location` |
-| **testcase / 测试点** | 其中的**一对** `<name>.in` / `<name>.out`；判题按它逐个运行，结果里的序号 `idx` 就是它在 `cases` 里的位置 | `cases[]`、`caseCount`、`caseResults`、`passedCount` |
+**同一个东西只有一个名字**；大小写、下划线、连字符随各层惯例变（`testDataLocation`、`test_data_location`、`/test-data`、`testdata.json`
+是同一个词的不同写法），但词本身不换。
 
-一句话：**testdata 是一堆 testcase。** 英文只写 testcase、中文只写「测试点」，不再用「测例」「测试用例」「test case」
-等同义词。Go 包 `judge/testcase` 产出的是测试点（`Set`、`Case`），它读取的是整套 testdata；包名不能叫 `testdata`，
-因为 Go 工具链会忽略名为 `testdata` 的目录。JSON 字段 `cases`、`caseCount` 沿用 case 这个短写，含义就是 testcase。
+| 概念 | 英文名 | 中文名 | 例子 |
+|---|---|---|---|
+| 一道题的整套数据（一个目录） | **testdata**（写作 test data / testData / test_data / test-data） | 测试数据 | `testDataLocation`、`/test-data` 接口、`problem.test_data_location`、`testdata.json` |
+| 其中的一对 `<name>.in` / `<name>.out` | **testcase** | 测试点 | `testcases[]`、`testcaseResults`、`TestcaseSpec`、Go 包 `judge/testcase` |
+| 测试点的个数 | **testcaseCount** | 测试点数 | `testdata.json` 的 `testcaseCount`、提交结果的 `testcaseCount` |
+| 结果里测试点的通过/已执行个数 | **passedTestcaseCount** / **executedTestcaseCount** | 通过/已执行测试点数 | 提交详情、`JudgeCompleted` 事件 |
+| 整份数据的内容指纹 | **digest** | 指纹 | `testDataDigest`、`test_data_digest`、`testdata.json` 的 `digest` |
+| 数据目录的地址 | **location** | 地址 | `testDataLocation`、`test_data_location` |
+
+一句话：**testdata 是一堆 testcase。** 不再使用「测例」「测试用例」「test case」「case」（作为 testcase 的简称）、「dataset」、
+「assets」等同义词；「摘要」另有所指（各种 summary），不用它指 digest。Go 包 `judge/testcase` 产出的是测试点（`Set`、`TestCase`），
+它读取的是整套 testdata；包名不能叫 `testdata`，因为 Go 工具链会忽略名为 `testdata` 的目录。
 
 ## 1. 谁做什么
 
@@ -62,10 +69,10 @@ judge（Go）     ── 读 <地址>/testdata.json，按它取回并校验测�
 ```json
 {
   "schemaVersion": 1,
-  "caseCount": 2,
+  "testcaseCount": 2,
   "totalBytes": 15,
   "digest": "<64 位小写十六进制>",
-  "cases": [
+  "testcases": [
     { "name": "1",
       "input":  { "sizeBytes": 4, "sha256": "<64 位小写十六进制>" },
       "output": { "sizeBytes": 2, "sha256": "<64 位小写十六进制>" } },
@@ -79,23 +86,23 @@ judge（Go）     ── 读 <地址>/testdata.json，按它取回并校验测�
 | 字段 | 规则 |
 |---|---|
 | `schemaVersion` | 本协议格式的版本，目前固定为 `1`。它描述协议自己的演进，与题目版本无关 |
-| `caseCount` | 测试点个数，1–1000，必须等于 `cases` 的长度 |
+| `testcaseCount` | 测试点个数，1–1000，必须等于 `testcases` 的长度 |
 | `totalBytes` | 所有 `.in` 与 `.out` 的字节数之和 |
-| `cases` | **顺序就是判题顺序**，也是结果里测试点序号（从 1 起）的来源。不再由读取方按文件名推断顺序 |
-| `cases[].name` | 匹配 `^[A-Za-z0-9][A-Za-z0-9._-]{0,123}$`，同一份数据内不重复。对应的文件固定为 `<name>.in` 与 `<name>.out`，不单独记录文件名 |
+| `testcases` | **顺序就是判题顺序**，也是结果里测试点序号（从 1 起）的来源。不再由读取方按文件名推断顺序 |
+| `testcases[].name` | 匹配 `^[A-Za-z0-9][A-Za-z0-9._-]{0,123}$`，同一份数据内不重复。对应的文件固定为 `<name>.in` 与 `<name>.out`，不单独记录文件名 |
 | `sizeBytes`、`sha256` | 该文件的字节数与 SHA-256，读取方复制后必须逐个核对 |
-| `digest` | 整份数据的内容指纹：对每个测试点按 `cases` 顺序依次生成两行 `"<sha256>  <name>.in\n"`、`"<sha256>  <name>.out\n"`，拼接后取 SHA-256。可以用 `sha256sum` 的输出格式复现 |
+| `digest` | 整份数据的内容指纹：对每个测试点按 `testcases` 顺序依次生成两行 `"<sha256>  <name>.in\n"`、`"<sha256>  <name>.out\n"`，拼接后取 SHA-256。可以用 `sha256sum` 的输出格式复现 |
 
 `digest` 不是版本号，只用于完整性与缓存判断：内容一变它就变，读取方据此知道本地副本是否过期。
 
 写入方默认的顺序规则沿用现状：名字能解析为整数的按数值升序，其余按字符串序排在后面。
-这只是写入方的默认，读取方只认 `cases` 里写明的顺序。
+这只是写入方的默认，读取方只认 `testcases` 里写明的顺序。
 
 ## 5. judge 怎么读
 
 每次判题请求都按下面的顺序处理：
 
-1. 读取 `<地址>/testdata.json`（不超过 1 MiB），检查结构、字段规则、`caseCount`、名字唯一，
+1. 读取 `<地址>/testdata.json`（不超过 1 MiB），检查结构、字段规则、`testcaseCount`、名字唯一，
    以及 `totalBytes` 与各文件大小之和一致。
 2. 把每个测试点的 `.in`、`.out` 复制到 judge 自己的本地目录，核对大小与 SHA-256。
    本地已有且 `digest` 相同的副本可以直接复用，缓存是优化，不是协议要求；协议只要求**每次判题都先读一次

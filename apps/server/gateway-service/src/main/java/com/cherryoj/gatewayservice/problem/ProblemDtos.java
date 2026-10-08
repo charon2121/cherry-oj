@@ -52,10 +52,10 @@ final class ProblemDtos {
 	record ManifestFile(String name, long sizeBytes, String sha256) {
 	}
 
-	record Manifest(int caseCount, long totalBytes, List<ManifestFile> files) {
+	record Manifest(int testcaseCount, long totalBytes, List<ManifestFile> files) {
 	}
 
-	record TestData(String digest, int caseCount, long totalBytes, String updatedAt, Manifest manifest) {
+	record TestData(String digest, int testcaseCount, long totalBytes, String updatedAt, Manifest manifest) {
 	}
 
 	/** 题目只有一份内容，管理端模型就是题目本身。 */
