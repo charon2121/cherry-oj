@@ -10,7 +10,8 @@
 | judge账号 | cherry-judge，UID/GID61010；控制面token仅root与此组可读；也是执行器受信配置里的服务身份 |
 | 预留box账号 | cherry-payload-0～3：61002～61005；cherry-init-0～3：61006～61009（box N 取基数加 N），均nologin、无home |
 | 并发 / 队列 | 1 / 4；预留身份不代表启用4并发 |
-| 持久目录 | /etc/cherry-sandbox、/var/lib/cherry-sandbox/releases/<版本>、judge（含 boxes、blobs、testdata、logs） |
+| 家目录 | **`/opt/cherry-oj`**：本项目在节点上的全部持久文件都在这里，卸载清理只看这一处。例外只有 systemd 单元（`/etc/systemd/system`）与 cgroup（按 cgroup v2 的位置） |
+| 目录布局 | `etc/` 配置（root 所有）、`releases/<版本>/` 与 `current` 链接、`judge/{boxes,blobs,testdata,logs}`（服务用户所有，工作区）、`operations/` 运维脚本、`installation.json` 回执 |
 | 单元 | cherry-sandbox.slice、cherry-sandbox-judge.service（执行层在 judge 进程内，WORK-061） |
 | 总限制 | 1536MiB、swap0、384 tasks、CPU200% |
 | judge | 1280MiB，320 tasks，CPU200%，swap0 |
@@ -67,7 +68,7 @@ python3 install/manage.py start
 python3 install/manage.py stop
 ```
 
-安装器将管理工具持久保存到`/var/lib/cherry-sandbox/operations`，摘要绑定installation.json；当前节点可直接用`python3 /var/lib/cherry-sandbox/operations/manage.py status|start|stop|uninstall|restore`。恢复测试工具verify-native.py、verify-lifecycle.py也保存在该目录。后者会短暂停止本项目服务并恢复原文件，只能在节点尚未承担正式业务或完成排空后运行；每次选择一个case，不能并发执行。
+安装器将管理工具持久保存到`/opt/cherry-oj/operations`，摘要绑定installation.json；当前节点可直接用`python3 /opt/cherry-oj/operations/manage.py status|start|stop|uninstall|restore`。恢复测试工具verify-native.py、verify-lifecycle.py也保存在该目录。后者会短暂停止本项目服务并恢复原文件，只能在节点尚未承担正式业务或完成排空后运行；每次选择一个case，不能并发执行。
 
 安装后先检查systemd-analyze verify，再实际验证执行器最小能力、非特权服务、实际cgroup总限额与身份、注册回执、缺配置/策略/rootfs拒绝、服务崩溃恢复。`start`失败停止本次服务；`stop`等待服务组消失。当前不自动enable；机器重启恢复需另行明确授权和验证。
 

@@ -5,7 +5,7 @@ package preflight
 // 清单只负责给出各项的期望值，代码负责核对这些项确实存在、确实被设了界限。
 const (
 	// releaseDir 是服务实际启动时经过的符号链接：current → releases/<版本>。
-	releaseDir = "/var/lib/cherry-sandbox/current"
+	releaseDir = "/opt/cherry-oj/current"
 )
 
 // releaseFiles 是部署清单中必须与 current 下实际启动路径一致的文件：清单校验的那一份，

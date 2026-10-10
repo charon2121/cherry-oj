@@ -11,7 +11,7 @@ import signal
 import sys
 import time
 
-sys.path.insert(0, '/var/lib/cherry-sandbox/operations')
+sys.path.insert(0, '/opt/cherry-oj/operations')
 import manage
 
 GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')

@@ -15,7 +15,7 @@
 #endif
 
 #ifndef SANDBOX_CONFIG
-#define SANDBOX_CONFIG "/etc/cherry-sandbox/executor.conf"
+#define SANDBOX_CONFIG "/opt/cherry-oj/etc/executor.conf"
 #endif
 
 // 退出码：0 表示事实已输出且执行组已回收（其中可能带平台错误）；

@@ -331,7 +331,7 @@ def main():
     parser.add_argument('--binary', required=True)
     parser.add_argument('--probe', required=True)
     parser.add_argument('--root', default='/var/lib/cherry-sandbox-test')
-    parser.add_argument('--config', default='/etc/cherry-sandbox/executor.conf',
+    parser.add_argument('--config', default='/opt/cherry-oj/etc/executor.conf',
                         help='必须与构建时编译进二进制的路径一致')
     parser.add_argument('--install', default='/usr/local/libexec/cherry-sandbox-test/sandbox')
     parser.add_argument('--jobs', help='已委派且启用了 cpu/memory/pids 的 jobs 子树')

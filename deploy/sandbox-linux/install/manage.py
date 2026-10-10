@@ -65,10 +65,9 @@ def preflight(plan, source):
             raise ValueError('missing tool: ' + tool)
     if int(run('systemctl','--version').splitlines()[0].split()[1]) < 255:
         raise ValueError('initial deployment requires systemd >= 255; other versions unvalidated')
-    for path in (ETC, STATE):
-        if path.exists() or path.is_symlink():
-            raise ValueError('initial install refuses existing path: ' + str(path))
-        protected(path.parent)
+    if STATE.exists() or STATE.is_symlink():
+        raise ValueError('initial install refuses existing path: ' + str(STATE))
+    protected(STATE.parent)
     for unit in UNITS:
         properties=run('systemctl','show',unit,'-p','LoadState','-p','ActiveState',
                        '-p','Transient','-p','FragmentPath','-p','DropInPaths','-p','ControlGroup')
@@ -126,6 +125,8 @@ def install(review, source, token_file):
     if len(token)<16 or len(token)>4096 or any(c.isspace() for c in token):
         raise ValueError('control token is missing or invalid')
     preflight(plan, source)
+    # 目录模式由安装器决定，不受调用者的 umask 影响（执行器要求受信配置的祖先目录不可被他人写，也要求服务能穿过）。
+    os.umask(0o022)
     STATE.mkdir(mode=0o755)
     receipt=dict(version=1, status='installing', release=release, accounts={}, files={}, enabled=False)
     write_json(RECEIPT,receipt,0o600)

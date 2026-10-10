@@ -1,8 +1,10 @@
 """Fixed resource ownership shared by rendering and administration."""
 from pathlib import Path
 
-ETC = Path('/etc/cherry-sandbox')
-STATE = Path('/var/lib/cherry-sandbox')
+# 本项目在节点上的全部持久文件都在这一个根目录下；systemd 单元与 cgroup 按各自规则放在系统位置。
+HOME = Path('/opt/cherry-oj')
+STATE = HOME
+ETC = HOME / 'etc'
 UNITS = ('cherry-sandbox.slice', 'cherry-sandbox-judge.service')
 JUDGE_UNIT = 'cherry-sandbox-judge.service'
 # judge 在本进程内调用 setuid 执行器，它的身份就是执行器受信配置里的服务身份。

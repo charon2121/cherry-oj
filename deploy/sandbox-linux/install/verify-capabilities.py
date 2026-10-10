@@ -11,8 +11,8 @@ import subprocess
 import sys
 import time
 
-sys.path.insert(0, '/var/lib/cherry-sandbox/operations')
-sys.path.insert(0, '/etc/cherry-sandbox')
+sys.path.insert(0, '/opt/cherry-oj/operations')
+sys.path.insert(0, '/opt/cherry-oj/etc')
 import manage
 import health
 
@@ -88,7 +88,7 @@ def probe():
 def main():
     manage.owned()
     assert not DIRECTORY.exists() and not DIRECTORY.is_symlink()
-    spec = importlib.util.spec_from_file_location('native', '/var/lib/cherry-sandbox/operations/verify-native.py')
+    spec = importlib.util.spec_from_file_location('native', '/opt/cherry-oj/operations/verify-native.py')
     native = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(native)
     native.clean()

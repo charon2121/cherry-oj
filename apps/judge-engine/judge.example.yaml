@@ -107,7 +107,7 @@ execution:
   # devhost：临时目录里的普通子进程，**没有任何隔离**，只用于可信代码开发，
   #          必须同时设置 allowUnsafeBackend: true 才会启动。
   backend: linux
-  executorPath: /var/lib/cherry-sandbox/current/libexec/sandbox
+  executorPath: /opt/cherry-oj/current/libexec/sandbox
   # 交给执行器的 box 目录根：本进程独占、0700，须与执行器受信配置中的 boxes 一致。
   boxesRoot: ./data/sandbox-boxes
   # 源码、编译产物等在多次执行之间传递的临时文件。

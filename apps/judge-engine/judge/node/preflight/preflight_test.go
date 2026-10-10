@@ -20,7 +20,7 @@ func TestCheckRefusesMissingManifestOrWrongBackend(t *testing.T) {
 		t.Run(isolation, func(t *testing.T) {
 			cfg := config.Default().Judge
 			if isolation == "devhost" {
-				cfg.Node.DeploymentManifest = "/etc/cherry-sandbox/deployment.json"
+				cfg.Node.DeploymentManifest = "/opt/cherry-oj/etc/deployment.json"
 			}
 			v := fixedVersion{contract.SandboxVersion{Name: execution.Name, Version: execution.Version, Isolation: isolation}}
 			if err := preflight.Check(context.Background(), cfg, v); err == nil {

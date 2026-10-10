@@ -10,7 +10,7 @@ import time
 
 GROUP=Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
 JOBS=GROUP/'cherry-sandbox-judge.service/jobs'
-BOXES=Path('/var/lib/cherry-sandbox/judge/boxes')
+BOXES=Path('/opt/cherry-oj/judge/boxes')
 CAPS=('CapInh','CapPrm','CapEff','CapBnd','CapAmb')
 PAYLOAD,INIT=61002,61006
 # judge 自身没有任何有效能力；边界集只为它调用的 setuid 执行器保留 8 项：
@@ -60,7 +60,7 @@ def clean():
 
 def main():
     assert os.geteuid()==0
-    manifest=json.loads(Path('/etc/cherry-sandbox/deployment.json').read_text())
+    manifest=json.loads(Path('/opt/cherry-oj/etc/deployment.json').read_text())
     for path,value in manifest['limits'].items(): assert Path(path).read_text().strip()==value,path
     pid=subprocess.check_output(['systemctl','show','cherry-sandbox-judge.service','-p','MainPID','--value'],text=True).strip()
     rows=list(Path('/proc',pid,'task').glob('*/status'))

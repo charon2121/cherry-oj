@@ -5,7 +5,7 @@
 #   make BUILD=dir OUT=file  中间文件放 dir，二进制直接写到 file
 
 CC ?= cc
-CONFIG ?= /etc/cherry-sandbox/executor.conf
+CONFIG ?= /opt/cherry-oj/etc/executor.conf
 BUILD := build
 OUT = $(BUILD)/sandbox
 

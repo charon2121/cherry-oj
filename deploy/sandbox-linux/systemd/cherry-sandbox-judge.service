@@ -4,9 +4,9 @@ Description=Cherry OJ judge node with the in-process execution layer and setuid 
 [Service]
 Type=exec
 Slice=cherry-sandbox.slice
-ExecStartPre=/usr/bin/test -f /etc/cherry-sandbox/judge.json
+ExecStartPre=/usr/bin/test -f /opt/cherry-oj/etc/judge.json
 # 启动脚本核对 rootfs 与清单逐文件一致，建好委派子树（supervisor/jobs），再 exec judge。
-ExecStart=/usr/bin/python3 /etc/cherry-sandbox/judge-start.py /etc/cherry-sandbox/judge-start.json
+ExecStart=/usr/bin/python3 /opt/cherry-oj/etc/judge-start.py /opt/cherry-oj/etc/judge-start.json
 User=cherry-judge
 Group=cherry-judge
 UMask=0077
@@ -27,7 +27,7 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN 
 # RestrictSUIDSGID、RestrictNamespaces 等基于 seccomp 的硬化）；cgroupfs 也必须可写
 # （不能设置 ProtectControlGroups）。这是 WORK-061 明确接受的代价，其余隔离保留：
 ProtectSystem=strict
-ReadWritePaths=/var/lib/cherry-sandbox/judge /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service
+ReadWritePaths=/opt/cherry-oj/judge /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service
 ProtectHome=yes
 PrivateTmp=yes
 IPAddressDeny=any

@@ -57,7 +57,7 @@ func DefaultEngineSettings() EngineSettings {
 		Parallelism:  1,
 		QueueSize:    8,
 		Backend:      backend.NameLinux,
-		ExecutorPath: "/var/lib/cherry-sandbox/current/libexec/sandbox",
+		ExecutorPath: "/opt/cherry-oj/current/libexec/sandbox",
 		BoxesRoot:    "./data/sandbox-boxes",
 		Store: Store{
 			Root:          "./data/sandbox-blobs",

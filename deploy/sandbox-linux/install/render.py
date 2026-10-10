@@ -75,7 +75,7 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
     write_json(output/'judge.json', judge, 0o600)
     write_json(output/'plan.json', dict(version=1, release=release, nodeID=node_id,
         accounts=ACCOUNTS, units=list(UNITS), rootfsSHA256=manifest_hash,
-        directories=[str(ETC),str(STATE)],
+        directories=[str(STATE)],
         controlURL=control_url, advertiseURL=advertise_url,
         startAutomatically=False, deleteUserData=False, reboot=False))
     files = {'executor': root/'libexec/sandbox',
