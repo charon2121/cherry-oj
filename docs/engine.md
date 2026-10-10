@@ -66,13 +66,13 @@ box 目录、exec 一次执行器、读回一行 JSON；执行器退出，特权
 执行器是唯一持有特权的程序。它和 judge 之间的那条线是**信任边界**：
 
 - 执行器**不信任**调用方给的任何东西。请求里不接受宿主路径、不接受 uid/gid；rootfs、box 根目录、
-  cgroup 子树和各身份都来自 root 管理的受信配置（`/etc/cherry-sandbox/executor.conf`，路径编译进
+  cgroup 子树和各身份都来自 root 管理的受信配置（`/opt/cherry-oj/etc/executor.conf`，路径编译进
   二进制）。box 目录里的文件按「不跟随链接、只读单链接的服务所有普通文件」打开。
 - 谁能调用是**双重约束**：文件模式只让 judge 所在的组执行（`root:cherry-judge 4754`），执行器启动后
   再核对真实 UID 必须是配置里的服务身份（或 root）。
 - 执行器能拿到的能力不超过 judge 服务单元的**能力边界集**（8 项，见 §7.1）。judge 进程本身
   非 root、没有任何有效能力；setuid 取得的能力在执行器里用完即丢，init 与用户程序都拿不到。
-- 两端的共享词汇只有 box 目录约定与一行 JSON 事实，写在 [apps/sandbox/README.md](../apps/sandbox/README.md)。
+- 两端的共享词汇只有 box 目录约定与一行 JSON 事实，写在 [sandbox-executor.md](./sandbox-executor.md)（简要版：[apps/sandbox/README.md](../apps/sandbox/README.md)）。
   Go 侧的调用方是 `execution/backend/executor.go`，C 侧与它互相看不见实现。
 
 代价要说清楚：为了让 setuid 生效，judge 服务单元不能开 `NoNewPrivileges` 及其隐含的加固项，
@@ -262,7 +262,7 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
 | server(Java) ↔ judge(Go) | `contracts/judge.schema.json` | **这份 schema 是唯一真源** |
 | judging-service ↔ judge 节点 | `contracts/judge-node.schema.json` | schema 是真源 |
 | 判题编排 ↔ 执行层 | `internal/contract` 的 `RunSpec`/`RunResult` | **进程内 Go 类型，没有 schema** |
-| 执行层 ↔ 执行器 | [apps/sandbox/README.md](../apps/sandbox/README.md) | **box 目录约定与一行 JSON，没有 schema** |
+| 执行层 ↔ 执行器 | [sandbox-executor.md](./sandbox-executor.md) | **box 目录约定、NUL 分隔的请求与一行 JSON 事实，没有机读 schema** |
 | 全链路 verdict | `contracts/verdict.json` | 已有 |
 
 后两行没有 schema，是因为两端都在**同一个 release、同批部署**，没有第三方消费者：判题编排与执行层
