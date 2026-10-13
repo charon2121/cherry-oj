@@ -9,7 +9,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** testdata.json 的结构与规则，与 docs/testdata-protocol.md 一一对应。 */
+/** testdata.json 的结构与规则，与 docs/protocols/testdata.md 一一对应。 */
 public final class TestDataMetadata {
 
     public static final String FILE_NAME = "testdata.json";

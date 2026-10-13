@@ -72,7 +72,7 @@ box 目录、exec 一次执行器、读回一行 JSON；执行器退出，特权
   再核对真实 UID 必须是配置里的服务身份（或 root）。
 - 执行器能拿到的能力不超过 judge 服务单元的**能力边界集**（8 项，见 §7.1）。judge 进程本身
   非 root、没有任何有效能力；setuid 取得的能力在执行器里用完即丢，init 与用户程序都拿不到。
-- 两端的共享词汇只有 box 目录约定与一行 JSON 事实，写在 [sandbox-executor.md](./sandbox-executor.md)（简要版：[apps/sandbox/README.md](../apps/sandbox/README.md)）。
+- 两端的共享词汇只有 box 目录约定与一行 JSON 事实，写在 [sandbox-executor.md](./protocols/sandbox-executor.md)（简要版：[apps/sandbox/README.md](../apps/sandbox/README.md)）。
   Go 侧的调用方是 `execution/backend/executor.go`，C 侧与它互相看不见实现。
 
 代价要说清楚：为了让 setuid 生效，judge 服务单元不能开 `NoNewPrivileges` 及其隐含的加固项，
@@ -262,7 +262,7 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
 | server(Java) ↔ judge(Go) | `contracts/judge.schema.json` | **这份 schema 是唯一真源** |
 | judging-service ↔ judge 节点 | `contracts/judge-node.schema.json` | schema 是真源 |
 | 判题编排 ↔ 执行层 | `internal/contract` 的 `RunSpec`/`RunResult` | **进程内 Go 类型，没有 schema** |
-| 执行层 ↔ 执行器 | [sandbox-executor.md](./sandbox-executor.md) | **box 目录约定、NUL 分隔的请求与一行 JSON 事实，没有机读 schema** |
+| 执行层 ↔ 执行器 | [sandbox-executor.md](./protocols/sandbox-executor.md) | **box 目录约定、NUL 分隔的请求与一行 JSON 事实，没有机读 schema** |
 | 全链路 verdict | `contracts/verdict.json` | 已有 |
 
 后两行没有 schema，是因为两端都在**同一个 release、同批部署**，没有第三方消费者：判题编排与执行层
@@ -310,7 +310,7 @@ apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go
 
 ### 5.2 测试数据在磁盘上长什么样？
 
-格式由[测试数据协议](./testdata-protocol.md)规定。judge 只认请求里的 `testDataLocation`（以 `/` 开头的本地绝对路径，
+格式由[测试数据协议](./protocols/testdata.md)规定。judge 只认请求里的 `testDataLocation`（以 `/` 开头的本地绝对路径，
 或 http(s) 地址），其下：
 
 ```
@@ -792,7 +792,7 @@ server              judge（判题编排 → 执行层）                 执行
 注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
 重试且不关闭健康入口；控制面租约过期后停止路由。
 
-测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./testdata-protocol.md)写出目录，judging-service
+测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./protocols/testdata.md)写出目录，judging-service
 判题时只把目录地址放进 `JudgeRequest.testDataLocation`，Go judge 自己读 `testdata.json`、复制并校验文件。
 没有安装接口、没有逐节点回执，节点重启也不需要重新交付数据。本地路径要求节点能读到同一个路径：
 Compose 用必填的 `CHERRY_TEST_DATA_ROOT` 按同一绝对路径只读挂载（`judge-testdata` 卷只是每次判题的私有工作目录）。

@@ -7,7 +7,7 @@
 
 命令的标准输出/标准错误原样输出到本进程的标准输出/标准错误，最后一行摘要写到标准错误。
 退出码：0 命令正常结束；1 命令没有正常结束（非零退出、信号、超限、取消、平台故障）；2 本工具或执行器拒绝了请求。
-协议细节见 docs/sandbox-executor.md。只用标准库。
+协议细节见 docs/protocols/sandbox-executor.md。只用标准库。
 """
 
 from __future__ import annotations
@@ -133,7 +133,7 @@ def load_config(path: Path) -> Config:
 
 
 def build_spec(command: Sequence[str], env: Sequence[str], puts: Sequence[Put], gets: Sequence[Get], limits: Limits) -> bytes:
-    """请求格式：以 NUL 结尾的 key=value 记录（见 docs/sandbox-executor.md）。"""
+    """请求格式：以 NUL 结尾的 key=value 记录（见 docs/protocols/sandbox-executor.md）。"""
     if not command or not COMMAND_NAME.fullmatch(command[0]):
         raise UsageError(f"命令必须是裸名称（不带目录）：{command[0] if command else ''!r}。"
                          "要运行自己的程序，先用 --put 放进工作区，再用名字调用")

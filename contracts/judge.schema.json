@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/judge.schema.json",
   "title": "Judge v2",
-  "description": "judging-service ↔ Go judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。正式判题按 testDataLocation 指向的目录读取测试数据（协议见 docs/testdata-protocol.md）；problemId 只用于日志与对账。source 对 ACM/CORE 都是 submission-service 已准备好的完整源码。Go judge 不知道用户、代码模式、模板、标定、Kafka 或 Submission 生命周期。",
+  "description": "judging-service ↔ Go judge 跨语言契约（唯一真源）。时间单位 ns，内存单位 bytes。正式判题按 testDataLocation 指向的目录读取测试数据（协议见 docs/protocols/testdata.md）；problemId 只用于日志与对账。source 对 ACM/CORE 都是 submission-service 已准备好的完整源码。Go judge 不知道用户、代码模式、模板、标定、Kafka 或 Submission 生命周期。",
   "x-contract-version": 2,
   "x-transport-context": {
     "carrier": "http-headers",

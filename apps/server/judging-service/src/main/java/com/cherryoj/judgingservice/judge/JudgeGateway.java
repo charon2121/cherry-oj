@@ -7,7 +7,7 @@ public interface JudgeGateway {
         return judge(endpoint, request, trace);
     }
 
-    /** testDataLocation 只有 mode=submit 才带；节点按它读取测试数据，协议见 docs/testdata-protocol.md。 */
+    /** testDataLocation 只有 mode=submit 才带；节点按它读取测试数据，协议见 docs/protocols/testdata.md。 */
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record JudgeRequest(String submissionId, String problemId, String testDataLocation, String languageId,
                         String source, Limits limits, String mode) {}

@@ -42,7 +42,7 @@ $dev-work 修复登录后立即掉线
 
 前置条件：Docker Engine / Docker Desktop，并启用 Compose v2。
 
-judge 按[测试数据协议](./docs/testdata-protocol.md)读取测试数据：每次判题请求带一个测试数据目录的地址。
+judge 按[测试数据协议](./docs/protocols/testdata.md)读取测试数据：每次判题请求带一个测试数据目录的地址。
 Compose 把 `CHERRY_TEST_DATA_ROOT` 指定的宿主机目录**按同一个绝对路径**只读挂进 judge 容器，所以题目上记的
 本地路径在容器里同样有效。该变量必须设置，没有默认值：
 

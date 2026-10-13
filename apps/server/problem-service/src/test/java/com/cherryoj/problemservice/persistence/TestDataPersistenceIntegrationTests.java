@@ -48,7 +48,7 @@ import tools.jackson.databind.ObjectMapper;
 class TestDataPersistenceIntegrationTests {
 
     private static final Path STORAGE_ROOT = temporaryRoot();
-    /** docs/testdata-protocol.md 的算法对 {@link #goldenZip()} 的结果；Go、Python 的测试钉着同一个值。 */
+    /** docs/protocols/testdata.md 的算法对 {@link #goldenZip()} 的结果；Go、Python 的测试钉着同一个值。 */
     private static final String GOLDEN_DIGEST = "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4";
 
     @Container

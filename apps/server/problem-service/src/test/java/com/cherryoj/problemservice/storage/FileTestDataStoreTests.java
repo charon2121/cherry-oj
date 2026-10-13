@@ -36,7 +36,7 @@ class FileTestDataStoreTests {
     private static final String PROBLEM = "019c8e42-7f70-7000-8000-000000000101";
     private static final String OTHER_PROBLEM = "019c8e42-7f70-7000-8000-000000000202";
 
-    /** docs/testdata-protocol.md 的 digest 算法对下面这份数据的结果；Go 与 Python 的测试钉着同一个值。 */
+    /** docs/protocols/testdata.md 的 digest 算法对下面这份数据的结果；Go 与 Python 的测试钉着同一个值。 */
     private static final String GOLDEN_DIGEST = "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4";
 
     @TempDir

@@ -28,7 +28,7 @@ services:
       CHERRY_OJ_EXECUTION_PARALLELISM: ${SANDBOX_PARALLELISM:-2}
       CHERRY_OJ_EXECUTION_STORE_ROOT: /var/lib/cherry-oj/store
       CHERRY_OJ_EXECUTION_STORE_MAX_BLOB_BYTES: ${SANDBOX_MAX_BLOB_BYTES:-67108864}
-      # 测试数据按协议（docs/testdata-protocol.md）由请求里的地址读取；这里只是本地副本的工作目录。
+      # 测试数据按协议（docs/protocols/testdata.md）由请求里的地址读取；这里只是本地副本的工作目录。
       CHERRY_OJ_JUDGE_TESTDATA_WORK_ROOT: /var/lib/cherry-oj/testdata
       CHERRY_OJ_JUDGE_STRICT_WHITESPACE: ${JUDGE_STRICT_WHITESPACE:-false}
       CHERRY_OJ_JUDGE_REVEAL_EXPECTED: ${JUDGE_REVEAL_EXPECTED:-false}

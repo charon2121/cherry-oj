@@ -1,5 +1,5 @@
 -- 题目没有版本：题面、样例、语言和测试数据地址都直接属于 problem。
--- 测试数据只存地址（协议见 docs/testdata-protocol.md），数据本身与它的指纹、测试点数都在地址下的 testdata.json 里，
+-- 测试数据只存地址（协议见 docs/protocols/testdata.md），数据本身与它的指纹、测试点数都在地址下的 testdata.json 里，
 -- 数据库不再抄一份，避免两处不一致。
 CREATE TABLE problem (
     id                              BINARY(16) NOT NULL,

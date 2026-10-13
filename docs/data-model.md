@@ -1,6 +1,6 @@
 # cherry-oj 微服务数据模型
 
-> 状态：MVP 目标设计，contracts v2 已对齐；2026-10-07 起题目没有版本、测试数据按[协议](./testdata-protocol.md)交付
+> 状态：MVP 目标设计，contracts v2 已对齐；2026-10-07 起题目没有版本、测试数据按[协议](./protocols/testdata.md)交付
 > 产品需求真源：[`product.md`](./product.md)
 > 系统拓扑：[architecture.md](./architecture.md)
 > 后端技术基线：[backend.md](./backend.md)
@@ -217,7 +217,7 @@ CORE judgeTemplate 必须包含且只包含一个字面量 `{{USER_CODE}}`。平
 ### 4.4 测试数据
 
 没有单独的表：一道题只有一份测试数据，就是 `Problem.testDataLocation` 指向的目录。目录格式由
-[测试数据协议](./testdata-protocol.md)规定：`testdata.json`（`schemaVersion`、`testcaseCount`、`totalBytes`、`digest`、
+[测试数据协议](./protocols/testdata.md)规定：`testdata.json`（`schemaVersion`、`testcaseCount`、`totalBytes`、`digest`、
 `testcases[]`）加成对的 `<name>.in/.out`。problem-service 把上传的 ZIP 校验后写成内容寻址的真实目录
 `<root>/.store/<problemId>-<digest 前 16 位>/`，再把相对符号链接 `<root>/<problemId>` 原子切换过去；
 只保留当前与上一代目录。数据库不抄指纹、测试点数或清单，避免两处不一致。
@@ -810,7 +810,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 `contracts/judge.schema.json`：
 
-- submit 使用 testDataLocation 定位测试数据目录（协议见 testdata-protocol.md）；problemId 只作日志。
+- submit 使用 testDataLocation 定位测试数据目录（协议见 protocols/testdata.md）；problemId 只作日志。
 - JudgeResult 新增可选 testDataDigest。
 - source 对 ACM/CORE 都是完整源码。
 - time/memory 迁移到 cpuNs/memoryBytes。

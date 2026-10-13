@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cherry-oj/contracts/judge-node.schema.json",
   "title": "Judge Node control protocol v1",
-  "description": "Private shared Bearer control token. POST /internal/judge-nodes/v1/register and /heartbeat accept Registration/Heartbeat and return Lease. No redirects. Session UUID changes on process start. The node does not receive test data from the control plane: each judge request carries a testDataLocation that the node reads itself (docs/testdata-protocol.md). Errors contain only fixed code/detail. Node identity is nodeId plus the per-process sessionId; there is no environment identity; endpoints are absolute HTTP(S) origins without credentials, query, fragment or path.",
+  "description": "Private shared Bearer control token. POST /internal/judge-nodes/v1/register and /heartbeat accept Registration/Heartbeat and return Lease. No redirects. Session UUID changes on process start. The node does not receive test data from the control plane: each judge request carries a testDataLocation that the node reads itself (docs/protocols/testdata.md). Errors contain only fixed code/detail. Node identity is nodeId plus the per-process sessionId; there is no environment identity; endpoints are absolute HTTP(S) origins without credentials, query, fragment or path.",
   "oneOf": [
     {
       "$ref": "#/$defs/Registration"

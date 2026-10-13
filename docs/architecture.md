@@ -70,7 +70,7 @@ submission-service：Pending → Judging → Done + verdict
 - MySQL 8.4：每个有状态 Java 服务独立 schema 和账号。
 - Redis：Gateway Session；不作为业务事实真源。
 - Kafka：正式提交的判题请求和生命周期事件。
-- 测试数据目录：problem-service 按[测试数据协议](./testdata-protocol.md)写出的目录（`testdata.json` + 成对 `.in/.out`），
+- 测试数据目录：problem-service 按[测试数据协议](./protocols/testdata.md)写出的目录（`testdata.json` + 成对 `.in/.out`），
   本地路径或 http(s) 地址；judge 节点按请求里的地址读取，不预先安装。
 
 ---
@@ -382,7 +382,7 @@ int main() {
 
 ### 8.1 测试数据（协议目录）
 
-题目只有一份测试数据，上传 ZIP 即整体替换。problem-service 把它写成[测试数据协议](./testdata-protocol.md)规定的目录：
+题目只有一份测试数据，上传 ZIP 即整体替换。problem-service 把它写成[测试数据协议](./protocols/testdata.md)规定的目录：
 
 ```text
 <root>/<problemId>  →（相对符号链接）.store/<problemId>-<digest 前 16 位>/

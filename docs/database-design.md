@@ -1,6 +1,6 @@
 # cherry-oj MVP MySQL 物理数据模型
 
-> 状态：MVP 目标设计；2026-10-07 起题目没有版本、测试数据只存地址（见[测试数据协议](./testdata-protocol.md)）
+> 状态：MVP 目标设计；2026-10-07 起题目没有版本、测试数据只存地址（见[测试数据协议](./protocols/testdata.md)）
 > 产品需求真源：[`product.md`](./product.md)
 > 服务与数据所有权：[architecture.md](./architecture.md)
 > 领域模型：[data-model.md](./data-model.md)
@@ -220,7 +220,7 @@ problem
 ```
 
 题目没有版本：题面、样例、语言、模板都直接属于 `problem`。测试数据只是 `problem.test_data_location` 这一个地址列，
-地址指向[测试数据协议](./testdata-protocol.md)规定的目录；指纹、测试点数和文件清单从目录里的 `testdata.json` 读取，
+地址指向[测试数据协议](./protocols/testdata.md)规定的目录；指纹、测试点数和文件清单从目录里的 `testdata.json` 读取，
 数据库不再抄一份。`ProblemJudgeSnapshot` 不建表，由 `problem` 与目标语言在一个只读查询中组装。
 
 ### 4.2 字段字典
@@ -287,7 +287,7 @@ problem
 
 ```sql
 -- 题目没有版本：题面、样例、语言和测试数据地址都直接属于 problem。
--- 测试数据只存地址（协议见 docs/testdata-protocol.md），数据本身与它的指纹、测试点数都在地址下的 testdata.json 里，
+-- 测试数据只存地址（协议见 docs/protocols/testdata.md），数据本身与它的指纹、测试点数都在地址下的 testdata.json 里，
 -- 数据库不再抄一份，避免两处不一致。
 CREATE TABLE problem (
     id                              BINARY(16) NOT NULL,

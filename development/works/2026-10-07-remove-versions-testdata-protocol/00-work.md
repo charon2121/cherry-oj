@@ -14,7 +14,7 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
 
 1. **去掉版本：** 一道题只有一份内容，改了就是改了。题面、样例、可选语言、测试数据直接挂在题目上；
    草稿、发布流水线收敛为一个"私有 / 公开"开关。
-2. **统一测试数据协议**（已确认，见 [`docs/testdata-protocol.md`](../../../docs/testdata-protocol.md)）：
+2. **统一测试数据协议**（已确认，见 [`docs/protocols/testdata.md`](../../../docs/protocols/testdata.md)）：
    problem-service 按协议写出目录和 `testdata.json`，数据库只存**地址**；judging-service 判题时取题目当前
    地址，原样放进 `POST /judge`；judge 读 `testdata.json`，复制校验后把输入作为标准输入交给执行器。
    节点安装接口、数据回执、部署状态全部删除。
@@ -170,11 +170,11 @@ Go 判题机、前端和契约（约 100 个文件），而当前产品并不需
 
 ### 补充：统一叫法（2026-10-08）
 
-用户的标准是「写法不同可以，叫法不同不行」。盘点后统一了五组同一概念的不同叫法，并把术语表写进 `docs/testdata-protocol.md`：
+用户的标准是「写法不同可以，叫法不同不行」。盘点后统一了五组同一概念的不同叫法，并把术语表写进 `docs/protocols/testdata.md`：
 (1) 单个测试点：`case` 一律改成 `testcase`（`cases`→`testcases`、`CaseSpec`→`TestcaseSpec`、`caseResults`→`testcaseResults` 等，含契约字段与 `testdata.json` 字段）；
 (2) 测试点个数：`caseCount` 与 `totalCount` 统一为 `testcaseCount`，结果里的 `passedCount`/`executedCount` 对应改为 `passedTestcaseCount`/`executedTestcaseCount`；
 (3) 测试数据根目录的环境变量只留 `CHERRY_TEST_DATA_ROOT`（原 `PROBLEM_TESTDATA_ROOT` 与之重复）；
 (4) 整套数据只叫 testdata（去掉 `dataset`、`problem-assets`）；(5) 中文里 digest 统一叫「指纹」，不再与「摘要」混用。
-本记录和 `design.md` 里仍是改名前的字段名，属于当时的历史，以 `docs/testdata-protocol.md` 与 `contracts/` 为准。
+本记录和 `design.md` 里仍是改名前的字段名，属于当时的历史，以 `docs/protocols/testdata.md` 与 `contracts/` 为准。
 验证：Go、五个 Java 服务、`npm run check`、Playwright、部署脚本的 Python 单测都通过，`work-002-e2e.py` 隔离栈全链路通过。
 测试服务器上的原生节点已按同样步骤再重装为新版（发布名 `cherry-testdata-v2`），用 `testcases`/`testcaseCount` 的新协议目录实测：AC、WA 正确，结果带回与 `testdata.json` 一致的指纹，篡改 `.out` 得 SE，`verify-native.py` 与 judge/executor 崩溃恢复都 PASS。

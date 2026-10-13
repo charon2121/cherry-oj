@@ -1,6 +1,6 @@
 # 设计：去版本化与测试数据协议
 
-工作说明见 [00-work.md](./00-work.md)，协议本身见 [`docs/testdata-protocol.md`](../../../docs/testdata-protocol.md)。
+工作说明见 [00-work.md](./00-work.md)，协议本身见 [`docs/protocols/testdata.md`](../../../docs/protocols/testdata.md)。
 下面的事实来自 2026-10-07 对代码的只读调查。**设计已于 2026-10-07 经用户确认**（见 §5），
 尚未授权实施。
 
@@ -92,7 +92,7 @@ submission-service 7、judge-engine 约 17，另有契约、生成物与 e2e。
 | 新增 `problem-test-data.schema.json` | problem-service → judging-service：`GET /internal/judging/problems/{problemId}/test-data` → `{location, digest, caseCount, totalBytes}`，无数据时 404 |
 | `scripts/contracts_test.py` | 随契约更新 |
 
-协议 Schema 暂不进 `contracts/`（你说后续再考虑），先以 `docs/testdata-protocol.md` 为准。
+协议 Schema 暂不进 `contracts/`（你说后续再考虑），先以 `docs/protocols/testdata.md` 为准。
 
 ### 3.2 Go 判题机（`apps/judge-engine`）
 
@@ -207,7 +207,7 @@ submission-service 7、judge-engine 约 17，另有契约、生成物与 e2e。
   `scripts/testdata_pack.py` 给一个放着成对 `.in/.out` 的目录写出 `testdata.json`，用于手工准备数据与后续 benchmark。
 - **全局文档必须同步**（至少）：`product.md`（见 §5.1）、`data-model.md`、`architecture.md`、`database-design.md`、
   `engine.md`（§5.2 数据布局、WORK-040 数据交付一节、`/judge` 请求示例）、`status.md`、
-  `apps/server/README.md`、`CONFIGURATION.md`、`judge.example.yaml`，以及 `docs/testdata-protocol.md` 的落地说明。
+  `apps/server/README.md`、`CONFIGURATION.md`、`judge.example.yaml`，以及 `docs/protocols/testdata.md` 的落地说明。
 
 ## 4. 分步计划
 

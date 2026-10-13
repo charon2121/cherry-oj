@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """WORK-002: isolated MySQL/Redis + five real Java services + production Compose Judge.
-Test data follows docs/testdata-protocol.md: problem-service writes a directory under <output>/problem-testdata, the judge
+Test data follows docs/protocols/testdata.md: problem-service writes a directory under <output>/problem-testdata, the judge
 container reads the same absolute path (read-only bind mount), and only the address crosses services.
 Run after Maven package and the local Judge image build (the sandbox executor is built into the judge image). Never uses the user's databases/volumes.
 --keep leaves the test stack alive until <output>/stop exists, for browser verification.

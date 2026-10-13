@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """给一个放着成对 .in/.out 的目录写出 testdata.json，使它成为符合测试数据协议的目录。
 
-协议见 docs/testdata-protocol.md。测试点顺序：名字能解析为整数的按数值升序，其余按字符串序排在后面。
+协议见 docs/protocols/testdata.md。测试点顺序：名字能解析为整数的按数值升序，其余按字符串序排在后面。
 不改动数据文件；已有 testdata.json 时拒绝覆盖，避免悄悄换掉线上正在读取的元数据。
 """
 

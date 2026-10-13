@@ -23,7 +23,7 @@ logging:
 judge:
   httpAddr: 127.0.0.1:5051
 
-  # 测试数据按协议（docs/testdata-protocol.md）读取：每次判题请求带一个地址（本地绝对路径或 http(s)），
+  # 测试数据按协议（docs/protocols/testdata.md）读取：每次判题请求带一个地址（本地绝对路径或 http(s)），
   # judge 读 <地址>/testdata.json，把数据复制到下面的 workRoot 并逐个核对 SHA-256，判完删除。
   # 数据本身不在配置里，这里只限定读取时能用多少资源。
   testdata:

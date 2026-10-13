@@ -4,7 +4,7 @@
 以 setuid-root 安装（`root:cherry-judge 4754`），只有 judge 所在的组能执行（执行层在 judge 进程内调用它）；其他人只能读（部署清单要核对它的摘要）。
 它不理解判题：编译、比对与 verdict 都在 judge。
 
-> **安装要求、调用协议、事实字段与实测行为的完整说明见 [`docs/sandbox-executor.md`](../../docs/sandbox-executor.md)。**
+> **安装要求、调用协议、事实字段与实测行为的完整说明见 [`docs/protocols/sandbox-executor.md`](../../docs/protocols/sandbox-executor.md)。**
 > 本文是目录内的简要说明，两者冲突时以那份为准。
 > 想直接调用，用 [`tools/sandbox_run.py`](./tools/sandbox_run.py)，一条命令即可。
 

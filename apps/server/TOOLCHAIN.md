@@ -100,7 +100,7 @@ judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J 与测试�
 它只连接 `cherry_oj_judging`，保存节点与租约、按「题目 × 语言」的标定（带标定时的测试数据指纹）、
 判题任务（含每次尝试实际读取的数据指纹）和审计；不读取 problem-service 数据库。
 
-测试数据不再由 Java 推送给节点：problem-service 按[测试数据协议](../../docs/testdata-protocol.md)写成目录，
+测试数据不再由 Java 推送给节点：problem-service 按[测试数据协议](../../docs/protocols/testdata.md)写成目录，
 judging-service 判题或标定时通过服务令牌向 problem-service 取题目此刻的地址与指纹，把地址交给任意在线、
 声明了该语言的节点，节点自己按地址读取。Java 不创建 Judge 数据目录，也不要求共享 Unix UID；
 节点需要能读到该地址（本地路径要挂载同一路径）。

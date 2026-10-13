@@ -25,7 +25,7 @@ var (
 	sha256Pattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
 
-// fileMetadata、testcaseMetadata、metadata 与 docs/testdata-protocol.md 的 testdata.json 一一对应。
+// fileMetadata、testcaseMetadata、metadata 与 docs/protocols/testdata.md 的 testdata.json 一一对应。
 type fileMetadata struct {
 	SizeBytes int64  `json:"sizeBytes"`
 	SHA256    string `json:"sha256"`

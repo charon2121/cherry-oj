@@ -4,7 +4,7 @@ import com.cherryoj.problemservice.api.TestDataDtos.Manifest;
 import java.io.InputStream;
 
 /**
- * 题目的测试数据目录，布局见 docs/testdata-protocol.md。
+ * 题目的测试数据目录，布局见 docs/protocols/testdata.md。
  *
  * 上传分两步：{@link #prepare} 校验 ZIP 并把内容写成以内容寻址的目录，此时没有任何题目地址指向它；
  * {@link #activate} 再让题目地址原子地切到它。这样慢的部分（读 ZIP、写文件）可以放在数据库事务之外，

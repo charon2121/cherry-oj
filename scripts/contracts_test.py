@@ -104,7 +104,7 @@ class ContractsTest(unittest.TestCase):
         testcase_result = definitions["TestcaseResult"]
 
         self.assertTrue({"problemId", "languageId"}.issubset(request["required"]))
-        # 测试数据靠地址交付（docs/testdata-protocol.md）；地址只在 submit 模式必填，所以不进 required。
+        # 测试数据靠地址交付（docs/protocols/testdata.md）；地址只在 submit 模式必填，所以不进 required。
         self.assertIn("testDataLocation", request["properties"])
         self.assertNotIn("testDataLocation", request["required"])
         self.assertIn("testDataDigest", result["properties"])

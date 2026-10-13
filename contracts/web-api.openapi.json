@@ -1087,7 +1087,7 @@
       "get": {
         "operationId": "getTestData",
         "summary": "读取题目当前的测试数据",
-        "description": "指纹、测试点数和文件清单来自测试数据目录里的 testdata.json（协议见 docs/testdata-protocol.md）；不暴露服务器上的目录地址。没有测试数据返回 404 TEST_DATA_NOT_FOUND。",
+        "description": "指纹、测试点数和文件清单来自测试数据目录里的 testdata.json（协议见 docs/protocols/testdata.md）；不暴露服务器上的目录地址。没有测试数据返回 404 TEST_DATA_NOT_FOUND。",
         "security": [
           {
             "cookieAuth": []

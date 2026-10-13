@@ -323,7 +323,7 @@ Java/Go 已接入统一 JSON 日志与 HTTP W3C Trace 传播，字段和按日�
 注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
 重试且不关闭健康入口；控制面租约过期后停止路由。
 
-测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./testdata-protocol.md)写出目录，judging-service
+测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./protocols/testdata.md)写出目录，judging-service
 判题时只把目录地址放进 `JudgeRequest.testDataLocation`，Go judge 自己读 `testdata.json`、复制并校验文件。
 没有安装接口、没有逐节点回执，节点重启也不需要重新交付数据。本地路径要求节点能读到同一个路径：
 Compose 用必填的 `CHERRY_TEST_DATA_ROOT` 按同一绝对路径只读挂载（`judge-testdata` 卷只是每次判题的私有工作目录）。

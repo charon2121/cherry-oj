@@ -71,7 +71,7 @@ type Settings struct {
 	Compile Compile `yaml:"compile"`
 }
 
-// Testdata 限定 judge 按测试数据协议（docs/testdata-protocol.md）读取数据时能用多少资源。
+// Testdata 限定 judge 按测试数据协议（docs/protocols/testdata.md）读取数据时能用多少资源。
 type Testdata struct {
 	// WorkRoot：每次判题把测试数据复制到它下面的一个子目录，判完删除。必须是本进程独占的目录，
 	// 启动时会清空上一个进程遗留的内容。

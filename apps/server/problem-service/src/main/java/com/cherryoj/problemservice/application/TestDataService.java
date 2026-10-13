@@ -25,7 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * 题目的测试数据：上传 ZIP 后按协议（docs/testdata-protocol.md）写成目录，数据库只记目录的地址。
+ * 题目的测试数据：上传 ZIP 后按协议（docs/protocols/testdata.md）写成目录，数据库只记目录的地址。
  * 数据的指纹、测试点数和文件清单都从地址下的 testdata.json 读，不在数据库里再存一份。
  */
 @Service

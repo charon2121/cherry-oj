@@ -3,7 +3,7 @@
 > **依据：** `apps/sandbox` 当前源码，以及 2026-10-10 在测试服务器（Ubuntu 24.04、内核 6.8、x86_64、节点 `cherry-linux-3`）
 > 上对已安装二进制的实测。本文是执行器的**接口真源**：以前这份约定只散落在 `apps/sandbox/README.md` 和源码注释里
 > （`engine.md` 里写的是「没有 schema」）。改动执行器的请求格式、事实字段、退出码或安装要求时，先改本文。
-> 设计动机和进程结构见 [engine.md §7](./engine.md)；这里只讲**怎么装、怎么调、怎么读结果**。
+> 设计动机和进程结构见 [engine.md §7](../engine.md)；这里只讲**怎么装、怎么调、怎么读结果**。
 
 ## 0. 快速使用
 
@@ -36,7 +36,7 @@ sudo python3 sandbox_run.py --put Main:Main:x --stdin in.txt --cpu 1s -- Main
 - 没有常驻进程、没有 socket、没有网络；谁要用它，谁就 `exec` 它。
 - 以 **setuid-root** 安装，只有一个系统组（judge 服务的组）能执行它。
 - **不理解判题。** 它不编译、不比对、不产生 verdict（AC/WA/TLE…）；它只报告「这条命令怎么结束的、用了多少资源」，
-  verdict 在 judge（Go）里由事实推出（见 §7）。
+  verdict 在 judge（Go）里由事实推出（见 §4.7）。
 - 一次调用只执行一条命令。「编译再运行」是调用方调用两次：第一次产出可执行文件作为**产物**，第二次把它作为**输入**。
 
 ```text
@@ -166,7 +166,7 @@ init_gid=61006
 
 - **单元不能设置 `NoNewPrivileges`，也不能设置会隐含它的选项**（`RestrictAddressFamilies`、`LockPersonality`、
   `ProtectKernel*`、`RestrictSUIDSGID`、`RestrictNamespaces` 等基于 seccomp 的硬化），否则 setuid 不生效；也不能设置
-  `ProtectControlGroups`（cgroupfs 必须可写）。这是已接受的代价，见 [engine.md](./engine.md) 与
+  `ProtectControlGroups`（cgroupfs 必须可写）。这是已接受的代价，见 [engine.md](../engine.md) 与
   `deploy/sandbox-linux/install/README.md`。
 - 为什么必须有 `CAP_KILL`：执行器意外死亡时，隔离环境的 PID 1 靠 `PDEATHSIG` 带着整个 namespace 退出；内核按普通 kill 的权限
   投递这个信号，发送方（root）与 init 身份不同，**没有 `CAP_KILL` 信号会被静默丢弃**，执行组就在无人监督下继续运行。
@@ -220,6 +220,15 @@ sandbox --box N
     0 1 2 …           第 i 个输入的内容，文件名是十进制序号，对应 spec 中第 i 条 input=
   out/              必须存在且为空。执行器把结果写进来
 ```
+
+**`stdin` 与 `in/<i>` 的区别：** 两者都只是「box 里的字节」，但进入隔离环境后的形态不同。`stdin` 成为用户程序的 **fd 0**，
+没有文件名（执行器先把它写成工作区里的 `.stdin`，打开后立刻删除名字）；`in/<i>` 成为 `/work` 下**有名字的文件**，名字和可执行位由
+spec 的 `input=` 决定。同一个编译产物跑很多测试点时，`in/` 不变，变的只有 `stdin`。两者共用 64 MiB 的合计预算。
+
+**`<boxes>/.lock`（不属于执行器）：** boxes 根目录下还有一个 `.lock` 文件，是 **judge** 启动时对整个 boxes 根加的独占锁，
+用来防止两个 judge 进程抢用同一批 box；执行器既不读它也不创建它。执行器自己的互斥是对 `<N>/` 目录加的 `flock`（上表「box N is busy」），
+锁在目录的文件描述符上，磁盘上没有对应文件。手工调用时（如 `sandbox_run.py`）不经过 judge，所以也不会碰 `.lock`；
+如果 judge 正在运行，不要手工使用它占着的 box。
 
 执行器是 root，却在读一个**由非 root 控制**的目录，所以对它的要求很严：
 
@@ -413,12 +422,41 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
 | 执行器进程被杀 | 隔离环境的 PID 1 因 `PDEATHSIG` 带着整个 namespace 退出 | 残留的组由该 box 下一次使用时清理 |
 | 回收未确认 | 退出码 2 | 调用方**停止接单**，缩小容量；不要复用该 box |
 
-## 8. 手工调用
+## 8. 版本与兼容
+
+- **事实 JSON 有 `version` 字段，目前恒为 1。** 调用方必须**拒绝** `version` 不是自己认识的值，也必须**拒绝未知字段**
+  （Go 调用方用 `DisallowUnknownFields`），并拒绝未知的 `reason`。这样执行器加了字段、调用方却没跟上时，会立刻在冒烟里失败，
+  而不是悄悄漏读。
+- **请求 `spec` 没有版本字段，靠键名约束。** 执行器遇到未知键、重复的单值键、缺少必需的键，一律拒绝（退出码 1）。
+- **受信配置没有版本字段**，同样靠键名：出现未知键即拒绝。
+- **兼容策略：** 执行器和 judge 装在同一个发布里，一起构建、一起升级，所以不承诺跨发布的向前或向后兼容。
+  改动请求键、事实字段、退出码含义或配置键时，必须在同一次改动里同时修改：`apps/sandbox/src`、
+  `apps/judge-engine/execution/backend`、`apps/sandbox/tools/sandbox_run.py`、本文，以及两端的测试。
+  需要不兼容地改事实格式时，把 `version` 加一，并让调用方只接受新版本。
+- **受影响的消费者：** judge 的 Go 后端（`executor.go`、`limits.go`）、人工调用工具 `sandbox_run.py`、部署核对与验证脚本
+  （`deploy/sandbox-linux/install/verify-*.py`）。
+
+## 9. 真源与实现
+
+本协议**没有机读 schema**，真源是本文档和下面的实现；两者不一致时，以执行器源码的行为为准，并立刻修正本文。
+
+| 部分 | 真源 | 实现与保证一致的测试 |
+|---|---|---|
+| 请求格式、上限、拒绝原因 | `apps/sandbox/src/spec.c`、`sandbox.h` | 写请求：`executor.go` 的 `writeRequest`、`limits.go` 的 `ValidPath`；Go 侧 `executor_test.go`；内核侧 `apps/sandbox/tests/run_tests.py` |
+| 事实 JSON 与退出码 | `apps/sandbox/src/main.c`（`print_facts`、`EXIT_*`）、`facts.c` | 读结果：`executor.go` 的 `parseResult`；`executor_test.go` 的 `TestExecutorRejectsMalformedFacts` 等 |
+| 受信配置 | `apps/sandbox/src/config.c` | 渲染：`deploy/sandbox-linux/install/render.py`；`render_test.py` |
+| box 目录与权限检查 | `apps/sandbox/src/box.c` | `run_tests.py`；节点冒烟 `verify-native.py` |
+| 隔离环境、计量、回收 | `child.c`、`supervise.c`、`cgroup.c`、`filter.c` | 只有真实内核上才能验证：`run_tests.py` 与 `verify-native.py` / `verify-faults.py` |
+| 手工调用工具 | `apps/sandbox/tools/sandbox_run.py` | `sandbox_run_test.py`（只覆盖参数解析、请求拼装与结论分类，不含内核行为） |
+
+日常 CI 只编译执行器；隔离、计量和回收只能在 Linux 上由上表最后两列的内核测试验证（见 §13）。
+
+## 10. 手工调用
 
 参考实现有两份，照着写即可：`apps/sandbox/tools/sandbox_run.py`（Python，约 300 行，见 `prepare_box`、`build_spec`、`run_executor`），
 以及生产用的 `apps/judge-engine/execution/backend/executor.go`（Go）。
 
-## 9. 实测记录（2026-10-10，`cherry-linux-3`）
+## 11. 实测记录（2026-10-10，`cherry-linux-3`）
 
 以下是在测试服务器上对安装好的执行器逐项实测的结果（`box_count=1`，1 GiB 内存的虚拟机）。单位：时间 ms，内存 MiB。
 
@@ -453,7 +491,7 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
 | 边界集缺 `CAP_KILL` | `capsh --drop=cap_kill` | 退出码 1：`CAP_KILL is required to reclaim the namespace if the executor dies` |
 | 结束后 | | `jobs/` 下没有残留的 `box-*` 组；box 目录可复位 |
 
-## 10. 注意事项
+## 12. 注意事项
 
 1. **stdin 必须是保持打开的管道**，否则要么一启动就被取消，要么根本没有取消能力（§4.5）。
 2. **每次调用前复位 box**；`out/` 非空会被拒。同一 box 不能并发。
@@ -466,19 +504,19 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
 9. 执行器不核对 rootfs 内容；rootfs 被篡改等于编译器被篡改，所以部署层的启动脚本必须在启动前按清单逐文件核对。
 10. 编译进二进制的配置路径是**安装契约**的一部分：换路径要重新编译，不能靠环境变量或参数。
 
-## 11. 测试
+## 13. 测试
 
 - `apps/sandbox/tests/run_tests.py`：在**真实 x86_64 Linux 内核**上、以 root 运行，覆盖隔离、计量、回收与拒绝路径。
   它会改动机器的用户、`/etc` 与 cgroup，**只能在一次性、独占的虚拟机上按需运行**。
 - `deploy/sandbox-linux/install/verify-native.py`、`verify-faults.py` 等：已安装节点的冒烟与崩溃恢复（用于测试服务器）。
 - 日常 CI 只**编译**执行器；编译通过不代表隔离、计量和回收已验证。
 
-## 12. 相关文档
+## 14. 相关文档
 
 | 文档 | 作用 |
 |---|---|
-| [`engine.md`](./engine.md) §7 | 执行器的设计动机、进程结构与取舍 |
-| [`apps/sandbox/README.md`](../apps/sandbox/README.md) | 执行器目录的简要说明 |
+| [`engine.md`](../engine.md) §7 | 执行器的设计动机、进程结构与取舍 |
+| [`apps/sandbox/README.md`](../../apps/sandbox/README.md) | 执行器目录的简要说明 |
 | `deploy/sandbox-linux/install/README.md` | 原生节点的安装、审核材料和回退 |
 | `deploy/sandbox-linux/rootfs/README.md` | rootfs 的构建与锁定 |
 | `apps/judge-engine/execution/backend/executor.go` | Go 调用方的参考实现 |
