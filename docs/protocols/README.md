@@ -44,6 +44,7 @@
 | 12 | 身份传递 | Gateway → 各业务服务 | 委派的内部 JWT；user-service 提供 JWKS 与 metadata | [`backend.md`](../backend.md) |
 | 13 | 服务间鉴权 | submission↔problem、submission↔judging、judging→submission、judging→problem | Bearer 服务令牌；发送方的值须属于接收方的列表 | [`apps/server/CONFIGURATION.md`](../../apps/server/CONFIGURATION.md) |
 | 14 | 部署配置格式 | 安装器 ↔ 执行器与 judge | `executor.conf`、`judge-start.json`、`deployment.json`（部署清单）、`plan.json` | [`deploy/sandbox-linux/install/README.md`](../../deploy/sandbox-linux/install/README.md) |
+| 15 | 安装布局 | 安装器、运维 ↔ 执行器与 judge | `/opt/cherry-oj` 的目录结构、属主、权限，以及家目录之外的系统位置 | [`install-layout.md`](./install-layout.md) |
 
 `contracts/` 里另有三份**数据模型与词表**，不是有两端的接口，但同样是跨服务的真源：
 [`submission.json`](../../contracts/submission.json)（用户可见的提交读模型）、
@@ -62,6 +63,6 @@
 
 ### 哪些没有机读 schema
 
-接口协议 1–9 有契约文件，测试可以机械地比对；**10–14 是文字约定**，靠文档和测试保证：其中 10（`testdata.json`）在 Go、Java、
+接口协议 1–9 有契约文件，测试可以机械地比对；**10–15 是文字约定**，靠文档和测试保证：其中 10（`testdata.json`）在 Go、Java、
 Python 里各有一份解析/校验实现，靠同一个黄金指纹的测试对齐；11 的请求不是 JSON，是 NUL 分隔的 `key=value` 记录（setuid 程序里少一个解析器就少一块攻击面）；
 12、13 的细节还分散在代码和配置说明里。新增或修改它们时，要同时更新对应的真源文档和所有实现方的测试。
