@@ -429,34 +429,16 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
   而不是悄悄漏读。
 - **请求 `spec` 没有版本字段，靠键名约束。** 执行器遇到未知键、重复的单值键、缺少必需的键，一律拒绝（退出码 1）。
 - **受信配置没有版本字段**，同样靠键名：出现未知键即拒绝。
-- **兼容策略：** 执行器和 judge 装在同一个发布里，一起构建、一起升级，所以不承诺跨发布的向前或向后兼容。
-  改动请求键、事实字段、退出码含义或配置键时，必须在同一次改动里同时修改：`apps/sandbox/src`、
-  `apps/judge-engine/execution/backend`、`apps/sandbox/tools/sandbox_run.py`、本文，以及两端的测试。
+- **兼容策略：** 执行器和调用方装在同一个发布里，一起构建、一起升级，所以不承诺跨发布的向前或向后兼容。
+  改动请求键、事实字段、退出码含义或配置键时，必须在同一次改动里同时修改执行器、所有调用方、本文和两端的测试。
   需要不兼容地改事实格式时，把 `version` 加一，并让调用方只接受新版本。
-- **受影响的消费者：** judge 的 Go 后端（`executor.go`、`limits.go`）、人工调用工具 `sandbox_run.py`、部署核对与验证脚本
-  （`deploy/sandbox-linux/install/verify-*.py`）。
+- **本协议没有机读 schema，本文档就是真源。** 实现与本文不一致时，先判断哪边错，再同时修正，不留两个说法。
 
-## 9. 真源与实现
+## 9. 手工调用
 
-本协议**没有机读 schema**，真源是本文档和下面的实现；两者不一致时，以执行器源码的行为为准，并立刻修正本文。
+要自己写调用方，按 §4 的协议做即可；人工调试用的 `apps/sandbox/tools/sandbox_run.py` 是一份短小的 Python 参考。
 
-| 部分 | 真源 | 实现与保证一致的测试 |
-|---|---|---|
-| 请求格式、上限、拒绝原因 | `apps/sandbox/src/spec.c`、`sandbox.h` | 写请求：`executor.go` 的 `writeRequest`、`limits.go` 的 `ValidPath`；Go 侧 `executor_test.go`；内核侧 `apps/sandbox/tests/run_tests.py` |
-| 事实 JSON 与退出码 | `apps/sandbox/src/main.c`（`print_facts`、`EXIT_*`）、`facts.c` | 读结果：`executor.go` 的 `parseResult`；`executor_test.go` 的 `TestExecutorRejectsMalformedFacts` 等 |
-| 受信配置 | `apps/sandbox/src/config.c` | 渲染：`deploy/sandbox-linux/install/render.py`；`render_test.py` |
-| box 目录与权限检查 | `apps/sandbox/src/box.c` | `run_tests.py`；节点冒烟 `verify-native.py` |
-| 隔离环境、计量、回收 | `child.c`、`supervise.c`、`cgroup.c`、`filter.c` | 只有真实内核上才能验证：`run_tests.py` 与 `verify-native.py` / `verify-faults.py` |
-| 手工调用工具 | `apps/sandbox/tools/sandbox_run.py` | `sandbox_run_test.py`（只覆盖参数解析、请求拼装与结论分类，不含内核行为） |
-
-日常 CI 只编译执行器；隔离、计量和回收只能在 Linux 上由上表最后两列的内核测试验证（见 §13）。
-
-## 10. 手工调用
-
-参考实现有两份，照着写即可：`apps/sandbox/tools/sandbox_run.py`（Python，约 300 行，见 `prepare_box`、`build_spec`、`run_executor`），
-以及生产用的 `apps/judge-engine/execution/backend/executor.go`（Go）。
-
-## 11. 实测记录（2026-10-10，`cherry-linux-3`）
+## 10. 实测记录（2026-10-10，`cherry-linux-3`）
 
 以下是在测试服务器上对安装好的执行器逐项实测的结果（`box_count=1`，1 GiB 内存的虚拟机）。单位：时间 ms，内存 MiB。
 
@@ -491,7 +473,7 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
 | 边界集缺 `CAP_KILL` | `capsh --drop=cap_kill` | 退出码 1：`CAP_KILL is required to reclaim the namespace if the executor dies` |
 | 结束后 | | `jobs/` 下没有残留的 `box-*` 组；box 目录可复位 |
 
-## 12. 注意事项
+## 11. 注意事项
 
 1. **stdin 必须是保持打开的管道**，否则要么一启动就被取消，要么根本没有取消能力（§4.5）。
 2. **每次调用前复位 box**；`out/` 非空会被拒。同一 box 不能并发。
@@ -504,14 +486,14 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
 9. 执行器不核对 rootfs 内容；rootfs 被篡改等于编译器被篡改，所以部署层的启动脚本必须在启动前按清单逐文件核对。
 10. 编译进二进制的配置路径是**安装契约**的一部分：换路径要重新编译，不能靠环境变量或参数。
 
-## 13. 测试
+## 12. 测试
 
 - `apps/sandbox/tests/run_tests.py`：在**真实 x86_64 Linux 内核**上、以 root 运行，覆盖隔离、计量、回收与拒绝路径。
   它会改动机器的用户、`/etc` 与 cgroup，**只能在一次性、独占的虚拟机上按需运行**。
 - `deploy/sandbox-linux/install/verify-native.py`、`verify-faults.py` 等：已安装节点的冒烟与崩溃恢复（用于测试服务器）。
 - 日常 CI 只**编译**执行器；编译通过不代表隔离、计量和回收已验证。
 
-## 14. 相关文档
+## 13. 相关文档
 
 | 文档 | 作用 |
 |---|---|
@@ -519,4 +501,3 @@ stderr 只在退出码非 0 时有内容；stdout 在退出码 0 时恰好一行
 | [`apps/sandbox/README.md`](../../apps/sandbox/README.md) | 执行器目录的简要说明 |
 | `deploy/sandbox-linux/install/README.md` | 原生节点的安装、审核材料和回退 |
 | `deploy/sandbox-linux/rootfs/README.md` | rootfs 的构建与锁定 |
-| `apps/judge-engine/execution/backend/executor.go` | Go 调用方的参考实现 |

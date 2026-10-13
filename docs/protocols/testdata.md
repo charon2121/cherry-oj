@@ -1,61 +1,59 @@
 # 测试数据协议
 
-> **状态：已确认（2026-10-07）。** 按用户安排先写在 `docs/`，后续再考虑迁入 `contracts/` 成为 JSON Schema。
-> 落地计划见[去版本化与测试数据协议设计](../../development/works/2026-10-07-remove-versions-testdata-protocol/design.md)。
+规定一道题的测试数据放在哪里、长什么样、谁写谁读。problem-service 写，judge 读，两端围绕**同一个地址**协作。
 
-本协议规定一份题目的测试数据放在哪里、长什么样、谁写谁读，让 problem-service（Java）、
-judging-service（Java）和 judge（Go）围绕**同一个地址**协作，不再各自维护一套交付机制。
+## 快速使用
+
+写入方：把成对的 `<名字>.in` / `<名字>.out` 放进一个目录，用仓库脚本生成元数据，再把目录发布到某个地址。
+
+```sh
+python3 scripts/testdata_pack.py /srv/cherry-oj/testdata/p-a-plus-b   # 在目录里写出 testdata.json
+```
+
+读取方：拿到地址后，先读 `<地址>/testdata.json`，再按它列出的文件取回并核对。judge 的请求里只带这一个地址（`testDataLocation`）。
 
 ## 术语
 
-**同一个东西只有一个名字**；大小写、下划线、连字符随各层惯例变（`testDataLocation`、`test_data_location`、`/test-data`、`testdata.json`
-是同一个词的不同写法），但词本身不换。
+同一个东西只有一个名字。大小写、下划线、连字符随各层惯例变，词本身不换。
 
-| 概念 | 英文名 | 中文名 | 例子 |
+| 概念 | 名称 | 中文 | 出现处 |
 |---|---|---|---|
-| 一道题的整套数据（一个目录） | **testdata**（写作 test data / testData / test_data / test-data） | 测试数据 | `testDataLocation`、`/test-data` 接口、`problem.test_data_location`、`testdata.json` |
-| 其中的一对 `<name>.in` / `<name>.out` | **testcase** | 测试点 | `testcases[]`、`testcaseResults`、`TestcaseSpec`、Go 包 `judge/testcase` |
-| 测试点的个数 | **testcaseCount** | 测试点数 | `testdata.json` 的 `testcaseCount`、提交结果的 `testcaseCount` |
-| 结果里测试点的通过/已执行个数 | **passedTestcaseCount** / **executedTestcaseCount** | 通过/已执行测试点数 | 提交详情、`JudgeCompleted` 事件 |
-| 整份数据的内容指纹 | **digest** | 指纹 | `testDataDigest`、`test_data_digest`、`testdata.json` 的 `digest` |
-| 数据目录的地址 | **location** | 地址 | `testDataLocation`、`test_data_location` |
+| 一道题的整套数据（一个目录） | testdata | 测试数据 | `testDataLocation`、`testdata.json` |
+| 其中的一对 `<name>.in` / `<name>.out` | testcase | 测试点 | `testcases[]`、`testcaseResults` |
+| 测试点个数 | testcaseCount | 测试点数 | `testdata.json`、判题结果 |
+| 整份数据的内容指纹 | digest | 指纹 | `testdata.json` 的 `digest`、`testDataDigest` |
+| 数据目录的地址 | location | 地址 | `testDataLocation` |
 
-一句话：**testdata 是一堆 testcase。** 不再使用「测例」「测试用例」「test case」「case」（作为 testcase 的简称）、「dataset」、
-「assets」等同义词；「摘要」另有所指（各种 summary），不用它指 digest。Go 包 `judge/testcase` 产出的是测试点（`Set`、`TestCase`），
-它读取的是整套 testdata；包名不能叫 `testdata`，因为 Go 工具链会忽略名为 `testdata` 的目录。
+testdata 是一堆 testcase。「摘要」不指 digest。
 
-## 1. 谁做什么
+## 1. 参与方
 
-```
-problem-service ── 按协议写出测试数据和 testdata.json，数据库里只存「地址」
-judging-service ── 判题时把地址作为参数，原样放进 POST /judge 请求
-judge（Go）     ── 读 <地址>/testdata.json，按它取回并校验测试数据，
-                   把每个测试点的输入交给执行器作为标准输入
-```
+| 角色 | 做什么 |
+|---|---|
+| problem-service（写入方） | 按本协议写出目录；数据库里只保存地址 |
+| judging-service | 判题时把地址原样放进 `POST /judge` 的请求 |
+| judge（读取方） | 读 `<地址>/testdata.json`，取回并核对数据，把每个测试点的 `.in` 作为标准输入交给执行器 |
 
-- 题目只有一份测试数据，没有版本号；改了就是改了。地址是它唯一的标识。
-- judge 不访问数据库，只认请求里的这一个地址。
-- 本文只规定数据与读取方式，不规定请求字段名和数据库列名，那些在写契约时定。
+- 一道题只有一份测试数据，没有版本号。地址是它唯一的标识。
+- judge 不访问数据库，只认请求里的地址。
 
 ## 2. 地址
 
-地址指向**一个目录**，有两种形式：
+地址指向**一个目录**：
 
-| 形式 | 例子 | 说明 |
+| 形式 | 例子 | 规则 |
 |---|---|---|
-| 本地路径 | `/srv/cherry-oj/testdata/p-a-plus-b` | 必须是绝对路径。只有 judge 与写入方共享同一个文件系统时才可用，主要用于开发和测试 |
-| HTTP(S) 地址 | `https://data.example/testdata/p-a-plus-b/` | 作为基地址，末尾没有 `/` 时补上。只需要支持对静态文件的 GET |
+| 本地路径 | `/srv/cherry-oj/testdata/p-a-plus-b` | 以 `/` 开头的绝对路径。读写双方必须共享同一个文件系统 |
+| HTTP(S) | `https://data.example/testdata/p-a-plus-b/` | 以 `http://` 或 `https://` 开头，作为基地址，末尾没有 `/` 时补上。只需支持对静态文件的 `GET` |
 
-以 `http://` 或 `https://` 开头的按 HTTP 处理；以 `/` 开头的按本地路径处理；其他一律拒绝。
-相对路径没有意义（judge 的工作目录不由写入方决定），所以不接受。
-
-目录里的内容都用相对名字访问：`<地址>/testdata.json`、`<地址>/<名字>.in`、`<地址>/<名字>.out`。
+其他形式（相对路径、其他协议）一律拒绝。目录里的内容用相对名字访问：
+`<地址>/testdata.json`、`<地址>/<名字>.in`、`<地址>/<名字>.out`。
 
 ## 3. 目录布局
 
 平铺，没有子目录：
 
-```
+```text
 <地址>/
 ├── testdata.json    元数据，最后写入
 ├── 1.in
@@ -85,63 +83,60 @@ judge（Go）     ── 读 <地址>/testdata.json，按它取回并校验测�
 
 | 字段 | 规则 |
 |---|---|
-| `schemaVersion` | 本协议格式的版本，目前固定为 `1`。它描述协议自己的演进，与题目版本无关 |
-| `testcaseCount` | 测试点个数，1–1000，必须等于 `testcases` 的长度 |
+| `schemaVersion` | 本格式的版本，固定为 `1` |
+| `testcaseCount` | 测试点个数，1–1000，等于 `testcases` 的长度 |
 | `totalBytes` | 所有 `.in` 与 `.out` 的字节数之和 |
-| `testcases` | **顺序就是判题顺序**，也是结果里测试点序号（从 1 起）的来源。不再由读取方按文件名推断顺序 |
-| `testcases[].name` | 匹配 `^[A-Za-z0-9][A-Za-z0-9._-]{0,123}$`，同一份数据内不重复。对应的文件固定为 `<name>.in` 与 `<name>.out`，不单独记录文件名 |
-| `sizeBytes`、`sha256` | 该文件的字节数与 SHA-256，读取方复制后必须逐个核对 |
-| `digest` | 整份数据的内容指纹：对每个测试点按 `testcases` 顺序依次生成两行 `"<sha256>  <name>.in\n"`、`"<sha256>  <name>.out\n"`，拼接后取 SHA-256。可以用 `sha256sum` 的输出格式复现 |
+| `testcases` | **顺序就是判题顺序**，也是结果里测试点序号（从 1 起）的来源 |
+| `testcases[].name` | 匹配 `^[A-Za-z0-9][A-Za-z0-9._-]{0,123}$`，同一份数据内不重复。文件固定为 `<name>.in` 与 `<name>.out` |
+| `sizeBytes` | 该文件的字节数，不为负 |
+| `sha256` | 该文件内容的 SHA-256，64 位小写十六进制 |
+| `digest` | 整份数据的指纹，见下 |
 
-`digest` 不是版本号，只用于完整性与缓存判断：内容一变它就变，读取方据此知道本地副本是否过期。
+`testdata.json` 不超过 1 MiB。读取方（judge）拒绝上表以外的字段和 JSON 之后的多余内容。
 
-写入方默认的顺序规则沿用现状：名字能解析为整数的按数值升序，其余按字符串序排在后面。
-这只是写入方的默认，读取方只认 `testcases` 里写明的顺序。
+### 指纹 `digest`
 
-## 5. judge 怎么读
+对每个测试点按 `testcases` 的顺序，依次生成两行：
 
-每次判题请求都按下面的顺序处理：
+```text
+<input sha256>  <name>.in
+<output sha256>  <name>.out
+```
 
-1. 读取 `<地址>/testdata.json`（不超过 1 MiB），检查结构、字段规则、`testcaseCount`、名字唯一，
-   以及 `totalBytes` 与各文件大小之和一致。
-2. 把每个测试点的 `.in`、`.out` 复制到 judge 自己的本地目录，核对大小与 SHA-256。
-   本地已有且 `digest` 相同的副本可以直接复用，缓存是优化，不是协议要求；协议只要求**每次判题都先读一次
-   `testdata.json`**。
-3. 复制并核对完成之后，才开始运行第一个测试点。此后写入方再改动这个地址，不影响本次判题。
-4. 运行每个测试点：`<name>.in` 作为执行器的**标准输入**；`<name>.out` 只用于比对，**不进入沙箱**。
+（两个空格，行尾换行。）把所有行拼接后取 SHA-256。可用 `sha256sum` 的输出格式复现。
+顺序是指纹的一部分，内容或顺序一变指纹就变。指纹只用于完整性与缓存判断，不是版本号。
 
-任何一步失败，整次判题给出 **SE（系统内部错误）**，并在日志里写明原因，**不会判其中一部分**：
-少判一个点会让错误的解拿到 AC，而结论里看不出来。
+## 5. 读取方的责任
+
+每次判题按以下顺序处理：
+
+1. 读 `<地址>/testdata.json`，检查结构、字段规则、`testcaseCount`、名字唯一、`totalBytes` 与各文件大小之和一致、`digest` 与重新计算的值一致。
+2. 把每个测试点的 `.in`、`.out` 复制到读取方自己的本地目录，核对大小与 SHA-256。
+   本地已有且 `digest` 相同的副本可以复用；缓存是优化，**每次判题仍必须先读一次 `testdata.json`**。
+3. 全部复制并核对完成之后，才开始运行第一个测试点。此后写入方再改动这个地址，不影响本次判题。
+4. 运行每个测试点：`<name>.in` 作为标准输入；`<name>.out` 只用于比对，**不进入沙箱**。
+
+**任何一步失败，整次判题给出 SE（系统内部错误）并记录原因，不判其中一部分。**
 
 | 情况 | 结果 |
 |---|---|
-| 地址格式不支持（相对路径、其他协议） | SE |
+| 地址格式不支持 | SE |
 | `testdata.json` 读不到、解析失败或不满足字段规则 | SE |
-| 文件缺失、大小或 SHA-256 与 `testdata.json` 不符，或读本地文件时操作系统报错 | 重新读取一次 `testdata.json` 并重试一次；仍失败则 SE |
-| 数据超过 judge 配置的单文件或总量上限 | SE |
+| 文件缺失，或大小、SHA-256 与 `testdata.json` 不符 | 重新读取 `testdata.json` 并重试一次；仍失败则 SE |
+| 数据超过读取方配置的单文件或总量上限 | SE（不重试） |
+| HTTP 返回非 200 | SE（`404` 视为文件缺失，按上一行处理；其他状态不重试） |
 
-重试一次是为了容忍读取恰好撞上写入方替换数据（macOS 上读取撞上符号链接被替换的瞬间偶尔会得到 `EINVAL`，Linux 上不会）；
-不做更多重试。大小上限、HTTP 状态码这类错误重试也不会好，不重试。请求缺少地址字段属于「请求本身不合法」，
-按既有规则返回 400，其余都是 HTTP 200 加 SE。
+请求缺少地址字段属于请求本身不合法，按请求校验规则返回 400；其余都是 HTTP 200 加 SE。
 
-## 6. 写入方（problem-service）要遵守的
+## 6. 写入方的责任
 
-- **先写数据文件，最后写 `testdata.json`。** `testdata.json` 是「这份数据已完整」的标记，读不到它就是未就绪。
-- **不要原地修改已经可读的目录。** 更新时先在同级写出一个完整的新目录，再整体替换旧目录
-  （本地用重命名，HTTP 由服务端保证）。地址保持不变，数据库里存的地址不用跟着改。
-- 测试数据的上传、校验与存储方式（ZIP、对象存储等）由 problem-service 自己决定，协议只规定最终落成的目录。
+- **先写数据文件，最后写 `testdata.json`。** 它是「这份数据已完整」的标记，读不到它就是未就绪。
+- **不原地修改已经可读的目录。** 更新时先在同级写出一个完整的新目录，再整体替换旧目录（本地用重命名，HTTP 由服务端保证）。地址保持不变。
+- 测试数据的上传、校验与存储方式由写入方自行决定，协议只规定最终落成的目录。
+- 测试点顺序由写入方决定并写进 `testcases`。`scripts/testdata_pack.py` 的默认顺序：名字能解析为整数的按数值升序，其余按字符串序排在后面。
 
-## 7. 取代了什么
+## 7. 版本与兼容
 
-| 原来 | 现在 |
-|---|---|
-| `testDataVersionId` 加节点本地目录 | 一个地址 |
-| 控制面调用节点的安装接口，节点返回会话绑定的回执 | judge 自己按地址读取，没有安装、回执和部署状态 |
-| judge 按文件名推断成对关系与顺序 | `testdata.json` 明确列出 |
-
-## 8. 不在本协议范围内
-
-- **安全。** 暂不作为约束。已知缺口：judge 会读取请求里给出的任何地址，没有路径或来源限制；
-  在需要时补充允许的根目录与 HTTP 源，并限制重定向。
-- 题目版本、草稿与发布状态、标定的失效规则。
-- 请求字段名、数据库列、HTTP 接口、前端展示。
+- 格式版本是 `schemaVersion`，目前只有 `1`。读取方遇到不认识的版本、未知字段或多余内容，一律拒绝。
+- 改动字段、校验规则或指纹算法，必须同时修改 problem-service、judge、`scripts/testdata_pack.py` 和相关测试，并升级 `schemaVersion`。
+- 不在本协议范围内：请求字段名、数据库列、HTTP 接口、前端展示、题目的发布状态；地址的来源限制（允许哪些根目录或 HTTP 源）。
