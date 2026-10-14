@@ -1,6 +1,6 @@
 """Translate the native verification scripts' actual assertions into required CI cases."""
 import re
-from native_resources import CAPS
+from native_resources import CAPS, INIT_UID, PAYLOAD_UID
 from results import json_lines, markers
 
 
@@ -10,7 +10,7 @@ def check(kind, path, deployment):
         if len(rows) != 1:
             raise ValueError('missing or duplicate native execution result')
         row = rows[0]
-        expected = dict(result='PASS', taskUIDs=[61002, 61006], capabilities=0, noNewPrivileges=1,
+        expected = dict(result='PASS', taskUIDs=[PAYLOAD_UID, INIT_UID], capabilities=0, noNewPrivileges=1,
                         namespaces=6, readOnlyMounts=3, verifiedLimits=16)
         if any(row.get(k) != v for k, v in expected.items()):
             raise ValueError('native isolation result incomplete')

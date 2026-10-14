@@ -12,6 +12,7 @@ import sys
 import time
 
 sys.path.insert(0, '/opt/cherry-oj/operations')
+import layout
 import manage
 
 GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
@@ -58,7 +59,8 @@ def task_processes():
     for path in Path('/proc').glob('[0-9]*/status'):
         try:
             uid = next(line.split()[1] for line in path.read_text().splitlines() if line.startswith('Uid:'))
-            if 61002 <= int(uid) <= 61009:  # payload 61002-61005，init 61006-61009
+            if layout.PAYLOAD_UID <= int(uid) < layout.PAYLOAD_UID + layout.MAX_PARALLELISM or \
+                    layout.INIT_UID <= int(uid) < layout.INIT_UID + layout.MAX_PARALLELISM:
                 result.append(int(path.parent.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
@@ -158,8 +160,10 @@ def main():
     recovered = trial('int main(){return 0;}')
     assert recovered['verdict'] == 'RAN', recovered
     assert not groups() and not task_processes()
-    assert sorted(p.name for p in BOXES.iterdir()) == ['.lock', '0']
-    assert not any(any((BOXES / '0' / sub).iterdir()) for sub in ('in', 'out'))
+    count = int(dict(line.split('=', 1) for line in (manage.ETC / 'executor.conf').read_text().splitlines()
+                     if '=' in line and not line.startswith('#'))['box_count'])
+    assert sorted(p.name for p in BOXES.iterdir()) == sorted(['.lock', *map(str, range(count))])
+    assert not any(any((BOXES / str(n) / sub).iterdir()) for n in range(count) for sub in ('in', 'out'))
     assert {p.name for p in BLOBS.iterdir()} == before
     print(json.dumps(dict(test=args.case, result='PASS', killedPID=killed, observedPayload=payload,
                           requestOutcome=outcome, cleanupSeconds=round(cleanup_seconds, 3),

@@ -43,7 +43,7 @@ sudo python3 apps/sandbox/tools/sandbox_run.py --put Main:Main:x --stdin in.txt 
 sandbox --box N
 ```
 
-- 只有这一种形式。`N` 是整数，`0 ≤ N < box_count`（`box_count` 为 1–4）。
+- 只有这一种形式。`N` 是整数，`0 ≤ N < box_count`；超出范围拒绝。
 - 真实 uid 必须是服务身份或 root。执行器必须以 setuid-root 安装，且只有服务组可执行。
 - **stdin 必须是管道，并在整个执行期间保持写端打开**（取消协议，§6）。
 - 执行器不信任调用方的进程环境：清空环境变量、`umask 077`、关闭 0/1/2 以外的 fd。调用方以空环境启动它即可。
@@ -60,12 +60,13 @@ sandbox --box N
 | `rootfs` | 只读根文件系统目录；须预建 `work`、`tmp`、`proc`、`dev`、`.oldroot`，且不是符号链接 |
 | `boxes` | box 根目录，属于服务身份 |
 | `cgroup` | 委派给服务的 cgroup v2 子树，已启用 `cpu memory pids` |
-| `box_count` | box 数量，1–4，也是最大并发执行数 |
+| `box_count` | 同时执行的数量，1–256，由配置决定；每个 box 对应一个编号 N，同一时刻最多 `box_count` 个执行 |
 | `service_uid` / `service_gid` | 服务身份 |
 | `payload_uid` / `payload_gid` | 基数；box N 的用户程序身份是「基数 + N」 |
 | `init_uid` / `init_gid` | 基数；box N 的隔离环境 init 身份是「基数 + N」 |
 
 - uid/gid 为正整数；服务、payload、init 三类身份互不重叠，都不是 root。
+- payload 和 init 各需要 `box_count` 个连续身份（基数 + 0 … 基数 + `box_count` − 1），配置时要保证这两段不越界、不互相重叠。
 - 路径以 `/` 开头，不含 `//`、`/./`、`/../`。
 - 文件和账号的安装位置、属主和权限见[安装布局协议](./install-layout.md)。
 - 命令按**裸名称**在 `/work`、`/usr/bin`、`/bin` 中依次解析，请求里的 `PATH` 不参与。

@@ -16,7 +16,7 @@ class DeploymentTests(unittest.TestCase):
             render(root,'work048-linux-v1','cherry-linux-1','http://127.0.0.1:18084',
                    'http://127.0.0.1:15051','a'*64)
             plan=json.loads((root/'plan.json').read_text())
-            self.assertEqual(len(set(plan['accounts'].values())),9)
+            self.assertEqual(len(set(plan['accounts'].values())),3)
             self.assertFalse(plan['startAutomatically'])
             self.assertFalse(plan['reboot'])
             executor=dict(line.split('=',1) for line in (root/'executor.conf').read_text().splitlines())
@@ -90,6 +90,35 @@ class DeploymentTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 manage.operate('start')
         self.assertEqual(commands[-1],('systemctl','stop',*reversed(manage.UNITS[1:])))
+
+    def test_parallelism_sets_box_count_judge_parallelism_and_account_count(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'review'
+            render(root,'work048-linux-v1','cherry-linux-1','http://127.0.0.1:18084',
+                   'http://127.0.0.1:15051','a'*64,parallelism=3)
+            plan=json.loads((root/'plan.json').read_text())
+            executor=dict(line.split('=',1) for line in (root/'executor.conf').read_text().splitlines())
+            judge=json.loads((root/'judge.json').read_text())
+            self.assertEqual(plan['parallelism'],3)
+            self.assertEqual(int(executor['box_count']),3)
+            self.assertEqual(judge['execution']['parallelism'],3)
+            # 1 个服务账号 + 每个 box 一个 payload 和一个 init。
+            self.assertEqual(len(plan['accounts']),1+2*3)
+            self.assertEqual(plan['accounts']['cherry-payload-2'],int(executor['payload_uid'])+2)
+            self.assertEqual(plan['accounts']['cherry-init-2'],int(executor['init_uid'])+2)
+        for bad in (0,257,True):
+            with tempfile.TemporaryDirectory() as temp:
+                with self.assertRaises(ValueError):
+                    render(Path(temp)/'review','work048-linux-v1','cherry-linux-1','http://127.0.0.1:18084',
+                           'http://127.0.0.1:15051','a'*64,parallelism=bad)
+
+    def test_max_parallelism_keeps_identity_ranges_apart(self):
+        from layout import INIT_UID, JUDGE_UID, MAX_PARALLELISM, PAYLOAD_UID, accounts
+        values=list(accounts(MAX_PARALLELISM).values())
+        self.assertEqual(len(set(values)),len(values))
+        self.assertEqual(len(values),1+2*MAX_PARALLELISM)
+        self.assertLessEqual(PAYLOAD_UID+MAX_PARALLELISM,INIT_UID)
+        self.assertNotIn(JUDGE_UID,range(PAYLOAD_UID,INIT_UID+MAX_PARALLELISM))
 
     def test_uninstall_preserves_data_and_accounts(self):
         with tempfile.TemporaryDirectory() as temp:

@@ -78,8 +78,8 @@ static int validate(const struct config *c, char *err, size_t errlen) {
         set_error(err, errlen, "config: rootfs, boxes and cgroup are required");
         return -1;
     }
-    if (c->box_count < 1 || c->box_count > 4) {
-        set_error(err, errlen, "config: box_count must be 1 to 4");
+    if (c->box_count < 1 || c->box_count > MAX_BOX_COUNT) {
+        set_error(err, errlen, "config: box_count must be 1 to %d", MAX_BOX_COUNT);
         return -1;
     }
     int n = c->box_count;
@@ -140,7 +140,7 @@ int config_load(const char *path, struct config *c, char *err, size_t errlen) {
         else if (!strcmp(k, "cgroup"))
             rc = set_path(c->cgroup, sizeof c->cgroup, v);
         else if (!strcmp(k, "box_count"))
-            rc = parse_id(v, 4, &n), c->box_count = (int)n;
+            rc = parse_id(v, MAX_BOX_COUNT, &n), c->box_count = (int)n;
         else if (!strcmp(k, "service_uid"))
             rc = parse_id(v, 0xfffffff0, &n), c->service_uid = (uid_t)n;
         else if (!strcmp(k, "service_gid"))

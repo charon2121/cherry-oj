@@ -62,6 +62,8 @@ struct config {
     gid_t init_gid;
     int box_count;
 };
+// box_count 的上限；与 judge 的 execution.parallelism 上限一致。
+#define MAX_BOX_COUNT 256
 int config_load(const char *path, struct config *c, char *err, size_t errlen);
 
 // ---- 请求 ----

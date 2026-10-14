@@ -8,8 +8,8 @@
 |---|---|
 | 节点ID / 发布目录 | cherry-linux-2 / work048-linux-v1（同一二进制/rootfs，权限清单已收敛） |
 | judge账号 | cherry-judge，UID/GID61010；控制面token仅root与此组可读；也是执行器受信配置里的服务身份 |
-| 预留box账号 | cherry-payload-0～3：61002～61005；cherry-init-0～3：61006～61009（box N 取基数加 N），均nologin、无home |
-| 并发 / 队列 | 1 / 4；预留身份不代表启用4并发 |
+| box账号 | 按并发数创建：cherry-payload-N 从 61100 起，cherry-init-N 从 61400 起（box N 取基数加 N），各留 256 个编号；均nologin、无home |
+| 并发 / 队列 | `render.py --parallelism N`（1～256，默认 1）/ 4；并发数同时决定执行器的 `box_count`、judge 的 `parallelism` 和创建的账号数 |；总限制不随并发数改变
 | 家目录 | **`/opt/cherry-oj`**：本项目在节点上的全部持久文件都在这里，卸载清理只看这一处。例外只有 systemd 单元（`/etc/systemd/system`）与 cgroup（按 cgroup v2 的位置） |
 | 目录布局 | `etc/` 配置（root 所有）、`releases/<版本>/` 与 `current` 链接、`judge/{boxes,blobs,testdata,logs}`（服务用户所有，工作区）、`operations/` 运维脚本、`installation.json` 回执 |
 | 单元 | cherry-sandbox.slice、cherry-sandbox-judge.service（执行层在 judge 进程内，WORK-061） |

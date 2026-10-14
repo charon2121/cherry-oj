@@ -8,6 +8,10 @@ import unittest
 from unittest.mock import patch
 
 import manage
+from layout import accounts
+
+
+ACCOUNTS = accounts(2)
 
 
 class RestoreTests(unittest.TestCase):
@@ -27,9 +31,9 @@ class RestoreTests(unittest.TestCase):
         self.stack.enter_context(patch.object(manage, 'protected'))
         self.stack.enter_context(patch.object(manage, 'run', side_effect=self.command))
         self.account = self.stack.enter_context(patch.object(manage.pwd, 'getpwnam',
-            side_effect=lambda name: SimpleNamespace(pw_uid=manage.ACCOUNTS[name], pw_gid=manage.ACCOUNTS[name])))
+            side_effect=lambda name: SimpleNamespace(pw_uid=ACCOUNTS[name], pw_gid=ACCOUNTS[name])))
         self.stack.enter_context(patch.object(manage.grp, 'getgrnam',
-            side_effect=lambda name: SimpleNamespace(gr_gid=manage.ACCOUNTS[name])))
+            side_effect=lambda name: SimpleNamespace(gr_gid=ACCOUNTS[name])))
         retained = self.state / 'data'
         retained.write_text('retained user data')
         records = {str(retained): manage.digest(retained)}
@@ -37,7 +41,8 @@ class RestoreTests(unittest.TestCase):
             path = self.units / name
             path.write_text('original unit ' + name)
             records[str(path)] = manage.digest(path)
-        self.original = dict(version=1, status='stopped', files=records)
+        self.original = dict(version=1, status='stopped', files=records,
+                             accounts={name: {'uid': uid} for name, uid in ACCOUNTS.items()})
         manage.write_json(self.receipt, self.original)
         manage.backup_units(self.original)
         for name in manage.UNITS:

@@ -7,7 +7,7 @@ import re
 import shutil
 from urllib.parse import urlsplit
 
-from layout import (ACCOUNTS, BLOBS_ROOT, BOXES_ROOT, BUDGETS, ETC, EXECUTOR, GROUP, INIT_UID, JUDGE_DATA,
+from layout import (accounts, BLOBS_ROOT, BOXES_ROOT, BUDGETS, ETC, EXECUTOR, GROUP, INIT_UID, JUDGE_DATA,
                     JUDGE_GROUP, JUDGE_UID, JUDGE_UNIT, PAYLOAD_UID, STATE, UNITS)
 
 
@@ -28,7 +28,7 @@ def origin(value):
     return value
 
 
-def render(output, release, node_id, control_url, advertise_url, manifest_hash):
+def render(output, release, node_id, control_url, advertise_url, manifest_hash, parallelism=1):
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}', release):
         raise ValueError('invalid release')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}', node_id):
@@ -36,6 +36,7 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
     if not re.fullmatch('[0-9a-f]{64}', manifest_hash):
         raise ValueError('rootfs manifest SHA256 required')
     control_url, advertise_url = origin(control_url), origin(advertise_url)
+    node_accounts = accounts(parallelism)
     output.mkdir(mode=0o700)
     source = Path(__file__).resolve().parent
     for name in UNITS:
@@ -43,8 +44,7 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
     for name in ('judge-start.py', 'health.py'):
         shutil.copyfile(source / name, output / name)
     root = STATE / 'releases' / release
-    # 每次执行占用一个 box；执行层的并发数与执行器的 box 数从这一个值渲染，不能各写各的。
-    parallelism = 1
+    # 每次执行占用一个 box；执行层的并发数与执行器的 box 数从 parallelism 这一个值渲染，不能各写各的。
     executor = '\n'.join([
         'rootfs=' + str(root / 'rootfs'), 'boxes=' + str(BOXES_ROOT), 'cgroup=' + JUDGE_GROUP + '/jobs',
         'box_count=' + str(parallelism), f'service_uid={JUDGE_UID}', f'service_gid={JUDGE_UID}',
@@ -73,8 +73,8 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash):
                                   maxEntries=128, retention='1h')))
     write_json(output/'judge-start.json', start)
     write_json(output/'judge.json', judge, 0o600)
-    write_json(output/'plan.json', dict(version=1, release=release, nodeID=node_id,
-        accounts=ACCOUNTS, units=list(UNITS), rootfsSHA256=manifest_hash,
+    write_json(output/'plan.json', dict(version=1, release=release, nodeID=node_id, parallelism=parallelism,
+        accounts=node_accounts, units=list(UNITS), rootfsSHA256=manifest_hash,
         directories=[str(STATE)],
         controlURL=control_url, advertiseURL=advertise_url,
         startAutomatically=False, deleteUserData=False, reboot=False))
@@ -100,8 +100,9 @@ def main():
     parser.add_argument('--control-url', required=True)
     parser.add_argument('--advertise-url', required=True)
     parser.add_argument('--manifest-sha256', required=True)
+    parser.add_argument('--parallelism', type=int, default=1, help='同时执行的数量，1 到 256')
     args=parser.parse_args()
-    render(args.output,args.release,args.node_id,args.control_url,args.advertise_url,args.manifest_sha256)
+    render(args.output,args.release,args.node_id,args.control_url,args.advertise_url,args.manifest_sha256,args.parallelism)
     print('Rendered reviewable plan; no accounts, system files or services changed.')
 
 

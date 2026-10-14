@@ -44,7 +44,7 @@ setuid 取得的能力不超过调用方（judge 服务单元）的能力边界�
 | `rootfs` | 只读根文件系统，需预建 `work`、`tmp`、`proc`、`dev`、`.oldroot` 目录 |
 | `boxes` | box 根目录，属于服务身份 |
 | `cgroup` | 委派给服务的 jobs 子树，已启用 cpu、memory、pids |
-| `box_count` | box 数量，1 到 4 |
+| `box_count` | 同时执行的数量，1 到 256，由配置决定 |
 | `service_uid` / `service_gid` | 调用方身份 |
 | `payload_uid` / `payload_gid` | box N 的用户程序身份为基数加 N |
 | `init_uid` / `init_gid` | box N 的 init 身份为基数加 N |

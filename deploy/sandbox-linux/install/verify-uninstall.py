@@ -12,7 +12,7 @@ import manage
 
 def main():
     before = manage.owned()
-    identities = {name: tuple(pwd.getpwnam(name)) for name in manage.ACCOUNTS}
+    identities = {name: tuple(pwd.getpwnam(name)) for name in before['accounts']}
     manifest_hash = manage.digest(manage.ETC / 'deployment.json')
     sentinel = manage.STATE / 'judge/.work048-uninstall-retention'
     with sentinel.open('xb') as stream:
@@ -29,7 +29,7 @@ def main():
         for path, expected in before['files'].items():
             if path not in {str(manage.SYSTEMD / name) for name in manage.UNITS}:
                 assert manage.digest(Path(path)) == expected, path
-        assert {name: tuple(pwd.getpwnam(name)) for name in manage.ACCOUNTS} == identities
+        assert {name: tuple(pwd.getpwnam(name)) for name in before['accounts']} == identities
         assert sentinel.stat().st_ino == inode and manage.digest(sentinel) == sentinel_hash
         print('PASS: only recorded units removed; accounts, configurations and test data retained.', flush=True)
     finally:

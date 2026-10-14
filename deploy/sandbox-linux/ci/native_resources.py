@@ -14,7 +14,10 @@ from owned import BASE, Owned, github_vm
 from report import ROOT, digest, read_json
 
 sys.path.append(str(ROOT / 'deploy/sandbox-linux/install'))
-from layout import ACCOUNTS, BUDGETS, ETC, GROUP, STATE, UNITS
+from layout import accounts, BUDGETS, ETC, GROUP, INIT_UID, PAYLOAD_UID, STATE, UNITS
+
+# 业务 CI 以默认的并发数 1 安装。
+ACCOUNTS = accounts(1)
 
 SYSTEMD = Path('/etc/systemd/system')
 DROPINS = Path('/run/systemd/system/cherry-sandbox-judge.service.d')

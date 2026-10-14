@@ -14,7 +14,7 @@ import socket
 import subprocess
 import sys
 
-from layout import ACCOUNTS, ETC, EXECUTOR, GROUP, JUDGE_DATA, JUDGE_UID, JUDGE_UNIT, STATE, UNITS
+from layout import accounts, ETC, EXECUTOR, GROUP, JUDGE_DATA, JUDGE_UID, JUDGE_UNIT, STATE, UNITS
 from render import write_json
 
 RECEIPT = STATE/'installation.json'
@@ -77,7 +77,7 @@ def preflight(plan, source):
     for port in (15051,):
         with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as listener:
             listener.bind(('127.0.0.1',port))
-    for name, uid in ACCOUNTS.items():
+    for name, uid in plan['accounts'].items():
         for lookup, key in ((pwd.getpwnam,name),(pwd.getpwuid,uid),(grp.getgrnam,name),(grp.getgrgid,uid)):
             try:
                 lookup(key)
@@ -92,7 +92,7 @@ def preflight(plan, source):
         except (FileNotFoundError, ProcessLookupError):
             continue
         for row in rows:
-            if row.startswith(('Uid:','Gid:')) and set(map(int,row.split()[1:])) & set(ACCOUNTS.values()):
+            if row.startswith(('Uid:','Gid:')) and set(map(int,row.split()[1:])) & set(plan['accounts'].values()):
                 raise ValueError('reserved identity still has processes')
     for name in ('bin/judge','libexec/sandbox'):
         regular(source/name)
@@ -110,7 +110,7 @@ def preflight(plan, source):
 
 def install(review, source, token_file):
     plan=json.loads((review/'plan.json').read_text())
-    if (plan.get('version') != 1 or plan.get('accounts') != ACCOUNTS or
+    if (plan.get('version') != 1 or plan.get('accounts') != accounts(plan.get('parallelism')) or
             plan.get('units') != list(UNITS) or plan.get('startAutomatically') is not False):
         raise ValueError('review plan does not match installer')
     release=plan['release']
@@ -131,7 +131,7 @@ def install(review, source, token_file):
     receipt=dict(version=1, status='installing', release=release, accounts={}, files={}, enabled=False)
     write_json(RECEIPT,receipt,0o600)
     # Failures intentionally keep the audit and partial installation for inspection.
-    for name, uid in ACCOUNTS.items():
+    for name, uid in plan['accounts'].items():
         run('groupadd','--gid',str(uid),name)
         receipt['accounts'][name]={'uid':uid,'groupCreated':True,'userCreated':False}
         write_json(RECEIPT,receipt,0o600)
@@ -239,7 +239,8 @@ def restore():
     receipt=owned(allow_uninstalled=True)
     if receipt['status']!='uninstalled':
         raise ValueError('restore requires an uninstalled receipt')
-    for name,uid in ACCOUNTS.items():
+    for name,item in receipt['accounts'].items():
+        uid=item['uid']
         account=pwd.getpwnam(name)
         if account.pw_uid!=uid or account.pw_gid!=uid or grp.getgrnam(name).gr_gid!=uid:
             raise ValueError('reserved account changed: '+name)

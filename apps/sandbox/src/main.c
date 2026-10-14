@@ -48,8 +48,8 @@ static int parse_box(int argc, char **argv) {
         refuse(EXIT_REFUSED, "usage: sandbox --box N");
     char *end;
     long n = strtol(argv[2], &end, 10);
-    if (*argv[2] == 0 || *end || n < 0 || n > 3)
-        refuse(EXIT_REFUSED, "box must be an integer 0..3");
+    if (*argv[2] == 0 || *end || n < 0 || n >= MAX_BOX_COUNT)
+        refuse(EXIT_REFUSED, "box must be a non-negative integer below the limit");
     return (int)n;
 }
 

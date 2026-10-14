@@ -9,12 +9,18 @@ UNITS = ('cherry-sandbox.slice', 'cherry-sandbox-judge.service')
 JUDGE_UNIT = 'cherry-sandbox-judge.service'
 # judge 在本进程内调用 setuid 执行器，它的身份就是执行器受信配置里的服务身份。
 JUDGE_UID = 61010
-# 执行器按「基数 + box 序号」分配身份：payload 与 init 各占一段连续编号，box 最多 4 个。
-BOXES = 4
-ACCOUNTS = {'cherry-judge': JUDGE_UID,
-            **{'cherry-payload-' + str(i): 61002 + i for i in range(BOXES)},
-            **{'cherry-init-' + str(i): 61006 + i for i in range(BOXES)}}
-PAYLOAD_UID, INIT_UID = 61002, 61006
+# 执行器按「基数 + box 序号」分配身份：payload 与 init 各占一段连续编号。
+# 两段各留 MAX_PARALLELISM 个编号，所以并发数改变时基数不变；实际只创建 parallelism 个账号。
+MAX_PARALLELISM = 256
+PAYLOAD_UID, INIT_UID = 61100, 61400
+
+
+def accounts(parallelism):
+    if not isinstance(parallelism, int) or isinstance(parallelism, bool) or not 1 <= parallelism <= MAX_PARALLELISM:
+        raise ValueError(f'parallelism must be an integer from 1 to {MAX_PARALLELISM}')
+    return {'cherry-judge': JUDGE_UID,
+            **{'cherry-payload-' + str(i): PAYLOAD_UID + i for i in range(parallelism)},
+            **{'cherry-init-' + str(i): INIT_UID + i for i in range(parallelism)}}
 GROUP = '/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice'
 JUDGE_GROUP = GROUP + '/' + JUDGE_UNIT
 # 执行器（setuid-root）与 judge 装在同一个 release 里。

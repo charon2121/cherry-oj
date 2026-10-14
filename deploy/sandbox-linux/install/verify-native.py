@@ -6,13 +6,17 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
+
+sys.path.insert(0,'/opt/cherry-oj/operations')
+import layout
 
 GROUP=Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
 JOBS=GROUP/'cherry-sandbox-judge.service/jobs'
 BOXES=Path('/opt/cherry-oj/judge/boxes')
 CAPS=('CapInh','CapPrm','CapEff','CapBnd','CapAmb')
-PAYLOAD,INIT=61002,61006
+PAYLOAD,INIT=layout.PAYLOAD_UID,layout.INIT_UID
 # judge 自身没有任何有效能力；边界集只为它调用的 setuid 执行器保留 8 项：
 # CHOWN、DAC_OVERRIDE、KILL、SETGID、SETUID、SETPCAP、SYS_ADMIN、MKNOD。
 EXECUTOR_BOUNDING=(1<<0)|(1<<1)|(1<<5)|(1<<6)|(1<<7)|(1<<8)|(1<<21)|(1<<27)
@@ -47,16 +51,23 @@ def service_credentials(values):
     assert all(int(values[k],16)==0 for k in CAPS if k!='CapBnd')
     assert int(values['CapBnd'],16)==EXECUTOR_BOUNDING,values['CapBnd']
 
+def box_count():
+    config=dict(line.split('=',1) for line in Path('/opt/cherry-oj/etc/executor.conf').read_text().splitlines()
+                if '=' in line and not line.startswith('#'))
+    return int(config['box_count'])
+
+
 def clean():
     assert not [p for p in JOBS.iterdir() if p.is_dir()]
     # 每次交付之后 box 只剩空的 in/ 与 out/。
-    assert sorted(p.name for p in BOXES.iterdir())==['.lock','0']
-    assert sorted(p.name for p in (BOXES/'0').iterdir())==['in','out']
-    assert not any(any((BOXES/'0'/sub).iterdir()) for sub in ('in','out'))
+    assert sorted(p.name for p in BOXES.iterdir())==sorted(['.lock',*map(str,range(box_count()))])
+    for n in range(box_count()):
+        assert sorted(p.name for p in (BOXES/str(n)).iterdir())==['in','out']
+        assert not any(any((BOXES/str(n)/sub).iterdir()) for sub in ('in','out'))
     for proc in Path('/proc').glob('[0-9]*/status'):
         try:values=status(proc)
         except (FileNotFoundError,ProcessLookupError):continue
-        assert not set(map(int,values['Uid'].split())) & set(range(PAYLOAD,INIT+4)),proc
+        assert not set(map(int,values['Uid'].split())) & (set(range(PAYLOAD,PAYLOAD+layout.MAX_PARALLELISM))|set(range(INIT,INIT+layout.MAX_PARALLELISM))),proc
 
 def main():
     assert os.geteuid()==0

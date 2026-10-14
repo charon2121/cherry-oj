@@ -55,13 +55,14 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 
 ### 账号
 
-均为不可登录、没有家目录的系统账号，uid 与 gid 同号。
+均为不可登录、没有家目录的系统账号，uid 与 gid 同号。账号数量由安装时的**并发数** N 决定（1–256，即执行器的 `box_count`、judge 的 `parallelism`）：
+服务账号 1 个，payload 和 init 各 N 个。基数固定，两段各预留 256 个编号，所以改变并发数不会改变基数。
 
 | 账号 | uid | 用途 |
 |---|---|---|
 | `cherry-judge` | 61010 | judge 服务身份；拥有 `judge/`；是执行器的服务身份 |
-| `cherry-payload-0` … `-3` | 61002 … 61005 | box N 里用户程序的身份 |
-| `cherry-init-0` … `-3` | 61006 … 61009 | box N 里隔离环境 init 的身份 |
+| `cherry-payload-0` … `-<N-1>` | 61100 + 序号 | box 序号里用户程序的身份，最大 61355 |
+| `cherry-init-0` … `-<N-1>` | 61400 + 序号 | box 序号里隔离环境 init 的身份，最大 61655 |
 
 ## 3. 规则
 

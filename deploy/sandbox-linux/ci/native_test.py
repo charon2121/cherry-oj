@@ -10,6 +10,7 @@ import native_control as control
 import native
 import native_resources as resources
 import native_results as results
+from native_resources import INIT_UID, PAYLOAD_UID
 
 
 class NativeEvidenceTest(unittest.TestCase):
@@ -66,7 +67,7 @@ class NativeEvidenceTest(unittest.TestCase):
             results.check('kill-executor', self.log, 'new')
 
     def test_native_requires_thread_and_resource_observations(self):
-        row = dict(result='PASS', taskUIDs=[61002, 61006], capabilities=0, noNewPrivileges=1, namespaces=6,
+        row = dict(result='PASS', taskUIDs=[PAYLOAD_UID, INIT_UID], capabilities=0, noNewPrivileges=1, namespaces=6,
                    readOnlyMounts=3, verifiedLimits=16, taskThreads=2, serviceThreads={'cherry-sandbox-judge': 5},
                    runCpuNs=1, runMemoryBytes=1)
         def check(value):

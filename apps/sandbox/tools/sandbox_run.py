@@ -32,7 +32,7 @@ WORKSPACE_PATH = re.compile(rf"{PATH_SEGMENT}(/{PATH_SEGMENT}){{0,7}}")
 COMMAND_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}")
 ENV_ASSIGNMENT = re.compile(r"[^=\0]+=[^\0]*")
 
-MAX_BOX_INDEX = 3
+MAX_BOX_INDEX = 255  # 与执行器的 box_count 上限（256）一致
 
 # 执行器只跑在 Linux x86_64 上；信号名用固定表，不随本工具所在系统变化。
 LINUX_SIGNALS = {1: "SIGHUP", 2: "SIGINT", 3: "SIGQUIT", 4: "SIGILL", 6: "SIGABRT", 7: "SIGBUS", 8: "SIGFPE",
