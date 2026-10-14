@@ -11,7 +11,7 @@ def check(kind, path, deployment):
             raise ValueError('missing or duplicate native execution result')
         row = rows[0]
         expected = dict(result='PASS', taskUIDs=[PAYLOAD_UID, INIT_UID], capabilities=0, noNewPrivileges=1,
-                        namespaces=6, readOnlyMounts=3, verifiedLimits=16)
+                        namespaces=6, readOnlyMounts=3)
         if any(row.get(k) != v for k, v in expected.items()):
             raise ValueError('native isolation result incomplete')
         if row['taskThreads'] <= 0 or set(row['serviceThreads']) != {'cherry-sandbox-judge'} or any(v <= 0 for v in row['serviceThreads'].values()):

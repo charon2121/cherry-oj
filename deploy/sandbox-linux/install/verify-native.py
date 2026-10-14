@@ -71,8 +71,6 @@ def clean():
 
 def main():
     assert os.geteuid()==0
-    manifest=json.loads(Path('/opt/cherry-oj/etc/deployment.json').read_text())
-    for path,value in manifest['limits'].items(): assert Path(path).read_text().strip()==value,path
     pid=subprocess.check_output(['systemctl','show','cherry-sandbox-judge.service','-p','MainPID','--value'],text=True).strip()
     rows=list(Path('/proc',pid,'task').glob('*/status'))
     for row in rows:service_credentials(status(row))
@@ -112,7 +110,7 @@ def main():
         assert result['verdict']=='AC',result
     print(json.dumps(dict(result='PASS',serviceThreads=counts,taskThreads=len(rows),
          taskUIDs=[PAYLOAD,INIT],capabilities=0,noNewPrivileges=1,namespaces=6,
-         readOnlyMounts=3,verifiedLimits=len(manifest['limits']),
+         readOnlyMounts=3,
          runCpuNs=result['cpuNs'],runMemoryBytes=result['memoryBytes'])))
     clean()
     print('No task processes, execution cgroups or workspace files remain.')

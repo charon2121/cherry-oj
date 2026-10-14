@@ -9,13 +9,11 @@
 | 节点ID / 发布目录 | cherry-linux-2 / work048-linux-v1（同一二进制/rootfs，权限清单已收敛） |
 | judge账号 | cherry-judge，UID/GID61010；控制面token仅root与此组可读；也是执行器受信配置里的服务身份 |
 | box账号 | 按并发数创建：cherry-payload-N 从 61100 起，cherry-init-N 从 61400 起（box N 取基数加 N），各留 256 个编号；均nologin、无home |
-| 并发 / 队列 | `render.py --parallelism N`（1～256，默认 1）/ 4；并发数同时决定执行器的 `box_count`、judge 的 `parallelism` 和创建的账号数 |；总限制不随并发数改变
+| 并发 / 队列 | `render.py --parallelism N`（1～256，默认 1）/ 4；并发数同时决定执行器的 `box_count`、judge 的 `parallelism` 和创建的账号数 |
 | 家目录 | **`/opt/cherry-oj`**：本项目在节点上的全部持久文件都在这里，卸载清理只看这一处。例外只有 systemd 单元（`/etc/systemd/system`）与 cgroup（按 cgroup v2 的位置） |
 | 目录布局 | `etc/` 配置（root 所有）、`releases/<版本>/` 与 `current` 链接、`judge/{boxes,blobs,testdata,logs}`（服务用户所有，工作区）、`operations/` 运维脚本、`installation.json` 回执 |
 | 单元 | cherry-sandbox.slice、cherry-sandbox-judge.service（执行层在 judge 进程内，WORK-061） |
-| 总限制 | 1536MiB、swap0、384 tasks、CPU200% |
-| judge | 1280MiB，320 tasks，CPU200%，swap0 |
-| judge委派子树 | supervisor（judge 进程与执行器）640MiB/160tasks/CPU100%；jobs（各次执行）640MiB/160tasks/CPU100%，swap0、jobs OOM成组终止 |
+| 资源限制 | 只加在每次执行的组上（由执行器按请求设置）；slice、judge 服务、supervisor 和 jobs 不设总量上限，也不核对 |
 | 隔离执行器 | releases/<版本>/libexec/sandbox，root:cherry-judge 4754（setuid-root，仅 judge 组可执行；其他人可读，供部署清单核对摘要） |
 | 监听地址 | judge 127.0.0.1:15051 |
 | rootfs manifest | ed65f75e0f8f59c48e186a889d73d63b4523d001ec17766e4c27d098b23e29f0，对应已验证56包锁 |

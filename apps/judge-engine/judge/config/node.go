@@ -14,7 +14,7 @@ var nodeIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 
 // Node 显式启用节点控制链路；禁用时保留旧 /judge 联调入口。
 type Node struct {
-	// DeploymentManifest 是 root 管理的原生 Linux 部署清单，启动自检据此核对发布文件与资源上界；
+	// DeploymentManifest 是 root 管理的原生 Linux 部署清单，启动自检据此核对发布文件；
 	// 不由任何判题请求提供。
 	DeploymentManifest string            `yaml:"deploymentManifest"`
 	Enabled            bool              `yaml:"enabled"`

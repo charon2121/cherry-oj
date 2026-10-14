@@ -286,8 +286,7 @@ def operate(action):
         return
     receipt=owned()
     if action=='status':
-        print(run('systemctl','show',*UNITS,'-p','Id','-p','ActiveState','-p','MainPID',
-                  '-p','MemoryMax','-p','MemorySwapMax','-p','TasksMax','-p','CPUQuotaPerSecUSec'))
+        print(run('systemctl','show',*UNITS,'-p','Id','-p','ActiveState','-p','MainPID'))
         return
     if action=='start':
         try:

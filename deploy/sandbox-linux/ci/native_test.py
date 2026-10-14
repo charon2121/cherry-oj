@@ -68,13 +68,13 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_native_requires_thread_and_resource_observations(self):
         row = dict(result='PASS', taskUIDs=[PAYLOAD_UID, INIT_UID], capabilities=0, noNewPrivileges=1, namespaces=6,
-                   readOnlyMounts=3, verifiedLimits=16, taskThreads=2, serviceThreads={'cherry-sandbox-judge': 5},
+                   readOnlyMounts=3, taskThreads=2, serviceThreads={'cherry-sandbox-judge': 5},
                    runCpuNs=1, runMemoryBytes=1)
         def check(value):
             self.log.write_text(json.dumps(value) + '\nNo task processes, execution cgroups or workspace files remain.\n')
             results.check('native', self.log, 'unused')
         check(row)
-        for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'verifiedLimits': 15}, {'capabilities': 1}):
+        for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'capabilities': 1}):
             with self.assertRaises(ValueError):
                 check(dict(row, **changed))
 

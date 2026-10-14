@@ -14,7 +14,7 @@ from owned import BASE, Owned, github_vm
 from report import ROOT, digest, read_json
 
 sys.path.append(str(ROOT / 'deploy/sandbox-linux/install'))
-from layout import accounts, BUDGETS, ETC, GROUP, INIT_UID, PAYLOAD_UID, STATE, UNITS
+from layout import accounts, ETC, GROUP, INIT_UID, PAYLOAD_UID, STATE, UNITS
 
 # 业务 CI 以默认的并发数 1 安装。
 ACCOUNTS = accounts(1)

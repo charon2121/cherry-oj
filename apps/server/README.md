@@ -138,7 +138,7 @@ Judge 自动注册并续租，注册只带节点身份：`JUDGE_NODE_ID`、每�
 Compose 的 `judge-testdata` 是节点私有持久卷，无需 `TESTDATA_PATH` 或 `dev` profile seed。
 修改 Java 端口时设置 `JUDGE_CONTROL_PLANE_URL`；修改 Judge 映射端口时同步 `JUDGE_ADVERTISE_URL`。
 Judge 注册前做启动自检：对端必须是 cherry-oj 的 sandbox；原生 Linux 部署还要核对部署清单里的
-发布文件摘要与 cgroup 上界。自检失败会拒绝节点上线。
+发布文件摘要。自检失败会拒绝节点上线。
 
 判题与标定不再绑定节点：任何在线、声明了该语言的节点都行。判题时 judging-service 向 problem-service 取题目此刻的
 测试数据地址与指纹（`cherry.judging.problem.token`，须属于 problem-service 的 `judging-problem-tokens`），

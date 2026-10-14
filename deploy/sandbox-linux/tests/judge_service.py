@@ -56,10 +56,6 @@ def launch(base, unit, *, port=15051, parallelism=1, cpp=True, seconds=180):
     manifest = fixture / 'manifest.json'
     start = dict(group=str(group), rootfs=str(fixture / 'rootfs'), manifest=str(manifest),
                  manifestSha256=hashlib.sha256(manifest.read_bytes()).hexdigest(),
-                 supervisor={'memory.max': str(640 << 20), 'memory.swap.max': '0', 'pids.max': '160',
-                             'cpu.max': '100000 100000'},
-                 jobs={'memory.max': str(640 << 20), 'memory.swap.max': '0', 'pids.max': '160',
-                       'cpu.max': '100000 100000', 'memory.oom.group': '1'},
                  command=[str(base / 'judge'), '-config', str(base / 'judge.yaml')])
     write_root_file(base / 'judge-start.json', json.dumps(start))
     properties = ['Delegate=yes',

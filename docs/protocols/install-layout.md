@@ -19,7 +19,7 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 /opt/cherry-oj/                      root:root  0755
 ├── etc/                             root:root  0755   配置，root 管理
 │   ├── executor.conf                root:root  0644   执行器受信配置
-│   ├── deployment.json              root:root  0644   部署清单：各关键文件与资源上限的期望值
+│   ├── deployment.json              root:root  0644   部署清单：各关键文件的期望摘要
 │   ├── judge-start.json             root:root  0644   judge 启动参数
 │   ├── judge-start.py               root:root  0644   judge 启动脚本
 │   ├── health.py                    root:root  0644   健康检查脚本
@@ -48,7 +48,7 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 
 | 位置 | 内容 |
 |---|---|
-| `/etc/systemd/system/cherry-sandbox.slice` | 节点的资源总闸（root:root 0644） |
+| `/etc/systemd/system/cherry-sandbox.slice` | cgroup 父级 slice，不设资源上限（root:root 0644） |
 | `/etc/systemd/system/cherry-sandbox-judge.service` | judge 服务单元（root:root 0644） |
 | `/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service/` | cgroup v2 子树，由单元委派；下设 `supervisor/`（judge 与执行器）和 `jobs/`（各次执行的组） |
 | `/etc/passwd`、`/etc/group` 中的账号 | 见下 |
@@ -72,8 +72,9 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 4. **`current` 是唯一的版本选择点。** 单元、judge 配置和部署核对都通过 `current` 访问程序，不写发布名。
 5. **除 `libexec/sandbox` 外，发布里没有 setuid 位。** 执行器是 root 所有、`4754`、只有 `cherry-judge` 组可执行。
 6. **路径固定。** 家目录路径编译进执行器、写进单元和部署清单，不能用环境变量或命令行参数改变。
-7. **部署清单绑定关键文件。** judge 启动前核对清单中的文件摘要与 cgroup 资源上限；与实际不符则拒绝上线。
+7. **部署清单绑定关键文件。** judge 启动前核对清单中的文件摘要；与实际不符则拒绝上线。
 8. **`judge/` 下的缓存可以清空，日志按需保留。** 清空 `blobs/`、`testdata/` 不影响正确性，只会让下次判题重新取回。
+9. **资源限制只加在每次执行上。** 节点不对整个 OJ 设内存、进程数或 CPU 的总量上限；slice、judge 服务及其 `supervisor/`、`jobs/` 都不设，部署核对也不检查。每次执行的上限由执行器按请求设置（见[执行器协议](./sandbox-executor.md)）。
 
 ## 4. 安装、卸载与保留
 
@@ -91,4 +92,4 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 ## 6. 实测记录
 
 2026-10-13，Ubuntu 24.04 / Linux 6.8 / x86_64（节点 `cherry-linux-3`，发布 `cherry-home-v1`）：按本文逐项核对属主与权限一致；
-`verify-native`（线程降权、资源上限、无残留进程与 cgroup）、执行器崩溃恢复、judge 崩溃恢复均通过。
+`verify-native`（线程降权、无残留进程与 cgroup）、执行器崩溃恢复、judge 崩溃恢复均通过。

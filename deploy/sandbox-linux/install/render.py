@@ -7,7 +7,7 @@ import re
 import shutil
 from urllib.parse import urlsplit
 
-from layout import (accounts, BLOBS_ROOT, BOXES_ROOT, BUDGETS, ETC, EXECUTOR, GROUP, INIT_UID, JUDGE_DATA,
+from layout import (accounts, BLOBS_ROOT, BOXES_ROOT, ETC, EXECUTOR, INIT_UID, JUDGE_DATA,
                     JUDGE_GROUP, JUDGE_UID, JUDGE_UNIT, PAYLOAD_UID, STATE, UNITS)
 
 
@@ -51,15 +51,8 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash, 
         f'payload_uid={PAYLOAD_UID}', f'payload_gid={PAYLOAD_UID}', f'init_uid={INIT_UID}', f'init_gid={INIT_UID}']) + '\n'
     (output / 'executor.conf').write_text(executor)
     (output / 'executor.conf').chmod(0o644)
-    def limits(suffix, oom_group=False):
-        memory, pids, cpu = BUDGETS[suffix]
-        values = {'memory.max': str(memory), 'memory.swap.max': '0', 'pids.max': str(pids), 'cpu.max': cpu}
-        if oom_group:
-            values['memory.oom.group'] = '1'
-        return values
     start = dict(group=JUDGE_GROUP, rootfs=str(root / 'rootfs'), manifest=str(root / 'manifest.json'),
-                 manifestSha256=manifest_hash, supervisor=limits('/' + JUDGE_UNIT + '/supervisor'),
-                 jobs=limits('/' + JUDGE_UNIT + '/jobs', oom_group=True),
+                 manifestSha256=manifest_hash,
                  command=[str(STATE / 'current/bin/judge'), '-config', str(ETC / 'judge.json')])
     judge = dict(logging=dict(path=str(JUDGE_DATA / 'logs')), judge=dict(
         httpAddr='127.0.0.1:15051', testdata=dict(workRoot=str(JUDGE_DATA / 'testdata')),
@@ -86,10 +79,7 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash, 
         files[key] = Path('/etc/systemd/system')/name
     # Release hashes are filled from the supplied immutable release by the installer.
     write_json(output/'deployment.template.json', dict(version=1,backend='linux',architecture='amd64',
-        files={key:dict(path=str(path),sha256='') for key,path in files.items()},
-        limits={GROUP+unit+'/'+name:value for unit,(memory,pids,cpu) in BUDGETS.items()
-                for name,value in {'memory.max':str(memory),'memory.swap.max':'0',
-                                   'pids.max':str(pids),'cpu.max':cpu}.items()}))
+        files={key:dict(path=str(path),sha256='') for key,path in files.items()}))
 
 
 def main():

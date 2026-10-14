@@ -14,11 +14,6 @@ Delegate=cpu memory pids
 KillMode=control-group
 TimeoutStopSec=15s
 Restart=no
-MemoryMax=1280M
-MemorySwapMax=0
-TasksMax=320
-CPUQuota=200%
-CPUQuotaPeriodSec=100ms
 # judge 进程本身非 root、没有任何有效能力。边界集只为它在进程内调用的 setuid-root 执行器保留
 # 必需的 8 项能力；执行器用完即全部丢弃，用户程序与 init 都拿不到。
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_DAC_OVERRIDE CAP_MKNOD CAP_KILL

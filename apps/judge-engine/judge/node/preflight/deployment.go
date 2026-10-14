@@ -10,21 +10,19 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strings"
 	"syscall"
 
 	"cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/node/wire"
 )
 
-// root 管理的部署清单：绑定不可变的发布文件与实际生效的 cgroup 上界。
+// root 管理的部署清单：绑定不可变的发布文件。
 // 它是本机部署元数据，不是对外协议，也不上报控制面。
 type deploymentManifest struct {
 	Version      int                       `json:"version"`
 	Backend      string                    `json:"backend"`
 	Architecture string                    `json:"architecture"`
 	Files        map[string]deploymentFile `json:"files"`
-	Limits       map[string]string         `json:"limits"`
 }
 type deploymentFile struct {
 	Path   string `json:"path"`
@@ -57,10 +55,10 @@ func verifyDeployment(ctx context.Context, path string) error {
 			return fmt.Errorf("active release differs from deployment file %s", key)
 		}
 	}
-	return verifyManifest(ctx, manifest, protectedDigest, os.ReadFile)
+	return verifyManifest(ctx, manifest, protectedDigest)
 }
 
-func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest func(string) (string, error), readLimit func(string) ([]byte, error)) error {
+func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest func(string) (string, error)) error {
 	if manifest.Version != 1 || manifest.Backend != "linux" || manifest.Architecture != "amd64" {
 		return fmt.Errorf("unsupported deployment manifest")
 	}
@@ -85,31 +83,6 @@ func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest
 		}
 		if got != entry.SHA256 {
 			return fmt.Errorf("deployment file %s changed", key)
-		}
-	}
-	// 同样是双向覆盖。要求的资源组与控制文件由代码规定——「一个合格的部署长什么样」不能交给
-	// 被校验的那份清单自己说；清单负责声明各项的期望值，代码负责核对它们确实被设了界限。
-	verified := map[string]bool{}
-	for _, group := range requiredGroups {
-		for _, name := range requiredLimits {
-			path := "/sys/fs/cgroup/" + group + "/" + name
-			expected, ok := manifest.Limits[path]
-			if !ok || expected == "" || strings.Contains(expected, "max") || (name == "memory.swap.max" && expected != "0") {
-				return fmt.Errorf("deployment limit %s missing or unbounded", path)
-			}
-			actual, e := readLimit(path)
-			if e != nil {
-				return fmt.Errorf("deployment limit %s: %w", path, e)
-			}
-			if strings.TrimSpace(string(actual)) != expected {
-				return fmt.Errorf("deployment limit %s differs", path)
-			}
-			verified[path] = true
-		}
-	}
-	for path := range manifest.Limits {
-		if !verified[path] {
-			return fmt.Errorf("deployment declares limit %s that is never verified", path)
 		}
 	}
 	return nil

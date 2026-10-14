@@ -28,17 +28,14 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual(int(executor['service_uid']),plan['accounts']['cherry-judge'])
             self.assertEqual(len({executor['service_uid'],executor['payload_uid'],executor['init_uid']}),3)
             start=json.loads((root/'judge-start.json').read_text())
-            self.assertEqual(start['jobs']['memory.oom.group'],'1')
+            # 资源限制只加在每次执行的组上，judge 的启动配置不带总量上限。
+            self.assertEqual(set(start),{'group','rootfs','manifest','manifestSha256','command'})
             self.assertEqual(start['group']+'/jobs',executor['cgroup'])
             self.assertEqual(start['command'][-1],str(manage.ETC/'judge.json'))
             manifest=json.loads((root/'deployment.template.json').read_text())
-            self.assertEqual(len(manifest['limits']),16)
+            self.assertNotIn('limits',manifest)
             self.assertEqual(len(manifest['files']),8)
             self.assertNotIn('judgeConfig',manifest['files'])
-            for path, value in manifest['limits'].items():
-                self.assertNotIn('max',value)
-                if path.endswith('memory.swap.max'):
-                    self.assertEqual(value,'0')
             unit=(root/'cherry-sandbox-judge.service').read_text()
             self.assertIn('User=cherry-judge',unit)
             self.assertIn('Group=cherry-judge',unit)
