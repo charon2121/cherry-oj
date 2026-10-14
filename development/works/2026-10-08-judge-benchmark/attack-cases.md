@@ -51,9 +51,9 @@
 | B8 | 读宿主文件（`/proc/1`、`/sys`、`/etc/passwd`） | 不是 AC | 新增，事实待实测 | 部分覆盖于 `test_identity_and_filesystem` |
 | B9 | 直接设备访问（`/dev/sda`、`/dev/mem`） | 不是 AC | 新增，事实待实测 | 新增 |
 | B10 | 向其他 uid 的进程发信号 | 不是 AC | 新增，事实待实测 | 新增 |
-| B11 | 并发的两次执行互相不可见（各自工作区的数据、宿主 PID） | 并发的两次提交 | 两个 box 同时运行 | `test_privilege_and_peer_isolation` 的后半，`judge_program` 的 `isolation` |
+| B11 | 并发的两次执行互相不可见（各自工作区的数据、宿主 PID） | 不测（judge 入口串行提交） | `left` 与 `right` 用 `concurrent` 同时运行，各自 `stdout` 为 `private <名> peers=0 host=hidden\n` | `test_privilege_and_peer_isolation` 的后半，`judge_program` 的 `isolation` |
 
-B11 是唯一需要**同时运行两次**的样本，运行说明里需要再扩展「并发」字段，见「待确认」。
+B11 是唯一需要**同时运行两次**的样本，用运行说明的 `id` 与 `concurrent` 字段表达（协议 §6、§7.2）：两个运行说明各占一个 box，运行者记录起止时间，没有重叠就判失败。样本从 `stdin` 读自己的标记和 `${runnerPid}`（宿主上运行者的进程号）。
 
 ## C. 不进 benchmark 的
 
@@ -72,7 +72,6 @@ B11 是唯一需要**同时运行两次**的样本，运行说明里需要再扩
 
 ## 待确认
 
-- 运行说明目前只能表达「运行一次」。B11 需要同时运行两次并比对，要不要在协议里加一个 `concurrent` 字段，还是把 B11 留在执行器协议测试里？
 - B4 的身份约定：样本把哪些字段打印成什么格式，`stdout` 如何断言，需要在迁移时定下来（现在的探针打印 JSON，`run_tests.py` 里逐字段断言）。
 - A6 在 `judge` 入口的预期是「不是 AC」还是更具体的 TLE：fork 被拒后程序是否退出取决于样本怎么写，样本迁过来后实测再定。
 - A10–A13、B8–B10 的 `sandbox` 事实需要实测，实测前先不写进 `manifest.json`。

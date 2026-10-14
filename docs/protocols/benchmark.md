@@ -215,13 +215,26 @@ attack/<名>/
   "elapsedMsLt": 2000 }
 ```
 
+两次运行必须同时进行时（例如检验两个并发执行互相看不到对方），用 `id` 与 `concurrent` 把它们配成一组：
+
+```json
+"sandbox": [
+  { "id": "left",  "stdin": "isolation left ${runnerPid}",  "concurrent": ["right"],
+    "facts": { "exitCode": 0 }, "stdout": { "equals": "private left peers=0 host=hidden\n" } },
+  { "id": "right", "stdin": "isolation right ${runnerPid}", "concurrent": ["left"],
+    "facts": { "exitCode": 0 }, "stdout": { "equals": "private right peers=0 host=hidden\n" } } ]
+```
+
 | 字段 | 规则 |
 |---|---|
-| `testcase` | 可选，该提交所在题目的测试点名字，其 `.in` 作为 stdin；省略则 stdin 为空。攻击样本没有测试点，只能省略 |
+| `id` | 可选，同一个提交或样本内唯一，匹配 `^[a-z0-9][a-z0-9_]{0,31}$`；被 `concurrent` 引用的运行说明必须有 |
+| `testcase` | 可选，该提交所在题目的测试点名字，其 `.in` 作为 stdin。攻击样本没有测试点，不能用 |
+| `stdin` | 可选，字符串，直接作为 stdin；与 `testcase` 互斥。两者都省略则 stdin 为空。其中的 `${runnerPid}` 由运行者替换为运行者自己的进程号 |
 | `limits` | 可选，覆盖 `limits` 中的同名字段；未给的字段取自题目或样本的 `limits`。`maxProcesses`、`stdoutMaxBytes`、`stderrMaxBytes` 可以在这里给，缺省为 64、1 MiB、1 MiB |
 | `facts` | 对执行器**事实 JSON**（[执行器协议 §7.2](./sandbox-executor.md)）字段的断言，只能用那里列出的字段名 |
 | `stdout` | 可选，对 `out/stdout` 的断言：`equals`、`startsWith` 或 `contains` 之一 |
 | `elapsedMsLt` | 可选，运行者观测到的这一次调用的总耗时（毫秒）必须小于它。用于证明「整组被及时回收，没有等后台进程自己退出」 |
+| `concurrent` | 可选，`id` 数组，列出必须与本运行说明**同时运行**的其他运行说明（§7.2），关系必须对称 |
 | `anyOf` | 可选，与 `facts` / `stdout` 互斥：由多个上述断言组成的数组，满足其中任意一个即可。用于「被 seccomp 杀死，或程序自己报告被拒」这类两种结果都合格的情形 |
 
 **`facts` 的写法：** 每个字段的值是字面值（整数、字符串、布尔，要求相等），或下列比较之一：
@@ -233,7 +246,7 @@ attack/<名>/
 2. **运行。** 另用一个 box，把 `Main` 作为输入（可执行），命令为 `Main`，stdin 与限制取自运行说明。
 3. **比对** `facts`、`stdout`、`elapsedMsLt`；**回收检查**。
 
-编译与运行是执行器协议里的两次独立调用，运行者必须保持每次的 stdin 管道到执行器退出（取消协议）。
+编译与运行是执行器协议里的两次独立调用，运行者必须保持每次的 stdin 管道到执行器退出（取消协议）。同一个提交或样本的多个运行说明共用一次编译的产物。
 
 ## 7. 运行与比对
 
@@ -258,7 +271,12 @@ attack/<名>/
 
 - 运行者以 root 或执行器的服务身份运行，在被测节点本机直接调用执行器。
 - **独占 box：** 运行者对 boxes 根下的 `.lock` 加独占锁，取不到就是 judge 正在用，记为环境错误（退出码 3），不得与运行中的 judge 争用同一批 box。
-- 每个运行说明占用一个 box，串行执行；每次调用前复位 box。
+- 每个运行说明占用一个 box；调用前复位 box。没有 `concurrent` 的运行说明串行执行。
+- **并发组：** 通过 `concurrent` 互相引用的运行说明组成一个组（关系必须对称，且组内每个 `id` 都存在）。组内各运行说明各占一个不同的 box，
+  由运行者同时启动，等全部结束后再逐个比对。组的大小不得超过节点的 `box_count`，否则记为环境错误。
+- **必须真的重叠：** 运行者记录组内每次调用（从执行器启动到退出）的起止时间；任意两次调用的时间区间没有交集，该组所有成员记为 `fail`，原因写「未重叠」。
+  这是因为「看不到对方」只有在对方正在运行时才有意义。
+- 组内任一成员的回收检查未通过，该成员记为 `fail`；成员之间互不影响各自的状态判定。
 - 事实 JSON 解析时遵守执行器协议的版本规则：未知字段、未知 `version`、未知 `reason` 都是环境错误。
 - 执行器退出码为 1（拒绝）或 2（回收未确认）都记为 `fail`；退出码 2 还要在报告里标出该 box 作废。
 
