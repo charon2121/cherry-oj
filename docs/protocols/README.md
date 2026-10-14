@@ -36,7 +36,7 @@
 | 4 | 执行配置 | submission-service ← judging-service | HTTP，服务令牌 | [`execution-profile.schema.json`](../../contracts/execution-profile.schema.json) |
 | 5 | 自定义运行 | submission-service → judging-service | HTTP，服务令牌 | [`custom-run-internal.schema.json`](../../contracts/custom-run-internal.schema.json) |
 | 6 | 测试数据读取 | judging-service ← problem-service | HTTP，服务令牌；只返回地址、指纹、测试点数 | [`problem-test-data.schema.json`](../../contracts/problem-test-data.schema.json) |
-| 7 | 判题请求 | judging-service → judge（Go） | `POST /judge` | [`judge.schema.json`](../../contracts/judge.schema.json) |
+| 7 | 判题请求 | judging-service → judge（Go） | `POST /judge`，同步返回；HTTP 状态不表示判题结论 | 字段：[`judge.schema.json`](../../contracts/judge.schema.json)；调用语义：[`judge-api.md`](./judge-api.md) |
 | 8 | 节点控制 | judge → judging-service（注册、心跳） | HTTP，共享控制令牌 | [`judge-node.schema.json`](../../contracts/judge-node.schema.json) |
 | 9 | 判题事件 | submission-service ↔ judging-service | Kafka：`judge.requests.v1`、`judge.lifecycle.v1` | [`judge-events.schema.json`](../../contracts/judge-events.schema.json) |
 | 10 | 测试数据协议 | problem-service 写、judge 读 | 目录 + `testdata.json`，本地路径或 HTTP(S) | [`testdata.md`](./testdata.md) |
