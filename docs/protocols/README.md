@@ -45,7 +45,7 @@
 | 13 | 服务间鉴权 | submission↔problem、submission↔judging、judging→submission、judging→problem | Bearer 服务令牌；发送方的值须属于接收方的列表 | [`apps/server/CONFIGURATION.md`](../../apps/server/CONFIGURATION.md) |
 | 14 | 部署配置格式 | 安装器 ↔ 执行器与 judge | `executor.conf`、`judge-start.json`、`deployment.json`（部署清单）、`plan.json` | [`deploy/sandbox-linux/install/README.md`](../../deploy/sandbox-linux/install/README.md) |
 | 15 | 安装布局 | 安装器、运维 ↔ 执行器与 judge | `/opt/cherry-oj` 的目录结构、属主、权限，以及家目录之外的系统位置 | [`install-layout.md`](./install-layout.md) |
-| 16 | 判题 benchmark | 语料 / 运行者 ↔ 被测 judge 节点 | 语料目录、`expect.json`、报告 JSON、退出码 | [`benchmark.md`](./benchmark.md) |
+| 16 | benchmark | 语料 / 运行者 ↔ 被测 judge 与 sandbox | 两个入口（`POST /judge`、直接调用执行器）；语料目录、`expect.json`、运行说明、报告 JSON、退出码 | [`benchmark.md`](./benchmark.md) |
 
 `contracts/` 里另有三份**数据模型与词表**，不是有两端的接口，但同样是跨服务的真源：
 [`submission.json`](../../contracts/submission.json)（用户可见的提交读模型）、

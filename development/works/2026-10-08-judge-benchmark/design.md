@@ -2,13 +2,14 @@
 
 > **状态：设计待确认（2026-10-08）。** 开头三项待确认的决定尚未回答，下文按「推荐」写；确认或改动后再动手实现。
 > **语料格式、预期写法、报告与退出码的约定已写成[判题 benchmark 协议](../../../docs/protocols/benchmark.md)，以那份为准；本文保留方案、取舍和实施步骤。**
+> **benchmark 是测试库，有 `judge` 与 `sandbox` 两个入口；凡测「用户提交行为」的现有测试都会搬进来、原位删除（§10）。**
 > 术语沿用[测试数据协议](../../../docs/protocols/testdata.md)：testdata 是一堆 testcase，`digest` 叫指纹。
 
 ## 0. 待确认的三项
 
 | # | 问题 | 推荐 | 影响 |
 |---|---|---|---|
-| 1 | 攻击样本从哪来？ | 自己设计清单（[attack-cases.md](./attack-cases.md)）：资源耗尽类自写，隔离探测类对照 `apps/sandbox/tests/run_tests.py` 的已有场景或由用户提供 | 决定 §5 要不要实现，以及 benchmark 能不能声称「覆盖了沙箱安全」 |
+| 1 | 攻击样本从哪来？ | 自己设计清单（[attack-cases.md](./attack-cases.md)），源码从现有测试搬来；清单里标「新增」的样本由用户提供或另行商定 | 决定 §5 要不要实现，以及 benchmark 能不能声称「覆盖了沙箱安全」 |
 | 2 | 主要在哪里跑？ | 测试服务器的原生节点（有真实隔离）；本机 Docker（devhost 后端，**没有**内核隔离）只用于开发调试 | 决定哪些提交的预期有效，见 §3.5 的 `requires` |
 | 3 | 第一版范围？ | 8 道题 + 直接打 `POST /judge` 的 runner；走完整链路（Java 服务 + Kafka）的入口放到第二版 | 第一版体量与交付时间 |
 
@@ -19,7 +20,7 @@
 
 **非目标：**
 - 不是性能压测：不比较耗时，只记录。
-- 不含攻击代码：攻击样本的清单见 [attack-cases.md](./attack-cases.md)，本文 §5 只定义挂接口。
+- 攻击样本的清单见 [attack-cases.md](./attack-cases.md)；样本源码从现有测试搬来，不新写。
 - 不测 Java 服务、Kafka、前端（第二版才接完整链路）。
 - 不替代单元测试：它只管「端到端的判题结论」。
 
@@ -31,7 +32,7 @@ benchmark/
   corpus/
     corpus.lock             判题部分的指纹锁定
     judge/<题名>/           正常的判题 benchmark（§3）
-    attack/<名>/            攻击代码的 benchmark，挂接口见 §5，本工作不放样本
+    attack/<名>/            攻击代码的 benchmark（§5），样本从现有测试搬来
   tools/                    生成、交叉验证、发布、runner、报告（Python，带单测）
   reports/                  运行产物，不入库（.gitignore）
 ```
@@ -162,22 +163,12 @@ python3 benchmark/tools/run.py --endpoint http://127.0.0.1:15051 --corpus benchm
 再通过提交 API 提交每个提交，轮询结果，用同一份 `expect.json` 比对。它额外验证 Java 服务与 Kafka 链路上的结论投影（例如 CE 的诊断、
 `passedTestcaseCount`）。第一版稳定后再做，不阻塞第一版。
 
-## 5. 攻击样本的挂接口（本工作不写样本）
+## 5. 攻击样本与两个入口
 
-目录 `benchmark/corpus/attack/<名>/` 约定如下，样本内容由用户提供或由已有内核测试映射而来：
+benchmark 是一个**测试库**：测试代码和测试所需的「用户提交的代码」都在里面。它有两个入口（协议见 [benchmark 协议](../../../docs/protocols/benchmark.md)）：
+`judge` 入口经 `POST /judge`，看 verdict；`sandbox` 入口直接调用执行器，看事实 JSON。同一份提交可以从任一入口测试。
 
-```text
-attack/<名>/
-  sample.c              样本源码（仅 C）
-  manifest.json         { "name", "language": "c", "limits": {...}, "expect": {...}, "requires": ["backend:linux"], "notes" }
-```
-
-`manifest.json` 的 `expect` 描述**判题结论**（例如 `TLE`、`MLE`、`RE`、`OLE`、`CE`，或「不得为 AC」）。runner 用与 §4.1 相同的方式提交并比对，
-之外增加**节点侧回收检查**：每个样本跑完后，节点上不能残留任务进程、执行 cgroup 或工作区文件（原生节点的 `verify-*` 脚本已有这类检查，
-可直接复用其判据）。没有样本时，`corpus/attack/` 为空，runner 报告「攻击样本：0，未覆盖沙箱安全」，**不得省略这一行**。
-
-另一个来源是执行器自己的内核测试 `apps/sandbox/tests/run_tests.py`（直接对执行器、不经 judge，必须在一次性 Linux 机器上以 root 运行）。
-它与本 runner 是两层测试：前者验证执行器的隔离机制，后者验证 judge 之上的判题结论。报告里把两者的最近结果并排列出即可，不合并。
+攻击样本的清单、每个样本在两个入口的预期、以及从哪里迁来源码，见 [attack-cases.md](./attack-cases.md)。样本源码**从现有测试里搬来**，不新写。
 
 ## 6. 报告
 
@@ -223,8 +214,27 @@ attack/<名>/
 3. runner 与报告（mock judge 单测），对本机 Docker judge 跑通 `a-plus-b`。
 4. 补齐其余 7 道题与 `requests` 用例，逐题交叉验证。
 5. `publish.py`；在测试服务器原生节点上全量运行，报告入档（`development/` 工作记录里引用）。
-6. 接攻击样本（等 §0-1 的结论与样本）。
+6. 按 §10 迁移样本与测试，每搬一类先让它在 benchmark 里通过，再删原位置。
 7. 第二版：完整链路入口。
+
+## 10. 迁移与删除
+
+规则：**凡是在测「用户提交的行为」的测试，整体搬进 benchmark，原位置删除；不留引用，也不留内嵌副本。**
+测平台自己（协议拒绝路径、安装、崩溃恢复、单元测试）的测试留在原位，它们需要的简单程序由各自的夹具自带。
+
+| 现位置 | 去向 | 处理 |
+|---|---|---|
+| `deploy/sandbox-linux/tests/judge_program.py` | `attack/` 的 A1–A8、A14、B1–B7、B11 | 一个行为一个样本，源码拆开，整个文件删除 |
+| `deploy/sandbox-linux/tests/acceptance/*.cpp` 与 `README.md` | `judge/` 与 `attack/` | 正常的并入 `judge-cases.md` 对应提交，资源类并入攻击样本；`observe_run.py` 视情况搬入 |
+| `deploy/sandbox-linux/tests/{cpp_limits,cpp,extended,smoke}.py` | `attack/` | 内嵌源码与断言搬走，文件删除 |
+| `deploy/sandbox-linux/tests/judge_chain.py` 的 smoke 与重复 | `judge/` | 搬走；并发 2 的部分（平台并发）留在原位 |
+| `apps/sandbox/tests/probe.c` | `attack/` 的各样本 | 模式拆成独立样本；执行器测试里仍需要的简单程序，由 `run_tests.py` 的夹具自带 |
+| `apps/sandbox/tests/run_tests.py` 里的这些用例 | benchmark 的 `sandbox` 入口 | `test_echo_streams_and_exit`、`test_exit_code_and_signal`、`test_identity_and_filesystem`、`test_cpu_limit`、`test_wall_limit`、`test_memory_limit_is_task_oom`、`test_output_limit`、`test_network_is_killed_by_seccomp`、`test_x32_abi_is_killed`、`test_process_and_thread_limits`、`test_background_processes_are_reclaimed`、`test_privilege_and_peer_isolation`、`test_links_cannot_be_created` 搬走并删除 |
+| `deploy/sandbox-linux/install/verify-*.py` 与 `fault_batch.py` 里的内嵌源码 | 不搬 | 这些是平台恢复测试的夹具，保留一行最简程序即可（如 `sleep`） |
+| `apps/judge-engine` 与 `apps/server` 的单元测试里的内嵌源码 | 不搬 | 它们验证的是假后端或服务层，不是判题行为 |
+
+**留在 `run_tests.py` 的：** 非法请求被拒、同一 box 并发被拒、遗留执行组被回收、取消、命令不存在、产物规则、多次运行不泄漏。
+**搬迁顺序：** 每搬一类，先在 benchmark 里让它通过，再删除原位置；任何时候都不会出现既没有原测试、也还没有新测试的空档。
 
 ## 9. 风险与已知限制
 

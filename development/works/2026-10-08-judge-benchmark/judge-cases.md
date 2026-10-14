@@ -7,7 +7,7 @@
 
 | 题 | 检验什么 | 测试点数 | 提交数 | 需要的配置 |
 |---|---|---|---|---|
-| `a-plus-b` | 基线链路，及 CE/RE/TLE/SE | 3 | 7 | 无 |
+| `a-plus-b` | 基线链路，及 CE/RE/TLE/SE | 3 | 8 | 无 |
 | `whitespace` | 比对对空白的处理 | 2 | 10 | 部分需 `strictWhitespace` |
 | `sort-numbers` | 中等规模输入输出与时间 | 5 | 4 | 无 |
 | `sum-large` | 64 位整数 | 4 | 3 | 无 |
@@ -43,6 +43,7 @@
 | `ce_syntax` | 缺分号 | CE | （空） | 编译失败没有逐点结果 |
 | `re_exit1` | `return 1` | RE | RE RE RE | 非零退出 |
 | `re_abort` | `abort()` | RE | RE RE RE | 被信号终止 |
+| `re_segv` | 解引用空指针 | RE | RE RE RE | 段错误 |
 | `tle_loop` | `while(1);` | TLE | TLE TLE TLE | 远超 CPU 限制 |
 
 **请求级用例**（用 `ac_iostream` 做源码，只改请求）：
@@ -52,6 +53,16 @@
 | `missing_address` | `testDataLocation` 指向不存在的目录 | SE |
 | `relative_address` | `testDataLocation` 用相对路径 | SE |
 | `tampered_input` | 在**发布副本**里改一个 `.in` 的内容，使 sha256 不符 | SE |
+
+**sandbox 入口**（同一批提交，直接调用执行器，运行说明见协议 §6）：
+
+| 提交 | 运行说明 | 预期事实 | 迁移来源 |
+|---|---|---|---|
+| `ac_iostream` | `testcase: 1` | `exitCode=0`、`signal=0`、`reason=""`、`error=""`；`stdout` 等于 `8\n` | `run_tests.py::test_echo_streams_and_exit` |
+| `re_exit1` | `testcase: 1` | `exitCode=1`、`signal=0` | `test_exit_code_and_signal` |
+| `re_abort` | `testcase: 1` | `exitCode=-1`、`signal=6` | `test_exit_code_and_signal` |
+| `re_segv` | `testcase: 1` | `exitCode=-1`、`signal=11`、`reason=""` | `test_exit_code_and_signal` |
+| `tle_loop` | `testcase: 1`，`cpuNs=500000000` | `reason=cpu`、`cpuNs ≥ 500000000` | `test_cpu_limit` |
 
 ---
 
@@ -195,8 +206,8 @@
 
 ## 汇总
 
-- 提交共 **39** 个：`a-plus-b` 7、`whitespace` 10、`sort-numbers` 4、`sum-large` 3、`alloc-array` 4、`big-output` 3（其中 1 个探测项）、`empty-case` 3、`partial` 5；另有 3 个请求级用例。
-- 按配置分：无要求 24 个，`strictWhitespace` 相关 8 个，`backend:linux` 相关 7 个（含 1 个探测项）。
+- 提交共 **40** 个：`a-plus-b` 8、`whitespace` 10、`sort-numbers` 4、`sum-large` 3、`alloc-array` 4、`big-output` 3（其中 1 个探测项）、`empty-case` 3、`partial` 5；另有 3 个请求级用例。
+- 按配置分：无要求 25 个，`strictWhitespace` 相关 8 个，`backend:linux` 相关 7 个（含 1 个探测项）。
 - 参考解：每题两份算法不同的参考解各自算出期望输出，逐字节一致才算合格（协议 §2.3）。
 
 ## 待确认
