@@ -7,7 +7,7 @@
 
 | 题 | 检验什么 | 测试点数 | 提交数 | 需要的配置 |
 |---|---|---|---|---|
-| `a-plus-b` | 基线链路，及 CE/RE/TLE/SE | 3 | 8 | 无 |
+| `a-plus-b` | 基线链路，及 CE/RE/TLE/SE、stderr、试运行 | 3 | 10 | 无 |
 | `whitespace` | 比对对空白的处理 | 2 | 10 | 部分需 `strictWhitespace` |
 | `sort-numbers` | 中等规模输入输出与时间 | 5 | 4 | 无 |
 | `sum-large` | 64 位整数 | 4 | 3 | 无 |
@@ -41,6 +41,8 @@
 | `ac_scanf` | `scanf`/`printf` 求和 | AC | AC AC AC | C 风格 IO 同样通过 |
 | `wa_minus` | 输出 `a - b` | WA | WA WA AC | 第 3 个点 `0-0` 恰好等于 `0+0` |
 | `ce_syntax` | 缺分号 | CE | （空） | 编译失败没有逐点结果 |
+| `ce_marker` | `#error BENCHMARK_EXPECTED_COMPILE_ERROR` | CE | （空） | 诊断必须带出预设标记（`message` 含该标记），且不能进入执行阶段 |
+| `ac_stderr_note` | 输出和到 stdout，另往 stderr 写一行 `benchmark-stderr` | AC | AC AC AC | stderr 不影响判定；`sandbox` 入口验证 stdout 与 stderr 是两条独立的流 |
 | `re_exit1` | `return 1` | RE | RE RE RE | 非零退出 |
 | `re_abort` | `abort()` | RE | RE RE RE | 被信号终止 |
 | `re_segv` | 解引用空指针 | RE | RE RE RE | 段错误 |
@@ -53,12 +55,25 @@
 | `missing_address` | `testDataLocation` 指向不存在的目录 | SE |
 | `relative_address` | `testDataLocation` 用相对路径 | SE |
 | `tampered_input` | 在**发布副本**里改一个 `.in` 的内容，使 sha256 不符 | SE |
+| `unknown_language` | `languageId` 为 `brainfuck` | SE，`message` 含 `unknown language` |
+| `language_not_installed` | 向只有 C/C++ 的节点提交 `python` 的 `print(1)`（需要 `noLanguage:python`） | SE，响应正文含 `errno=2`：命令不存在是平台错误，不是用户的错 |
+
+**试运行**（`mode=trial`，测试点在请求里，用 `ac_iostream` 做源码）：
+
+| 名字 | 测试点 | 结论 |
+|---|---|---|
+| `trial_ac` | `1 2` 期望 `3` | AC |
+| `trial_wa` | `1 2` 期望 `4` | WA，`diff.got` 为 `3` |
+| `trial_ran` | `1 2`，不给期望 | RAN，输出摘要含 `3`，带 stderr 摘要 |
+
+**所有 WA 的通用检查：** 默认配置下 `diff` 不得含 `want`（标准答案不外泄）。
 
 **sandbox 入口**（同一批提交，直接调用执行器，运行说明见协议 §6）：
 
 | 提交 | 运行说明 | 预期事实 | 迁移来源 |
 |---|---|---|---|
-| `ac_iostream` | `testcase: 1` | `exitCode=0`、`signal=0`、`reason=""`、`error=""`；`stdout` 等于 `8\n` | `run_tests.py::test_echo_streams_and_exit` |
+| `ac_iostream` | `testcase: 1` | `exitCode=0`、`signal=0`、`reason=""`、`error=""`；`stdout` 等于 `8\n` |
+| `ac_stderr_note` | `testcase: 1` | `stdout` 等于 `8\n`，`stderr` 等于 `benchmark-stderr\n`：两条流各自原样送达 | `run_tests.py::test_echo_streams_and_exit` |
 | `re_exit1` | `testcase: 1` | `exitCode=1`、`signal=0` | `test_exit_code_and_signal` |
 | `re_abort` | `testcase: 1` | `exitCode=-1`、`signal=6` | `test_exit_code_and_signal` |
 | `re_segv` | `testcase: 1` | `exitCode=-1`、`signal=11`、`reason=""` | `test_exit_code_and_signal` |
@@ -206,8 +221,8 @@
 
 ## 汇总
 
-- 提交共 **40** 个：`a-plus-b` 8、`whitespace` 10、`sort-numbers` 4、`sum-large` 3、`alloc-array` 4、`big-output` 3（其中 1 个探测项）、`empty-case` 3、`partial` 5；另有 3 个请求级用例。
-- 按配置分：无要求 25 个，`strictWhitespace` 相关 8 个，`backend:linux` 相关 7 个（含 1 个探测项）。
+- 提交共 **42** 个：`a-plus-b` 10、`whitespace` 10、`sort-numbers` 4、`sum-large` 3、`alloc-array` 4、`big-output` 3（其中 1 个探测项）、`empty-case` 3、`partial` 5；另有 5 个请求级用例、3 个试运行用例。
+- 按配置分：无要求 27 个，`strictWhitespace` 相关 8 个，`backend:linux` 相关 7 个（含 1 个探测项）。
 - 参考解：每题两份算法不同的参考解各自算出期望输出，逐字节一致才算合格（协议 §2.3）。
 
 ## 待确认

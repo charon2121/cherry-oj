@@ -227,11 +227,13 @@ benchmark 是一个**测试库**：测试代码和测试所需的「用户提交
 | `deploy/sandbox-linux/tests/judge_program.py` | `attack/` 的 A1–A8、A14、B1–B7、B11 | 一个行为一个样本，源码拆开，整个文件删除 |
 | `deploy/sandbox-linux/tests/acceptance/*.cpp` 与 `README.md` | `judge/` 与 `attack/` | 正常的并入 `judge-cases.md` 对应提交，资源类并入攻击样本；`observe_run.py` 视情况搬入 |
 | `deploy/sandbox-linux/tests/{cpp_limits,cpp,extended,smoke}.py` | `attack/` | 内嵌源码与断言搬走，文件删除 |
-| `deploy/sandbox-linux/tests/judge_chain.py` 的 smoke 与重复 | `judge/` | 搬走；并发 2 的部分（平台并发）留在原位 |
+| `deploy/sandbox-linux/tests/judge_chain.py` 的 smoke 与重复 | `judge/` 与 `attack/` | smoke 里的各模式与 1000 次重复搬走（对应 A17）；**调用方断开 HTTP 连接的取消（C5）与「两个请求并发、峰值 2 个执行组」（C7）是平台行为，留在原位**，否则整个文件删除时没人测 |
 | `apps/sandbox/tests/probe.c` | `attack/` 的各样本 | 模式拆成独立样本；执行器测试里仍需要的简单程序，由 `run_tests.py` 的夹具自带 |
 | `apps/sandbox/tests/run_tests.py` 里的这些用例 | benchmark 的 `sandbox` 入口 | `test_echo_streams_and_exit`、`test_exit_code_and_signal`、`test_identity_and_filesystem`、`test_cpu_limit`、`test_wall_limit`、`test_memory_limit_is_task_oom`、`test_output_limit`、`test_network_is_killed_by_seccomp`、`test_x32_abi_is_killed`、`test_process_and_thread_limits`、`test_background_processes_are_reclaimed`、`test_privilege_and_peer_isolation`、`test_links_cannot_be_created` 搬走并删除 |
 | `deploy/sandbox-linux/install/verify-*.py` 与 `fault_batch.py` 里的内嵌源码 | 不搬 | 这些是平台恢复测试的夹具，保留一行最简程序即可（如 `sleep`） |
 | `apps/judge-engine` 与 `apps/server` 的单元测试里的内嵌源码 | 不搬 | 它们验证的是假后端或服务层，不是判题行为 |
+| `fault_batch.py` 的 `aggregate-memory`、`judge_program` 的 `hold` | 不搬，需重新评估 | 它们依赖已删除的 cgroup 总量上限，前提不再成立 |
+| `scripts/work-002-e2e.py` 回显隐藏输入的提交 | 不搬 | 测的是 Java 服务对隐藏数据的展示投影，不是 judge 或 sandbox |
 
 **留在 `run_tests.py` 的：** 非法请求被拒、同一 box 并发被拒、遗留执行组被回收、取消、命令不存在、产物规则、多次运行不泄漏。
 **搬迁顺序：** 每搬一类，先在 benchmark 里让它通过，再删除原位置；任何时候都不会出现既没有原测试、也还没有新测试的空档。

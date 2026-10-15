@@ -148,7 +148,7 @@
 | L3 | 同上：`TestEndToEndJavaWithInnerClass` | 带内部类的 Java A+B | **只收 `Main.class` 的话会 `NoClassDefFoundError`**，所以编译后打成 jar；A+B 这种简单题测不出来，等有人写内部类才会炸 |
 | L4 | `apps/judge-engine/judge/api/trial_isolation_test.go` | 先跑空程序，再跑「输出约 94 MiB」的程序，再跑空程序 | 断言 `RAN`、`OLE`、`RAN`：**前一次的大输出不能影响后一次**（复现过宿主 sandbox 跨请求内存统计污染）。只在显式指向独立 Linux judge 时执行，不要指向承载真实提交的节点 |
 | L5 | `apps/server/.../RealLinuxJudgeIntegrationTests.java` | A+B（AC）、`a-b`（WA）、`int main( {`（CE） | 经生产用的 HTTP 客户端连接真实 Linux judge，拿到 AC/WA/CE，且 `cpuNs`、`memoryBytes` 非负 |
-| L6 | `scripts/work-002-e2e.py` | AC：A+B；WA：`a-b`；CE：`int main( {`；TLE：`while(true){x=x+1;}`；WA：回显第一行输入 | 全栈（Java 服务、MySQL、Kafka、真实 judge）里端到端拿到 AC/WA/CE/TLE；**回显隐藏输入的程序**用来证明结果投影不泄漏隐藏数据 |
+| L6 | `scripts/work-002-e2e.py` | AC：A+B；WA：`a-b`；CE：`int main( {`；TLE：`while(true){x=x+1;}`；WA：回显第一行输入 | 全栈（Java 服务、MySQL、Kafka、真实 judge）里端到端拿到 AC/WA/CE/TLE；**回显隐藏输入的程序**用来证明 Java 服务的结果投影不泄漏隐藏数据（服务层行为，不是 judge 的） |
 | L7 | 同上：worker 崩溃 | 提交一个死循环，运行中杀掉 judging worker，起一个后继 | 租约被后继接管后仍得到 `TLE`，且 `attempt_no≥2`（属于平台恢复，程序只是夹具） |
 | L8 | `deploy/sandbox-linux/install/verify-native.py` | `puts("native isolation OK"); sleep(2)` | 给「观察所有任务线程的身份」提供一个运行 2 秒的程序（夹具，不是案例） |
 | L9 | `deploy/sandbox-linux/install/verify-capabilities.py` | 在工作区写 `proof` 文件，`fork` 一个睡 10 秒的后代，输出 `cap-test` | 能力被删减后，写工作区和整组回收仍然正常：墙钟远小于后代的睡眠，说明后代被回收 |
@@ -170,3 +170,22 @@
 - 验收夹具 11 个（A1–A11），其他层 10 个（L1–L10）。
 - 其中**同一种行为在多处重复**的有：死循环（P11、J2、A5）、内存（P12、J4、A6、K8）、输出（P13、J5、A7）、后代回收（P8、J9、K6）、SIGKILL（J6、K5、A4）、提权（P6、J20）、隔离（P2、J21）、网络（P14、J11）。
 - 需要重新评估的：F3（总量上限已删除）。
+
+## 与目标清单的对照
+
+对照 [judge-cases.md](./judge-cases.md) 与 [attack-cases.md](./attack-cases.md)，原先没被覆盖的案例已补进目标清单：
+
+| 现有案例 | 补在哪里 |
+|---|---|
+| K4、J3（多进程累计 CPU） | 攻击样本 A15 `cpu_tree`；A6 的来源里去掉了误挂的 `tree` |
+| K1、C2、A8、L4（污染检查） | 通用的「干净运行」：每个攻击样本之后运行 `attack-common/probe.cpp`（协议 §8） |
+| R16、C6（长序列重复） | 攻击样本 A17 `leak_series`，用 manifest 的 `repeat` |
+| R15、C7（并发各自计量） | 攻击样本 A16 `concurrent_cpu_spin`；C7 的平台并发部分留在原位 |
+| P3、R1、A1（stderr 独立到达） | `a-plus-b` 的 `ac_stderr_note`；协议运行说明新增 `stderr` 断言 |
+| L6（回显隐藏输入） | judge 一侧补「WA 的 `diff` 不含 `want`」通用检查；服务层投影不属于 benchmark，留在 Java 与全栈测试 |
+| F1（语言不可用） | `a-plus-b` 的请求级用例 `unknown_language`、`language_not_installed` |
+| J 系列、C 系列的 trial | 协议新增试运行用例（§3.5），`a-plus-b` 的 `trial_ac`、`trial_wa`、`trial_ran` |
+| A2（CE 诊断内容） | `a-plus-b` 的 `ce_marker`；协议 `expect.json` 新增 `message` 断言 |
+| P1/R3（身份与环境细节） | B4 补全 |
+| P2（输入没串） | B11 的样本自检 |
+| A5（超限差值） | A1、A15 的 `cpuNs` 上界断言 |
