@@ -10,7 +10,7 @@
 | # | 问题 | 推荐 | 影响 |
 |---|---|---|---|
 | 1 | 攻击样本从哪来？ | 自己设计清单（[attack-cases.md](./attack-cases.md)），源码从现有测试搬来；清单里标「新增」的样本由用户提供或另行商定 | 决定 §5 要不要实现，以及 benchmark 能不能声称「覆盖了沙箱安全」 |
-| 2 | 主要在哪里跑？ | 测试服务器的原生节点（有真实隔离）；本机 Docker（devhost 后端，**没有**内核隔离）只用于开发调试 | 决定哪些提交的预期有效，见 §3.5 的 `requires` |
+| 2 | 主要在哪里跑？ | **已决定：** 自己的服务器和 GitHub 托管的 CI 机器都可以跑，benchmark 提供一个入口脚本，运行即可；前提是该机器已有 judge 服务和执行器二进制（§4.1）。本机 devhost 后端没有内核隔离，结果不作隔离证据 | 决定哪些提交的预期有效，见 §3.5 的 `requires` |
 | 3 | 第一版范围？ | 8 道题 + 直接打 `POST /judge` 的 runner；走完整链路（Java 服务 + Kafka）的入口放到第二版 | 第一版体量与交付时间 |
 
 ## 1. 目的与非目标
@@ -141,21 +141,43 @@ corpus/judge/<题名>/
 
 ## 4. Runner
 
-### 4.1 第一版：直接打 `POST /judge`
+### 4.1 入口脚本
+
+benchmark 只提供一个入口脚本 `benchmark/run.py`（只用标准库）。在自己的服务器上和 GitHub 托管的 CI 机器上，运行方式相同：
 
 ```text
-python3 benchmark/tools/run.py --endpoint http://127.0.0.1:15051 --corpus benchmark/corpus \
-        --published-root /srv/cherry-benchmark --backend linux [--select a-plus-b] [--repeat 3]
+python3 benchmark/run.py --entries judge   --judge-url http://127.0.0.1:5051 \
+        --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false
+python3 benchmark/run.py --entries sandbox --executor /opt/cherry-oj/current/libexec/sandbox \
+        --executor-config /opt/cherry-oj/etc/executor.conf --declare backend=linux
+        [--select a-plus-b] [--report reports/<时间>.json]
 ```
 
-对每道题的每个提交：读源码 → 构造 `JudgeRequest`（`mode=submit`、`testDataLocation=<published-root>/<题名>/testdata`、
-`limits` 来自 `problem.json`、`languageId` 由扩展名决定）→ 同步等待 → 与 `expect.json` 逐项比对 → 记结果。串行执行（节点并发为 1）。
+**脚本不负责安装或启动被测节点**，运行它的机器必须已经具备：
 
-- **发布（`tools/publish.py`）：** 校验 `corpus.lock` 后，把 `testdata/` 复制到节点读得到的位置（目录 0755、文件 0644，
-  与 problem-service 写出的权限一致），并写入一个发布清单。本机 Docker 用 bind mount 的同一绝对路径；测试服务器用 scp。
-  **测试数据根目录必须让 judge 用户能一路进得去**——这是已知的部署坑（0700 的父目录会让读取失败而得到 SE）。
+| 前提 | judge 入口 | sandbox 入口 |
+|---|---|---|
+| judge 服务在运行，`--judge-url` 可达 | 需要 | **不能运行**：judge 持有 boxes 根的 `.lock`，脚本取不到锁会按环境错误退出（协议 §7.2） |
+| 执行器二进制（setuid-root）与受信配置 | 由 judge 使用，脚本不碰 | 需要，脚本以 root 或服务身份直接调用 |
+| 测试数据发布位置 | 需要，且 judge 的运行身份能一路进得去（0755/0644） | 不需要 |
+| 脚本与被测节点同机 | 取决于发布位置能否共享 | 需要 |
+
+因为两个入口对「judge 是否在运行」的要求相反，**两个入口分两次运行**：先在 judge 停止时运行 `--entries sandbox`，再在 judge 运行时运行 `--entries judge`。
+两次的报告各自独立，汇总时按 `environment.declared.entries` 区分（协议 §10）。
+
+- **自己的服务器：** judge 与执行器已由安装器装好（`/opt/cherry-oj`）。`sandbox` 入口前先 `systemctl stop cherry-sandbox-judge.service`，跑完再 `start`，然后运行 `judge` 入口。
+- **GitHub 托管的 CI：** 工作流里先构建 judge 与执行器、起好节点（可复用 `deploy/sandbox-linux/tests/` 里的夹具与 `judge_service.py`），再运行同一个脚本；
+  这一步的具体编排属于 CI 工作流的设计，不属于脚本。
+- **本机开发：** 可以对 devhost 后端的 judge 运行 `judge` 入口调试逻辑，`sandbox` 入口和所有 `backend:linux` 的项会被跳过。
+
+对每道题的每个提交：读源码 → 构造 `JudgeRequest`（`mode=submit`、`testDataLocation=<published-root>/<题名>/testdata`、
+`limits` 来自 `problem.json`、`languageId` 由扩展名决定）→ 同步等待 → 与 `expect.json` 逐项比对 → 记结果。串行执行。
+
+- **发布（`tools/publish.py`）：** 校验 `corpus.lock` 后，把 `testdata/` 复制到 `--published-root`（目录 0755、文件 0644，
+  与 problem-service 写出的权限一致），并写入一个发布清单。**测试数据根目录必须让 judge 用户能一路进得去**——这是已知的部署坑（0700 的父目录会让读取失败而得到 SE）。
 - **只读语料：** 篡改类请求用例在发布副本上操作并在结束后还原，语料本身不被修改。
-- **退出码：** 0 全部符合预期；1 有失败；2 有不稳定项；3 环境/配置错误（连不上、校验失败）。
+- **退出码：** 0 全部符合预期；1 有失败；2 有不稳定项；3 环境/配置错误（连不上、校验失败、取不到 box 锁）。
+- **声明：** `--declare` 给出的配置（`backend`、`strictWhitespace`、`revealExpected`、`languages` 等）写进报告；脚本不去猜节点配置。
 
 ### 4.2 第二版：完整链路入口
 
