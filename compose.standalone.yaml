@@ -1,7 +1,0 @@
-# judge 单机冒烟：不启用节点链路，不需要 Java 控制面。
-# 测试数据目录由 compose.yaml 的 CHERRY_TEST_DATA_ROOT 只读挂载，请求里的 testDataLocation 指向它下面的题目目录。
-# 与 compose.yaml 一起使用：COMPOSE_FILE=compose.yaml:compose.standalone.yaml。
-services:
-  judge:
-    environment:
-      CHERRY_OJ_JUDGE_NODE_ENABLED: "false"
