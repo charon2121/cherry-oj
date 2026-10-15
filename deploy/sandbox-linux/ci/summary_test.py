@@ -28,7 +28,7 @@ class SummaryTests(unittest.TestCase):
                 (path / 'facts.json').write_text('{"public":true}\n')
                 report.record(case_ids(suite), 'PASS', ['facts.json'])
                 report.finish(True)
-        self.path = self.root / 'sandbox-kernel-123-2'
+        self.path = self.root / 'sandbox-native-123-2'
 
     def result(self):
         return summarize(self.root, self.needs, SHA, '123', '2')
@@ -90,7 +90,7 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(self.result()['status'], 'FAIL')
 
     def test_prior_attempt_artifact_cannot_fill_missing_current_artifact(self):
-        self.path.rename(self.root / 'sandbox-kernel-123-1')
+        self.path.rename(self.root / 'sandbox-native-123-1')
         self.assertEqual(self.result()['status'], 'FAIL')
 
     def test_cli_exit_status_and_fixed_output_follow_the_real_verifier(self):

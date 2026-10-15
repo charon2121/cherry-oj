@@ -66,7 +66,7 @@ B11 是唯一需要**同时运行两次**的样本，用运行说明的 `id` 与
 | 场景 | 现位置 |
 |---|---|
 | 非法请求被拒绝、同一 box 并发被拒、遗留的执行组被回收、取消、命令不存在、产物规则、多次运行不泄漏 | `apps/sandbox/tests/run_tests.py` 里对应的用例 |
-| 安装、布局、卸载恢复、执行器与 judge 的崩溃恢复 | `deploy/sandbox-linux/install/verify-*.py`、`deploy/sandbox-linux/tests/fault_batch.py` |
+| 安装、布局、卸载恢复、执行器与 judge 的崩溃恢复 | `deploy/sandbox-linux/install/verify-*.py`（`tests/fault_batch.py` 已随内核套件退役，见 design §10） |
 
 ## 汇总
 

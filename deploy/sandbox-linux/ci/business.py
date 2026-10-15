@@ -15,7 +15,7 @@ from business_resources import Dependencies, RECORD as BUSINESS_RECORD
 from business_results import LIVE_CASES, browser_diagnostic, verify_build as verify_business_build, verify_live
 from business_stack import PRIVATE, Stack
 from command import install_signal_handlers
-from kernel import verify_build
+from build_check import verify_build
 from native import INSTALL, Native
 from native_resources import Installation, RECORD as NATIVE_RECORD, STATE
 from native_results import check as check_native

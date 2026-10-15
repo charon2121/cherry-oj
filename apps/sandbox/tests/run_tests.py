@@ -2,8 +2,8 @@
 """在真实 Linux 内核上测试 sandbox 执行器。必须以 root 在一次性的机器上运行。
 
 默认自备全部环境：创建服务用户、写编译进二进制的配置路径、在 cgroup 根下建子树。
-在已委派的 systemd 单元里运行时（deploy/sandbox-linux 的内核套件），用 --jobs 指定现成的
-jobs 子树、用 --service-uid 指定服务身份、用 --config 指定测试构建编译进去的配置路径。
+在已委派的 systemd 单元里运行时，用 --jobs 指定现成的
+jobs 子树、用 --service-uid 指定服务身份、用 --config 指定构建时编译进去的配置路径。
 
     sudo python3 apps/sandbox/tests/run_tests.py --binary build/sandbox --probe build/probe
 """
@@ -159,105 +159,10 @@ class ExecutorTest(unittest.TestCase):
         # 每次执行结束，执行组都必须已删除。
         self.assertEqual(group_names(), [])
 
-    def test_echo_streams_and_exit(self):
-        f = self.box.facts(['probe', 'echo'], stdin=b'1 2\n')
-        self.assertEqual((f['exitCode'], f['signal'], f['reason'], f['error']), (0, 0, '', ''))
-        self.assertEqual(self.box.read('stdout'), b'1 2\n')
-        self.assertEqual(self.box.read('stderr'), b'probe-stderr\n')
-        self.assertGreater(f['memoryBytes'], 0)
-
-    def test_exit_code_and_signal(self):
-        self.assertEqual(self.box.facts(['probe', 'exit', '7'])['exitCode'], 7)
-        f = self.box.facts(['probe', 'segv'])
-        self.assertEqual((f['signal'], f['reason']), (11, ''))
-
-    def test_identity_and_filesystem(self):
-        f = self.box.facts(['probe', 'identity'], inputs=[('data/in.txt', b'x', False)])
-        i = json.loads(self.box.read('stdout'))
-        status = i['status']
-        self.assertEqual(status['Uid'].split(), [str(env.payload_uid)] * 4)
-        self.assertEqual(status['Gid'].split(), [str(env.payload_uid)] * 4)
-        self.assertEqual(i['ppid'], 1)
-        for cap in ['CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb']:
-            self.assertEqual(int(status[cap], 16), 0, cap)
-        self.assertEqual((status['NoNewPrivs'], status['Seccomp']), ('1', '2'))
-        self.assertEqual((status['hostFileAbsent'], status['rootWriteDenied']), ('true', 'true'))
-        self.assertEqual(i['cwd'], '/work')
-        self.assertFalse(i['hostRootVisible'])
-        self.assertTrue(i['input'])
-        self.assertTrue(i['tmpWritable'])
-        self.assertEqual(i['extraFds'], 0)
-        self.assertTrue(all(t.startswith(('pipe:', '/work/.stdin')) for t in i['fds']), i['fds'])
-        self.assertEqual(f['error'], '')
-
     def test_command_resolves_from_workspace(self):
         probe = (env.rootfs / 'usr/bin/probe').read_bytes()
         f = self.box.facts(['tool', 'exit', '3'], inputs=[('tool', probe, True)])
         self.assertEqual(f['exitCode'], 3)
-
-    def test_cpu_limit(self):
-        f = self.box.facts(['probe', 'cpu'], cpu_ns=500_000_000)
-        self.assertEqual(f['reason'], 'cpu')
-        self.assertGreaterEqual(f['cpuNs'], 500_000_000)
-        self.assertLess(f['clockNs'], 2_000_000_000)
-
-    def test_wall_limit(self):
-        f = self.box.facts(['probe', 'sleep'], clock_ns=500_000_000)
-        self.assertEqual(f['reason'], 'wall')
-        self.assertGreaterEqual(f['clockNs'], 500_000_000)
-        self.assertLess(f['cpuNs'], 100_000_000)
-
-    def test_memory_limit_is_task_oom(self):
-        f = self.box.facts(['probe', 'memory'], memory_bytes=64 << 20)
-        self.assertEqual((f['reason'], f['signal']), ('', 9))
-        self.assertGreater(f['oom'], 0)
-        self.assertGreater(f['oomKill'], 0)
-
-    def test_output_limit(self):
-        f = self.box.facts(['probe', 'output'], stdout_max_bytes=4096)
-        self.assertEqual(f['reason'], 'output')
-        self.assertTrue(f['outputExceeded'])
-        self.assertEqual(len(self.box.read('stdout')), 4096)
-
-    def test_network_is_killed_by_seccomp(self):
-        self.assertEqual(self.box.facts(['probe', 'network'])['signal'], 31)
-
-    def test_x32_abi_is_killed(self):
-        self.assertEqual(self.box.facts(['probe', 'x32'])['signal'], 31)
-
-    def test_process_and_thread_limits(self):
-        for mode, marker in [('processes', b'spawn-denied'), ('threads', b'threads-denied')]:
-            f = self.box.facts(['probe', mode], max_processes=8)
-            self.assertGreater(f['pidsMaxEvents'], 0, mode)
-            self.assertTrue(self.box.read('stdout').startswith(marker), mode)
-
-    def test_background_processes_are_reclaimed(self):
-        started = time.monotonic()
-        f = self.box.facts(['probe', 'background'])
-        self.assertEqual((f['exitCode'], f['reason']), (0, ''))
-        self.assertTrue(self.box.read('stdout').startswith(b'background-started'))
-        # 后代自己要睡 4 秒；执行必须在它自行退出之前完成整组回收。
-        self.assertLess(time.monotonic() - started, 2)
-
-    def test_privilege_and_peer_isolation(self):
-        # setuid 不在过滤器的允许清单里，通常直接被 SIGSYS 杀死；即使放行，也只能得到拒绝。
-        f = self.box.facts(['probe', 'privilege'])
-        self.assertTrue(f['signal'] == 31 or (f['exitCode'], self.box.read('stdout')) == (0, b'denied\n'), f)
-        pid = os.getpid()
-        results = {}
-
-        def run(index, token):
-            results[token] = Box(self.service, index).facts(['probe', 'isolation', token, str(pid)],
-                                                            inputs=[('own', token.encode(), False)])
-
-        threads = [threading.Thread(target=run, args=(i, t)) for i, t in enumerate(['left', 'right'])]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
-        for i, token in enumerate(['left', 'right']):
-            self.assertEqual(results[token]['exitCode'], 0, token)
-            self.assertEqual(Box(self.service, i).read('stdout'), f'private {token}\n'.encode())
 
     def test_artifacts_are_bounded_regular_files(self):
         f = self.box.facts(['probe', 'write'], outputs=['out.txt', 'sub/deep.txt', 'missing'])
@@ -268,10 +173,6 @@ class ExecutorTest(unittest.TestCase):
         # 目录不是可交付的产物；只要有一个声明的产物不合格，整次交付都不成立。
         f = self.box.facts(['probe', 'write'], outputs=['out.txt', 'sub'])
         self.assertEqual((f['reason'], f['outputs']), ('platform', []))
-
-    def test_links_cannot_be_created(self):
-        for mode in ['symlink', 'hardlink']:
-            self.assertEqual(self.box.facts(['probe', mode])['signal'], 31, mode)
 
     def test_missing_command_is_platform_failure(self):
         f = self.box.facts(['no-such-command'])

@@ -11,7 +11,7 @@ import socket
 import time
 
 from command import install_signal_handlers, run
-from kernel import verify_build
+from build_check import verify_build
 from native_control import validate_registration
 from native_resources import Installation, RECORD, ETC, STATE, UNITS
 import native_results

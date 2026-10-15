@@ -240,12 +240,21 @@ benchmark 是一个**测试库**：测试代码和测试所需的「用户提交
 | **M2**（已完成 2026-10-15） | 其余 7 道题（含两份算法不同的参考解交叉验证）、全部请求级用例（含 `unknown_language`、`language_not_installed`、`tampered_input`）、`trial` 用例、`publish.py` | 判题部分 42 个提交、5 个请求级用例、3 个试运行用例在测试服务器原生节点上全部通过 |
 | **M3**（已完成 2026-10-15） | `sandbox` 入口（运行说明、并发组、回收检查与干净运行）；`attack-common/`（共用测试数据与 `probe.cpp`）；攻击样本首批 20 个（A1–A4、A6–A8、A14、A15、A17、B1–B7、B11；A16 并入 A1 的并发运行说明，B5 拆成三个样本），源码从现有测试**复制**过来（此时不删旧测试） | 测试服务器上 `sandbox` 入口与 `judge` 入口各跑一遍全部通过；每个样本的回收检查与干净运行通过 |
 | **M4**（工作流已跑通 2026-10-15，稳定性观察中） | CI 工作流：只在判题相关路径有改动时触发；GitHub 托管机器上构建并起好 judge 与执行器，以 root 运行脚本（两个入口依次进行，再把 judge 切到严格空白只跑 `whitespace`）；上传报告；**先不设为必过检查** | 在托管机器上完整跑通一次；稳定运行约一周没有误报后，再另行决定是否设为必过 |
-| M5（第一版之外） | 按 §10 迁移并删除旧测试：每搬一类先在 benchmark 里通过，再删原位置 | 旧位置不再有「用户提交行为」的案例 |
+| **M5**（已完成 2026-10-15，见 §10） | 按 §10 迁移并删除旧测试：每搬一类先在 benchmark 里通过，再删原位置；内核套件整套退役 | 旧位置不再有「用户提交行为」的案例；`ci` 单测与 `run_tests.py` 在测试服务器上通过 |
 | 之后 | 完整链路入口（§4.2）；CI 设为必过 | |
 
-**第一版不含 M5 的原因：** 删除旧测试不可逆，应当在 benchmark 在 CI 上稳定运行之后再做，避免中间出现没人测的空档。
+**M5 的做法：** benchmark 的 29 个攻击样本在 CI 上通过之后才动手；内核套件（`ci/kernel.py` 及它调用的 `tests/` 夹具）已经不随提交运行，而它调用的夹具里装的正是「用户提交行为」，所以决定整套退役，而不是在里面逐个摘除（见 §10）。
 
 ## 10. 迁移与删除
+
+**M5 的结果（2026-10-15）：**
+
+- 删除内核套件：`ci/kernel.py`，`deploy/sandbox-linux/tests/` 下的 `smoke`、`extended`、`cpp_limits`、`cpp`、`judge_chain`、`judge_program`、`chain_batch`、`fault_batch`、`judge_service`、`holder`、`executor_client`、`inspect_threads`、`identity_sample`、`prepare_fixture` 和 `README.md`，以及只测这些夹具的 `ci/snapshot_test.py`、`ci/identity_sample_test.py`。
+- `cases.json` 去掉 `kernel` suite 的 62 项，`summary.py` 去掉 `sandbox-kernel` 作业与 `kernel` suite；`prepare.py` 不再构建探针和测试版执行器，`build.json` 去掉对应摘要；`native.py` 与 `business.py` 共用的 `verify_build` 抽到 `ci/build_check.py`。
+- `apps/sandbox/tests/run_tests.py` 删除表中 13 个用例，`probe.c` 缩减为 `exit`、`sleep`、`cpu`、`write` 和 `true` 四种最简程序；剩下的 9 个用例在测试服务器上通过。
+- **没有删的：** `tests/acceptance/`——业务验收套件（`ci/business*.py`）仍把它当夹具，不属于内核套件；`tests/assemble_toolchain.py`、`tests/download_toolchain.sh` 没有任何引用，但不是这次要处理的东西。
+- **覆盖的缺口（刻意接受）：** 内核套件退役后，下列平台行为不再有真实内核测试——init 被强杀、排队时调用方断开、调用方断开 HTTP 连接后的取消（C5）、两个请求并发时峰值恰为 2 个执行组（C7）、优雅停机下的回收、并发 box 的 payload/init 身份分配（61002…）。执行器与 judge 被强杀后的恢复仍由 `install/verify-faults.py` 覆盖，取消的协议行为仍由 `run_tests.py` 的 `test_cancel_by_closing_stdin` 覆盖。
+- 下表保留原计划，供对照。
 
 规则：**凡是在测「用户提交的行为」的测试，整体搬进 benchmark，原位置删除；不留引用，也不留内嵌副本。**
 测平台自己（协议拒绝路径、安装、崩溃恢复、单元测试）的测试留在原位，它们需要的简单程序由各自的夹具自带。

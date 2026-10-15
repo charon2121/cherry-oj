@@ -2,7 +2,7 @@
 
 仓库里已经存在的、以「用户提交了这样的代码」为内容的测试案例。每个案例写明**做了什么**和**为什么这样写、目的是什么**。
 目的来自代码里的注释、测试名和验收文档，没有的我没有编造；写不出来的标「未写明」。
-本清单只盘点，不涉及迁移；各案例对应的 benchmark 清单编号见 [attack-cases.md](./attack-cases.md) 与 [judge-cases.md](./judge-cases.md)。
+本清单是迁移前（2026-10-15 之前）的盘点，其中内核套件与 `run_tests.py` 的相应部分已在 M5 退役，见 [design.md](./design.md) §10；各案例对应的 benchmark 清单编号见 [attack-cases.md](./attack-cases.md) 与 [judge-cases.md](./judge-cases.md)。
 
 案例按来源分组。**入口**一列：`E` 直接对执行器，`J` 经 `POST /judge`，`S` 经服务层/全栈。
 

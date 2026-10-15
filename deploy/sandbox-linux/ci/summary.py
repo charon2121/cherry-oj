@@ -9,9 +9,9 @@ import stat
 
 from report import MAX_EVIDENCE_BYTES, case_ids, git_sha, read_json, validate, verify_files
 
-JOBS = ('sandbox-packages', 'sandbox-basic', 'sandbox-kernel', 'sandbox-native', 'sandbox-business',
+JOBS = ('sandbox-packages', 'sandbox-basic', 'sandbox-native', 'sandbox-business',
         'development', 'web', 'contracts', 'go', 'tidy', 'containers')
-SUITES = ('basic', 'kernel', 'native', 'business')
+SUITES = ('basic', 'native', 'business')
 RESULTS = {'success', 'failure', 'cancelled', 'skipped'}
 
 

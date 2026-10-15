@@ -1,4 +1,4 @@
-"""Exclusive resources for the kernel suite. Never adopts an existing test installation."""
+"""Exclusive resources for the privileged suites. Never adopts an existing test installation."""
 import grp
 import json
 import os

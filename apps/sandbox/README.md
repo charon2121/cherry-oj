@@ -93,8 +93,13 @@ stdout 输出一行 JSON：`exitCode`、`signal`、`cpuNs`、`memoryBytes`、`cl
 
 ```text
 make                                   # 需要 libseccomp-dev，静态链接
+gcc -static -O2 -pthread -Wall -Werror -o build/probe tests/probe.c
 sudo python3 tests/run_tests.py --binary build/sandbox --probe build/probe
 ```
+
+这组测试只检验执行器自己的协议与回收行为：非法请求被拒、同一 box 并发被拒、遗留执行组被回收、取消、
+命令不存在、产物规则、多次运行不泄漏。用户程序在沙箱里的表现（资源限制、身份、系统调用、隔离）
+由 [benchmark](../../benchmark/README.md) 的攻击样本检验。
 
 测试需要真实的 x86_64 Linux 内核并以 root 运行，会改动机器的用户、`/etc` 与 cgroup，
 只能在一次性、独占的 Linux 虚拟机上按需运行。当前核心 CI 只编译执行器，

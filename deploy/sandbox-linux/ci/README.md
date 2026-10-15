@@ -16,8 +16,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/sandbox-linux/ci/basic.py --output /tmp
 
 ## 保留的完整回归
 
-- `prepare.py` 构建当前代码、执行器探针和锁定 rootfs；`packages.py` 获取并校验固定 Ubuntu 快照的软件包。
-- `kernel.py` 检查真实 Linux 隔离、资源计量与执行组回收。
+- `prepare.py` 构建当前代码和锁定 rootfs；`packages.py` 获取并校验固定 Ubuntu 快照的软件包。
 - `native.py` 检查原生安装、权限删减、服务故障和卸载恢复。
 - `business_prepare.py` 与 `business.py` 准备并验证 Java、Web、Kafka 与 Linux 判题节点的完整业务链路。
 - `cases.json`、`report.py` 和 `summary.py` 保存原回归清单与报告规则；旧汇总仍按原工作流的任务集合校验，不能用来汇总当前核心 CI。
@@ -26,3 +25,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/sandbox-linux/ci/basic.py --output /tmp
 需要另行准备调用环境。不要在日常开发机或已有服务的服务器上运行；Mac 不运行资源耗尽夹具。
 本次精简没有改变测试断言、资源预算或清理逻辑。旧设计与验收证据保留在
 [WORK-050](../../../development/works/WORK-050/00-work.md) 及关联历史记录中。
+
+真实 Linux 隔离、资源计量与执行组回收不再由这里的脚本检验：它们由 [benchmark](../../../benchmark/README.md) 在
+真实节点上检验，执行器自己的协议与回收行为见 [apps/sandbox](../../../apps/sandbox/README.md) 的测试。
