@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "testcaseCount": 3,
+  "totalBytes": 18,
+  "digest": "93ad439dce01eb0dcb273aea0d544471e6c8039a7933e03fba25edb95127b828",
+  "testcases": [
+    {
+      "name": "1",
+      "input": {
+        "sizeBytes": 2,
+        "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+      },
+      "output": {
+        "sizeBytes": 2,
+        "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+      }
+    },
+    {
+      "name": "2",
+      "input": {
+        "sizeBytes": 3,
+        "sha256": "913f5d1da2feaf4deeccc9e55cbb350a20f12b3f507e87be85dbb77fdd3cb9bc"
+      },
+      "output": {
+        "sizeBytes": 3,
+        "sha256": "913f5d1da2feaf4deeccc9e55cbb350a20f12b3f507e87be85dbb77fdd3cb9bc"
+      }
+    },
+    {
+      "name": "3",
+      "input": {
+        "sizeBytes": 4,
+        "sha256": "eea8254c7500ba3de996aa8ad6af399183f04e17d4a8102fde539dbc93a90012"
+      },
+      "output": {
+        "sizeBytes": 4,
+        "sha256": "eea8254c7500ba3de996aa8ad6af399183f04e17d4a8102fde539dbc93a90012"
+      }
+    }
+  ]
+}

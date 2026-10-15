@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "sort-numbers",
+  "title": "中等规模输入输出与时间：排序，含重复、逆序和 10^5 规模",
+  "seed": 7,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": []
+}

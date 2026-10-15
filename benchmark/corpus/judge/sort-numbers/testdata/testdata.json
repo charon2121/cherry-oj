@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "testcaseCount": 5,
+  "totalBytes": 1385710,
+  "digest": "b7cd87d7497da92fe947d48f7106f994991633cc849a650eb52888e78a4e2f06",
+  "testcases": [
+    {
+      "name": "1",
+      "input": {
+        "sizeBytes": 5,
+        "sha256": "33aed864e667105c76557c2a3b1557816f62f0271e6d720e8780752ca217ba1e"
+      },
+      "output": {
+        "sizeBytes": 3,
+        "sha256": "084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0"
+      }
+    },
+    {
+      "name": "2",
+      "input": {
+        "sizeBytes": 23,
+        "sha256": "cca466eb92d0a18b9b17bd1fdf0d66ef24ed8b37cbee1ee9dbd89bc279f101fa"
+      },
+      "output": {
+        "sizeBytes": 20,
+        "sha256": "9d696557e9a65519e7972b33e98df7df73f51f1af512988642f4f0c6e1567ac7"
+      }
+    },
+    {
+      "name": "3",
+      "input": {
+        "sizeBytes": 3898,
+        "sha256": "33defe76fab9c01d6b66fd5a6b17e1036d8274832b2a0e80847d973cfc8545db"
+      },
+      "output": {
+        "sizeBytes": 3893,
+        "sha256": "ce947ee2d56bc0b87430be6380afc5b41e283dec17517432fb4bfe647fb080dd"
+      }
+    },
+    {
+      "name": "4",
+      "input": {
+        "sizeBytes": 488934,
+        "sha256": "bdfc21ba2911702d7af20cf483bbe5a82b73e00fa41e9406e78168613cbffdeb"
+      },
+      "output": {
+        "sizeBytes": 488927,
+        "sha256": "950cb9fa2f5d5c746fed2f0a3d6f29b29a479f288580f22237c810fdc68bfb2e"
+      }
+    },
+    {
+      "name": "5",
+      "input": {
+        "sizeBytes": 200007,
+        "sha256": "ac277241217a02afc1bc5938008dfa4b64c3dc674676fb42636b3955c6df6fa5"
+      },
+      "output": {
+        "sizeBytes": 200000,
+        "sha256": "6e26fd51f84ceb1051f036eaeb319b06b222cbd2527c0ef0a28993b5d17318fe"
+      }
+    }
+  ]
+}

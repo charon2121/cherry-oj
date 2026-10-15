@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "testcaseCount": 4,
+  "totalBytes": 137,
+  "digest": "0d5c075044ef20fe52c594f156411ee3906abe0ea20d389b2357af7c906fe7fe",
+  "testcases": [
+    {
+      "name": "1",
+      "input": {
+        "sizeBytes": 8,
+        "sha256": "6b3272564201ddb9c9af54f753cb42a5c57b80c776cdd05f049d26c8695e2079"
+      },
+      "output": {
+        "sizeBytes": 2,
+        "sha256": "06e9d52c1720fca412803e3b07c4b228ff113e303f4c7ab94665319d832bbfb7"
+      }
+    },
+    {
+      "name": "2",
+      "input": {
+        "sizeBytes": 35,
+        "sha256": "388b8ce6964c6915f3d5da4ac0320b1ca56602e0952db1cb8b2e810bb434ce7b"
+      },
+      "output": {
+        "sizeBytes": 11,
+        "sha256": "c39f6c837c3ebd0f1620d4b2b5f157d3742b36c894d982ae98802824e6b13e2e"
+      }
+    },
+    {
+      "name": "3",
+      "input": {
+        "sizeBytes": 42,
+        "sha256": "f2f2304f57c9a165022b79d6e88d205f41006aaefcb01ac5e71386e3437969e6"
+      },
+      "output": {
+        "sizeBytes": 20,
+        "sha256": "44a569cf066371ab49eceaaba646654465a600ab4b7b7395846c500229eb5fec"
+      }
+    },
+    {
+      "name": "4",
+      "input": {
+        "sizeBytes": 15,
+        "sha256": "1c368822785db9393fc6d4d84a2653c151380647de472c93e97d34c8b69d6267"
+      },
+      "output": {
+        "sizeBytes": 4,
+        "sha256": "b006cefdd71a34e42ae5985551bf1375790fa729e3bef7bccaa99975a86344e7"
+      }
+    }
+  ]
+}

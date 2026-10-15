@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_malloc": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "ac_vector": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "mle_big": {
+      "verdict": "MLE",
+      "testcases": [
+        "MLE",
+        "MLE",
+        "MLE"
+      ]
+    },
+    "mle_last_only": {
+      "verdict": "MLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "MLE"
+      ]
+    }
+  },
+  "requests": {}
+}

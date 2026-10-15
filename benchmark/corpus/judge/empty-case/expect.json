@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_silent": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "ac_reads_eof": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_prints_text": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ]
+    }
+  },
+  "requests": {}
+}

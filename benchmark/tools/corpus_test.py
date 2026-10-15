@@ -30,12 +30,26 @@ class RealCorpusTest(unittest.TestCase):
         problem = corpus.problems["a-plus-b"]
         self.assertEqual(problem.testcase_names, ("1", "2", "3"))
         self.assertEqual(len(problem.submissions), 10)
+        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 42)
 
     def test_covers_every_verdict_but_se_through_submissions(self):
         problem = lib.load_corpus(REAL).problems["a-plus-b"]
         seen = {s.verdict for s in problem.submissions.values()}
         self.assertTrue({"AC", "WA", "CE", "RE", "TLE"} <= seen)
         self.assertEqual({c.verdict for c in problem.requests.values()}, {"SE"})
+
+
+class WhitespaceTwinsTest(unittest.TestCase):
+    def test_loose_and_strict_variants_have_byte_identical_sources(self):
+        problem = lib.load_corpus(REAL).problems["whitespace"]
+        pairs = [name[:-len("_loose")] for name in problem.submissions if name.endswith("_loose")]
+        self.assertEqual(len(pairs), 4)
+        for base in pairs:
+            self.assertEqual(problem.submissions[f"{base}_loose"].source, problem.submissions[f"{base}_strict"].source)
+            self.assertEqual(problem.submissions[f"{base}_loose"].requires, ("strictWhitespace:false",))
+            self.assertEqual(problem.submissions[f"{base}_strict"].requires, ("strictWhitespace:true",))
+            self.assertEqual(problem.submissions[f"{base}_loose"].verdict, "AC")
+            self.assertEqual(problem.submissions[f"{base}_strict"].verdict, "PE")
 
 
 class DigestTest(unittest.TestCase):

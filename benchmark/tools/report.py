@@ -62,7 +62,7 @@ def render_text(report: dict[str, Any]) -> str:
         for kind in ("submissions", "requests", "trials"):
             for item in problem[kind]:
                 label = f"{problem['name']}/{item['name']}"
-                lines.append(f"  {MARK[item['status']]} {label:<44} 预期 {item['expected']}  实际 {item['actual']}"
+                lines.append(f"  {MARK[item['status']]} {label:<44} 预期 {item['expected']}  实际 {item['actual'] or '-'}"
                              + (f"  （重复 {item['repeats']} 遍）" if item["repeats"] > 1 else ""))
                 if item["status"] == "skipped":
                     skipped.append((label, item.get("reason")))

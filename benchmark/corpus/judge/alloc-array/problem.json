@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "name": "alloc-array",
+  "title": "内存限制：分配并写满数组，合格程序、远超限制的程序，以及逐点不同的程序",
+  "seed": 5,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": [
+    "backend:linux"
+  ]
+}

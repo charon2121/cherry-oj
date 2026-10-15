@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "sum-large",
+  "title": "64 位整数：总和超过 int、接近 long long 上限、含负数",
+  "seed": 3,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": []
+}

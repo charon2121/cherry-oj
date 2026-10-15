@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "all_pass": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "fail_first_only": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "fail_last_only": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "WA"
+      ]
+    },
+    "re_middle": {
+      "verdict": "RE",
+      "testcases": [
+        "AC",
+        "AC",
+        "RE",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pass_half_tle_rest": {
+      "verdict": "TLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "TLE",
+        "TLE",
+        "TLE"
+      ]
+    }
+  },
+  "requests": {}
+}

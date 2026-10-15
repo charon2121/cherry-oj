@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
-from corpus import Problem
+from corpus import Corpus, Problem
 
 Respond = Callable[[dict[str, Any]], tuple[int, Any]]
 
@@ -31,9 +31,13 @@ def result(problem: Problem, verdict: str, testcases: tuple[str, ...], message: 
     return payload
 
 
-def ideal(problem: Problem, location: Path) -> Respond:
-    """一个行为完全符合语料预期的 judge。"""
-    by_source = {s.source: s for s in problem.submissions.values()}
+def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> Respond:
+    """一个行为完全符合语料预期的 judge；`strict_whitespace` 是它自己的节点配置。
+
+    whitespace 的 _loose 与 _strict 源码相同，真实 judge 靠配置给出不同结论，所以这里只让与配置相符的那一半参与分派。
+    """
+    wrong_config = f"strictWhitespace:{'false' if strict_whitespace else 'true'}"
+    by_source = {s.source: s for s in problem.submissions.values() if wrong_config not in s.requires}
     trials = {(c.source and problem.submissions[c.source].source, tuple((t.input, t.expected) for t in c.testcases)): c
               for c in problem.trials.values()}
 
@@ -63,6 +67,12 @@ def ideal(problem: Problem, location: Path) -> Respond:
         return 200, result(problem, submission.verdict, submission.testcases, message)
 
     return respond
+
+
+def ideal_corpus(corpus: Corpus, root: Path, strict_whitespace: bool = False) -> Respond:
+    """行为完全符合整个语料预期的 judge：按请求里的 problemId 分派到各题。"""
+    responders = {name: ideal(problem, root / name, strict_whitespace) for name, problem in corpus.problems.items()}
+    return lambda request: responders[request["problemId"]](request)
 
 
 class FakeJudge:

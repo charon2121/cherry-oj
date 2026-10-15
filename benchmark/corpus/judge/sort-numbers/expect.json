@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_std_sort": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "ac_qsort": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "tle_bubble": {
+      "verdict": "TLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "TLE",
+        "TLE"
+      ]
+    },
+    "wa_unique": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "WA",
+        "AC",
+        "WA",
+        "WA"
+      ]
+    }
+  },
+  "requests": {}
+}

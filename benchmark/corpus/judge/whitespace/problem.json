@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "whitespace",
+  "title": "比对对空白的处理：排版不同永远不是 WA，宽松判 AC、严格判 PE",
+  "seed": 1,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": []
+}

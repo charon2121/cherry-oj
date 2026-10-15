@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_modest": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "ole_flood": {
+      "verdict": "OLE",
+      "testcases": [
+        "OLE",
+        "OLE"
+      ]
+    },
+    "probe_near_limit": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ],
+      "probe": true
+    }
+  },
+  "requests": {}
+}

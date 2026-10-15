@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_exact": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_token": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ]
+    },
+    "ws_crlf_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "ws_crlf_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "ws_extra_blank_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "ws_extra_blank_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "ws_no_final_newline_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "ws_no_final_newline_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "ws_trailing_space_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "ws_trailing_space_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    }
+  },
+  "requests": {}
+}

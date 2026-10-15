@@ -29,9 +29,12 @@ class RunTest(unittest.TestCase):
         self.problem = self.corpus.problems["a-plus-b"]
         self.location = self.published.resolve() / "a-plus-b"
 
-    def go(self, judge_url: str, *extra: str, corpus: Path = REAL) -> tuple[int, str, str]:
+    def go(self, judge_url: str, *extra: str, corpus: Path = REAL, select: str | None = "a-plus-b",
+           declare: tuple[str, ...] = ("backend=linux", "languages=cpp")) -> tuple[int, str, str]:
         argv = ["--judge-url", judge_url, "--published-root", str(self.published), "--corpus", str(corpus),
-                "--report", str(self.report_path), "--declare", "backend=linux", "languages=cpp", *extra]
+                "--report", str(self.report_path), "--declare", *declare, *extra]
+        if select:
+            argv += ["--select", select]
         out, err = StringIO(), StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = run.main(argv)
@@ -40,8 +43,8 @@ class RunTest(unittest.TestCase):
     def report(self):
         return json.loads(self.report_path.read_text(encoding="utf-8"))
 
-    def statuses(self) -> dict[str, str]:
-        report = self.report()["judge"][0]
+    def statuses(self, problem: str = "a-plus-b") -> dict[str, str]:
+        report = next(p for p in self.report()["judge"] if p["name"] == problem)
         return {item["name"]: item["status"] for kind in ("submissions", "requests", "trials") for item in report[kind]}
 
     def test_all_as_expected_exits_zero_and_reports(self):
@@ -128,7 +131,7 @@ class RunTest(unittest.TestCase):
 
     def test_unmet_requires_are_skipped_not_failed(self):
         with fake_judge.FakeJudge(fake_judge.ideal(self.problem, self.location)) as judge:
-            code, out, _ = self.go(judge.url, "--declare", "backend=linux", "languages=cpp,python")
+            code, out, _ = self.go(judge.url, declare=("backend=linux", "languages=cpp,python"))
         self.assertEqual(code, 0)
         self.assertEqual(self.statuses()["language_not_installed"], "skipped")
         item = next(i for i in self.report()["judge"][0]["requests"] if i["name"] == "language_not_installed")
@@ -138,18 +141,41 @@ class RunTest(unittest.TestCase):
 
     def test_undeclared_configuration_is_never_guessed(self):
         argv = ["--judge-url", "x", "--published-root", str(self.published), "--corpus", str(REAL),
-                "--report", str(self.report_path)]
+                "--report", str(self.report_path), "--select", "a-plus-b"]
         with fake_judge.FakeJudge(fake_judge.ideal(self.problem, self.location)) as judge:
             argv[1] = judge.url
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                 self.assertEqual(run.main(argv), 0)
         self.assertEqual(self.statuses()["language_not_installed"], "skipped")
 
+    def run_everything(self, *declare: str) -> dict:
+        strict = "strictWhitespace=true" in declare
+        with fake_judge.FakeJudge(fake_judge.ideal_corpus(self.corpus, self.published.resolve(), strict)) as judge:
+            code, _, err = self.go(judge.url, select=None, declare=("backend=linux", "languages=cpp", *declare))
+        self.assertEqual((code, err), (0, ""))
+        return self.report()["summary"]["judge"]
+
+    def test_whole_corpus_runs_the_half_of_whitespace_the_declaration_selects(self):
+        # 50 项 = 42 个提交 + 5 个请求级 + 3 个试运行；whitespace 的 8 个 _loose/_strict 只有一半会运行，探测项另计。
+        self.assertEqual(self.run_everything(), dict(ran=41, passed=41, failed=0, unstable=0, skipped=8, probes=1))
+        self.assertEqual(self.run_everything("strictWhitespace=false"),
+                         dict(ran=45, passed=45, failed=0, unstable=0, skipped=4, probes=1))
+        self.assertEqual(self.run_everything("strictWhitespace=true"),
+                         dict(ran=45, passed=45, failed=0, unstable=0, skipped=4, probes=1))
+        self.assertEqual(self.statuses("whitespace")["ws_crlf_strict"], "pass")
+
+    def test_linux_only_problems_are_skipped_without_the_declaration(self):
+        with fake_judge.FakeJudge(fake_judge.ideal_corpus(self.corpus, self.published.resolve())) as judge:
+            code, _, _ = self.go(judge.url, select=None, declare=("languages=cpp",))
+        self.assertEqual(code, 0)
+        self.assertEqual(set(self.statuses("alloc-array").values()), {"skipped"})
+        self.assertEqual(set(self.statuses("big-output").values()), {"skipped"})
+
     def test_select_runs_only_the_named_problem(self):
         with fake_judge.FakeJudge(fake_judge.ideal(self.problem, self.location)) as judge:
-            code, _, _ = self.go(judge.url, "--select", "a-plus-b")
+            code, _, _ = self.go(judge.url, select="a-plus-b")
             self.assertEqual(code, 0)
-            code, _, err = self.go(judge.url, "--select", "nope")
+            code, _, err = self.go(judge.url, select="nope")
         self.assertEqual(code, 3)
         self.assertIn("没有这些题", err)
 

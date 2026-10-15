@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "name": "big-output",
+  "title": "输出上限：合格的输出、无限输出，以及观察边界的探测项",
+  "seed": 9,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": [
+    "backend:linux"
+  ]
+}

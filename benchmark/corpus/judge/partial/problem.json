@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "partial",
+  "title": "逐测试点独立判定与汇总：一个点的结论不影响其余点",
+  "seed": 13,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": []
+}

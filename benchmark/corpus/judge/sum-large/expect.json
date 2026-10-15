@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_int64": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "ac_int128": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_int32": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "WA",
+        "WA",
+        "AC"
+      ]
+    }
+  },
+  "requests": {}
+}

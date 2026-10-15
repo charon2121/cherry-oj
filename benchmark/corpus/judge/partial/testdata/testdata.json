@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "testcaseCount": 6,
+  "totalBytes": 101,
+  "digest": "6317abf1b82e02eb02359e097736e3aef078e7b6894d5688e3ad60d9a259b03f",
+  "testcases": [
+    {
+      "name": "1",
+      "input": {
+        "sizeBytes": 4,
+        "sha256": "3f11ad6bbc7ecca0b2416b713dee77f1a635c00aaeaa946e14cde1c2bfae56d5"
+      },
+      "output": {
+        "sizeBytes": 2,
+        "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+      }
+    },
+    {
+      "name": "2",
+      "input": {
+        "sizeBytes": 4,
+        "sha256": "337b794ce718a09a620090d53541c3b4640a64133bbee2188444810cd3169f81"
+      },
+      "output": {
+        "sizeBytes": 2,
+        "sha256": "f0b5c2c2211c8d67ed15e75e656c7862d086e9245420892a7de62cd9ec582a06"
+      }
+    },
+    {
+      "name": "3",
+      "input": {
+        "sizeBytes": 6,
+        "sha256": "8b3a3ad9552da324931fb27537e3151951d3641d00b8fb322de4a2b0580d353d"
+      },
+      "output": {
+        "sizeBytes": 3,
+        "sha256": "f4ccd05b3271c386ee55d9876c7450012a3b361e5065c09dc22075e38b3cc35c"
+      }
+    },
+    {
+      "name": "4",
+      "input": {
+        "sizeBytes": 16,
+        "sha256": "47d65cd378400c6525dd9af9660c29d753dfb427c51b183d6abd9a73313345cf"
+      },
+      "output": {
+        "sizeBytes": 8,
+        "sha256": "86462511f5bae5ed2d407ecc8d2699a032b2ee003e4d10c3e38511780dd6d016"
+      }
+    },
+    {
+      "name": "5",
+      "input": {
+        "sizeBytes": 17,
+        "sha256": "fb714fcb9ced53de7450f2719a7e0ac025edf3cd528792b0fcaec2d96c67c546"
+      },
+      "output": {
+        "sizeBytes": 8,
+        "sha256": "f5bbc9df805e66180e1640add85a5de00bf2e13d1f5415e22278318f2d82d5d1"
+      }
+    },
+    {
+      "name": "6",
+      "input": {
+        "sizeBytes": 20,
+        "sha256": "cf899192e335a729bcfd33e3606773ab2415e518bf16e1c4053c532084bf3509"
+      },
+      "output": {
+        "sizeBytes": 11,
+        "sha256": "1df5269d7a97bbc0aa2bbd2dfa425652d7a6131c62989d3f392c99e19b796bc7"
+      }
+    }
+  ]
+}

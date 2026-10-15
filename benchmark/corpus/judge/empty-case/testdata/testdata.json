@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "testcaseCount": 2,
+  "totalBytes": 1,
+  "digest": "89e2a97abd7a5973636e5730829cd112192e5acc82684ef7e0fd78edd1e34499",
+  "testcases": [
+    {
+      "name": "1",
+      "input": {
+        "sizeBytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output": {
+        "sizeBytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "name": "2",
+      "input": {
+        "sizeBytes": 1,
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      },
+      "output": {
+        "sizeBytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ]
+}

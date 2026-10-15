@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "empty-case",
+  "title": "空输入与空输出：测试数据协议允许零字节文件",
+  "seed": 11,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": []
+}
