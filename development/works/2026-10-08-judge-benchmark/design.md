@@ -170,7 +170,7 @@ python3 benchmark/run.py --entries sandbox --executor /opt/cherry-oj/current/lib
   这一步的具体编排属于 CI 工作流的设计，不属于脚本。
 - **本机开发：** 可以对 devhost 后端的 judge 运行 `judge` 入口调试逻辑，`sandbox` 入口和所有 `backend:linux` 的项会被跳过。
 
-对每道题的每个提交：读源码 → 构造 `JudgeRequest`（`mode=submit`、`testDataLocation=<published-root>/<题名>/testdata`、
+对每道题的每个提交：读源码 → 构造 `JudgeRequest`（`mode=submit`、`testDataLocation=<published-root>/<题名>`、
 `limits` 来自 `problem.json`、`languageId` 由扩展名决定）→ 同步等待 → 与 `expect.json` 逐项比对 → 记结果。串行执行。
 
 - **发布（`tools/publish.py`）：** 校验 `corpus.lock` 后，把 `testdata/` 复制到 `--published-root`（目录 0755、文件 0644，
@@ -226,7 +226,7 @@ benchmark 是一个**测试库**：测试代码和测试所需的「用户提交
   `requires` 不满足 → 跳过而不是失败。
 - **生成脚本单测：** 同种子两次生成逐字节相同；来源 A 与 B 故意不一致 → 拒绝写出；整体与逐点预期自相矛盾 → 拒绝写出；
   `corpus.lock` 与实际不符 → `check.py` 失败。
-- **对真实 judge 的首次运行就是验收：** 本机 Docker 全部通过（跳过 `backend:linux` 项），测试服务器原生节点全部通过（含 `backend:linux` 项），报告入档。
+- **对真实 judge 的首次运行就是验收：** 本机 Docker 全部通过（跳过 `backend:linux` 项），测试服务器原生节点全部通过（含 `backend:linux` 项）。报告保存在 `benchmark/reports/`，不入库，也不要求在工作记录里引用。
 - **回归保护：** 提交前可以只跑 `check.py`（不需要 judge），保证语料没有漂移。
 
 ## 8. 实施步骤
@@ -235,8 +235,8 @@ benchmark 是一个**测试库**：测试代码和测试所需的「用户提交
 
 | 里程碑 | 内容 | 验收 |
 |---|---|---|
-| **M1** | 入口脚本骨架；`tools/` 里的协议目录生成（复用 `testdata_pack.py`）、`generate.py`、`check.py`、`corpus.lock`；报告与退出码；`a-plus-b` 通过 `judge` 入口跑通；runner 自己的单测（mock judge，见 §7） | 本机与测试服务器上 `a-plus-b` 的全部提交符合预期；单测覆盖退出码 0/1/2/3 与跳过 |
-| **M2** | 其余 7 道题（含两份算法不同的参考解交叉验证）、全部请求级用例（含 `unknown_language`、`language_not_installed`、`tampered_input`）、`trial` 用例、`publish.py` | 判题部分 42 个提交、5 个请求级用例、3 个试运行用例在测试服务器原生节点上全部通过；报告入档 |
+| **M1**（已完成 2026-10-15） | 入口脚本骨架；`tools/` 里的协议目录生成（复用 `testdata_pack.py`）、`generate.py`、`check.py`、`corpus.lock`；报告与退出码；`a-plus-b` 通过 `judge` 入口跑通；runner 自己的单测（mock judge，见 §7） | 本机与测试服务器上 `a-plus-b` 的全部提交符合预期；单测覆盖退出码 0/1/2/3 与跳过 |
+| **M2** | 其余 7 道题（含两份算法不同的参考解交叉验证）、全部请求级用例（含 `unknown_language`、`language_not_installed`、`tampered_input`）、`trial` 用例、`publish.py` | 判题部分 42 个提交、5 个请求级用例、3 个试运行用例在测试服务器原生节点上全部通过 |
 | **M3** | `sandbox` 入口（运行说明、并发组、独占 box 锁）；`attack-common/`（共用测试数据与 `probe.cpp`）；攻击样本首批 18 个（A1–A4、A6–A8、A14–A17、B1–B7），源码从现有测试**复制**过来（此时不删旧测试） | 测试服务器上 `sandbox` 入口与 `judge` 入口各跑一遍全部通过；每个样本的回收检查与干净运行通过 |
 | **M4** | CI 工作流：只在判题相关路径有改动时触发；GitHub 托管机器上构建并起好 judge 与执行器，按顺序运行两次脚本；上传报告；**先不设为必过检查** | 在托管机器上完整跑通一次；稳定运行约一周没有误报后，再另行决定是否设为必过 |
 | M5（第一版之外） | 按 §10 迁移并删除旧测试：每搬一类先在 benchmark 里通过，再删原位置 | 旧位置不再有「用户提交行为」的案例 |

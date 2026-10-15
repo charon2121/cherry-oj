@@ -1,0 +1,112 @@
+"""测试用的假 judge：按语料里的预期应答，再让各个测试按需改坏。不是测试文件（不以 _test 结尾）。"""
+
+from __future__ import annotations
+
+import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, Callable
+
+from corpus import Problem
+
+Respond = Callable[[dict[str, Any]], tuple[int, Any]]
+
+
+def testcase_row(index: int, name: str, verdict: str, with_diff: bool = False) -> dict[str, Any]:
+    row: dict[str, Any] = {"idx": index, "name": name, "verdict": verdict, "cpuNs": 1_000_000, "memoryBytes": 1 << 20}
+    if verdict == "WA" and with_diff:
+        row["diff"] = {"line": 1, "got": "x"}
+    return row
+
+
+def result(problem: Problem, verdict: str, testcases: tuple[str, ...], message: str | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {"verdict": verdict, "score": 100 if verdict == "AC" else 0}
+    if message is not None:
+        payload["message"] = message
+    if testcases:
+        payload["testDataDigest"] = problem.digest
+        payload["testcaseResults"] = [testcase_row(i, n, v, True)
+                                      for i, (n, v) in enumerate(zip(problem.testcase_names, testcases), start=1)]
+    return payload
+
+
+def ideal(problem: Problem, location: Path) -> Respond:
+    """一个行为完全符合语料预期的 judge。"""
+    by_source = {s.source: s for s in problem.submissions.values()}
+    trials = {(c.source and problem.submissions[c.source].source, tuple((t.input, t.expected) for t in c.testcases)): c
+              for c in problem.trials.values()}
+
+    def respond(request: dict[str, Any]) -> tuple[int, Any]:
+        language = request["languageId"]
+        if language == "python":
+            return 200, {"verdict": "SE", "message": "run: init failed: phase=6 errno=2"}
+        if language != "cpp":
+            return 200, {"verdict": "SE", "message": f'unknown language: "{language}"'}
+        if request["mode"] == "trial":
+            case = trials[(request["source"], tuple((t["input"], t.get("expected")) for t in request["testcases"]))]
+            rows = []
+            for index, t in enumerate(case.testcases, start=1):
+                row = testcase_row(index, t.name, t.verdict, True)
+                row["stderr"] = {"excerpt": "", "bytes": 0}
+                if t.verdict in ("RAN", "AC", "WA"):
+                    row["output"] = {"excerpt": "3\n", "bytes": 2}
+                rows.append(row)
+            return 200, {"verdict": case.verdict, "score": 0, "testcaseResults": rows}
+        if request["testDataLocation"] != str(location):
+            return 200, {"verdict": "SE", "message": "load testcases: unsupported test data location"}
+        for name in (f"{n}{s}" for n in problem.testcase_names for s in (".in", ".out")):
+            if (location / name).read_bytes() != (problem.testdata / name).read_bytes():
+                return 200, {"verdict": "SE", "message": "testdata changed"}
+        submission = by_source[request["source"]]
+        message = "main.cpp: error: BENCHMARK_EXPECTED_COMPILE_ERROR" if submission.verdict == "CE" else None
+        return 200, result(problem, submission.verdict, submission.testcases, message)
+
+    return respond
+
+
+class FakeJudge:
+    """在本机随机端口起一个 HTTP 服务，应答由 respond 决定；记录收到的每个判题请求。"""
+
+    def __init__(self, respond: Respond, version: str = "0.0.0-fake") -> None:
+        self.respond, self.version, self.requests = respond, version, []
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args: Any) -> None:  # 不往测试输出里写访问日志
+                pass
+
+            def _send(self, status: int, payload: Any) -> None:
+                data = payload.encode() if isinstance(payload, str) else json.dumps(payload).encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self) -> None:
+                if self.path == "/version":
+                    self._send(200, {"name": "cherry-oj-judge", "version": outer.version})
+                else:
+                    self._send(404, {"error": "not found"})
+
+            def do_POST(self) -> None:
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                outer.requests.append(body)
+                status, payload = outer.respond(body)
+                self._send(status, payload)
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+
+    @property
+    def url(self) -> str:
+        return f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def __enter__(self) -> "FakeJudge":
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.server.shutdown()
+        self.server.server_close()

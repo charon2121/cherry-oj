@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_iostream":    { "verdict": "AC",  "testcases": ["AC", "AC", "AC"] },
+    "ac_scanf":       { "verdict": "AC",  "testcases": ["AC", "AC", "AC"] },
+    "ac_stderr_note": { "verdict": "AC",  "testcases": ["AC", "AC", "AC"] },
+    "wa_minus":       { "verdict": "WA",  "testcases": ["WA", "WA", "AC"] },
+    "ce_syntax":      { "verdict": "CE",  "testcases": [] },
+    "ce_marker":      { "verdict": "CE",  "testcases": [], "message": { "contains": "BENCHMARK_EXPECTED_COMPILE_ERROR" } },
+    "re_exit1":       { "verdict": "RE",  "testcases": ["RE", "RE", "RE"] },
+    "re_abort":       { "verdict": "RE",  "testcases": ["RE", "RE", "RE"] },
+    "re_segv":        { "verdict": "RE",  "testcases": ["RE", "RE", "RE"] },
+    "tle_loop":       { "verdict": "TLE", "testcases": ["TLE", "TLE", "TLE"] }
+  },
+  "requests": {
+    "missing_address":  { "source": "ac_iostream", "testDataLocation": "/nonexistent/benchmark", "verdict": "SE" },
+    "relative_address": { "source": "ac_iostream", "testDataLocation": "relative/path", "verdict": "SE" },
+    "tampered_input":   { "source": "ac_iostream", "tamper": { "file": "1.in", "appendText": "tampered\n" }, "verdict": "SE" },
+    "unknown_language": { "source": "ac_iostream", "languageId": "brainfuck", "verdict": "SE",
+                          "message": { "contains": "unknown language" } },
+    "language_not_installed": { "sourceText": "print(1)\n", "languageId": "python", "verdict": "SE",
+                                "body": { "contains": "errno=2" }, "requires": ["noLanguage:python"] }
+  },
+  "trials": {
+    "trial_ac":  { "source": "ac_iostream", "verdict": "AC",
+                   "testcases": [ { "name": "sample", "input": "1 2\n", "expected": "3\n", "verdict": "AC" } ] },
+    "trial_wa":  { "source": "ac_iostream", "verdict": "WA",
+                   "testcases": [ { "name": "sample", "input": "1 2\n", "expected": "4\n", "verdict": "WA" } ] },
+    "trial_ran": { "source": "ac_iostream", "verdict": "RAN",
+                   "testcases": [ { "name": "sample", "input": "1 2\n", "verdict": "RAN", "output": { "contains": "3" } } ] }
+  }
+}

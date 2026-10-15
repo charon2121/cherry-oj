@@ -18,3 +18,7 @@ password
 
 # Private test-server connection and local agent notes
 /AGENTS.local.md
+
+# benchmark 的运行报告，不入库
+/benchmark/reports/
+/benchmark/**/__pycache__/

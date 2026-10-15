@@ -157,6 +157,7 @@ corpus/judge/a-plus-b/
 "requests": {
   "missing_address":  { "testDataLocation": "/nonexistent/benchmark", "source": "ac_iostream", "verdict": "SE" },
   "relative_address": { "testDataLocation": "relative/path",           "source": "ac_iostream", "verdict": "SE" },
+  "tampered_input":   { "source": "ac_iostream", "tamper": { "file": "1.in", "appendText": "tampered\n" }, "verdict": "SE" },
   "unknown_language": { "languageId": "brainfuck", "source": "ac_iostream", "verdict": "SE",
                         "message": { "contains": "unknown language" } },
   "language_not_installed": { "languageId": "python", "sourceText": "print(1)\n", "verdict": "SE",
@@ -171,6 +172,7 @@ corpus/judge/a-plus-b/
 | `testDataLocation` | 替换请求里的地址 |
 | `languageId` | 替换请求里的语言标识 |
 | `limits` | 覆盖请求里的同名限制 |
+| `tamper` | 可选，`{ "file": "1.in", "appendText": "…" }`：在**发布副本**的 `file` 末尾追加 `appendText`，请求结束后还原。`file` 必须是本题测试数据里的文件 |
 | `verdict` | 预期的整体结论 |
 | `message` | 可选，对响应顶层 `message` 的断言 |
 | `body` | 可选，对整个响应正文（JSON 文本）的断言；用于原因出现在逐测试点结果里的情形 |
@@ -383,12 +385,14 @@ attack/<名>/
     "kernel": null, "gitSha": "…", "corpusDigest": "…", "rootfsManifestSha256": null
   },
   "summary": {
-    "judge":  { "ran": 52, "passed": 50, "failed": 1, "unstable": 1, "skipped": 4 },
+    "judge":  { "ran": 52, "passed": 50, "failed": 1, "unstable": 1, "skipped": 4, "probes": 1 },
     "attack": { "samples": 25, "ran": 25, "passed": 25, "failed": 0, "unstable": 0, "skipped": 0 } },
   "judge": [
     { "name": "a-plus-b", "digest": "…", "submissions": [
       { "name": "ac_iostream", "entry": "judge", "status": "pass", "expected": "AC", "actual": "AC", "repeats": 1,
-        "testcases": [ { "idx": 1, "expected": "AC", "actual": "AC", "cpuNs": 1200000, "memoryBytes": 1048576 } ] } ] } ],
+        "testcases": [ { "idx": 1, "expected": "AC", "actual": "AC", "cpuNs": 1200000, "memoryBytes": 1048576 } ] } ],
+      "requests": [ { "name": "missing_address", "entry": "judge", "status": "pass", "expected": "SE", "actual": "SE", "repeats": 1 } ],
+      "trials":   [ { "name": "trial_ran", "entry": "judge", "status": "pass", "expected": "RAN", "actual": "RAN", "repeats": 1 } ] } ],
   "attack": [
     { "name": "<名>", "results": [
       { "entry": "judge",   "status": "pass", "expected": "TLE", "actual": "TLE",
@@ -398,6 +402,8 @@ attack/<名>/
 }
 ```
 
+- 每道题的 `submissions`、`requests`、`trials` 各是一个数组，条目的状态含义见 §7.3；`skipped` 的条目带 `reason`，`fail` 与 `unstable` 的条目带 `diffs`（差异的文字说明）。`probes` 是探测项的个数，不计入 `ran`。
+- 顶层 `warnings` 是不影响结论的提醒，例如发布位置的某级目录缺少「其他用户可进入」权限。
 - `judge` 列出判题部分的题目，`attack` 列出攻击样本，每个样本在每个运行过的入口有一条结果；`residue` 是回收检查的结果，三项都必须为 0、`cleanProbe` 必须为 `pass` 才算 `pass`。
 - `environment.declared` 是运行者声明的配置（§4），必须写入报告，包括能运行的入口 `entries`。
 - `kernel`、`rootfsManifestSha256` 等节点侧信息由运行者提供，**没有就写 `null`，不猜**。

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "name": "a-plus-b",
+  "title": "基线链路：编译、运行、比对，以及 CE、RE、TLE、SE",
+  "seed": 1,
+  "limits": { "cpuNs": 1000000000, "memoryBytes": 268435456, "clockNs": 3000000000 },
+  "requires": []
+}
