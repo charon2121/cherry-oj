@@ -62,7 +62,7 @@ hook 提前运行部分检查；CI 还会验证完整构建和 Java 测试，本
 
 ## 4.3 CI 会检查什么
 
-只保留 `.github/workflows/ci.yml`，push 到 main 和所有 PR 自动运行，也支持手动触发。
+日常门禁是 `.github/workflows/ci.yml`，push 到 main 和所有 PR 自动运行，也支持手动触发。
 五个任务独立执行，不再准备整套部署环境或汇总多份验收报告：
 
 | job | 检查 | 要守住什么 |
@@ -80,6 +80,11 @@ Testcontainers 使用 runner 的 Docker；依赖外部真实 Linux 判题节点�
 完整部署、真实沙箱内核、容器联调、全栈浏览器、Storybook 构建、冷下载和语言诊断已退出日常 CI，
 相关独立工作流已删除。需要这些验证时使用保留的脚本和对应环境，实际结果单独报告；
 核心 CI 通过只证明上表所列检查通过。
+
+另有一个**只在判题相关路径有改动时**触发的独立工作流 `.github/workflows/benchmark.yml`：在一次性的托管虚拟机上用正式安装器装一个真实节点，
+再运行 `benchmark/run.py`（判题 benchmark 的 `judge` 入口），用来确认对判题机、执行器或部署的重构没有改变判题结论。
+触发路径是 `apps/judge-engine`、`apps/sandbox`、`deploy/sandbox-linux`、`benchmark`、`contracts/judge.schema.json`。
+它**目前不是必过检查**，稳定运行一段时间没有误报后再决定；报告作为构建产物保存 14 天。
 
 ## 4.4 文档与开发记录
 

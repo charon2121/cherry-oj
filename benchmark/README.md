@@ -27,6 +27,12 @@ python3 benchmark/run.py --judge-url http://127.0.0.1:5051 --published-root /srv
 
 退出码：`0` 全部符合预期；`1` 有失败；`2` 没有失败但有不稳定项；`3` 环境或配置错误（连不上 judge、语料与 `corpus.lock` 不一致、参数不对）。
 
+## CI
+
+`.github/workflows/benchmark.yml` 在一次性的 GitHub 托管虚拟机上用正式安装器装一个真实节点（并发数 1），再运行本脚本：
+先 `strictWhitespace=false` 跑全部题目，再把 judge 切到 `strictWhitespace=true` 只跑 `whitespace`。只在判题相关路径有改动时触发，报告作为构建产物保存。
+托管虚拟机的 `/opt` 不满足安装布局协议的规则 1（家目录的祖先必须归 root 且不被组或其他用户写入），工作流在安装前把它规整成 `root:root 755`。
+
 ## 语料
 
 ```text

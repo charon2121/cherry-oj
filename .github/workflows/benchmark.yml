@@ -1,0 +1,154 @@
+name: Benchmark
+
+# benchmark 的 judge 入口要在真实的 Linux 内核上跑：MLE、OLE、TLE 等结论依赖 cgroup v2 与 seccomp，
+# 开发用的无隔离后端不能当证据。这个工作流在一次性的 GitHub 托管虚拟机上用正式安装器装一个真实节点
+# （并发数 1），再运行 benchmark/run.py。它改动这台虚拟机的用户、/etc 与 cgroup，只能在一次性机器上运行。
+#
+# 只在判题相关路径有改动时触发；先不设为必过检查，稳定运行一段时间没有误报后再另行决定。
+on:
+  push:
+    branches: [main, 'wip/**']
+    paths:
+      - 'apps/judge-engine/**'
+      - 'apps/sandbox/**'
+      - 'deploy/sandbox-linux/**'
+      - 'benchmark/**'
+      - 'contracts/judge.schema.json'
+      - '.github/workflows/benchmark.yml'
+  pull_request:
+    paths:
+      - 'apps/judge-engine/**'
+      - 'apps/sandbox/**'
+      - 'deploy/sandbox-linux/**'
+      - 'benchmark/**'
+      - 'contracts/judge.schema.json'
+      - '.github/workflows/benchmark.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: benchmark（judge 入口，真实 Linux 节点）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      JUDGE_URL: http://127.0.0.1:15051
+      PUBLISHED_ROOT: /srv/cherry-benchmark
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: apps/judge-engine/go.mod
+          cache-dependency-path: apps/judge-engine/go.sum
+
+      - name: 语料检查与运行者自己的测试
+        run: |
+          python3 benchmark/tools/check.py
+          python3 -m unittest discover -s benchmark/tools -p '*_test.py'
+
+      - name: 安装执行器的编译依赖
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libseccomp-dev
+
+      # 锁定软件包只从 Ubuntu 快照取；缓存的字节只是输入，下载时与构建时都按锁定的 SHA256 逐个校验。
+      - name: 恢复锁定软件包缓存
+        id: packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/packages
+          key: rootfs-packages-${{ hashFiles('deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json') }}
+      - name: 下载锁定软件包
+        if: steps.packages.outputs.cache-hit != 'true'
+        run: >-
+          python3 deploy/sandbox-linux/rootfs/download.py
+          --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json
+          --output "$RUNNER_TEMP/packages" --address-failover
+
+      - name: 构建 judge、执行器与 rootfs
+        run: |
+          set -eu
+          sh deploy/sandbox-linux/build-release.sh "$RUNNER_TEMP/release"
+          python3 deploy/sandbox-linux/rootfs/build.py --lock "$RUNNER_TEMP/release/packages.lock.json" \
+            --packages "$RUNNER_TEMP/packages" --output "$RUNNER_TEMP/cpp-rootfs"
+          cp -a "$RUNNER_TEMP/cpp-rootfs/rootfs" "$RUNNER_TEMP/release/rootfs"
+          cp "$RUNNER_TEMP/cpp-rootfs/manifest.json" "$RUNNER_TEMP/release/manifest.json"
+
+      - name: 安装并启动节点（正式安装器，并发数 1）
+        run: |
+          set -eu
+          # 安装布局协议规则 1：家目录的所有祖先必须归 root 且不被组或其他用户写入。托管虚拟机上的 /opt 不满足，
+          # 这是一次性机器，直接规整它。
+          stat -c '%A %U:%G %n' /opt
+          sudo chown root:root /opt
+          sudo chmod 755 /opt
+          python3 -c 'import secrets; print(secrets.token_hex(32))' > "$RUNNER_TEMP/token"
+          chmod 600 "$RUNNER_TEMP/token"
+          python3 -B deploy/sandbox-linux/install/render.py --output "$RUNNER_TEMP/review" \
+            --release ci-benchmark --node-id ci-benchmark \
+            --control-url http://127.0.0.1:18084 --advertise-url "$JUDGE_URL" \
+            --manifest-sha256 "$(sha256sum "$RUNNER_TEMP/release/manifest.json" | cut -d' ' -f1)" --parallelism 1
+          sudo python3 -B deploy/sandbox-linux/install/manage.py install \
+            --review "$RUNNER_TEMP/review" --release-source "$RUNNER_TEMP/release" --token-file "$RUNNER_TEMP/token"
+          sudo python3 -B /opt/cherry-oj/operations/manage.py start
+          sudo install -d -m 0755 -o "$(id -un)" "$PUBLISHED_ROOT"
+
+      - name: 等 judge 就绪
+        run: |
+          for _ in $(seq 1 60); do
+            curl -fsS --noproxy '*' "$JUDGE_URL/version" && exit 0
+            sleep 1
+          done
+          echo '::error::judge 60 秒内没有就绪' >&2
+          sudo journalctl -u cherry-sandbox-judge.service -n 60 --no-pager
+          exit 1
+
+      - name: benchmark（strictWhitespace=false，全部题目）
+        run: >-
+          python3 benchmark/run.py --entries judge --judge-url "$JUDGE_URL" --published-root "$PUBLISHED_ROOT"
+          --declare backend=linux strictWhitespace=false languages=cpp
+          --report benchmark/reports/loose.json
+
+      # whitespace 的结论取决于节点配置：_strict 那一半要把 judge 切到 strictWhitespace=true 才会运行。
+      - name: 切换到 strictWhitespace=true 并重启 judge
+        run: |
+          set -eu
+          sudo python3 - <<'PY'
+          import json
+          path = "/opt/cherry-oj/etc/judge.json"
+          with open(path) as stream:
+              config = json.load(stream)
+          config["judge"]["strictWhitespace"] = True
+          with open(path, "w") as stream:  # 原地写，保持属主与权限
+              json.dump(config, stream, indent=2)
+          PY
+          sudo systemctl restart cherry-sandbox-judge.service
+          for _ in $(seq 1 60); do
+            curl -fsS --noproxy '*' "$JUDGE_URL/version" && exit 0
+            sleep 1
+          done
+          echo '::error::judge 重启后 60 秒内没有就绪' >&2
+          exit 1
+      - name: benchmark（strictWhitespace=true，whitespace）
+        run: >-
+          python3 benchmark/run.py --entries judge --judge-url "$JUDGE_URL" --published-root "$PUBLISHED_ROOT"
+          --declare backend=linux strictWhitespace=true languages=cpp --select whitespace
+          --report benchmark/reports/strict.json
+
+      - name: 保存报告
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: benchmark-reports-${{ github.run_id }}-${{ github.run_attempt }}
+          path: benchmark/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: 失败时保存 judge 日志
+        if: failure()
+        run: sudo journalctl -u cherry-sandbox-judge.service -n 200 --no-pager | tail -n 200
