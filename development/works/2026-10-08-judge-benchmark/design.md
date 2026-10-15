@@ -10,8 +10,8 @@
 | # | 问题 | 决定 | 影响 |
 |---|---|---|---|
 | 1 | 攻击样本从哪来？ | 自己设计清单（[attack-cases.md](./attack-cases.md)），源码从现有测试搬来；清单里标「新增」的样本由用户提供或另行商定 | 决定 §5 要不要实现，以及 benchmark 能不能声称「覆盖了沙箱安全」 |
-| 2 | 主要在哪里跑？ | 自己的服务器和 GitHub 托管的 CI 机器都可以跑，benchmark 提供一个入口脚本，运行即可；前提是该机器已有 judge 服务和执行器二进制（§4.1）。一次完整的 benchmark 是两次脚本调用（先 `sandbox`、后 `judge`）。本机 devhost 后端没有内核隔离，结果不作隔离证据 | 决定哪些提交的预期有效，见 §3.5 的 `requires` |
-| 3 | 第一版范围？ | **做到 M4**：判题部分 8 道题、两个入口、攻击样本首批 18 个、入口脚本、CI 工作流（先不设为必过）。不含：删除旧测试（M5）、9 个新增攻击样本、完整链路入口，见 §8 | 第一版体量与交付时间 |
+| 2 | 主要在哪里跑？ | 自己的服务器和 GitHub 托管的 CI 机器都可以跑，benchmark 提供一个入口脚本，运行即可；前提是该机器已有 judge 服务和执行器二进制（§4.1）。两个入口在同一次脚本运行里依次进行（先 `judge`，后 `sandbox`）；`sandbox` 入口要求 judge 在运行且空闲。本机 devhost 后端没有内核隔离，结果不作隔离证据 | 决定哪些提交的预期有效，见 §3.5 的 `requires` |
+| 3 | 第一版范围？ | **做到 M4**：判题部分 8 道题、两个入口、攻击样本首批 20 个（A16 并入 A1 的并发运行说明，B5 拆成三个样本，B11 也在首批）、入口脚本、CI 工作流（先不设为必过）。不含：删除旧测试（M5）、9 个新增攻击样本、完整链路入口，见 §8 | 第一版体量与交付时间 |
 
 ## 1. 目的与非目标
 
@@ -146,28 +146,29 @@ corpus/judge/<题名>/
 benchmark 只提供一个入口脚本 `benchmark/run.py`（只用标准库）。在自己的服务器上和 GitHub 托管的 CI 机器上，运行方式相同：
 
 ```text
-python3 benchmark/run.py --entries judge   --judge-url http://127.0.0.1:5051 \
-        --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false
-python3 benchmark/run.py --entries sandbox --executor /opt/cherry-oj/current/libexec/sandbox \
-        --executor-config /opt/cherry-oj/etc/executor.conf --declare backend=linux
-        [--select a-plus-b] [--report reports/<时间>.json]
+python3 benchmark/run.py --entries judge,sandbox --judge-url http://127.0.0.1:5051 \
+        --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false languages=cpp
+        [--executor /opt/cherry-oj/current/libexec/sandbox] [--executor-config /opt/cherry-oj/etc/executor.conf]
+        [--select a-plus-b,cpu_spin] [--report reports/<时间>.json]
 ```
 
 **脚本不负责安装或启动被测节点**，运行它的机器必须已经具备：
 
 | 前提 | judge 入口 | sandbox 入口 |
 |---|---|---|
-| judge 服务在运行，`--judge-url` 可达 | 需要 | **不能运行**：judge 持有 boxes 根的 `.lock`，脚本取不到锁会按环境错误退出（协议 §7.2） |
-| 执行器二进制（setuid-root）与受信配置 | 由 judge 使用，脚本不碰 | 需要，脚本以 root 或服务身份直接调用 |
+| judge 服务在运行，`--judge-url` 可达 | 需要 | 需要在运行（执行器要在 judge 启动时建好并委派的 cgroup 子树里建组），但运行期间必须空闲 |
+| 执行器二进制（setuid-root）与受信配置 | 攻击样本的回收检查要读配置 | 需要，脚本以 root 或服务身份直接调用 |
 | 测试数据发布位置 | 需要，且 judge 的运行身份能一路进得去（0755/0644） | 不需要 |
-| 脚本与被测节点同机 | 取决于发布位置能否共享 | 需要 |
+| 脚本与被测节点同机 | 取决于发布位置能否共享；攻击样本的回收检查要在节点本机 | 需要 |
 
-因为两个入口对「judge 是否在运行」的要求相反，**两个入口分两次运行**：先在 judge 停止时运行 `--entries sandbox`，再在 judge 运行时运行 `--entries judge`。
-两次的报告各自独立，汇总时按 `environment.declared.entries` 区分（协议 §10）。
+**两个入口可以在同一次运行里依次进行**（先 `judge`，后 `sandbox`），前提是脚本是这个节点上唯一的客户端：`sandbox` 入口运行期间 judge 不能有别的判题请求，
+因为 box 目录和执行组由两者共用。并发组需要至少 2 个 box，所以节点的并发数（`box_count`）至少是 2。
 
-- **自己的服务器：** judge 与执行器已由安装器装好（`/opt/cherry-oj`）。`sandbox` 入口前先 `systemctl stop cherry-sandbox-judge.service`，跑完再 `start`，然后运行 `judge` 入口。
-- **GitHub 托管的 CI：** 工作流里先构建 judge 与执行器、起好节点（可复用 `deploy/sandbox-linux/tests/` 里的夹具与 `judge_service.py`），再运行同一个脚本；
-  这一步的具体编排属于 CI 工作流的设计，不属于脚本。
+> 设计时曾以为 judge 持有 boxes 根的 `.lock`、两个入口必须分两次运行；实现时发现执行器只对每个 box 目录加互斥，`.lock` 是 judge 自己防两个 judge 抢同一批 box 用的，
+> 与运行者无关，而且执行器离了 judge 建的 cgroup 子树根本跑不起来。所以改成同一次运行、judge 保持运行。
+
+- **自己的服务器：** judge 与执行器已由安装器装好（`/opt/cherry-oj`）；直接以 root 运行脚本。
+- **GitHub 托管的 CI：** 工作流里先构建 judge 与执行器、用正式安装器起好节点（并发数 2），再以 root 运行同一个脚本；这一步的具体编排属于 CI 工作流的设计，不属于脚本。
 - **本机开发：** 可以对 devhost 后端的 judge 运行 `judge` 入口调试逻辑，`sandbox` 入口和所有 `backend:linux` 的项会被跳过。
 
 对每道题的每个提交：读源码 → 构造 `JudgeRequest`（`mode=submit`、`testDataLocation=<published-root>/<题名>`、
@@ -237,8 +238,8 @@ benchmark 是一个**测试库**：测试代码和测试所需的「用户提交
 |---|---|---|
 | **M1**（已完成 2026-10-15） | 入口脚本骨架；`tools/` 里的协议目录生成（复用 `testdata_pack.py`）、`generate.py`、`check.py`、`corpus.lock`；报告与退出码；`a-plus-b` 通过 `judge` 入口跑通；runner 自己的单测（mock judge，见 §7） | 本机与测试服务器上 `a-plus-b` 的全部提交符合预期；单测覆盖退出码 0/1/2/3 与跳过 |
 | **M2**（已完成 2026-10-15） | 其余 7 道题（含两份算法不同的参考解交叉验证）、全部请求级用例（含 `unknown_language`、`language_not_installed`、`tampered_input`）、`trial` 用例、`publish.py` | 判题部分 42 个提交、5 个请求级用例、3 个试运行用例在测试服务器原生节点上全部通过 |
-| **M3** | `sandbox` 入口（运行说明、并发组、独占 box 锁）；`attack-common/`（共用测试数据与 `probe.cpp`）；攻击样本首批 18 个（A1–A4、A6–A8、A14–A17、B1–B7），源码从现有测试**复制**过来（此时不删旧测试） | 测试服务器上 `sandbox` 入口与 `judge` 入口各跑一遍全部通过；每个样本的回收检查与干净运行通过 |
-| **M4**（工作流已跑通 2026-10-15，稳定性观察中） | CI 工作流：只在判题相关路径有改动时触发；GitHub 托管机器上构建并起好 judge 与执行器，按顺序运行两次脚本；上传报告；**先不设为必过检查** | 在托管机器上完整跑通一次；稳定运行约一周没有误报后，再另行决定是否设为必过 |
+| **M3**（已完成 2026-10-15） | `sandbox` 入口（运行说明、并发组、回收检查与干净运行）；`attack-common/`（共用测试数据与 `probe.cpp`）；攻击样本首批 20 个（A1–A4、A6–A8、A14、A15、A17、B1–B7、B11；A16 并入 A1 的并发运行说明，B5 拆成三个样本），源码从现有测试**复制**过来（此时不删旧测试） | 测试服务器上 `sandbox` 入口与 `judge` 入口各跑一遍全部通过；每个样本的回收检查与干净运行通过 |
+| **M4**（工作流已跑通 2026-10-15，稳定性观察中） | CI 工作流：只在判题相关路径有改动时触发；GitHub 托管机器上构建并起好 judge 与执行器，以 root 运行脚本（两个入口依次进行，再把 judge 切到严格空白只跑 `whitespace`）；上传报告；**先不设为必过检查** | 在托管机器上完整跑通一次；稳定运行约一周没有误报后，再另行决定是否设为必过 |
 | M5（第一版之外） | 按 §10 迁移并删除旧测试：每搬一类先在 benchmark 里通过，再删原位置 | 旧位置不再有「用户提交行为」的案例 |
 | 之后 | 9 个新增攻击样本（A5、A9–A13、B8–B10，其中 B8–B10 由用户提供）；完整链路入口（§4.2）；CI 设为必过 | |
 

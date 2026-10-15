@@ -124,11 +124,6 @@ class RunTest(unittest.TestCase):
         self.assertIn("corpus.lock", err)
         self.assertEqual(judge.requests, [])
 
-    def test_sandbox_entry_is_not_available_yet(self):
-        code, _, err = self.go("http://127.0.0.1:1", "--entries", "sandbox")
-        self.assertEqual(code, 3)
-        self.assertIn("尚未实现", err)
-
     def test_unmet_requires_are_skipped_not_failed(self):
         with fake_judge.FakeJudge(fake_judge.ideal(self.problem, self.location)) as judge:
             code, out, _ = self.go(judge.url, declare=("backend=linux", "languages=cpp,python"))

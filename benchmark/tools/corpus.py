@@ -19,6 +19,11 @@ sys.dont_write_bytecode = True  # 不往仓库里已入库的 scripts/__pycache_
 sys.path.insert(0, str(ROOT / "scripts"))
 import testdata_pack  # noqa: E402  （仓库脚本：生成与核对 testdata.json）
 
+from corpus_base import (  # noqa: E402,F401  （其余模块通过 corpus 访问这些名字）
+    ASSERTION_KEYS, LIMIT_KEYS, REQUIRES_PATTERNS, Check, CorpusError, fields, parse_check, parse_requires,
+    positive_int, read_json)
+from specs import RunSpec, parse_run_specs
+
 PROBLEM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ITEM_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}")
 VERDICTS = ("AC", "WA", "PE", "CE", "RE", "TLE", "MLE", "OLE", "SE")
@@ -26,18 +31,6 @@ TRIAL_VERDICTS = VERDICTS + ("RAN",)
 # 从最严重到最轻（协议 §3.1）；RAN 只出现在试运行里。
 SEVERITY = ("SE", "CE", "RE", "MLE", "OLE", "TLE", "WA", "PE", "RAN", "AC")
 LANGUAGES = {".cpp": "cpp"}
-ASSERTION_KEYS = ("equals", "startsWith", "contains")
-LIMIT_KEYS = ("cpuNs", "memoryBytes", "clockNs")
-REQUIRES_PATTERNS = (
-    re.compile(r"backend:[a-z0-9-]+"),
-    re.compile(r"strictWhitespace:(true|false)"),
-    re.compile(r"entry:(judge|sandbox)"),
-    re.compile(r"noLanguage:[a-z0-9]+"),
-)
-
-
-class CorpusError(Exception):
-    """语料本身不合格（格式、预期自相矛盾、指纹对不上）。"""
 
 
 def worst(verdicts: list[str]) -> str:
@@ -46,81 +39,7 @@ def worst(verdicts: list[str]) -> str:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# 严格读取
-
-def _no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    keys = [key for key, _ in pairs]
-    duplicated = sorted({key for key in keys if keys.count(key) > 1})
-    if duplicated:
-        raise ValueError(f"重复的键：{', '.join(duplicated)}")
-    return dict(pairs)
-
-
-def read_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicates)
-    except (OSError, ValueError) as error:
-        raise CorpusError(f"{path}：{error}") from error
-
-
-def fields(value: Any, where: str, required: tuple[str, ...], optional: tuple[str, ...] = ()) -> dict[str, Any]:
-    """校验对象的字段集合：必填的都有，没有表以外的字段。"""
-    if not isinstance(value, dict):
-        raise CorpusError(f"{where} 必须是对象")
-    missing = [key for key in required if key not in value]
-    unknown = [key for key in value if key not in required and key not in optional]
-    if missing:
-        raise CorpusError(f"{where} 缺少字段：{', '.join(missing)}")
-    if unknown:
-        raise CorpusError(f"{where} 有未知字段：{', '.join(unknown)}")
-    return value
-
-
-def positive_int(value: Any, where: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-        raise CorpusError(f"{where} 必须是正整数")
-    return value
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 # 数据结构
-
-@dataclass(frozen=True)
-class Check:
-    """对一段文本的断言：equals、startsWith、contains 之一。"""
-
-    kind: str
-    value: str
-
-    def matches(self, text: str) -> bool:
-        if self.kind == "equals":
-            return text == self.value
-        if self.kind == "startsWith":
-            return text.startswith(self.value)
-        return self.value in text
-
-    def describe(self) -> str:
-        return f"{self.kind} {self.value!r}"
-
-
-def parse_check(value: Any, where: str) -> Check:
-    obj = fields(value, where, (), ASSERTION_KEYS)
-    if len(obj) != 1:
-        raise CorpusError(f"{where} 必须恰好给出 {'、'.join(ASSERTION_KEYS)} 之一")
-    (kind, text), = obj.items()
-    if not isinstance(text, str):
-        raise CorpusError(f"{where}.{kind} 必须是字符串")
-    return Check(kind, text)
-
-
-def parse_requires(value: Any, where: str) -> tuple[str, ...]:
-    if not isinstance(value, list) or not all(isinstance(tag, str) for tag in value):
-        raise CorpusError(f"{where} 必须是字符串数组")
-    for tag in value:
-        if not any(pattern.fullmatch(tag) for pattern in REQUIRES_PATTERNS):
-            raise CorpusError(f"{where} 里的标签 {tag!r} 不认识")
-    return tuple(value)
-
 
 @dataclass(frozen=True)
 class Limits:
@@ -145,7 +64,7 @@ class Submission:
     message: Check | None
     requires: tuple[str, ...]
     probe: bool
-    sandbox: Any  # sandbox 入口的运行说明，M3 才解释，这里原样保存
+    sandbox: tuple[RunSpec, ...]  # sandbox 入口的运行说明，没有则为空
 
 
 @dataclass(frozen=True)
@@ -208,7 +127,8 @@ class Corpus:
     root: Path
     problems: dict[str, Problem]
     lock: dict[str, Any]
-    attack_samples: tuple[str, ...]
+    attack_samples: tuple[Any, ...]  # attack.AttackSample
+    attack_common: Any = None  # attack.AttackCommon 或 None
 
     def digests(self) -> dict[str, str]:
         return {name: problem.digest for name, problem in self.problems.items()}
@@ -280,10 +200,10 @@ def load_corpus(root: Path, require_lock: bool = True) -> Corpus:
             problems[directory.name] = load_problem(directory)
     if not problems:
         raise CorpusError(f"{root / 'judge'} 里没有题目")
-    attack = root / "attack"
-    samples = tuple(sorted(p.name for p in attack.iterdir() if p.is_dir())) if attack.is_dir() else ()
+    import attack  # 延迟导入：attack 自己要用本模块的类型
+    common, samples = attack.load_attack(root)
     lock = read_lock(root) if require_lock or (root / "corpus.lock").exists() else lock_document({})
-    return Corpus(root, problems, lock, samples)
+    return Corpus(root, problems, lock, samples, common)
 
 
 def load_problem(directory: Path) -> Problem:
@@ -364,7 +284,9 @@ def load_submissions(problem: Problem, declared: Any, expect_path: Path) -> dict
             verdict=verdict, testcases=tuple(testcases),
             message=parse_check(item["message"], f"{where}.message") if "message" in item else None,
             requires=parse_requires(item.get("requires", []), f"{where}.requires"),
-            probe=item.get("probe", False), sandbox=item.get("sandbox"))
+            probe=item.get("probe", False),
+            sandbox=parse_run_specs(item["sandbox"], f"{where}.sandbox", problem.testcase_names)
+            if "sandbox" in item else ())
     return result
 
 

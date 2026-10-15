@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "name": "memory_hog",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "MLE"
+  },
+  "sandbox": [
+    {
+      "limits": {
+        "memoryBytes": 67108864
+      },
+      "facts": {
+        "signal": 9,
+        "reason": "",
+        "oom": {
+          "gt": 0
+        },
+        "oomKill": {
+          "gt": 0
+        }
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "内存上限生效；超限看 OOM 事实，不看信号 9。"
+}

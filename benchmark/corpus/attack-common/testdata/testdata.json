@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "testcaseCount": 1,
+  "totalBytes": 3,
+  "digest": "fc40d758164572c22899923887d7e324c8bf8c8bbc09c7468dc5958618656997",
+  "testcases": [
+    {
+      "name": "1",
+      "input": {
+        "sizeBytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "output": {
+        "sizeBytes": 3,
+        "sha256": "a12b7cb43c9d9134b5bb1b35e9096b66775d9e92e7611d1cc92b02edd6782a87"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "kill_self",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "RE"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "signal": 9,
+        "reason": "",
+        "oom": 0,
+        "oomKill": 0
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "信号 9 不等于资源超限。"
+}

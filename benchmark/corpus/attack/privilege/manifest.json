@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "name": "privilege",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdictNot": "AC"
+  },
+  "sandbox": [
+    {
+      "anyOf": [
+        {
+          "facts": {
+            "signal": 31
+          }
+        },
+        {
+          "facts": {
+            "exitCode": 0
+          },
+          "stdout": {
+            "equals": "denied\n"
+          }
+        }
+      ]
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "提权不成功。"
+}

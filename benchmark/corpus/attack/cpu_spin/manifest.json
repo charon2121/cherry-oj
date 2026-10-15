@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "name": "cpu_spin",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "TLE"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "reason": "cpu",
+        "cpuNs": {
+          "ge": 1000000000,
+          "lt": 1200000000
+        },
+        "clockNs": {
+          "lt": 2500000000
+        }
+      }
+    },
+    {
+      "id": "spin_a",
+      "concurrent": [
+        "spin_b"
+      ],
+      "limits": {
+        "cpuNs": 300000000
+      },
+      "facts": {
+        "reason": "cpu",
+        "cpuNs": {
+          "ge": 300000000
+        }
+      }
+    },
+    {
+      "id": "spin_b",
+      "concurrent": [
+        "spin_a"
+      ],
+      "limits": {
+        "cpuNs": 300000000
+      },
+      "facts": {
+        "reason": "cpu",
+        "cpuNs": {
+          "ge": 300000000
+        }
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "CPU 时间上限生效。sandbox 入口另有一组两个同时运行的实例，各自独立计量与终止。"
+}

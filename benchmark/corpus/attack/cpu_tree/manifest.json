@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "name": "cpu_tree",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "TLE"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "reason": "cpu",
+        "cpuNs": {
+          "ge": 1000000000,
+          "lt": 1200000000
+        },
+        "clockNs": {
+          "lt": 2000000000
+        }
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "整组累计 CPU：cpuNs 落在 [限制, 1.2 倍限制) 内。"
+}

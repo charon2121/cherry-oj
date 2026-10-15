@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "name": "isolation_peer",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "sandbox": [
+    {
+      "id": "left",
+      "stdin": "left ${runnerPid}\n",
+      "concurrent": [
+        "right"
+      ],
+      "facts": {
+        "exitCode": 0,
+        "reason": ""
+      },
+      "stdout": {
+        "equals": "private left peers=0 host=hidden\n"
+      }
+    },
+    {
+      "id": "right",
+      "stdin": "right ${runnerPid}\n",
+      "concurrent": [
+        "left"
+      ],
+      "facts": {
+        "exitCode": 0,
+        "reason": ""
+      },
+      "stdout": {
+        "equals": "private right peers=0 host=hidden\n"
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "并发的两次执行互相不可见：各自的工作区文件、宿主上的进程。"
+}

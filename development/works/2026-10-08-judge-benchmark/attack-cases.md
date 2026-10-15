@@ -21,7 +21,7 @@
 
 | 编号 | 样本 | 检验的限制 | judge 预期 | sandbox 预期（事实） | 迁移来源 |
 |---|---|---|---|---|---|
-| A1 | `cpu_spin`：死循环 | CPU 时间 | TLE | `reason=cpu`；`cpuNs` 大于等于限制且小于限制的 1.2 倍；`clockNs` 远小于墙钟 | `run_tests.py::test_cpu_limit`，`judge_program` 的 `cpu`，`acceptance/cpu_limit.cpp` |
+| A1 | `cpu_spin`：死循环 | CPU 时间；另有一组两个**同时运行**的实例，各自独立计量与终止（原 A16） | TLE | `reason=cpu`；`cpuNs` 大于等于限制且小于限制的 1.2 倍；`clockNs` 远小于墙钟；并发那组各自 `reason=cpu` | `run_tests.py::test_cpu_limit`，`judge_program` 的 `cpu`，`acceptance/cpu_limit.cpp` |
 | A2 | `wall_sleep`：长睡眠，不占 CPU | 墙钟 | TLE | `reason=wall`；`cpuNs` 很小 | `test_wall_limit`，`judge_program` 的 `sleep` |
 | A3 | `memory_hog`：不断申请并写满内存 | 内存上限 | MLE | `signal=9`、`reason=""`、`oom>0`、`oomKill>0` | `test_memory_limit_is_task_oom`，`judge_program` 的 `memory`，`acceptance/memory_limit.cpp` |
 | A4 | `stdout_flood`：无限输出到 stdout | stdout 上限 | OLE | `reason=output`、`outputExceeded=true`、`stdoutBytes` = 上限 | `test_output_limit`，`judge_program` 的 `output`，`acceptance/output_limit.cpp` |
@@ -35,7 +35,7 @@
 | A12 | `fd_exhaust`：不断 `open`，直到失败 | 打开文件数 256 | 不是 AC，且不影响后续判题 | 新增，事实待实测 | 新增 |
 | A13 | `big_file`：写单个超过 64 MiB 的文件 | 单文件大小 64 MiB | 不是 AC | 新增，事实待实测 | 新增 |
 | A15 | `cpu_tree`：`fork` 一次后父子都死循环 | **整组累计 CPU**：多进程不能靠分摊绕过上限 | TLE | `reason=cpu`；`cpuNs` 大于等于限制且小于限制的 1.2 倍；`clockNs` 远小于墙钟 | `judge_program` 的 `tree`，`cpp_limits.py` 的 `cpu-tree` |
-| A16 | `concurrent_cpu_spin`：两个同时运行的死循环 | 并发时各自独立计量与终止 | 不测（judge 入口串行提交） | 两个运行说明用 `concurrent` 配成一组，各自 `reason=cpu` | `test_parallel_boxes`，`judge_chain.py` 的并发 |
+| A16 | （并入 A1：同一个 `cpu_spin` 样本里的并发运行说明，不再单列） | | | | |
 | A17 | `leak_series`：干净探针连续执行很多遍（`repeat`：judge 100、sandbox 200） | 反复执行不泄漏组、挂载、fd、内存 | AC，每一遍结论相同 | `exitCode=0`、`reason=""`，每一遍相同；结束后回收检查与干净运行通过 | `test_repeated_runs_do_not_leak`，`judge_chain.py` 的 `repeat` |
 | A14 | `kill_self`：向自己发 `SIGKILL` | 信号不能被误判成 CPU 或内存超限 | RE | `signal=9`、`reason=""`、`oom=0` | `acceptance/signal_kill.cpp`，`judge_program` 的 `kill` |
 
@@ -49,7 +49,7 @@
 | B2 | x32 ABI 调用被拒 | RE | `signal=31` | `test_x32_abi_is_killed` |
 | B3 | 提权：`setuid(0)` 不能成功 | 不是 AC，或程序报告被拒 | `anyOf`：`signal=31`，或 `exitCode=0` 且 `stdout` 为 `denied` | `test_privilege_and_peer_isolation`，`judge_program` 的 `privilege` |
 | B4 | 身份与环境：无 capability、`no_new_privs=1`、seccomp 生效、宿主根不可见、根只读、工作目录是 `/work`、`/tmp` 可写、输入文件可读、`ppid=1`、没有多余 fd（只有管道或 `.stdin`） | 样本按约定打印证据，由 `stdout` 断言 | `exitCode=0`；`stdout` 满足身份与环境约定 | `test_identity_and_filesystem`，`judge_program` 的 `identity`、`hostfile` |
-| B5 | 不能创建符号链接和硬链接 | RE | `signal=31` | `test_links_cannot_be_created`，`judge_program` 的 `symlink`、`magiclink`、`hardlink` |
+| B5 | 不能创建链接：拆成三个样本 `link_symlink`（符号链接）、`link_magiclink`（指向 `/proc/self/fd/0` 的魔法链接）、`link_hardlink`（硬链接） | RE | `signal=31` | `test_links_cannot_be_created`，`judge_program` 的 `symlink`、`magiclink`、`hardlink` |
 | B6 | 危险系统调用：`mount` | RE | `signal=31` | `judge_program` 的 `mount` |
 | B7 | 危险系统调用：`ptrace` | RE | `signal=31`（待实测确认） | `judge_program` 的 `ptrace` |
 | B8 | 读宿主文件（`/proc/1`、`/sys`、`/etc/passwd`） | 不是 AC | 新增，事实待实测 | 部分覆盖于 `test_identity_and_filesystem` |
@@ -70,13 +70,14 @@ B11 是唯一需要**同时运行两次**的样本，用运行说明的 `id` 与
 
 ## 汇总
 
-- 样本共 **28** 个：资源耗尽类 17（A1–A17），隔离探测类 11（B1–B11）。
-- **有现成源码可搬的**：A1–A4、A6–A8、A14–A17、B1–B7、B11，共 19 个；A5、A9–A13、B8–B10 共 9 个需要新增，其中 B8–B10 由用户提供。
-- 首批：A1–A4、A6–A8、A14–A17、B1–B7，共 18 个，全部有现成的预期事实。
-- 另有两个通用检查，不是样本：回收检查、干净运行（`attack-common/probe.cpp`，新增）。
+- 清单 29 个样本：资源耗尽类 16（A1–A15、A17，A16 已并入 A1），隔离探测类 13（B5 拆成三个后 B1–B11 共 13 个）。
+- **首批 20 个已实现并在测试服务器上通过**（两个入口都测）：`cpu_spin`、`wall_sleep`、`memory_hog`、`stdout_flood`、`fork_storm`、`thread_storm`、`orphan_spinner`、`kill_self`、`cpu_tree`、
+  `leak_series`、`net_socket`、`x32_syscall`、`privilege`、`identity`、`link_symlink`、`link_magiclink`、`link_hardlink`、`mount_tmpfs`、`ptrace_self`、`isolation_peer`。
+  `identity` 与 `isolation_peer` 只测 `sandbox` 入口；`leak_series` 直接复用 `attack-common/probe.cpp`（manifest 的 `source`）。
+- 还没做的 9 个：A5、A9–A13、B8–B10，其中 A5、A9–A13 需要先补内核测试，B8–B10 由用户提供。
+- 另有两个通用检查，不是样本：回收检查、干净运行（`attack-common/probe.cpp`）。
 
 ## 待确认
 
-- B4 的身份约定：样本把哪些字段打印成什么格式，`stdout` 如何断言，需要在迁移时定下来（现在的探针打印 JSON，`run_tests.py` 里逐字段断言）。
-- A6 在 `judge` 入口的预期是「不是 AC」还是更具体的 TLE：fork 被拒后程序是否退出取决于样本怎么写，样本迁过来后实测再定。
+- A6 在 `judge` 入口的预期用了「不是 AC」：fork 被拒后程序自己打印 `spawn-denied` 并退出 0，所以 judge 入口看到的是 WA。要更具体的结论需要换一种写法。
 - A10–A13、B8–B10 的 `sandbox` 事实需要实测，实测前先不写进 `manifest.json`。

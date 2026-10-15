@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import Any
 
 import publish
+from attack import AttackCommon, AttackSample
 from corpus import Check, Problem, RequestCase, Submission, TrialCase
 from judge_client import ClientError, JudgeClient
+from node import CLEAN_MEMORY_LIMIT, NodeInspector
 
 DEFAULT_REPEATS = 3
 # 预期含这些结论的提交属于时间、内存类，默认重复运行以判定稳定性（协议 §7.3）。
@@ -80,19 +82,26 @@ def parse_declared(pairs: list[str], entries: tuple[str, ...]) -> Declared:
 
 @dataclass
 class Item:
-    kind: str  # submission | request | trial
+    kind: str  # submission | request | trial | attack
     name: str
     status: str = "pass"  # pass | fail | unstable | skipped | probe
-    expected: str | None = None
-    actual: str | None = None
+    expected: Any = None
+    actual: Any = None
     repeats: int = 1
     reason: str | None = None
     diffs: list[str] = field(default_factory=list)
     testcases: list[dict[str, Any]] = field(default_factory=list)
+    entry: str = "judge"
+    residue: dict[str, Any] | None = None  # 攻击样本的回收检查结果
+    runs: list[dict[str, Any]] = field(default_factory=list)  # sandbox 入口：每个运行说明的观测
 
     def to_report(self) -> dict[str, Any]:
-        report: dict[str, Any] = {"name": self.name, "entry": "judge", "status": self.status,
+        report: dict[str, Any] = {"name": self.name, "entry": self.entry, "status": self.status,
                                   "expected": self.expected, "actual": self.actual, "repeats": self.repeats}
+        if self.residue is not None:
+            report["residue"] = self.residue
+        if self.runs:
+            report["runs"] = self.runs
         if self.reason:
             report["reason"] = self.reason
         if self.diffs:
@@ -100,6 +109,17 @@ class Item:
         if self.testcases:
             report["testcases"] = self.testcases
         return report
+
+
+@dataclass
+class AttackResult:
+    """一个攻击样本在各入口的结果。"""
+
+    name: str
+    items: list[Item] = field(default_factory=list)
+
+    def to_report(self) -> dict[str, Any]:
+        return {"name": self.name, "results": [item.to_report() for item in self.items]}
 
 
 @dataclass
@@ -332,3 +352,69 @@ class JudgeRunner:
                     if not isinstance(excerpt, str) or not check.matches(excerpt):
                         diffs.append(f"测试点 {case.name} 的 {label} 摘要应 {check.describe()}，实际 {shorten(excerpt)}")
         return self._settle(item, [outcome], [diffs], expected)
+
+    # ----- 攻击样本 -----
+
+    def run_attacks(self, common: AttackCommon, samples: tuple[AttackSample, ...],
+                    inspector: NodeInspector | None) -> list[AttackResult]:
+        """攻击样本从 judge 入口提交；需要在节点本机做回收检查，没有 inspector 时整体跳过。"""
+        samples = tuple(sample for sample in samples if sample.judge is not None)  # 没有 judge 预期的样本不从这个入口测
+        if not samples:
+            return []
+        location = publish.publish_directory(common.testdata, self.root, "attack-common")
+        return [AttackResult(sample.name, [self.run_attack(sample, common, location, inspector)]) for sample in samples]
+
+    def run_attack(self, sample: AttackSample, common: AttackCommon, location: Path,
+                   inspector: NodeInspector | None) -> Item:
+        item = Item("attack", sample.name)
+        assert sample.judge is not None
+        kind, value = sample.judge
+        item.expected = value if kind == "verdict" else f"不是 {value}"
+        reason = self.declared.unmet(sample.requires)
+        if reason is None and inspector is None:
+            reason = "无法检查回收：需要在节点本机运行，并给出 --executor-config"
+        if reason:
+            item.status, item.reason = "skipped", reason
+            return item
+        assert inspector is not None
+        request = {"submissionId": self._submission_id(), "problemId": f"attack-{sample.name}", "mode": "submit",
+                   "testDataLocation": str(location), "languageId": sample.language, "source": sample.source,
+                   "limits": sample.limits.request()}
+        timeboxed = kind == "verdict" and value in REPEATED_VERDICTS
+        runs = sample.repeat_judge if sample.repeat_judge > 1 else (self.repeats if timeboxed else 1)
+        outcomes, diffs_per_run = [], []
+        for _ in range(runs):
+            outcome = self._call(request, len(common.testcase_names))
+            outcomes.append(outcome)
+            diffs = self._compare(outcome, value, None, None, None, common.digest) if kind == "verdict" else (
+                [outcome.failure()] if outcome.failure() else self._leaks(outcome))
+            if kind == "verdictNot" and not outcome.failure() and outcome.verdict == value:
+                diffs.append(f"整体 verdict 不应是 {value}，实际就是 {value}")
+            diffs_per_run.append([d for d in diffs if d])
+        item = self._settle(item, outcomes, diffs_per_run, None)
+        item.testcases = []
+        residue = inspector.residue()
+        probe = self.clean_probe(common)
+        item.residue = residue.to_report("pass" if not probe else "fail")
+        extra = ([f"回收检查未通过：{residue.describe()}"] if not residue.clean() else []) + probe
+        if extra and item.status != "unstable":
+            item.status = "fail"
+            item.diffs = item.diffs + extra
+        return item
+
+    def clean_probe(self, common: AttackCommon) -> list[str]:
+        """回收检查之后立即提交干净探针：应当 AC，且内存峰值小于 16 MiB（协议 §8）。"""
+        probe = {"submissionId": self._submission_id(), "problemId": "attack-probe", "mode": "submit",
+                 "testDataLocation": str(self.root / "attack-common"), "languageId": "cpp",
+                 "source": common.probe_source,
+                 "limits": {"cpuNs": 1_000_000_000, "memoryBytes": 256 << 20, "clockNs": 3_000_000_000}}
+        outcome = self._call(probe, len(common.testcase_names))
+        if outcome.failure():
+            return [f"干净运行：{outcome.failure()}"]
+        problems = []
+        if outcome.verdict != "AC":
+            problems.append(f"干净运行的 verdict 应是 AC，实际 {outcome.verdict}")
+        memory = outcome.result.get("memoryBytes")
+        if not isinstance(memory, int) or memory >= CLEAN_MEMORY_LIMIT:
+            problems.append(f"干净运行的内存峰值应小于 {CLEAN_MEMORY_LIMIT} 字节，实际 {memory}")
+        return problems

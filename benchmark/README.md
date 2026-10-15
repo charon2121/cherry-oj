@@ -4,21 +4,30 @@
 格式与运行结果的含义见 [benchmark 协议](../docs/protocols/benchmark.md)，设计与里程碑见
 [设计文档](../development/works/2026-10-08-judge-benchmark/design.md)。
 
-**目前是 M2：`judge` 入口，8 道题、42 个提交。** `sandbox` 入口和攻击样本在后面的里程碑。
+**目前是 M3：** 判题部分 8 道题、42 个提交，攻击样本 20 个，`judge` 与 `sandbox` 两个入口。
 
 ## 运行
 
-被测机器上必须已经有一个在运行的 judge 服务；脚本不负责安装或启动它。judge 启动时要先核对 rootfs，需要几秒钟，请等 `GET /version` 能答了再运行。
+被测机器上必须已经有一个在运行的 judge 服务和执行器二进制；脚本不负责安装或启动它。judge 启动时要先核对 rootfs，需要几秒钟，请等 `GET /version` 能答了再运行。
 
 ```sh
 python3 benchmark/run.py --judge-url http://127.0.0.1:5051 --published-root /srv/cherry-benchmark \
         --declare backend=linux languages=cpp
 ```
 
+**两个入口：** `judge`（`POST /judge`，看 verdict）和 `sandbox`（直接调用执行器，看事实 JSON）。`--entries judge,sandbox` 在同一次运行里依次进行两个入口。
+`sandbox` 入口要在节点本机以 root（或执行器的服务身份）运行，运行期间 judge 要保持运行且**空闲**——脚本是节点上唯一的客户端；并发组需要节点的并发数至少是 2。
+攻击样本从 `judge` 入口运行时，也要在节点本机做回收检查（读执行器配置，默认 `/opt/cherry-oj/etc/executor.conf`，用 `--executor-config` 改）；读不到就跳过这些样本，不会猜。
+
+```sh
+sudo python3 benchmark/run.py --entries judge,sandbox --judge-url http://127.0.0.1:5051 \
+        --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false languages=cpp
+```
+
 - `--published-root`：测试数据的发布位置，必须是绝对路径，**judge 的运行身份要能一路进得去**（目录 0755）。脚本发布后会检查并给出警告。
 - `--declare`：运行者声明的节点配置：`backend`、`strictWhitespace`、`revealExpected`、`languages`。**没有声明的项就是未知**，依赖它的项会被跳过，脚本不去猜。
   需要真实内核隔离的项要求声明 `backend=linux`；在开发用的无隔离后端上，结果不作为隔离证据。
-- `--select a-plus-b`：只跑指定的题。`--repeat N`：时间、内存类提交的重复遍数（默认 3）。
+- `--select a-plus-b,cpu_spin`：只跑指定的题或攻击样本。`--repeat N`：时间、内存类提交的重复遍数（默认 3）。
 - 报告写到 `benchmark/reports/<时间>-<主机>.json`（不入库）；屏幕上打印人读的汇总。
 
 `whitespace` 的结论取决于节点的 `strictWhitespace` 配置：每个排版有 `_loose` 与 `_strict` 两个源码相同的提交，声明的配置决定哪一半运行、哪一半跳过。
@@ -38,7 +47,9 @@ python3 benchmark/run.py --judge-url http://127.0.0.1:5051 --published-root /srv
 ```text
 benchmark/corpus/
 ├── corpus.lock                  每道题测试数据的指纹，防止数据悄悄漂移
-└── judge/<题名>/                problem.json、testdata/、submissions/、expect.json、oracle/、README.md
+├── judge/<题名>/                problem.json、testdata/、submissions/、expect.json、oracle/、README.md
+├── attack/<名>/                 攻击样本：manifest.json 和 sample.cpp
+└── attack-common/               攻击样本共用的测试数据，和干净探针 probe.cpp
 ```
 
 每道题的 `README.md` 写明它检验什么、每个提交为什么得到该结论。

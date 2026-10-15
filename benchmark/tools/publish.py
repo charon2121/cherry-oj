@@ -22,16 +22,21 @@ class PublishError(Exception):
 
 def publish(problem: Problem, root: Path) -> Path:
     """复制 testdata/ 到 <root>/<题名>，返回这个绝对路径（即请求里的 testDataLocation）。"""
+    return publish_directory(problem.testdata, root, problem.name)
+
+
+def publish_directory(source: Path, root: Path, name: str) -> Path:
+    """把一个测试数据协议目录复制到 <root>/<name>。"""
     if not root.is_absolute():
         raise PublishError(f"发布根 {root} 必须是绝对路径")
     root.mkdir(parents=True, exist_ok=True)
-    target = root / problem.name
+    target = root / name
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(mode=0o755)
     target.chmod(0o755)
     # testdata.json 最后写入：它是「这份数据已完整」的标记（测试数据协议 §6）。
-    files = sorted(problem.testdata.iterdir(), key=lambda p: (p.name == "testdata.json", p.name))
+    files = sorted(source.iterdir(), key=lambda p: (p.name == "testdata.json", p.name))
     for path in files:
         destination = target / path.name
         shutil.copyfile(path, destination)

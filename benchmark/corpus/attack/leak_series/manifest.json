@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "name": "leak_series",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "source": "../../attack-common/probe.cpp",
+  "judge": {
+    "verdict": "AC"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "exitCode": 0,
+        "reason": "",
+        "error": ""
+      },
+      "stdout": {
+        "equals": "OK\n"
+      }
+    }
+  ],
+  "repeat": {
+    "judge": 100,
+    "sandbox": 200
+  },
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "干净探针连续执行很多遍：反复执行不泄漏组、挂载、fd、内存。源码就是 attack-common/probe.cpp。"
+}

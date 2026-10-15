@@ -69,10 +69,31 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
     return respond
 
 
+def ideal_attack(corpus: Corpus, root: Path) -> Respond:
+    """攻击样本的理想应答：满足样本 judge 入口的预期；干净探针得到 AC 且内存很小。"""
+    samples = {f"attack-{s.name}": s for s in corpus.attack_samples}
+    common = corpus.attack_common
+
+    def respond(request: dict[str, Any]) -> tuple[int, Any]:
+        if request["testDataLocation"] != str(root / "attack-common"):
+            return 200, {"verdict": "SE", "message": "unsupported test data location"}
+        rows = [{"idx": 1, "name": "1", "verdict": "AC", "cpuNs": 1, "memoryBytes": 1 << 20}]
+        if request["problemId"] == "attack-probe":
+            return 200, {"verdict": "AC", "score": 100, "memoryBytes": 1 << 20, "testDataDigest": common.digest,
+                         "testcaseResults": rows}
+        kind, value = samples[request["problemId"]].judge
+        verdict = value if kind == "verdict" else "WA"
+        rows[0]["verdict"] = verdict
+        return 200, {"verdict": verdict, "score": 0, "testDataDigest": common.digest, "testcaseResults": rows}
+    return respond
+
+
 def ideal_corpus(corpus: Corpus, root: Path, strict_whitespace: bool = False) -> Respond:
-    """行为完全符合整个语料预期的 judge：按请求里的 problemId 分派到各题。"""
+    """行为完全符合整个语料预期的 judge：按请求里的 problemId 分派到各题和攻击样本。"""
     responders = {name: ideal(problem, root / name, strict_whitespace) for name, problem in corpus.problems.items()}
-    return lambda request: responders[request["problemId"]](request)
+    attack = ideal_attack(corpus, root) if corpus.attack_common else None
+    return lambda request: (attack(request) if request["problemId"].startswith("attack-")
+                            else responders[request["problemId"]](request))
 
 
 class FakeJudge:

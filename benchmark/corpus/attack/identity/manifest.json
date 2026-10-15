@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "name": "identity",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "exitCode": 0,
+        "reason": "",
+        "error": ""
+      },
+      "stdout": {
+        "equals": "identity-ok\n"
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "用户程序的身份与环境：无特权、无能力、no_new_privs、seccomp、宿主文件与宿主根不可见、根只读、工作目录、/tmp、ppid、无多余 fd。"
+}
