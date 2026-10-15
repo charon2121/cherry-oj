@@ -4,7 +4,7 @@
 格式与运行结果的含义见 [benchmark 协议](../docs/protocols/benchmark.md)，设计与里程碑见
 [设计文档](../development/works/2026-10-08-judge-benchmark/design.md)。
 
-**目前是 M3：** 判题部分 8 道题、42 个提交，攻击样本 20 个，`judge` 与 `sandbox` 两个入口。
+**目前是 M3：** 判题部分 8 道题、42 个提交，攻击样本 29 个，`judge` 与 `sandbox` 两个入口。
 
 ## 运行
 

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "name": "host_files",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdictNot": "AC"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "exitCode": 0,
+        "reason": ""
+      },
+      "stdout": {
+        "equals": "hidden\n"
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "宿主的 /proc 项、/sys、旧根下的文件从用户程序里不可达。"
+}

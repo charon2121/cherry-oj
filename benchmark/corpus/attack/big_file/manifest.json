@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "name": "big_file",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "RE"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "signal": 25,
+        "reason": ""
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "单文件大小上限（64 MiB）生效，超过时被 SIGXFSZ 终止。"
+}

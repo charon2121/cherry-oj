@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "name": "workspace_fill",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdictNot": "AC"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "exitCode": 0,
+        "reason": ""
+      },
+      "stdout": {
+        "equals": "full\n"
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "工作区 tmpfs 容量（128 MiB）生效，写满后得到 ENOSPC。"
+}

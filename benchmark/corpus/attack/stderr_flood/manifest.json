@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "name": "stderr_flood",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "OLE"
+  },
+  "sandbox": [
+    {
+      "limits": {
+        "stderrMaxBytes": 4096
+      },
+      "facts": {
+        "reason": "output",
+        "outputExceeded": true,
+        "stderrBytes": 4096
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "stderr 上限生效；保留的字节数恰好等于上限。"
+}

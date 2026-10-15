@@ -174,7 +174,7 @@ class LoadingTest(unittest.TestCase):
     def test_the_real_corpus_attack_samples_load(self):
         corpus = lib.load_corpus(Path(__file__).resolve().parents[1] / "corpus")
         samples = {s.name: s for s in corpus.attack_samples}
-        self.assertEqual(len(samples), 20)
+        self.assertEqual(len(samples), 29)
         self.assertEqual(samples["leak_series"].source, corpus.attack_common.probe_source)
         self.assertEqual((samples["leak_series"].repeat_judge, samples["leak_series"].repeat_sandbox), (100, 200))
         self.assertEqual(samples["privilege"].judge, ("verdictNot", "AC"))

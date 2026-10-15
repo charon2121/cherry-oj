@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "name": "fd_exhaust",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdictNot": "AC"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "exitCode": 0,
+        "reason": ""
+      },
+      "stdout": {
+        "equals": "limited\n"
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "打开文件数上限（256）生效。"
+}

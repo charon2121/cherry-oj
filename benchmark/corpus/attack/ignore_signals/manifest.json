@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "name": "ignore_signals",
+  "language": "cpp",
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "judge": {
+    "verdict": "TLE"
+  },
+  "sandbox": [
+    {
+      "facts": {
+        "reason": "cpu"
+      }
+    }
+  ],
+  "requires": [
+    "backend:linux"
+  ],
+  "notes": "忽略 SIGTERM/SIGINT 躲不开 CPU 时间限制。"
+}
