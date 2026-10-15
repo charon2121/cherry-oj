@@ -1,8 +1,9 @@
 name: Benchmark
 
-# benchmark 的 judge 入口要在真实的 Linux 内核上跑：MLE、OLE、TLE 等结论依赖 cgroup v2 与 seccomp，
+# benchmark 要在真实的 Linux 内核上跑：MLE、OLE、TLE 等结论依赖 cgroup v2 与 seccomp，
 # 开发用的无隔离后端不能当证据。这个工作流在一次性的 GitHub 托管虚拟机上用正式安装器装一个真实节点
-# （并发数 1），再运行 benchmark/run.py。它改动这台虚拟机的用户、/etc 与 cgroup，只能在一次性机器上运行。
+# （并发数 2，sandbox 入口的并发样本需要至少 2 个 box），再运行 benchmark/run.py 的 judge 与 sandbox 两个入口。
+# 它改动这台虚拟机的用户、/etc 与 cgroup，只能在一次性机器上运行。
 #
 # 只在判题相关路径有改动时触发；先不设为必过检查，稳定运行一段时间没有误报后再另行决定。
 on:
@@ -34,7 +35,7 @@ concurrency:
 
 jobs:
   benchmark:
-    name: benchmark（judge 入口，真实 Linux 节点）
+    name: benchmark（judge 与 sandbox 入口，真实 Linux 节点）
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -80,7 +81,7 @@ jobs:
           cp -a "$RUNNER_TEMP/cpp-rootfs/rootfs" "$RUNNER_TEMP/release/rootfs"
           cp "$RUNNER_TEMP/cpp-rootfs/manifest.json" "$RUNNER_TEMP/release/manifest.json"
 
-      - name: 安装并启动节点（正式安装器，并发数 1）
+      - name: 安装并启动节点（正式安装器，并发数 2）
         run: |
           set -eu
           # 安装布局协议规则 1：家目录的所有祖先必须归 root 且不被组或其他用户写入。托管虚拟机上的 /opt 不满足，
@@ -93,7 +94,7 @@ jobs:
           python3 -B deploy/sandbox-linux/install/render.py --output "$RUNNER_TEMP/review" \
             --release ci-benchmark --node-id ci-benchmark \
             --control-url http://127.0.0.1:18084 --advertise-url "$JUDGE_URL" \
-            --manifest-sha256 "$(sha256sum "$RUNNER_TEMP/release/manifest.json" | cut -d' ' -f1)" --parallelism 1
+            --manifest-sha256 "$(sha256sum "$RUNNER_TEMP/release/manifest.json" | cut -d' ' -f1)" --parallelism 2
           sudo python3 -B deploy/sandbox-linux/install/manage.py install \
             --review "$RUNNER_TEMP/review" --release-source "$RUNNER_TEMP/release" --token-file "$RUNNER_TEMP/token"
           sudo python3 -B /opt/cherry-oj/operations/manage.py start
@@ -109,10 +110,11 @@ jobs:
           sudo journalctl -u cherry-sandbox-judge.service -n 60 --no-pager
           exit 1
 
-      - name: benchmark（strictWhitespace=false，全部题目）
+      # sandbox 入口直接调用执行器，要 root；两个入口依次进行，judge 在运行但空闲。
+      - name: benchmark（strictWhitespace=false，judge 与 sandbox 两个入口，全部题目与攻击样本）
         run: >-
-          python3 benchmark/run.py --entries judge --judge-url "$JUDGE_URL" --published-root "$PUBLISHED_ROOT"
-          --declare backend=linux strictWhitespace=false languages=cpp
+          sudo python3 benchmark/run.py --entries judge,sandbox --judge-url "$JUDGE_URL"
+          --published-root "$PUBLISHED_ROOT" --declare backend=linux strictWhitespace=false languages=cpp
           --report benchmark/reports/loose.json
 
       # whitespace 的结论取决于节点配置：_strict 那一半要把 judge 切到 strictWhitespace=true 才会运行。
@@ -137,7 +139,7 @@ jobs:
           exit 1
       - name: benchmark（strictWhitespace=true，whitespace）
         run: >-
-          python3 benchmark/run.py --entries judge --judge-url "$JUDGE_URL" --published-root "$PUBLISHED_ROOT"
+          sudo python3 benchmark/run.py --entries judge --judge-url "$JUDGE_URL" --published-root "$PUBLISHED_ROOT"
           --declare backend=linux strictWhitespace=true languages=cpp --select whitespace
           --report benchmark/reports/strict.json
 
