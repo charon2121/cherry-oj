@@ -11,6 +11,8 @@ password
 
 # Private local server settings and migration backups
 /apps/server/.local/
+# 本地开发生成物：服务身份密钥（scripts/dev-server.sh 生成）等，不入库。
+/.local/
 
 # Per-service private Spring local configuration
 **/application-local.yaml

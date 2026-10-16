@@ -24,11 +24,9 @@ mybatis:
     map-underscore-to-camel-case: true
 
 cherry:
-  service-calls:
-    # 与 submission-service 的 CHERRY_SUBMISSION_PROBLEM_TOKEN 配对。
-    submission-problem-tokens: "${CHERRY_SERVICE_CALLS_SUBMISSION_PROBLEM_TOKENS:}"
-    # 与 judging-service 取题目测试数据地址时带的服务令牌配对；不配置则该内部端点关闭。
-    judging-problem-tokens: "${CHERRY_SERVICE_CALLS_JUDGING_PROBLEM_TOKENS:}"
+  # 服务身份：被调时只接受 aud 为本服务名的服务令牌，并按服务名放行。本服务不调用其他服务，不需要私钥。
+  service-identity:
+    name: "${spring.application.name}"
   problem:
     test-data:
       root: "${CHERRY_TEST_DATA_ROOT:./data/problem-testdata}"

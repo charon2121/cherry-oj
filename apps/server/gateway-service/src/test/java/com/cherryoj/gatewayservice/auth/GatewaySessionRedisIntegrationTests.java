@@ -54,6 +54,7 @@ class GatewaySessionRedisIntegrationTests {
 	private static final AtomicInteger ADMIN_USER_CALLS = new AtomicInteger();
 	private static final AtomicInteger TEST_DATA_UPLOAD_CALLS = new AtomicInteger();
 	private static final AtomicReference<String> TEST_DATA_AUTHORIZATION = new AtomicReference<>();
+	private static final AtomicReference<String> AUTH_AUTHORIZATION = new AtomicReference<>();
 	private static volatile LocalDateTime sessionAbsoluteExpiresAt;
 	private static final DisposableServer USER_SERVICE = startUserService();
 
@@ -76,8 +77,15 @@ class GatewaySessionRedisIntegrationTests {
 
 	private static DisposableServer startUserService() {
 		return HttpServer.create().host("127.0.0.1").port(0).route(routes -> routes
+				// gateway 先用自己的私钥签断言换服务令牌，再带着它调用 /internal/auth/*。
+				.post("/internal/service-tokens", (request, response) -> request.receive().aggregate()
+						.then(response.status(HttpStatus.OK.value())
+								.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+								.sendString(Mono.just("{\"accessToken\":\"gateway-service-token-canary\",\"expiresAt\":\""
+										+ java.time.Instant.now().plusSeconds(900) + "\"}")).then()))
 				.post("/internal/auth/authenticate", (request, response) -> {
 					AUTHENTICATE_CALLS.incrementAndGet();
+					AUTH_AUTHORIZATION.set(request.requestHeaders().get(HttpHeaders.AUTHORIZATION));
 					return request.receive().aggregate().then(response.status(HttpStatus.OK.value())
 							.header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
 							.sendString(Mono.just(authenticationJson())).then());
@@ -128,6 +136,8 @@ class GatewaySessionRedisIntegrationTests {
 		registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
 		registry.add("cherry.gateway.user-service-base-url", () ->
 				"http://127.0.0.1:" + USER_SERVICE.port());
+		registry.add("cherry.service-identity.token-uri", () ->
+				"http://127.0.0.1:" + USER_SERVICE.port() + "/internal/service-tokens");
 		registry.add("cherry.gateway.problem-service.base-url", () ->
 				"http://127.0.0.1:" + USER_SERVICE.port());
 	}
@@ -200,6 +210,8 @@ class GatewaySessionRedisIntegrationTests {
 				.jsonPath("$.code").isEqualTo("CSRF_REJECTED")
 				.jsonPath("$.detail").isEqualTo("请求缺少有效的 CSRF token。");
 		assertThat(AUTHENTICATE_CALLS.get()).isEqualTo(callsBefore);
+		// 登录端点只认 gateway 的服务令牌，不再无鉴权开放。
+		assertThat(AUTH_AUTHORIZATION.get()).isEqualTo("Bearer gateway-service-token-canary");
 	}
 
 	@Test

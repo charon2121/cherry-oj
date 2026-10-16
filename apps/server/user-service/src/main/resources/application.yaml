@@ -33,6 +33,13 @@ cherry:
     session-lifetime-policy: fixed-absolute
     session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
 
+  # 可以换取服务令牌的调用方：服务名 → 公钥（PEM）。只登记公钥，不含秘密；私钥只在各服务手里。
+  # 本地由 scripts/dev-server.sh 生成到 .local/service-identity/；部署时用环境变量指向挂载的公钥。
+  service-clients:
+    gateway-service: "${CHERRY_SERVICE_PUBLIC_KEY_GATEWAY:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/gateway-service-public.pem}"
+    submission-service: "${CHERRY_SERVICE_PUBLIC_KEY_SUBMISSION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/submission-service-public.pem}"
+    judging-service: "${CHERRY_SERVICE_PUBLIC_KEY_JUDGING:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/judging-service-public.pem}"
+
 server:
   port: "${CHERRY_USER_PORT:8081}"
 

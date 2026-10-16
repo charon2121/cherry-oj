@@ -1,31 +1,19 @@
 package com.cherryoj.submissionservice.security;
 
-import com.cherryoj.identitysecurity.service.ServiceCredentials;
-import com.cherryoj.identitysecurity.service.ServiceTokenFilter;
-import java.util.Arrays;
-import org.springframework.beans.factory.annotation.Value;
+import com.cherryoj.identitysecurity.service.ServiceCallVerifier;
+import com.cherryoj.serviceidentity.ServiceNames;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
+/** judging-service 判题时拉取冻结的 JudgeInput；只接受 judging-service 的服务令牌。 */
 @Configuration(proxyBeanMethods = false)
 class JudgeInputSecurity {
     @Bean @Order(-10)
-    SecurityFilterChain judgeInputChain(HttpSecurity http,
-            @Value("${cherry.service-calls.judging-submission-tokens:}") String tokens) throws Exception {
-        http.securityMatcher("/internal/judging/judge-inputs/*")
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        // 未配置新功能时关闭内部端点，不影响既有题目/节点业务启动。
-        if (tokens.isBlank()) return http.authorizeHttpRequests(a -> a.anyRequest().denyAll())
-                .exceptionHandling(e -> e.authenticationEntryPoint((q, r, x) -> r.sendError(401))
-                        .accessDeniedHandler((q, r, x) -> r.sendError(401))).build();
-        return http.addFilterBefore(new ServiceTokenFilter("judging-service",
-                        new ServiceCredentials(Arrays.stream(tokens.split(",")).map(String::trim).toList())), BasicAuthenticationFilter.class)
-                .authorizeHttpRequests(a -> a.anyRequest().hasAuthority("SERVICE_CALL")).build();
+    SecurityFilterChain judgeInputChain(HttpSecurity http, ServiceCallVerifier services) throws Exception {
+        http.securityMatcher("/internal/judging/judge-inputs/*");
+        return services.restrictTo(http, ServiceNames.JUDGING);
     }
 }

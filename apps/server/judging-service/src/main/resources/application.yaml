@@ -31,14 +31,17 @@ spring:
     password: "${CHERRY_JUDGING_DB_PASSWORD}"
 
 cherry:
-  service-calls:
-    submission-judging-tokens: "${CHERRY_SUBMISSION_JUDGING_TOKENS:}"
+  # 服务身份：调用其他服务时用自己的私钥向 user-service 换服务令牌；被调时只按服务名放行。
+  # 本地由 scripts/dev-server.sh 生成密钥到 .local/service-identity/；部署时用环境变量指向挂载的私钥。
+  service-identity:
+    name: "${spring.application.name}"
+    private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
+    token-uri: "${CHERRY_SERVICE_TOKEN_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/internal/service-tokens}"
   formal:
     enabled: "${CHERRY_FORMAL_JUDGING_ENABLED:false}"
     requests-topic: "${CHERRY_JUDGE_REQUESTS_TOPIC:judge.requests.v1}"
     lifecycle-topic: "${CHERRY_JUDGE_LIFECYCLE_TOPIC:judge.lifecycle.v1}"
     submission-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:${CHERRY_SUBMISSION_PORT:8083}}"
-    submission-token: "${CHERRY_JUDGING_SUBMISSION_TOKEN:}"
     parallelism: 2
     max-attempts: 3
     lease-duration: 30s
@@ -61,7 +64,6 @@ cherry:
       lease-duration: "${CHERRY_JUDGE_NODE_LEASE_DURATION:35s}"
     problem:
       url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}}"
-      token: "${CHERRY_JUDGING_PROBLEM_TOKEN:}"
     judge-timeout: "${CHERRY_JUDGE_TIMEOUT:10m}"
 
 server:

@@ -4,50 +4,85 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.cherryoj.serviceidentity.ServiceIdentityException;
+import com.cherryoj.serviceidentity.ServiceNames;
+import com.cherryoj.serviceidentity.ServiceTokenClient;
+
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Component
 final class UserServiceClient {
 
+	private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(UserServiceClient.class);
+
 	private final WebClient client;
 	private final GatewayAuthProperties properties;
 	private final InternalRequestFactory requests;
+	private final ServiceTokenClient serviceTokens;
 
 	UserServiceClient(
 			WebClient.Builder builder,
 			GatewayAuthProperties properties,
-			InternalRequestFactory requests) {
+			InternalRequestFactory requests,
+			ServiceTokenClient serviceTokens) {
 		this.client = builder.baseUrl(properties.userServiceBaseUrl().toString()).build();
 		this.properties = properties;
 		this.requests = requests;
+		this.serviceTokens = serviceTokens;
 	}
 
+	// 登录、换取委托令牌、校验与吊销会话没有用户在场，gateway 用自己的服务身份调用；
+	// user-service 只对 gateway-service 开放这四个端点。
+
 	Mono<AuthenticationResult> authenticate(String username, String password, String requestId) {
-		return response(requests.request(client.post()
-				.uri("/internal/auth/authenticate"), requestId)
-				.bodyValue(new LoginRequest(username, password)), AuthenticationResult.class);
+		return asGateway(token -> response(requests.asService(client.post()
+				.uri("/internal/auth/authenticate"), requestId, token)
+				.bodyValue(new LoginRequest(username, password)), AuthenticationResult.class));
 	}
 
 	Mono<TokenExchangeResult> exchange(String loginGrant, String requestId) {
-		return response(requests.request(client.post()
-				.uri("/internal/auth/token"), requestId)
-				.bodyValue(new LoginGrantRequest(loginGrant)), TokenExchangeResult.class);
+		return asGateway(token -> response(requests.asService(client.post()
+				.uri("/internal/auth/token"), requestId, token)
+				.bodyValue(new LoginGrantRequest(loginGrant)), TokenExchangeResult.class));
 	}
 
 	Mono<SessionValidationResult> validate(String loginGrant, String requestId) {
-		return response(requests.request(client.post()
-				.uri("/internal/auth/validate"), requestId)
-				.bodyValue(new LoginGrantRequest(loginGrant)), SessionValidationResult.class);
+		return asGateway(token -> response(requests.asService(client.post()
+				.uri("/internal/auth/validate"), requestId, token)
+				.bodyValue(new LoginGrantRequest(loginGrant)), SessionValidationResult.class));
 	}
 
 	Mono<Void> revoke(String loginGrant, String requestId) {
-		return noContent(requests.request(client.post()
-				.uri("/internal/auth/revoke"), requestId)
-				.bodyValue(new LoginGrantRequest(loginGrant)));
+		return asGateway(token -> noContent(requests.asService(client.post()
+				.uri("/internal/auth/revoke"), requestId, token)
+				.bodyValue(new LoginGrantRequest(loginGrant))));
+	}
+
+	/**
+	 * 取服务令牌（命中缓存时不发请求；换取是阻塞调用，放到 boundedElastic）。user-service 拒绝了缓存的
+	 * 令牌时丢弃它，下一次重新换取。
+	 */
+	private <T> Mono<T> asGateway(java.util.function.Function<String, Mono<T>> call) {
+		return Mono.fromCallable(() -> serviceTokens.tokenFor(ServiceNames.USER))
+				.subscribeOn(Schedulers.boundedElastic())
+				.onErrorMap(ServiceIdentityException.class, error -> {
+					// 对浏览器仍是"服务暂不可用"；运维需要知道是 user-service 不可达、gateway 未登记还是被拒。
+					LOGGER.atWarn().addKeyValue("event", "gateway_service_token_unavailable")
+							.addKeyValue("reason", error.reason()).log(error.getMessage());
+					return new UserServiceClientException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_IDENTITY_UNAVAILABLE");
+				})
+				.flatMap(call)
+				.doOnError(UserServiceClientException.class, error -> {
+					if (error.status().value() == 401 && "SERVICE_UNAUTHORIZED".equals(error.code())) {
+						serviceTokens.invalidate(ServiceNames.USER);
+					}
+				});
 	}
 
 	Mono<Void> changePassword(

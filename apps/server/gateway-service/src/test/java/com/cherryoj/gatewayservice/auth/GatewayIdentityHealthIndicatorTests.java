@@ -34,7 +34,12 @@ class GatewayIdentityHealthIndicatorTests {
 		});
 		GatewayAuthProperties properties = properties();
 		UserServiceClient userService = new UserServiceClient(
-				builder, properties, new InternalRequestFactory());
+				builder, properties, new InternalRequestFactory(), new com.cherryoj.serviceidentity.ServiceTokenClient(
+						"gateway-service",
+						com.cherryoj.serviceidentity.ServiceKeys.privateKey(
+								"classpath:service-identity/test-only-gateway-service-private.pem"),
+						"cherry-oj-user-service", java.net.URI.create("http://127.0.0.1:1/internal/service-tokens"),
+						java.time.Clock.systemUTC()));
 
 		var health = new GatewayIdentityHealthIndicator(userService, properties).health().block();
 

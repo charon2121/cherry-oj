@@ -1,5 +1,7 @@
 package com.cherryoj.userservice.security;
 
+import com.cherryoj.serviceidentity.ServiceTokenClaims;
+
 import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.LoginGrant;
 import com.cherryoj.userservice.domain.UserAccount;
@@ -37,6 +39,29 @@ public class TokenService {
 
     public TokenValue issue(LoginGrant grant) {
         return issue(grant.userId(), grant.role().name(), grant.sessionVersion(), grant.passwordChangeRequired());
+    }
+
+    /**
+     * 服务令牌：sub 是调用方服务名，aud 是目标服务名，token_use=service；没有 roles、sv、pwd，
+     * 因此进不了面向用户的端点。与用户委托 JWT 用同一把签名密钥，各服务用同一个 JWKS 校验。
+     */
+    public TokenValue issueService(String caller, String audience) {
+        Instant issuedAt = clock.instant();
+        Instant expiresAt = issuedAt.plus(ServiceTokenClaims.SERVICE_TOKEN_LIFETIME);
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer(properties.issuer())
+                .audience(List.of(audience))
+                .subject(caller)
+                .issuedAt(issuedAt)
+                .expiresAt(expiresAt)
+                .id(UUID.randomUUID().toString())
+                .claim(ServiceTokenClaims.TOKEN_USE, ServiceTokenClaims.SERVICE)
+                .build();
+        JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256)
+                .keyId(keys.activeKid())
+                .type("JWT")
+                .build();
+        return new TokenValue(encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue(), expiresAt);
     }
 
     private TokenValue issue(String userId, String role, long sessionVersion, boolean passwordChangeRequired) {

@@ -18,7 +18,8 @@ class CustomRunSnapshotTests {
 		var id = UUID.randomUUID();
 		when(prerequisite.snapshot(id.toString(), "cpp"))
 			.thenReturn(new SubmissionDtos.Snapshot(UUID.randomUUID().toString(), "title", "cpp", "ACM"));
-		var controller = new CustomRunController(prerequisite, new ObjectMapper(), "http://127.0.0.1:1", "unused");
+		var controller = new CustomRunController(prerequisite, new ObjectMapper(), "http://127.0.0.1:1",
+				mock(com.cherryoj.serviceidentity.ServiceTokenClient.class));
 		var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(UUID.randomUUID().toString()).build();
 		var request = new CustomRunController.Request(id, "cpp", "int main(){}", "");
 		var error = assertThrows(SubmissionException.class,
@@ -49,9 +50,11 @@ class CustomRunSnapshotTests {
 		});
 		server.start();
 		try {
-			var token = "work044-synthetic-service-token-0123456789";
+			var token = "submission-service-token-canary";
+			var tokens = mock(com.cherryoj.serviceidentity.ServiceTokenClient.class);
+			when(tokens.tokenFor("judging-service")).thenReturn(token);
 			var controller = new CustomRunController(prerequisite, json,
-					"http://127.0.0.1:" + server.getAddress().getPort(), token);
+					"http://127.0.0.1:" + server.getAddress().getPort(), tokens);
 			var jwt = Jwt.withTokenValue("test").header("alg", "none").subject(UUID.randomUUID().toString()).build();
 			var response = controller.run(new CustomRunController.Request(id, "cpp", "int main(){}", ""),
 					new JwtAuthenticationToken(jwt), null, null);

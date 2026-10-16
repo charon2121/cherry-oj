@@ -1,6 +1,7 @@
 package com.cherryoj.problemservice.security;
 
 import com.cherryoj.identitysecurity.IdentityVerifierConfiguration;
+import com.cherryoj.identitysecurity.service.ServiceIdentityConfiguration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,7 +14,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 
 @Configuration(proxyBeanMethods = false)
-@Import(IdentityVerifierConfiguration.class)
+@Import({IdentityVerifierConfiguration.class, ServiceIdentityConfiguration.class})
 class ResourceSecurityConfig {
 
 	@Bean

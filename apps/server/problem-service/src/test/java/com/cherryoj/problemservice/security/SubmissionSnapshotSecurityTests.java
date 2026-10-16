@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.*;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.test.context.support.TestPropertySourceUtils;
+import com.cherryoj.identitysecurity.service.ServiceCallVerifier;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
@@ -18,6 +18,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class SubmissionSnapshotSecurityTests {
     @Configuration @EnableWebSecurity @EnableWebMvc @Import(SubmissionProblemSnapshotSecurity.class)
     static class Config {
+        @Bean ServiceCallVerifier serviceCallVerifier() {
+            return ServiceTokenFixture.verifier("problem-service");
+        }
+
         @Bean SubmissionSnapshotController controller() {
             var service = mock(SubmissionSnapshotService.class);
             when(service.resolve(anyString(), anyString())).thenReturn(new SubmissionSnapshotService.Snapshot(
@@ -25,21 +29,26 @@ class SubmissionSnapshotSecurityTests {
             return new SubmissionSnapshotController(service);
         }
     }
-    @Test void onlyTheConfiguredCallChainCanReadTheSnapshot() throws Exception {
+
+    @Test void onlySubmissionServiceCanReadTheSnapshot() throws Exception {
         try (var context = new AnnotationConfigWebApplicationContext()) {
             context.setServletContext(new MockServletContext());
-            String token = "a".repeat(48);
-            TestPropertySourceUtils.addInlinedPropertiesToEnvironment(context,
-                    "cherry.service-calls.submission-problem-tokens=" + token);
             context.register(Config.class); context.refresh();
             var mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
-            for (String authorization : new String[]{"Bearer eyJ.admin.jwt", "Bearer local-judge-control-token", "Bearer " + "b".repeat(48)}) {
-                mvc.perform(post("/internal/submission/problem-snapshot").header("Authorization", authorization)
-                        .contentType("application/json").content("{}")) .andExpect(status().isUnauthorized());
+            String body = "{\"problemId\":\"0198cafe-0000-7000-8000-000000000002\",\"languageId\":\"cpp\"}";
+            for (String token : new String[]{"eyJ.admin.jwt", "local-judge-control-token",
+                    ServiceTokenFixture.token("submission-service", "judging-service")}) {
+                mvc.perform(post("/internal/submission/problem-snapshot").header("Authorization", "Bearer " + token)
+                        .contentType("application/json").content(body)).andExpect(status().isUnauthorized());
             }
-            mvc.perform(post("/internal/submission/problem-snapshot").header("Authorization", "Bearer " + token)
-                    .contentType("application/json").content("{\"problemId\":\"0198cafe-0000-7000-8000-000000000002\",\"languageId\":\"cpp\"}"))
-                    .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+            mvc.perform(post("/internal/submission/problem-snapshot").header("Authorization", "Bearer "
+                            + ServiceTokenFixture.token("judging-service", "problem-service"))
+                    .contentType("application/json").content(body)).andExpect(status().isForbidden());
+            mvc.perform(post("/internal/submission/problem-snapshot").header("Authorization", "Bearer "
+                            + ServiceTokenFixture.token("submission-service", "problem-service"))
+                    .contentType("application/json").content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("no-store")))
                     .andExpect(jsonPath("problemTitle").value("title"))
                     // 契约里没有版本、数据地址或存储位置
                     .andExpect(jsonPath("problemVersionId").doesNotExist())

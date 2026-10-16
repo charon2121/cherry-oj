@@ -15,7 +15,7 @@ class SubmissionExecutionProfileControllerTests {
     private static final String DIGEST = "a".repeat(64);
 
     static com.cherryoj.judgingservice.formal.FormalProperties budgets() {
-        return new com.cherryoj.judgingservice.formal.FormalProperties(false,"requests","lifecycle","http://localhost","",2,3,
+        return new com.cherryoj.judgingservice.formal.FormalProperties(false,"requests","lifecycle","http://localhost",2,3,
                 Duration.ofSeconds(30),Duration.ofMinutes(10),Duration.ofSeconds(30),10,Duration.ofSeconds(1));
     }
 

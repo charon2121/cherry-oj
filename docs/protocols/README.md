@@ -42,7 +42,7 @@
 | 10 | 测试数据协议 | problem-service 写、judge 读 | 目录 + `testdata.json`，本地路径或 HTTP(S) | [`testdata.md`](./testdata.md) |
 | 11 | 执行器协议 | judge 进程 → sandbox 执行器 | `exec` + box 目录 + NUL 分隔的请求 + 一行 JSON 事实 | [`sandbox-executor.md`](./sandbox-executor.md) |
 | 12 | 身份传递 | Gateway → 各业务服务 | 委派的内部 JWT；user-service 提供 JWKS 与 metadata | [`backend.md`](../backend.md) |
-| 13 | 服务间鉴权 | submission↔problem、submission↔judging、judging→submission、judging→problem | Bearer 服务令牌；发送方的值须属于接收方的列表 | [`apps/server/CONFIGURATION.md`](../../apps/server/CONFIGURATION.md) |
+| 13 | 服务间鉴权 | gateway→user、submission→problem、submission→judging、judging→submission、judging→problem | Bearer 服务令牌：调用方用自己的私钥向 user-service 换取，`aud` 为被调方、`sub` 须在被调端点的允许名单里 | [`apps/server/CONFIGURATION.md`](../../apps/server/CONFIGURATION.md) |
 | 14 | 部署配置格式 | 安装器 ↔ 执行器与 judge | `executor.conf`、`judge-start.json`、`deployment.json`（部署清单）、`plan.json` | [`deploy/sandbox-linux/install/README.md`](../../deploy/sandbox-linux/install/README.md) |
 | 15 | 安装布局 | 安装器、运维 ↔ 执行器与 judge | `/opt/cherry-oj` 的目录结构、属主、权限，以及家目录之外的系统位置 | [`install-layout.md`](./install-layout.md) |
 | 16 | benchmark | 语料 / 运行者 ↔ 被测 judge 与 sandbox | 两个入口（`POST /judge`、直接调用执行器）；语料目录、`expect.json`、运行说明、报告 JSON、退出码 | [`benchmark.md`](./benchmark.md) |

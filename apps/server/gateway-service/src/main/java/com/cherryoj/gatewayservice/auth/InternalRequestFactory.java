@@ -20,6 +20,15 @@ public final class InternalRequestFactory {
 		return request;
 	}
 
+	/** 以 gateway 自己的服务身份调用（没有用户在场的内部认证端点，例如登录与换取委托令牌）。 */
+	public WebClient.RequestBodySpec asService(WebClient.RequestBodySpec request, String requestId, String serviceToken) {
+		request.headers(headers -> {
+			headers.setBearerAuth(serviceToken);
+			headers.set(ApiRequestContext.REQUEST_ID_HEADER, requestId);
+		});
+		return request;
+	}
+
 	public WebClient.RequestHeadersSpec<?> authenticated(
 			WebClient.RequestHeadersSpec<?> request, DelegatedIdentity identity) {
 		return request.headers(headers -> {

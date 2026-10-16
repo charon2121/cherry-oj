@@ -94,6 +94,7 @@ submission-service：Pending → Judging → Done + verdict
 
 - User、密码摘要、账号状态、角色。
 - 内部 JWT 密钥与会话版本。
+- 服务令牌签发：各服务用自己的私钥证明身份，换取发往目标服务的短期服务令牌（见 §11）。
 - 用户安全审计。
 
 MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约束限制管理员记录数。
@@ -465,6 +466,13 @@ cherry-oj/
 
 - 浏览器只持有 Session Cookie，不接触内部 JWT。
 - 每个资源服务自行验证 JWT，不信任裸 `X-User-Id`。
+- 内部调用只有两种身份，用同一个签发方（user-service）与同一个 JWKS 校验：
+  - **用户委托 JWT**：代表某个用户，带 `roles`，`aud` 为内部受众；资源服务据此判断用户权限。
+  - **服务令牌**：没有用户在场的服务调用（取题目快照、拉取 JudgeInput、读测试数据地址、gateway 调用登录与
+    会话端点）。调用方用自己的私钥签客户端断言，向 user-service 换取；`sub` 是调用方服务名，`aud` 是被调方
+    服务名，`token_use=service`，没有 `roles`。被调端点按写在代码里的服务名允许名单放行。两种令牌不能互相
+    冒用：服务令牌进不了用户端点，用户 JWT 进不了服务端点。
+- 服务之间没有共享密钥：每个服务只持有自己的私钥，user-service 只登记公钥。判题节点的控制令牌另属节点协议。
 - 源码、密码、Cookie、JWT、隐藏数据和标准答案不得进入日志或 Kafka。
 - 日志统一包含 traceId；判题链路包含 submissionId、taskId、attemptNo 和 nodeId。
 - public request ID 由 Gateway 生成，只关联一次同步 HTTP 支持请求；内部 Trace 使用 W3C

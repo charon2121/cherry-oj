@@ -29,11 +29,7 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/actuator/info",
                                 "/.well-known/jwks.json",
-                                "/internal/identity/metadata",
-                                "/internal/auth/authenticate",
-                                "/internal/auth/token",
-                                "/internal/auth/validate",
-                                "/internal/auth/revoke")
+                                "/internal/identity/metadata")
                         .permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(authentication)))

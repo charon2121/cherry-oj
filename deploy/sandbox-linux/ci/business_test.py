@@ -246,7 +246,10 @@ class BusinessTests(unittest.TestCase):
                 self.assertEqual(path.stat().st_mode & 0o077, 0)
             env = environment(root / 'a', first)
             self.assertEqual(env['SPRING_PROFILES_ACTIVE'], 'test')
-            self.assertEqual(env['CHERRY_SUBMISSION_PROBLEM_TOKEN'], env['CHERRY_SERVICE_CALLS_SUBMISSION_PROBLEM_TOKENS'])
+            # 服务间不再有共享令牌：只给出服务身份密钥目录，私钥由各服务按名字读取。
+            self.assertEqual(env['CHERRY_SERVICE_IDENTITY_DIR'], str(root / 'a' / 'service-identity'))
+            self.assertFalse(any(key.endswith(('_TOKEN', '_TOKENS')) and key != 'CHERRY_JUDGE_CONTROL_TOKEN'
+                                 for key in env))
             for name in DATABASES:
                 self.assertIn('/cherry_ci_' + name, env['CHERRY_' + name.upper() + '_DB_URL'])
             self.assertTrue(all('application-local' not in value for value in env.values()))

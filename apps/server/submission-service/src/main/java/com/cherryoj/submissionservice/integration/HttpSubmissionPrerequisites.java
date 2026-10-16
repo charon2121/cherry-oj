@@ -1,6 +1,8 @@
 package com.cherryoj.submissionservice.integration;
 
-import com.cherryoj.identitysecurity.service.ServiceCredentials;
+import com.cherryoj.serviceidentity.ServiceIdentityException;
+import com.cherryoj.serviceidentity.ServiceNames;
+import com.cherryoj.serviceidentity.ServiceTokenClient;
 import com.cherryoj.submissionservice.api.SubmissionDtos.*;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import java.io.ByteArrayOutputStream;
@@ -21,30 +23,29 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSubmissionPrerequisites.class);
-    private final String problemUrl, judgingUrl, problemToken, judgingToken;
+    private final String problemUrl, judgingUrl;
+    private final ServiceTokenClient tokens;
     private final ObjectMapper json;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2))
             .followRedirects(HttpClient.Redirect.NEVER).build();
     public HttpSubmissionPrerequisites(ObjectMapper json,
             @Value("${cherry.submission.problem-url}") String problemUrl,
             @Value("${cherry.submission.judging-url}") String judgingUrl,
-            @Value("${cherry.submission.problem-token:}") String problemToken,
-            @Value("${cherry.submission.judging-token:}") String judgingToken) {
-        this.json=json; this.problemUrl=problemUrl; this.judgingUrl=judgingUrl;
-        this.problemToken=problemToken; this.judgingToken=judgingToken;
+            ServiceTokenClient tokens) {
+        this.json=json; this.problemUrl=problemUrl; this.judgingUrl=judgingUrl; this.tokens=tokens;
     }
     public Snapshot snapshot(String id, String language) {
-        return post(problemUrl, "/internal/submission/problem-snapshot", problemToken,
+        return post(problemUrl, "/internal/submission/problem-snapshot", ServiceNames.PROBLEM,
                 Map.of("problemId",id,"languageId",language), Snapshot.class);
     }
     public Profile profile(Snapshot s) {
-        return post(judgingUrl, "/internal/submission/execution-profile", judgingToken,
+        return post(judgingUrl, "/internal/submission/execution-profile", ServiceNames.JUDGING,
                 Map.of("problemId",s.problemId(),"languageId",s.languageId(),"purpose","formal"), Profile.class);
     }
-    private <T> T post(String base, String path, String token, Object body, Class<T> type) {
+    private <T> T post(String base, String path, String audience, Object body, Class<T> type) {
         CompletableFuture<HttpResponse<byte[]>> future = null;
         try {
-            ServiceCredentials.validate(token);
+            String token = tokens.tokenFor(audience);
             var request = HttpRequest.newBuilder(URI.create(base.replaceAll("/$", "") + path))
                     .timeout(Duration.ofSeconds(5)).header("Authorization","Bearer " + token)
                     .header("Content-Type","application/json").POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body))).build();
@@ -52,10 +53,12 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
             var response=future.get(6, TimeUnit.SECONDS);
             if (response.statusCode()==404) throw new SubmissionException(HttpStatus.NOT_FOUND,"PROBLEM_NOT_AVAILABLE","题目当前不可提交。");
             if (response.statusCode()==422) throw new SubmissionException(HttpStatus.UNPROCESSABLE_ENTITY,"UNSUPPORTED_CODE_MODE","当前只支持 C++ ACM 正式提交。");
+            if (response.statusCode()==401) tokens.invalidate(audience);
             if (response.statusCode()!=200) throw unavailable(path, "status " + response.statusCode());
             return json.readValue(response.body(),type);
         } catch (SubmissionException error) { throw error; }
         catch (InterruptedException error) { Thread.currentThread().interrupt(); throw unavailable(path, "interrupted"); }
+        catch (ServiceIdentityException error) { throw unavailable(path, "service identity " + error.reason()); }
         catch (Exception error) { throw unavailable(path, error.getClass().getSimpleName()); }
         finally { if (future!=null && !future.isDone()) future.cancel(true); }
     }

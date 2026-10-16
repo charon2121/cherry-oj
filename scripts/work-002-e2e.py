@@ -33,7 +33,6 @@ env.update(JUDGE_BIND_ADDRESS='127.0.0.1',CHERRY_JUDGE_CONTROL_TOKEN='work002-is
  JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s')
 env.update(WORK002_DB_PASSWORD=secrets.token_urlsafe(24),WORK002_MYSQL_PORT=str(ports['mysql']),
  WORK002_REDIS_PORT=str(ports['redis']),WORK002_KAFKA_PORT=str(ports['kafka']))
-service_tokens={name:secrets.token_urlsafe(48) for name in ['submission-problem','submission-judging','judging-submission','judging-problem']}
 compose=['docker','compose','-f',str(ROOT/'compose.work-002-test.yaml'),'-p',NAME]
 def docker(*cmd):return run(['docker',*cmd])
 def sql(statement):
@@ -66,11 +65,9 @@ def start(service,extra=None):
  CHERRY_JUDGING_SERVICE_URL=f"http://127.0.0.1:{ports['judging']}",
  CHERRY_KAFKA_BOOTSTRAP_SERVERS=f"127.0.0.1:{ports['kafka']}",
  CHERRY_SUBMISSION_MESSAGING_ENABLED='true',CHERRY_SUBMISSION_ACCEPTING='true',CHERRY_FORMAL_JUDGING_ENABLED='true',
- CHERRY_SUBMISSION_PROBLEM_TOKEN=service_tokens['submission-problem'],
- CHERRY_SERVICE_CALLS_SUBMISSION_PROBLEM_TOKENS=service_tokens['submission-problem'],
- CHERRY_SUBMISSION_JUDGING_TOKEN=service_tokens['submission-judging'],CHERRY_SUBMISSION_JUDGING_TOKENS=service_tokens['submission-judging'],
- CHERRY_JUDGING_SUBMISSION_TOKEN=service_tokens['judging-submission'],CHERRY_JUDGING_SUBMISSION_TOKENS=service_tokens['judging-submission'],
- CHERRY_JUDGING_PROBLEM_TOKEN=service_tokens['judging-problem'],CHERRY_SERVICE_CALLS_JUDGING_PROBLEM_TOKENS=service_tokens['judging-problem'])
+ # 服务间调用身份：各服务按名字读 <name>-private.pem，user-service 读公钥；端口是随机的，换令牌地址要显式给。
+ CHERRY_SERVICE_IDENTITY_DIR=str(OUT/'service-identity'),
+ CHERRY_SERVICE_TOKEN_URI=f"http://127.0.0.1:{ports['user']}/internal/service-tokens")
  if extra:config.update(extra)
  jar=ROOT/f'apps/server/{service}-service/target/{service}-service-0.0.1-SNAPSHOT.jar'
  log=open(OUT/f'{service}.log','ab');logs.append(log)
@@ -107,6 +104,7 @@ try:
  wait(lambda:sql('SELECT 1')=='1','MySQL')
  sql('CREATE DATABASE cherry_user; CREATE DATABASE cherry_problem; CREATE DATABASE cherry_judging; CREATE DATABASE cherry_submission;')
  run([str(ROOT/'scripts/identity-keys'),'init',str(OUT/'keys')])
+ run([str(ROOT/'scripts/service-identity-keys.sh'),str(OUT/'service-identity')])
  command,config,log=start('user')
  subprocess.run(command+['--cherry.auth.mode=bootstrap','--cherry.auth.bootstrap-username=work002admin','--management.endpoint.health.validate-group-membership=false'],env=config,cwd=OUT,input=b'Work002-Initial-Password\n',stdout=log,stderr=log,check=True,timeout=60)
  for service in ['user','judging','problem','submission','gateway']:

@@ -36,6 +36,12 @@ mybatis:
     arg-name-based-constructor-auto-mapping: true
 
 cherry:
+  # 服务身份：调用其他服务时用自己的私钥向 user-service 换服务令牌；被调时只按服务名放行。
+  # 本地由 scripts/dev-server.sh 生成密钥到 .local/service-identity/；部署时用环境变量指向挂载的私钥。
+  service-identity:
+    name: "${spring.application.name}"
+    private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
+    token-uri: "${CHERRY_SERVICE_TOKEN_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/internal/service-tokens}"
   submission:
     messaging-enabled: "${CHERRY_SUBMISSION_MESSAGING_ENABLED:false}"
     accepting: "${CHERRY_SUBMISSION_ACCEPTING:false}"
@@ -43,10 +49,6 @@ cherry:
     lifecycle-topic: "${CHERRY_JUDGE_LIFECYCLE_TOPIC:judge.lifecycle.v1}"
     problem-url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}}"
     judging-url: "${CHERRY_JUDGING_SERVICE_URL:http://127.0.0.1:${CHERRY_JUDGING_PORT:8084}}"
-    problem-token: "${CHERRY_SUBMISSION_PROBLEM_TOKEN:}"
-    judging-token: "${CHERRY_SUBMISSION_JUDGING_TOKEN:}"
-  service-calls:
-    judging-submission-tokens: "${CHERRY_JUDGING_SUBMISSION_TOKENS:}"
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"

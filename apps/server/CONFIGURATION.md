@@ -29,14 +29,34 @@ IDEA 打开期间仅修改磁盘上的 `.run` / `workspace.xml`，可能不会�
 密钥位置及测试数据目录建议填写本机绝对路径，避免 Maven/IDE 工作目录影响数据位置。
 配置加载本身通过类路径，不受当前工作目录影响。示例中的空凭据必须填写，不能当有效默认值。
 
-| 调用 | 发送方本地属性 | 接收方本地属性 |
-|---|---|---|
-| submission → problem | cherry.submission.problem-token | cherry.service-calls.submission-problem-tokens |
-| submission → judging | cherry.submission.judging-token | cherry.service-calls.submission-judging-tokens |
-| judging → submission | cherry.formal.submission-token | cherry.service-calls.judging-submission-tokens |
-| judging → problem（取题目当前的测试数据地址） | cherry.judging.problem.token | cherry.service-calls.judging-problem-tokens；不配置则该内部端点关闭 |
+### 服务之间的调用身份
 
-服务 token 是 32–512 位 URL-safe 字符，发送值必须属于接收列表。不要自动轮换或取轮换列表的首项。
+服务之间互相调用，靠的是**每个服务自己的一把私钥**，不再有成对配置的共享令牌：
+
+1. 调用方用自己的私钥签一个 60 秒有效的客户端断言，向 user-service 的
+   `POST /internal/service-tokens` 换取发往目标服务的服务令牌（15 分钟，调用方缓存，剩 5 分钟时换新）；
+2. 服务令牌由 user-service 用签发用户委托 JWT 的同一把密钥签名：`sub` 是调用方服务名，`aud` 是目标服务名，
+   `token_use=service`，没有 `roles`；
+3. 被调方用同一个 JWKS 校验，`aud` 必须是自己，`sub` 必须在该端点的允许名单里——名单是写在代码里的
+   明文服务名（例如 problem-service 的测试数据端点只允许 judging-service）。
+
+| 调用 | 调用方 → 被调方端点 |
+|---|---|
+| gateway → user | 登录、换取委托令牌、会话校验与吊销（`/internal/auth/*`，只允许 gateway-service） |
+| submission → problem | 取题目快照 |
+| submission → judging | 取执行限制、转发自测 |
+| judging → submission | 拉取冻结的 JudgeInput |
+| judging → problem | 取题目当前测试数据地址 |
+
+**本地无需任何配置。** `scripts/dev-server.sh` 首次运行时为 gateway、submission、judging 生成密钥对到
+被忽略的 `.local/service-identity/`，并通过 `CHERRY_SERVICE_IDENTITY_DIR` 告诉所有服务：调用方读
+`<服务名>-private.pem`，user-service 读各调用方的 `<服务名>-public.pem`。problem-service 只被调用，不需要私钥。
+
+**部署时**用 `scripts/service-identity-keys.sh <目录>` 生成密钥，按服务分别挂载：每个调用方只拿到自己的私钥
+（`CHERRY_SERVICE_PRIVATE_KEY_LOCATION`），user-service 只拿到公钥（`CHERRY_SERVICE_PUBLIC_KEY_GATEWAY` 等）。
+新增一条调用链只需在被调端点的允许名单里加一个服务名；新增一个调用方服务需要为它生成密钥并在
+user-service 的 `cherry.service-clients` 登记公钥。
+
 judging 节点 control-token 与现有 Go 引擎配置匹配。数据库仍使用各服务专有账号，不共用 root。
 
 ## 容器环境
@@ -50,7 +70,8 @@ cd apps/server
 ./mvnw clean verify
 cd ../../deploy/backend
 cp .env.example .env
-# 编辑 .env：填写隔离数据库、真实凭据、身份密钥路径等；BACKEND_PROFILE 不能为 local
+# 编辑 .env：填写隔离数据库、真实凭据、身份密钥路径、服务身份密钥目录等；BACKEND_PROFILE 不能为 local
+# 服务身份密钥：SERVICE_IDENTITY_OWNER=10001:10001 ../../scripts/service-identity-keys.sh /绝对路径
 # 首先检查配置（不要将含秘密的完整 config 输出粘贴到日志或聊天）
 docker compose config --quiet
 docker compose build
@@ -63,7 +84,8 @@ Compose 明确通过 `SPRING_PROFILES_ACTIVE` 选择 dev/test/prod，使用 envi
 不能只 `docker compose restart` 就期待更新容器环境变量。
 
 所有容器默认仅 Gateway 暴露端口。数据库地址必须是容器可达地址，容器内 localhost 指向自身。
-身份密钥目录只读挂载，运行 UID 10001 必须有读取权限。日志和业务数据使用独立卷；
+身份密钥目录与服务身份私钥只读挂载，运行 UID 10001 必须有读取权限（Linux 上生成服务身份密钥时设
+`SERVICE_IDENTITY_OWNER=10001:10001`）。日志和业务数据使用独立卷；
 本地 Docker 若连接现有依赖，应同时保证依赖允许容器网络访问，不为连通性扩大数据库用户权限。
 prod/production 保留既有严格秘密检查与 Secure Cookie 行为；通过 HTTPS 代理接入。
 开发 fixture 已移入测试资源，真实部署的 dev Profile 不会自动预置虚构判题环境。

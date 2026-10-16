@@ -39,7 +39,6 @@ import org.springframework.web.context.WebApplicationContext;
 @org.springframework.test.context.ActiveProfiles("test")
 @SpringBootTest(properties = {
         "spring.flyway.enabled=false",
-        "cherry.service-calls.submission-judging-tokens=work044-synthetic-service-token-0123456789",
         "spring.datasource.url=jdbc:mysql://127.0.0.1:1/not-used",
         "spring.datasource.username=none"
 })
@@ -141,6 +140,13 @@ class AdminJudgingSecurityIntegrationTests {
                 .andExpect(status().isUnauthorized());
         mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
                 .header("Authorization", "Bearer " + token("ADMIN"))).andExpect(status().isUnauthorized());
+        // 服务令牌发往别的服务（aud 不是 judging-service）→ 401；有效但调用方不是 submission-service → 403。
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
+                .header("Authorization", "Bearer " + serviceToken("submission-service", "problem-service")))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
+                .header("Authorization", "Bearer " + serviceToken("problem-service", "judging-service")))
+                .andExpect(status().isForbidden());
         // 下游无需功能开关；正确凭据进入执行配置检查，错误凭据不能触及执行逻辑。
         org.mockito.Mockito.verifyNoInteractions(executionProfiles);
         when(executionProfiles.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
@@ -148,10 +154,26 @@ class AdminJudgingSecurityIntegrationTests {
                         org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
                         "RUN_LIMIT_UNSUPPORTED", "测试执行配置不支持自测。"));
         mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
-                .header("Authorization", "Bearer work044-synthetic-service-token-0123456789"))
+                .header("Authorization", "Bearer " + serviceToken("submission-service", "judging-service")))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("RUN_LIMIT_UNSUPPORTED"));
         org.mockito.Mockito.verify(executionProfiles).resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    /** 用测试 JWKS 的同一把密钥签发服务令牌，与 user-service 签发的形状一致。 */
+    private static String serviceToken(String caller, String audience) {
+        try {
+            Instant now = Instant.now();
+            JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer("cherry-oj-user-service")
+                    .audience(audience).subject(caller).issueTime(Date.from(now))
+                    .expirationTime(Date.from(now.plusSeconds(900))).jwtID("svc-" + caller + "-" + audience)
+                    .claim("token_use", "service").build();
+            SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256)
+                    .keyID(KEY.getKeyID()).build(), claims);
+            jwt.sign(new RSASSASigner(KEY));
+            return jwt.serialize();
+        }
+        catch (Exception error) { throw new IllegalStateException(error); }
     }
 
     private static String token(String role) {

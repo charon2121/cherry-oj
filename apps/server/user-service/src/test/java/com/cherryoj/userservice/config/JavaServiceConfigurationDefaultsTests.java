@@ -39,7 +39,12 @@ class JavaServiceConfigurationDefaultsTests {
                 String key = matcher.group(1), value = matcher.group(2);
                 if (key.endsWith("_DB_PASSWORD")) {
                     assertThat(value).as(key + " must be externally supplied").isNull();
-                } else if ((key.contains("TOKEN") && !key.contains("TTL")) || key.endsWith("_PASSWORD")) {
+                } else if (key.endsWith("_PRIVATE_KEY_LOCATION")) {
+                    // 服务私钥只能来自部署环境或本地生成目录，不能默认指向打包进 jar 的资源。
+                    assertThat(value == null || !value.startsWith("classpath:"))
+                            .as(key + " cannot default to a bundled key").isTrue();
+                } else if ((key.contains("TOKEN") && !key.contains("TTL") && !key.endsWith("_URI"))
+                        || key.endsWith("_PASSWORD")) {
                     assertThat(value == null || value.isEmpty()).as(key + " cannot have a shared secret default").isTrue();
                 }
             }

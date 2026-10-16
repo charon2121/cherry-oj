@@ -1,5 +1,9 @@
 package com.cherryoj.judgingservice.problem;
 
+import com.cherryoj.serviceidentity.ServiceIdentityException;
+import com.cherryoj.serviceidentity.ServiceNames;
+import com.cherryoj.serviceidentity.ServiceTokenClient;
+
 import com.cherryoj.judgingservice.http.LimitedHttpBody;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,19 +20,27 @@ public class HttpProblemTestDataClient implements ProblemTestDataClient {
             .connectTimeout(Duration.ofSeconds(2)).followRedirects(HttpClient.Redirect.NEVER).build();
     private final ProblemServiceProperties properties;
     private final ObjectMapper json;
+    private final ServiceTokenClient tokens;
 
-    public HttpProblemTestDataClient(ProblemServiceProperties properties, ObjectMapper json) {
+    public HttpProblemTestDataClient(ProblemServiceProperties properties, ObjectMapper json, ServiceTokenClient tokens) {
         this.properties = properties;
         this.json = json;
+        this.tokens = tokens;
     }
 
     @Override
     public ProblemTestData current(String problemId, String traceParent) {
         UUID.fromString(problemId);
-        if (properties.token().isBlank()) throw new ProblemTestDataException("PROBLEM_SERVICE_NOT_CONFIGURED");
+        String token;
+        try {
+            token = tokens.tokenFor(ServiceNames.PROBLEM);
+        } catch (ServiceIdentityException error) {
+            // 换不到服务令牌（user-service 不可用、本服务未登记公钥等）：原因码进日志，对外仍是暂不可用。
+            throw new ProblemTestDataException("SERVICE_IDENTITY_" + error.reason());
+        }
         var builder = HttpRequest.newBuilder(URI.create(properties.url().replaceAll("/$", "")
                         + "/internal/judging/problems/" + problemId + "/test-data"))
-                .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + properties.token()).GET();
+                .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + token).GET();
         if (traceParent != null && traceParent.matches("[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}")) {
             builder.header("traceparent", traceParent);
         }
@@ -36,6 +48,11 @@ public class HttpProblemTestDataClient implements ProblemTestDataClient {
         try {
             var response = future.get(6, TimeUnit.SECONDS);
             if (response.statusCode() == 404) throw new ProblemTestDataException("TEST_DATA_MISSING");
+            if (response.statusCode() == 401) {
+                // 缓存的令牌被拒（例如签发方换了密钥）：丢掉它，下一次重新换取。
+                tokens.invalidate(ServiceNames.PROBLEM);
+                throw new ProblemTestDataException("SERVICE_TOKEN_REJECTED");
+            }
             if (response.statusCode() != 200) throw new ProblemTestDataException("TEST_DATA_UNAVAILABLE");
             var data = json.readValue(response.body(), ProblemTestData.class);
             if (data.location() == null || data.location().isBlank() || data.digest() == null

@@ -48,6 +48,8 @@ class Stack:
         self.credentials = create(PRIVATE)
         self.dependencies = Dependencies(PRIVATE, output)
         run(['bash', ROOT / 'scripts/identity-keys', 'init', PRIVATE / 'keys'], self.output / 'keys.log', 20)
+        run(['bash', ROOT / 'scripts/service-identity-keys.sh', PRIVATE / 'service-identity'],
+            self.output / 'service-identity-keys.log', 20)
         for path in [PRIVATE, *PRIVATE.rglob('*')]:
             os.chown(path, self.runner.pw_uid, self.runner.pw_gid)
         # Mounted individual files must be readable by the containers' own non-root users.

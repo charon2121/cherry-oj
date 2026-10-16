@@ -62,7 +62,7 @@ class FormalTaskStoreTests {
         String id=UUID.randomUUID().toString(),problem=UUID.randomUUID().toString();
         store.receive(UUID.randomUUID().toString(),id,clock.instant(),"a".repeat(32),null);
         var inputs=mock(FormalInputClient.class); var nodes=mock(JudgeNodeRepository.class); var judge=mock(JudgeGateway.class); var testData=mock(ProblemTestDataClient.class);
-        var properties=new FormalProperties(false,"requests","lifecycle","http://localhost","",1,3,Duration.ofSeconds(30),Duration.ofMinutes(10),Duration.ofSeconds(30),10,Duration.ofSeconds(1));
+        var properties=new FormalProperties(false,"requests","lifecycle","http://localhost",1,3,Duration.ofSeconds(30),Duration.ofMinutes(10),Duration.ofSeconds(30),10,Duration.ofSeconds(1));
         var input=new FormalInput(id,"2",problem,"cpp","source",FormalWorker.hash("source"),UUID.randomUUID().toString(),new JudgeGateway.Limits(1000,2000,3000L),clock.instant());
         when(inputs.get(id,null)).thenReturn(input);
         when(testData.current(eq(problem),any())).thenReturn(new ProblemTestData("/data/p","a".repeat(64),1,10));

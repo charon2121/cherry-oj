@@ -3,7 +3,9 @@ package com.cherryoj.submissionservice.trial;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import com.cherryoj.submissionservice.security.CurrentIdentity;
-import com.cherryoj.identitysecurity.service.ServiceCredentials;
+import com.cherryoj.serviceidentity.ServiceIdentityException;
+import com.cherryoj.serviceidentity.ServiceNames;
+import com.cherryoj.serviceidentity.ServiceTokenClient;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.net.URI;
@@ -26,7 +28,9 @@ public class CustomRunController {
 
 	private final ObjectMapper json;
 
-	private final String url, token;
+	private final String url;
+
+	private final ServiceTokenClient tokens;
 
 	private final HttpClient http = HttpClient.newBuilder()
 		.connectTimeout(Duration.ofSeconds(2))
@@ -34,12 +38,11 @@ public class CustomRunController {
 		.build();
 
 	public CustomRunController(SubmissionPrerequisites prerequisites, ObjectMapper json,
-			@Value("${cherry.submission.judging-url}") String url,
-			@Value("${cherry.submission.judging-token:}") String token) {
+			@Value("${cherry.submission.judging-url}") String url, ServiceTokenClient tokens) {
 		this.prerequisites = prerequisites;
 		this.json = json;
 		this.url = url;
-		this.token = token;
+		this.tokens = tokens;
 	}
 
 	public record Request(@NotNull UUID problemId,
@@ -66,10 +69,13 @@ public class CustomRunController {
 		if (s == null || !r.problemId().toString().equals(s.problemId()) || !"ACM".equals(s.codeMode())
 				|| !"cpp".equals(s.languageId()))
 			throw unavailable();
+		String token;
 		try {
-			ServiceCredentials.validate(token);
+			token = tokens.tokenFor(ServiceNames.JUDGING);
 		}
-		catch (RuntimeException invalid) {
+		catch (ServiceIdentityException error) {
+			org.slf4j.LoggerFactory.getLogger(getClass())
+				.warn("custom.run.failed stage=service-identity reason={}", error.reason());
 			throw unavailable();
 		}
 		var body = Map.of("problemId", s.problemId(), "languageId", "cpp",
@@ -87,6 +93,8 @@ public class CustomRunController {
 		var future = http.sendAsync(builder.build(), ignored -> new LimitedBody(1024 * 1024));
 		try {
 			var response = future.get(remaining, TimeUnit.MILLISECONDS);
+			if (response.statusCode() == 401)
+				tokens.invalidate(ServiceNames.JUDGING);
 			if (response.statusCode() != 200) {
 				org.slf4j.LoggerFactory.getLogger(getClass())
 					.warn("custom.run.failed stage=judging httpStatus={}", response.statusCode());
