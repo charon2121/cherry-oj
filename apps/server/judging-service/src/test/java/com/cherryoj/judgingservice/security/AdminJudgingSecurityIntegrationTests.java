@@ -51,6 +51,7 @@ class AdminJudgingSecurityIntegrationTests {
     private final MockMvc mvc;
 
     @MockitoBean JudgingReadinessService service;
+    @MockitoBean com.cherryoj.judgingservice.application.JudgeNodeRegistry nodes;
     @MockitoBean com.cherryoj.judgingservice.api.SubmissionExecutionProfileController executionProfiles;
 
     @Autowired
@@ -81,6 +82,25 @@ class AdminJudgingSecurityIntegrationTests {
         mvc.perform(get(path).header("Authorization", "Bearer " + token("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void judgeNodeStatusRejectsAnonymousAndUserButAllowsAdminWithoutCaching() throws Exception {
+        String path = "/internal/admin/judge-nodes";
+        when(nodes.status()).thenReturn(new com.cherryoj.judgingservice.api.JudgeNodeDtos.NodeStatusList(List.of(
+                new com.cherryoj.judgingservice.api.JudgeNodeDtos.NodeStatus("judge-local-1", List.of("cpp"), true,
+                        java.time.Instant.parse("2026-10-16T04:00:00Z")))));
+
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization", "Bearer " + token("USER")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(path).header("Authorization", "Bearer " + token("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.items[0].endpoint").doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .jsonPath("$.items[0].lastSeenAt").value("2026-10-16T04:00:00Z"));
     }
 
     @Test

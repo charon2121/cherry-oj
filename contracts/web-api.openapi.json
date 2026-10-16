@@ -1676,6 +1676,45 @@
           }
         }
       }
+    },
+    "/api/admin/judging/judge-nodes": {
+      "get": {
+        "operationId": "listJudgeNodes",
+        "summary": "读取已登记判题节点及其在线状态",
+        "description": "管理端总览使用。只给出节点身份、能判的语言、是否在线与最近一次心跳；不暴露节点访问地址与会话号。",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "判题节点列表，按 nodeId 排序",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JudgeNodeListSuccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiProblemResponse"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3880,6 +3919,71 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/TestData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "JudgeNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nodeId",
+          "languages",
+          "online",
+          "lastSeenAt"
+        ],
+        "properties": {
+          "nodeId": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$"
+          },
+          "languages": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string"
+            },
+            "description": "节点声明能判的语言 id，例如 cpp。"
+          },
+          "online": {
+            "type": "boolean",
+            "description": "租约未过期即在线。"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "最近一次注册或心跳的时间。"
+          }
+        }
+      },
+      "JudgeNodeListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "$ref": "#/components/schemas/JudgeNode"
+            }
+          }
+        }
+      },
+      "JudgeNodeListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/JudgeNodeListData"
           },
           "meta": {
             "$ref": "#/components/schemas/ApiMeta"

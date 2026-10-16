@@ -76,6 +76,14 @@ class JudgeNodeRegistryIntegrationTests {
         when(clock.instant()).thenReturn(atExpiry.toInstant(ZoneOffset.UTC));
         registry.heartbeat(new Heartbeat(fixture.nodeId(), fixture.sessionId()));
         assertThat(nodes.online(atExpiry)).hasSize(1);
+        // 管理端总览：两个节点都列出，只有续约过的在线；不暴露访问地址。
+        var status = registry.status().items();
+        assertThat(status).extracting(s -> s.nodeId()).containsExactlyInAnyOrder(fixture.nodeId(), "second");
+        var renewed = status.stream().filter(s -> s.nodeId().equals(fixture.nodeId())).findFirst().orElseThrow();
+        assertThat(renewed.online()).isTrue();
+        assertThat(renewed.languages()).isEqualTo(fixture.languages());
+        assertThat(renewed.lastSeenAt()).isEqualTo(atExpiry.toInstant(ZoneOffset.UTC));
+        assertThat(status.stream().filter(s -> s.nodeId().equals("second")).findFirst().orElseThrow().online()).isFalse();
         // 同一 nodeId 的新进程接替旧进程，旧会话不能夺回 nodeId。
         registry.register(copy(fixture, fixture.nodeId(), UUID.randomUUID().toString()));
         assertThatThrownBy(() -> registry.register(fixture)).hasMessageContaining("conflicts");

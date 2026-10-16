@@ -15,4 +15,7 @@ public final class JudgeNodeDtos {
     public record Heartbeat(@NotBlank @Pattern(regexp = NODE_ID) String nodeId,
                             @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String sessionId) {}
     public record Lease(String nodeId, long leaseDurationNs) {}
+    /** 管理端看到的节点状态：不含访问地址与会话号，它们是节点协议的内部事实。 */
+    public record NodeStatus(String nodeId, List<String> languages, boolean online, java.time.Instant lastSeenAt) {}
+    public record NodeStatusList(List<NodeStatus> items) {}
 }

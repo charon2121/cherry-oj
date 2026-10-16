@@ -1,5 +1,6 @@
 package com.cherryoj.judgingservice.api;
 
+import com.cherryoj.judgingservice.application.JudgeNodeRegistry;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.security.CurrentIdentity;
 import jakarta.validation.Valid;
@@ -22,9 +23,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/internal/admin")
 public class AdminJudgingController {
     private final JudgingReadinessService service;
+    private final JudgeNodeRegistry nodes;
 
-    public AdminJudgingController(JudgingReadinessService service) {
+    public AdminJudgingController(JudgingReadinessService service, JudgeNodeRegistry nodes) {
         this.service = service;
+        this.nodes = nodes;
+    }
+
+    /** 管理端总览用：已登记判题节点与是否在线。路径在 /internal/admin/** 下，要求 ADMIN 委托身份。 */
+    @GetMapping("/judge-nodes")
+    ResponseEntity<JudgeNodeDtos.NodeStatusList> judgeNodes() {
+        return noStore(nodes.status());
     }
 
     @PostMapping("/calibrations")

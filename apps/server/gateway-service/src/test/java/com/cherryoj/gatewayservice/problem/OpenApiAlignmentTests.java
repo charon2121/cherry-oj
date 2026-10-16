@@ -30,6 +30,12 @@ class OpenApiAlignmentTests {
 	}
 
 	@Test
+	void judgeNodeStatusMatchesTheContract() {
+		assertAligned("JudgeNode", com.cherryoj.gatewayservice.judging.JudgeNodeDtos.JudgeNode.class);
+		assertAligned("JudgeNodeListData", com.cherryoj.gatewayservice.judging.JudgeNodeDtos.JudgeNodeListData.class);
+	}
+
+	@Test
 	void requestsMatchTheContract() {
 		assertAligned("UpdateProblemRequest", AdminProblemsController.UpdateProblemRequest.class);
 		assertAligned("CalibrateProblemRequest", AdminProblemsController.CalibrateProblemRequest.class);

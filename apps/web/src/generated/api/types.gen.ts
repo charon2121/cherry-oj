@@ -519,6 +519,31 @@ export type TestDataSuccess = {
     meta: ApiMeta;
 };
 
+export type JudgeNode = {
+    nodeId: string;
+    /**
+     * 节点声明能判的语言 id，例如 cpp。
+     */
+    languages: Array<string>;
+    /**
+     * 租约未过期即在线。
+     */
+    online: boolean;
+    /**
+     * 最近一次注册或心跳的时间。
+     */
+    lastSeenAt: string;
+};
+
+export type JudgeNodeListData = {
+    items: Array<JudgeNode>;
+};
+
+export type JudgeNodeListSuccess = {
+    data: JudgeNodeListData;
+    meta: ApiMeta;
+};
+
 export type LoginRequestWritable = {
     username: Username;
     password: string;
@@ -1466,3 +1491,28 @@ export type UnpublishProblemResponses = {
 };
 
 export type UnpublishProblemResponse = UnpublishProblemResponses[keyof UnpublishProblemResponses];
+
+export type ListJudgeNodesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/judging/judge-nodes';
+};
+
+export type ListJudgeNodesErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListJudgeNodesError = ListJudgeNodesErrors[keyof ListJudgeNodesErrors];
+
+export type ListJudgeNodesResponses = {
+    /**
+     * 判题节点列表，按 nodeId 排序
+     */
+    200: JudgeNodeListSuccess;
+};
+
+export type ListJudgeNodesResponse = ListJudgeNodesResponses[keyof ListJudgeNodesResponses];

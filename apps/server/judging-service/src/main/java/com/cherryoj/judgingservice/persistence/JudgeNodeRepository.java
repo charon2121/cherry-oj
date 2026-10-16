@@ -48,5 +48,12 @@ public class JudgeNodeRepository {
     public void heartbeat(String id, LocalDateTime now, LocalDateTime expiry) {
         jdbc.update("UPDATE judge_node SET lease_expires_at=?,updated_at=? WHERE node_id=?", expiry, now, id);
     }
+    /** 管理端总览：全部已登记节点，含已离线的，按 nodeId 排序。 */
+    public List<Registered> registered() {
+        return jdbc.query("SELECT node_id, languages_json, lease_expires_at, updated_at FROM judge_node ORDER BY node_id",
+                (rs, ignored) -> new Registered(rs.getString("node_id"), rs.getString("languages_json"),
+                        rs.getObject("lease_expires_at", LocalDateTime.class), rs.getObject("updated_at", LocalDateTime.class)));
+    }
     public record Node(String nodeId, String sessionId, String endpoint, LocalDateTime leaseExpiresAt) {}
+    public record Registered(String nodeId, String languagesJson, LocalDateTime leaseExpiresAt, LocalDateTime lastSeenAt) {}
 }

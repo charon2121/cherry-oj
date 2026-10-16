@@ -50,6 +50,14 @@ public class JudgeNodeRegistry {
         nodes.heartbeat(node.nodeId(), now, now.plus(properties.leaseDuration()));
         return new Lease(node.nodeId(), properties.leaseDuration().toNanos());
     }
+    /** 租约未过期即在线；最近一次心跳（或注册）时间即 lastSeenAt。 */
+    @Transactional(readOnly = true)
+    public NodeStatusList status() {
+        var now = now();
+        return new NodeStatusList(nodes.registered().stream().map(node -> new NodeStatus(node.nodeId(),
+                java.util.List.of(json.readValue(node.languagesJson(), String[].class)),
+                node.leaseExpiresAt().isAfter(now), node.lastSeenAt().toInstant(ZoneOffset.UTC))).toList());
+    }
     private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC); }
     public static void validateEndpoint(String value) {
         try {

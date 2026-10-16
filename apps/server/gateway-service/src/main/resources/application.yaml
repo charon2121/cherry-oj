@@ -37,6 +37,7 @@ cherry:
     enabled: ${CHERRY_CUSTOM_RUN_ENABLED:true}
   gateway:
     submission-service-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:${CHERRY_SUBMISSION_PORT:8083}}"
+    judging-service-url: "${CHERRY_JUDGING_SERVICE_URL:http://127.0.0.1:${CHERRY_JUDGING_PORT:8084}}"
     user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:${CHERRY_USER_PORT:8081}}"
     user-service-timeout: 5s
     session-lifetime-policy: fixed-absolute
