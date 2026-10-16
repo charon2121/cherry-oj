@@ -653,6 +653,39 @@ test('a lost response survives a problem edit and retries the original code and 
   await expectCode(page, 'int edited = 2;');
 });
 
+test('a request the server never accepted does not lock the submit button', async ({ page }) => {
+  await submissionSetup(page);
+  const posts: { key: string | undefined; body: unknown }[] = [];
+  await page.route('**/api/submissions', async (route) => {
+    posts.push({
+      key: route.request().headers()['idempotency-key'],
+      body: route.request().postDataJSON() as unknown,
+    });
+    if (posts.length <= 2) return route.abort('failed');
+    return success(route, submission());
+  });
+  await page.route(`**/api/submissions/${submissionId}`, (route) => success(route, submission()));
+  await page.goto('/problems/workspace-sum');
+  await replaceCode(page, 'int original = 1;');
+  const submitButton = page.getByRole('button', { name: '提交', exact: true });
+  await submitButton.click();
+  // 按幂等键查不到（404）：服务端没受理过，提示可以重新提交，提交按钮不再锁住。
+  await expect(page.getByText('上次提交没有被服务端受理')).toBeVisible();
+  await expect(submitButton).toBeEnabled();
+  // 代码没改：沿用原来的幂等键重发，原请求即便迟到也不会重复受理。
+  await submitButton.click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1]).toEqual(posts[0]);
+  // 代码改了：提交新代码、换新的幂等键。
+  await expect(submitButton).toBeEnabled();
+  await replaceCode(page, 'int edited = 2;');
+  await submitButton.click();
+  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  expect(posts).toHaveLength(3);
+  expect(posts[2]?.key).not.toBe(posts[0]?.key);
+  expect(posts[2]?.body).toMatchObject({ source: 'int edited = 2;' });
+});
+
 test('CSRF refresh keeps the editor owner precondition after another tab switches account', async ({
   page,
 }) => {

@@ -146,10 +146,25 @@ export function SubmissionPanel({
     setRecovery(value);
   }
   const unknown = Boolean(recovery && !shown && !recovery.submissionId);
+  // 结果未知的请求，按它的幂等键查询得到 404：服务端没有受理过它。这时不再锁住提交——
+  // 代码没改就用原来的幂等键重发（服务端按键去重，原请求即便迟到也不会重复受理），改了就提交新代码。
+  const notAccepted =
+    unknown && !submit.isPending && result.error instanceof ApiError && result.error.status === 404;
   const busy = submit.isPending || (shown !== undefined && shown.status !== 'DONE');
   const invalidSource = !source.trim() || new TextEncoder().encode(source).length > 262144;
   function send(original?: SubmissionRecovery) {
     if (locked.current || disabled) return;
+    if (!original && notAccepted && recovery) {
+      if (recovery.body.source === source) {
+        send(recovery);
+        return;
+      }
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        /* 新请求会覆盖这条记录。 */
+      }
+    }
     locked.current = true;
     const next = original ?? {
       key: newSubmissionKey(),
@@ -178,7 +193,7 @@ export function SubmissionPanel({
     result.error instanceof ApiError && result.error.status === 404
       ? id
         ? '提交不存在或不属于当前账号。'
-        : '尚未查到受理记录。原请求可能仍在处理，可以继续查询，或用原代码重试同一次提交。'
+        : '上次提交没有被服务端受理（可能是网络中断），可以直接重新提交。'
       : result.error instanceof Error
         ? result.error.message
         : null;
@@ -235,7 +250,9 @@ export function SubmissionPanel({
         )}
         <Button
           size="sm"
-          disabled={disabled || busy || unknown || invalidSource || Boolean(initial.error)}
+          disabled={
+            disabled || busy || (unknown && !notAccepted) || invalidSource || Boolean(initial.error)
+          }
           onClick={() => send()}
           aria-describedby="submission-notice"
         >
