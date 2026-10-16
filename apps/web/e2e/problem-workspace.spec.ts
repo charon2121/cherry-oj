@@ -488,6 +488,8 @@ test('a 200-percent equivalent desktop viewport keeps editing and lower controls
     await replaceCode(page, source);
     await expectSaved(page, source);
     await expectCode(page, source);
+    // 保存状态在代码区顶部的工具行里，与语言同一行。
+    await expect(page.getByText('已保存到本机', { exact: true })).toBeInViewport({ ratio: 1 });
     await page.screenshot({ path: '/tmp/cherry-work041-visual/zoom-equivalent-editor.png' });
 
     // Wheel near the pane edge rather than programmatically scrolling hidden
@@ -506,8 +508,6 @@ test('a 200-percent equivalent desktop viewport keeps editing and lower controls
     await expect(page.getByRole('button', { name: '运行', exact: true })).toBeInViewport({
       ratio: 1,
     });
-    await expect(page.getByText('已保存到本机', { exact: true })).toBeInViewport({ ratio: 1 });
-    await expect(page.locator('#custom-run-help')).toBeInViewport({ ratio: 1 });
     await expect
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
       .toBeLessThanOrEqual(1);

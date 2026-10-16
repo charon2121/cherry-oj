@@ -41,7 +41,8 @@ export function SubmissionPanel({
   source: string;
   disabled: boolean;
   runControl?: ReactNode;
-  renderResults?: (results: ReactNode) => ReactNode;
+  /** 自己排版结果区；actions 是运行与提交按钮，放在哪一行由调用方决定。 */
+  renderResults?: (results: ReactNode, actions: ReactNode) => ReactNode;
   onSubmissionStart?: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -239,33 +240,43 @@ export function SubmissionPanel({
       ) : null}
     </>
   );
-  return (
-    <div className="border-border-soft bg-panel max-h-1/2 shrink-0 space-y-3 overflow-y-auto border-t px-4 py-3">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {runControl ?? (
-          <Button size="sm" variant="secondary" disabled aria-describedby="run-unavailable">
-            <Play aria-hidden="true" />
-            运行
-          </Button>
-        )}
-        <Button
-          size="sm"
-          disabled={
-            disabled || busy || (unknown && !notAccepted) || invalidSource || Boolean(initial.error)
-          }
-          onClick={() => send()}
-          aria-describedby="submission-notice"
-        >
-          <Upload aria-hidden="true" />
-          {submit.isPending ? '正在提交…' : '提交'}
+  const actions = (
+    <>
+      {runControl ?? (
+        <Button size="sm" variant="secondary" disabled aria-describedby="run-unavailable">
+          <Play aria-hidden="true" />
+          运行
         </Button>
+      )}
+      <Button
+        size="sm"
+        disabled={
+          disabled || busy || (unknown && !notAccepted) || invalidSource || Boolean(initial.error)
+        }
+        onClick={() => send()}
+        aria-describedby="submission-notice"
+      >
+        <Upload aria-hidden="true" />
+        {submit.isPending ? '正在提交…' : '提交'}
+      </Button>
+    </>
+  );
+  if (renderResults) {
+    return (
+      <div className="border-border-soft bg-panel border-t-hairline max-h-1/2 shrink-0 overflow-y-auto px-4 py-2">
+        {renderResults(results, actions)}
       </div>
+    );
+  }
+  return (
+    <div className="border-border-soft bg-panel border-t-hairline max-h-1/2 shrink-0 space-y-3 overflow-y-auto px-4 py-3">
+      <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
       {!runControl ? (
         <p id="run-unavailable" className="text-fg-muted text-xs">
           自定义运行暂未开放。
         </p>
       ) : null}
-      {renderResults ? renderResults(results) : results}
+      {results}
     </div>
   );
 }
@@ -280,15 +291,11 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
             ? '正在判题'
             : '等待判题'}
       </p>
-      <p className="text-fg-meta font-mono break-all">{value.id}</p>
-      <div className="text-fg-2 flex flex-wrap gap-x-4 gap-y-1 font-mono">
+      <div className="text-fg-meta flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
         {value.passedTestcaseCount !== undefined && value.testcaseCount !== undefined ? (
           <span>
             通过 {value.passedTestcaseCount} / {value.testcaseCount}
           </span>
-        ) : null}
-        {value.executedTestcaseCount !== undefined ? (
-          <span>已执行 {value.executedTestcaseCount}</span>
         ) : null}
         {value.cpuNs !== undefined ? <span>CPU {value.cpuNs / 1_000_000} ms</span> : null}
         {value.memoryBytes !== undefined ? <span>内存 {value.memoryBytes / 1024} KiB</span> : null}
@@ -298,7 +305,6 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
           {value.message}
         </pre>
       ) : null}
-      <p className="text-fg-muted">结果对应提交时的代码，继续编辑不会改变本次结果。</p>
     </section>
   );
 }

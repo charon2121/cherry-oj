@@ -201,7 +201,9 @@ function WorkbenchPageTemplate({
       >
         <PageTitle title={title} visible={titleVisible} action={titleAction} />
         {statusBar === undefined ? null : (
-          <div className="border-border-soft bg-panel shrink-0 border-b px-4 py-2">{statusBar}</div>
+          <div className="border-border-soft bg-panel border-b-hairline shrink-0 px-4 py-2">
+            {statusBar}
+          </div>
         )}
         <div className="min-h-0 min-w-0 flex-1">{state ?? children}</div>
       </div>

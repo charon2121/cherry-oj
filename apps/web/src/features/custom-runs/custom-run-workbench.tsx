@@ -169,23 +169,33 @@ export function CustomRunWorkbench({
           {busy && !disabled ? '正在运行…' : '运行'}
         </Button>
       }
-      renderResults={(submission) => (
+      renderResults={(submission, actions) => (
         <>
-          <p id="custom-run-help" className="text-fg-muted text-xs">
-            {disabled
-              ? '当前题目或登录状态尚不可运行。'
-              : invalidSource
-                ? '请输入非空 C++ 代码，最多 256 KiB。'
-                : inputLarge
-                  ? '自定义输入超过 64 KiB，请缩减后运行。'
-                  : '自测只运行当前代码，不校验答案，也不计入提交记录。'}
-          </p>
           <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
-            <TabsList aria-label="测试与提交">
-              <TabsTrigger value="input">自定义输入</TabsTrigger>
-              <TabsTrigger value="run">运行结果</TabsTrigger>
-              <TabsTrigger value="submission">提交结果</TabsTrigger>
-            </TabsList>
+            {/* 结果切换与运行、提交按钮同一行（linear.app 视图切换行：左边胶囊，右边操作）。 */}
+            <div className="flex flex-wrap items-center gap-2">
+              <TabsList aria-label="测试与提交" className="flex-1 px-0">
+                <TabsTrigger value="input">自定义输入</TabsTrigger>
+                <TabsTrigger value="run">运行结果</TabsTrigger>
+                <TabsTrigger value="submission">提交结果</TabsTrigger>
+              </TabsList>
+              <div className="flex items-center gap-2">{actions}</div>
+            </div>
+            {/* 只在运行被挡住时说明原因；平常的说明只留给读屏，界面上不放。 */}
+            <p
+              id="custom-run-help"
+              className={
+                disabled || invalidSource || inputLarge ? 'text-fg-meta text-xs' : 'sr-only'
+              }
+            >
+              {disabled
+                ? '当前题目或登录状态尚不可运行。'
+                : invalidSource
+                  ? '请输入非空 C++ 代码，最多 256 KiB。'
+                  : inputLarge
+                    ? '自定义输入超过 64 KiB，请缩减后运行。'
+                    : '自测只运行当前代码，不校验答案，也不计入提交记录。'}
+            </p>
             <TabsContent value="input" className="space-y-3 pt-3">
               <div className="flex flex-wrap items-center gap-2">
                 {problem.samples.length > 0 ? (
@@ -227,9 +237,6 @@ export function CustomRunWorkbench({
                 size="compact"
                 aria-label="自定义输入数据"
               />
-              <p className="text-fg-muted text-xs">
-                输入程序需要的数据；不需要输入时可以留空。输入刷新后清除。
-              </p>
             </TabsContent>
             <TabsContent value="run" className="space-y-3 pt-3">
               {disabled ? (
@@ -248,12 +255,9 @@ export function CustomRunWorkbench({
                   ) : !busy && !error ? (
                     <p className="text-fg-muted">填写输入后点击运行，结果会显示在这里。</p>
                   ) : null}
-                  {attempt ? (
-                    <p className="text-fg-muted text-xs">
-                      {source !== attempt.body.source || input !== attempt.body.inputText
-                        ? '代码或输入已修改，这些修改尚未运行。'
-                        : '结果对应本次运行时的代码和输入。'}
-                    </p>
+                  {attempt &&
+                  (source !== attempt.body.source || input !== attempt.body.inputText) ? (
+                    <p className="text-fg-meta text-xs">代码或输入已修改，这些修改尚未运行。</p>
                   ) : null}
                 </>
               )}
@@ -299,15 +303,15 @@ function RunResult({ value }: { value: CustomRunData }) {
   return (
     <section aria-label="自定义运行结果" className="space-y-3">
       <p className="text-foreground">{labels[value.status]}</p>
-      {value.cpuNs !== undefined && value.memoryBytes !== undefined ? (
-        <p className="text-fg-2 font-mono text-xs">
-          CPU {value.cpuNs / 1000000} ms · 内存 {value.memoryBytes / 1024} KiB
-        </p>
-      ) : null}
+      {/* 用量与限制同一行：限制只作为括号里的参照。 */}
       <p className="text-fg-meta font-mono text-xs">
-        限制：CPU {value.effectiveLimits.cpuNs / 1000000} ms · 墙钟{' '}
-        {value.effectiveLimits.clockNs / 1000000} ms · 内存{' '}
-        {value.effectiveLimits.memoryBytes / 1048576} MiB
+        {value.cpuNs !== undefined && value.memoryBytes !== undefined ? (
+          <span className="text-fg-2">
+            CPU {value.cpuNs / 1000000} ms · 内存 {value.memoryBytes / 1024} KiB{' '}
+          </span>
+        ) : null}
+        （限制 {value.effectiveLimits.cpuNs / 1000000} ms ·{' '}
+        {value.effectiveLimits.memoryBytes / 1048576} MiB）
       </p>
       {value.compileDiagnostic !== undefined ? (
         <OutputView label="编译诊断" text={value.compileDiagnostic} />
@@ -328,9 +332,6 @@ function RunResult({ value }: { value: CustomRunData }) {
           truncated={value.stderr.truncated}
         />
       ) : null}
-      <p className="text-fg-muted text-xs">
-        纯文本预览，非二进制无损输出。自测耗时不代表正式提交成绩。
-      </p>
     </section>
   );
 }

@@ -144,11 +144,12 @@ test('an admin can take a public problem back to private', async ({ page }) => {
     requests: [] as { method: string; path: string; body: unknown }[],
   };
   await mockBackend(page, state);
-  await page.goto(`/admin/problems/${problemId}?step=publish`);
+  await page.goto(`/admin/problems/${problemId}?panel=publish`);
 
-  await expect(page.getByText('题目已公开。取消公开后变回私有')).toBeVisible();
-  await page.getByRole('button', { name: '取消公开', exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '取消公开', exact: true }).click();
+  // 公开设置对话框本身就是确认步骤：点"取消公开"即提交。
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('题目已公开。取消公开后变回私有')).toBeVisible();
+  await dialog.getByRole('button', { name: '取消公开', exact: true }).click();
 
   await expect
     .poll(() => state.requests.find((item) => item.path.endsWith('/unpublish')))
@@ -156,10 +157,10 @@ test('an admin can take a public problem back to private', async ({ page }) => {
   expect(state.requests.find((item) => item.path.endsWith('/unpublish'))?.body).toEqual({
     rowVersion: 4,
   });
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: '私有', exact: true }).click();
   await expect(
-    page
-      .getByRole('region', { name: '检查与公开编辑' })
-      .getByRole('button', { name: '公开题目', exact: true }),
+    page.getByRole('dialog').getByRole('button', { name: '公开题目', exact: true }),
   ).toBeVisible();
 });
 
@@ -171,7 +172,7 @@ test('replacing the test data uses PUT and warns that the old calibration is sta
     requests: [] as { method: string; path: string; body: unknown }[],
   };
   await mockBackend(page, state);
-  await page.goto(`/admin/problems/${problemId}?step=test-and-calibrate`);
+  await page.goto(`/admin/problems/${problemId}?panel=test-data`);
 
   await expect(page.getByText('当前测试数据', { exact: true })).toBeVisible();
   await page.getByLabel('测试数据 ZIP').setInputFiles({
@@ -193,10 +194,19 @@ test('an archived problem is read-only', async ({ page }) => {
     requests: [] as { method: string; path: string; body: unknown }[],
   };
   await mockBackend(page, state);
-  await page.goto(`/admin/problems/${problemId}?step=test-and-calibrate`);
+  await page.goto(`/admin/problems/${problemId}?panel=test-data`);
 
   await expect(page.getByText('这道题已归档，当前为只读状态')).toBeVisible();
   await expect(page.getByLabel('测试数据 ZIP')).toBeDisabled();
+  await page.goto(`/admin/problems/${problemId}?panel=calibration`);
   await expect(page.getByRole('button', { name: '运行参考程序校准', exact: true })).toBeDisabled();
-  await expect(page.getByRole('button', { name: '保存', exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // 只读题目没有保存按钮，正文也不可编辑。
+  await expect(page.getByRole('button', { name: '保存', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('题目标题')).toHaveAttribute('readonly', '');
+  await expect(page.getByRole('textbox', { name: '题目正文' })).toHaveAttribute(
+    'contenteditable',
+    'false',
+  );
 });

@@ -12,12 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { IconButton } from '@/components/ui/icon-button';
 import { TextEditor } from '@/components/ui/text-editor';
 import type { HistoryLoad } from '@/features/submissions/submission-history-panel';
+import { cn } from '@/lib/utils';
 
 import { useCodeDraft } from '../hooks/use-code-draft';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
-import { SourceCopyButton } from './source-copy-button';
+import { CopyIconButton, SourceCopyButton } from './source-copy-button';
 
 export function SourceEditor({
   value,
@@ -52,11 +54,16 @@ export function SourceEditor({
           />
         )}
       </div>
-      {touch ? (
-        <p className="text-fg-meta shrink-0 px-4 py-1 text-xs">
-          手机编辑模式 · 草稿与桌面编辑器共用
-        </p>
-      ) : null}
+    </div>
+  );
+}
+
+/** 代码区顶部的一行（linear.app 详情页顶栏高 44px、0.5px 下边）：左边是语言，右边是图标操作。 */
+export function CodeToolbar({ start, children }: { start?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="border-border-soft border-b-hairline flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
+      <div className="text-fg-meta flex min-w-0 flex-1 items-center gap-2 text-xs">{start}</div>
+      {children}
     </div>
   );
 }
@@ -73,6 +80,8 @@ type DraftEditorProps = {
   readOnly: boolean;
   onUnsavedChange?: (unsaved: boolean) => void;
   renderSubmission?: (source: string) => ReactNode;
+  /** 放在工具行左侧的内容（语言与编码模式），与右侧的代码操作同一行。 */
+  toolbarStart?: ReactNode;
 };
 
 export function DraftEditor({
@@ -80,6 +89,7 @@ export function DraftEditor({
   onUnsavedChange,
   renderSubmission,
   historyRef,
+  toolbarStart,
   ...identity
 }: DraftEditorProps) {
   const draft = useCodeDraft(identity);
@@ -122,39 +132,49 @@ export function DraftEditor({
   };
   return (
     <>
-      <div className="border-border-soft flex shrink-0 flex-wrap items-center gap-x-2 border-b px-4 py-1">
-        <SourceCopyButton value={draft.value} />
-        <Button size="sm" variant="ghost" onClick={exportSource}>
-          <Download aria-hidden="true" />
-          下载代码
-        </Button>
-        <Button
+      {/* 保存状态与语言同一行，不再单独占一行；出问题时才变成醒目的文字和按钮。 */}
+      <CodeToolbar
+        start={
+          <>
+            {toolbarStart}
+            <span
+              role="status"
+              className={cn(
+                'min-w-0 truncate',
+                draft.status === 'error' || draft.status === 'conflict'
+                  ? 'text-danger'
+                  : 'text-fg-disabled',
+              )}
+            >
+              {draft.message}
+            </span>
+            {draft.status === 'error' ? (
+              <Button size="sm" variant="secondary" onClick={draft.retrySave}>
+                重试保存
+              </Button>
+            ) : null}
+            {draft.status === 'conflict' ? (
+              <Button size="sm" variant="secondary" onClick={() => setConflictOpen(true)}>
+                查看恢复副本
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        <CopyIconButton value={draft.value} label="复制代码" />
+        <IconButton size="sm" label="下载代码" onClick={exportSource}>
+          <Download className="size-3.5" aria-hidden="true" />
+        </IconButton>
+        <IconButton
           size="sm"
-          variant="ghost"
-          className="ml-auto"
+          label="恢复起始代码"
           disabled={readOnly}
           onClick={() => setResetOpen(true)}
         >
-          <RotateCcw aria-hidden="true" />
-          恢复起始代码
-        </Button>
-      </div>
+          <RotateCcw className="size-3.5" aria-hidden="true" />
+        </IconButton>
+      </CodeToolbar>
       <SourceEditor value={draft.value} onChange={draft.setValue} readOnly={readOnly} />
-      <div className="border-border-soft bg-panel flex shrink-0 flex-wrap items-center gap-2 border-t px-4 py-2">
-        <span role="status" className="text-fg-muted text-xs">
-          {draft.message}
-        </span>
-        {draft.status === 'error' ? (
-          <Button size="sm" variant="secondary" onClick={draft.retrySave}>
-            重试保存
-          </Button>
-        ) : null}
-        {draft.status === 'conflict' ? (
-          <Button size="sm" variant="secondary" onClick={() => setConflictOpen(true)}>
-            查看恢复副本
-          </Button>
-        ) : null}
-      </div>
       {renderSubmission?.(draft.value)}
       <Dialog
         open={pendingLoad !== null && !readOnly}

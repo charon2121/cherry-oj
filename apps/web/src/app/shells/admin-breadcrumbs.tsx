@@ -1,4 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
+import { Fragment } from 'react';
 
 import {
   Breadcrumb,
@@ -47,18 +48,21 @@ function AdminBreadcrumbs({ className }: { className?: string }) {
           )}
         </BreadcrumbItem>
         {trail.map((crumb, index) => (
-          <BreadcrumbItem key={crumb.label}>
+          // 分隔符本身是 <li>，与面包屑项并列，不能嵌进项里。
+          <Fragment key={crumb.label}>
             <BreadcrumbSeparator />
-            {index === trail.length - 1 ? (
-              <BreadcrumbPage className="max-w-80 truncate">{crumb.label}</BreadcrumbPage>
-            ) : crumb.to !== undefined ? (
-              <BreadcrumbLink render={<SectionLink label={crumb.label} to={crumb.to} />} />
-            ) : (
-              // 中间层是分组，没有自己的落地页，因此不做成链接——
-              // 可点却点不到任何地方比不可点更糟。
-              <span>{crumb.label}</span>
-            )}
-          </BreadcrumbItem>
+            <BreadcrumbItem>
+              {index === trail.length - 1 ? (
+                <BreadcrumbPage className="max-w-80 truncate">{crumb.label}</BreadcrumbPage>
+              ) : crumb.to !== undefined ? (
+                <BreadcrumbLink render={<SectionLink label={crumb.label} to={crumb.to} />} />
+              ) : (
+                // 中间层是分组，没有自己的落地页，因此不做成链接——
+                // 可点却点不到任何地方比不可点更糟。
+                <span>{crumb.label}</span>
+              )}
+            </BreadcrumbItem>
+          </Fragment>
         ))}
       </BreadcrumbList>
     </Breadcrumb>

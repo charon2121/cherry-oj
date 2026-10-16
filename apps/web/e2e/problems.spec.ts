@@ -188,12 +188,22 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
       const body = route.request().postDataJSON() as {
         title: string;
         statementMarkdown: string;
+        difficulty: string;
+        tags: string[];
       };
       savedTitle = body.title;
       savedStatement = body.statementMarkdown;
       saveRequestCount += 1;
       if (saveRequestCount === 1) await firstSaveResponse;
-      problem = { ...problem, title: body.title, rowVersion: problem.rowVersion + 1 };
+      // 与服务端一致：保存后返回整道题的最新内容。
+      problem = {
+        ...problem,
+        title: body.title,
+        statementMarkdown: body.statementMarkdown,
+        difficulty: body.difficulty,
+        tags: body.tags,
+        rowVersion: problem.rowVersion + 1,
+      };
     }
     await success(route, problem);
   });
@@ -228,65 +238,75 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   await page.getByRole('button', { name: '创建题目' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/admin/problems/${problemId}(?:\\?.*)?$`));
-  await expect(page.getByRole('region', { name: '基本信息编辑' })).toBeVisible();
-  await expect(page.getByText('没有未保存修改')).toBeVisible();
+  // 一页到底：标题、题面、样例、起始代码都在同一页，没有步骤切换。
+  await expect(page.getByRole('textbox', { name: '题目正文' })).toBeVisible();
+  await expect(page.getByRole('region', { name: '样例' })).toBeVisible();
+  await expect(page.getByText('修改会自动保存')).toBeVisible();
 
+  // 私有题目自动保存；保存进行中继续编辑，等这次完成后接着保存最新内容，不丢输入。
   await page.getByLabel('题目标题').fill('两数之和（已更新）');
-  await expect(page.getByText('有未保存内容')).toBeVisible();
-  await page.keyboard.press('Control+s');
   await expect.poll(() => savedTitle).toBe('两数之和（已更新）');
+  await expect(page.getByText('正在保存…')).toBeVisible();
   await page.getByLabel('题目标题').fill('两数之和（保存期间继续编辑）');
   releaseFirstSave();
   await expect(page.getByLabel('题目标题')).toHaveValue('两数之和（保存期间继续编辑）');
-  await expect(page.getByText('有未保存内容')).toBeVisible();
-  await page.keyboard.press('Control+s');
   await expect.poll(() => savedTitle).toBe('两数之和（保存期间继续编辑）');
   await expect(page.getByText(/已保存/)).toBeVisible();
 
-  await page.getByLabel('题目标题').fill('两数之和（跨步骤保留）');
-  await page.getByRole('button', { name: /^题面，/ }).click();
-  await expect(page).toHaveURL(/step=statement/);
-  await expect(page.getByRole('region', { name: '题面编辑' })).toBeVisible();
-  await expect(page.getByRole('textbox', { name: '题目正文 Markdown 编辑器' })).toBeVisible();
-  await expect(page.locator('.cm-editor').first()).toBeVisible();
+  // 题面是所见即所得的 Markdown：输入 ## 即成标题，保存的仍是 Markdown 原文。
+  const statementEditor = page.getByRole('textbox', { name: '题目正文' });
+  await statementEditor.click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('## 补充说明');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('补充中文段落');
+  await expect(statementEditor.getByRole('heading', { name: '补充说明' })).toBeVisible();
+  await expect.poll(() => savedStatement).toContain('## 补充说明\n\n补充中文段落');
   await expect(page.locator('.monaco-editor')).toHaveCount(0);
-  await page.getByRole('button', { name: /^基本信息，/ }).click();
-  await expect(page.getByLabel('题目标题')).toHaveValue('两数之和（跨步骤保留）');
-  await page.getByRole('button', { name: /^题面，/ }).click();
-  const statementEditor = page.getByRole('textbox', { name: '题目正文 Markdown 编辑器' });
-  await statementEditor.press('End');
-  await statementEditor.pressSequentially('\n补充中文段落');
-  await expect(page.getByText('有未保存内容')).toBeVisible();
-  await statementEditor.press('Control+s');
-  await expect.poll(() => savedStatement).toContain('补充中文段落');
+
+  // 自动保存不改写正在编辑的内容：服务端返回的题目（这里不回写提示）不会冲掉输入，光标也不回跳。
+  await page.getByRole('textbox', { name: '提示' }).click();
+  await expect(page.getByRole('textbox', { name: '提示' })).toBeFocused();
+  await page.keyboard.type('第一行');
+  await page.keyboard.press('Enter');
+  const savesBeforePause = saveRequestCount;
+  await expect.poll(() => saveRequestCount).toBeGreaterThan(savesBeforePause);
   await expect(page.getByText(/已保存/)).toBeVisible();
+  await page.keyboard.type('第二行');
+  await expect(page.getByRole('textbox', { name: '提示' }).locator('p')).toHaveText([
+    '第一行',
+    '第二行',
+  ]);
 
-  const adminMain = page.locator('#admin-main');
-  const beforeStepChange = await adminMain.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-    return {
-      scrollTop: element.scrollTop,
-      scrollRange: element.scrollHeight - element.clientHeight,
-    };
-  });
-  expect(beforeStepChange.scrollRange).toBeGreaterThan(200);
-  expect(beforeStepChange.scrollTop).toBeGreaterThan(200);
+  const savesBeforeClear = saveRequestCount;
+  await page.getByLabel('题目标题').fill('');
+  await expect(page.getByText('标题不能为空，填写之前修改不会保存。')).toBeVisible();
+  await page.waitForTimeout(1500);
+  expect(saveRequestCount).toBe(savesBeforeClear);
+  await page.getByLabel('题目标题').fill('两数之和');
+  await expect.poll(() => savedTitle).toBe('两数之和');
 
-  await page.getByRole('button', { name: /^样例，/ }).click();
-  await expect(page).toHaveURL(/step=samples/);
-  await expect(page.getByText('还没有样例')).toBeVisible();
-  const stepOffset = await page.getByRole('region', { name: '样例编辑' }).evaluate((element) => {
-    const main = document.querySelector<HTMLElement>('#admin-main');
-    if (!main) throw new Error('admin main region is missing');
-    return element.getBoundingClientRect().top - main.getBoundingClientRect().top;
-  });
-  // 切换步骤后内容回到首屏，不停在上一屏滚到的底部。内容足够长时停在主区顶部下方 24px；
-  // 样例这类短步骤滚不动，停在标题与步骤胶囊之下的自然位置。
-  expect(stepOffset).toBeGreaterThanOrEqual(16);
-  expect(stepOffset).toBeLessThanOrEqual(200);
+  // 属性在右栏原地修改：难度是点开即选的菜单。
+  await page.getByRole('button', { name: '难度：简单' }).click();
+  await page.getByRole('menuitem', { name: '中等' }).click();
+  await expect(page.getByRole('button', { name: '难度：中等' })).toBeVisible();
+
+  // 公开检查里没通过的项直接带到对应的对话框。
+  await page.getByRole('button', { name: /公开检查/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByText('还没有测试数据')
+    .locator('xpath=..')
+    .getByRole('button', { name: '去处理' })
+    .click();
+  await expect(page).toHaveURL(/panel=test-data/);
+  await expect(page.getByRole('dialog', { name: '测试数据' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await page.setViewportSize({ width: 320, height: 720 });
-  await expect(page.getByRole('combobox', { name: '当前步骤' })).toContainText('样例');
+  await expect(page.getByRole('textbox', { name: '题目正文' })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);

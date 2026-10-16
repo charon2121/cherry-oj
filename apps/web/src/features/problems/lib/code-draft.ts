@@ -154,7 +154,7 @@ export class CodeDraftController {
     this.snapshot = {
       value: starterCode,
       status: 'clean',
-      message: '起始代码 · 草稿仅保存在当前浏览器',
+      message: '起始代码',
       hasUnsavedChanges: false,
       conflicts: [],
     };
@@ -294,7 +294,7 @@ export class CodeDraftController {
         this.fail('本机草稿记录已被删除，当前代码仍保留在页面中；请重试保存或复制备份。');
       } else if (!this.dirty && this.initialReadFailed) {
         this.initialReadFailed = false;
-        this.update({ status: 'clean', message: '起始代码 · 草稿仅保存在当前浏览器' });
+        this.update({ status: 'clean', message: '起始代码' });
       }
     } catch {
       this.fail();

@@ -5,11 +5,13 @@ import type { ComponentProps } from 'react';
 import { cn } from '@/lib/utils';
 
 type ClassNameProp = { className?: string };
-type DialogSize = 'sm' | 'md';
+type DialogSize = 'sm' | 'md' | 'lg';
 
 const dialogSizeClasses: Record<DialogSize, string> = {
   sm: 'max-w-sm',
   md: 'max-w-lg',
+  // linear.app 新建 issue 对话框宽 750px：装得下一段代码编辑器。
+  lg: 'max-w-[750px]',
 };
 
 const Dialog = DialogPrimitive.Root;

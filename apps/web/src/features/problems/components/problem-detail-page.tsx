@@ -1,14 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { ArrowLeft, BookOpen, Code2, Play } from 'lucide-react';
-import { type Ref, useRef, useState } from 'react';
+import { BookOpen, ChevronRight, Code2 } from 'lucide-react';
+import { type ReactNode, type Ref, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Container, Section } from '@/components/ui/layout';
 import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TextEditor } from '@/components/ui/text-editor';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { CustomRunWorkbench } from '@/features/custom-runs/custom-run-workbench';
@@ -20,9 +19,14 @@ import { cn } from '@/lib/utils';
 import { problemQuery } from '../api/problems-api';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
-import { DraftEditor, type HistoryEditorHandle, SourceEditor } from './problem-source-editor';
+import {
+  CodeToolbar,
+  DraftEditor,
+  type HistoryEditorHandle,
+  SourceEditor,
+} from './problem-source-editor';
 import { SafeMarkdown } from './safe-markdown';
-import { SourceCopyButton } from './source-copy-button';
+import { CopyIconButton } from './source-copy-button';
 
 export function ProblemDetailPage({ slug }: { slug: string }) {
   const problem = useQuery(problemQuery(slug));
@@ -90,20 +94,23 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       title={data.title}
       titleVisible={false}
       statusBar={
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        // linear.app 详情页顶栏：面包屑在左（上一级可点，当前项最亮），标识在右。
+        <nav aria-label="面包屑" className="flex h-7 min-w-0 items-center gap-1.5 text-sm">
           <Link
             to="/problems"
             search={{ sort: 'UPDATED_DESC', size: 20 }}
-            className={buttonVariants({ variant: 'ghost', size: 'sm', className: 'shrink-0 px-2' })}
+            className="text-fg-meta hover:text-foreground focus-visible:outline-ring shrink-0 rounded-sm px-1 outline-none focus-visible:outline-1"
           >
-            <ArrowLeft aria-hidden="true" />
             题库
           </Link>
-          <span className="min-w-0 flex-1 text-sm break-words">{data.title}</span>
-          <span className="text-fg-meta max-w-full shrink-0 font-mono text-xs break-all">
+          <ChevronRight className="text-fg-disabled size-3.5 shrink-0" aria-hidden="true" />
+          <span aria-current="page" className="text-foreground min-w-0 truncate">
+            {data.title}
+          </span>
+          <span className="text-fg-meta ml-auto shrink-0 pl-3 font-mono text-xs max-sm:hidden">
             {data.slug}
           </span>
-        </div>
+        </nav>
       }
     >
       <Tabs
@@ -144,7 +151,7 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
                 });
               }}
             >
-              <TabsList aria-label="题目内容">
+              <TabsList aria-label="题目内容" className="sm:px-6">
                 <TabsTrigger value="statement">题目描述</TabsTrigger>
                 <TabsTrigger value="submissions">提交记录</TabsTrigger>
               </TabsList>
@@ -179,7 +186,7 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
             aria-label={wide ? '代码' : undefined}
             tabIndex={0}
             className={cn(
-              'border-border-soft overflow-y-auto overscroll-contain lg:border-l',
+              'border-border-soft lg:border-l-hairline overflow-y-auto overscroll-contain',
               !wide && pane !== 'code' ? 'hidden' : 'flex flex-col',
             )}
           >
@@ -196,84 +203,110 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
   );
 }
 
+// 题面按 linear.app 的 issue 详情排版：24px/600 标题，属性是一排小胶囊，区块标题 15px/600，
+// 正文与管理端编辑器共用排版（所见即所得）。样例是并排的代码块，右上角复制。
 function ProblemStatement({ data }: { data: ProblemDetail }) {
   return (
-    <article className="text-fg-2 min-w-0 space-y-6 p-4 sm:p-6">
-      <div className="text-fg-meta flex flex-wrap items-center gap-x-3 gap-y-2 text-xs">
-        <span className="text-fg-muted flex items-center gap-2">
+    <article className="text-fg-2 @container min-w-0 px-4 pt-4 pb-12 sm:px-8 sm:pt-6">
+      {/* 页面的 h1 已由模板给出（读屏），这里是它的可见形式。 */}
+      <p aria-hidden="true" className="text-foreground font-heading text-2xl leading-[38px]">
+        {data.title}
+      </p>
+      <ul aria-label="题目属性" className="mt-3 flex flex-wrap items-center gap-1.5">
+        <li className={propertyPillClasses}>
           <DifficultyIcon difficulty={data.difficulty} />
           {difficultyLabel(data.difficulty)}
-        </span>
-        <span>{data.codeMode}</span>
+        </li>
+        <li className={propertyPillClasses}>{data.codeMode}</li>
         {data.tags.map((tag) => (
-          <span key={tag}>{tag}</span>
+          <li key={tag} className={propertyPillClasses}>
+            {tag}
+          </li>
         ))}
-      </div>
-      <SafeMarkdown value={data.statementMarkdown} />
-      <section>
-        <Heading level={2} size="base">
-          输入说明
-        </Heading>
-        <SafeMarkdown className="mt-3" value={data.inputDescriptionMarkdown} />
-      </section>
-      <section>
-        <Heading level={2} size="base">
-          输出说明
-        </Heading>
-        <SafeMarkdown className="mt-3" value={data.outputDescriptionMarkdown} />
-      </section>
+      </ul>
+      <SafeMarkdown className="mt-6" value={data.statementMarkdown} />
+      <StatementSection title="输入说明">
+        <SafeMarkdown value={data.inputDescriptionMarkdown} />
+      </StatementSection>
+      <StatementSection title="输出说明">
+        <SafeMarkdown value={data.outputDescriptionMarkdown} />
+      </StatementSection>
       {data.constraintsMarkdown ? (
-        <section>
-          <Heading level={2} size="base">
-            数据范围
-          </Heading>
-          <SafeMarkdown className="mt-3" value={data.constraintsMarkdown} />
-        </section>
+        <StatementSection title="数据范围">
+          <SafeMarkdown value={data.constraintsMarkdown} />
+        </StatementSection>
       ) : null}
-      <section>
-        <Heading level={2} size="base">
-          样例
-        </Heading>
-        <div className="mt-3 space-y-6">
+      <StatementSection title="样例">
+        <div className="grid gap-6">
           {data.samples.map((sample) => (
             <section
               key={sample.ordinal}
               aria-label={`样例 ${sample.ordinal}`}
-              className="min-w-0 space-y-3"
+              className="grid min-w-0 gap-2"
             >
-              <span className="text-fg-meta text-xs">样例 {sample.ordinal}</span>
-              {(
-                [
-                  { label: '输入', value: sample.input },
-                  { label: '输出', value: sample.output },
-                ] as const
-              ).map(({ label, value }) => (
-                <div key={label} className="bg-surface-subtle min-w-0 rounded-sm px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-fg-muted text-xs">{label}</span>
-                    <SourceCopyButton value={value} label={`复制样例 ${sample.ordinal} ${label}`} />
-                  </div>
-                  <pre className="overflow-x-auto py-1 font-mono text-sm">
-                    <code>{value}</code>
-                  </pre>
-                </div>
-              ))}
+              <span className="text-fg-meta text-sm">样例 {sample.ordinal}</span>
+              <div className="grid min-w-0 gap-3 @lg:grid-cols-2">
+                <SampleBlock
+                  caption="输入"
+                  value={sample.input}
+                  copyLabel={`复制样例 ${sample.ordinal} 输入`}
+                />
+                <SampleBlock
+                  caption="输出"
+                  value={sample.output}
+                  copyLabel={`复制样例 ${sample.ordinal} 输出`}
+                />
+              </div>
               {sample.explanationMarkdown ? (
                 <SafeMarkdown value={sample.explanationMarkdown} />
               ) : null}
             </section>
           ))}
         </div>
-      </section>
+      </StatementSection>
       {data.hintMarkdown ? (
-        <section>
-          <Heading level={2} size="base">
-            提示
-          </Heading>
-          <SafeMarkdown className="mt-3" value={data.hintMarkdown} />
-        </section>
+        <StatementSection title="提示">
+          <SafeMarkdown value={data.hintMarkdown} />
+        </StatementSection>
       ) : null}
     </article>
+  );
+}
+
+const propertyPillClasses =
+  'bg-surface shadow-ring text-fg-2 inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-xs';
+
+function StatementSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-8">
+      <Heading level={2} className="text-foreground font-heading text-15 mb-3">
+        {title}
+      </Heading>
+      {children}
+    </section>
+  );
+}
+
+// 只读的样例代码块，与管理端样例编辑块同一外观（比面板亮一档的底、0.5px 边、6px 圆角、12px 等宽）。
+function SampleBlock({
+  caption,
+  value,
+  copyLabel,
+}: {
+  caption: string;
+  value: string;
+  copyLabel: string;
+}) {
+  return (
+    <div className="bg-surface border-border border-hairline min-w-0 rounded-md">
+      <div className="flex h-8 items-center justify-between gap-2 pr-1.5 pl-4">
+        <span className="text-fg-meta text-xs">{caption}</span>
+        <CopyIconButton value={value} label={copyLabel} />
+      </div>
+      <pre className="text-fg-2 overflow-x-auto px-4 pb-3 font-mono text-xs leading-[20px]">
+        <code>{value || ' '}</code>
+      </pre>
+    </div>
   );
 }
 
@@ -306,14 +339,16 @@ function ProblemCode({
             : !supported
               ? '当前页面暂不支持此题目的编码模式或语言。'
               : null;
+  const languageLabel = (
+    <>
+      <span className="text-fg-2 font-body">{language?.displayName ?? '无可用语言'}</span>
+      <span>{data.codeMode}</span>
+    </>
+  );
   return (
     <>
-      <div className="border-border-soft text-fg-muted flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-2 text-xs">
-        <Code2 className="size-4" aria-hidden="true" />
-        <span className="text-foreground">{language?.displayName ?? '无可用语言'}</span>
-        <span>{data.codeMode}</span>
-        <span className="text-fg-meta ml-auto">代码</span>
-      </div>
+      {editableIdentity && language ? null : <CodeToolbar start={languageLabel} />}
+
       {notice ? (
         <div
           className="border-border-soft text-fg-2 flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs"
@@ -348,6 +383,7 @@ function ProblemCode({
           starterCode={language.starterCode}
           readOnly={session.isError || unavailable}
           historyRef={historyRef}
+          toolbarStart={languageLabel}
           renderSubmission={(source) => (
             <CustomRunWorkbench
               userId={user.id}
@@ -360,25 +396,6 @@ function ProblemCode({
       ) : (
         <SourceEditor value={language?.starterCode ?? ''} onChange={() => undefined} readOnly />
       )}
-      {!editableIdentity ? (
-        <div className="border-border-soft bg-panel shrink-0 space-y-2 border-t px-4 py-3">
-          <Button size="sm" variant="secondary" disabled aria-describedby="judging-unavailable">
-            <Play aria-hidden="true" />
-            运行
-          </Button>
-          <TextEditor
-            value=""
-            onChange={() => undefined}
-            readOnly
-            language="plain"
-            size="compact"
-            aria-label="自定义输入数据"
-          />
-          <p id="judging-unavailable" className="text-fg-muted text-xs">
-            登录并选择支持的题目后，可自定义运行和正式提交。
-          </p>
-        </div>
-      ) : null}
     </>
   );
 }

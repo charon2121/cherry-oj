@@ -45,7 +45,7 @@ test('real node offline and recovery are shown in the workbench', async ({ page 
     await route.fulfill({ response });
   });
   // 测试数据由节点按地址读取，没有部署动作：节点离线时，校准区显示“没有在线判题节点”并禁用校准。
-  await page.goto(`/admin/problems/${evidence.problemId}?step=test-and-calibrate`);
+  await page.goto(`/admin/problems/${evidence.problemId}?panel=calibration`);
   const calibrate = page.getByRole('button', { name: '运行参考程序校准', exact: true });
   const offline = page.getByRole('status').filter({ hasText: '在线判题节点' });
   await expect(offline).toHaveCount(0);

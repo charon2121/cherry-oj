@@ -3,31 +3,29 @@ import { z } from 'zod';
 
 import {
   AdminProblemWorkbench,
-  type ProblemWorkbenchStep,
+  type ProblemWorkbenchPanel,
 } from '@/features/problems/components/admin-problem-workbench';
 
-const stepSchema = z.object({
-  step: z
-    .enum(['basic', 'statement', 'samples', 'starter-code', 'test-and-calibrate', 'publish'])
-    .catch('basic')
-    .default('basic'),
+// 工作台是一页到底的编辑页；panel 只记录当前打开的对话框（测试数据、校准、公开），便于直接链接。
+const panelSchema = z.object({
+  panel: z.enum(['test-data', 'calibration', 'publish']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/admin/problems/$problemId')({
-  validateSearch: stepSchema,
+  validateSearch: panelSchema,
   component: ProblemWorkbenchRoute,
 });
 
 function ProblemWorkbenchRoute() {
   const { problemId } = Route.useParams();
-  const { step } = Route.useSearch();
+  const { panel } = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
     <AdminProblemWorkbench
       problemId={problemId}
-      step={step}
-      onStepChange={(nextStep: ProblemWorkbenchStep) =>
-        void navigate({ search: { step: nextStep } })
+      panel={panel}
+      onPanelChange={(next: ProblemWorkbenchPanel | undefined) =>
+        void navigate({ search: { panel: next }, replace: true })
       }
     />
   );

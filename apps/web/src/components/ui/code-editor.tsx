@@ -122,9 +122,8 @@ export function CodeEditor({
           </Button>
         </div>
       ) : null}
-      <p className="text-fg-meta shrink-0 px-3 py-2 text-xs">
-        Tab 移出编辑器 · Ctrl/Cmd + ] 缩进 · Ctrl/Cmd + F 查找
-      </p>
+      {/* 键盘提示只给读屏：看得见的界面不放功能说明（linear.app 的编辑区没有说明行）。 */}
+      <p className="sr-only">Tab 移出编辑器 · Ctrl/Cmd + ] 缩进 · Ctrl/Cmd + F 查找</p>
     </div>
   );
 }

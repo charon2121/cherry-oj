@@ -53,7 +53,7 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 ### `codemirror`、`@codemirror/*` 与 `@lezer/highlight`
 
-为后台长 Markdown、C++ 起始代码和参考程序提供搜索、撤销、行号、语法高亮与可访问的编辑区域。
+为后台的 C++ 起始代码、参考程序和用户端的自测输入提供搜索、撤销、行号、语法高亮与可访问的编辑区域。
 项目直接使用 CodeMirror 6 官方模块，并维护一层很薄的 React 受控适配和语义 token 主题；不 fork
 编辑器内核，也不依赖第三方 React wrapper 或运行时 CDN。参考源码不得写入 Query、URL 或 storage。
 
@@ -69,9 +69,20 @@ WORK-041 在用户明确要求后引入精确锁定的 0.56.0，为用户端题�
 业务组件持有代码与草稿身份，适配负责释放 editor/model/观察器。Tab 默认移出，手机改用 CodeMirror。
 新增依赖会产生独立 runtime、CSS、字体与 worker 资源；体积和请求隔离证据记录于 VERIFY-042。
 
+### `@tiptap/*`（`react`、`pm`、`core`、`starter-kit`、`markdown`、`extensions`、`extension-table`）
+
+管理端题面、输入输出说明、提示和样例解释的所见即所得编辑器（`components/ui/rich-markdown-editor.tsx`），
+交互取自 linear.app 的 issue 描述：输入 `## `、`- `、` ``` ` 直接成块，没有编辑/预览切换。底层是
+ProseMirror；`@tiptap/markdown` 负责 Markdown 与文档之间的双向转换，因此**存储格式仍是 GFM Markdown**，
+用户端照旧用 `react-markdown` 渲染。往返只规范化写法（表格补齐空格、列表符号统一），不支持的语法按原文
+保留为文字；下划线扩展被关闭，因为 Markdown 无法表达它。
+
+全部 3.31.4 精确锁定（发布超过两周的版本）。只在管理端题目工作台的路由 chunk 中加载，用户端不会下载；
+正文排版放在独立的 `components/ui/markdown-prose.ts`，用户端共用它而不引入编辑器。
+
 ### `react-markdown`、`remark-gfm` 与 `rehype-sanitize`
 
-公开题面和管理端预览使用 `react-markdown` 渲染，`remark-gfm` 支持表格等 GFM 语法，
+公开题面和样例解释使用 `react-markdown` 渲染，`remark-gfm` 支持表格等 GFM 语法，
 `rehype-sanitize` 删除危险节点与 URL。链路不启用原始 HTML；endpoint schema 还会剥离未知响应字段，
 避免测试数据位置或参考源码 canary 进入页面状态。
 

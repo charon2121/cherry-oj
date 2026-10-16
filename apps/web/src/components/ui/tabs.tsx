@@ -2,8 +2,9 @@ import { Tabs as TabsPrimitive } from '@base-ui/react/tabs';
 
 import { cn } from '@/lib/utils';
 
-// shadcn base-nova tabs（官方 registry 返回 200）：保留 Root/List/Tab/Panel 与键盘行为，
-// 样式替换为本仓库的 hairline、语义颜色和不改变尺寸的焦点。
+// shadcn base-nova tabs（官方 registry 返回 200）：保留 Root/List/Tab/Panel 与键盘行为。
+// 外观是 linear.app 的视图切换胶囊（docs/design-system/measurements.md「视图切换胶囊」）：
+// 高 28px、左右 10px、12px/500、全圆角；未选是灰字，选中换成亮一档的底与主前景色。没有下划线。
 function Tabs({ className, orientation = 'horizontal', ...props }: TabsPrimitive.Root.Props) {
   return (
     <TabsPrimitive.Root
@@ -19,7 +20,7 @@ function TabsList({ className, ...props }: TabsPrimitive.List.Props) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      className={cn('border-border-soft flex shrink-0 items-center gap-2 border-b px-4', className)}
+      className={cn('flex shrink-0 flex-wrap items-center gap-1 px-4 py-2', className)}
       {...props}
     />
   );
@@ -30,7 +31,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
       className={cn(
-        'text-fg-muted hover:text-foreground data-active:text-foreground data-active:border-foreground focus-visible:outline-ring disabled:text-fg-disabled duration-fast inline-flex min-h-10 items-center justify-center gap-2 border-b border-transparent px-3 text-sm transition-colors outline-none focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none focus-visible:forced-colors:outline-solid [&_svg]:size-4',
+        'text-fg-meta font-body hover:text-foreground data-active:bg-surface-hover data-active:text-foreground focus-visible:outline-ring disabled:text-fg-disabled duration-fast gap-1x inline-flex h-7 items-center justify-center rounded-full px-[10px] text-xs transition-colors outline-none focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none focus-visible:forced-colors:outline-solid data-active:forced-colors:outline-1 data-active:forced-colors:outline-solid [&_svg]:size-3.5',
         className,
       )}
       {...props}

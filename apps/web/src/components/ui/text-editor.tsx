@@ -11,13 +11,16 @@ import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 type TextEditorLanguage = 'plain' | 'markdown' | 'cpp';
-type TextEditorSize = 'compact' | 'default' | 'code' | 'fill';
+type TextEditorSize = 'compact' | 'default' | 'code' | 'fill' | 'auto';
+type TextEditorAppearance = 'boxed' | 'bare';
 
 const editorHeights: Record<TextEditorSize, string> = {
   fill: '100%',
   compact: '12rem',
   default: '24rem',
   code: '22rem',
+  // 随内容增高：至少两行，超过约 24 行后在编辑器内滚动（linear.app 代码块按内容高度显示）。
+  auto: 'auto',
 };
 
 const syntaxTheme = syntaxHighlighting(
@@ -37,34 +40,57 @@ function languageExtension(language: TextEditorLanguage): Extension {
   return [];
 }
 
-function editorTheme(height: string): Extension {
+function editorTheme(height: string, bare: boolean): Extension {
+  const auto = height === 'auto';
   return EditorView.theme({
     '&': {
       height,
-      backgroundColor: 'var(--ds-surface-translucent)',
+      backgroundColor: bare ? 'transparent' : 'var(--ds-surface)',
       color: 'var(--ds-fg)',
-      fontSize: 'var(--ds-text-sm)',
+      // linear.app 代码块：12px/20px 等宽。
+      fontSize: 'var(--ds-text-xs)',
     },
     '&.cm-focused': { outline: 'none' },
     '.cm-scroller': {
       overflow: 'auto',
+      ...(auto ? { minHeight: '52px', maxHeight: '504px' } : {}),
       fontFamily: 'var(--ds-font-mono)',
-      lineHeight: 'var(--ds-leading-body)',
+      lineHeight: '20px',
     },
-    '.cm-content': { caretColor: 'var(--ds-focus)', paddingBlock: 'var(--ds-space-3)' },
+    // 嵌在代码块里时上方已有标题行，只留很小的上边距。
+    '.cm-content': {
+      caretColor: 'var(--ds-focus)',
+      paddingBlock: bare ? '0 var(--ds-space-3)' : 'var(--ds-space-3)',
+    },
     '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--ds-focus)' },
     '.cm-selectionBackground, ::selection': {
       backgroundColor: 'var(--ds-selection-surface) !important',
       color: 'var(--ds-selection-foreground)',
     },
     '.cm-activeLine, .cm-activeLineGutter': {
+      backgroundColor: 'transparent',
+    },
+    '&.cm-focused .cm-activeLine': {
       backgroundColor: 'var(--ds-surface-translucent-hover)',
     },
+    '&.cm-focused .cm-activeLineGutter': { color: 'var(--ds-fg-2)' },
+    // 行号与代码同底、没有分隔线，只靠更暗的字色区分（linear.app 代码块）。
     '.cm-gutters': {
-      backgroundColor: 'var(--ds-panel)',
-      color: 'var(--ds-fg-muted)',
-      borderRight: '1px solid var(--ds-border)',
+      backgroundColor: 'transparent',
+      color: 'var(--ds-fg-disabled)',
+      border: 'none',
     },
+    '.cm-lineNumbers .cm-gutterElement': { paddingInline: '16px 12px', minWidth: '2ch' },
+    // 折叠箭头在短代码里只是噪音（linear.app 代码块只有行号）。
+    '.cm-foldGutter': { display: 'none' },
+    // 嵌在代码块里时只是一块等宽文本：不要行号，不高亮当前行，左右与块的标题对齐。
+    ...(bare
+      ? {
+          '.cm-gutters': { display: 'none' },
+          '&.cm-focused .cm-activeLine': { backgroundColor: 'transparent' },
+          '.cm-line': { paddingInline: '16px' },
+        }
+      : {}),
     '.cm-panels': {
       backgroundColor: 'var(--ds-surface-raised)',
       color: 'var(--ds-fg)',
@@ -106,6 +132,8 @@ type TextEditorProps = Readonly<{
   'aria-label'?: string;
   'aria-describedby'?: string;
   'aria-invalid'?: AriaAttributes['aria-invalid'];
+  /** bare：不带自己的边框与底色，嵌在外层代码块里使用。 */
+  appearance?: TextEditorAppearance;
 }>;
 
 function TextEditor({
@@ -113,6 +141,7 @@ function TextEditor({
   onChange,
   language = 'plain',
   size = 'default',
+  appearance = 'boxed',
   placeholder,
   className,
   id,
@@ -239,11 +268,12 @@ function TextEditor({
       EditorView.editable.of(!readOnly && !disabled),
       languageExtension(language),
       EditorView.darkTheme.of(colorScheme === 'dark'),
-      editorTheme(editorHeights[size]),
+      editorTheme(editorHeights[size], appearance === 'bare'),
     ];
     if (placeholder) extensions.push(placeholderExtension(placeholder));
     view.dispatch({ effects: settings.current.reconfigure(extensions) });
   }, [
+    appearance,
     ariaDescribedBy,
     ariaInvalid,
     ariaLabel,
@@ -278,11 +308,20 @@ function TextEditor({
       data-disabled={disabled ? '' : undefined}
       data-invalid={ariaInvalid === true || ariaInvalid === 'true' ? '' : undefined}
       className={cn(
-        'focus-within:outline-ring border-border bg-surface-translucent focus-within:border-brand-surface data-disabled:border-border data-disabled:bg-surface-translucent data-invalid:border-danger-border overflow-hidden rounded-sm border focus-within:outline-1 focus-within:outline-offset-0',
+        // 焦点：边框不变，加一条贴边 1px outline（docs/design-system/measurements.md「表单控件」）。
+        appearance === 'boxed'
+          ? 'focus-within:outline-ring border-border bg-surface data-invalid:border-danger-border border-hairline overflow-hidden rounded-md focus-within:outline-1 focus-within:-outline-offset-1'
+          : 'min-w-0',
         className,
       )}
     />
   );
 }
 
-export { TextEditor, type TextEditorLanguage, type TextEditorProps, type TextEditorSize };
+export {
+  TextEditor,
+  type TextEditorAppearance,
+  type TextEditorLanguage,
+  type TextEditorProps,
+  type TextEditorSize,
+};
