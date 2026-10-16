@@ -11,6 +11,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpSubmissionPrerequisites.class);
     private final String problemUrl, judgingUrl, problemToken, judgingToken;
     private final ObjectMapper json;
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2))
@@ -49,14 +52,18 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
             var response=future.get(6, TimeUnit.SECONDS);
             if (response.statusCode()==404) throw new SubmissionException(HttpStatus.NOT_FOUND,"PROBLEM_NOT_AVAILABLE","题目当前不可提交。");
             if (response.statusCode()==422) throw new SubmissionException(HttpStatus.UNPROCESSABLE_ENTITY,"UNSUPPORTED_CODE_MODE","当前只支持 C++ ACM 正式提交。");
-            if (response.statusCode()!=200) throw unavailable();
+            if (response.statusCode()!=200) throw unavailable(path, "status " + response.statusCode());
             return json.readValue(response.body(),type);
         } catch (SubmissionException error) { throw error; }
-        catch (InterruptedException error) { Thread.currentThread().interrupt(); throw unavailable(); }
-        catch (Exception error) { throw unavailable(); }
+        catch (InterruptedException error) { Thread.currentThread().interrupt(); throw unavailable(path, "interrupted"); }
+        catch (Exception error) { throw unavailable(path, error.getClass().getSimpleName()); }
         finally { if (future!=null && !future.isDone()) future.cancel(true); }
     }
-    private static SubmissionException unavailable() {
+    // 对用户统一说"暂时无法判题"，但运维要能看出是哪个依赖、因为什么失败；不记令牌与请求体。
+    private static SubmissionException unavailable(String path, String reason) {
+        LOGGER.atWarn().addKeyValue("event", "submission.prerequisite.unavailable")
+                .addKeyValue("path", path).addKeyValue("reason", reason)
+                .log("submission.prerequisite.unavailable");
         return new SubmissionException(HttpStatus.SERVICE_UNAVAILABLE,"JUDGING_NOT_READY","当前题目暂时无法判题。");
     }
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {

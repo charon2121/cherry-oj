@@ -194,7 +194,7 @@ public class ProblemPublicationService {
         checks.add(item(PublishCheckCode.CONTENT, content,
                 content ? "题面必填章节完整。" : "标题、题面、输入或输出说明不完整。"));
         checks.add(item(PublishCheckCode.SAMPLES, samples,
-                samples ? "样例顺序完整。" : "至少需要一个 ordinal 连续的样例。"));
+                samples ? "已有样例。" : "至少需要一个样例。"));
         checks.add(item(PublishCheckCode.LANGUAGE, language,
                 language ? "C++ ACM 语言配置有效。" : "目前只支持单一 C++ ACM 语言配置。"));
         checks.add(item(PublishCheckCode.TEST_DATA, data,

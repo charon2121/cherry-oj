@@ -4,6 +4,7 @@ import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
 import com.cherryoj.judgingservice.problem.ProblemTestDataException;
+import org.slf4j.LoggerFactory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -41,7 +42,14 @@ public class SubmissionExecutionProfileController {
 
     private com.cherryoj.judgingservice.problem.ProblemTestData currentTestData(String problemId, String trace) {
         try { return testData.current(problemId, trace); }
-        catch (ProblemTestDataException error) { throw unavailable(); }
+        catch (ProblemTestDataException error) {
+            // 例如 PROBLEM_SERVICE_NOT_CONFIGURED：对调用方仍是"暂时无法判题"，日志里给出真实原因。
+            LoggerFactory.getLogger(SubmissionExecutionProfileController.class).atWarn()
+                    .addKeyValue("event", "judging.profile.test_data_unavailable")
+                    .addKeyValue("problemId", problemId).addKeyValue("reason", error.code())
+                    .log("judging.profile.test_data_unavailable");
+            throw unavailable();
+        }
     }
 
     private static JudgingApiException unavailable() {

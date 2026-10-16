@@ -8,3 +8,5 @@ spring:
 cherry:
   service-calls:
     submission-problem-tokens: ""
+    # 与 judging-service 的 cherry.judging.problem.token 配对；不填则判题取不到测试数据，正式提交返回"暂时无法判题"。
+    judging-problem-tokens: ""

@@ -244,7 +244,7 @@ public class AdminProblemService {
     private static void validateSamples(List<AdminProblemDtos.SampleInput> samples) {
         for (int index = 0; index < samples.size(); index++) {
             if (samples.get(index).ordinal() != index + 1) {
-                throw validation("样例 ordinal 必须从 1 连续递增。");
+                throw validation("样例序号必须从 1 开始连续编号。");
             }
         }
     }
