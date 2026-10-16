@@ -244,15 +244,15 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   await expect(page.getByText(/已保存/)).toBeVisible();
 
   await page.getByLabel('题目标题').fill('两数之和（跨步骤保留）');
-  await page.getByRole('button', { name: /2\. 题面/ }).click();
+  await page.getByRole('button', { name: /^题面，/ }).click();
   await expect(page).toHaveURL(/step=statement/);
   await expect(page.getByRole('region', { name: '题面编辑' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: '题目正文 Markdown 编辑器' })).toBeVisible();
   await expect(page.locator('.cm-editor').first()).toBeVisible();
   await expect(page.locator('.monaco-editor')).toHaveCount(0);
-  await page.getByRole('button', { name: /1\. 基本信息/ }).click();
+  await page.getByRole('button', { name: /^基本信息，/ }).click();
   await expect(page.getByLabel('题目标题')).toHaveValue('两数之和（跨步骤保留）');
-  await page.getByRole('button', { name: /2\. 题面/ }).click();
+  await page.getByRole('button', { name: /^题面，/ }).click();
   const statementEditor = page.getByRole('textbox', { name: '题目正文 Markdown 编辑器' });
   await statementEditor.press('End');
   await statementEditor.pressSequentially('\n补充中文段落');
@@ -272,7 +272,7 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   expect(beforeStepChange.scrollRange).toBeGreaterThan(200);
   expect(beforeStepChange.scrollTop).toBeGreaterThan(200);
 
-  await page.getByRole('button', { name: /3\. 样例/ }).click();
+  await page.getByRole('button', { name: /^样例，/ }).click();
   await expect(page).toHaveURL(/step=samples/);
   await expect(page.getByText('还没有样例')).toBeVisible();
   const stepOffset = await page.getByRole('region', { name: '样例编辑' }).evaluate((element) => {
@@ -280,8 +280,10 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
     if (!main) throw new Error('admin main region is missing');
     return element.getBoundingClientRect().top - main.getBoundingClientRect().top;
   });
-  expect(stepOffset).toBeGreaterThanOrEqual(76);
-  expect(stepOffset).toBeLessThanOrEqual(84);
+  // 切换步骤后内容回到首屏：不被 44px 的吸顶工作台顶栏盖住，也不停在上一屏滚到的底部。
+  // 内容足够长时停在顶栏下方 24px；样例这类短步骤滚不动，停在标题与步骤胶囊之下的自然位置。
+  expect(stepOffset).toBeGreaterThanOrEqual(64);
+  expect(stepOffset).toBeLessThanOrEqual(200);
 
   await page.setViewportSize({ width: 320, height: 720 });
   await expect(page.getByRole('combobox', { name: '当前步骤' })).toContainText('样例');

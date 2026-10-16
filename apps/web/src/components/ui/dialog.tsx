@@ -72,7 +72,7 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            'text-foreground focus-visible:outline-ring border-border bg-panel/85 shadow-dialog backdrop-blur-overlay duration-fast ease-standard pointer-events-auto relative grid max-h-[calc(100dvh-var(--space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-lg border p-5 break-words transition-opacity outline-none focus-visible:outline-1 focus-visible:outline-offset-0 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
+            'text-foreground focus-visible:outline-ring border-border bg-surface-raised shadow-dialog duration-fast ease-standard border-hairline pointer-events-auto relative grid max-h-[calc(100dvh-var(--space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-2xl p-5 break-words transition-opacity outline-none focus-visible:outline-1 focus-visible:outline-offset-0 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
             dialogSizeClasses[size],
             className,
           )}
@@ -81,7 +81,7 @@ function DialogContent({
           {children}
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="border-border-strong bg-surface-subtle text-foreground hover:bg-accent focus-visible:outline-ring duration-fast ease-standard disabled:text-fg-disabled absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-sm border transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed motion-reduce:transition-none"
+            className="text-fg-2 hover:bg-surface-hover hover:text-foreground focus-visible:outline-ring duration-fast ease-standard disabled:text-fg-disabled absolute top-3 right-3 inline-flex size-7 items-center justify-center rounded-full transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed motion-reduce:transition-none"
             aria-label={closeLabel}
           >
             <X className="size-4" aria-hidden="true" />

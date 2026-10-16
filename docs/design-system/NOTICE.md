@@ -13,9 +13,10 @@ State them separately:
 
 1. **The frozen Claude Design export** (below) is where the colour palette, the optical spacing steps and the component
    inventory come from. It is retained here as licence and provenance evidence.
-2. **Measured values from an external Figma reference** are where the type scale, weights, letter-spacing, radius,
-   overlay material and the composition principles come from. That file is not in this repository; the numbers taken
-   from it are recorded in [`measurements.md`](./measurements.md), which is their only record here.
+2. **Measured values from the live linear.app pages** (2026-10-16) are where the shell geometry, weights, hairline width,
+   overlay material and the dark theme's lightness steps come from. They are recorded in
+   [`measurements.md`](./measurements.md), which is their only record here. An earlier measurement of a Figma community
+   recreation is kept in [`measurements-figma-community.md`](./measurements-figma-community.md) as history only.
 
 The frozen export is **no longer the composition authority**. It is a second-hand recreation, and its own readme asserted
 two rules that measurement later disproved — that blur is never used, and that focus is a 2px outline. Both were written

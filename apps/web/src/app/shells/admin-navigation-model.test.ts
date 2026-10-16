@@ -3,17 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   adminNavigationEntries,
   isAdminNavigationGroup,
-  isAdminNavigationGroupActive,
   isAdminNavigationLeafActive,
 } from './admin-navigation-model';
 
 describe('admin navigation model', () => {
-  it('keeps the agreed Dashboard, account, problems order', () => {
-    expect(adminNavigationEntries.map((entry) => entry.label)).toEqual([
-      'Dashboard',
-      '账号管理',
-      '题目管理',
-    ]);
+  it('keeps the agreed overview, problems, accounts order as flat entries', () => {
+    expect(adminNavigationEntries.map((entry) => entry.label)).toEqual(['总览', '题目', '账号']);
+    expect(adminNavigationEntries.some(isAdminNavigationGroup)).toBe(false);
   });
 
   it('treats both dashboard routes as the same active destination', () => {
@@ -23,14 +19,5 @@ describe('admin navigation model', () => {
     expect(isAdminNavigationLeafActive(dashboard, '/admin')).toBe(true);
     expect(isAdminNavigationLeafActive(dashboard, '/admin/dashborad')).toBe(true);
     expect(isAdminNavigationLeafActive(dashboard, '/admin/users')).toBe(false);
-  });
-
-  it('activates the account group only for its real leaf route', () => {
-    const account = adminNavigationEntries.find((entry) => entry.id === 'account');
-    if (!account || !isAdminNavigationGroup(account)) throw new Error('Account group is missing.');
-
-    expect(isAdminNavigationGroupActive(account, '/admin/users')).toBe(true);
-    expect(isAdminNavigationGroupActive(account, '/admin')).toBe(false);
-    expect(account.children.map((item) => item.label)).toEqual(['用户账号']);
   });
 });

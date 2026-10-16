@@ -2,8 +2,9 @@ import { type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
-// DataList 是应用工作区的密集列表，构图依据是 Linear Design System (Community) Figma 文件里
-// App Screens / Issues 的实测值：行 44px、左右两簇、簇内 gap 9px、行间 1px hairline。
+// DataList 是应用工作区的密集列表，构图依据是 linear.app Issues 列表的实测值
+// （docs/design-system/measurements.md）：行 44px、圆角 8px、行间没有分隔线、左右两簇；
+// 分组带 36px、比面板亮一档、圆角 8px。
 //
 // 它此前是一个 <table> + 列定义。那是**错误的抽象**：表格会把剩余宽度均分给各列，于是六个字段
 // 摊满整行，中间全是空隙——去掉表头也去不掉表格感，因为表格感来自列均分。参照的一行只有两簇：
@@ -12,8 +13,8 @@ import { cn } from '@/lib/utils';
 //   └──────── 左簇，gap 9px，标题吃掉剩余宽度 ────────┘        └── 右簇，贴右 ──┘
 //
 // 三条不可协商：
-//   1. 标题是全行最亮的东西（--ds-fg），其余一律降到 --ds-fg-meta。参照把标识和标题设成同样的
-//      13px/400，只靠颜色分层级——层级由颜色承担，不由字号或字重承担。
+//   1. 标题是全行最亮的东西（--ds-fg，13px/500），其余一律降到 --ds-fg-meta（标识 13px，
+//      尾部元信息 12px）。
 //   2. 中间的空白是有意的，不是没排满。不要往里塞列。
 //   3. 颜色按屏计量，不按行计量。每行一处饱和色，六行就是六处，密集列表会立刻显廉价。
 //
@@ -93,7 +94,7 @@ function DataListRow({
     <li
       data-slot="data-list-row"
       className={cn(
-        'border-line hover:bg-surface-translucent-hover duration-fast ease-standard flex min-h-11 min-w-0 items-center gap-3 border-b transition-colors last:border-b-0 motion-reduce:transition-none',
+        'hover:bg-surface-translucent-hover duration-fast ease-standard flex min-h-11 min-w-0 items-center gap-3 rounded-lg transition-colors motion-reduce:transition-none',
         gutters,
         interactive && 'relative',
       )}
@@ -103,11 +104,11 @@ function DataListRow({
           <span className="flex size-4 shrink-0 items-center justify-center">{item.leading}</span>
         )}
         {item.id === undefined ? null : (
-          <span className="text-fg-meta shrink-0 truncate font-mono text-sm">{item.id}</span>
+          <span className="text-fg-meta shrink-0 truncate text-sm tabular-nums">{item.id}</span>
         )}
         <span
           className={cn(
-            'text-foreground min-w-0 truncate text-sm',
+            'text-foreground font-body min-w-0 truncate text-sm',
             align === 'spread' && 'flex-1',
             // 确定宽度，不是 w-full：packed 下父容器是 shrink-to-fit，百分比宽度会解析回
             // 内容宽度，后续字段就又参差了。窄屏靠 shrink 收缩。
@@ -161,21 +162,24 @@ function DataList<Row>({
       className={cn('min-w-0', className)}
     >
       {groups === undefined ? (
-        <ul className="border-line min-w-0 border-t">{body(rows ?? [])}</ul>
+        <ul className="min-w-0 px-2">{body(rows ?? [])}</ul>
       ) : (
         groups.map((group) => (
-          <div key={group.key} className="min-w-0">
-            {/* 分组带：36px，底色比画布亮一档。参照用明度分段，不用标题文字分段。 */}
+          <div key={group.key} className="min-w-0 px-2">
+            {/* 分组带：36px，底色比面板亮一档，圆角 8px。参照用明度分段，不用标题文字分段。 */}
             <div
-              className={cn('bg-surface flex min-h-9 min-w-0 items-center gap-2 text-sm', gutters)}
+              className={cn(
+                'bg-surface min-h-item flex min-w-0 items-center gap-2 rounded-lg text-sm',
+                gutters,
+              )}
             >
               {group.icon}
-              <span className="text-foreground font-body">{group.label}</span>
+              <span className="text-fg-2 font-body">{group.label}</span>
               {group.count === undefined ? null : (
                 <span className="text-fg-meta">{group.count}</span>
               )}
             </div>
-            <ul className="min-w-0">{body(group.rows)}</ul>
+            <ul className="mt-half min-w-0">{body(group.rows)}</ul>
           </div>
         ))
       )}

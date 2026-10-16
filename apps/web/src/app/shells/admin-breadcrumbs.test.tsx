@@ -5,22 +5,19 @@ import { adminBreadcrumbsFor } from './admin-navigation-model';
 describe('adminBreadcrumbsFor', () => {
   it('derives the trail from the navigation model instead of a second path table', () => {
     // 两套并存必然漂移：改了侧栏分组名而面包屑还显示旧的，没有任何检查会发现。
-    expect(adminBreadcrumbsFor('/admin/users')).toEqual([
-      { label: '账号管理' },
-      { label: '用户账号' },
-    ]);
+    expect(adminBreadcrumbsFor('/admin/users')).toEqual([{ label: '账号' }]);
   });
 
   it('returns a single crumb for a top-level entry', () => {
-    expect(adminBreadcrumbsFor('/admin/problems')).toEqual([{ label: '题目管理' }]);
+    expect(adminBreadcrumbsFor('/admin/problems')).toEqual([{ label: '题目' }]);
   });
 
   it('keeps nested routes on their owning entry', () => {
-    expect(adminBreadcrumbsFor('/admin/problems/abc')).toEqual([{ label: '题目管理' }]);
+    expect(adminBreadcrumbsFor('/admin/problems/abc')).toEqual([{ label: '题目' }]);
   });
 
   it('resolves the admin root to its own dashboard entry', () => {
-    expect(adminBreadcrumbsFor('/admin')).toEqual([{ label: 'Dashboard' }]);
+    expect(adminBreadcrumbsFor('/admin')).toEqual([{ label: '总览' }]);
   });
 
   it('never marks the last crumb as a link target', () => {

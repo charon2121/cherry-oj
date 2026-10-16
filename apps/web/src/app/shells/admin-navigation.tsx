@@ -148,7 +148,9 @@ function AdminNavigation({ onNavigate }: AdminNavigationProps) {
   return (
     <SidebarContent>
       <SidebarGroup aria-labelledby="admin-navigation-group">
-        <SidebarGroupLabel id="admin-navigation-group">管理</SidebarGroupLabel>
+        <SidebarGroupLabel id="admin-navigation-group" className="sr-only">
+          管理
+        </SidebarGroupLabel>
         <SidebarMenu>
           {adminNavigationEntries.map((entry) =>
             isAdminNavigationGroup(entry) ? (

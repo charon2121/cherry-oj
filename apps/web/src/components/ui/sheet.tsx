@@ -56,7 +56,7 @@ function SheetContent({
           data-slot="sheet-content"
           data-side={side}
           className={cn(
-            'text-sidebar-foreground border-border bg-panel/85 shadow-dialog backdrop-blur-overlay duration-fast ease-standard pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--space-8)))] flex-col border-r transition-opacity outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-sidebar-foreground border-border bg-surface-raised shadow-dialog duration-fast ease-standard pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--space-8)))] flex-col border-r transition-opacity outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             side === 'left' ? 'left-0' : 'right-0 border-r-0 border-l',
             className,
           )}

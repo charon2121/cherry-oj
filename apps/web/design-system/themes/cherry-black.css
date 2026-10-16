@@ -1,6 +1,7 @@
 /*
  * Modified for Cherry OJ on 2026-09-03.
  * Rebuilt from the frozen Claude Design Cherry OJ export used by WORK-034.
+ * 2026-10-16: neutral steps, hairline borders and elevation re-measured from linear.app "Dark".
  * Changes: namespaced semantic contract, accessible Cherry interaction
  * mapping, opaque OJ status surfaces, and explicit default fallback.
  * See ../NOTICE.md and ../LICENSE.open-design.
@@ -22,28 +23,28 @@
   --ds-raw-linear-danger: #dc2626;
 
   /* Neutral surfaces */
-  --ds-canvas: #08090a;
-  --ds-panel: #0f1011;
-  --ds-surface: #191a1b;
+  --ds-canvas: #09090a;
+  --ds-panel: #121213;
+  --ds-surface: #1a1a1b;
   --ds-surface-subtle: #141516;
-  --ds-surface-raised: #191a1b;
-  --ds-surface-hover: #28282c;
+  --ds-surface-raised: #212122;
+  --ds-surface-hover: #29292b;
   --ds-surface-translucent: rgba(255, 255, 255, 0.02);
   --ds-surface-translucent-hover: rgba(255, 255, 255, 0.04);
   --ds-surface-translucent-selected: rgba(255, 255, 255, 0.05);
 
   /* Foreground */
-  --ds-fg: #f7f8f8;
-  --ds-fg-2: #d0d6e0;
-  --ds-fg-muted: #a8adb6;
-  --ds-fg-meta: #8a8f98;
+  --ds-fg: #ffffff;
+  --ds-fg-2: #e3e4e6;
+  --ds-fg-muted: #959597;
+  --ds-fg-meta: #929294;
   --ds-fg-disabled: #62666d;
   --ds-fg-ghost: #e2e4e7;
 
   /* Decorative and necessary boundaries */
   --ds-border-soft: rgba(255, 255, 255, 0.05);
   --ds-border: rgba(255, 255, 255, 0.08);
-  --ds-border-solid: #23252a;
+  --ds-border-solid: #212224;
   --ds-border-strong: #80848d;
   --ds-line-tertiary: #18191a;
 
@@ -94,12 +95,13 @@
   --ds-special-on-solid: #ffffff;
 
   /* System and elevation */
-  --ds-overlay: rgba(0, 0, 0, 0.85);
+  --ds-overlay: rgba(0, 0, 0, 0.38);
   --ds-elevation-flat: none;
-  --ds-elevation-subtle: rgba(0, 0, 0, 0.03) 0 1.2px 0 0;
-  --ds-elevation-ring: 0 0 0 1px var(--ds-border);
+  --ds-elevation-subtle: rgba(0, 0, 0, 0.3) 0 0.5px 1px 1px;
+  /* 控件外观：暗色下控件只靠底色分层，不加环（linear.app 实测）。 */
+  --ds-elevation-ring: none;
   --ds-elevation-inset: rgba(0, 0, 0, 0.2) 0 0 12px 0 inset;
-  /* 大而柔，不是小而硬：浮层要让人看出"下面还有东西"。 */
-  --ds-elevation-dialog: rgba(0, 0, 0, 0.35) 0 7px 32px, rgba(0, 0, 0, 0.2) 0 2px 8px;
+  /* linear.app 实测的对话框与命令面板阴影：五层，最大 40px，单层都很淡。 */
+  --ds-elevation-dialog: rgba(0, 0, 0, 0.1) 0 4px 40px 0, rgba(0, 0, 0, 0.125) 0 3px 20px 0, rgba(0, 0, 0, 0.125) 0 3px 12px 0, rgba(0, 0, 0, 0.125) 0 2px 8px 0, rgba(0, 0, 0, 0.125) 0 1px 1px 0;
   --ds-elevation-raised: rgba(0, 0, 0, 0.35) 0 7px 32px, 0 0 0 1px rgba(255, 255, 255, 0.06);
 }

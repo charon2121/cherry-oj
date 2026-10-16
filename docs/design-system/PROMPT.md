@@ -80,7 +80,7 @@ packed（标题只有几个字，中文标题基本都属于这类）
 
 **内容装不下时先减字段，不要挤压标题。**
 
-行高 44px，行内边距 11px/16px，行间 1px hairline（`border-line`），不用卡片间距。
+行高 44px、圆角 8px，行间不画分隔线，分段靠 36px 分组带的明度，不用卡片间距。
 窄屏把右簇折进 `meta` 显示在标题下方——降级是折行，不是裁切也不是横向滚动。
 
 **`Card` 与 `Panel` 默认无框无底色。** 确需边界时显式 `bordered`，确需抬升时显式 `elevated`，
@@ -109,7 +109,7 @@ packed（标题只有几个字，中文标题基本都属于这类）
 **焦点是 1px、贴边、换成 focus 色。** 有边框的控件让边框变色，没边框的用 1px 零偏移 outline，
 另配 `forced-colors:` 回退——那个模式下颜色由系统接管，边框变色表达不出焦点。
 
-**浮层三件套**：1px 边框 + 大柔阴影（`shadow-dialog`）+ `backdrop-blur-overlay`。
+**浮层材质**：不透明 `bg-surface-raised` + 0.5px 边框（`border-hairline`）+ 12px 圆角 + 三层小阴影（`shadow-dialog`），不用模糊。
 
 **品牌红只用于主按钮、focus 和当前项。** 列表行标题用前景色不用品牌色。品牌色不代替 `destructive`。
 

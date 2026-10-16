@@ -11,29 +11,29 @@
 
   /* Neutral surfaces */
   --ds-canvas: #ffffff;
-  --ds-panel: #f7f8f8;
-  --ds-surface: #ffffff;
+  --ds-panel: #ffffff;
+  --ds-surface: #f8f8f8;
   --ds-surface-subtle: #f5f6f7;
   --ds-surface-raised: #ffffff;
-  --ds-surface-hover: #f3f4f5;
+  --ds-surface-hover: #f1f1f1;
   --ds-surface-translucent: rgba(8, 9, 10, 0.02);
   --ds-surface-translucent-hover: rgba(8, 9, 10, 0.04);
   --ds-surface-translucent-selected: rgba(8, 9, 10, 0.05);
 
   /* Foreground */
-  --ds-fg: #191a1b;
-  --ds-fg-2: #34343a;
-  --ds-fg-muted: #55595f;
-  --ds-fg-meta: #6b7079;
+  --ds-fg: #1c1c1c;
+  --ds-fg-2: #2f2f2f;
+  --ds-fg-muted: #595959;
+  --ds-fg-meta: #626262;
   --ds-fg-disabled: #9aa0a8;
-  --ds-fg-ghost: #34343a;
+  --ds-fg-ghost: #2f2f2f;
 
   /* Decorative and necessary boundaries */
-  --ds-border-soft: #e6e6e6;
-  --ds-border: #d0d6e0;
-  --ds-border-solid: #d0d6e0;
+  --ds-border-soft: #efefef;
+  --ds-border: #e8e8e8;
+  --ds-border-solid: #e8e8e8;
   --ds-border-strong: #80848d;
-  --ds-line-tertiary: #e6e6e6;
+  --ds-line-tertiary: #efefef;
 
   /* Cherry brand and interaction */
   --ds-brand-surface: #d2042d;
@@ -82,12 +82,13 @@
   --ds-special-on-solid: #ffffff;
 
   /* System and elevation */
-  --ds-overlay: rgba(8, 9, 10, 0.56);
+  --ds-overlay: rgba(0, 0, 0, 0.24);
   --ds-elevation-flat: none;
-  --ds-elevation-subtle: rgba(8, 9, 10, 0.04) 0 1.2px 0 0;
-  --ds-elevation-ring: 0 0 0 1px var(--ds-border);
+  --ds-elevation-subtle: rgba(0, 0, 0, 0.02) 0 3px 6px -2px, rgba(0, 0, 0, 0.04) 0 1px 1px 0;
+  /* 控件外观：白底控件靠 0.5px 环与两层极轻阴影从白面板上浮出（linear.app Pure Light 实测）。 */
+  --ds-elevation-ring: rgba(0, 0, 0, 0.09) 0 0 0 0.5px, rgba(0, 0, 0, 0.02) 0 3px 6px -2px, rgba(0, 0, 0, 0.04) 0 1px 1px 0;
   --ds-elevation-inset: rgba(8, 9, 10, 0.06) 0 0 12px 0 inset;
-  /* 大而柔，不是小而硬：浮层要让人看出"下面还有东西"。 */
-  --ds-elevation-dialog: rgba(17, 24, 28, 0.12) 0 7px 32px, rgba(17, 24, 28, 0.06) 0 2px 8px;
+  /* linear.app Pure Light 实测的对话框与命令面板阴影。 */
+  --ds-elevation-dialog: rgba(0, 0, 0, 0.08) 0 9px 48px 0, rgba(0, 0, 0, 0.1) 0 6px 24px 0, rgba(0, 0, 0, 0.04) 0 1px 1px 0;
   --ds-elevation-raised: rgba(17, 24, 28, 0.12) 0 7px 32px, 0 0 0 1px rgba(17, 24, 28, 0.08);
 }

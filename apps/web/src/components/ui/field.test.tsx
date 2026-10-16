@@ -107,23 +107,17 @@ describe('SelectField', () => {
     expect(screen.getByRole('combobox', { name: '难度' })).toHaveTextContent('简单');
   });
 
-  it('shows focus by recolouring its own border, not by adding a ring', () => {
-    // 焦点是 1px 贴边变色（design-system.md §7.2 B）：状态变化只改颜色，不加东西——
-    // 加东西会改变占位并推挤相邻元素，而对齐是这套系统唯一的结构手段。
+  it('shows focus as a 1px inset outline, not a ring or offset outline', () => {
+    // 焦点是贴边的 1px outline（linear.app 实测，design-system.md §8）：outline 不占布局，
+    // 不推挤相邻元素；不叠 ring、不加 offset、不加粗到 2px。forced-colors 下 outline 取系统色。
     render(<SelectField label="难度" value="" onValueChange={() => {}} items={[]} />);
 
     const trigger = screen.getByRole('combobox', { name: '难度' });
-    expect(trigger.className).toContain('focus-visible:border-ring');
+    expect(trigger.className).toContain('focus-visible:outline-1');
+    expect(trigger.className).toContain('focus-visible:outline-offset-[-1px]');
+    expect(trigger.className).toContain('focus-visible:outline-ring');
     expect(trigger.className).not.toContain('focus-visible:outline-2');
-  });
-
-  it('falls back to an outline under forced colors, where border colour is overridden', () => {
-    // forced-colors 下颜色由系统接管，border-color 表达不出焦点；outline 会取系统色。
-    render(<SelectField label="难度" value="" onValueChange={() => {}} items={[]} />);
-
-    expect(screen.getByRole('combobox', { name: '难度' }).className).toContain(
-      'focus-visible:forced-colors:outline-1',
-    );
+    expect(trigger.className).not.toContain('focus-visible:ring');
   });
 
   it('opens the listbox and reports the chosen value', async () => {

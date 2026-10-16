@@ -4,28 +4,30 @@ import { LoaderCircle } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
+// 按钮取自 linear.app 实测：全部是胶囊；小号 28px/12px（工具条、对话框），中号 32px/13px。
+// 次要按钮是比面板亮一档的底；浅色主题下再加 0.5px 环与极轻阴影（shadow-ring），暗色下没有。
 const secondaryButtonClasses =
-  'bg-surface-translucent-hover text-fg-2 hover:bg-surface-translucent-selected active:bg-surface-translucent aria-pressed:bg-surface-translucent-selected';
+  'bg-surface text-fg-2 shadow-ring hover:bg-surface-hover hover:text-foreground active:bg-surface-hover aria-pressed:bg-surface-hover aria-pressed:text-foreground';
 
 const buttonVariants = cva(
-  'relative inline-flex max-w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-sm border border-transparent font-display leading-tight font-body transition-[background-color,color,border-color] duration-fast ease-standard select-none focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border! disabled:bg-surface-translucent! disabled:text-fg-disabled! motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
+  'relative inline-flex max-w-full shrink-0 cursor-pointer items-center justify-center gap-1x rounded-full border-hairline border-transparent font-display leading-tight font-body transition-[background-color,color,border-color] duration-fast ease-standard select-none focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed disabled:border-border! disabled:bg-surface-translucent! disabled:text-fg-disabled! motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*="size-"])]:size-4',
   {
     variants: {
       variant: {
         primary:
-          'bg-primary text-primary-foreground hover:bg-brand-surface-hover active:bg-brand-surface-active aria-pressed:bg-brand-surface-active disabled:bg-secondary disabled:text-fg-disabled',
+          'bg-primary text-primary-foreground shadow-subtle hover:bg-brand-surface-hover active:bg-brand-surface-active aria-pressed:bg-brand-surface-active disabled:bg-secondary disabled:text-fg-disabled',
         secondary: secondaryButtonClasses,
         ghost:
-          'border-border-solid bg-surface-translucent text-fg-ghost hover:bg-surface-translucent-selected active:bg-surface-translucent aria-pressed:bg-surface-translucent-selected aria-pressed:text-foreground',
+          'bg-transparent text-fg-2 hover:bg-surface-translucent-hover hover:text-foreground active:bg-surface-translucent-selected aria-pressed:bg-surface-hover aria-pressed:text-foreground',
         subtle: secondaryButtonClasses,
         toolbar:
-          'rounded-micro border-border-soft bg-surface-translucent-selected text-fg-meta shadow-subtle hover:bg-surface-hover hover:text-fg-2 active:bg-surface-translucent-selected aria-pressed:text-foreground',
+          'bg-surface text-fg-2 shadow-ring hover:bg-surface-hover hover:text-foreground active:bg-surface-hover aria-pressed:bg-surface-hover aria-pressed:text-foreground',
         danger:
           'bg-destructive text-destructive-foreground hover:bg-danger active:bg-danger-solid aria-pressed:outline-2 aria-pressed:outline-offset-[-2px] aria-pressed:outline-danger-on-solid',
       },
       size: {
-        sm: 'h-6 px-1x text-xs',
-        md: 'min-h-8 px-4 py-2 text-sm',
+        sm: 'h-7 px-[10px] text-xs',
+        md: 'min-h-8 px-3 py-1x text-sm',
         lg: 'min-h-10 px-5 py-2x text-15',
       },
     },

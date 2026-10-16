@@ -14,7 +14,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/field';
-import { InlineNotice } from '@/components/ui/inline-notice';
 import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select';
 import { Text } from '@/components/ui/typography';
@@ -99,7 +98,7 @@ export function AdminProblemCreateDialog({
         }
       }}
     >
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger render={<Button size="sm" />}>
         <Plus aria-hidden="true" />
         新建题目
       </DialogTrigger>
@@ -146,7 +145,7 @@ export function AdminProblemCreateDialog({
               <FormField
                 label="题目标识"
                 required
-                description="用于题目地址，例如 a-plus-b；创建后仍可在后续版本管理中识别同一道题。"
+                description="用于公开访问地址，例如 a-plus-b；创建后保持稳定。"
                 invalid={Boolean(errors.slug)}
                 error={errors.slug}
               >
@@ -183,11 +182,6 @@ export function AdminProblemCreateDialog({
               />
             )}
           </form.Field>
-          <InlineNotice variant="info" title="当前配置固定为 ACM / C++">
-            <Text size="sm" tone="secondary">
-              初始配置：ACM 模式 · C++。当前版本只支持这一组合，因此这里展示事实，不提供无效选项。
-            </Text>
-          </InlineNotice>
           {errors.form ? (
             <Text className="text-danger" size="sm" role="alert">
               {errors.form}

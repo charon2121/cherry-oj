@@ -20,7 +20,11 @@ type ToolbarProps = Readonly<{
   count?: ReactNode;
   filters?: ReactNode;
   search?: ReactNode;
-  title: ReactNode;
+  /**
+   * 不给标题时工具条只有一行：左边视图切换（filters），右边搜索与主操作——linear.app 的
+   * 列表页就是这样，页面名称已经在外壳顶栏的面包屑里，工具条不再重复。
+   */
+  title?: ReactNode;
   /** 标题层级由页面决定；工具条只负责它的视觉位置。 */
   titleId?: string;
 }>;
@@ -36,6 +40,21 @@ function Toolbar({
   titleId,
 }: ToolbarProps) {
   const hasSecondRow = filters !== undefined || children !== undefined;
+
+  if (title === undefined) {
+    return (
+      <div
+        data-slot="toolbar"
+        className={cn('min-h-header flex min-w-0 flex-wrap items-center gap-2 px-4', className)}
+      >
+        {filters}
+        <div className="flex-1" />
+        {search}
+        {children}
+        {actions}
+      </div>
+    );
+  }
 
   return (
     <div data-slot="toolbar" className={cn('min-w-0', className)}>

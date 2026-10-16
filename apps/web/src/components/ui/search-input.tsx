@@ -21,7 +21,8 @@ function SearchInput({
     <label
       data-slot="search-input"
       className={cn(
-        'border-border bg-surface-translucent duration-fast ease-standard focus-within:border-ring flex min-h-8 min-w-0 items-center gap-2 rounded-sm border px-2 py-1 transition-[background-color,border-color] motion-reduce:transition-none focus-within:forced-colors:outline-1 focus-within:forced-colors:outline-solid',
+        // linear.app 侧栏搜索框实测：高 28px、圆角 8px、0.5px 边、比面板略亮的底与极轻阴影。
+        'border-border bg-surface shadow-subtle duration-fast ease-standard focus-within:outline-ring border-hairline flex min-h-7 min-w-0 items-center gap-2 rounded-lg px-2 transition-[background-color] focus-within:outline-1 focus-within:outline-offset-[-1px] motion-reduce:transition-none',
         containerClassName,
       )}
     >

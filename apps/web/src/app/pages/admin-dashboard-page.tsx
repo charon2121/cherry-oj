@@ -10,7 +10,7 @@ function AdminDashboardPage() {
     <Container className="max-w-none">
       <Section>
         <Heading level={1} className="sr-only">
-          Dashboard
+          总览
         </Heading>
         <div className="grid gap-4 md:grid-cols-2">
           <Link
@@ -21,7 +21,7 @@ function AdminDashboardPage() {
             <Card interactive className="h-full">
               <CardHeader>
                 <Users aria-hidden="true" className="text-brand size-5" />
-                <CardTitle>管理用户账号</CardTitle>
+                <CardTitle>账号</CardTitle>
                 <CardDescription>创建账号、调整可用状态或重置用户密码。</CardDescription>
                 <CardAction>
                   <ArrowRight aria-hidden="true" className="text-fg-meta size-4" />
@@ -37,7 +37,7 @@ function AdminDashboardPage() {
             <Card interactive className="h-full">
               <CardHeader>
                 <BookOpen aria-hidden="true" className="text-brand size-5" />
-                <CardTitle>管理题目</CardTitle>
+                <CardTitle>题目</CardTitle>
                 <CardDescription>查找题目、创建题目并进入题目工作台。</CardDescription>
                 <CardAction>
                   <ArrowRight aria-hidden="true" className="text-fg-meta size-4" />

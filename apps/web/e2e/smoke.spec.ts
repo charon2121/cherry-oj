@@ -223,14 +223,12 @@ test('renders the same task-first admin dashboard at both requested routes', asy
   for (const path of ['/admin', '/admin/dashborad']) {
     await page.goto(path);
     await expect(page).toHaveURL(path);
-    await expect(page.locator('h1', { hasText: 'Dashboard' })).toHaveClass(/sr-only/);
-    await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    await expect(page.locator('h1', { hasText: '总览' })).toHaveClass(/sr-only/);
+    await expect(page.getByRole('link', { name: '总览' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('navigation', { name: '管理侧栏导航' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /管理用户账号/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /管理题目/ })).toBeVisible();
+    const main = page.locator('#admin-main');
+    await expect(main.getByRole('link', { name: /^账号/ })).toBeVisible();
+    await expect(main.getByRole('link', { name: /^题目/ })).toBeVisible();
     await expect(page.getByRole('contentinfo')).toHaveCount(0);
     const headerLinkDecorations = await page
       .locator('header a')
@@ -240,6 +238,7 @@ test('renders the same task-first admin dashboard at both requested routes', asy
     const adminShellGeometry = await page.evaluate(() => {
       const main = document.querySelector('#admin-main');
       if (main === null) throw new Error('Admin shell main is missing.');
+      // 主内容是内嵌面板（linear.app 实测）：面板下边距视口底部 8px。
       const contentRegion = main.parentElement;
       if (contentRegion === null) throw new Error('Admin shell content region is missing.');
       const shell = contentRegion.parentElement;
@@ -256,10 +255,10 @@ test('renders the same task-first admin dashboard at both requested routes', asy
       };
     });
     expect(adminShellGeometry.templateRows).toBe(1);
-    expect(adminShellGeometry.headerHeight).toBe(56);
-    expect(adminShellGeometry.sidebarWidth).toBe(220);
+    expect(adminShellGeometry.headerHeight).toBe(44);
+    expect(adminShellGeometry.sidebarWidth).toBe(244);
     expect(
-      Math.abs(adminShellGeometry.contentBottom - adminShellGeometry.viewportHeight),
+      Math.abs(adminShellGeometry.contentBottom - (adminShellGeometry.viewportHeight - 8)),
     ).toBeLessThanOrEqual(1);
     expect(
       Math.abs(adminShellGeometry.shellBottom - adminShellGeometry.viewportHeight),
@@ -299,20 +298,17 @@ test('keeps the desktop admin sidebar fixed and scrolls only the main content', 
   );
 
   await page.goto('/admin/users?page=1');
-  await expect(page.getByLabel('新用户用户名')).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建账号' })).toBeVisible();
   await expect(page.getByRole('row').filter({ hasText: 'user-00' })).toBeVisible();
   await expect(page.locator('[data-slot="sidebar"]')).toBeVisible();
   const geometry = await page.evaluate(() => {
     const header = document.querySelector('header');
     const main = document.querySelector<HTMLElement>('#admin-main');
-    const section = main?.querySelector<HTMLElement>('[data-slot="section"]');
-    const firstPanel = section?.querySelector<HTMLElement>('[data-slot="panel"]');
+    const firstPanel = main?.querySelector<HTMLElement>('h1');
     const sidebar = document.querySelector<HTMLElement>('[data-slot="sidebar"]');
     if (
       header === null ||
       main === null ||
-      section === null ||
-      section === undefined ||
       firstPanel === null ||
       firstPanel === undefined ||
       sidebar === null
@@ -518,39 +514,38 @@ test('lets an admin manage users and reveals a temporary password only once', as
   });
 
   await page.goto('/admin/users?page=1');
-  await expect(page.locator('h1', { hasText: '用户账号' })).toHaveClass(/sr-only/);
+  await expect(page.getByRole('heading', { level: 1, name: '账号' })).toBeVisible();
   await expect(page.getByRole('contentinfo')).toHaveCount(0);
-  await expect(page.getByText('已停用', { exact: true })).toBeVisible();
-  await expect(page.getByLabel('新用户用户名')).toBeInViewport();
+  await expect(page.getByRole('cell', { name: '已停用', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建账号' })).toBeInViewport();
   const navigationTrigger = page.getByRole('button', { name: '打开管理导航' });
   await navigationTrigger.click();
   const mobileNavigation = page.getByRole('navigation', { name: '移动管理导航' });
   await expect(mobileNavigation).toBeVisible();
-  await expect(mobileNavigation.getByRole('button', { name: '账号管理' })).toHaveAttribute(
-    'aria-expanded',
-    'true',
-  );
-  await expect(mobileNavigation.getByRole('link', { name: '用户账号' })).toHaveAttribute(
+  await expect(mobileNavigation.getByRole('link', { name: '账号' })).toHaveAttribute(
     'aria-current',
     'page',
   );
   await page.getByRole('button', { name: '关闭管理导航' }).click();
   await expect(navigationTrigger).toBeFocused();
 
-  const disabledRow = page.getByRole('row').filter({ hasText: 'disabled-user' });
+  const disabledRowActions = page.getByRole('button', { name: 'disabled-user 的更多操作' });
   page.once('dialog', (dialog) => dialog.accept());
-  await disabledRow.getByRole('button', { name: '恢复' }).click();
+  await disabledRowActions.click();
+  await page.getByRole('menuitem', { name: '恢复' }).click();
   await expect.poll(() => statusChanges).toBe(1);
   page.once('dialog', (dialog) => dialog.accept());
-  await disabledRow.getByRole('button', { name: '重置密码' }).click();
+  await disabledRowActions.click();
+  await page.getByRole('menuitem', { name: '重置密码' }).click();
   await expect(page.getByRole('dialog', { name: '一次性临时密码' })).toContainText(
     'Reset-Password-42!',
   );
   expect(passwordResets).toBe(1);
   await page.getByRole('button', { name: '我已保存，关闭' }).click();
 
-  await page.getByLabel('新用户用户名').fill('new-user');
-  await page.getByRole('button', { name: '创建用户' }).click();
+  await page.getByRole('button', { name: '新建账号' }).click();
+  await page.getByRole('dialog', { name: '新建账号' }).getByLabel('用户名').fill('new-user');
+  await page.getByRole('button', { name: '创建账号' }).click();
   const dialog = page.getByRole('dialog', { name: '一次性临时密码' });
   await expect(dialog).toContainText(temporaryPassword);
   await dialog.getByRole('button', { name: '我已保存，关闭' }).click();

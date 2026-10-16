@@ -27,7 +27,8 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        'text-foreground data-placeholder:text-muted-foreground border-border bg-surface-translucent duration-fast hover:bg-surface-translucent-hover focus-visible:border-ring disabled:border-border disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:border-danger-border flex w-full min-w-0 items-center justify-between gap-1.5 rounded-sm border py-2 pr-2 pl-3 text-left text-sm transition-[background-color,border-color] outline-none select-none disabled:cursor-not-allowed data-[size=default]:min-h-10 data-[size=sm]:min-h-8 motion-reduce:transition-none focus-visible:forced-colors:outline-1 focus-visible:forced-colors:outline-offset-0 focus-visible:forced-colors:outline-solid [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        // linear.app 设置页的下拉按钮：无边、比面板亮一档的底、圆角 8px、13px，高 30–32px。
+        'text-fg-2 data-placeholder:text-muted-foreground bg-surface-raised shadow-ring duration-fast hover:bg-surface-hover focus-visible:outline-ring disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:outline-danger-border py-1x flex w-full min-w-0 items-center justify-between gap-1.5 rounded-lg pr-2 pl-[10px] text-left text-sm transition-[background-color] outline-none select-none focus-visible:outline-1 focus-visible:outline-offset-[-1px] disabled:cursor-not-allowed aria-invalid:outline-1 data-[size=default]:min-h-8 data-[size=sm]:min-h-7 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}
@@ -68,7 +69,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'text-foreground border-border bg-panel/85 shadow-dialog backdrop-blur-overlay duration-fast ease-standard relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-sm border p-1 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground border-border bg-surface-raised shadow-dialog duration-fast ease-standard border-hairline relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-xl p-1 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             className,
           )}
           {...props}
@@ -97,7 +98,7 @@ function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Prop
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        'focus:text-foreground focus:bg-surface-translucent-selected data-disabled:text-fg-disabled relative flex w-full cursor-default items-center gap-1.5 rounded-xs py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'focus:text-foreground focus:bg-surface-translucent-selected data-disabled:text-fg-disabled min-h-item relative flex w-full cursor-default items-center gap-1.5 rounded-lg py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
         className,
       )}
       {...props}

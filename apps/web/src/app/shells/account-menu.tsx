@@ -25,6 +25,11 @@ type AccountMenuProps = Readonly<{
   className?: string;
   showAdminEntry?: boolean;
   showSiteEntry?: boolean;
+  /**
+   * `account`（默认）在顶栏显示用户名；`workspace` 放在侧栏左上角，显示产品标记与名称——
+   * linear.app 把工作区菜单放在那里，账号、设置与退出都从它进入。
+   */
+  trigger?: 'account' | 'workspace';
 }>;
 
 type AccountMenuViewProps = Readonly<{
@@ -40,6 +45,7 @@ type AccountMenuViewProps = Readonly<{
   showAdminEntry?: boolean;
   showSiteEntry?: boolean;
   siteLink: ReactElement;
+  trigger?: 'account' | 'workspace';
   username: string;
 }>;
 
@@ -56,6 +62,7 @@ function AccountMenuView({
   showAdminEntry = false,
   showSiteEntry = false,
   siteLink,
+  trigger = 'account',
   username,
 }: AccountMenuViewProps) {
   const hasLogoutError = logoutState === 'error';
@@ -76,23 +83,55 @@ function AccountMenuView({
     .join('，');
 
   return (
-    <div className={cn('ml-auto min-w-0 shrink-0', className)}>
+    <div className={cn(trigger === 'account' && 'ml-auto shrink-0', 'min-w-0', className)}>
       <DropdownMenu defaultOpen={defaultOpen}>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="sm" className="max-w-48 px-2" aria-label={triggerLabel} />
-          }
-        >
-          <UserRound aria-hidden="true" />
-          {triggerStatus ? (
-            <span className={cn(hasLogoutError && 'text-destructive')}>{triggerStatus}</span>
-          ) : (
-            <span className="hidden max-w-28 truncate sm:inline" title={username}>
-              {username}
+        {trigger === 'workspace' ? (
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-foreground px-1x max-w-full justify-start rounded-lg text-sm"
+                aria-label={triggerLabel}
+              />
+            }
+          >
+            <span
+              aria-hidden="true"
+              className="bg-primary text-primary-foreground text-tiny flex size-[18px] shrink-0 items-center justify-center rounded-xs"
+            >
+              C
             </span>
-          )}
-          <ChevronDown aria-hidden="true" className="hidden sm:block" />
-        </DropdownMenuTrigger>
+            <span className="truncate">Cherry OJ</span>
+            {triggerStatus ? (
+              <span className={cn('text-fg-meta text-xs', hasLogoutError && 'text-destructive')}>
+                {triggerStatus}
+              </span>
+            ) : null}
+            <ChevronDown aria-hidden="true" className="text-fg-meta size-[14px]" />
+          </DropdownMenuTrigger>
+        ) : (
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="max-w-48 px-2"
+                aria-label={triggerLabel}
+              />
+            }
+          >
+            <UserRound aria-hidden="true" />
+            {triggerStatus ? (
+              <span className={cn(hasLogoutError && 'text-destructive')}>{triggerStatus}</span>
+            ) : (
+              <span className="hidden max-w-28 truncate sm:inline" title={username}>
+                {username}
+              </span>
+            )}
+            <ChevronDown aria-hidden="true" className="hidden sm:block" />
+          </DropdownMenuTrigger>
+        )}
         <DropdownMenuContent>
           <DropdownMenuGroup>
             <DropdownMenuLabel>
@@ -147,6 +186,7 @@ function AccountMenu({
   className,
   showAdminEntry = false,
   showSiteEntry = false,
+  trigger = 'account',
 }: AccountMenuProps) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQueryOptions());
@@ -223,6 +263,7 @@ function AccountMenu({
       showAdminEntry={showAdminEntry}
       showSiteEntry={showSiteEntry}
       siteLink={<Link to="/" />}
+      trigger={trigger}
       username={user.username}
     />
   );

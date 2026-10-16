@@ -216,6 +216,7 @@
    * default 4px grid only coincides with it, and --ds-space-9 (35px) would silently render as
    * 36px if left to the default. 1x/2x/4x/5x are the source's optical micro-steps. */
   --spacing-px: var(--ds-space-px);
+  --spacing-half: var(--ds-space-half);
   --spacing-1: var(--ds-space-1);
   --spacing-1x: var(--ds-space-1x);
   --spacing-2: var(--ds-space-2);
@@ -235,6 +236,8 @@
   --spacing-gutter-desktop: var(--ds-container-gutter-desktop);
   --spacing-header: var(--ds-header-height);
   --spacing-sidebar: var(--ds-sidebar-width);
+  --spacing-shell-inset: var(--ds-shell-inset);
+  --spacing-item: var(--ds-item-height);
 
   /* Optical type scale. Tailwind pairs its built-in text-* names with a default line-height and
    * emits it alongside the font-size; the codebase previously used bare font-size utilities and
@@ -316,6 +319,7 @@
   --radius-md: var(--ds-radius-md);
   --radius-lg: var(--ds-radius-lg);
   --radius-xl: var(--ds-radius-xl);
+  --radius-2xl: var(--ds-radius-2xl);
   --radius-full: var(--ds-radius-pill);
   --font-sans: var(--ds-font-body);
   --font-display: var(--ds-font-display);
@@ -323,3 +327,11 @@
 }
 
 @custom-variant dark (&:where([data-color-scheme="dark"], [data-color-scheme="dark"] *));
+
+/* 0.5px hairline（linear.app 实测）。Tailwind 的 border 宽度刻度只有整数像素，这里给出命名工具类。 */
+@utility border-hairline {
+  border-width: var(--ds-hairline);
+}
+@utility border-b-hairline {
+  border-bottom-width: var(--ds-hairline);
+}

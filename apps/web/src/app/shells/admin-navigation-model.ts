@@ -17,33 +17,29 @@ type AdminNavigationGroup = Readonly<{
 
 type AdminNavigationEntry = AdminNavigationGroup | AdminNavigationLeaf;
 
+// 三个平级入口，名字用对象而不是"××管理"：侧栏本身就在管理端里，"管理"两个字不带信息。
+// 只有一个子项的分组会让人多点一次才能到达，因此不再使用。
 const adminNavigationEntries: readonly AdminNavigationEntry[] = [
   {
     activePaths: ['/admin', '/admin/dashborad'],
     icon: LayoutDashboard,
     id: 'dashboard',
-    label: 'Dashboard',
+    label: '总览',
     to: '/admin',
-  },
-  {
-    children: [
-      {
-        activePaths: ['/admin/users'],
-        id: 'users',
-        label: '用户账号',
-        to: '/admin/users',
-      },
-    ],
-    icon: Users,
-    id: 'account',
-    label: '账号管理',
   },
   {
     activePaths: ['/admin/problems'],
     icon: BookOpen,
     id: 'problems',
-    label: '题目管理',
+    label: '题目',
     to: '/admin/problems',
+  },
+  {
+    activePaths: ['/admin/users'],
+    icon: Users,
+    id: 'users',
+    label: '账号',
+    to: '/admin/users',
   },
 ];
 

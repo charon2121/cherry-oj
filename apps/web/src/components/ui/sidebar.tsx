@@ -9,7 +9,7 @@ function Sidebar({ className, ...props }: ComponentProps<'aside'>) {
     <aside
       data-slot="sidebar"
       className={cn(
-        'text-sidebar-foreground w-sidebar border-border-soft bg-panel flex min-h-0 flex-col border-r',
+        'text-sidebar-foreground w-sidebar bg-background flex min-h-0 flex-col',
         className,
       )}
       {...props}
@@ -21,7 +21,7 @@ function SidebarContent({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="sidebar-content"
-      className={cn('flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2', className)}
+      className={cn('flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-2', className)}
       {...props}
     />
   );
@@ -37,7 +37,7 @@ function SidebarGroupLabel({ children, className, ...props }: ComponentProps<'h2
   return (
     <h2
       data-slot="sidebar-group-label"
-      className={cn('font-body text-fg-meta px-2 py-1 text-xs', className)}
+      className={cn('font-body text-fg-meta text-cap px-2 py-1', className)}
       {...props}
     >
       {children}
@@ -49,7 +49,7 @@ function SidebarMenu({ className, ...props }: ComponentProps<'ul'>) {
   return (
     <ul
       data-slot="sidebar-menu"
-      className={cn('grid min-w-0 list-none gap-1 p-0', className)}
+      className={cn('grid min-w-0 list-none gap-px p-0', className)}
       {...props}
     />
   );
@@ -59,10 +59,10 @@ function SidebarMenuItem({ className, ...props }: ComponentProps<'li'>) {
   return <li data-slot="sidebar-menu-item" className={cn('min-w-0', className)} {...props} />;
 }
 
-// 导航项高度对齐参照的 24–27px；选中态只改背景与前景颜色，**不加粗**——
-// 强调只有提亮和变灰两招（design-system.md §7.2 原则 C），加粗是第三种手段。
+// 导航项取自 linear.app 实测：高 28px、13px/500、圆角 8px、灰字；选中态只改背景与前景颜色，
+// **不加粗**——强调只有提亮和变灰两招（design-system.md §7.2 原则 C）。
 const menuItemClasses =
-  'flex min-h-7 w-full min-w-0 items-center gap-2 rounded-xs px-2 py-1 text-left text-cap font-body text-fg-2 transition-colors duration-fast hover:bg-surface-translucent-hover hover:text-foreground focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring data-[active]:bg-surface-hover data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
+  'flex min-h-7 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-sm font-body text-fg-meta transition-colors duration-fast hover:bg-surface-translucent-hover hover:text-foreground focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring data-[active]:bg-surface-hover data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 type SidebarMenuButtonProps = useRender.ComponentProps<'button'> &
   ComponentProps<'button'> &
@@ -119,7 +119,7 @@ function SidebarMenuSubButton({
     render,
     props: mergeProps<'a'>(
       {
-        className: cn(menuItemClasses, 'min-h-9 px-2 py-1.5', className),
+        className: cn(menuItemClasses, className),
       },
       props,
     ),

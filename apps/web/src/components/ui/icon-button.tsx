@@ -36,11 +36,11 @@ function IconButton({
       size={size}
       aria-pressed={active || undefined}
       className={cn(
-        'hover:text-foreground aria-pressed:text-foreground border-border bg-surface-translucent text-fg-2 hover:bg-surface-translucent-selected aria-pressed:bg-surface-hover min-h-0 p-0',
+        'hover:text-foreground aria-pressed:text-foreground text-fg-2 hover:bg-surface-hover aria-pressed:bg-surface-hover min-h-0 p-0',
         size === 'sm' && 'size-6',
         size === 'md' && 'size-7',
         size === 'lg' && 'size-8',
-        shape === 'circle' ? 'rounded-circle' : 'rounded-sm',
+        shape === 'circle' ? 'rounded-circle' : 'rounded-lg',
         className,
       )}
       {...props}

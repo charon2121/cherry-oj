@@ -238,7 +238,7 @@ const errors = [];
 let contrastChecks = 0;
 let minimumContrast = { ratio: Number.POSITIVE_INFINITY, pair: "" };
 const expectedMinimumContrast = {
-  ratio: 3.4035078594052393,
+  ratio: 3.318324835677781,
   pair: "pure-white --ds-border-strong on --ds-surface-hover"
 };
 
