@@ -59,7 +59,7 @@
   --ds-on-brand-soft: #ff4d67;
   --ds-link: var(--ds-brand-foreground);
   --ds-link-hover: var(--ds-brand-foreground-hover);
-  --ds-focus: var(--ds-brand-foreground);
+  --ds-focus: var(--ds-fg-2);
   --ds-selection-surface: var(--ds-brand-soft);
   --ds-selection-foreground: var(--ds-fg);
 

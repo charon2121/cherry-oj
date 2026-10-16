@@ -1,9 +1,8 @@
 import { useForm, useStore } from '@tanstack/react-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useBlocker, useNavigate } from '@tanstack/react-router';
+import { useBlocker, useNavigate } from '@tanstack/react-router';
 import {
   Archive,
-  ArrowLeft,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -25,7 +24,7 @@ import {
 } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogClose,
@@ -37,6 +36,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { FormField } from '@/components/ui/field';
+import { HeaderActions, usePageCrumb } from '@/components/ui/header-slot';
 import { InlineNotice as UiInlineNotice } from '@/components/ui/inline-notice';
 import { Input } from '@/components/ui/input';
 import { Cluster, Container, Section, Stack } from '@/components/ui/layout';
@@ -325,6 +325,7 @@ function WorkbenchEditor({
 
   const isDirty = useStore(form.store, (state) => state.isDirty);
   const formValues = useStore(form.store, (state) => state.values);
+  usePageCrumb(formValues.title || problem.title);
 
   const markChanged = () => {
     editRevision.current += 1;
@@ -506,35 +507,24 @@ function WorkbenchEditor({
   // 题目当前离公开还差什么，由右侧属性栏持续给出（数据来自服务端公开检查）。
   return (
     <div className="flex min-h-full min-w-0 flex-col">
-      <div className="border-border-soft bg-panel min-h-header border-b-hairline sticky top-0 z-20 flex min-w-0 flex-wrap items-center justify-between gap-2 px-4 py-1">
-        <Link
-          to="/admin/problems"
-          search={{ page: 1, q: '', status: 'ALL' }}
-          className={buttonVariants({ size: 'sm', variant: 'ghost', className: 'no-underline' })}
-          aria-label="返回题目列表"
+      <HeaderActions>
+        <SaveStatus
+          isDirty={isDirty}
+          isSaving={save.isPending}
+          isError={save.isError}
+          hasReferenceSource={Boolean(referenceSource.trim())}
+          lastSavedAt={lastSavedAt}
+        />
+        <Button
+          size="sm"
+          disabled={!editable || !isDirty}
+          loading={save.isPending}
+          onClick={() => void form.handleSubmit()}
         >
-          <ArrowLeft aria-hidden="true" />
-          <span className="hidden sm:inline">题目</span>
-        </Link>
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-          <SaveStatus
-            isDirty={isDirty}
-            isSaving={save.isPending}
-            isError={save.isError}
-            hasReferenceSource={Boolean(referenceSource.trim())}
-            lastSavedAt={lastSavedAt}
-          />
-          <Button
-            size="sm"
-            disabled={!editable || !isDirty}
-            loading={save.isPending}
-            onClick={() => void form.handleSubmit()}
-          >
-            <Save aria-hidden="true" />
-            保存
-          </Button>
-        </div>
-      </div>
+          <Save aria-hidden="true" />
+          保存
+        </Button>
+      </HeaderActions>
 
       <div className="min-w-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 px-4 pt-6 pb-12 sm:px-8 xl:px-14">
@@ -593,7 +583,7 @@ function WorkbenchEditor({
               ref={stepContentRef}
               role="region"
               aria-label={`${steps[currentStepIndex]?.label ?? '题目'}编辑`}
-              className="mt-6 scroll-mt-[calc(var(--layout-header)+var(--space-6))]"
+              className="mt-6 scroll-mt-6"
             >
               <form
                 onSubmit={(event) => {
@@ -1225,7 +1215,7 @@ function WorkbenchProperties({
   return (
     <aside
       aria-label="题目属性"
-      className="border-border-soft lg:border-l-hairline min-w-0 px-4 pb-8 lg:sticky lg:top-[var(--layout-header)] lg:self-start lg:pt-6"
+      className="border-border-soft lg:border-l-hairline min-w-0 px-4 pb-8 lg:sticky lg:top-0 lg:self-start lg:pt-6"
     >
       <div className="grid gap-6">
         <section aria-labelledby="property-status">
@@ -1325,7 +1315,7 @@ function SaveStatus({
   }
   return (
     <Text
-      className={cn(isError && 'text-danger')}
+      className={cn('max-sm:sr-only', isError && 'text-danger')}
       size="sm"
       tone="muted"
       role="status"

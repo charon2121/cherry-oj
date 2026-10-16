@@ -133,8 +133,11 @@ Tailwind/shadcn 只做一次 theme-neutral 映射：
 
 品牌角色拆为 `brand-surface`、hover/active、`on-brand`、`brand-foreground`、`brand-soft` 和
 `on-brand-soft`。实心 CTA 使用来源 Cherry；为确保白字在全部按钮状态可读，hover/active 使用同色族
-更深的两档。暗色品牌文字/focus 使用亮 Cherry，hover 再亮一档；pure-white 的文字、链接和 focus 使用
-可达对比的深 Cherry。暗色亮粉不得直接搬到白底正文或必要图标。具体值见主题 CSS。
+更深的两档。暗色品牌文字与链接使用亮 Cherry，hover 再亮一档；pure-white 的文字与链接使用可达对比的
+深 Cherry。暗色亮粉不得直接搬到白底正文或必要图标。具体值见主题 CSS。
+
+**焦点不用品牌色。** Cherry 与危险红太接近，品牌色焦点会被读成"出错"；焦点统一使用中性高对比的
+次亮前景色（`--ds-focus` 指向 `--ds-fg-2`）。这是与 linear.app（品牌紫焦点）有意的偏离。
 
 `success`、`warning`、`danger`、`info`、`special` 每类状态都完整实现：
 

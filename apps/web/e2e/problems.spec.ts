@@ -280,9 +280,9 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
     if (!main) throw new Error('admin main region is missing');
     return element.getBoundingClientRect().top - main.getBoundingClientRect().top;
   });
-  // 切换步骤后内容回到首屏：不被 44px 的吸顶工作台顶栏盖住，也不停在上一屏滚到的底部。
-  // 内容足够长时停在顶栏下方 24px；样例这类短步骤滚不动，停在标题与步骤胶囊之下的自然位置。
-  expect(stepOffset).toBeGreaterThanOrEqual(64);
+  // 切换步骤后内容回到首屏，不停在上一屏滚到的底部。内容足够长时停在主区顶部下方 24px；
+  // 样例这类短步骤滚不动，停在标题与步骤胶囊之下的自然位置。
+  expect(stepOffset).toBeGreaterThanOrEqual(16);
   expect(stepOffset).toBeLessThanOrEqual(200);
 
   await page.setViewportSize({ width: 320, height: 720 });

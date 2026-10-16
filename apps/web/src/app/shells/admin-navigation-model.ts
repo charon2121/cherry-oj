@@ -68,14 +68,22 @@ type AdminBreadcrumb = Readonly<{ label: string; to?: AdminNavigationLeaf['to'] 
  *
  * 末项不给 `to`：它是当前位置，不是可以点的链接。
  */
-function adminBreadcrumbsFor(pathname: string): readonly AdminBreadcrumb[] {
+function adminBreadcrumbsFor(
+  pathname: string,
+  pageCrumb: string | null = null,
+): readonly AdminBreadcrumb[] {
+  // 页面给出当前对象名（例如题目标题）时追加为末项，它所在的栏目因此变成可点的链接。
+  const withPage = (section: AdminBreadcrumb, to: AdminNavigationLeaf['to']) =>
+    pageCrumb === null ? [section] : [{ ...section, to }, { label: pageCrumb }];
   for (const entry of adminNavigationEntries) {
     if (isAdminNavigationGroup(entry)) {
       const leaf = entry.children.find((child) => isAdminNavigationLeafActive(child, pathname));
-      if (leaf !== undefined) return [{ label: entry.label }, { label: leaf.label }];
+      if (leaf !== undefined)
+        return [{ label: entry.label }, ...withPage({ label: leaf.label }, leaf.to)];
       continue;
     }
-    if (isAdminNavigationLeafActive(entry, pathname)) return [{ label: entry.label }];
+    if (isAdminNavigationLeafActive(entry, pathname))
+      return withPage({ label: entry.label }, entry.to);
   }
   return [];
 }

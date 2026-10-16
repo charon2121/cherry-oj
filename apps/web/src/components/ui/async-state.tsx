@@ -43,29 +43,31 @@ const stateAppearances: Record<AsyncStateVariant, AsyncStateAppearance> = {
   empty: {
     icon: Inbox,
     iconClassName: 'text-muted-foreground',
-    surfaceClassName: 'border-border bg-surface text-foreground',
+    surfaceClassName: 'text-foreground',
   },
   loading: {
     icon: LoaderCircle,
     iconClassName: 'animate-spin text-info motion-reduce:animate-none',
-    surfaceClassName: 'border-border bg-surface text-foreground',
+    surfaceClassName: 'text-foreground',
   },
   error: {
     icon: CircleAlert,
     iconClassName: 'text-danger',
-    surfaceClassName: 'border-danger-border bg-danger-soft text-danger',
+    surfaceClassName: 'text-foreground',
   },
   unauthorized: {
     icon: LockKeyhole,
     iconClassName: 'text-foreground',
-    surfaceClassName: 'border-border bg-surface text-foreground',
+    surfaceClassName: 'text-foreground',
   },
 };
 
+// 状态不装进框里（linear.app 的空状态：居中的图标、15px 标题、13px 灰色说明与按钮，没有边框和底色）。
+// 错误靠图标颜色与文字表达，不靠整块红底。
 const sizeClassNames: Record<AsyncStateSize, string> = {
-  inline: 'p-3',
-  panel: 'rounded-lg border p-6',
-  page: 'min-h-64 justify-center rounded-lg border px-4 py-12 text-center',
+  inline: 'py-3',
+  panel: 'p-6',
+  page: 'min-h-64 justify-center px-4 py-12 text-center',
 };
 
 export function AsyncState(props: AsyncStateProps) {
@@ -115,7 +117,7 @@ export function AsyncState(props: AsyncStateProps) {
         <StateIcon
           data-slot="async-state-icon"
           className={cn(
-            'size-6 shrink-0',
+            size === 'inline' ? 'size-4 shrink-0' : 'size-6 shrink-0',
             retrying
               ? 'text-info animate-spin motion-reduce:animate-none'
               : appearance.iconClassName,
@@ -123,11 +125,18 @@ export function AsyncState(props: AsyncStateProps) {
           aria-hidden="true"
         />
         <div className={cn('min-w-0', size !== 'inline' && 'text-center')}>
-          <p className="font-semibold">{title}</p>
+          <p
+            className={cn(
+              'text-fg-2',
+              size === 'inline' ? 'font-body text-sm' : 'font-heading text-15',
+            )}
+          >
+            {title}
+          </p>
           <div
             className={cn(
               'mt-1 text-sm select-text',
-              variant === 'error' ? 'text-danger' : 'text-muted-foreground',
+              variant === 'error' ? 'text-danger' : 'text-fg-meta',
             )}
           >
             {children}

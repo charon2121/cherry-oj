@@ -20,6 +20,13 @@ describe('adminBreadcrumbsFor', () => {
     expect(adminBreadcrumbsFor('/admin')).toEqual([{ label: '总览' }]);
   });
 
+  it('appends the page object and links its section when a page names itself', () => {
+    expect(adminBreadcrumbsFor('/admin/problems/abc', 'A + B')).toEqual([
+      { label: '题目', to: '/admin/problems' },
+      { label: 'A + B' },
+    ]);
+  });
+
   it('never marks the last crumb as a link target', () => {
     // 末项是当前位置，不是可以点的链接。
     for (const path of ['/admin/users', '/admin/problems']) {

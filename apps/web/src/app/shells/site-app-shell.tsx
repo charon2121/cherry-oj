@@ -40,7 +40,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
       >
         跳到主要内容
       </a>
-      <header className="h-header border-border-soft bg-panel sticky top-0 z-40 border-b">
+      <header className="h-header border-border-soft bg-panel border-b-hairline sticky top-0 z-40">
         <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop h-full">
           <div className="flex h-full min-w-0 flex-nowrap items-center gap-2 sm:gap-6">
             <AppBrand />
@@ -68,11 +68,10 @@ function SiteAppShell({ children }: SiteAppShellProps) {
         {children ?? <Outlet />}
       </main>
 
-      <footer hidden={coding} className="border-border-soft border-t">
+      <footer hidden={coding} className="border-border-soft border-t-hairline">
         <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop">
           <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <span className="font-display font-body">Cherry OJ</span>
-            <span className="text-fg-meta">Focused Workspace</span>
           </div>
         </div>
       </footer>

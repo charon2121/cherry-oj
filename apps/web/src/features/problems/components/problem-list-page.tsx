@@ -285,12 +285,11 @@ export function ProblemListPage({ search, navigate }: Props) {
       }
     >
       {result.isError && result.data ? (
-        <div
-          role="alert"
-          className="border-danger-border bg-danger-soft mb-4 rounded-lg border p-4"
-        >
-          <Text size="sm">下一批加载失败，当前结果已保留。</Text>
-          <Button className="mt-3" variant="secondary" onClick={() => void result.refetch()}>
+        <div role="alert" className="mb-4 flex flex-wrap items-center gap-3 px-4">
+          <Text size="sm" className="text-danger">
+            下一批加载失败，当前结果已保留。
+          </Text>
+          <Button size="sm" variant="secondary" onClick={() => void result.refetch()}>
             重试当前批次
           </Button>
         </div>

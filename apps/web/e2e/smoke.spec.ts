@@ -89,7 +89,7 @@ test('opens an anonymous application shell without protected-content flash', asy
     .evaluateAll((links) => links.map((link) => getComputedStyle(link).textDecorationLine));
   expect(headerLinkDecorations).not.toContain('underline');
   const footer = page.getByRole('contentinfo');
-  await expect(footer).toContainText('Focused Workspace');
+  await expect(footer).toContainText('Cherry OJ');
   const userShellSurfaces = await page.evaluate(() => {
     const main = document.querySelector('main');
     const contentInfo = document.querySelector('footer');
@@ -219,16 +219,68 @@ test('renders the same task-first admin dashboard at both requested routes', asy
     if (url.pathname.startsWith('/api/')) requestedApiPaths.push(url.pathname);
   });
   await mockSession(page, () => ({ authenticated: true, user: admin }));
+  await page.route('**/api/admin/problems?*', (route) =>
+    apiSuccess(
+      route,
+      {
+        items: [
+          {
+            id: '01a1429f-dbf2-795b-bb28-1a4f5180e142',
+            slug: 'a-plus-b',
+            title: 'A + B',
+            visibility: 'PRIVATE',
+            status: 'ACTIVE',
+            difficulty: 'EASY',
+            hasTestData: false,
+            updatedAt: '2026-10-16T02:00:00Z',
+            publishedAt: null,
+            rowVersion: 1,
+          },
+        ],
+      },
+      {
+        meta: { pagination: { kind: 'page', page: 1, size: 20, totalElements: 1, totalPages: 1 } },
+      },
+    ),
+  );
+  await page.route('**/api/admin/judging/judge-nodes', (route) =>
+    apiSuccess(route, {
+      items: [
+        { nodeId: 'judge-a', languages: ['cpp'], online: true, lastSeenAt: '2026-10-16T04:00:00Z' },
+        {
+          nodeId: 'judge-b',
+          languages: ['cpp'],
+          online: false,
+          lastSeenAt: '2026-10-15T23:00:00Z',
+        },
+      ],
+    }),
+  );
+  await page.route('**/api/admin/users?page=1&size=20', (route) =>
+    apiSuccess(
+      route,
+      { items: [admin, account({ username: 'new-student', passwordChangeRequired: true })] },
+      {
+        meta: { pagination: { kind: 'page', page: 1, size: 20, totalElements: 2, totalPages: 1 } },
+      },
+    ),
+  );
 
   for (const path of ['/admin', '/admin/dashborad']) {
     await page.goto(path);
     await expect(page).toHaveURL(path);
-    await expect(page.locator('h1', { hasText: '总览' })).toHaveClass(/sr-only/);
+    await expect(page.getByRole('heading', { level: 1, name: '总览' })).toBeVisible();
     await expect(page.getByRole('link', { name: '总览' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('navigation', { name: '管理侧栏导航' })).toBeVisible();
+    // 总览只列待办：未公开的题目与待首次改密的账号，每行都能直达处理的地方。
     const main = page.locator('#admin-main');
-    await expect(main.getByRole('link', { name: /^账号/ })).toBeVisible();
-    await expect(main.getByRole('link', { name: /^题目/ })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'A + B' })).toBeVisible();
+    await expect(main.getByRole('link', { name: 'new-student' })).toBeVisible();
+    await expect(main.getByText('还没有测试数据').first()).toBeVisible();
+    // 判题节点组总是在：列出每个节点是否在线，离线的给出最近心跳。
+    await expect(main.getByText('1 / 2 在线')).toBeVisible();
+    await expect(main.getByText('judge-b')).toBeVisible();
+    await expect(main.getByText(/离线 · 最近心跳/).first()).toBeVisible();
     await expect(page.getByRole('contentinfo')).toHaveCount(0);
     const headerLinkDecorations = await page
       .locator('header a')
@@ -270,7 +322,14 @@ test('renders the same task-first admin dashboard at both requested routes', asy
   await expect(page.getByRole('menuitem', { name: '返回用户端' })).toBeVisible();
   await page.keyboard.press('Escape');
 
-  expect(requestedApiPaths).toEqual(['/api/auth/session', '/api/auth/session']);
+  expect(new Set(requestedApiPaths)).toEqual(
+    new Set([
+      '/api/auth/session',
+      '/api/admin/problems',
+      '/api/admin/users',
+      '/api/admin/judging/judge-nodes',
+    ]),
+  );
 });
 
 test('keeps the desktop admin sidebar fixed and scrolls only the main content', async ({
