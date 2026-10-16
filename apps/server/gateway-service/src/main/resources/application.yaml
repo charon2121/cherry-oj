@@ -22,7 +22,7 @@ spring:
       password: "${CHERRY_REDIS_PASSWORD:}"
       timeout: 2s
 server:
-  port: 8080
+  port: "${CHERRY_GATEWAY_PORT:8080}"
   reactive:
     session:
       cookie:
@@ -36,18 +36,18 @@ cherry:
   custom-run:
     enabled: ${CHERRY_CUSTOM_RUN_ENABLED:true}
   gateway:
-    submission-service-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:8083}"
-    user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:8081}"
+    submission-service-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:${CHERRY_SUBMISSION_PORT:8083}}"
+    user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:${CHERRY_USER_PORT:8081}}"
     user-service-timeout: 5s
     session-lifetime-policy: fixed-absolute
     session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
     access-token-ttl: 2h
     token-refresh-ahead: 5m
     trusted-origins:
-      - "${CHERRY_WEB_ORIGIN:http://localhost:5173}"
+      - "${CHERRY_WEB_ORIGIN:http://cherry.localhost:${CHERRY_WEB_PORT:5173}}"
     login-rate-limit-per-minute: 10
     problem-service:
-      base-url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:8082}"
+      base-url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}}"
       metadata-timeout: 10s
       streaming-timeout: 2m
       max-json-bytes: 33554432

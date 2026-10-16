@@ -11,8 +11,8 @@ cherry:
   submission:
     messaging-enabled: "false"
     accepting: "false"
-    problem-url: "http://127.0.0.1:8082"
-    judging-url: "http://127.0.0.1:8084"
+    problem-url: "http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}"
+    judging-url: "http://127.0.0.1:${CHERRY_JUDGING_PORT:8084}"
     problem-token: ""
     judging-token: ""
   service-calls:

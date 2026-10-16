@@ -34,7 +34,7 @@ cherry:
     session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
 
 server:
-  port: 8081
+  port: "${CHERRY_USER_PORT:8081}"
 
 management:
   tracing:

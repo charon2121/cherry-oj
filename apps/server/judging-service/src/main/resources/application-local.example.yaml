@@ -12,12 +12,12 @@ cherry:
     submission-judging-tokens: ""
   formal:
     enabled: "true"
-    submission-url: "http://127.0.0.1:8083"
+    submission-url: "http://127.0.0.1:${CHERRY_SUBMISSION_PORT:8083}"
     submission-token: ""
   judging:
     node:
       control-token: ""
     problem:
-      url: "http://127.0.0.1:8082"
+      url: "http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}"
       # 必须属于 problem-service 的 cherry.service-calls.judging-problem-tokens；不填则判题取不到测试数据
       token: ""

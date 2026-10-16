@@ -87,6 +87,9 @@ curl -sS -X POST http://127.0.0.1:5051/judge \
 
 期望返回 `"verdict":"AC"`，`testcaseResults` 中两个测试点全部为 AC，并带有 `testDataDigest`（这份数据的指纹）。
 
+和本地 Java 服务联调时改用 `scripts/dev-judge.sh` 启动：它先加载 `ports.env`，让 judge 按其中的
+`CHERRY_JUDGING_PORT` 向 judging-service 注册；额外参数原样交给 `docker compose`（如 `scripts/dev-judge.sh down`）。
+
 查看状态和日志：
 
 ```bash

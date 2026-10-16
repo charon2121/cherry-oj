@@ -50,6 +50,9 @@ curl -sS http://127.0.0.1:8080/actuator/health
 
 期望看到包含 `"status":"UP"` 的 JSON。停止服务时在运行它的终端按 `Ctrl+C`。
 
+端口集中在仓库根目录的 `ports.env`。要按它的端口启动，用 `scripts/dev-server.sh gateway-service`（它先加载 `ports.env` 再启动）；
+直接用 `./mvnw` 启动则使用默认端口。judge 用 `scripts/dev-judge.sh` 启动，同样读取 `ports.env`。服务之间的地址、网关的跨域来源都由这些端口推出，只改 `ports.env` 一处即可。
+
 把命令中的模块名替换为 `user-service`、`problem-service`、`submission-service` 或 `judging-service`，即可分别启动其他服务。需要联调全部服务时，应在五个终端中分别启动，避免后台进程的日志和生命周期无人管理。
 
 ## 常用命令
@@ -117,7 +120,7 @@ Maven 版本、BOM 或构建插件属于技术审核范围；只有它们改变�
 
 ### 端口已被占用
 
-错误日志会出现 `Port 808x was already in use`。先关闭旧进程，或确认是否已经有同一服务在运行。端口属于前后端本地联调约定，不应临时改完后提交。
+错误日志会出现 `Port 808x was already in use`。先关闭旧进程，或确认是否已经有同一服务在运行；也可以在 `ports.env` 里换一个端口，再用 `scripts/dev-server.sh` 启动。
 
 ### Wrapper 下载失败
 

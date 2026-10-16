@@ -40,21 +40,21 @@ cherry:
       stale-age: "${CHERRY_TEST_DATA_STALE_AGE:24h}"
       recovery-enabled: "${CHERRY_TEST_DATA_RECOVERY_ENABLED:true}"
     judging:
-      base-url: "${CHERRY_JUDGING_BASE_URL:http://127.0.0.1:8084}"
+      base-url: "${CHERRY_JUDGING_BASE_URL:http://127.0.0.1:${CHERRY_JUDGING_PORT:8084}}"
       connect-timeout: "${CHERRY_JUDGING_CONNECT_TIMEOUT:2s}"
       request-timeout: "${CHERRY_JUDGING_REQUEST_TIMEOUT:120s}"
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"
-    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/.well-known/jwks.json}"
-    metadata-uri: "${CHERRY_IDENTITY_METADATA_URI:http://127.0.0.1:8081/internal/identity/metadata}"
+    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/.well-known/jwks.json}"
+    metadata-uri: "${CHERRY_IDENTITY_METADATA_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/internal/identity/metadata}"
     access-token-ttl: 2h
     clock-skew: 30s
     connect-timeout: 2s
     read-timeout: 2s
 
 server:
-  port: 8082
+  port: "${CHERRY_PROBLEM_PORT:8082}"
 
 management:
   tracing:

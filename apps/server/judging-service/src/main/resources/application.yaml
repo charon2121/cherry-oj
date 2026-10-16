@@ -37,7 +37,7 @@ cherry:
     enabled: "${CHERRY_FORMAL_JUDGING_ENABLED:false}"
     requests-topic: "${CHERRY_JUDGE_REQUESTS_TOPIC:judge.requests.v1}"
     lifecycle-topic: "${CHERRY_JUDGE_LIFECYCLE_TOPIC:judge.lifecycle.v1}"
-    submission-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:8083}"
+    submission-url: "${CHERRY_SUBMISSION_SERVICE_URL:http://127.0.0.1:${CHERRY_SUBMISSION_PORT:8083}}"
     submission-token: "${CHERRY_JUDGING_SUBMISSION_TOKEN:}"
     parallelism: 2
     max-attempts: 3
@@ -49,8 +49,8 @@ cherry:
   identity:
     issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"
-    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/.well-known/jwks.json}"
-    metadata-uri: "${CHERRY_IDENTITY_METADATA_URI:http://127.0.0.1:8081/internal/identity/metadata}"
+    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/.well-known/jwks.json}"
+    metadata-uri: "${CHERRY_IDENTITY_METADATA_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/internal/identity/metadata}"
     access-token-ttl: 2h
     clock-skew: 30s
     connect-timeout: 2s
@@ -60,12 +60,12 @@ cherry:
       control-token: "${CHERRY_JUDGE_CONTROL_TOKEN:}"
       lease-duration: "${CHERRY_JUDGE_NODE_LEASE_DURATION:35s}"
     problem:
-      url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:8082}"
+      url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}}"
       token: "${CHERRY_JUDGING_PROBLEM_TOKEN:}"
     judge-timeout: "${CHERRY_JUDGE_TIMEOUT:10m}"
 
 server:
-  port: 8084
+  port: "${CHERRY_JUDGING_PORT:8084}"
 
 management:
   tracing:

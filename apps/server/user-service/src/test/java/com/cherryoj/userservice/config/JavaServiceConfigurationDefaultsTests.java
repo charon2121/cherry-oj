@@ -24,7 +24,7 @@ class JavaServiceConfigurationDefaultsTests {
             "submission-service",
             "judging-service");
     private static final String LOCAL_JWKS_DEFAULT =
-            "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:8081/.well-known/jwks.json}";
+            "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/.well-known/jwks.json}";
 
     @Test
     void sharedConfigurationIsCompleteWithoutEmbeddingPrivateCredentials() throws IOException {
