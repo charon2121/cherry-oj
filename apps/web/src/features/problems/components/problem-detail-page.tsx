@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 
 import { problemQuery } from '../api/problems-api';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
+import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
 import {
   DraftEditor,
@@ -250,7 +251,7 @@ function ProblemStatement({ data }: { data: ProblemDetail }) {
           <DifficultyIcon difficulty={data.difficulty} />
           {difficultyLabel(data.difficulty)}
         </li>
-        <li className={propertyPillClasses}>{data.codeMode}</li>
+        <li className={propertyPillClasses}>{codeModeLabels[data.codeMode]}</li>
         {data.tags.map((tag) => (
           <li key={tag} className={propertyPillClasses}>
             {tag}
@@ -357,7 +358,8 @@ function ProblemCode({
   const session = useQuery({ ...sessionQueryOptions(), refetchInterval: 15_000 });
   const language =
     data.allowedLanguages.find((item) => item.id === 'cpp') ?? data.allowedLanguages[0];
-  const supported = data.codeMode === 'ACM' && language?.id === 'cpp';
+  // ACM 与核心代码都可以作答：核心代码的前缀与驱动代码在服务端合并，编辑器里只有用户自己的代码。
+  const supported = language?.id === 'cpp';
   const user = session.data?.authenticated ? session.data.user : undefined;
   const editableIdentity =
     user && user.status === 'ACTIVE' && !user.passwordChangeRequired && supported;
@@ -372,7 +374,7 @@ function ProblemCode({
           : !user
             ? '登录后可编写代码，并在此浏览器保存草稿。'
             : !supported
-              ? '当前页面暂不支持此题目的编码模式或语言。'
+              ? '当前页面暂不支持此题目的语言。'
               : null;
   const header = (
     <>
@@ -382,7 +384,7 @@ function ProblemCode({
       </span>
       <span className="text-fg-disabled">·</span>
       <span>{language?.displayName ?? '无可用语言'}</span>
-      <span>{data.codeMode}</span>
+      <span>{codeModeLabels[data.codeMode]}</span>
     </>
   );
   const noticeBar = notice ? (

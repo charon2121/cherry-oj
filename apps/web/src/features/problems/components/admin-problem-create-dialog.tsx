@@ -20,6 +20,8 @@ import { Text } from '@/components/ui/typography';
 import type { ProblemCodeMode, ProblemDifficulty } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 
+import { codeModeLabels } from '../lib/code-mode';
+
 type CreateValues = {
   slug: string;
   title: string;
@@ -191,8 +193,8 @@ export function AdminProblemCreateDialog({
                 value={field.state.value}
                 onValueChange={(value) => field.handleChange(value as ProblemCodeMode)}
                 items={[
-                  { value: 'ACM', label: 'ACM' },
-                  { value: 'CORE', label: '核心代码' },
+                  { value: 'ACM', label: codeModeLabels.ACM },
+                  { value: 'CORE', label: codeModeLabels.CORE },
                 ]}
               />
             )}

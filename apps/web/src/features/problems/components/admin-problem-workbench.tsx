@@ -58,6 +58,7 @@ import {
   unpublish,
   updateProblem,
 } from '../api/problems-api';
+import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
 import { type EditableProblemSample, ProblemSampleList } from './problem-sample-list';
 import { ProblemTagProperty } from './problem-tag-property';
@@ -813,7 +814,7 @@ function WorkbenchEditor({
                 {isPublic ? '已公开' : '私有'}
               </PropertyButton>
               <PropertyButton icon={<Cpu aria-hidden="true" />} disabled>
-                {isCore ? '核心代码' : 'ACM'} · C++
+                {codeModeLabels[problem.codeMode]} · C++
               </PropertyButton>
             </PropertyGroup>
 

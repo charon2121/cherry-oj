@@ -16,6 +16,7 @@ import type { ProblemSummary } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 
 import { listProblems, problemKeys, type ProblemSearch } from '../api/problems-api';
+import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
 
 type Props = {
@@ -177,8 +178,8 @@ export function ProblemListPage({ search, navigate }: Props) {
             }
             items={[
               { value: '', label: '全部模式' },
-              { value: 'ACM', label: 'ACM' },
-              { value: 'CORE', label: '核心代码' },
+              { value: 'ACM', label: codeModeLabels.ACM },
+              { value: 'CORE', label: codeModeLabels.CORE },
             ]}
           />
           <SelectField

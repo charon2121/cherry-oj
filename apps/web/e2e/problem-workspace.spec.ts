@@ -294,6 +294,24 @@ test('a touch phone uses the lightweight editor and keeps its draft between pane
   }
 });
 
+test('a core-mode problem is answered in the same editor, starting from its starter code', async ({
+  page,
+}) => {
+  const coreStarter = 'class Solution {\npublic:\n    int add(int a, int b) {\n    }\n};';
+  await page.route('**/api/problems/workspace-sum', (route) =>
+    success(route, { ...problem(coreStarter), codeMode: 'CORE' }),
+  );
+  await page.route('**/api/auth/session', (route) => success(route, session()));
+  await page.goto('/problems/workspace-sum');
+
+  await expect(page.getByRole('list', { name: '题目属性' }).getByText('核心代码')).toBeVisible();
+  await expect(page.getByText('当前页面暂不支持此题目的语言。')).toHaveCount(0);
+  await expectCode(page, coreStarter);
+  const source = 'struct Solution { int add(int a, int b) { return a + b; } };';
+  await replaceCode(page, source);
+  await expectSaved(page, source);
+});
+
 test('an administrator edit to the problem never replaces an open buffer', async ({ page }) => {
   let currentProblem = problem();
   await page.route('**/api/problems/workspace-sum', (route) => success(route, currentProblem));
