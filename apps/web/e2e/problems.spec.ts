@@ -194,6 +194,8 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
       };
       savedTitle = body.title;
       savedStatement = body.statementMarkdown;
+      // ACM 题目没有驱动代码，保存时不能带这个字段。
+      expect(body).not.toHaveProperty('judgeTemplate');
       saveRequestCount += 1;
       if (saveRequestCount === 1) await firstSaveResponse;
       // 与服务端一致：保存后返回整道题的最新内容。
@@ -311,4 +313,126 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);
+});
+
+test('an admin creates a core problem, writes its driver and is told to recalibrate', async ({
+  page,
+}) => {
+  const timestamp = '2026-10-18T01:00:00Z';
+  let createdCodeMode: string | undefined;
+  let savedDriver: string | undefined;
+  let problem = {
+    id: problemId,
+    slug: 'core-add',
+    visibility: 'PRIVATE',
+    status: 'ACTIVE',
+    codeMode: 'CORE',
+    title: '两数相加',
+    statementMarkdown: '实现 add。',
+    inputDescriptionMarkdown: '两个整数。',
+    outputDescriptionMarkdown: '它们的和。',
+    constraintsMarkdown: null,
+    hintMarkdown: null,
+    difficulty: 'EASY',
+    tags: [],
+    samples: [],
+    allowedLanguages: [
+      {
+        id: 'cpp',
+        displayName: 'C++',
+        starterCode: 'class Solution {};',
+        judgeTemplate: null as string | null,
+      },
+    ],
+    testData: null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    publishedAt: null,
+    rowVersion: 0,
+  };
+  await page.route('**/api/auth/session', (route) =>
+    success(route, {
+      authenticated: true,
+      user: {
+        id: 'd0e35399-6487-4ac8-8138-8d5bd60eb003',
+        username: 'root-admin',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        passwordChangeRequired: false,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        rowVersion: 0,
+      },
+    }),
+  );
+  await page.route('**/api/auth/csrf', (route) =>
+    success(route, { token: 'csrf-token-that-is-long-enough', headerName: 'X-CSRF-Token' }),
+  );
+  await page.route('**/api/admin/problems?**', (route) =>
+    success(
+      route,
+      { items: [] },
+      { pagination: { kind: 'page', page: 1, size: 20, totalElements: 0, totalPages: 0 } },
+    ),
+  );
+  await page.route('**/api/admin/problems', (route) => {
+    createdCodeMode = (route.request().postDataJSON() as { codeMode: string }).codeMode;
+    return route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      headers: { Location: `/api/admin/problems/${problemId}`, 'X-Request-Id': requestId },
+      body: JSON.stringify({ data: problem, meta: { requestId } }),
+    });
+  });
+  await page.route(`**/api/admin/problems/${problemId}`, async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as { judgeTemplate?: string };
+      savedDriver = body.judgeTemplate;
+      problem = {
+        ...problem,
+        allowedLanguages: [
+          { ...problem.allowedLanguages[0]!, judgeTemplate: body.judgeTemplate ?? null },
+        ],
+        rowVersion: problem.rowVersion + 1,
+      };
+    }
+    await success(route, problem);
+  });
+  await page.route(`**/api/admin/problems/${problemId}/publish-check`, (route) =>
+    success(route, {
+      ready: false,
+      checks: [
+        { code: 'CONTENT', passed: true, message: '题面完整' },
+        { code: 'SAMPLES', passed: false, message: '至少需要一个样例。' },
+        { code: 'LANGUAGE', passed: false, message: '核心代码题需要填写驱动代码。' },
+        { code: 'TEST_DATA', passed: false, message: '还没有测试数据' },
+        { code: 'CALIBRATION', passed: false, message: '尚未校准' },
+        { code: 'ONLINE_JUDGE_NODE', passed: true, message: '在线判题节点可用' },
+      ],
+    }),
+  );
+
+  await page.goto('/admin/problems?page=1&q=&status=ALL');
+  await page.getByRole('button', { name: '新建题目' }).click();
+  await page.getByLabel('题目标题').fill('两数相加');
+  await page.getByLabel('题目标识').fill('core-add');
+  await page.getByRole('combobox', { name: '代码模式' }).click();
+  await page.getByRole('option', { name: '核心代码' }).click();
+  await page.getByRole('button', { name: '创建题目' }).click();
+  await expect.poll(() => createdCodeMode).toBe('CORE');
+
+  await expect(page).toHaveURL(new RegExp(`/admin/problems/${problemId}(?:\\?.*)?$`));
+  await expect(page.getByRole('button', { name: '核心代码 · C++' })).toBeDisabled();
+  const driverSection = page.getByRole('region', { name: '驱动代码' });
+  await expect(driverSection).toBeVisible();
+
+  // 驱动代码为空时给出骨架；填入后自动保存，并提示改过的驱动代码需要重新标定。
+  await driverSection.getByRole('button', { name: '填入骨架' }).click();
+  await expect.poll(() => savedDriver).toContain('#include "solution.cpp"');
+  await expect(driverSection.getByRole('button', { name: '填入骨架' })).toHaveCount(0);
+  await expect(driverSection.getByRole('status')).toHaveText('已修改，建议重新标定');
+
+  await driverSection.getByRole('button', { name: '重新标定' }).click();
+  await expect(page).toHaveURL(/panel=calibration/);
+  await expect(page.getByRole('dialog', { name: '运行参考核心代码校准' })).toBeVisible();
 });

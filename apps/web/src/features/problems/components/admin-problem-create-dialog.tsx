@@ -17,16 +17,17 @@ import { FormField } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select';
 import { Text } from '@/components/ui/typography';
-import type { ProblemDifficulty } from '@/generated/api';
+import type { ProblemCodeMode, ProblemDifficulty } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 
 type CreateValues = {
   slug: string;
   title: string;
   difficulty: ProblemDifficulty;
+  codeMode: ProblemCodeMode;
 };
 
-const defaults: CreateValues = { slug: '', title: '', difficulty: 'UNRATED' };
+const defaults: CreateValues = { slug: '', title: '', difficulty: 'UNRATED', codeMode: 'ACM' };
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function createErrorMessage(error: unknown) {
@@ -178,6 +179,20 @@ export function AdminProblemCreateDialog({
                   { value: 'EASY', label: '简单' },
                   { value: 'MEDIUM', label: '中等' },
                   { value: 'HARD', label: '困难' },
+                ]}
+              />
+            )}
+          </form.Field>
+          <form.Field name="codeMode">
+            {(field) => (
+              <SelectField
+                label="代码模式"
+                description="创建后不可修改。"
+                value={field.state.value}
+                onValueChange={(value) => field.handleChange(value as ProblemCodeMode)}
+                items={[
+                  { value: 'ACM', label: 'ACM' },
+                  { value: 'CORE', label: '核心代码' },
                 ]}
               />
             )}

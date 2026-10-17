@@ -97,7 +97,7 @@ export function AdminProblemListPage({
         <AdminProblemCreateDialog
           creating={create.isPending}
           onCreate={async (value) => {
-            await create.mutateAsync({ ...value, codeMode: 'ACM', languageId: 'cpp' });
+            await create.mutateAsync({ ...value, languageId: 'cpp' });
           }}
         />
       }

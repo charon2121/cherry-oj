@@ -194,6 +194,7 @@ export function CalibrationDialog({
   onOpenChange,
   limits,
   onLimitsChange,
+  referenceLabel,
   referenceSource,
   onReferenceSourceChange,
   editable,
@@ -207,6 +208,8 @@ export function CalibrationDialog({
   onOpenChange: (open: boolean) => void;
   limits: CalibrationLimits;
   onLimitsChange: (limits: CalibrationLimits) => void;
+  /** ACM 为"参考程序"；CORE 为"参考核心代码"，服务端会加上前缀并配合驱动代码运行。 */
+  referenceLabel: string;
   referenceSource: string;
   onReferenceSourceChange: (value: string) => void;
   editable: boolean;
@@ -220,9 +223,10 @@ export function CalibrationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>运行参考程序校准</DialogTitle>
+          <DialogTitle>运行{referenceLabel}校准</DialogTitle>
           <DialogDescription>
-            用参考程序跑一遍当前测试数据，确认限制可用。参考程序只在当前页面内存里，校准成功或离开工作台后清空。
+            用{referenceLabel}跑一遍当前测试数据，确认限制可用。{referenceLabel}
+            只在当前页面内存里，校准成功或离开工作台后清空。
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 sm:grid-cols-3">
@@ -254,8 +258,8 @@ export function CalibrationDialog({
           size="compact"
           value={referenceSource}
           readOnly={!editable}
-          placeholder="粘贴 C++ 参考程序"
-          aria-label="C++ 参考程序编辑器"
+          placeholder={`粘贴 C++ ${referenceLabel}`}
+          aria-label={`C++ ${referenceLabel}编辑器`}
           onChange={onReferenceSourceChange}
         />
         {blockedReason ? <BlockedReason>{blockedReason}</BlockedReason> : null}
@@ -276,7 +280,7 @@ export function CalibrationDialog({
             disabled={blockedReason !== undefined || !referenceSource.trim()}
             onClick={onRun}
           >
-            运行参考程序校准
+            运行{referenceLabel}校准
           </Button>
         </DialogFooter>
       </DialogContent>

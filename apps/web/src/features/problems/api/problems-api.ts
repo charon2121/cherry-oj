@@ -95,7 +95,7 @@ const adminProblemSchema = z
     slug: z.string(),
     visibility: z.enum(['PRIVATE', 'PUBLIC']),
     status: z.enum(['ACTIVE', 'ARCHIVED']),
-    codeMode: z.literal('ACM'),
+    codeMode: z.enum(['ACM', 'CORE']),
     title: z.string(),
     statementMarkdown: z.string(),
     inputDescriptionMarkdown: z.string(),
@@ -111,6 +111,11 @@ const adminProblemSchema = z
           id: z.literal('cpp'),
           displayName: z.literal('C++'),
           starterCode: z.string(),
+          // CORE 的驱动代码，只在管理端返回；ACM 或尚未填写时为 null。
+          judgeTemplate: z
+            .string()
+            .nullish()
+            .transform((value) => value ?? null),
         })
         .loose(),
     ]),

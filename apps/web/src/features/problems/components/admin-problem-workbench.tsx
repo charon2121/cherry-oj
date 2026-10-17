@@ -86,6 +86,8 @@ type WorkbenchValues = {
   tags: string[];
   samples: EditableProblemSample[];
   starterCode: string;
+  /** CORE 的驱动代码；ACM 或尚未填写时为空串。 */
+  judgeTemplate: string;
 };
 
 type SaveSubmission = {
@@ -116,8 +118,17 @@ function toFormValues(version: AdminProblem): WorkbenchValues {
       explanationMarkdown: sample.explanationMarkdown ?? '',
     })),
     starterCode: version.allowedLanguages[0].starterCode,
+    judgeTemplate: version.allowedLanguages[0].judgeTemplate ?? '',
   };
 }
+
+// 驱动文件按固定文件名包含用户文件（contracts/judge.schema.json 的 x-language-files），用户文件开头已经有 C++ 前缀。
+const CPP_DRIVER_SKELETON = `#include "solution.cpp"
+
+int main() {
+    // 读入数据，调用 Solution 的方法，输出结果
+}
+`;
 
 function toProblemSamples(samples: EditableProblemSample[]): ProblemSample[] {
   return samples.map((sample, index) => ({
@@ -250,6 +261,10 @@ function WorkbenchEditor({
     clockSeconds: '',
   });
   const [confirming, setConfirming] = useState<'archive' | 'delete'>();
+  const isCore = problem.codeMode === 'CORE';
+  // 改了驱动代码不会让标定失效（只提示）：本次会话里保存过改动后的驱动代码，就提示重新标定，标定成功后收起。
+  const savedDriver = useRef(problem.allowedLanguages[0].judgeTemplate ?? '');
+  const [driverChanged, setDriverChanged] = useState(false);
   // 题目没有草稿：除归档外都可直接编辑，公开题目的修改立即对学生生效。
   const editable = problem.status === 'ACTIVE';
   const isPublic = problem.visibility === 'PUBLIC';
@@ -298,10 +313,15 @@ function WorkbenchEditor({
         tags: [...new Set(value.tags.map((tag) => tag.trim()).filter(Boolean))],
         samples: toProblemSamples(value.samples),
         starterCode: value.starterCode,
+        // 驱动代码省略表示不改；ACM 题目不能带它。
+        ...(isCore && value.judgeTemplate.trim() ? { judgeTemplate: value.judgeTemplate } : {}),
         rowVersion: problem.rowVersion,
       }),
     onSuccess: async (saved, submitted) => {
       queryClient.setQueryData(problemKeys.adminProblem(problem.id), saved);
+      const driver = submitted.values.judgeTemplate;
+      if (isCore && driver.trim() && driver !== savedDriver.current) setDriverChanged(true);
+      savedDriver.current = driver;
       // 记下发出去的内容，不改编辑区；保存期间又改过的部分自然仍算未保存，会接着保存。
       setSavedValues(submitted.values);
       setLastSavedAt(new Date());
@@ -398,6 +418,7 @@ function WorkbenchEditor({
         clockSeconds: clockSeconds ?? '',
       }));
       setReferenceSource('');
+      if (result.status === 'VALID') setDriverChanged(false);
       await refresh();
     },
   });
@@ -688,6 +709,56 @@ function WorkbenchEditor({
                 )}
               </form.Field>
             </EditorSection>
+
+            {isCore ? (
+              <form.Field name="judgeTemplate">
+                {(field) => (
+                  <EditorSection
+                    id={`${ids}-judge-template`}
+                    title="驱动代码"
+                    description="引用 solution.cpp（已含 bits/stdc++.h）；报错里会显示它，不要写答案。"
+                    actions={
+                      editable && !field.state.value.trim() ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            field.handleChange(CPP_DRIVER_SKELETON);
+                            markChanged();
+                          }}
+                        >
+                          填入骨架
+                        </Button>
+                      ) : driverChanged ? (
+                        <span className="flex items-center gap-2">
+                          <Text as="span" size="sm" className="text-warning" role="status">
+                            已修改，建议重新标定
+                          </Text>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => onPanelChange('calibration')}
+                          >
+                            重新标定
+                          </Button>
+                        </span>
+                      ) : null
+                    }
+                  >
+                    <CodeBlockEditor
+                      language="cpp"
+                      value={field.state.value}
+                      readOnly={!editable}
+                      aria-label="C++ 驱动代码"
+                      onChange={(value) => {
+                        field.handleChange(value);
+                        markChanged();
+                      }}
+                    />
+                  </EditorSection>
+                )}
+              </form.Field>
+            ) : null}
           </div>
         </form>
 
@@ -742,7 +813,7 @@ function WorkbenchEditor({
                 {isPublic ? '已公开' : '私有'}
               </PropertyButton>
               <PropertyButton icon={<Cpu aria-hidden="true" />} disabled>
-                ACM · C++
+                {isCore ? '核心代码' : 'ACM'} · C++
               </PropertyButton>
             </PropertyGroup>
 
@@ -837,6 +908,7 @@ function WorkbenchEditor({
         onOpenChange={(open) => onPanelChange(open ? 'calibration' : undefined)}
         limits={limits}
         onLimitsChange={setLimits}
+        referenceLabel={isCore ? '参考核心代码' : '参考程序'}
         referenceSource={referenceSource}
         onReferenceSourceChange={setReferenceSource}
         editable={editable}
@@ -930,11 +1002,14 @@ function EditorSection({
   id,
   title,
   description,
+  actions,
   children,
 }: {
   id?: string;
   title: string;
   description?: string;
+  /** 标题行末尾的操作，只放与这一节内容直接相关的按钮。 */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const headingId = useId();
@@ -949,6 +1024,7 @@ function EditorSection({
             {description}
           </Text>
         ) : null}
+        {actions ? <span className="ml-auto">{actions}</span> : null}
       </div>
       {children}
     </section>
