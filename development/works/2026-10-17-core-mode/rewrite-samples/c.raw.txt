@@ -1,0 +1,7 @@
+In file included from Main.c:7:
+solution.c: In function 'twoSum':
+solution.c:10:28: error: 'missing' undeclared (first use in this function); did you mean 'isinf'?
+   10 |                 r[1] = j + missing;
+      |                            ^~~~~~~
+      |                            isinf
+solution.c:10:28: note: each undeclared identifier is reported only once for each function it appears in

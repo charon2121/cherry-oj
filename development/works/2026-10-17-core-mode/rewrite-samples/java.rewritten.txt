@@ -1,0 +1,7 @@
+Solution.java:8: error: cannot find symbol
+            if (j != null) return new int[]{j, i + missing};
+                                                   ^
+  symbol:   variable missing
+  location: class Solution
+1 error
+

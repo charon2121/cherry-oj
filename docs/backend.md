@@ -86,7 +86,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 职责：
 
 - 题目（没有版本，改了就是改了）、样例、checker 配置和测试数据：上传 ZIP 写成协议目录，库里只存目录地址。
-- 保存题目允许的语言，以及 CORE 的 starterCode 和 judgeTemplate。
+- 保存题目允许的语言、起始代码，以及 CORE 的驱动代码（judgeTemplate）；保存每门语言的 CORE 前缀代码（所有题目复用）。
 - 公开/取消公开题目；向 submission-service 提供 `ProblemJudgeSnapshot`，向 judging-service 提供当前测试数据的地址与指纹。
 - 不保存用户提交，不选择判题节点，不保存标定后的绝对限制，不执行判题。
 
@@ -98,7 +98,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 
 - 接收提交、请求幂等、保存用户原始源码和冻结后的 JudgeInput。
 - 调用 problem-service 解析不可变题目快照，调用 judging-service 解析 ExecutionProfile。
-- ACM 直接冻结用户源码；CORE 将源码合并进题目语言模板后冻结完整源码。
+- ACM 直接冻结用户源码；CORE 冻结驱动文件与用户文件（前缀 + 用户代码），并记下前缀行数。
 - 持有用户可见的 Submission 状态和逐测试点结果。
 - 通过 Outbox 发布 `JudgeRequested`，消费判题生命周期事件并更新投影。
 - 对前端暴露提交创建与结果查询 API。
@@ -115,6 +115,8 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 - 根据题目和语言解析当前可用 ExecutionProfile；判题时向 problem-service 取最新的测试数据地址。
 - 通过租约领取任务，调用 Go judge，并处理超时、退避重试和死任务。
 - Worker 根据 submissionId 从 submission-service 内部 API 拉取不可变 JudgeInput。
+- CORE：按 JudgeInput 冻结的前缀行数，把编译诊断与运行错误片段中的用户文件行号换算成编辑器行号，路径只留文件名；
+  不改标准输出，不遮掩驱动代码。自测与标定使用同一套改写。
 - 通过 fencing token 拒绝旧 Worker 的迟到结果。
 - 发布 `JudgeStarted`、`JudgeCompleted`、`JudgeFailed`。
 
@@ -253,8 +255,8 @@ Kafka 只传递推进流程所需的标识符和有大小上限的小型结果�
 1. submission-service 向 problem-service 读取当前不可变 ProblemJudgeSnapshot；失败不创建提交。
 2. submission-service 向 judging-service 解析匹配的 ExecutionProfile；数据未部署或缺少有效标定时不
    创建提交，也不使用默认限制降级。
-3. submission-service 准备完整源码：ACM 直接使用用户源码，CORE 对 judgeTemplate 的唯一
-   `{{USER_CODE}}` 做一次非递归替换。
+3. submission-service 准备送判源码：ACM 直接使用用户源码；CORE 以驱动代码为驱动文件，前缀 + 用户代码为用户文件。
+   判题后 judging-service 按冻结的前缀行数改写报错中的用户文件行号。
 4. 本地事务同时保存 Submission、冻结的 JudgeInput、幂等记录与 JudgeRequested Outbox，然后返回
    `202 Accepted` 和 `Location`。
 5. judging-service 消费事件并创建 `JudgeTask(Ready)`；Kafka 消费线程不执行长时间判题。

@@ -25,8 +25,9 @@
    Kafka 和 Java/Go DTO 使用各自的 `contracts/*.json`，不能把公开 BFF envelope 扩散到内部协议。
 6. **执行层只执行命令。** 编译、测试点编排、checker 和 verdict 都在判题编排；执行层与 sandbox
    执行器不知道题目、Submission、ACM 或 CORE。
-7. **源码模式在进入 judge 前消失。** ACM 源码直接冻结；CORE 用户源码在 submission-service 中与
-   题目语言模板合并，JudgeRequest 始终携带完整、可编译源码。
+7. **源码模式在进入 judge 前消失。** ACM 源码直接冻结；CORE 在 Java 服务中把语言前缀与用户代码合并成用户文件，
+   JudgeRequest 携带驱动文件与用户文件。judge 只知道"一个程序由驱动文件和用户文件组成"，不知道 CodeMode；
+   报错中用户文件行号的换算也在 Java 服务（judging-service）完成。
 
 ---
 
@@ -103,14 +104,15 @@ MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约�
 
 唯一写入：
 
-- Problem（题面、模式、难度、标签、公开状态都在题目本身，**没有版本**）、ProblemSample、ProblemLanguage，包括 CORE `starterCode` 与 `judgeTemplate`。
+- Problem（题面、模式、难度、标签、公开状态都在题目本身，**没有版本**）、ProblemSample、ProblemLanguage，包括 `starterCode` 与 CORE 的驱动代码 `judgeTemplate`。
+- Language：每门语言一份 CORE 前缀代码（常用库的 include/import），所有题目复用；开发阶段直接改数据库。
 - 测试数据：只存目录**地址**（`test_data_location`）；指纹、测试点数和文件清单都从地址下的 `testdata.json` 读，不在库里抄一份。
 - 题目审计。
 
 提供两类接口：
 
 - 面向用户/管理员的题库、详情、编辑、公开 API；测试数据上传即整体替换。
-- 面向 submission-service 的 `ProblemJudgeSnapshot`：题目、标题、语言和代码模式（CORE 另含模板），不含测试数据地址。
+- 面向 submission-service 的 `ProblemJudgeSnapshot`：题目、标题、语言和代码模式（CORE 另含驱动代码与前缀代码），不含测试数据地址。
 - 面向 judging-service 的内部读取 `GET /internal/judging/problems/{id}/test-data`：当前测试数据的地址、指纹、测试点数（只认 judging-service 的服务令牌）。
 
 problem-service 不保存 Submission，不选择判题节点，不保存标定后的绝对限制，不执行判题。
@@ -129,7 +131,7 @@ problem-service 不保存 Submission，不选择判题节点，不保存标定�
 
 1. 从 problem-service 取得题目快照（题目必须公开、有可读的测试数据）。
 2. 从 judging-service 取得该题目×语言的 ExecutionProfile。
-3. ACM 直接使用用户源码；CORE 将用户源码替换进唯一 `{{USER_CODE}}`。
+3. ACM 直接使用用户源码；CORE 把前缀代码与用户代码合并成用户文件，与驱动代码一起冻结，并记下前缀行数。
 4. 在一个本地事务内写 Submission、JudgeInput、幂等记录和 `JudgeRequested` Outbox。
 5. 消费生命周期事件，以条件更新推进用户可见状态。
 
@@ -150,7 +152,9 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
   确认有在线节点声明了该语言、且标定的数据指纹等于当前指纹，解析出绝对限制和执行预算。
 - 正式判题 Worker：消费 JudgeRequested、拉取 JudgeInput，**判题时**再向 problem-service 取最新的测试数据地址，
   任选一个在线节点调用 Go judge，并保存判题实际读取的数据指纹。
-- 自定义测试内部接口：接收已经准备好的完整源码和文本 testcases，同步调用 Go judge 的 trial 模式。
+- 自定义测试内部接口：接收已经准备好的源码（CORE 为驱动文件与用户文件）和文本 testcases，同步调用 Go judge 的 trial 模式。
+- 报错改写：正式判题、自测与标定返回的编译诊断和运行错误片段，按冻结的前缀行数把用户文件的行号换算成编辑器行号，
+  路径只保留文件名；不改程序的标准输出，不遮掩驱动代码。改写不区分语言，只认用户文件名后面的行号。
 - 节点自注册/心跳和标定能力（标定请求带 problem-service 给出的地址与指纹，判题结果指纹不一致则标定作废）。
 
 节点控制协议以 `contracts/judge-node.schema.json` 为准。节点只带身份：nodeId、每次进程启动新生成的
@@ -175,7 +179,8 @@ judging-service 不读取 problem-service 或 submission-service 数据库；需
 - 使用 checker 比对 stdout 与标准答案。
 - 汇总 AC/WA/TLE/MLE/CE/SE 等 verdict。
 
-judge 不读 Java 服务数据库，不解析 CORE 模板，不决定哪套限制生效。
+judge 不读 Java 服务数据库，不知道 CodeMode，不改写报错，不决定哪套限制生效。CORE 请求多带一个用户文件，
+judge 按契约中每门语言固定的驱动文件名与用户文件名写入后一起编译运行。
 
 ### 3.7 执行层与 sandbox 执行器
 
@@ -219,11 +224,11 @@ submission-service 调用 problem-service：
 ResolveProblemJudgeSnapshot(problemId, languageId)
   → problemId / title
   → languageId / codeMode
-  → starterCode（用户查询需要时返回）
-  → judgeTemplate（仅 CORE，内部接口返回）
+  → judgeTemplate（仅 CORE：驱动代码）
+  → solutionPrefix（仅 CORE：该语言的前缀代码）
 ```
 
-题目没有版本，快照只是校验题目此刻公开、语言可用、数据可读。客户端不能提交 `judgeTemplate` 来覆盖它。
+题目没有版本，快照只是校验题目此刻公开、语言可用、数据可读。客户端不能提交驱动代码或前缀来覆盖它。
 
 ### 4.3 执行配置解析
 
@@ -330,9 +335,9 @@ EventEnvelope {
 3. submission-service 从 JWT 取得 userId，校验幂等键
 4. HTTP → problem-service：解析 ProblemJudgeSnapshot
 5. HTTP → judging-service：解析 ExecutionProfile
-6. submission-service 准备完整源码
+6. submission-service 准备送判源码
      ACM  = source
-     CORE = judgeTemplate.replaceExactlyOnce("{{USER_CODE}}", source)
+     CORE = 驱动文件 judgeTemplate + 用户文件 (solutionPrefix + source)，记下前缀行数
 7. 本地事务：Submission(PENDING) + JudgeInput + Outbox(JudgeRequested)
 8. 返回 202 Accepted + Location
 9. judging-service Inbox 去重，创建 JudgeTask(READY)
@@ -351,30 +356,49 @@ EventEnvelope {
 
 ## 7. CORE 模式
 
-CORE 不是一种新的 judge 协议，只是一种用户源码准备方式。
+CORE 不是一种新的判题协议。一次 CORE 判题由两个文件组成（2026-10-17 取代原"唯一占位符替换"，
+依据见 [`development/works/2026-10-17-core-mode/`](../development/works/2026-10-17-core-mode/design.md)）：
 
-`ProblemLanguage.judgeTemplate` 保存完整源码，其中必须恰有一个字面量 `{{USER_CODE}}`。例如：
+| 文件 | 内容 | 来源 |
+|---|---|---|
+| 用户文件（C++ 为 `solution.cpp`） | 前缀代码 + 用户代码 | 前缀属于语言（problem-service 语言表，所有题目复用）；用户代码来自提交 |
+| 驱动文件（C++ 为 `Main.cpp`） | 驱动代码：读输入、调用用户代码、输出结果，并引用用户文件 | 题目 × 语言的 `ProblemLanguage.judgeTemplate` |
+
+C++ 示例（A+B）：
 
 ```cpp
-#include <iostream>
-using namespace std;
+// solution.cpp
+#include <bits/stdc++.h>          // ┐ 前缀代码：C++ 所有题目共用，用户编辑器里不显示
+using namespace std;              // ┘
+class Solution {                  // ← 用户代码，编辑器里的第 1 行
+public:
+    int add(int a, int b) { return a + b; }
+};
+```
 
-{{USER_CODE}}
+```cpp
+// Main.cpp —— 这道题的驱动代码
+#include "solution.cpp"
 
 int main() {
     int a, b;
     cin >> a >> b;
-    cout << add(a, b) << '\n';
+    cout << Solution().add(a, b) << "\n";
 }
 ```
 
 规则：
 
-- 模板、starterCode 与语言属于题目本身，修改立即生效；已提交的 JudgeInput 已冻结合并后的完整源码，不受影响。
-- submission-service 只对模板执行一次非递归字面量替换。
-- 用户源码原文保存在 Submission；合并后的完整源码保存在 JudgeInput。
-- judgeTemplate 不返回普通用户 API。
-- 发布检查必须用参考核心代码合并模板，并在判题节点上通过样例和正式数据。
+- **合并：** 前缀以换行结尾，前缀行数 = 前缀中换行符的个数，用户文件 = 前缀 + 用户代码。submission-service（正式提交、自测）
+  与 problem-service（标定参考解）按同一规则合并。
+- **冻结：** 用户原文存 Submission；驱动文件、合并后的用户文件与前缀行数存 JudgeInput。之后修改驱动代码或前缀不影响已有提交。
+- **文件名：** 每门语言的驱动文件名与用户文件名写在契约里，judge 与 judging-service 共用，不接受外部传入。
+- **报错改写：** judging-service 把展示给用户的编译诊断和运行错误片段中，用户文件的行号减去前缀行数（落在前缀里的行显示为
+  `[预置代码]:行`），路径只保留文件名；驱动文件的位置与源码行照常显示；程序的标准输出不改。
+- **可见性：** 驱动代码不通过任何接口下发给普通用户，也不刻意遮掩报错中带出的驱动代码，因此驱动代码里不放答案。
+- **标定：** 标定用参考核心代码按同一规则合并后，与驱动文件一起在判题节点上通过正式数据。修改驱动代码或前缀不会让标定自动失效，
+  管理端只提示"建议重新标定"。
+- **代码模式：** 创建题目时选定，之后不可修改。
 - judge、执行层、测试数据格式和 checker 不区分 ACM/CORE；两者都使用 stdin/stdout `.in/.out`。
 
 ---
@@ -422,7 +446,7 @@ problemId + languageId
 自定义测试不创建正式 Submission，也不进入 Kafka 和通过状态统计：
 
 1. submission-service 解析当前 ProblemJudgeSnapshot 和 ExecutionProfile（trial 用单测试点预算）。
-2. CORE 使用相同规则合并模板。
+2. CORE 使用相同规则合并前缀与用户代码；judging-service 用同一套规则改写报错行号。
 3. submission-service 同步调用 judging-service 的内部 trial API。
 4. judging-service 调用 Go judge，使用请求内文本 testcases。
 5. 返回 stdout/stderr、资源用量和运行状态。
@@ -499,7 +523,7 @@ cherry-oj/
 5. 实现 Submission + JudgeInput + Outbox/Inbox
 6. 实现 judging task、租约、重试和 Go judge 调用
 7. 跑通 C++ ACM A+B
-8. 加入 CORE 模板合并
+8. 加入 CORE（驱动文件 + 前缀合并 + 报错行号改写）
 9. 接入 web 登录、题库、提交和轮询
 10. 补题目生产和标定工作台
 ```

@@ -1,0 +1,8 @@
+solution.swift:5:58: error: cannot find 'missing' in scope
+ 3 |         var seen: [Int: Int] = [:]
+ 4 |         for (i, x) in nums.enumerated() {
+ 5 |             if let j = seen[target - x] { return [j, i + missing] }
+   |                                                          `- error: cannot find 'missing' in scope
+ 6 |             seen[x] = i
+ 7 |         }
+

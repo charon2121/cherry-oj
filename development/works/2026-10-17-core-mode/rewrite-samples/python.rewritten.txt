@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/w/Main.py", line 28, in <module>
+    main()
+  File "/w/Main.py", line 25, in main
+    print(" ".join(map(str, Solution().twoSum(nums, target))))
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "solution.py", line 6, in twoSum
+    return [seen[target - x], i + missing]
+                                  ^^^^^^^
+NameError: name 'missing' is not defined
+

@@ -16,7 +16,8 @@
 
 - 单工作空间；MVP 不建立 Workspace / Tenant。
 - 普通答题角色统一叫 `USER`，管理员叫 `ADMIN`。
-- 支持 `ACM | CORE`；CORE 使用题目语言级源码模板，不建立通用函数类型系统。
+- 支持 `ACM | CORE`；CORE 由驱动代码（题目 × 语言）、前缀代码（每门语言一份）与模板代码组成，用户文件 = 前缀 + 用户代码，
+  驱动文件单独成文件；不建立通用函数类型系统。代码模式在创建题目时选定，之后不可修改。
 - C++ 优先。
 - 题目**没有版本**：题面、样例、语言、测试数据都直接属于 Problem，改了就是改了；只有 PRIVATE/PUBLIC 与 ACTIVE/ARCHIVED 两组状态。
 - 限制按「题目 × 语言」保存绝对值，并记录标定时的测试数据指纹；判题节点只带身份，不归并成「判题环境」。
@@ -64,7 +65,7 @@ submission-service
 | 事实 | 唯一写入服务 | 其它服务如何读取 |
 |---|---|---|
 | 用户、密码、角色、账号状态 | user-service | 内部 JWT / 受权用户接口 |
-| 题目、样例、CORE 模板 | problem-service | ProblemJudgeSnapshot HTTP |
+| 题目、样例、CORE 驱动代码、语言前缀 | problem-service | ProblemJudgeSnapshot HTTP |
 | 测试数据（协议目录）与它的地址 | problem-service | 内部 `GET /internal/judging/problems/{id}/test-data`（地址、指纹、测试点数） |
 | 判题节点、语言标定 | judging-service | ExecutionProfile HTTP |
 | 用户原始源码与 Submission 状态 | submission-service | Gateway API；内部 JudgeInput API |
@@ -82,7 +83,7 @@ submission-service
 
 ```text
 Problem p-a-plus-b  （PUBLIC / ACTIVE）
-  ├─ 题面、样例、语言、模板
+  ├─ 题面、样例、语言（起始代码、CORE 驱动代码）
   └─ test_data_location → <root>/p-a-plus-b → .store/p-a-plus-b-<digest 前缀>/
 ```
 
@@ -101,7 +102,8 @@ Submission
   └─ PENDING / JUDGING / DONE + result
 
 JudgeInput
-  ├─ 完整 completeSource（CORE 已合并）
+  ├─ completeSource（ACM 为用户程序；CORE 为驱动文件）
+  ├─ CORE：solutionSource（前缀 + 用户代码）与 solutionPrefixLineCount
   ├─ problemId / languageId（不含测试数据地址：判题时才向 problem-service 取）
   ├─ languageCalibrationId / effectiveLimits
   └─ 创建后永久不可修改
@@ -207,12 +209,14 @@ user_audit_event
 | `languageId` | 是 | 稳定 token，例如 cpp |
 | `displayOrder` | 是 | 前端顺序 |
 | `starterCode` | 是 | 用户编辑器起始内容 |
-| `judgeTemplate` | 条件 | CORE 必填；ACM 必须为空 |
+| `judgeTemplate` | 条件 | CORE 的驱动代码，公开前必须非空；ACM 必须为空 |
+| `judgeTemplateUpdatedAt` | 否 | 驱动代码最近一次修改时间；晚于当前标定时，管理端提示"建议重新标定" |
 
 `(problemId, languageId)` 唯一。
 
-CORE judgeTemplate 必须包含且只包含一个字面量 `{{USER_CODE}}`。平台不解析函数签名、参数和返回值；
-模板负责 include/import、输入解析、函数调用和 stdout 输出。
+驱动代码是一个完整的驱动文件：读输入、调用用户代码、输出结果，并通过契约规定的固定文件名引用用户文件
+（C++ 为 `#include "solution.cpp"`）。没有占位符。平台不解析函数签名、参数和返回值。驱动代码不下发给普通用户，
+但报错中带出时照常显示，因此不放答案。
 
 ### 4.4 测试数据
 
@@ -221,6 +225,20 @@ CORE judgeTemplate 必须包含且只包含一个字面量 `{{USER_CODE}}`。平
 `testcases[]`）加成对的 `<name>.in/.out`。problem-service 把上传的 ZIP 校验后写成内容寻址的真实目录
 `<root>/.store/<problemId>-<digest 前 16 位>/`，再把相对符号链接 `<root>/<problemId>` 原子切换过去；
 只保留当前与上一代目录。数据库不抄指纹、测试点数或清单，避免两处不一致。
+
+### 4.5 Language
+
+每门语言一行，所有题目复用：
+
+| 字段 | 必填 | 含义 |
+|---|---:|---|
+| `languageId` | 是 | 主键，例如 cpp |
+| `displayName` | 是 | 展示名 |
+| `solutionPrefix` | 是 | CORE 前缀代码：挑选过的常用库 include/import，以换行结尾 |
+| `updatedAt` | 是 | 最近修改时间；晚于标定时管理端提示"建议重新标定" |
+
+开发阶段直接改数据库，没有管理界面；改前缀时同时更新 `updatedAt`。前缀挑选常用库而不是"所有库"，
+避免名字冲突（如 Java 的 `java.util.*` 与 `java.awt.*` 都有 `List`）。
 
 ### 4.6 ProblemJudgeSnapshot
 
@@ -232,7 +250,8 @@ ProblemJudgeSnapshot {
   problemTitle,
   languageId,
   codeMode,
-  judgeTemplate?       // CORE 必填；内部接口字段
+  judgeTemplate?,      // CORE 必填：驱动代码；内部接口字段
+  solutionPrefix?      // CORE 必填：该语言的前缀代码
 }
 ```
 
@@ -398,7 +417,7 @@ judging_audit_event
 | `codeMode` | 是 | `ACM | CORE` 快照 |
 | `languageCalibrationId` | 是 | judging-service 外部引用 |
 | `effectiveLimits` | 是 | `{cpuNs, memoryBytes, clockNs?}` JSON 快照 |
-| `source` | 是 | 用户原始源码；CORE 不含模板 |
+| `source` | 是 | 用户原始源码；CORE 不含前缀与驱动代码 |
 | `status` | 是 | `PENDING | JUDGING | DONE` |
 | `verdict` | 否 | DONE 后必填 |
 | `cpuNs` | 否 | 所有测试点最大 CPU 时间 |
@@ -421,8 +440,11 @@ JudgeInput 与 Submission 一对一，只能由 submission-service 内部读取�
 | `contractVersion` | 是 | JudgeRequest 契约版本 |
 | `problemId` | 是 | 日志与对账；判题时凭它向 problem-service 取测试数据地址 |
 | `languageId` | 是 | language registry token |
-| `completeSource` | 是 | ACM 原源码；CORE 已合并完整源码 |
+| `completeSource` | 是 | ACM 为用户程序；CORE 为驱动文件（驱动代码） |
 | `sourceSha256` | 是 | completeSource 完整性摘要 |
+| `solutionSource` | 条件 | CORE 必填：用户文件 = 前缀 + 用户代码；ACM 禁止 |
+| `solutionSha256` | 条件 | solutionSource 完整性摘要 |
+| `solutionPrefixLineCount` | 条件 | 前缀行数（前缀中换行符的个数）；judging-service 改写报错行号用 |
 | `languageCalibrationId` | 是 | 本次限制的来源标定 |
 | `effectiveLimits` | 是 | 绝对限制快照 |
 | `createdAt` | 是 | 冻结时间 |
@@ -571,8 +593,9 @@ CreateSubmissionRequest { problemId, languageId, source }
 2. 校验 Idempotency-Key 和 source 大小。
 3. HTTP 调 problem-service 获取 ProblemJudgeSnapshot。
 4. HTTP 调 judging-service，按题目和语言解析 ExecutionProfile。
-5. ACM 令 completeSource=source；CORE 校验模板唯一占位符并做一次非递归字面量替换。
-6. 校验 completeSource 大小并计算 sha256。
+5. ACM 令 completeSource=source；CORE 令 completeSource=judgeTemplate、solutionSource=solutionPrefix+source，
+   并记下前缀行数。
+6. 分别校验大小并计算 sha256。
 7. 本地事务插入 Submission、JudgeInput、SubmissionRequest 和 JudgeRequested Outbox。
 8. 返回 `202 Accepted`、Submission id 和 Location。
 
@@ -583,10 +606,11 @@ CreateSubmissionRequest { problemId, languageId, source }
 1. Inbox 去重 JudgeRequested，并以 submissionId unique 创建 JudgeTask(READY)。
 2. Worker 通过条件更新领取 leaseToken，提交事务后执行外部调用。
 3. 发布 JudgeStarted。
-4. 使用服务身份从 submission-service 拉取 JudgeInput；校验 source sha256。
+4. 使用服务身份从 submission-service 拉取 JudgeInput；校验 sha256（CORE 两份都校验）。
 5. 向 problem-service 取题目此刻的测试数据地址与指纹（取不到按可重试故障处理），按当前测试点数重算执行预算；
    选一个可用节点（在线、支持该语言），构造带 `testDataLocation` 的 JudgeRequest；没有可用节点按可重试故障处理。
-6. Go judge 按地址读取数据并按冻结的限制返回 JudgeResult（含实际读取的数据指纹）。
+6. Go judge 按地址读取数据并按冻结的限制返回 JudgeResult（含实际读取的数据指纹）。CORE 时 judging-service
+   按冻结的前缀行数改写编译诊断与运行错误片段中的用户文件行号，再保存。
 7. 当前 leaseToken 匹配时保存 Attempt（含数据指纹）并发布 JudgeCompleted；可重试故障进入 RETRY_WAITING。
 8. 重试耗尽或不可重试错误进入 DEAD 并发布 JudgeFailed。
 
@@ -598,8 +622,8 @@ CreateSubmissionRequest { problemId, languageId, source }
 CustomRunRequest { problemId, languageId, source, inputText }
 ```
 
-submission-service 复用 ProblemJudgeSnapshot、ExecutionProfile 和 CORE 合并逻辑，然后同步调用
-judging-service trial API。judging-service 使用独立限流调用 Go judge `mode=trial`，返回 stdout/stderr、
+submission-service 复用 ProblemJudgeSnapshot、ExecutionProfile 和 CORE 合并规则，然后同步调用
+judging-service trial API（CORE 带上驱动文件、用户文件与前缀行数）。judging-service 同样改写报错行号。judging-service 使用独立限流调用 Go judge `mode=trial`，返回 stdout/stderr、
 资源用量和运行状态。结果不影响通过状态。
 
 ### 8.4 公开题目
@@ -631,15 +655,16 @@ JudgeRequest {
   problemId,             // 日志/对账
   testDataLocation,      // 测试数据目录的地址（submit 必填，trial 不用）
   languageId,
-  source,                // 始终为完整源码
+  source,                // ACM 为完整程序；CORE 为驱动文件
+  solutionSource?,       // CORE：用户文件；文件名由契约按语言固定
   limits { cpuNs, memoryBytes, clockNs? },
   mode?,                 // submit | trial
   testcases?             // trial 文本 testcases
 }
 ```
 
-Go judge 不知道：userId、codeMode、judgeTemplate、LanguageCalibration、Submission 状态、Kafka 或 Java
-数据库。它只按请求执行；JudgeResult 带回 `testDataDigest`（这次读取的数据指纹）。
+Go judge 不知道：userId、codeMode、LanguageCalibration、Submission 状态、Kafka 或 Java
+数据库，也不改写报错。它只按请求执行；JudgeResult 带回 `testDataDigest`（这次读取的数据指纹）。
 
 执行层（judge 进程内）与 sandbox 执行器不需要因微服务、测试数据交付方式或 CORE 改变。
 
@@ -669,7 +694,7 @@ constraintsMarkdown?, hintMarkdown?, samples[],
 allowedLanguages[] { languageId, starterCode }
 ```
 
-judgeTemplate、测试数据地址与指纹、manifest、标定和隐藏数据不返回普通用户。
+驱动代码、测试数据地址与指纹、manifest、标定和隐藏数据不返回普通用户。前缀代码目前也不返回。
 
 ### 10.3 SubmissionDetail
 
@@ -689,7 +714,7 @@ createdAt, startedAt?, finishedAt?
 
 管理页面可以由 Gateway/BFF 组合：
 
-- problem-service：题目、语言、模板、测试数据指纹。
+- problem-service：题目、语言、驱动代码、前缀修改时间、测试数据指纹。
 - judging-service：节点、标定、任务和 Attempt。
 - submission-service：结果与失败分布。
 
@@ -769,23 +794,32 @@ judging-service → Go judge（判题时才向 problem-service 取地址）:
 
 ```text
 problem-service:
+  language cpp: solutionPrefix = "#include <bits/stdc++.h>\nusing namespace std;\n"（2 行）
   p-core-1(codeMode=CORE, testDataLocation=<root>/p-core-1)
   p-core-1/cpp:
-    starterCode = "int add(int a, int b) { ... }"
-    judgeTemplate = "#include ... {{USER_CODE}} ... int main(){...}"
+    starterCode   = "class Solution {\npublic:\n    int add(int a, int b) {\n\n    }\n};\n"
+    judgeTemplate = "#include \"solution.cpp\"\nint main() { ... Solution().add(a, b) ... }"
 
 用户 source:
-  "int add(int a, int b) { return a + b; }"
+  "class Solution {\npublic:\n    int add(int a, int b) { return a + b; }\n};\n"
 
 submission-service:
-  completeSource = judgeTemplate.replaceExactlyOnce("{{USER_CODE}}", source)
-  原 source 存 Submission，completeSource 存 JudgeInput
+  completeSource = judgeTemplate                    （驱动文件 Main.cpp）
+  solutionSource = solutionPrefix + source          （用户文件 solution.cpp）
+  solutionPrefixLineCount = 2
+  原 source 存 Submission，其余存 JudgeInput
 
 judging-service → Go judge:
-  与 ACM 完全相同的完整源码 + 文本 .in/.out
+  source = 驱动文件，solutionSource = 用户文件 + 文本 .in/.out
+  judge 写入 Main.cpp 与 solution.cpp，编译 Main.cpp
+
+judging-service 改写报错:
+  solution.cpp:5:20: error: ...  →  solution.cpp:3:20: error: ...（用户第 3 行）
+  Main.cpp:6:...                 →  原样保留
 ```
 
-模板修改立即对新提交生效；旧 Submission 的 JudgeInput 已保留实际完整源码，因此不会被新模板重新解释。
+驱动代码或前缀修改后立即对新提交生效；旧 Submission 的 JudgeInput 已保留实际送判的两个文件与前缀行数，
+不会被重新解释。
 
 ---
 
@@ -812,7 +846,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 - submit 使用 testDataLocation 定位测试数据目录（协议见 protocols/testdata.md）；problemId 只作日志。
 - JudgeResult 新增可选 testDataDigest。
-- source 对 ACM/CORE 都是完整源码。
+- source：ACM 为完整程序，CORE 为驱动文件；CORE 另带 solutionSource（2026-10-17）。
 - time/memory 迁移到 cpuNs/memoryBytes。
 
 ### 13.2 已新增契约
@@ -838,7 +872,8 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 
 - 多工作空间与完整 RBAC。
 - SPJ、交互题、部分分、子任务和 hack 数据。
-- 通用 CORE 函数签名和值编解码框架。
+- 通用 CORE 函数签名和值编解码框架；驱动代码自动生成。
+- 修改驱动代码或前缀后标定自动失效（目前只提示）；前缀的管理界面。
 - 自动重判和面向用户的重判任务。
 - WebSocket/SSE 推送；web 先轮询。
 - Agent、模型供应商和提示词模型。
@@ -858,14 +893,14 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 - [ ] ExecutionProfile 同时验证在线节点、可读测试数据和对应当前数据指纹的有效标定。
 - [ ] 创建提交失败时不留下半条 Submission。
 - [ ] Submission、JudgeInput、幂等记录和 JudgeRequested Outbox 同事务创建。
-- [ ] CORE 只替换唯一占位符，完整源码冻结在 JudgeInput。
+- [ ] CORE 的驱动文件、用户文件（前缀 + 用户代码）与前缀行数冻结在 JudgeInput；报错中的用户文件行号与编辑器一致。
 - [ ] Kafka 不包含源码、模板、JWT 或隐藏数据。
 - [ ] 重复 JudgeRequested 只产生一个 JudgeTask。
 - [ ] 租约过期 Worker 的迟到结果不能覆盖当前结果。
 - [ ] Submission DONE 不回退，最终基础设施失败映射为 DONE + SE。
 - [x] judge 按 testDataLocation 读取数据，结果带回数据指纹。
 - [ ] 重新标定不修改旧 JudgeInput，旧任务仍按冻结的限制判题。
-- [ ] 普通用户 API 不返回 judgeTemplate、隐藏数据或完整标准答案。
+- [ ] 普通用户 API 不返回驱动代码、隐藏数据或完整标准答案。
 - [x] contracts 先于 Go/Java/web 实现迁移。
 
 ---

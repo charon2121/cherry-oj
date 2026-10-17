@@ -267,7 +267,19 @@ problem
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
 | `display_order` | `SMALLINT UNSIGNED` | 否 | 前端展示顺序。 |
 | `starter_code` | `MEDIUMTEXT` | 否 | 用户编辑器起始内容。 |
-| `judge_template` | `MEDIUMTEXT` | 是 | CORE 必填、ACM 必须为空；恰含一个 `{{USER_CODE}}`。 |
+| `judge_template` | `MEDIUMTEXT` | 是 | CORE 的驱动代码（完整驱动文件，按固定文件名引用用户文件），公开前必须非空；ACM 必须为空。 |
+| `judge_template_updated_at` | `DATETIME(6)` | 是 | 驱动代码最近一次修改时间；晚于当前标定时管理端提示"建议重新标定"。 |
+
+#### `language`
+
+每门语言一行，CORE 前缀代码所有题目复用。开发阶段直接改库，没有管理界面；改前缀时同时更新 `updated_at`。
+
+| 字段 | MySQL 类型 | 可空 | 功能 |
+|---|---|---:|---|
+| `language_id` | `VARCHAR(32)` | 否 | 主键，稳定语言 token，例如 cpp。 |
+| `display_name` | `VARCHAR(64)` | 否 | 展示名。 |
+| `solution_prefix` | `MEDIUMTEXT` | 否 | CORE 前缀代码：挑选过的常用库 include/import，以换行结尾。 |
+| `updated_at` | `DATETIME(6)` | 否 | 最近修改时间；晚于标定时管理端提示"建议重新标定"。 |
 
 #### `problem_audit_event`
 
@@ -357,12 +369,25 @@ CREATE TABLE problem_language (
     display_order           SMALLINT UNSIGNED NOT NULL,
     starter_code            MEDIUMTEXT NOT NULL,
     judge_template          MEDIUMTEXT NULL,
+    judge_template_updated_at DATETIME(6) NULL,
 
     PRIMARY KEY (problem_id, language_id),
     CONSTRAINT uq_problem_language_order UNIQUE (problem_id, display_order),
     CONSTRAINT fk_problem_language_problem FOREIGN KEY (problem_id)
         REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_problem_language_id CHECK (
+        REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
+    )
+) ENGINE = InnoDB;
+
+CREATE TABLE language (
+    language_id             VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    display_name            VARCHAR(64) NOT NULL,
+    solution_prefix         MEDIUMTEXT NOT NULL,
+    updated_at              DATETIME(6) NOT NULL,
+
+    PRIMARY KEY (language_id),
+    CONSTRAINT ck_language_id CHECK (
         REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
     )
 ) ENGINE = InnoDB;
@@ -391,7 +416,8 @@ CREATE TABLE problem_audit_event (
 
 以下规则跨行或跨表，必须由 problem-service 在事务中校验，并用 MySQL 集成测试钉住：
 
-1. ACM 的 `judge_template` 必须为空；CORE 的每门允许语言都必须有模板，且模板恰好包含一个字面量 `{{USER_CODE}}`。
+1. ACM 的 `judge_template` 必须为空；CORE 公开前，每门允许语言都必须有非空的驱动代码，且该语言在 `language` 表中有前缀。
+   代码模式创建后不可修改。
 2. 公开题目的修改立即生效，但不能被改成空题面或没有样例（数据库只约束「PUBLIC 必有地址和首次公开时间」）。
 3. 公开前，样例、语言、测试数据和 judging-service 的就绪检查（含对应当前数据指纹的有效标定）必须通过；
    检查之后测试数据被替换则拒绝公开。
@@ -415,7 +441,7 @@ inbox_event                 消费 JudgeStarted/Completed/Failed
 
 `effectiveLimits` 在物理表中拆为 `limit_cpu_ns / limit_memory_bytes / limit_clock_ns`，HTTP DTO 再组装为
 contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON 中。用户原始源码只在 `submission`，CORE
-合并后的完整源码只在 `judge_input`；两者都不进入 Kafka。
+的驱动文件与合并后的用户文件（前缀 + 用户代码）只在 `judge_input`；都不进入 Kafka。
 
 ### 5.2 字段字典
 
@@ -457,8 +483,11 @@ contracts 中的对象。这三列是核心执行事实，不能只埋在 JSON �
 | `contract_version` | `VARCHAR(8)` | 否 | JudgeInput 跨服务契约版本。 |
 | `problem_id` | `BINARY(16)` | 否 | 稳定题目 UUID；跨服务表中仅保存值，不建立跨库外键。 |
 | `language_id` | `VARCHAR(32)` | 否 | 稳定语言 token，例如 cpp。 |
-| `complete_source` | `MEDIUMTEXT` | 否 | 实际送往 Go judge 的完整源码；CORE 已合并模板。 |
+| `complete_source` | `MEDIUMTEXT` | 否 | ACM 为用户程序；CORE 为驱动文件（驱动代码）。 |
 | `source_sha256` | `BINARY(32)` | 否 | complete_source UTF-8 字节的 SHA-256 摘要。 |
+| `solution_source` | `MEDIUMTEXT` | 是 | CORE 的用户文件 = 前缀 + 用户代码；ACM 为空。 |
+| `solution_sha256` | `BINARY(32)` | 是 | solution_source 的 SHA-256 摘要。 |
+| `solution_prefix_line_count` | `INT UNSIGNED` | 是 | 冻结时的前缀行数；judging-service 改写报错行号用。 |
 | `language_calibration_id` | `BINARY(16)` | 否 | 本次绝对限制来源的语言标定 UUID。 |
 | `limit_cpu_ns` | `BIGINT` | 否 | 每个测试点 CPU 时间绝对上限，单位 ns。 |
 | `limit_memory_bytes` | `BIGINT` | 否 | 每个测试点内存绝对上限，单位 bytes。 |
@@ -593,6 +622,9 @@ CREATE TABLE judge_input (
     language_id                VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     complete_source            MEDIUMTEXT NOT NULL,
     source_sha256              BINARY(32) NOT NULL,
+    solution_source            MEDIUMTEXT NULL,
+    solution_sha256            BINARY(32) NULL,
+    solution_prefix_line_count INT UNSIGNED NULL,
     language_calibration_id    BINARY(16) NOT NULL,
     limit_cpu_ns               BIGINT NOT NULL,
     limit_memory_bytes         BIGINT NOT NULL,
@@ -603,6 +635,10 @@ CREATE TABLE judge_input (
     CONSTRAINT fk_judge_input_submission FOREIGN KEY (submission_id)
         REFERENCES submission (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_judge_input_contract CHECK (contract_version IN ('2')),
+    CONSTRAINT ck_judge_input_solution CHECK (
+        (solution_source IS NULL) = (solution_sha256 IS NULL)
+        AND (solution_source IS NULL) = (solution_prefix_line_count IS NULL)
+    ),
     CONSTRAINT ck_judge_input_language CHECK (
         REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
     ),
@@ -1230,7 +1266,7 @@ HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在
 
 应用事务约束：
 
-- ACM/CORE 模板条件和唯一占位符。
+- ACM/CORE 驱动代码条件；代码模式创建后不可修改；CORE 的 judge_input 必须带用户文件且与 submission 的 code_mode 一致。
 - 公开题目的修改不能清空题面或样例；只有从未公开过的题目可以删除。
 - 标定对应的测试数据指纹等于 judge 实际读取的指纹。
 - JudgeInput 和历史有效事实不可修改。
@@ -1334,8 +1370,8 @@ problem（ACTIVE/PUBLIC，测试数据此刻可读）
   → problem_language(languageId)
 ```
 
-UUID 转标准带连字符字符串；CORE 返回 `judge_template`，ACM 不返回。快照不含测试数据地址；judging-service 判题时通过
-独立的内部接口取地址与指纹。普通用户题目详情只能返回 starterCode，不能复用内部快照序列化器泄漏 judgeTemplate。
+UUID 转标准带连字符字符串；CORE 返回 `judge_template`（驱动代码）与 `language.solution_prefix`，ACM 都不返回。快照不含测试数据地址；judging-service 判题时通过
+独立的内部接口取地址与指纹。普通用户题目详情只能返回 starterCode，不能复用内部快照序列化器下发驱动代码。
 
 ### 11.2 ExecutionProfile
 
@@ -1390,7 +1426,7 @@ submission-service 同时冻结到 Submission 和 JudgeInput；未来标定变�
 6. 实现 judging-service 的 ExecutionProfile 查询
 7. 实现 submission-service 的 Submission + JudgeInput + 幂等 + Outbox 事务
 8. 实现 judging-service 的 Inbox + JudgeTask + 租约 + Attempt + lifecycle Outbox
-9. 跑通 C++ ACM A+B，再加入 CORE 模板合并
+9. 跑通 C++ ACM A+B，再加入 CORE（驱动文件 + 前缀合并 + 报错行号改写）
 ```
 
 不得跳过 migration/约束测试直接靠 Java 内存模型模拟数据库；也不得把本文 DDL 复制成一个所有服务共享
