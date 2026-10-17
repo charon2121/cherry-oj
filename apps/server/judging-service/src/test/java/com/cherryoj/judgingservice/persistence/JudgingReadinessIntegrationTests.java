@@ -76,6 +76,8 @@ class JudgingReadinessIntegrationTests {
         assertThat(readiness.ready()).isTrue();
         assertThat(readiness.checks()).allMatch(check -> check.passed());
         assertThat(readiness.executionProfile().cpuNs()).isEqualTo(1_000_000_000L);
+        // 批准时间随执行配置返回：problem-service 据此判断驱动代码或前缀是否在标定之后改过
+        assertThat(readiness.executionProfile().calibratedAt()).isEqualTo(calibrated.updatedAt());
         String details = String.join("", jdbc.queryForList(
                 "SELECT CAST(detail_json AS CHAR) FROM judging_audit_event", String.class));
         assertThat(details).doesNotContain(request.referenceSource());
@@ -150,7 +152,7 @@ class JudgingReadinessIntegrationTests {
     void calibrationNeedsAnOnlineNodeForTheLanguage() {
         String problem = UUID.randomUUID().toString();
         assertThatThrownBy(() -> service.calibrate(new CalibrationRequest(problem, "python", LOCATION, DIGEST,
-                1_000_000_000L, 268_435_456L, null, "print(1)"), ACTOR, null))
+                1_000_000_000L, 268_435_456L, null, "print(1)", null, null), ACTOR, null))
                 .isInstanceOf(JudgingApiException.class).hasMessageContaining("没有在线判题节点");
     }
 
@@ -186,7 +188,34 @@ class JudgingReadinessIntegrationTests {
         return new JudgeGateway.JudgeResult("AC", 12L, 4096L, 100, null, null, digest);
     }
 
+    @Test
+    void coreCalibrationJudgesTheDriverTogetherWithTheReferenceSolutionFile() throws Exception {
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        String solution = "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {};\n";
+
+        var calibrated = service.calibrate(new CalibrationRequest(problem, "cpp", LOCATION, DIGEST,
+                1_000_000_000L, 268_435_456L, null, "#include \"solution.cpp\"\nint main(){}\n", solution, 2),
+                ACTOR, null);
+
+        assertThat(calibrated.status()).isEqualTo("VALID");
+        var sent = org.mockito.ArgumentCaptor.forClass(JudgeGateway.JudgeRequest.class);
+        org.mockito.Mockito.verify(judge).judge(anyString(), sent.capture(), any());
+        assertThat(sent.getValue().source()).startsWith("#include \"solution.cpp\"");
+        assertThat(sent.getValue().solutionSource()).isEqualTo(solution);
+    }
+
+    @Test
+    void aCoreCalibrationNeedsBothTheSolutionFileAndThePrefixLineCount() {
+        String problem = UUID.randomUUID().toString();
+        assertThatThrownBy(() -> service.calibrate(new CalibrationRequest(problem, "cpp", LOCATION, DIGEST,
+                1_000_000_000L, 268_435_456L, null, "driver", "class Solution {};", null), ACTOR, null))
+                .isInstanceOf(JudgingApiException.class).hasMessageContaining("同时给出");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM language_calibration WHERE problem_id = UUID_TO_BIN(?)",
+                Integer.class, problem)).isZero();
+    }
+
     private static CalibrationRequest calibration(String problem, String digest, String source) {
-        return new CalibrationRequest(problem, "cpp", LOCATION, digest, 1_000_000_000L, 268_435_456L, null, source);
+        return new CalibrationRequest(problem, "cpp", LOCATION, digest, 1_000_000_000L, 268_435_456L, null, source, null, null);
     }
 }

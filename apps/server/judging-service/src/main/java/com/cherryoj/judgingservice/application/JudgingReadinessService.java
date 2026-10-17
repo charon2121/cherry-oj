@@ -11,6 +11,7 @@ import com.cherryoj.judgingservice.api.JudgingDtos.ReadinessCheck;
 import com.cherryoj.judgingservice.domain.UuidV7;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeCallException;
+import com.cherryoj.judgingservice.judge.LanguageFiles;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.CalibrationRow;
@@ -58,13 +59,18 @@ public class JudgingReadinessService {
             throw new JudgingApiException(HttpStatus.PAYLOAD_TOO_LARGE,
                     "REFERENCE_SOURCE_TOO_LARGE", "参考源码超过安全限额。");
         }
+        if ((request.referenceSolutionSource() == null) != (request.solutionPrefixLineCount() == null)
+                || (request.referenceSolutionSource() != null && LanguageFiles.of(request.languageId()) == null)) {
+            throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_CALIBRATION_REQUEST",
+                    "参考用户文件与前缀行数必须同时给出，且只用于支持核心代码模式的语言。");
+        }
         CalibrationStart start = transactions.execute(status -> startCalibration(request, actorId, traceId));
         String sourceSha = sha256(request.referenceSource().getBytes(StandardCharsets.UTF_8));
         JudgeGateway.JudgeResult result;
         try {
             result = judge.judge(start.endpoint(), new JudgeGateway.JudgeRequest(
                     start.calibrationId(), request.problemId(), request.testDataLocation(),
-                    request.languageId(), request.referenceSource(),
+                    request.languageId(), request.referenceSource(), request.referenceSolutionSource(),
                     new JudgeGateway.Limits(request.cpuNs(), request.memoryBytes(), request.clockNs()), "submit"), traceId);
         }
         catch (JudgeCallException error) {
@@ -154,7 +160,7 @@ public class JudgingReadinessService {
                         : calibration == null ? "该语言缺少 VALID 校准。" : "测试数据已更新，该语言的校准已过期，请重新校准。"));
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
         ExecutionProfile profile = ready ? new ExecutionProfile(calibration.id(),
-                calibration.cpuNs(), calibration.memoryBytes(), calibration.clockNs()) : null;
+                calibration.cpuNs(), calibration.memoryBytes(), calibration.clockNs(), calibration.approvedAt()) : null;
         return new Readiness(ready, checks, profile);
     }
 

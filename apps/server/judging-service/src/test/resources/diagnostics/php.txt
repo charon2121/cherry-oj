@@ -1,0 +1,10 @@
+No syntax errors detected in solution.php
+
+
+
+
+Fatal error: Uncaught Error: Call to undefined function missing() in /w/solution.php:15
+Stack trace:
+#0 /w/Main.php(8): Solution->twoSum(Array, 9)
+#1 {main}
+  thrown in /w/solution.php on line 15

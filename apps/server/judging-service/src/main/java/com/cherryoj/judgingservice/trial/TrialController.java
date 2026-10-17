@@ -4,6 +4,8 @@ import com.cherryoj.judgingservice.api.*;
 import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.persistence.*;
 import com.cherryoj.judgingservice.http.LimitedHttpBody;
+import com.cherryoj.judgingservice.judge.JudgeDiagnostics;
+import com.cherryoj.judgingservice.judge.LanguageFiles;
 import jakarta.annotation.PreDestroy;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -45,8 +47,13 @@ public class TrialController {
 		this.http = http;
 	}
 
+	/**
+	 * 契约见 contracts/custom-run-internal.schema.json。CORE 时 source 是驱动文件，solutionSource 是用户文件（前缀 + 用户代码），
+	 * 两个 CORE 字段同时出现或同时缺席；用户代码自身的 256 KiB 上限由 submission-service 在入口检查。
+	 */
 	public record Request(@NotNull UUID problemId,
-			@Pattern(regexp = "cpp") @NotNull String languageId, @NotBlank @Size(max = 262144) String source,
+			@Pattern(regexp = "cpp") @NotNull String languageId, @NotBlank @Size(max = 1048576) String source,
+			@Size(min = 1, max = 327680) String solutionSource, @Min(0) Integer solutionPrefixLineCount,
 			@NotNull @Size(max = 65536) String inputText, @Positive long deadlineEpochMs) {
 		@Override
 		public String toString() {
@@ -73,9 +80,13 @@ public class TrialController {
 	@PostMapping("/internal/submission/trials")
 	public ResponseEntity<Result> run(@Valid @RequestBody Request request,
 			@RequestHeader(value = "traceparent", required = false) String trace) {
-		if (request.source().getBytes(StandardCharsets.UTF_8).length > 262144
+		if (request.source().getBytes(StandardCharsets.UTF_8).length > 1048576
+				|| (request.solutionSource() != null
+						&& request.solutionSource().getBytes(StandardCharsets.UTF_8).length > 327680)
 				|| request.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
 			throw error(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "代码或输入过大。");
+		if ((request.solutionSource() == null) != (request.solutionPrefixLineCount() == null))
+			throw error(HttpStatus.BAD_REQUEST, "INVALID_RUN_REQUEST", "用户文件与前缀行数必须同时给出。");
 		long deadline = Math.min(request.deadlineEpochMs(), System.currentTimeMillis() + 45000);
 		if (!slots.tryAcquire())
 			throw error(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
@@ -147,9 +158,14 @@ public class TrialController {
 		if (online.isEmpty())
 			throw unavailable();
 		var node = online.getFirst();
-		Map<String, Object> body = Map.of("submissionId", UUID.randomUUID().toString(), "problemId", r.problemId(),
-				"languageId", "cpp", "source", r.source(), "limits", effective, "mode", "trial", "testcases",
-				List.of(Map.of("input", r.inputText())));
+		Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of("submissionId", UUID.randomUUID().toString(),
+				"problemId", r.problemId(), "languageId", "cpp", "source", r.source(), "limits", effective, "mode",
+				"trial", "testcases", List.of(Map.of("input", r.inputText()))));
+		if (r.solutionSource() != null)
+			body.put("solutionSource", r.solutionSource());
+		// CORE：报错里用户文件的行号按前缀行数换算；ACM 时两者为 null，只清理路径。
+		String solutionFile = r.solutionSource() == null ? null : LanguageFiles.of("cpp").solutionFile();
+		Integer prefixLines = r.solutionPrefixLineCount();
 		var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
 			.timeout(Duration.ofMillis(remaining(deadline)))
 			.header("Content-Type", "application/json")
@@ -167,8 +183,8 @@ public class TrialController {
 			var tree = json.readTree(received.body());
 			String verdict = tree.path("verdict").asText();
 			if ("CE".equals(verdict))
-				return new Result("COMPILE_ERROR", null, null, null, null, diagnostic(tree.path("message").asText("")),
-						effective);
+				return new Result("COMPILE_ERROR", null, null, null, null,
+						diagnostic(tree.path("message").asText(""), solutionFile, prefixLines), effective);
 			String status = switch (verdict) {
 				case "RAN" -> "COMPLETED";
 				case "RE" -> "RUNTIME_ERROR";
@@ -185,8 +201,9 @@ public class TrialController {
 				throw unavailable();
 			// Missing streams indicate an old judge binary; never pretend stderr was
 			// empty.
+			// 标准输出是程序自己打印的，原样返回；stderr 里的运行错误位置同样换算。
 			return new Result(status, nonnegative(c, "cpuNs"), nonnegative(c, "memoryBytes"), output(c.path("output")),
-					output(c.path("stderr")), null, effective);
+					stderr(output(c.path("stderr")), solutionFile, prefixLines), null, effective);
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -239,10 +256,15 @@ public class TrialController {
 		return text.substring(0, end);
 	}
 
-	static String diagnostic(String text) {
-		return clip(text.replaceAll("\\u001B\\[[;\\d]*[ -/]*[@-~]", "")
-			.replaceAll("[\\p{Cntrl}&&[^\\n\\t]]", "")
-			.replaceAll("(?:[A-Za-z]:)?[/\\\\](?:[^\\s:]+[/\\\\])*[^\\s:]+", "<file>"), 8192);
+	static String diagnostic(String text, String solutionFile, Integer prefixLines) {
+		return clip(JudgeDiagnostics.forUser(text, solutionFile, prefixLines, JudgeDiagnostics.looksCut(text)), 8192);
+	}
+
+	private static Output stderr(Output raw, String solutionFile, Integer prefixLines) {
+		if (solutionFile == null)
+			return raw;
+		return new Output(JudgeDiagnostics.forUser(raw.text(), solutionFile, prefixLines, raw.truncated()),
+				raw.capturedBytes(), raw.truncated());
 	}
 
 	static long remaining(long deadline) {

@@ -28,7 +28,7 @@ class SubmissionExecutionProfileControllerTests {
         when(service.readiness(PROBLEM, "cpp", DIGEST)).thenReturn(new JudgingDtos.Readiness(false, List.of(), null));
         assertThrows(JudgingApiException.class, () -> controller.resolve(request, null));
         when(service.readiness(PROBLEM, "cpp", DIGEST)).thenReturn(new JudgingDtos.Readiness(true, List.of(),
-                new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L)));
+                new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, null)));
         var profile = controller.resolve(request, null);
         assertEquals("cal", profile.languageCalibrationId());
         assertEquals(1000, profile.effectiveLimits().cpuNs());
@@ -42,7 +42,7 @@ class SubmissionExecutionProfileControllerTests {
         var testData = mock(ProblemTestDataClient.class);
         var controller = new SubmissionExecutionProfileController(service, budgets(), testData);
         when(service.readiness(PROBLEM, "cpp", DIGEST)).thenReturn(new JudgingDtos.Readiness(true, List.of(),
-                new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L)));
+                new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, null)));
         when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 10, 100));
         long ten = controller.resolve(new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", "formal"), null).executionBudgetNs();
         when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 20, 100));

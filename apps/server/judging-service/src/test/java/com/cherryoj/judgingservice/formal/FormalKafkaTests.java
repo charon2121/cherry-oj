@@ -45,7 +45,7 @@ class FormalKafkaTests {
     @MockitoBean com.cherryoj.judgingservice.problem.ProblemTestDataClient testData;
     @Test void requestedEventIsDurableAndOnlySafeCompletionCrossesKafka() throws Exception {
         String id=UUID.randomUUID().toString(),problem=UUID.randomUUID().toString();
-        var input=new FormalInput(id,"2",problem,"cpp","source",FormalWorker.hash("source"),UUID.randomUUID().toString(),new JudgeGateway.Limits(1000,2000,3000L),Instant.now());
+        var input=new FormalInput(id,"2",problem,"cpp","source",FormalWorker.hash("source"),null,null,null,UUID.randomUUID().toString(),new JudgeGateway.Limits(1000,2000,3000L),Instant.now());
         when(inputs.get(eq(id),nullable(String.class))).thenReturn(input);
         when(testData.current(eq(problem),nullable(String.class))).thenReturn(new com.cherryoj.judgingservice.problem.ProblemTestData("/data/p","a".repeat(64),1,10));
         when(nodes.online(eq("cpp"),any())).thenReturn(List.of(new JudgeNodeRepository.Node("node",UUID.randomUUID().toString(),"http://test-node",LocalDateTime.now().plusMinutes(1))));

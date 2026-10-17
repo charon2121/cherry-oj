@@ -7,10 +7,13 @@ public interface JudgeGateway {
         return judge(endpoint, request, trace);
     }
 
-    /** testDataLocation 只有 mode=submit 才带；节点按它读取测试数据，协议见 docs/protocols/testdata.md。 */
+    /**
+     * testDataLocation 只有 mode=submit 才带；节点按它读取测试数据，协议见 docs/protocols/testdata.md。
+     * solutionSource 只有 CORE 才带：source 是驱动文件，它是用户文件（前缀 + 用户代码）；ACM 时为 null，不序列化。
+     */
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record JudgeRequest(String submissionId, String problemId, String testDataLocation, String languageId,
-                        String source, Limits limits, String mode) {}
+                        String source, String solutionSource, Limits limits, String mode) {}
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
     record JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,

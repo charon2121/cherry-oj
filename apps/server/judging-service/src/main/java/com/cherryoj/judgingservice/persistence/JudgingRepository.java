@@ -78,7 +78,7 @@ public class JudgingRepository {
                 SELECT BIN_TO_UUID(id) id, BIN_TO_UUID(problem_id) problem_id,
                        language_id, test_data_digest, status,
                        cpu_ns, memory_bytes, clock_ns, CAST(benchmark_summary_json AS CHAR) benchmark_summary_json,
-                       error_message, created_at, updated_at, row_version
+                       error_message, created_at, updated_at, row_version, approved_at
                 FROM language_calibration
                 """;
     }
@@ -90,11 +90,12 @@ public class JudgingRepository {
                 rs.getObject("cpu_ns", Long.class), rs.getObject("memory_bytes", Long.class), clock,
                 rs.getString("benchmark_summary_json"), rs.getString("error_message"),
                 rs.getObject("created_at", LocalDateTime.class), rs.getObject("updated_at", LocalDateTime.class),
-                rs.getLong("row_version"));
+                rs.getLong("row_version"), rs.getObject("approved_at", LocalDateTime.class));
     }
 
     public record CalibrationRow(String id, String problemId, String languageId, String testDataDigest,
                                  String status, Long cpuNs, Long memoryBytes, Long clockNs,
                                  String benchmarkSummaryJson, String errorMessage,
-                                 LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion) {}
+                                 LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion,
+                                 LocalDateTime approvedAt) {}
 }

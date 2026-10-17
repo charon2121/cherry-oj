@@ -1,0 +1,3 @@
+Solution.kt:9:53: error: unresolved reference 'missing'.
+            if (j != null) return intArrayOf(j, i + missing)
+                                                    ^^^^^^^

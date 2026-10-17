@@ -1,6 +1,8 @@
 package com.cherryoj.judgingservice.formal;
 
+import com.cherryoj.judgingservice.judge.JudgeDiagnostics;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
+import com.cherryoj.judgingservice.judge.LanguageFiles;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
 import com.cherryoj.judgingservice.problem.ProblemTestDataException;
@@ -64,9 +66,10 @@ public class FormalWorker {
             var online=nodes.online(input.languageId(),LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC));
             if(online.isEmpty()) throw new FormalFailure("NO_MATCHING_JUDGE_NODE");
             var result=judge.judge(online.getFirst().endpoint(),new JudgeGateway.JudgeRequest(input.submissionId(),input.problemId(),
-                    data.location(),input.languageId(),input.completeSource(),input.effectiveLimits(),"submit"),task.traceParent(),budget);
+                    data.location(),input.languageId(),input.completeSource(),input.solutionSource(),input.effectiveLimits(),"submit"),
+                    task.traceParent(),budget);
             if("SE".equals(result.verdict())) throw new FormalFailure("JUDGE_SYSTEM_ERROR");
-            store.finish(task,safe(result,data.testcaseCount()),result.testDataDigest(),null,null);
+            store.finish(task,safe(result,data.testcaseCount(),input),result.testDataDigest(),null,null);
         } catch(Exception error) {
             String code=error instanceof FormalFailure ? error.getMessage() : "JUDGE_EXECUTION_FAILED";
             boolean retry=task.attemptNo()<properties.maxAttempts() && clock.instant().isBefore(deadline)
@@ -79,9 +82,11 @@ public class FormalWorker {
         catch(ProblemTestDataException error) { throw new FormalFailure(error.code()); }
     }
     private static void validate(FormalInput input,String id) {
+        // CORE 的 completeSource 是驱动文件，上限与题目的驱动代码一致（1 MiB）；用户代码的上限在提交入口检查。
         if(input==null || !id.equals(input.submissionId()) || !"2".equals(input.contractVersion()) || !"cpp".equals(input.languageId())
-                || input.completeSource()==null || input.completeSource().getBytes(StandardCharsets.UTF_8).length>262144
+                || input.completeSource()==null || input.completeSource().getBytes(StandardCharsets.UTF_8).length>1_048_576
                 || input.sourceSha256()==null || !hash(input.completeSource()).equals(input.sourceSha256())
+                || !validSolution(input)
                 || input.effectiveLimits()==null || input.effectiveLimits().cpuNs()<=0 || input.effectiveLimits().memoryBytes()<=0
                 || (input.effectiveLimits().clockNs()!=null && input.effectiveLimits().clockNs()<=0)
                 || input.createdAt()==null) throw new FormalFailure("INVALID_JUDGE_INPUT");
@@ -89,7 +94,15 @@ public class FormalWorker {
             for(String uuid:List.of(input.problemId(),input.languageCalibrationId())) UUID.fromString(uuid);
         } catch(RuntimeException error) { throw new FormalFailure("INVALID_JUDGE_INPUT"); }
     }
-    static Map<String,Object> safe(JudgeGateway.JudgeResult result,int testcaseCount) {
+    /** 用户文件、摘要、前缀行数三者同时出现（CORE）或同时缺席（ACM），且用户文件与摘要一致。 */
+    static boolean validSolution(FormalInput input) {
+        if(input.solutionSource()==null) return input.solutionSha256()==null && input.solutionPrefixLineCount()==null;
+        return input.solutionSha256()!=null && hash(input.solutionSource()).equals(input.solutionSha256())
+                && input.solutionPrefixLineCount()!=null && input.solutionPrefixLineCount()>=0
+                && LanguageFiles.of(input.languageId())!=null
+                && input.solutionSource().getBytes(StandardCharsets.UTF_8).length<=327_680;
+    }
+    static Map<String,Object> safe(JudgeGateway.JudgeResult result,int testcaseCount,FormalInput input) {
         Set<String> verdicts=Set.of("AC","WA","PE","TLE","MLE","OLE","RE","CE");
         if(result==null || result.verdict()==null || !verdicts.contains(result.verdict())) throw new FormalFailure("INVALID_JUDGE_RESULT");
         var safe=new LinkedHashMap<String,Object>();
@@ -106,9 +119,10 @@ public class FormalWorker {
             safe.put("passedTestcaseCount",passed); safe.put("executedTestcaseCount",index); safe.put("testcaseCount",testcaseCount);
         }
         if("CE".equals(result.verdict()) && result.message()!=null && !result.message().isBlank()) {
-            String diagnostic=result.message().replaceAll("\\u001B\\[[;\\d]*[ -/]*[@-~]", "")
-                    .replaceAll("[\\p{Cntrl}&&[^\\n\\t]]", "")
-                    .replaceAll("(?:[A-Za-z]:)?[/\\\\](?:[^\\s:]+[/\\\\])*[^\\s:]+", "<file>");
+            // CORE：用户文件的行号按冻结的前缀行数换算成编辑器行号；路径只留文件名。
+            LanguageFiles files=input.solutionSource()==null ? null : LanguageFiles.of(input.languageId());
+            String diagnostic=JudgeDiagnostics.forUser(result.message(),files==null ? null : files.solutionFile(),
+                    files==null ? null : input.solutionPrefixLineCount(),JudgeDiagnostics.looksCut(result.message()));
             safe.put("message",diagnostic.substring(0,Math.min(diagnostic.length(),8192)));
         }
         return safe;
