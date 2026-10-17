@@ -196,9 +196,12 @@ NavBar、Badge、Card、Eyebrow、Heading 与 Text。生产实现保留其 anato
 - WORK-041 按用户指定在题目编码区采用 `CodeEditor`（Monaco 0.56，本地异步 ESM/C++/worker），
   手机触控端回退 CodeMirror `TextEditor size="fill"`。后台基础 Markdown/C++ 录入仍使用 CodeMirror。
   新增 Monaco 使用点须在 DESIGN 中说明收益、移动端边界和 bundle 代价，不扩散为普通长文本组件。
-- 用户答题页面使用 `WorkbenchPageTemplate variant="coding"`，在有限视口内左右等宽并独立滚动；
-  窄屏以基于 shadcn base-nova / Base UI 的 Tabs 切换题目和代码，隐藏区域保持挂载但不可聚焦。
-  默认 `form` 工作台保持原布局。题目详情 shell 填满视口并隐藏页脚，题库/登录页保留正常页脚。
+- 用户答题页面使用 `WorkbenchPageTemplate variant="coding"`，顶部是面包屑一行。宽屏用 `SplitPane`
+  分成题目｜代码与测试（右侧再上下分），栏间只有 0.5px 分隔线，可拖动、可用键盘调整，比例记在本机，
+  默认题目占 42% 宽；每栏顶部是 44px 的 `PaneHeader`，栏内用胶囊 `Tabs` 切换，各栏独立滚动。
+  窄屏以 Tabs 切换题目和代码，隐藏区域保持挂载但不可聚焦。默认 `form` 工作台保持原布局。题目详情
+  shell 填满视口并隐藏页脚，题库/登录页保留正常页脚。运行、提交与结果呈现的交互约定见
+  [`design-system/PROMPT.md`](./design-system/PROMPT.md)「交互与文案约定」。
 - JSON、CSV、逗号分隔文本等序列化格式不是普通运营人员的默认表单。可重复业务对象必须用结构化字段、
   列表或卡片编辑，序号和序列化由系统生成；原始格式只可作为明确的高级导入/导出能力。
 
@@ -397,9 +400,13 @@ WORK-035 把 `docs/` 整个移出仓库后重跑了全套命令，check、build�
 `data-table-list` 与 `app-shell-navigation` 已有实现（`DataList`、`app/shells/`）；
 业务层不再直接消费 `--ds-*`，由 lint 拦截。
 
-**已知缺口，不要当成已完成。** `editor-workspace`、`submission-lifecycle`、`verdict` 仍只有
-合同没有实现。除题库列表外，其余页面尚未迁移到 §7.3 的构图合同与页面模板，仓库因此处于新旧
-两种列表写法并存的**过渡状态**——这是明确的中间态，由后续工作承接，不得长期保留。
+**已按 linear.app 实测重做的页面**（2026-10-16/17）：管理端外壳、题库列表与管理端题目列表
+（`ListPageTemplate`）、成员管理（Settings › Members）、管理端题目编辑（Issue 详情：左正文右属性栏）、
+用户端做题页（§6.1）。页面与 Linear 页面的对应关系见 `PROMPT.md` 的「页面对照表」。
+
+**已知缺口，不要当成已完成。** `editor-workspace`、`submission-lifecycle`、`verdict` 已有实现
+（做题页、`submission-panel.tsx`、`custom-run-workbench.tsx`），但还没有对照
+`components.manifest.json` 的合同逐项核对。其余页面是否符合 §7.3 构图合同，改到时先对照再动手。
 
 ## 11. 评审清单
 

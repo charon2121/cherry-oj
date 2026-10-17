@@ -9,7 +9,7 @@
 视觉目标是 **instrument panel**：近黑或纯白画布、冷灰层级、高信息密度、严格对齐、
 hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，不是后台管理模板，也不是营销页。
 
-会话内只需一句话时用：**「按 `docs/design-system/PROMPT.md` 写；完成后逐条回答自检八问。」**
+会话内只需一句话时用：**「按 `docs/design-system/PROMPT.md` 写；完成后逐条回答自检九问。」**
 
 ## 一句话原则
 
@@ -29,6 +29,22 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 | G | 颜色只管层级和状态 | 分组、强调都不用颜色 | 颜色一多就掉价 |
 | H | 动效只做颜色 | 无位移、无缩放 | 位移破坏对齐感 |
 | I | 只有浮层允许厚重 | 浮层三件套；其余一律无阴影 | 阴影用在平面元素上会显脏 |
+
+## 先找参照，再动手
+
+视觉语言**只有一个来源：linear.app 真实页面的实测**（数值在 [`measurements.md`](./measurements.md)）。
+做任何新页面或改外观之前，按这个顺序找参照：
+
+1. **仓库里已有同类页面**——查下面的「页面对照表」，照现有实现的结构和组件写。这是最快也最一致的路。
+2. **没有同类时，去 linear.app 找功能最接近的页面实测**：列表→Issues，对象编辑→Issue 详情，
+   新建→新建 issue 对话框，选值→属性浮层，设置→Settings，跳转→命令面板（⌘K）。用浏览器对已登录页面读
+   `getComputedStyle` / `getBoundingClientRect`，量到的新数值补进 `measurements.md`（只记事实）。
+   用户已授权使用其 Chrome 中已登录的 Linear 账号（可建测试数据、切主题），用完把主题恢复为 Dark。
+3. **其他产品（如 leetcode.cn）只能参考交互，不参考外观。** 可以学的是流程、反馈时机、信息顺序
+   （例如"运行后先给结论、自动选中第一个失败用例"）；不能搬的是布局、配色、画布、卡片、顶栏、导航。
+   顺序是：先说清 Cherry 现有页面上用户卡在哪一步，再看别人怎么解决，最后用本系统的组件与 token 实现。
+   「某某网站就是这样」不是改动理由；用户说「重新设计 X」时，不要自行替 X 选别的产品当参照。
+   （2026-10-17 曾把做题页的画布、浮卡片、顶栏乃至用户端主导航照 leetcode.cn 复刻，已全部撤回。）
 
 ## 三层来源，顺序不可颠倒
 
@@ -51,6 +67,43 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 | 真正的数据表（可排序列头、批量操作） | `./table` 的 `Table` 原语 |
 
 模板独占首内容间距与页面语义标题；页面不再自写 `pt-*`，也不再自己写 `<h1 className="sr-only">`。
+
+## 页面对照表（新页面先找最像的一行照着写）
+
+| Cherry 页面 | 现有实现 | linear.app 对应 | 要点 |
+|---|---|---|---|
+| 管理端外壳 | `app/shells/admin-app-shell.tsx` | 侧栏 + 内嵌面板 | 侧栏 244px 与画布同底；主内容是内嵌面板，44px 顶栏在面板内。页面级操作用 `HeaderActions`、当前对象名用 `usePageCrumb`（`components/ui/header-slot.tsx`）放进这条顶栏，不在内容里再叠一条 |
+| 用户端外壳 | `app/shells/site-app-shell.tsx` | 无（用户端没有侧栏） | 44px 顶栏：品牌与栏目在左，主题与账号在右；做题页填满视口、隐藏页脚 |
+| 列表 | `features/problems/components/problem-list-page.tsx`、`admin-problem-list-page.tsx` | Issues 列表 | `ListPageTemplate` + `Toolbar` + `DataList`，见下方「页面语法」 |
+| 成员/账号管理 | `features/admin-users/components/admin-users-page.tsx` | Settings › Members | 页标题、一行工具条、成组的行 |
+| 对象编辑（一页到底） | `features/problems/components/admin-problem-workbench.tsx` | Issue 详情 | 左正文、右属性栏（`property-button.tsx` 的属性胶囊原地改）；长文本用 `RichMarkdownEditor`（所见即所得，存 Markdown）；不属于"写"的动作是属性栏打开的对话框，可用 `?panel=` 直达；保存规则见 `../design-system.md` §7.1 |
+| 新建对象 | `features/problems/components/admin-problem-create-dialog.tsx` | 新建 issue 对话框 | 只问必要字段（标题、标识、难度），其余在编辑页补 |
+| 做题页（编码工作台） | `features/problems/components/problem-detail-page.tsx`、`features/custom-runs/custom-run-workbench.tsx` | 无直接对应，由 Linear 零件组合 | 面包屑一行（题库 › 题名，右侧 slug）；宽屏 `SplitPane` 分栏（题目｜代码/测试，栏间 0.5px 线，可拖、可键盘调）；每栏顶部 `PaneHeader`（44px、0.5px 下边）；栏内切换用胶囊 `Tabs`；窄屏用 `Tabs` 在题目/代码间切换 |
+
+## 已有组件（先用，不要重写）
+
+`components/ui/` 下的通用件：`Button`、`IconButton`、`Pill`（视图切换与可选项胶囊，可带状态圆点）、
+`Tabs`（胶囊式视图切换）、`SplitPane`（可拖动分栏）、`DataList`、`Toolbar`、`SearchInput`、`Field`/`Input`/
+`SelectField`/`Textarea`、`Dialog`、`Sheet`、`Popover`、`DropdownMenu`、`InlineNotice`、`AsyncState`（加载/空/错）、
+`Badge`、`Breadcrumb`、`TextEditor`（CodeMirror：长文本、样例、只读输出）、`CodeEditor`（Monaco：只用于做题
+编码区）、`RichMarkdownEditor`、`CodeBlockEditor`、页面模板 `ListPageTemplate`/`DetailPageTemplate`/
+`WorkbenchPageTemplate`。业务里复用的：`CopyIconButton`（`features/problems/components/source-copy-button.tsx`）、
+`DifficultyIcon`、`SafeMarkdown`（不可信 Markdown 渲染）、`Pane`/`PaneHeader`（`problem-source-editor.tsx`）。
+确实缺件时，先按「三层来源」查 shadcn base-nova，再在 `components/ui/` 新增并写 story。
+
+## 交互与文案约定
+
+- **同一事物只有一个叫法**，用户端、管理端、自测、提交都一样（例如两端都叫"输入说明/输出说明"；判定名称
+  统一用 `features/submissions/submission-panel.tsx` 导出的 `labels`）。写法可以不同，叫法不能不同。
+- **界面上不写功能说明。** 页面自己说明怎么用就是没设计好；给读屏的说明放 `sr-only`。只有操作被挡住时，
+  才在旁边用可读文字说明原因和下一步。
+- **结果先给一句结论，再给细节。** 结论用颜色区分：通过 `text-success`、失败 `text-danger`、进行中
+  `text-fg-2`；有多项时自动选中第一个失败项，细节按"输入 → 实际 → 预期"并排。
+- **操作放在它产生结果的区域旁**，宽窄屏同一位置。用户触发的结果自动切到对应页签，但不抢焦点。
+- **快捷键**：⌘/Ctrl+S 保存，⌘/Ctrl+Enter 运行，⌘/Ctrl+Shift+Enter 提交（会留下记录的动作多按一个键）。
+  用 `src/lib/use-mod-enter.ts`，按钮带 `aria-keyshortcuts` 与 `title`；对话框打开时不响应。
+- **覆盖或清空用户手写的内容前要确认**；在系统给的内容之间切换（例如样例 1 → 样例 2）不确认。
+- 保存状态与所属区域的标题同一行，不单独占一行；出问题时才变成醒目的文字和按钮。
 
 ## 页面语法（判定用，不是建议）
 
@@ -133,10 +186,14 @@ packed（标题只有几个字，中文标题基本都属于这类）
   枚举 theme id、raw hex / oklch、用 `color-mix()` 制造必要对比、用 opacity 表达 disabled。
 - 页面顶部「眉题 + 标题 + 描述」介绍区。页面直接进入任务。
 - 把长 Markdown 或代码放进 `Textarea`；用项目的 `TextEditor`。
+- 从 linear.app 以外的产品搬外观（布局、配色、画布、卡片、顶栏、导航）。见「先找参照，再动手」第 3 条。
+- `dark:` 变体、`translate-*` 位移、用 opacity 表达禁用或占位——`npm run check:design-system` 会拦。
 - 把 `source/claude-design-v1/` 当设计依据。它只是许可与来源证据，不要照它的 readme
   或原型代码做设计判断。
 
 ## 交付前自检（逐条作答，不接受「已遵守」）
+
+0. **参照的是哪个现有页面或 linear.app 的哪个页面？** 有没有任何外观来自别的产品？
 
 1. **这一屏画了几个框？** 每一个都要说出为什么间距解决不了。
 2. **行内的字段跨行对齐吗？** 截图后同一列应当落在同一条竖线上。
@@ -151,6 +208,9 @@ packed（标题只有几个字，中文标题基本都属于这类）
    图标尺寸、簇内 gap、控件三态描边）？对不上的地方是有意偏离还是没注意到？
 
 ## 验收方式
+
+本地验收：`cd apps/web && npm run lint && npx vitest run && npm run check:design-system && npm run build`，
+再跑相关 E2E；浏览器里两个主题各截一张图，与 linear.app 对应页面同尺寸并排对照。
 
 **不要用「token 通过校验」证明构图正确**——校验只能证明没用错颜色，证明不了排得对。
 改动外观时截图对照；怀疑有偏差时逐元素 dump 计算样式再 diff，它能指到具体是哪个元素的
