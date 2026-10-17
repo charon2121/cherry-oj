@@ -480,7 +480,12 @@ function CaseResult({ item, outcome }: { item: RunCase; outcome: Outcome | undef
   return (
     <section aria-label={`${item.name}结果`} className="space-y-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <p className={failed(verdict) ? 'text-danger' : 'text-foreground'}>{caseLabels[verdict]}</p>
+        {/* 判定写代码加名称（design-system.md §5）；只有自测才有的两种结论没有代码。 */}
+        <p className={failed(verdict) ? 'text-danger' : 'text-foreground'}>
+          {verdict === 'RAN' || verdict === 'UNCHECKED'
+            ? caseLabels[verdict]
+            : `${verdict} · ${caseLabels[verdict]}`}
+        </p>
         {/* 用量与限制同一行：限制只作为括号里的参照。 */}
         <p className="text-fg-meta font-mono text-xs">
           {value.cpuNs !== undefined && value.memoryBytes !== undefined ? (

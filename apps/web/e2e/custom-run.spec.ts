@@ -213,7 +213,7 @@ test('a wrong sample is selected first and custom input runs after the samples',
   await expect(page.getByText('样例通过 0 / 1', { exact: true })).toBeVisible();
   expect(inputs).toEqual(['1 2', '5 6']);
   const report = page.getByRole('region', { name: '样例 1结果', exact: true });
-  await expect(report.getByText('答案错误', { exact: true })).toBeVisible();
+  await expect(report.getByText('WA · 答案错误', { exact: true })).toBeVisible();
   await expect(report.getByRole('textbox', { name: '实际输出', exact: true })).toContainText('4');
   await expect(report.getByRole('textbox', { name: '预期输出', exact: true })).toContainText('3');
   await page.getByRole('button', { name: '自定义 （运行完成）', exact: true }).click();

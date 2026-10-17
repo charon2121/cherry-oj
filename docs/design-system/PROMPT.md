@@ -95,7 +95,8 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 ## 交互与文案约定
 
 - **同一事物只有一个叫法**，用户端、管理端、自测、提交都一样（例如两端都叫"输入说明/输出说明"；判定名称
-  统一用 `features/submissions/submission-panel.tsx` 导出的 `labels`）。写法可以不同，叫法不能不同。
+  统一用 `features/submissions/submission-panel.tsx` 导出的 `labels`，并按 `../design-system.md` §5 写成
+  "代码 · 名称"，例如"WA · 答案错误"）。写法可以不同，叫法不能不同。
 - **界面上不写功能说明。** 页面自己说明怎么用就是没设计好；给读屏的说明放 `sr-only`。只有操作被挡住时，
   才在旁边用可读文字说明原因和下一步。
 - **结果先给一句结论，再给细节。** 结论用颜色区分：通过 `text-success`、失败 `text-danger`、进行中

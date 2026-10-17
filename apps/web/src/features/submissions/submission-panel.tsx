@@ -304,7 +304,8 @@ export function SubmissionPanel({
 export function SubmissionResult({ value }: { value: SubmissionData }) {
   return (
     <section aria-label="本次提交结果" className="space-y-2">
-      {/* 与运行结果同一种总结：通过是绿色，其余判定是红色，判题中用次级文字。 */}
+      {/* 与运行结果同一种总结：判定写代码加名称（design-system.md §5），通过是绿色，其余判定是红色，
+          判题中用次级文字。 */}
       <p
         className={cn(
           'font-heading text-sm',
@@ -316,7 +317,7 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
         )}
       >
         {value.status === 'DONE' && value.verdict
-          ? labels[value.verdict]
+          ? `${value.verdict} · ${labels[value.verdict]}`
           : value.status === 'JUDGING'
             ? value.executedTestcaseCount !== undefined && value.testcaseCount !== undefined
               ? `正在判题 ${value.executedTestcaseCount} / ${value.testcaseCount}`
