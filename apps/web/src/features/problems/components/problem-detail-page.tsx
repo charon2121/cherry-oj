@@ -7,6 +7,7 @@ import { AsyncState } from '@/components/ui/async-state';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Container, Section } from '@/components/ui/layout';
 import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
+import { SplitPane } from '@/components/ui/split-pane';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
@@ -20,9 +21,10 @@ import { problemQuery } from '../api/problems-api';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
 import {
-  CodeToolbar,
   DraftEditor,
   type HistoryEditorHandle,
+  Pane,
+  PaneHeader,
   SourceEditor,
 } from './problem-source-editor';
 import { SafeMarkdown } from './safe-markdown';
@@ -88,37 +90,116 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
   const historyEditor = useRef<HistoryEditorHandle>(null);
   const historySearch = useSearch({ from: '/_site/problems/$slug' });
   const navigate = useNavigate({ from: '/problems/$slug' });
+
+  // linear.app 详情页顶栏：面包屑在左（上一级可点，当前项最亮），标识在右。
+  const breadcrumb = (
+    <nav aria-label="面包屑" className="flex h-7 min-w-0 items-center gap-1.5 text-sm">
+      <Link
+        to="/problems"
+        search={{ sort: 'UPDATED_DESC', size: 20 }}
+        className="text-fg-meta hover:text-foreground focus-visible:outline-ring shrink-0 rounded-sm px-1 outline-none focus-visible:outline-1"
+      >
+        题库
+      </Link>
+      <ChevronRight className="text-fg-disabled size-3.5 shrink-0" aria-hidden="true" />
+      <span aria-current="page" className="text-foreground min-w-0 truncate">
+        {data.title}
+      </span>
+      <span className="text-fg-meta ml-auto shrink-0 pl-3 font-mono text-xs max-sm:hidden">
+        {data.slug}
+      </span>
+    </nav>
+  );
+  const statement = (
+    <Tabs
+      value={historySearch.tab ?? 'statement'}
+      onValueChange={(value) => {
+        void navigate({
+          search: (previous) => ({
+            ...previous,
+            tab: value === 'submissions' ? 'submissions' : 'statement',
+          }),
+          replace: true,
+        });
+      }}
+      className="min-h-0 flex-1"
+    >
+      <div className="border-border-soft border-b-hairline shrink-0">
+        <TabsList aria-label="题目内容">
+          <TabsTrigger value="statement">题目描述</TabsTrigger>
+          <TabsTrigger value="submissions">提交记录</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="statement" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {unavailable ? (
+          <p role="alert" className="text-fg-muted p-4">
+            题目状态暂时无法确认，请刷新页面。历史代码仍可复制。
+          </p>
+        ) : (
+          <ProblemStatement data={data} />
+        )}
+      </TabsContent>
+      <TabsContent
+        value="submissions"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        <SubmissionHistoryPanel
+          problem={data}
+          canLoad={!unavailable}
+          onLoad={(value) => {
+            if (!unavailable) historyEditor.current?.requestLoad(value);
+          }}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+  const code = (
+    <ProblemCode
+      key={data.problemId}
+      data={data}
+      historyRef={historyEditor}
+      unavailable={unavailable}
+      wide={wide}
+    />
+  );
+
+  // 宽屏：左边题目，右边代码与测试上下排，缝隙都能拖。做题时大部分时间在写和测，
+  // 所以默认题目占 42%，代码与测试占得多些；拖过的比例记在本机。
+  if (wide) {
+    return (
+      <WorkbenchPageTemplate
+        variant="coding"
+        title={data.title}
+        titleVisible={false}
+        statusBar={breadcrumb}
+      >
+        <SplitPane
+          orientation="horizontal"
+          label="调整题目与代码的宽度"
+          storageKey="cherry-oj.problem-split.columns"
+          defaultRatio={0.42}
+          className="h-full"
+          first={<Pane label="题目">{statement}</Pane>}
+          second={code}
+        />
+      </WorkbenchPageTemplate>
+    );
+  }
+
+  // 窄屏：题目与代码切换着看，不分栏。
   return (
     <WorkbenchPageTemplate
       variant="coding"
       title={data.title}
       titleVisible={false}
-      statusBar={
-        // linear.app 详情页顶栏：面包屑在左（上一级可点，当前项最亮），标识在右。
-        <nav aria-label="面包屑" className="flex h-7 min-w-0 items-center gap-1.5 text-sm">
-          <Link
-            to="/problems"
-            search={{ sort: 'UPDATED_DESC', size: 20 }}
-            className="text-fg-meta hover:text-foreground focus-visible:outline-ring shrink-0 rounded-sm px-1 outline-none focus-visible:outline-1"
-          >
-            题库
-          </Link>
-          <ChevronRight className="text-fg-disabled size-3.5 shrink-0" aria-hidden="true" />
-          <span aria-current="page" className="text-foreground min-w-0 truncate">
-            {data.title}
-          </span>
-          <span className="text-fg-meta ml-auto shrink-0 pl-3 font-mono text-xs max-sm:hidden">
-            {data.slug}
-          </span>
-        </nav>
-      }
+      statusBar={breadcrumb}
     >
       <Tabs
         value={pane}
         onValueChange={(value) => setPane(String(value))}
-        className="h-full min-h-0"
+        className="bg-panel h-full min-h-0"
       >
-        <TabsList aria-label="答题区域" hidden={wide}>
+        <TabsList aria-label="答题区域">
           <TabsTrigger value="statement">
             <BookOpen aria-hidden="true" />
             题目
@@ -128,76 +209,28 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
             代码
           </TabsTrigger>
         </TabsList>
-        <div className="grid min-h-0 min-w-0 flex-1 lg:grid-cols-2">
-          <TabsContent
-            keepMounted
-            value="statement"
-            hidden={!wide && pane !== 'statement'}
-            inert={!wide && pane !== 'statement'}
-            role={wide ? 'region' : 'tabpanel'}
-            aria-label={wide ? '题目' : undefined}
-            tabIndex={0}
-            className="overflow-y-auto overscroll-contain"
-          >
-            <Tabs
-              value={historySearch.tab ?? 'statement'}
-              onValueChange={(value) => {
-                void navigate({
-                  search: (previous) => ({
-                    ...previous,
-                    tab: value === 'submissions' ? 'submissions' : 'statement',
-                  }),
-                  replace: true,
-                });
-              }}
-            >
-              <TabsList aria-label="题目内容" className="sm:px-6">
-                <TabsTrigger value="statement">题目描述</TabsTrigger>
-                <TabsTrigger value="submissions">提交记录</TabsTrigger>
-              </TabsList>
-              <TabsContent value="statement">
-                <>
-                  {unavailable ? (
-                    <p role="alert" className="text-fg-muted p-4">
-                      题目状态暂时无法确认，请刷新页面。历史代码仍可复制。
-                    </p>
-                  ) : (
-                    <ProblemStatement data={data} />
-                  )}
-                </>
-              </TabsContent>
-              <TabsContent value="submissions">
-                <SubmissionHistoryPanel
-                  problem={data}
-                  canLoad={!unavailable}
-                  onLoad={(value) => {
-                    if (!unavailable) historyEditor.current?.requestLoad(value);
-                  }}
-                />
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-          <TabsContent
-            keepMounted
-            value="code"
-            hidden={!wide && pane !== 'code'}
-            inert={!wide && pane !== 'code'}
-            role={wide ? 'region' : 'tabpanel'}
-            aria-label={wide ? '代码' : undefined}
-            tabIndex={0}
-            className={cn(
-              'border-border-soft lg:border-l-hairline overflow-y-auto overscroll-contain',
-              !wide && pane !== 'code' ? 'hidden' : 'flex flex-col',
-            )}
-          >
-            <ProblemCode
-              key={data.problemId}
-              data={data}
-              historyRef={historyEditor}
-              unavailable={unavailable}
-            />
-          </TabsContent>
-        </div>
+        <TabsContent
+          keepMounted
+          value="statement"
+          hidden={pane !== 'statement'}
+          inert={pane !== 'statement'}
+          className={cn('min-h-0 flex-1', pane === 'statement' ? 'flex flex-col' : 'hidden')}
+        >
+          {statement}
+        </TabsContent>
+        <TabsContent
+          keepMounted
+          value="code"
+          hidden={pane !== 'code'}
+          inert={pane !== 'code'}
+          tabIndex={0}
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+            pane === 'code' ? 'flex flex-col' : 'hidden',
+          )}
+        >
+          {code}
+        </TabsContent>
       </Tabs>
     </WorkbenchPageTemplate>
   );
@@ -314,10 +347,12 @@ function ProblemCode({
   data,
   historyRef,
   unavailable,
+  wide,
 }: {
   data: ProblemDetail;
   historyRef: Ref<HistoryEditorHandle>;
   unavailable: boolean;
+  wide: boolean;
 }) {
   const session = useQuery({ ...sessionQueryOptions(), refetchInterval: 15_000 });
   const language =
@@ -339,63 +374,103 @@ function ProblemCode({
             : !supported
               ? '当前页面暂不支持此题目的编码模式或语言。'
               : null;
-  const languageLabel = (
+  const header = (
     <>
-      <span className="text-fg-2 font-body">{language?.displayName ?? '无可用语言'}</span>
+      <span className="text-fg-2 font-body inline-flex items-center gap-1.5 text-sm">
+        <Code2 className="size-3.5" aria-hidden="true" />
+        代码
+      </span>
+      <span className="text-fg-disabled">·</span>
+      <span>{language?.displayName ?? '无可用语言'}</span>
       <span>{data.codeMode}</span>
     </>
   );
-  return (
-    <>
-      {editableIdentity && language ? null : <CodeToolbar start={languageLabel} />}
-
-      {notice ? (
-        <div
-          className="border-border-soft text-fg-2 flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs"
-          role="status"
+  const noticeBar = notice ? (
+    <div
+      className="border-border-soft text-fg-2 border-b-hairline flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 text-xs"
+      role="status"
+    >
+      <span>{notice}</span>
+      {session.isError ? (
+        <Button size="sm" variant="secondary" onClick={() => void session.refetch()}>
+          重试登录状态
+        </Button>
+      ) : user?.passwordChangeRequired ? (
+        <Link to="/account/password" className={buttonVariants({ size: 'sm' })}>
+          修改密码后继续
+        </Link>
+      ) : !session.isPending && !user ? (
+        <Link
+          to="/login"
+          search={{ returnTo: `/problems/${data.slug}` }}
+          className={buttonVariants({ size: 'sm' })}
         >
-          <span>{notice}</span>
-          {session.isError ? (
-            <Button size="sm" variant="secondary" onClick={() => void session.refetch()}>
-              重试登录状态
-            </Button>
-          ) : user?.passwordChangeRequired ? (
-            <Link to="/account/password" className={buttonVariants({ size: 'sm' })}>
-              修改密码后继续
-            </Link>
-          ) : !session.isPending && !user ? (
-            <Link
-              to="/login"
-              search={{ returnTo: `/problems/${data.slug}` }}
-              className={buttonVariants({ size: 'sm' })}
-            >
-              登录后编写代码
-            </Link>
-          ) : null}
-        </div>
+          登录后编写代码
+        </Link>
       ) : null}
-      {editableIdentity && language ? (
-        <DraftEditor
-          key={`${user.id}:${data.problemId}:${language.id}`}
-          userId={user.id}
-          problemId={data.problemId}
-          languageId={language.id}
-          starterCode={language.starterCode}
-          readOnly={session.isError || unavailable}
-          historyRef={historyRef}
-          toolbarStart={languageLabel}
-          renderSubmission={(source) => (
-            <CustomRunWorkbench
-              userId={user.id}
-              problem={data}
-              source={source}
-              disabled={session.isError || unavailable}
-            />
-          )}
-        />
-      ) : (
+    </div>
+  ) : null;
+
+  if (!(editableIdentity && language)) {
+    const readOnlyCode = (
+      <>
+        <PaneHeader start={header} />
+        {noticeBar}
         <SourceEditor value={language?.starterCode ?? ''} onChange={() => undefined} readOnly />
+      </>
+    );
+    return wide ? <Pane label="代码">{readOnlyCode}</Pane> : readOnlyCode;
+  }
+
+  return (
+    <DraftEditor
+      key={`${user.id}:${data.problemId}:${language.id}`}
+      userId={user.id}
+      problemId={data.problemId}
+      languageId={language.id}
+      starterCode={language.starterCode}
+      readOnly={session.isError || unavailable}
+      historyRef={historyRef}
+      toolbarStart={header}
+      renderSubmission={(source) => (
+        <CustomRunWorkbench
+          userId={user.id}
+          problem={data}
+          source={source}
+          disabled={session.isError || unavailable}
+          wide={wide}
+        />
       )}
-    </>
+      {...(wide
+        ? {
+            layout: (editor: ReactNode, submission: ReactNode) => (
+              <SplitPane
+                orientation="vertical"
+                label="调整代码与测试区的高度"
+                storageKey="cherry-oj.problem-split.rows"
+                defaultRatio={0.62}
+                min={0.3}
+                max={0.85}
+                className="min-h-0 flex-1"
+                first={
+                  <Pane label="代码">
+                    {noticeBar}
+                    {editor}
+                  </Pane>
+                }
+                second={<Pane label="测试">{submission}</Pane>}
+              />
+            ),
+          }
+        : {
+            layout: (editor: ReactNode, submission: ReactNode) => (
+              <>
+                {noticeBar}
+                {editor}
+                {submission}
+              </>
+            ),
+          })}
+    />
   );
 }

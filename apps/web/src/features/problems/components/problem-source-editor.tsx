@@ -58,13 +58,33 @@ export function SourceEditor({
   );
 }
 
-/** 代码区顶部的一行（linear.app 详情页顶栏高 44px、0.5px 下边）：左边是语言，右边是图标操作。 */
-export function CodeToolbar({ start, children }: { start?: ReactNode; children?: ReactNode }) {
+/** 分栏顶部的一行（linear.app 详情页顶栏高 44px、0.5px 下边）：左边是标题或状态，右边是图标操作。 */
+export function PaneHeader({ start, children }: { start?: ReactNode; children?: ReactNode }) {
   return (
     <div className="border-border-soft border-b-hairline flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
       <div className="text-fg-meta flex min-w-0 flex-1 items-center gap-2 text-xs">{start}</div>
       {children}
     </div>
+  );
+}
+
+/** 做题页的一栏：平铺在面板上，栏与栏之间只有分隔线（linear.app 的分栏）。给了 label 就是一个区域。 */
+export function Pane({
+  children,
+  className,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <section
+      aria-label={label}
+      className={cn('bg-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', className)}
+    >
+      {children}
+    </section>
   );
 }
 
@@ -80,6 +100,8 @@ type DraftEditorProps = {
   readOnly: boolean;
   onUnsavedChange?: (unsaved: boolean) => void;
   renderSubmission?: (source: string) => ReactNode;
+  /** 编辑区与运行区怎么摆由调用方决定（宽屏是可拖动的上下两栏）；默认上下堆叠。 */
+  layout?: (editor: ReactNode, submission: ReactNode) => ReactNode;
   /** 放在工具行左侧的内容（语言与编码模式），与右侧的代码操作同一行。 */
   toolbarStart?: ReactNode;
 };
@@ -90,6 +112,12 @@ export function DraftEditor({
   renderSubmission,
   historyRef,
   toolbarStart,
+  layout = (editor, submission) => (
+    <>
+      {editor}
+      {submission}
+    </>
+  ),
   ...identity
 }: DraftEditorProps) {
   const draft = useCodeDraft(identity);
@@ -132,50 +160,54 @@ export function DraftEditor({
   };
   return (
     <>
-      {/* 保存状态与语言同一行，不再单独占一行；出问题时才变成醒目的文字和按钮。 */}
-      <CodeToolbar
-        start={
-          <>
-            {toolbarStart}
-            <span
-              role="status"
-              className={cn(
-                'min-w-0 truncate',
-                draft.status === 'error' || draft.status === 'conflict'
-                  ? 'text-danger'
-                  : 'text-fg-disabled',
-              )}
+      {layout(
+        <>
+          {/* 保存状态与语言同一行，不单独占一行；出问题时才变成醒目的文字和按钮。 */}
+          <PaneHeader
+            start={
+              <>
+                {toolbarStart}
+                <span
+                  role="status"
+                  className={cn(
+                    'min-w-0 truncate',
+                    draft.status === 'error' || draft.status === 'conflict'
+                      ? 'text-danger'
+                      : 'text-fg-disabled',
+                  )}
+                >
+                  {draft.message}
+                </span>
+                {draft.status === 'error' ? (
+                  <Button size="sm" variant="secondary" onClick={draft.retrySave}>
+                    重试保存
+                  </Button>
+                ) : null}
+                {draft.status === 'conflict' ? (
+                  <Button size="sm" variant="secondary" onClick={() => setConflictOpen(true)}>
+                    查看恢复副本
+                  </Button>
+                ) : null}
+              </>
+            }
+          >
+            <CopyIconButton value={draft.value} label="复制代码" />
+            <IconButton size="sm" label="下载代码" onClick={exportSource}>
+              <Download className="size-3.5" aria-hidden="true" />
+            </IconButton>
+            <IconButton
+              size="sm"
+              label="恢复起始代码"
+              disabled={readOnly}
+              onClick={() => setResetOpen(true)}
             >
-              {draft.message}
-            </span>
-            {draft.status === 'error' ? (
-              <Button size="sm" variant="secondary" onClick={draft.retrySave}>
-                重试保存
-              </Button>
-            ) : null}
-            {draft.status === 'conflict' ? (
-              <Button size="sm" variant="secondary" onClick={() => setConflictOpen(true)}>
-                查看恢复副本
-              </Button>
-            ) : null}
-          </>
-        }
-      >
-        <CopyIconButton value={draft.value} label="复制代码" />
-        <IconButton size="sm" label="下载代码" onClick={exportSource}>
-          <Download className="size-3.5" aria-hidden="true" />
-        </IconButton>
-        <IconButton
-          size="sm"
-          label="恢复起始代码"
-          disabled={readOnly}
-          onClick={() => setResetOpen(true)}
-        >
-          <RotateCcw className="size-3.5" aria-hidden="true" />
-        </IconButton>
-      </CodeToolbar>
-      <SourceEditor value={draft.value} onChange={draft.setValue} readOnly={readOnly} />
-      {renderSubmission?.(draft.value)}
+              <RotateCcw className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          </PaneHeader>
+          <SourceEditor value={draft.value} onChange={draft.setValue} readOnly={readOnly} />
+        </>,
+        renderSubmission?.(draft.value),
+      )}
       <Dialog
         open={pendingLoad !== null && !readOnly}
         onOpenChange={(open) => {
