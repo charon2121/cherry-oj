@@ -14,6 +14,7 @@ import com.cherryoj.problemservice.domain.UuidV7;
 import com.cherryoj.problemservice.integration.judging.JudgingClient;
 import com.cherryoj.problemservice.integration.judging.JudgingDtos;
 import com.cherryoj.problemservice.persistence.AdminProblemMapper;
+import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguagePrefixRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.SampleRow;
@@ -77,9 +78,7 @@ public class ProblemPublicationService {
         if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
             throw state("题面、样例、语言或测试数据尚未就绪。");
         }
-        JudgingDtos.Calibration result = judging.calibrate(new JudgingDtos.CalibrationRequest(
-                problemId, request.languageId(), local.problem().testDataLocation(), local.info().digest(),
-                request.cpuNs(), request.memoryBytes(), request.clockNs(), request.referenceSource()),
+        JudgingDtos.Calibration result = judging.calibrate(calibrationRequest(problemId, request, local),
                 delegatedJwt, traceparent);
         CalibrationStatus remoteStatus = calibrationStatus(result.status());
         if (!problemId.equals(result.problemId()) || !request.languageId().equals(result.languageId())
@@ -113,9 +112,53 @@ public class ProblemPublicationService {
         // 在线节点的事实要保留到管理工作台：标定按钮据此提示并禁用。
         checks.add(remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE,
                 "当前没有在线判题节点，请启动节点并等待注册。"));
-        checks.add(remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION,
-                "该语言缺少与当前测试数据匹配的有效标定，请重新标定。"));
+        PublishCheckItem calibration = remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION,
+                "该语言缺少与当前测试数据匹配的有效标定，请重新标定。");
+        String hint = calibration.passed() ? recalibrationHint(local, remote.executionProfile()) : null;
+        checks.add(hint == null ? calibration : item(PublishCheckCode.CALIBRATION, true, calibration.message() + hint));
         return result(checks);
+    }
+
+    /**
+     * CORE 的参考解要配合驱动文件、并加上该语言的前缀才能跑；ACM 原样发送。合并规则见 contracts/judge-input.schema.json：
+     * 用户文件 = 前缀 + 核心代码，前缀行数 = 前缀中换行符的个数。
+     */
+    private static JudgingDtos.CalibrationRequest calibrationRequest(
+            String problemId, CalibrateProblemRequest request, Snapshot local) {
+        String location = local.problem().testDataLocation();
+        String digest = local.info().digest();
+        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
+            return new JudgingDtos.CalibrationRequest(problemId, request.languageId(), location, digest,
+                    request.cpuNs(), request.memoryBytes(), request.clockNs(), request.referenceSource(), null, null);
+        }
+        String prefix = local.prefix().solutionPrefix();
+        return new JudgingDtos.CalibrationRequest(problemId, request.languageId(), location, digest,
+                request.cpuNs(), request.memoryBytes(), request.clockNs(), local.languages().getFirst().judgeTemplate(),
+                prefix + request.referenceSource(), lineCount(prefix));
+    }
+
+    private static int lineCount(String prefix) {
+        return (int) prefix.chars().filter(character -> character == '\n').count();
+    }
+
+    /**
+     * 修改驱动代码或前缀不会让标定自动失效（2026-10-17 决定先只做提示）：两者晚于这条标定修改时，在 CALIBRATION 项后附一句提示。
+     * 只比较时间，不比较内容；judging-service 没给出标定时间时不提示。
+     */
+    private static String recalibrationHint(Snapshot local, JudgingDtos.ExecutionProfile profile) {
+        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE || profile == null
+                || profile.calibratedAt() == null) {
+            return null;
+        }
+        LocalDateTime calibratedAt = profile.calibratedAt();
+        LocalDateTime templateAt = local.languages().getFirst().judgeTemplateUpdatedAt();
+        if (templateAt != null && templateAt.isAfter(calibratedAt)) {
+            return "驱动代码在最近一次标定后修改过，建议重新标定。";
+        }
+        if (local.prefix() != null && local.prefix().updatedAt().isAfter(calibratedAt)) {
+            return "该语言的前缀代码在最近一次标定后修改过，建议重新标定。";
+        }
+        return null;
     }
 
     public Problem publish(
@@ -172,8 +215,9 @@ public class ProblemPublicationService {
                 dataProblem = "测试数据读取不到或已损坏，请重新上传。";
             }
         }
-        return new Snapshot(problem, problems.findSamples(problemId), problems.findLanguages(problemId), info,
-                dataProblem);
+        List<LanguageRow> languages = problems.findLanguages(problemId);
+        LanguagePrefixRow prefix = languages.isEmpty() ? null : problems.findLanguagePrefix(languages.getFirst().languageId());
+        return new Snapshot(problem, problems.findSamples(problemId), languages, prefix, info, dataProblem);
     }
 
     private static void requireActive(ProblemRow problem) {
@@ -187,19 +231,37 @@ public class ProblemPublicationService {
                 && nonBlank(problem.inputDescriptionMarkdown())
                 && nonBlank(problem.outputDescriptionMarkdown());
         boolean samples = !local.samples().isEmpty() && continuous(local.samples());
-        boolean language = problem.codeMode() == AdminProblemDtos.CodeMode.ACM
-                && local.languages().size() == 1 && "cpp".equals(local.languages().getFirst().languageId());
+        String languageProblem = languageProblem(local);
+        boolean language = languageProblem == null;
         boolean data = local.info() != null;
         ArrayList<PublishCheckItem> checks = new ArrayList<>(6);
         checks.add(item(PublishCheckCode.CONTENT, content,
                 content ? "题面必填章节完整。" : "标题、题面、输入或输出说明不完整。"));
         checks.add(item(PublishCheckCode.SAMPLES, samples,
                 samples ? "已有样例。" : "至少需要一个样例。"));
-        checks.add(item(PublishCheckCode.LANGUAGE, language,
-                language ? "C++ ACM 语言配置有效。" : "目前只支持单一 C++ ACM 语言配置。"));
+        checks.add(item(PublishCheckCode.LANGUAGE, language, language
+                ? (problem.codeMode() == AdminProblemDtos.CodeMode.CORE ? "C++ 核心代码配置有效。" : "C++ ACM 语言配置有效。")
+                : languageProblem));
         checks.add(item(PublishCheckCode.TEST_DATA, data,
                 data ? "测试数据就绪：" + local.info().testcaseCount() + " 个测试点。" : local.dataProblem()));
         return checks;
+    }
+
+    /** 语言配置不能公开的原因；可以公开时返回 null。 */
+    private static String languageProblem(Snapshot local) {
+        if (local.languages().size() != 1 || !"cpp".equals(local.languages().getFirst().languageId())) {
+            return "目前只支持单一 C++ 语言配置。";
+        }
+        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
+            return null;
+        }
+        if (!nonBlank(local.languages().getFirst().judgeTemplate())) {
+            return "核心代码题需要填写驱动代码。";
+        }
+        if (local.prefix() == null) {
+            return "缺少 C++ 的前缀代码配置。";
+        }
+        return null;
     }
 
     private static boolean continuous(List<SampleRow> samples) {
@@ -312,11 +374,12 @@ public class ProblemPublicationService {
         return new ProblemApiException(HttpStatus.CONFLICT, "ROW_VERSION_CONFLICT", "资源已被其他窗口修改，请重新加载。");
     }
 
-    /** info 为 null 表示测试数据缺失或读不到，原因在 dataProblem 里。 */
+    /** info 为 null 表示测试数据缺失或读不到，原因在 dataProblem 里；prefix 是该语言的前缀，语言表里没有时为 null。 */
     private record Snapshot(
             ProblemRow problem,
             List<SampleRow> samples,
             List<LanguageRow> languages,
+            LanguagePrefixRow prefix,
             TestDataStore.Info info,
             String dataProblem) {}
 }

@@ -46,7 +46,8 @@ final class ProblemDtos {
 	record AdminProblemListData(List<AdminProblemSummary> items) {
 	}
 
-	record AdminLanguage(String id, String displayName, String starterCode) {
+	/** judgeTemplate 是 CORE 的驱动代码，只在管理端返回；ACM 或尚未填写时为 null。 */
+	record AdminLanguage(String id, String displayName, String starterCode, String judgeTemplate) {
 	}
 
 	record ManifestFile(String name, long sizeBytes, String sha256) {

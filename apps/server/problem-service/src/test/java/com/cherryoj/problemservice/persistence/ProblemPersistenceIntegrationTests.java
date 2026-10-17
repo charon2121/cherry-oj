@@ -94,7 +94,7 @@ class ProblemPersistenceIntegrationTests {
         assertThat(detail.allowedLanguages()).extracting(language -> language.id()).containsExactly("cpp");
 
         jdbc.update("""
-                UPDATE problem_language SET judge_template = 'HIDDEN_CANARY'
+                UPDATE problem_language SET judge_template = 'HIDDEN_CANARY', judge_template_updated_at = UTC_TIMESTAMP(6)
                 WHERE problem_id = UUID_TO_BIN(?) AND language_id = 'cpp'
                 """, detail.problemId());
         assertThat(json.writeValueAsString(problems.detail("a-plus-b")))
@@ -129,6 +129,9 @@ class ProblemPersistenceIntegrationTests {
                     "page-" + String.format("%02d", index), "MEDIUM", "pagination", sharedTime);
         }
 
+        // 分页开始时已经公开的题目：25 道分页题加上 dev 种子题；分页途中新插入的那道更新的题不应出现。
+        int publicBeforePaging = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM problem WHERE visibility = 'PUBLIC' AND status = 'ACTIVE'", Integer.class);
         var first = problems.list(null, null, null, null, null,
                 PublicProblemService.Sort.UPDATED_DESC, null, 10);
         assertThat(first.items()).hasSize(10);
@@ -145,8 +148,8 @@ class ProblemPersistenceIntegrationTests {
             seen.addAll(page.items().stream().map(item -> item.problemId()).toList());
             cursor = page.nextCursor();
         }
-        assertThat(seen).hasSize(26);
-        assertThat(new HashSet<>(seen)).hasSize(26);
+        assertThat(seen).hasSize(publicBeforePaging);
+        assertThat(new HashSet<>(seen)).hasSize(publicBeforePaging);
 
         var filtered = problems.list(null, PublicProblemService.Difficulty.MEDIUM,
                 List.of("pagination"), PublicProblemService.CodeMode.ACM, "cpp",

@@ -25,7 +25,7 @@ class SubmissionSnapshotSecurityTests {
         @Bean SubmissionSnapshotController controller() {
             var service = mock(SubmissionSnapshotService.class);
             when(service.resolve(anyString(), anyString())).thenReturn(new SubmissionSnapshotService.Snapshot(
-                    "p", "title", "cpp", "ACM"));
+                    "p", "title", "cpp", "ACM", null, null));
             return new SubmissionSnapshotController(service);
         }
     }

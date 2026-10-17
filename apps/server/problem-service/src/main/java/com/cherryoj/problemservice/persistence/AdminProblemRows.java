@@ -36,6 +36,16 @@ public final class AdminProblemRows {
     public record SampleRow(int ordinal, String inputText, String expectedOutputText, String explanationMarkdown) {
     }
 
-    public record LanguageRow(String languageId, int displayOrder, String starterCode) {
+    /** judgeTemplate 是 CORE 的驱动代码，ACM 或尚未填写时为 null；judgeTemplateUpdatedAt 与它同时为 null。 */
+    public record LanguageRow(
+            String languageId,
+            int displayOrder,
+            String starterCode,
+            String judgeTemplate,
+            LocalDateTime judgeTemplateUpdatedAt) {
+    }
+
+    /** 语言表的一行：solutionPrefix 是所有 CORE 题目共用的前缀代码，以换行结尾。 */
+    public record LanguagePrefixRow(String languageId, String displayName, String solutionPrefix, LocalDateTime updatedAt) {
     }
 }

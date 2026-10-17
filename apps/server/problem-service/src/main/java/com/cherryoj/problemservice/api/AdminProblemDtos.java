@@ -36,6 +36,8 @@ public final class AdminProblemDtos {
             @NotNull @Size(max = 20) List<@NotBlank @Size(max = 32) String> tags,
             @NotNull @Size(max = 100) List<@Valid SampleInput> samples,
             @NotNull @Size(max = 1_048_576) String starterCode,
+            // CORE 的驱动代码；省略表示不改。ACM 题目必须省略。代码模式不能通过更新修改。
+            @Size(min = 1, max = 1_048_576) String judgeTemplate,
             @Min(0) long rowVersion) {
     }
 
@@ -96,7 +98,8 @@ public final class AdminProblemDtos {
             long rowVersion) {
     }
 
-    public record Language(String id, String displayName, String starterCode) {
+    /** judgeTemplate 只在管理端返回：CORE 的驱动代码，尚未填写或 ACM 时为 null。 */
+    public record Language(String id, String displayName, String starterCode, String judgeTemplate) {
     }
 
     public record BenchmarkSummary(

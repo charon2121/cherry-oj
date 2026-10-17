@@ -48,7 +48,7 @@ class HttpJudgingClientTests {
         HttpJudgingClient client = client(Duration.ofSeconds(5));
         var request = new JudgingDtos.CalibrationRequest(
                 "019c8e42-7f70-7000-8000-000000000010", "cpp", "/srv/problem/p", "a".repeat(64),
-                1_000_000_000L, 268_435_456L, null, "int main() { return 0; }");
+                1_000_000_000L, 268_435_456L, null, "int main() { return 0; }", null, null);
 
         var response = client.calibrate(request, "secret-delegated-jwt",
                 "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01");

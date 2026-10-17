@@ -68,7 +68,9 @@ CREATE TABLE problem_language (
     language_id             VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     display_order           SMALLINT UNSIGNED NOT NULL,
     starter_code            MEDIUMTEXT NOT NULL,
+    -- CORE 的驱动代码（完整驱动文件），ACM 为 NULL；修改时间晚于标定时，管理端提示重新标定。
     judge_template          MEDIUMTEXT NULL,
+    judge_template_updated_at DATETIME(6) NULL,
 
     PRIMARY KEY (problem_id, language_id),
     CONSTRAINT uq_problem_language_order UNIQUE (problem_id, display_order),
@@ -76,8 +78,31 @@ CREATE TABLE problem_language (
         REFERENCES problem (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_problem_language_id CHECK (
         REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
+    ),
+    CONSTRAINT ck_problem_language_template CHECK (
+        (judge_template IS NULL) = (judge_template_updated_at IS NULL)
     )
 ) ENGINE = InnoDB;
+
+-- 每门语言一行，所有 CORE 题目复用：用户文件 = solution_prefix + 用户代码。没有管理界面，直接改库时同时更新 updated_at。
+-- 前缀必须以换行结尾：前缀行数 = 换行符个数，judging-service 据此把报错里的用户文件行号换算成编辑器行号。
+CREATE TABLE language (
+    language_id             VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    display_name            VARCHAR(64) NOT NULL,
+    solution_prefix         MEDIUMTEXT NOT NULL,
+    updated_at              DATETIME(6) NOT NULL,
+
+    PRIMARY KEY (language_id),
+    CONSTRAINT ck_language_id CHECK (
+        REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')
+    ),
+    CONSTRAINT ck_language_prefix CHECK (
+        CHAR_LENGTH(solution_prefix) BETWEEN 1 AND 65536 AND RIGHT(solution_prefix, 1) = CHAR(10)
+    )
+) ENGINE = InnoDB;
+
+INSERT INTO language (language_id, display_name, solution_prefix, updated_at)
+VALUES ('cpp', 'C++', CONCAT('#include <bits/stdc++.h>', CHAR(10), 'using namespace std;', CHAR(10)), UTC_TIMESTAMP(6));
 
 CREATE TABLE problem_audit_event (
     id                      BINARY(16) NOT NULL,

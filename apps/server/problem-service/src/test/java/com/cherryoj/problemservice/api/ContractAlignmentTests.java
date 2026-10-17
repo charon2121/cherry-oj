@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -40,11 +39,27 @@ class ContractAlignmentTests {
         Set<String> contract = fieldNames(schema.get("properties"));
         Set<String> dto = components(SubmissionSnapshotService.Snapshot.class);
 
-        // 契约比 DTO 多且只多 CORE 的驱动代码与前缀：它们只在 CORE 题目返回，目前只支持 ACM，DTO 还没有它们
-        assertThat(contract).containsAll(dto);
-        assertThat(contract).containsExactlyInAnyOrderElementsOf(
-                Stream.concat(dto.stream(), Stream.of("judgeTemplate", "solutionPrefix")).collect(Collectors.toSet()));
+        assertThat(dto).isEqualTo(contract);
         assertThat(contract).noneMatch(name -> name.contains("ersion") || name.startsWith("testData"));
+    }
+
+    /** problem-service 与 judging-service 各有一份标定 DTO：两份都以 calibration.schema.json 为准。 */
+    @Test
+    void calibrationDtosHaveExactlyTheContractFields() throws Exception {
+        JsonNode definitions = schema("calibration.schema.json").get("definitions");
+
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.CalibrationRequest.class))
+                .isEqualTo(fieldNames(definitions.get("CalibrationRequest").get("properties")));
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.Calibration.class))
+                .isEqualTo(fieldNames(definitions.get("Calibration").get("properties")));
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.BenchmarkSummary.class))
+                .isEqualTo(fieldNames(definitions.get("BenchmarkSummary").get("properties")));
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.Readiness.class))
+                .isEqualTo(fieldNames(definitions.get("Readiness").get("properties")));
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.ReadinessCheck.class))
+                .isEqualTo(fieldNames(definitions.get("ReadinessCheck").get("properties")));
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.ExecutionProfile.class))
+                .isEqualTo(fieldNames(definitions.get("ExecutionProfile").get("properties")));
     }
 
     private static Set<String> components(Class<? extends Record> type) {

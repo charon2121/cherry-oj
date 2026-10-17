@@ -37,6 +37,16 @@
             <arg column="language_id" javaType="java.lang.String"/>
             <arg column="display_order" javaType="_int"/>
             <arg column="starter_code" javaType="java.lang.String"/>
+            <arg column="judge_template" javaType="java.lang.String"/>
+            <arg column="judge_template_updated_at" javaType="java.time.LocalDateTime"/>
+        </constructor>
+    </resultMap>
+    <resultMap id="languagePrefixRow" type="com.cherryoj.problemservice.persistence.AdminProblemRows$LanguagePrefixRow">
+        <constructor>
+            <arg column="language_id" javaType="java.lang.String"/>
+            <arg column="display_name" javaType="java.lang.String"/>
+            <arg column="solution_prefix" javaType="java.lang.String"/>
+            <arg column="updated_at" javaType="java.time.LocalDateTime"/>
         </constructor>
     </resultMap>
 
@@ -74,8 +84,11 @@
         WHERE problem_id = UUID_TO_BIN(#{problemId}) ORDER BY ordinal
     </select>
     <select id="findLanguages" resultMap="languageRow">
-        SELECT language_id, display_order, starter_code FROM problem_language
+        SELECT language_id, display_order, starter_code, judge_template, judge_template_updated_at FROM problem_language
         WHERE problem_id = UUID_TO_BIN(#{problemId}) ORDER BY display_order
+    </select>
+    <select id="findLanguagePrefix" resultMap="languagePrefixRow">
+        SELECT language_id, display_name, solution_prefix, updated_at FROM language WHERE language_id = #{languageId}
     </select>
 
     <insert id="insertProblem">
@@ -99,6 +112,11 @@
         INSERT INTO problem_language (problem_id, language_id, display_order, starter_code, judge_template)
         VALUES (UUID_TO_BIN(#{problemId}), #{languageId}, #{displayOrder}, #{starterCode}, NULL)
     </insert>
+    <update id="updateLanguage">
+        UPDATE problem_language SET starter_code = #{starterCode}, judge_template = #{judgeTemplate},
+            judge_template_updated_at = #{judgeTemplateUpdatedAt}
+        WHERE problem_id = UUID_TO_BIN(#{problemId}) AND language_id = #{languageId}
+    </update>
     <update id="updateContent">
         UPDATE problem SET slug = #{problem.slug}, title = #{problem.title},
             statement_markdown = #{problem.statementMarkdown},

@@ -1,6 +1,7 @@
 package com.cherryoj.problemservice.persistence;
 
 import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemStatus;
+import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguagePrefixRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.SampleRow;
@@ -28,6 +29,8 @@ public interface AdminProblemMapper {
 
     List<LanguageRow> findLanguages(@Param("problemId") String problemId);
 
+    LanguagePrefixRow findLanguagePrefix(@Param("languageId") String languageId);
+
     int insertProblem(@Param("problem") ProblemRow problem, @Param("createdBy") String createdBy);
 
     int insertSample(
@@ -43,6 +46,14 @@ public interface AdminProblemMapper {
             @Param("languageId") String languageId,
             @Param("displayOrder") int displayOrder,
             @Param("starterCode") String starterCode);
+
+    /** 原地改写起始代码与驱动代码；驱动代码没变时调用方传回原来的修改时间，所以不能用删了重插。 */
+    int updateLanguage(
+            @Param("problemId") String problemId,
+            @Param("languageId") String languageId,
+            @Param("starterCode") String starterCode,
+            @Param("judgeTemplate") String judgeTemplate,
+            @Param("judgeTemplateUpdatedAt") LocalDateTime judgeTemplateUpdatedAt);
 
     /** 改写题面、样例之外的全部内容列与 slug；可见性和测试数据地址不在这里改。 */
     int updateContent(@Param("problem") ProblemRow problem, @Param("expectedRowVersion") long expectedRowVersion);

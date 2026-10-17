@@ -21,7 +21,11 @@ import com.cherryoj.problemservice.storage.TestDataStore;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,15 +82,16 @@ public class AdminProblemService {
         return problem(requireProblem(problemId, false));
     }
 
+    /** 代码模式在创建时选定，之后不可修改：更新接口不接收它。 */
     @Transactional
     public Problem create(CreateProblemRequest request, String actorUserId) {
-        if (request.codeMode() != CodeMode.ACM || !"cpp".equals(request.languageId())) {
-            throw validation("目前只支持 C++ ACM 题目。");
+        if (!"cpp".equals(request.languageId())) {
+            throw validation("目前只支持 C++ 题目。");
         }
         LocalDateTime now = now();
         String problemId = ids.next().toString();
         ProblemRow row = new ProblemRow(
-                problemId, request.slug(), Visibility.PRIVATE, ProblemStatus.ACTIVE, CodeMode.ACM, request.title(),
+                problemId, request.slug(), Visibility.PRIVATE, ProblemStatus.ACTIVE, request.codeMode(), request.title(),
                 "", "", "", null, null, request.difficulty(), "[]", null, null, now, now, null, 0);
         try {
             mapper.insertProblem(row, actorUserId);
@@ -108,6 +113,7 @@ public class AdminProblemService {
         }
         List<String> tags = normalizeTags(request.tags());
         validateSamples(request.samples());
+        validateJudgeTemplate(current.codeMode(), request.judgeTemplate());
         // 公开题目的修改立即生效，所以不能把它改成用户看不懂的样子；要大改请先转为私有。
         if (current.visibility() == Visibility.PUBLIC
                 && (!hasContent(request.title(), request.statementMarkdown(), request.inputDescriptionMarkdown(),
@@ -130,14 +136,26 @@ public class AdminProblemService {
             throw slugConflict();
         }
         mapper.deleteSamples(problemId);
-        mapper.deleteLanguages(problemId);
         for (var sample : request.samples()) {
             mapper.insertSample(ids.next().toString(), problemId, sample.ordinal(), sample.input(), sample.output(),
                     sample.explanationMarkdown());
         }
-        mapper.insertLanguage(problemId, "cpp", 1, request.starterCode());
+        LanguageRow language = mapper.findLanguages(problemId).getFirst();
+        boolean templateChanged = request.judgeTemplate() != null
+                && !request.judgeTemplate().equals(language.judgeTemplate());
+        String judgeTemplate = templateChanged ? request.judgeTemplate() : language.judgeTemplate();
+        LocalDateTime templateUpdatedAt = templateChanged ? now : language.judgeTemplateUpdatedAt();
+        if (mapper.updateLanguage(problemId, language.languageId(), request.starterCode(), judgeTemplate,
+                templateUpdatedAt) != 1) {
+            throw new IllegalStateException("Problem language row disappeared while updating " + problemId);
+        }
         audit(problemId, actorUserId, "PROBLEM_UPDATED", Map.of(
                 "sampleCount", request.samples().size(), "tagCount", tags.size()));
+        if (templateChanged) {
+            // 只记指纹不记内容：驱动代码不下发给普通用户，审计也不留全文。
+            audit(problemId, actorUserId, "PROBLEM_JUDGE_TEMPLATE_CHANGED", Map.of(
+                    "languageId", language.languageId(), "judgeTemplateSha256", sha256(judgeTemplate)));
+        }
         return getProblem(problemId);
     }
 
@@ -194,7 +212,8 @@ public class AdminProblemService {
                 .toList();
         List<AdminProblemDtos.Language> languages = mapper.findLanguages(row.id()).stream()
                 .map((LanguageRow language) -> new AdminProblemDtos.Language(
-                        language.languageId(), displayName(language.languageId()), language.starterCode()))
+                        language.languageId(), displayName(language.languageId()), language.starterCode(),
+                        language.judgeTemplate()))
                 .toList();
         return new Problem(
                 row.id(), row.slug(), row.visibility(), row.status(), row.codeMode(), row.title(),
@@ -246,6 +265,29 @@ public class AdminProblemService {
             if (samples.get(index).ordinal() != index + 1) {
                 throw validation("样例序号必须从 1 开始连续编号。");
             }
+        }
+    }
+
+    /** CORE 的驱动代码省略表示不改，给了就不能是空白；ACM 没有驱动代码。 */
+    private static void validateJudgeTemplate(CodeMode codeMode, String judgeTemplate) {
+        if (judgeTemplate == null) {
+            return;
+        }
+        if (codeMode != CodeMode.CORE) {
+            throw validation("ACM 题目没有驱动代码。");
+        }
+        if (judgeTemplate.isBlank()) {
+            throw validation("驱动代码不能为空。");
+        }
+    }
+
+    private static String sha256(String value) {
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+        }
+        catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
         }
     }
 

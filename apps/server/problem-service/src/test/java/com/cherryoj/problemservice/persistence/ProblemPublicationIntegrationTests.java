@@ -261,6 +261,107 @@ class ProblemPublicationIntegrationTests {
                 """, Integer.class, problemId, action);
     }
 
+    @Test
+    void coreCalibrationSendsTheDriverAndTheReferenceWithTheLanguagePrefix() throws Exception {
+        Fixture fixture = coreFixture("core-calibrate", DRIVER);
+
+        publication.calibrate(fixture.problemId(),
+                new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, "class Solution {};\n"),
+                "jwt", null, ACTOR);
+
+        // 驱动文件原样作为 referenceSource，参考核心代码前面加上 C++ 前缀，前缀行数随请求带过去用于换算报错行号
+        assertThat(judging.calibration.referenceSource()).isEqualTo(DRIVER);
+        assertThat(judging.calibration.referenceSolutionSource())
+                .isEqualTo(CPP_PREFIX + "class Solution {};\n");
+        assertThat(judging.calibration.solutionPrefixLineCount()).isEqualTo(2);
+    }
+
+    @Test
+    void acmCalibrationSendsNoSolutionFile() throws Exception {
+        Fixture fixture = fixture("acm-calibrate");
+
+        publication.calibrate(fixture.problemId(),
+                new CalibrateProblemRequest("cpp", 1, 1, null, "int main() {}"), "jwt", null, ACTOR);
+
+        assertThat(judging.calibration.referenceSolutionSource()).isNull();
+        assertThat(judging.calibration.solutionPrefixLineCount()).isNull();
+    }
+
+    @Test
+    void aCoreProblemNeedsADriverBeforeItCanBePublished() throws Exception {
+        Fixture fixture = coreFixture("core-no-driver", null);
+
+        var check = publication.publishCheck(fixture.problemId(), "jwt", null);
+
+        assertThat(check.ready()).isFalse();
+        assertThat(check.checks()).filteredOn(item -> item.code() == AdminProblemDtos.PublishCheckCode.LANGUAGE)
+                .singleElement().satisfies(item -> {
+                    assertThat(item.passed()).isFalse();
+                    assertThat(item.message()).contains("驱动代码");
+                });
+        assertThatThrownBy(() -> publication.calibrate(fixture.problemId(),
+                new CalibrateProblemRequest("cpp", 1, 1, null, "class Solution {};"), "jwt", null, ACTOR))
+                .isInstanceOf(ProblemApiException.class);
+        assertThat(judging.calibrateCalls.get()).isZero();
+    }
+
+    @Test
+    void publishCheckSuggestsRecalibrationOnlyWhenTheDriverOrPrefixChangedAfterTheCalibration() throws Exception {
+        Fixture fixture = coreFixture("core-hint", DRIVER);
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+
+        judging.calibratedAt = now.plusHours(1);
+        assertThat(calibrationItem(fixture).message()).doesNotContain("建议重新标定");
+
+        judging.calibratedAt = now.minusHours(1);
+        var stale = calibrationItem(fixture);
+        // 只是提示：标定仍然有效，检查照常通过
+        assertThat(stale.passed()).isTrue();
+        assertThat(stale.message()).contains("驱动代码在最近一次标定后修改过，建议重新标定");
+
+        jdbc.update("UPDATE problem_language SET judge_template_updated_at = ? WHERE problem_id = UUID_TO_BIN(?)",
+                now.minusDays(2), fixture.problemId());
+        LocalDateTime prefixUpdatedAt = jdbc.queryForObject(
+                "SELECT updated_at FROM language WHERE language_id = 'cpp'", LocalDateTime.class);
+        try {
+            jdbc.update("UPDATE language SET updated_at = ? WHERE language_id = 'cpp'", now);
+            assertThat(calibrationItem(fixture).message()).contains("前缀代码在最近一次标定后修改过");
+        }
+        finally {
+            jdbc.update("UPDATE language SET updated_at = ? WHERE language_id = 'cpp'", prefixUpdatedAt);
+        }
+    }
+
+    @Test
+    void anAcmProblemNeverGetsTheRecalibrationHint() throws Exception {
+        Fixture fixture = fixture("acm-hint");
+        judging.calibratedAt = LocalDateTime.now(ZoneOffset.UTC).minusYears(1);
+
+        assertThat(calibrationItem(fixture).message()).doesNotContain("建议重新标定");
+    }
+
+    private AdminProblemDtos.PublishCheckItem calibrationItem(Fixture fixture) {
+        return publication.publishCheck(fixture.problemId(), "jwt", null).checks().stream()
+                .filter(item -> item.code() == AdminProblemDtos.PublishCheckCode.CALIBRATION).findFirst().orElseThrow();
+    }
+
+    private static final String CPP_PREFIX = "#include <bits/stdc++.h>\nusing namespace std;\n";
+    private static final String DRIVER = "#include \"solution.cpp\"\nint main() { cout << Solution().add(1, 2); }\n";
+
+    /** driver 为 null 时只建题不写驱动代码。 */
+    private Fixture coreFixture(String prefix, String driver) throws Exception {
+        var problem = admin.create(new CreateProblemRequest(
+                prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
+                "Core problem", Difficulty.EASY, CodeMode.CORE, "cpp"), ACTOR);
+        var saved = admin.update(problem.id(), new UpdateProblemRequest(
+                problem.slug(), "Core problem", "statement", "input", "output", null, null,
+                Difficulty.EASY, List.of(), List.of(new SampleInput(1, "1 2\n", "3\n", null)),
+                "class Solution {};", driver, 0), ACTOR);
+        var uploaded = testData.upload(problem.id(), new MockMultipartFile("file", "cases.zip", "application/zip",
+                zip(Map.of("1.in", bytes("1 2\n"), "1.out", bytes("3\n")))), ACTOR);
+        return new Fixture(problem.id(), uploaded.digest(), testData.forJudging(problem.id()).location(), saved.rowVersion());
+    }
+
     private Fixture fixture(String prefix) throws Exception {
         var problem = admin.create(new CreateProblemRequest(
                 prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
@@ -268,7 +369,7 @@ class ProblemPublicationIntegrationTests {
         var saved = admin.update(problem.id(), new UpdateProblemRequest(
                 problem.slug(), "Complete problem", "statement", "input", "output", "constraints", null,
                 Difficulty.EASY, List.of("math"), List.of(new SampleInput(1, "1 2\n", "3\n", null)),
-                "int main() {}", 0), ACTOR);
+                "int main() {}", null, 0), ACTOR);
         var uploaded = testData.upload(problem.id(), new MockMultipartFile("file", "cases.zip", "application/zip",
                 zip(Map.of("1.in", bytes("1 2\n"), "1.out", bytes("3\n")))), ACTOR);
         String location = testData.forJudging(problem.id()).location();
@@ -319,6 +420,7 @@ class ProblemPublicationIntegrationTests {
         volatile String calibrationStatus = "VALID";
         volatile RuntimeException calibrationFailure;
         volatile boolean ready = true;
+        volatile LocalDateTime calibratedAt;
         volatile CyclicBarrier readinessBarrier;
         volatile Runnable afterReadiness;
         final AtomicBoolean transactionObserved = new AtomicBoolean();
@@ -333,6 +435,7 @@ class ProblemPublicationIntegrationTests {
             calibrationStatus = "VALID";
             calibrationFailure = null;
             ready = true;
+            calibratedAt = null;
             readinessBarrier = null;
             afterReadiness = null;
             transactionObserved.set(false);
@@ -377,7 +480,7 @@ class ProblemPublicationIntegrationTests {
                     new JudgingDtos.ReadinessCheck("LANGUAGE", true, "Language ready."),
                     new JudgingDtos.ReadinessCheck("CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
                     ready ? new JudgingDtos.ExecutionProfile(
-                            UUID.randomUUID().toString(), 1, 1, null) : null);
+                            UUID.randomUUID().toString(), 1, 1, null, calibratedAt) : null);
             if (afterReadiness != null) afterReadiness.run();
             return result;
         }

@@ -243,7 +243,7 @@ public class AdminProblemsController {
 			@NotBlank @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128) String slug,
 			@NotBlank @Size(max = 512) String title,
 			@NotBlank @Pattern(regexp = "^(UNRATED|EASY|MEDIUM|HARD)$") String difficulty,
-			@NotBlank @Pattern(regexp = "^ACM$") String codeMode,
+			@NotBlank @Pattern(regexp = "^(ACM|CORE)$") String codeMode,
 			@NotBlank @Pattern(regexp = "^cpp$") String languageId) {
 	}
 
