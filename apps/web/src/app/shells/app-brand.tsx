@@ -7,12 +7,11 @@ type AppBrandProps = Readonly<{
   destination?: 'admin' | 'site';
 }>;
 
-function BrandName({ showMark = false }: Readonly<{ showMark?: boolean }>) {
+function BrandName() {
   return (
     <span className="inline-flex items-center gap-2 whitespace-nowrap">
-      {showMark ? (
-        <span aria-hidden="true" className="bg-primary size-4x shrink-0 rounded-xs" />
-      ) : null}
+      {/* 标志：通过的勾上挂一颗樱桃。与 favicon 是同一个文件（public/brand-mark.svg）。 */}
+      <img src="/brand-mark.svg" alt="" className="size-5 shrink-0" />
       <span>Cherry OJ</span>
     </span>
   );
@@ -28,7 +27,7 @@ function AppBrand({ className, destination = 'site' }: AppBrandProps) {
   if (destination === 'admin') {
     return (
       <Link to="/admin" className={classes} aria-label="Cherry OJ 管理中心">
-        <BrandName showMark />
+        <BrandName />
       </Link>
     );
   }

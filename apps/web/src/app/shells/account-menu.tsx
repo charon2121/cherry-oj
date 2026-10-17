@@ -96,12 +96,8 @@ function AccountMenuView({
               />
             }
           >
-            <span
-              aria-hidden="true"
-              className="bg-primary text-primary-foreground text-tiny flex size-[18px] shrink-0 items-center justify-center rounded-xs"
-            >
-              C
-            </span>
+            {/* 与品牌标志同一个文件；linear.app 侧栏的工作区图标为 18px。 */}
+            <img src="/brand-mark.svg" alt="" className="size-[18px] shrink-0" />
             <span className="truncate">Cherry OJ</span>
             {triggerStatus ? (
               <span className={cn('text-fg-meta text-xs', hasLogoutError && 'text-destructive')}>

@@ -88,7 +88,8 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 `Badge`、`Breadcrumb`、`TextEditor`（CodeMirror：长文本、样例、只读输出）、`CodeEditor`（Monaco：只用于做题
 编码区）、`RichMarkdownEditor`、`CodeBlockEditor`、页面模板 `ListPageTemplate`/`DetailPageTemplate`/
 `WorkbenchPageTemplate`。业务里复用的：`CopyIconButton`（`features/problems/components/source-copy-button.tsx`）、
-`DifficultyIcon`、`SafeMarkdown`（不可信 Markdown 渲染）、`Pane`/`PaneHeader`（`problem-source-editor.tsx`）。
+`DifficultyIcon`、`SafeMarkdown`（不可信 Markdown 渲染）、品牌标志 `public/brand-mark.svg`（用 `<img>` 引用，
+不要重画）、`Pane`/`PaneHeader`（`problem-source-editor.tsx`）。
 确实缺件时，先按「三层来源」查 shadcn base-nova，再在 `components/ui/` 新增并写 story。
 
 ## 交互与文案约定

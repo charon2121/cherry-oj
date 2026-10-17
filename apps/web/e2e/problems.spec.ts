@@ -72,7 +72,8 @@ test('anonymous URL filters restore and a real detail link stays safe at 320px',
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/problems\/two-sum(?:\?|$)/);
   await expect(page.getByRole('heading', { name: '题意' })).toBeVisible();
-  await expect(page.locator('img')).toHaveCount(0);
+  // 题面里不可信的 <img> 不得渲染；页头的品牌标志不算。
+  await expect(page.locator('main img')).toHaveCount(0);
   await expect(page.getByText(canary)).toHaveCount(0);
   expect(
     await page.evaluate(

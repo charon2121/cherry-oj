@@ -58,6 +58,10 @@ const fullyAllowedFiles = new Set(['scripts/check-design-system.mjs']);
 // Exceptions are rule-specific and exact-path only. There is intentionally no wildcard for SVGs
 // or tests; a future legitimate fixture must name both its file and the one rule it exercises.
 const ruleAllowlist = new Map([
+  // 品牌标志同时是 favicon：浏览器标签页读不到 CSS 变量，只能是自带颜色的独立 SVG 文件。
+  // 颜色与两个主题的 --ds-brand-surface 相同；品牌色变了要同步改这个文件。
+  ['inline-svg', new Set(['public/brand-mark.svg'])],
+  ['raw-hex', new Set(['public/brand-mark.svg'])],
   // Submission idempotency keys are protocol UUIDs, never React/DOM identities.
   ['random-dom-id', new Set(['src/features/submissions/submission-recovery.ts'])],
   [
