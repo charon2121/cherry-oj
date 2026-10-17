@@ -247,6 +247,64 @@ try:
  print('Public edit takes effect immediately; unpublish blocks and republish restores: PASS.',flush=True)
  current_calibration=recalibrated
 
+ # 核心代码（CORE）：用户文件 = C++ 前缀 + 用户代码，驱动代码单独成文件；报错里用户文件的行号是编辑器行号。
+ canary='driver-canary-'+uuid.uuid4().hex
+ driver='#include "solution.cpp"\n// '+canary+'\nint main() {\n    long long a, b;\n    cin >> a >> b;\n    cout << Solution().add(a, b) << "\\n";\n}\n'
+ starter='class Solution {\npublic:\n    long long add(long long a, long long b) {\n    }\n};\n'
+ def core_content(row,**changes):
+  body={'slug':'work002-core','title':'WORK-002 核心代码加法','statementMarkdown':'实现 add，返回两数之和。','inputDescriptionMarkdown':'两个整数。','outputDescriptionMarkdown':'它们的和。','constraintsMarkdown':None,'hintMarkdown':None,'difficulty':'EASY','tags':[],'samples':[{'ordinal':1,'input':'1 2','output':'3','explanationMarkdown':None}],'starterCode':starter,'rowVersion':row['rowVersion']}
+  body.update(changes);return body
+ core=request('/api/admin/problems','POST',{'slug':'work002-core','title':'WORK-002 核心代码加法','difficulty':'EASY','codeMode':'CORE','languageId':'cpp'},expect=201)
+ cid=core['id'];core_path=f'/api/admin/problems/{cid}'
+ assert core['codeMode']=='CORE' and core['allowedLanguages'][0]['judgeTemplate'] is None,core
+ core=request(core_path,'PATCH',core_content(core))
+ put_test_data(cid,[('1',b'1 2\n',b'3\n'),('2',b'-4 -6\n',b'-10\n')])
+ language_check=[c for c in request(core_path+'/publish-check')['checks'] if c['code']=='LANGUAGE'][0]
+ assert not language_check['passed'] and '驱动代码' in language_check['message'],language_check
+ core=request(core_path,'PATCH',core_content(core,judgeTemplate=driver))
+ assert core['allowedLanguages'][0]['judgeTemplate']==driver
+ reference='class Solution {\npublic:\n    long long add(long long a, long long b) { return a + b; }\n};\n'
+ core_calibrated=request(core_path+'/calibration','POST',{**calibration_payload,'referenceSource':reference})
+ assert core_calibrated['status']=='VALID',core_calibrated
+ assert request(core_path+'/publish-check')['ready']
+ request(core_path+'/publish','POST',{'rowVersion':request(core_path)['rowVersion']})
+ public_core=request('/api/problems/work002-core')
+ assert public_core['codeMode']=='CORE' and canary not in json.dumps(public_core) and 'judgeTemplate' not in json.dumps(public_core),public_core
+ def core_submit(code):
+  return request('/api/submissions','POST',{'problemId':cid,'languageId':'cpp','source':code},expect=201,
+   extra_headers={'Idempotency-Key':str(uuid.uuid4()),'X-Expected-User-Id':owner})
+ core_ac=core_submit(reference);finished(core_ac['id'],'AC')
+ finished(core_submit(reference.replace('a + b','a - b'))['id'],'WA')
+ # 用户第 4 行引用未定义的名字：文件里是第 6 行（前缀 2 行），用户看到的必须是第 4 行。
+ undefined_name='class Solution {\npublic:\n    long long add(long long a, long long b) {\n        return a + missing_value;\n    }\n};\n'
+ core_ce=finished(core_submit(undefined_name)['id'],'CE')
+ assert 'solution.cpp:4:' in core_ce['message'] and 'solution.cpp:6:' not in core_ce['message'],core_ce['message']
+ assert '/' not in core_ce['message'].split('\n')[0],core_ce['message']
+ # 签名写错：错在驱动文件的调用处，报错指向 Main.cpp 的原始行号，不换算。
+ wrong_signature='class Solution {\npublic:\n    long long add(long long a) { return a; }\n};\n'
+ driver_ce=finished(core_submit(wrong_signature)['id'],'CE')
+ assert 'Main.cpp:6:' in driver_ce['message'],driver_ce['message']
+ # mysql 批处理输出会转义换行与反斜杠，按十六进制取出再解码。
+ frozen=json.loads(bytes.fromhex(sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+core_ac['id']+"'")).decode())
+ assert frozen['completeSource']==driver and frozen['solutionPrefixLineCount']==2,frozen.keys()
+ assert frozen['solutionSource'].startswith('#include <bits/stdc++.h>\n') and frozen['solutionSource'].endswith(reference),frozen['solutionSource'][:80]
+ assert request('/api/submissions/'+core_ac['id']+'/source',extra_headers={'X-Expected-User-Id':owner})['source']==reference
+ # 自测的运行错误：assert 用 __FILE__/__LINE__ 报位置，stderr 里的用户文件行号同样换算成编辑器行号。
+ failing_assert='class Solution {\npublic:\n    long long add(long long a, long long b) {\n        assert(a == 999999);\n        return a + b;\n    }\n};\n'
+ run_result=request('/api/custom-runs','POST',{'problemId':cid,'languageId':'cpp','source':failing_assert,'inputText':'1 2\n'},
+  extra_headers={'X-Expected-User-Id':owner})
+ assert run_result['status']=='RUNTIME_ERROR' and 'solution.cpp:4' in run_result['stderr']['text'] and 'solution.cpp:6' not in run_result['stderr']['text'],run_result
+ # 改了驱动代码：标定不失效（只提示），公开检查提示重新标定，提交照常判。
+ core=request(core_path,'PATCH',core_content(request(core_path),judgeTemplate=driver+'// revised\n'))
+ calibration_check=[c for c in request(core_path+'/publish-check')['checks'] if c['code']=='CALIBRATION'][0]
+ assert calibration_check['passed'] and '建议重新标定' in calibration_check['message'],calibration_check
+ finished(core_submit(reference)['id'],'AC')
+ for database in ['submission','judging']:
+  assert canary not in sql('SELECT payload FROM cherry_'+database+'.outbox_event'),database
+ for log_file in OUT.glob('*.log'):
+  assert canary not in log_file.read_text(errors='replace'),log_file
+ print('CORE: driver + prefixed solution file, editor line numbers in CE and runtime stderr, driver never exposed, recalibration hint: PASS.',flush=True)
+
 
  # Stop new admission while retaining reads and the original key's replay fact.
  submission_process=processes[3];submission_process.terminate();submission_process.wait(timeout=15)
@@ -285,6 +343,8 @@ try:
   'testDataDigest':second['digest'],'baselineTestDataDigest':asset['digest'],'nodeId':node_id,
   'calibrationId':current_calibration['id'],'baselineCalibrationId':calibrated['id'],'requestIds':request_ids,
   'submissions':submissions,'workerCrash':'pass','frozenInput':'pass','result':'pass','rollback':'pass','kafkaRecovery':'pass','nodeRecovery':'pass'}
+ evidence['core']={'problemId':cid,'slug':'work002-core','calibrationId':core_calibrated['id'],'acSubmissionId':core_ac['id'],
+  'userLineCompileError':'solution.cpp:4','driverCompileError':'Main.cpp:6','runtimeStderr':'solution.cpp:4','result':'pass'}
  evidence['webOrigin']=f"http://{NAME}.localhost:{ports['web']}"
  (OUT/'evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2))
  # apps/web/e2e/judge-node.spec.ts 用它们停止/恢复同一个 Compose 项目里的 judge 节点。

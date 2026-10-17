@@ -1,6 +1,6 @@
 # C++ CORE 模式
 
-类型：新增 · 创建：2026-10-17 · 状态：设计已定稿（2026-10-17），尚未授权实施
+类型：新增 · 创建：2026-10-17 · 状态：第 0–8 步已完成（2026-10-18），隔离栈 e2e 通过；Linux 原生节点（setuid 执行器）上的 CORE 未运行
 
 ## 为什么做
 
@@ -43,3 +43,14 @@ CORE 是完整 MVP 的第二个切片（[`docs/product.md`](../../../docs/produc
 - 修改驱动代码或前缀后，管理端出现"建议重新标定"的提示。
 - judging-service 的改写单元测试覆盖 13 门语言的真实输出样例，以及驱动文件、前缀行、截断三类样例；benchmark 的 CORE 题在真实节点上通过。
 - 隔离栈 e2e 在原有 ACM 场景之外跑通 CORE 场景并留下证据，再更新 `docs/status.md`。
+
+## 结果（2026-10-18）
+
+- 提交：`97e4626` 全局文档 → `b1aa146` 契约 → `01d631f` judge → `19dd608` benchmark → `8d991b9` problem-service/gateway →
+  `c85ed3c` judging-service → `03469b2` submission-service → `82f1201` 管理端 → `5bbde63` 做题页 → 本次 e2e 与状态。
+- 隔离栈 e2e（`scripts/work-002-e2e.py`，MySQL/Redis/Kafka + 五个服务 + 真实 judge 容器）通过，CORE 场景见
+  [e2e-evidence-2026-10-18.json](./e2e-evidence-2026-10-18.json) 的 `core`。
+- 实施中与设计的差异都已写回 [design.md](./design.md)：管理端驱动代码为空时给"填入骨架"按钮而不是预填；改动后的提示放在
+  "驱动代码"一节的标题行；撤回了"读模型 View 补 codeMode"。
+- **没有验证：** Linux 原生节点（真实 systemd 单元与 setuid 执行器）上的 CORE 判题；测试服务器；benchmark 的 CORE 题只在本机 judge
+  镜像（devhost 后端）上跑过，CI 的 benchmark 工作流会在下一次判题相关改动时于托管 Linux 上运行它。
