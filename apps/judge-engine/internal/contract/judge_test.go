@@ -50,6 +50,28 @@ func TestJudgeResultUnmarshalsSchemaExample(t *testing.T) {
 	}
 }
 
+// ACM 请求不能多出 solutionSource：judge 按它是否存在区分"一个完整程序"与"驱动文件 + 用户文件"。
+func TestJudgeRequestOmitsEmptySolutionSource(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		solution string
+		want     bool
+	}{
+		{"ACM", "", false},
+		{"CORE", "class Solution {};\n", true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			body, err := json.Marshal(JudgeRequest{Source: "int main() {}", SolutionSource: tt.solution})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.Contains(string(body), `"solutionSource"`); got != tt.want {
+				t.Errorf("body = %s, contains solutionSource = %v, want %v", body, got, tt.want)
+			}
+		})
+	}
+}
+
 // trial case 的 name 是跨语言契约字段：server 发来后，judge 会原样回填到 TestcaseResult.Name。
 func TestTestcaseSpecNameRoundTrip(t *testing.T) {
 	want := TestcaseSpec{Input: "1 2\n", Expected: "3\n", Name: "样例 1"}

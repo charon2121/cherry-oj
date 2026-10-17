@@ -44,6 +44,7 @@ type judgment struct {
 	testcases                []testcase.TestCase
 	clockNs                  int64
 	sourceRef, executableRef string
+	solutionRef              string // 仅 CORE：用户文件；ACM 为空
 	log                      *slog.Logger
 }
 
@@ -91,6 +92,9 @@ func (j *judgment) prepare(ctx context.Context) error {
 	if !ok {
 		return fmt.Errorf("unknown language: %q", j.request.LanguageID)
 	}
+	if j.request.SolutionSource != "" && !j.language.SupportsSolution() {
+		return fmt.Errorf("language %q does not accept a solution file", j.request.LanguageID)
+	}
 	var err error
 	j.testData, err = loadTestcases(ctx, j.config, j.request)
 	if err != nil {
@@ -117,6 +121,17 @@ func (j *judgment) prepare(ctx context.Context) error {
 		return fmt.Errorf("upload source: sandbox returned an empty ref")
 	}
 	j.sourceRef = ref
+	if j.request.SolutionSource == "" {
+		return nil
+	}
+	ref, err = j.sandbox.Upload(ctx, strings.NewReader(j.request.SolutionSource))
+	if err != nil {
+		return fmt.Errorf("upload solution: %v", err)
+	}
+	if ref == "" {
+		return fmt.Errorf("upload solution: sandbox returned an empty ref")
+	}
+	j.solutionRef = ref
 	return nil
 }
 func (j *judgment) close(ctx context.Context) {
@@ -132,6 +147,10 @@ func (j *judgment) close(ctx context.Context) {
 	if j.sourceRef != "" {
 		j.deleteRef(ctx, j.sourceRef)
 		j.sourceRef = ""
+	}
+	if j.solutionRef != "" {
+		j.deleteRef(ctx, j.solutionRef)
+		j.solutionRef = ""
 	}
 }
 func loadTestcases(ctx context.Context, cfg config.Settings, req contract.JudgeRequest) (testcase.Set, error) {

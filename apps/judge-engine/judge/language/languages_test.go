@@ -5,6 +5,10 @@
 package language
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -200,5 +204,60 @@ func TestNeedsCompile(t *testing.T) {
 	}
 	if (Language{Compile: []string{}}).NeedsCompile() {
 		t.Error("空切片不算需要编译")
+	}
+}
+
+// CORE 的两个文件名以 contracts/judge.schema.json 的 x-language-files 为准：judge 按它写文件，
+// judging-service 按它认报错里的用户文件。两边任何一处改了名而另一处没改，行号就换算不了。
+func TestSolutionFilesMatchContract(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "..", "contracts", "judge.schema.json")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("读取 %s: %v", path, err)
+	}
+	var schema struct {
+		Files map[string]struct {
+			DriverFile   string `json:"driverFile"`
+			SolutionFile string `json:"solutionFile"`
+		} `json:"x-language-files"`
+	}
+	if err := json.Unmarshal(body, &schema); err != nil {
+		t.Fatalf("解析 %s: %v", path, err)
+	}
+	if len(schema.Files) == 0 {
+		t.Fatal("契约里没有 x-language-files")
+	}
+	for name, files := range schema.Files {
+		lang, ok := registry[name]
+		if !ok {
+			t.Errorf("契约里的 %q 不在语言表里", name)
+			continue
+		}
+		if lang.SourceName != files.DriverFile || lang.SolutionName != files.SolutionFile {
+			t.Errorf("%s: 语言表 %q/%q，契约 %q/%q", name, lang.SourceName, lang.SolutionName, files.DriverFile, files.SolutionFile)
+		}
+	}
+	for name, lang := range registry {
+		if _, ok := schema.Files[name]; lang.SupportsSolution() && !ok {
+			t.Errorf("%s 支持 CORE，但契约的 x-language-files 里没有它", name)
+		}
+	}
+}
+
+// 用户文件名会拼进沙箱工作目录：必须是不含路径的普通文件名，且不能和驱动文件同名。
+func TestSolutionNamesArePlainFiles(t *testing.T) {
+	plain := regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]*$`)
+	for key, lang := range registry {
+		if !lang.SupportsSolution() {
+			continue
+		}
+		t.Run(key, func(t *testing.T) {
+			if !plain.MatchString(lang.SolutionName) {
+				t.Errorf("SolutionName %q 不是普通文件名", lang.SolutionName)
+			}
+			if lang.SolutionName == lang.SourceName {
+				t.Errorf("SolutionName 与 SourceName 同名 %q", lang.SolutionName)
+			}
+		})
 	}
 }

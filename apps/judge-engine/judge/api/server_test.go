@@ -101,6 +101,23 @@ func TestJudgeDecodesAndForwardsRequest(t *testing.T) {
 	}
 }
 
+// CORE 的用户文件必须原样交给 flow：漏掉它，judge 只会编译驱动文件，结果是 CE 而不是报错。
+func TestJudgeForwardsSolutionSource(t *testing.T) {
+	fake := &fakeJudger{result: contract.JudgeResult{Verdict: contract.VerdictAC}}
+	h := api.New(fake).Handler()
+	body := `{"submissionId":"s","problemId":"p","testDataLocation":"/data/p","languageId":"cpp","source":"driver","solutionSource":"solution","limits":{"cpuNs":1,"memoryBytes":1}}`
+	rec := httptest.NewRecorder()
+
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/judge", strings.NewReader(body)))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", rec.Code, rec.Body)
+	}
+	if fake.got.Source != "driver" || fake.got.SolutionSource != "solution" {
+		t.Errorf("Source = %q, SolutionSource = %q", fake.got.Source, fake.got.SolutionSource)
+	}
+}
+
 func TestJudgeForwardsTestDataLocationInSubmitMode(t *testing.T) {
 	fake := &fakeJudger{result: contract.JudgeResult{Verdict: contract.VerdictAC}}
 	h := api.New(fake).Handler()

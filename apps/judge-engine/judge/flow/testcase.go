@@ -13,7 +13,7 @@ import (
 func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCase) contract.TestcaseResult {
 	sb, cfg, lang := j.sandbox, j.config, j.language
 	limits, clockNs := j.request.Limits, j.clockNs
-	sourceRef, executableRef := j.sourceRef, j.executableRef
+	executableRef := j.executableRef
 	trial := j.request.Mode == contract.ModeTrial
 	stdin, cleanup, err := j.stdinFor(ctx, tc.Input)
 	if err != nil {
@@ -27,7 +27,7 @@ func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCas
 
 	run, runErr := sb.Run(ctx, contract.RunSpec{
 		Command: lang.Run,
-		Inputs:  runInputs(lang, sourceRef, executableRef),
+		Inputs:  runInputs(lang, sourceInputs(lang, j.sourceRef, j.solutionRef), executableRef),
 		Stdin:   stdin,
 		Limits: contract.Limits{
 			CPUNs:          limits.CPUNs,
@@ -54,15 +54,24 @@ func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCas
 	return result
 }
 
-func runInputs(lang language.Language, sourceRef, executableRef string) map[string]contract.FileSource {
+// runInputs：编译型语言运行时只放编译产物，源码（含 CORE 的驱动文件与用户文件）不进运行沙箱；
+// 解释型语言没有产物，源码文件全部要在。
+func runInputs(lang language.Language, sources map[string]contract.FileSource, executableRef string) map[string]contract.FileSource {
 	if lang.NeedsCompile() {
 		return map[string]contract.FileSource{
 			lang.CompiledArtifact: {Ref: executableRef},
 		}
 	}
-	return map[string]contract.FileSource{
-		lang.SourceName: {Ref: sourceRef},
+	return sources
+}
+
+// sourceInputs：源码文件；CORE 时多一个用户文件，名字来自语言表，不来自请求。
+func sourceInputs(lang language.Language, sourceRef, solutionRef string) map[string]contract.FileSource {
+	inputs := map[string]contract.FileSource{lang.SourceName: {Ref: sourceRef}}
+	if solutionRef != "" {
+		inputs[lang.SolutionName] = contract.FileSource{Ref: solutionRef}
 	}
+	return inputs
 }
 
 func (j *judgment) stdinFor(ctx context.Context, input testcase.Blob) (*contract.FileSource, func(), error) {

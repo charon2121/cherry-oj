@@ -65,7 +65,8 @@ type JudgeRequest struct {
 	ProblemID        string         `json:"problemId"`                  // 只用于日志/对账
 	TestDataLocation string         `json:"testDataLocation,omitempty"` // 测试数据目录的地址；仅 mode=submit 使用
 	LanguageID       string         `json:"languageId"`                 // 决定编译/运行怎么编排
-	Source           string         `json:"source"`                     // 完整源码；CORE 已在上游合并
+	Source           string         `json:"source"`                     // ACM 为完整程序；CORE 为驱动文件
+	SolutionSource   string         `json:"solutionSource,omitempty"`   // 仅 CORE：用户文件（前缀 + 用户代码），文件名由语言表决定
 	Limits           JudgeLimits    `json:"limits"`                     // 环境相关绝对限制
 	Mode             JudgeMode      `json:"mode,omitempty"`             // 缺省由 flow 兜底为 submit
 	Testcases        []TestcaseSpec `json:"testcases,omitempty"`        // 仅 mode=trial

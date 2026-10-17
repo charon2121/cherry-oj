@@ -4,7 +4,8 @@ import "slices"
 
 type Language struct {
 	Name             string
-	SourceName       string   // 源码文件名
+	SourceName       string   // 源码文件名；CORE 时是驱动文件
+	SolutionName     string   // CORE 的用户文件名，驱动文件按这个名字引用它；为空表示该语言不支持 CORE
 	Compile          []string // 编译命令
 	CompiledArtifact string   // 编译后产物文件名
 	Run              []string // 运行命令
@@ -14,6 +15,7 @@ var registry = map[string]Language{
 	"cpp": {
 		Name:             "cpp",
 		SourceName:       "Main.cpp",
+		SolutionName:     "solution.cpp", // 驱动文件 #include "solution.cpp"，编译命令只编 Main.cpp
 		Compile:          []string{"g++", "Main.cpp", "-o", "Main", "-O2", "-std=c++17"},
 		CompiledArtifact: "Main",
 		Run:              []string{"Main"}, // 不带 "./"
@@ -57,3 +59,6 @@ func Get(name string) (Language, bool) {
 }
 
 func (l Language) NeedsCompile() bool { return len(l.Compile) > 0 }
+
+// SupportsSolution 报告这门语言能否接收 CORE 的用户文件。
+func (l Language) SupportsSolution() bool { return l.SolutionName != "" }

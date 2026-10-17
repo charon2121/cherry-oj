@@ -40,6 +40,7 @@ type judgeRequestJSON struct {
 	TestDataLocation *string            `json:"testDataLocation"`
 	LanguageID       *string            `json:"languageId"`
 	Source           *string            `json:"source"`
+	SolutionSource   *string            `json:"solutionSource"`
 	Limits           *judgeLimitsJSON   `json:"limits"`
 	Mode             contract.JudgeMode `json:"mode"`
 	Testcases        []testcaseSpecJSON `json:"testcases"`
@@ -130,6 +131,9 @@ func decodeJudgeRequest(body io.Reader) (contract.JudgeRequest, error) {
 	}
 	if wire.TestDataLocation != nil {
 		req.TestDataLocation = *wire.TestDataLocation
+	}
+	if wire.SolutionSource != nil {
+		req.SolutionSource = *wire.SolutionSource
 	}
 	return req, nil
 }

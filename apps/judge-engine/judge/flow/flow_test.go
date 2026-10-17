@@ -321,6 +321,11 @@ func TestJudgeValidatesBeforeCallingSandbox(t *testing.T) {
 			return r
 		}()},
 		{"unknown language", judgeConfig(), oneTestcaseRequest("brainfuck")},
+		{"solution file for a language without CORE", judgeConfig(), func() contract.JudgeRequest {
+			r := oneTestcaseRequest("python")
+			r.SolutionSource = "def f(): pass\n"
+			return r
+		}()},
 		{"no trial testcases", judgeConfig(), trialRequest("python")},
 		{"invalid clock ratio", func() config.Settings {
 			c := judgeConfig()
@@ -356,6 +361,53 @@ func TestJudgeUploadFailureIsSE(t *testing.T) {
 	}
 	if len(fake.calls) != 0 || len(fake.deleted) != 0 {
 		t.Errorf("failed upload should not run or delete an unknown ref")
+	}
+}
+
+// CORE：驱动文件与用户文件一起进编译沙箱，文件名来自语言表；运行沙箱只放编译产物，两份源码都不进去。
+func TestJudgeCoreCompilesDriverWithSolutionFile(t *testing.T) {
+	req := oneTestcaseRequest("cpp")
+	req.Source = "#include \"solution.cpp\"\nint main() {}\n"
+	req.SolutionSource = "#include <bits/stdc++.h>\nclass Solution {};\n"
+	fake := &fakeSandbox{runs: []runReply{compileOK(), runOK("answer\n")}}
+
+	result := flow.Judge(context.Background(), fake, judgeConfig(), req, nil)
+
+	if result.Verdict != contract.VerdictAC {
+		t.Fatalf("result = %+v", result)
+	}
+	if len(fake.uploaded) != 2 || string(fake.uploaded[0]) != req.Source || string(fake.uploaded[1]) != req.SolutionSource {
+		t.Fatalf("uploads = %q, want driver then solution", fake.uploaded)
+	}
+	compile := fake.calls[0]
+	want := map[string]contract.FileSource{"Main.cpp": {Ref: "ref-1"}, "solution.cpp": {Ref: "ref-2"}}
+	if !reflect.DeepEqual(compile.Inputs, want) {
+		t.Errorf("compile inputs = %+v, want %+v", compile.Inputs, want)
+	}
+	if run := fake.calls[1]; !reflect.DeepEqual(run.Inputs, map[string]contract.FileSource{"Main": {Ref: "executable-ref"}}) {
+		t.Errorf("run inputs = %+v, want only the executable", run.Inputs)
+	}
+	if got := deletedRefs(fake.deleted); !reflect.DeepEqual(got, []string{"executable-ref", "ref-1", "ref-2"}) {
+		t.Errorf("deleted refs = %v", got)
+	}
+}
+
+// 用户文件上传失败：判 SE，已经上传的驱动文件也要释放。
+func TestJudgeCoreSolutionUploadFailureIsSE(t *testing.T) {
+	req := oneTestcaseRequest("cpp")
+	req.SolutionSource = "class Solution {};\n"
+	fake := &fakeSandbox{uploadErrors: map[int]error{2: errors.New("store unavailable")}}
+
+	result := flow.Judge(context.Background(), fake, judgeConfig(), req, nil)
+
+	if result.Verdict != contract.VerdictSE || !strings.Contains(result.Message, "upload solution") {
+		t.Fatalf("result = %+v", result)
+	}
+	if len(fake.calls) != 0 {
+		t.Errorf("failed upload should not compile, runs = %d", len(fake.calls))
+	}
+	if got := deletedRefs(fake.deleted); !reflect.DeepEqual(got, []string{"ref-1"}) {
+		t.Errorf("deleted refs = %v, want the driver ref", got)
 	}
 }
 
