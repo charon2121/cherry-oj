@@ -3192,8 +3192,7 @@
             "$ref": "#/components/schemas/ProblemStatus"
           },
           "codeMode": {
-            "const": "ACM",
-            "type": "string"
+            "$ref": "#/components/schemas/ProblemCodeMode"
           },
           "title": {
             "type": "string",
@@ -3362,8 +3361,8 @@
             "$ref": "#/components/schemas/ProblemDifficulty"
           },
           "codeMode": {
-            "const": "ACM",
-            "type": "string"
+            "$ref": "#/components/schemas/ProblemCodeMode",
+            "description": "创建后不可修改"
           },
           "languageId": {
             "const": "cpp",
@@ -3448,6 +3447,12 @@
           "rowVersion": {
             "type": "integer",
             "minimum": 0
+          },
+          "judgeTemplate": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1048576,
+            "description": "CORE 题的驱动代码；ACM 题必须省略。代码模式不能通过更新修改"
           }
         }
       },
@@ -3484,6 +3489,14 @@
           "starterCode": {
             "type": "string",
             "maxLength": 1048576
+          },
+          "judgeTemplate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 1048576,
+            "description": "CORE 的驱动代码，尚未填写时为 null；ACM 为 null。只在管理端返回"
           }
         }
       },
@@ -3586,7 +3599,8 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 1048576,
-            "writeOnly": true
+            "writeOnly": true,
+            "description": "ACM 为完整参考程序；CORE 为参考核心代码，服务端与该语言前缀合并后连同驱动代码一起标定"
           }
         }
       },

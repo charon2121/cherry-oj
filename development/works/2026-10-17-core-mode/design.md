@@ -144,7 +144,9 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 修改驱动代码或前缀**不会**让标定自动失效（用户 2026-10-17 决定：先只做提示，不做标定指纹）。提示两处：
 
 - 管理端保存驱动代码成功后，提示"驱动代码已修改，建议重新标定"。
-- 管理端题目页：驱动代码或该语言前缀的修改时间晚于当前标定的创建时间时，在标定区显示"驱动代码（或前缀）在最近一次标定后修改过，建议重新标定"。
+- 公开检查的 CALIBRATION 项：judging-service 的 readiness 返回当前有效标定的批准时间 `calibratedAt`，problem-service 把它和
+  驱动代码、该语言前缀的修改时间比较，晚于标定时在这一项的说明后附上"驱动代码（或前缀）在最近一次标定后修改过，建议重新标定"，
+  检查结果仍为通过。这样不需要新的前端字段，管理端现有的公开检查列表就能显示提示。
   为此 `problem_language` 加 `judge_template_updated_at`，语言表带 `updated_at`；前缀直接改数据库时要一并更新这个时间。
   只比较时间，不比较内容。
 
@@ -164,12 +166,12 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 
 | 文件 | 变化 |
 |---|---|
-| `judge.schema.json` | `JudgeRequest` 加可选 `solutionSource`（用户文件全文）；`source` 说明改为"ACM 为完整程序；CORE 为驱动文件"；定义每门语言的驱动文件名与用户文件名（§5.2） |
+| `judge.schema.json` | `JudgeRequest` 加可选 `solutionSource`（用户文件全文）；`source` 说明改为"ACM 为完整程序；CORE 为驱动文件"；顶层 `x-language-files` 定义每门语言的驱动文件名与用户文件名（§5.2）；`JudgeResult.message` 写明位置是原始输出 |
 | `judge-input.schema.json` | CORE 加 `solutionSource`、`solutionSha256`、`solutionPrefixLineCount`（ACM 禁止）；`completeSource` 说明改为"ACM 为用户程序；CORE 为驱动文件"；写明合并规则（§5.1）；`contractVersion` 保持 `"2"` |
-| `custom-run-internal.schema.json` | trial 请求加可选 `solutionSource`、`solutionPrefixLineCount` |
+| `custom-run-internal.schema.json` | trial 请求加可选 `solutionSource`、`solutionPrefixLineCount`；`source` 上限放宽到 1 MiB（CORE 时是驱动文件，用户源码的 256 KiB 上限仍在浏览器入口检查） |
 | `problem-judge-snapshot.schema.json` | CORE 返回 `judgeTemplate`（驱动代码）与 `solutionPrefix`（前缀代码）；去掉占位符说明 |
-| **新增** `calibration.schema.json` | problem-service → judging-service 的 `POST /internal/admin/calibrations`（请求、结果）与 `GET /internal/admin/readiness`（结果）。CORE 的标定请求带驱动文件、合并后的用户文件、前缀行数 |
-| `web-api.openapi.json` | 管理端创建：`codeMode` 允许 `CORE`；更新：不再接收 `codeMode`，CORE 接收 `judgeTemplate`（ACM 禁止）；管理端详情：CORE 返回 `judgeTemplate`；标定：`referenceSource` 说明改为"ACM 为完整程序，CORE 为核心代码"。用户端接口不变 |
+| **新增** `calibration.schema.json` | problem-service → judging-service 的 `POST /internal/admin/calibrations`（请求、结果）与 `GET /internal/admin/readiness`（结果）。CORE 的标定请求以 `referenceSource` 带驱动文件，另带 `referenceSolutionSource`（合并后的用户文件）与前缀行数；readiness 的执行配置增加 `calibratedAt`（§5.6） |
+| `web-api.openapi.json` | 管理端创建：`codeMode` 允许 `CORE`；更新：本来就不接收 `codeMode`，新增可选 `judgeTemplate`（CORE 用，ACM 必须省略）；管理端详情：语言新增可选 `judgeTemplate`（ACM 为 null）。新增字段都是可选的，保证前端在第 6 步之前照常编译；标定：`referenceSource` 说明改为"ACM 为完整程序，CORE 为核心代码"。用户端接口不变 |
 | `execution-profile.schema.json`、`submission.json`、`judge-events.schema.json` | 不变 |
 
 ### 6.2 judge（Go）

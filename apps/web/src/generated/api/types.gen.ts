@@ -338,7 +338,7 @@ export type AdminProblem = {
     slug: ProblemSlug;
     visibility: ProblemVisibility;
     status: ProblemStatus;
-    codeMode: 'ACM';
+    codeMode: ProblemCodeMode;
     title: string;
     statementMarkdown: string;
     inputDescriptionMarkdown: string;
@@ -376,7 +376,10 @@ export type CreateProblemRequest = {
     slug: ProblemSlug;
     title: string;
     difficulty: ProblemDifficulty;
-    codeMode: 'ACM';
+    /**
+     * 创建后不可修改
+     */
+    codeMode: ProblemCodeMode;
     languageId: 'cpp';
 };
 
@@ -393,6 +396,10 @@ export type UpdateProblemRequest = {
     samples: Array<ProblemSample>;
     starterCode: string;
     rowVersion: number;
+    /**
+     * CORE 题的驱动代码；ACM 题必须省略。代码模式不能通过更新修改
+     */
+    judgeTemplate?: string;
 };
 
 export type RowVersionRequest = {
@@ -403,6 +410,10 @@ export type AdminProblemLanguage = {
     id: 'cpp';
     displayName: 'C++';
     starterCode: string;
+    /**
+     * CORE 的驱动代码，尚未填写时为 null；ACM 为 null。只在管理端返回
+     */
+    judgeTemplate?: string | null;
 };
 
 export type TestDataManifestFile = {
@@ -578,6 +589,9 @@ export type CalibrateProblemRequestWritable = {
     cpuNs: number;
     memoryBytes: number;
     clockNs: number | null;
+    /**
+     * ACM 为完整参考程序；CORE 为参考核心代码，服务端与该语言前缀合并后连同驱动代码一起标定
+     */
     referenceSource: string;
 };
 

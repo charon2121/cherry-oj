@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/problem-judge-snapshot.schema.json",
   "title": "ProblemJudgeSnapshot v1",
-  "description": "problem-service → submission-service 的内部判题快照。只在题目 ACTIVE/PUBLIC、语言已允许且已有测试数据时返回；不含测试数据地址，地址由 judging-service 在判题时向 problem-service 取。judgeTemplate 是内部敏感字段，不得透传浏览器、日志或 Kafka。",
+  "description": "problem-service → submission-service 的内部判题快照。只在题目 ACTIVE/PUBLIC、语言已允许且已有测试数据时返回；不含测试数据地址，地址由 judging-service 在判题时向 problem-service 取。CORE 另返回驱动代码与该语言的前缀代码：驱动代码不得透传浏览器、日志或 Kafka。",
   "x-contract-version": 1,
   "type": "object",
   "additionalProperties": false,
@@ -36,8 +36,16 @@
     },
     "judgeTemplate": {
       "type": "string",
+      "minLength": 1,
       "maxLength": 1048576,
-      "description": "仅 CORE 返回；公开检查保证包含且只包含一个字面量 {{USER_CODE}}"
+      "description": "仅 CORE：驱动代码，作为驱动文件原样送判；通过固定文件名引用用户文件"
+    },
+    "solutionPrefix": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536,
+      "pattern": "\\n$",
+      "description": "仅 CORE：该语言的前缀代码，以换行结尾；用户文件 = solutionPrefix + 用户源码"
     }
   },
   "allOf": [
@@ -54,13 +62,23 @@
       },
       "then": {
         "required": [
-          "judgeTemplate"
+          "judgeTemplate",
+          "solutionPrefix"
         ]
       },
       "else": {
         "not": {
-          "required": [
-            "judgeTemplate"
+          "anyOf": [
+            {
+              "required": [
+                "judgeTemplate"
+              ]
+            },
+            {
+              "required": [
+                "solutionPrefix"
+              ]
+            }
           ]
         }
       }
@@ -72,7 +90,8 @@
       "problemTitle": "A + B",
       "languageId": "cpp",
       "codeMode": "CORE",
-      "judgeTemplate": "#include <iostream>\n{{USER_CODE}}\nint main() { return 0; }"
+      "judgeTemplate": "#include \"solution.cpp\"\nint main() { int a, b; cin >> a >> b; cout << Solution().add(a, b) << \"\\n\"; }\n",
+      "solutionPrefix": "#include <bits/stdc++.h>\nusing namespace std;\n"
     }
   ]
 }

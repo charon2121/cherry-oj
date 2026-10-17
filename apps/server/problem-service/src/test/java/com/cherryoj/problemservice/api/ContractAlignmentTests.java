@@ -40,10 +40,10 @@ class ContractAlignmentTests {
         Set<String> contract = fieldNames(schema.get("properties"));
         Set<String> dto = components(SubmissionSnapshotService.Snapshot.class);
 
-        // 契约比 DTO 多且只多一个 judgeTemplate：它只在 CORE 题目返回，目前只支持 ACM，DTO 还没有它
+        // 契约比 DTO 多且只多 CORE 的驱动代码与前缀：它们只在 CORE 题目返回，目前只支持 ACM，DTO 还没有它们
         assertThat(contract).containsAll(dto);
         assertThat(contract).containsExactlyInAnyOrderElementsOf(
-                Stream.concat(dto.stream(), Stream.of("judgeTemplate")).collect(Collectors.toSet()));
+                Stream.concat(dto.stream(), Stream.of("judgeTemplate", "solutionPrefix")).collect(Collectors.toSet()));
         assertThat(contract).noneMatch(name -> name.contains("ersion") || name.startsWith("testData"));
     }
 

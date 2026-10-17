@@ -44,6 +44,7 @@ class ContractsTest(unittest.TestCase):
     def test_expected_contracts_exist(self) -> None:
         expected = {
             "judge.schema.json",
+            "calibration.schema.json",
             "custom-run-internal.schema.json",
             "judge-node.schema.json",
             "submission.json",
@@ -310,6 +311,32 @@ class ContractsTest(unittest.TestCase):
         for path in ("/api/auth/csrf", "/api/auth/session"):
             response = paths[path]["get"]["responses"]["200"]
             self.assertEqual(response["headers"]["Cache-Control"]["schema"]["const"], "no-store")
+
+
+    def test_core_language_files_are_plain_names(self) -> None:
+        # judge 按这里的名字写文件，judging-service 按它识别报错里的用户文件：名字必须是不含路径的普通文件名。
+        files = load("judge.schema.json")["x-language-files"]
+        self.assertEqual(files["cpp"], {"driverFile": "Main.cpp", "solutionFile": "solution.cpp"})
+        for language, names in files.items():
+            self.assertNotEqual(names["driverFile"], names["solutionFile"], language)
+            for name in names.values():
+                self.assertRegex(name, r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$", language)
+
+    def test_core_solution_fields_travel_together(self) -> None:
+        # 用户文件与前缀行数缺一个，报错行号就无法换算：契约必须要求它们同时出现或同时缺席。
+        for name, schema in (
+            ("judge-input.schema.json", load("judge-input.schema.json")),
+            ("custom-run-internal.schema.json", load("custom-run-internal.schema.json")),
+            ("calibration.schema.json", load("calibration.schema.json")["definitions"]["CalibrationRequest"]),
+        ):
+            dependencies = schema["dependencies"]
+            source = "referenceSolutionSource" if "referenceSolutionSource" in dependencies else "solutionSource"
+            self.assertIn("solutionPrefixLineCount", dependencies[source], name)
+            self.assertIn(source, dependencies["solutionPrefixLineCount"], name)
+
+        snapshot = load("problem-judge-snapshot.schema.json")["allOf"][0]
+        self.assertEqual(snapshot["if"]["properties"]["codeMode"]["const"], "CORE")
+        self.assertEqual(set(snapshot["then"]["required"]), {"judgeTemplate", "solutionPrefix"})
 
 
 if __name__ == "__main__":

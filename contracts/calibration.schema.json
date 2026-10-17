@@ -1,0 +1,327 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cherry-oj.dev/schema/calibration.schema.json",
+  "title": "Calibration internal v1",
+  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要服务身份与 ADMIN 委托身份。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=：响应 Readiness。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。",
+  "x-contract-version": 1,
+  "definitions": {
+    "CalibrationRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "testDataLocation 与 testDataDigest 是 problem-service 此刻给出的；判题结果里的数据指纹必须与 testDataDigest 一致，否则标定作废。",
+      "required": [
+        "problemId",
+        "languageId",
+        "testDataLocation",
+        "testDataDigest",
+        "cpuNs",
+        "memoryBytes",
+        "clockNs",
+        "referenceSource"
+      ],
+      "properties": {
+        "problemId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "testDataLocation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "testDataDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "clockNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "referenceSource": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1048576,
+          "description": "ACM 为完整参考程序；CORE 为驱动文件（题目的驱动代码）"
+        },
+        "referenceSolutionSource": {
+          "type": "string",
+          "minLength": 1,
+          "description": "仅 CORE：参考用户文件 = 该语言前缀 + 参考核心代码"
+        },
+        "solutionPrefixLineCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "仅 CORE：前缀中换行符的个数，用于换算标定失败消息中的用户文件行号"
+        }
+      },
+      "dependencies": {
+        "referenceSolutionSource": [
+          "solutionPrefixLineCount"
+        ],
+        "solutionPrefixLineCount": [
+          "referenceSolutionSource"
+        ]
+      },
+      "examples": [
+        {
+          "problemId": "0198cafe-0000-7000-8000-000000000012",
+          "languageId": "cpp",
+          "testDataLocation": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000012",
+          "testDataDigest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
+          "cpuNs": 1000000000,
+          "memoryBytes": 268435456,
+          "clockNs": null,
+          "referenceSource": "#include \"solution.cpp\"\nint main() { int a, b; cin >> a >> b; cout << Solution().add(a, b) << \"\\n\"; }\n",
+          "referenceSolutionSource": "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {\npublic:\n    int add(int a, int b) { return a + b; }\n};\n",
+          "solutionPrefixLineCount": 2
+        }
+      ]
+    },
+    "CalibrationStatus": {
+      "type": "string",
+      "enum": [
+        "DRAFT",
+        "RUNNING",
+        "VALID",
+        "FAILED",
+        "SUPERSEDED"
+      ]
+    },
+    "BenchmarkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceSha256",
+        "verdict"
+      ],
+      "properties": {
+        "sourceSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "参考源码 UTF-8 字节的 SHA-256；CORE 为驱动文件"
+        },
+        "verdict": {
+          "$ref": "verdict.json"
+        },
+        "maxCpuNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maxMemoryBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maxClockNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "Calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "problemId",
+        "languageId",
+        "status",
+        "cpuNs",
+        "memoryBytes",
+        "clockNs",
+        "testDataDigest",
+        "benchmarkSummary",
+        "errorMessage",
+        "createdAt",
+        "updatedAt",
+        "rowVersion"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "problemId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "status": {
+          "$ref": "#/definitions/CalibrationStatus"
+        },
+        "cpuNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "memoryBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "clockNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "testDataDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "benchmarkSummary": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/BenchmarkSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "errorMessage": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 8192,
+          "description": "FAILED 时必填；CORE 时用户文件行号已按前缀换算"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        },
+        "rowVersion": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "ReadinessCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "passed",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "ONLINE_JUDGE_NODE",
+            "LANGUAGE",
+            "CALIBRATION"
+          ]
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "ExecutionProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "calibrationId",
+        "cpuNs",
+        "memoryBytes",
+        "clockNs",
+        "calibratedAt"
+      ],
+      "properties": {
+        "calibrationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "clockNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "calibratedAt": {
+          "type": "string",
+          "description": "这条 VALID 标定的批准时间；problem-service 与驱动代码、前缀的修改时间比较，晚于它时提示重新标定"
+        }
+      }
+    },
+    "Readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ready",
+        "checks",
+        "executionProfile"
+      ],
+      "properties": {
+        "ready": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ReadinessCheck"
+          }
+        },
+        "executionProfile": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecutionProfile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "ready 时为当前 VALID 标定，否则为 null"
+        }
+      }
+    }
+  }
+}

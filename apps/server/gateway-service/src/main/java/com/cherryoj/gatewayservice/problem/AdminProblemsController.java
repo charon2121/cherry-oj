@@ -248,6 +248,8 @@ public class AdminProblemsController {
 	}
 
 	/** 题目没有版本：一次请求保存题目的全部可编辑内容。 */
+	// judgeTemplate 只有 CORE 题目才带；为空时不转发，ACM 题目的请求体保持原样
+	@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 	record UpdateProblemRequest(
 			@NotBlank @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128) String slug,
 			@NotBlank @Size(max = 512) String title,
@@ -260,6 +262,7 @@ public class AdminProblemsController {
 			@NotNull @Size(max = 20) List<@NotBlank @Size(max = 32) String> tags,
 			@NotNull @Size(max = 100) List<@Valid SampleInput> samples,
 			@NotNull @Size(max = 1_048_576) String starterCode,
+			@Size(min = 1, max = 1_048_576) String judgeTemplate,
 			@Min(0) long rowVersion) {
 	}
 

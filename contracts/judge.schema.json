@@ -15,6 +15,12 @@
     "requestIdHeader": "X-Request-Id",
     "description": "Trace 上下文只通过 HTTP header 传播，不进入 JudgeRequest/JudgeResult。X-Request-Id 仅关联同一次同步 HTTP 调用，不承担 Trace、身份、幂等或业务主键语义。"
   },
+  "x-language-files": {
+    "cpp": {
+      "driverFile": "Main.cpp",
+      "solutionFile": "solution.cpp"
+    }
+  },
   "definitions": {
     "JudgeMode": {
       "type": "string",
@@ -159,7 +165,11 @@
         },
         "source": {
           "type": "string",
-          "description": "完整源码；CORE 模板已由 submission-service 合并"
+          "description": "ACM 为完整程序；CORE 为驱动文件（题目的驱动代码）"
+        },
+        "solutionSource": {
+          "type": "string",
+          "description": "仅 CORE：用户文件全文（语言前缀 + 用户代码）。带上它时，judge 把 source 写成 x-language-files 中该语言的 driverFile、把它写成 solutionFile，一起编译运行；不带时 source 就是完整程序。judge 不改写报错，原始位置由 judging-service 换算"
         },
         "limits": {
           "$ref": "#/definitions/JudgeLimits"
@@ -261,7 +271,8 @@
         },
         "message": {
           "type": "string",
-          "maxLength": 8192
+          "maxLength": 8192,
+          "description": "编译诊断或运行错误片段，按长度截断；位置保持编译器、运行时的原始输出，judge 不改写"
         },
         "testDataDigest": {
           "type": "string",
