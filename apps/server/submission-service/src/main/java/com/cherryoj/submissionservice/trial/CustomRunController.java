@@ -1,5 +1,6 @@
 package com.cherryoj.submissionservice.trial;
 
+import com.cherryoj.submissionservice.application.JudgeSources;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import com.cherryoj.submissionservice.security.CurrentIdentity;
@@ -66,9 +67,11 @@ public class CustomRunController {
 				|| r.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
 			throw failure(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入超过大小限制。");
 		var s = prerequisites.snapshot(r.problemId().toString(), r.languageId());
-		if (s == null || !r.problemId().toString().equals(s.problemId()) || !"ACM".equals(s.codeMode())
+		if (s == null || !r.problemId().toString().equals(s.problemId()) || !JudgeSources.consistent(s)
 				|| !"cpp".equals(s.languageId()))
 			throw unavailable();
+		// 与正式提交同一套合并：CORE 送驱动文件 + 用户文件，judging-service 据前缀行数换算报错行号。
+		var sources = JudgeSources.of(s, r.source());
 		String token;
 		try {
 			token = tokens.tokenFor(ServiceNames.JUDGING);
@@ -78,8 +81,12 @@ public class CustomRunController {
 				.warn("custom.run.failed stage=service-identity reason={}", error.reason());
 			throw unavailable();
 		}
-		var body = Map.of("problemId", s.problemId(), "languageId", "cpp",
-				"source", r.source(), "inputText", r.inputText(), "deadlineEpochMs", deadline);
+		var body = new java.util.LinkedHashMap<String, Object>(Map.of("problemId", s.problemId(), "languageId", "cpp",
+				"source", sources.source(), "inputText", r.inputText(), "deadlineEpochMs", deadline));
+		if (sources.solutionSource() != null) {
+			body.put("solutionSource", sources.solutionSource());
+			body.put("solutionPrefixLineCount", sources.solutionPrefixLineCount());
+		}
 		long remaining = deadline - System.currentTimeMillis();
 		if (remaining <= 0)
 			throw timeout();

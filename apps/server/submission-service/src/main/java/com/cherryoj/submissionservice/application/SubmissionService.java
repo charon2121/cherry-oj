@@ -48,9 +48,12 @@ public class SubmissionService {
         String id=uuid7(), event=uuid7();
         var view=new View(id,snapshot.problemId(),snapshot.problemTitle(),
                 request.languageId(),"PENDING",now,null,null,null,null,null,null,null,null);
+        // Submission 保存用户原文；JudgeInput 冻结实际送判的文件：CORE 是驱动文件 + 用户文件（前缀 + 用户代码）与前缀行数。
+        var sources=JudgeSources.of(snapshot,request.source());
         var input=new Input(id,"2",snapshot.problemId(),request.languageId(),
-                request.source(),sha(request.source()),profile.languageCalibrationId(),
-                profile.effectiveLimits(),now);
+                sources.source(),sha(sources.source()),sources.solutionSource(),
+                sources.solutionSource()==null ? null : sha(sources.solutionSource()),sources.solutionPrefixLineCount(),
+                profile.languageCalibrationId(),profile.effectiveLimits(),now);
         String payload=json.writeValueAsString(Map.of("eventId",event,"eventType","JudgeRequested","eventVersion",1,
                 "occurredAt",now.toString(),"traceId",traceId(),"aggregateId",id,
                 "payload",Map.of("submissionId",id,"judgeInputContractVersion","2")));
@@ -108,8 +111,8 @@ public class SubmissionService {
         return json.readValue(value,Input.class);
     }
     private static void validateSnapshot(Snapshot s,Create r) {
-        if (s==null || !r.problemId().toString().equals(s.problemId()) || !"cpp".equals(s.languageId()) || !"ACM".equals(s.codeMode())
-                || s.problemTitle()==null) throw invalidSnapshot();
+        if (s==null || !r.problemId().toString().equals(s.problemId()) || !"cpp".equals(s.languageId())
+                || !JudgeSources.consistent(s) || s.problemTitle()==null) throw invalidSnapshot();
     }
     private static void validateProfile(Profile p,Snapshot s) {
         if (p==null || !s.problemId().equals(p.problemId())

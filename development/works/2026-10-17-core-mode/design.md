@@ -209,7 +209,9 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 - 正式提交：CORE 冻结 `completeSource = 驱动代码`、`solutionSource = 前缀 + 用户代码`、`solutionPrefixLineCount` 及两个 SHA-256；
   两份大小分别检查，超出返回 413。Submission 的 `source` 仍是用户原文。
 - 自测：同样合并，带上 `solutionSource` 与前缀行数。
-- 读模型 `View` 补上 `codeMode`（`contracts/submission.json` 已列为必填，现有实现缺了它，这次一并修正）。
+- 取快照的响应上限从 64 KiB 放宽到 4 MiB：CORE 快照带着驱动代码（最多 1 Mi 个字符）与前缀。
+- ~~读模型 `View` 补上 `codeMode`~~：实施时核对后撤回。`contracts/submission.json` 描述的是完整的 Submission 实体（还要求
+  `userId`、`source` 等），`View` 对应的是 web 契约的 `SubmissionData`，本来就没有 `codeMode`，不是契约漂移，CORE 也不需要它。
 
 ### 6.6 gateway-service
 
@@ -244,7 +246,7 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 2. judge：用户文件、文件名对齐、benchmark CORE 题（§6.2）。ACM 请求行为不变。
 3. problem-service 与 gateway：语言表与前缀、CORE 创建与更新、公开检查、标定合并、快照、种子数据（§6.3、§6.6）。重建开发库。
 4. judging-service：标定契约对齐、`solutionSource` 透传、报错改写模块（§6.4）。
-5. submission-service：合并、冻结、自测、`View.codeMode`（§6.5）。
+5. submission-service：合并、冻结、自测（§6.5）。
 6. Web 管理端。
 7. Web 用户端。
 8. e2e 补 CORE 场景，跑隔离栈与真实节点，留证据，改 `docs/status.md`（§6.8）。

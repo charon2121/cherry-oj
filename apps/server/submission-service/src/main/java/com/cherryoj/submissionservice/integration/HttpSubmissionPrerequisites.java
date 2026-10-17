@@ -52,7 +52,7 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
             future=http.sendAsync(request, ignored -> new LimitedBody());
             var response=future.get(6, TimeUnit.SECONDS);
             if (response.statusCode()==404) throw new SubmissionException(HttpStatus.NOT_FOUND,"PROBLEM_NOT_AVAILABLE","题目当前不可提交。");
-            if (response.statusCode()==422) throw new SubmissionException(HttpStatus.UNPROCESSABLE_ENTITY,"UNSUPPORTED_CODE_MODE","当前只支持 C++ ACM 正式提交。");
+            if (response.statusCode()==422) throw new SubmissionException(HttpStatus.UNPROCESSABLE_ENTITY,"UNSUPPORTED_LANGUAGE","当前题目不支持这门语言。");
             if (response.statusCode()==401) tokens.invalidate(audience);
             if (response.statusCode()!=200) throw unavailable(path, "status " + response.statusCode());
             return json.readValue(response.body(),type);
@@ -69,6 +69,11 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
                 .log("submission.prerequisite.unavailable");
         return new SubmissionException(HttpStatus.SERVICE_UNAVAILABLE,"JUDGING_NOT_READY","当前题目暂时无法判题。");
     }
+    /**
+     * CORE 的快照带着驱动代码（最多 1 Mi 个字符）与前缀，JSON 转义后可能是字符数的数倍；
+     * 4 MiB 足够装下合法快照，仍然挡得住失控的响应。
+     */
+    private static final int MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {
         private final CompletableFuture<byte[]> result=new CompletableFuture<>();
         private final ByteArrayOutputStream bytes=new ByteArrayOutputStream();
@@ -77,7 +82,7 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
         public void onSubscribe(Flow.Subscription value) { subscription=value; value.request(1); }
         public void onNext(List<ByteBuffer> buffers) {
             for (var buffer:buffers) {
-                if (buffer.remaining()>65536-bytes.size()) { subscription.cancel(); result.completeExceptionally(new IllegalStateException("snapshot too large")); return; }
+                if (buffer.remaining()>MAX_RESPONSE_BYTES-bytes.size()) { subscription.cancel(); result.completeExceptionally(new IllegalStateException("snapshot too large")); return; }
                 byte[] chunk=new byte[buffer.remaining()]; buffer.get(chunk); bytes.writeBytes(chunk);
             }
             subscription.request(1);

@@ -45,7 +45,7 @@ class SubmissionPersistenceTests {
     final String calibration=UUID.randomUUID().toString();
     @BeforeEach void setup() {
         service=new SubmissionService(store,prerequisites,json,manager,true,true);
-        var snapshot=new Snapshot(problem.toString(),"A+B","cpp","ACM");
+        var snapshot=new Snapshot(problem.toString(),"A+B","cpp","ACM",null,null);
         when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
         when(prerequisites.profile(snapshot)).thenReturn(new Profile(problem.toString(),"cpp",calibration,new Limits(1000000000L,268435456L,3000000000L),40000000000L));
     }
@@ -71,6 +71,41 @@ class SubmissionPersistenceTests {
             assertThrows(SubmissionException.class,() -> service.get(UUID.randomUUID().toString(),id));
         }
     }
+    /** CORE：Submission 保存用户原文，JudgeInput 冻结驱动文件、前缀 + 用户代码与前缀行数；ACM 的输入里没有这些字段。 */
+    @Test void coreSubmissionFreezesTheDriverAndThePrefixedSolutionFile() {
+        String prefix="#include <bits/stdc++.h>\nusing namespace std;\n", driver="#include \"solution.cpp\"\nint main() {}\n";
+        var core=new Snapshot(problem.toString(),"A+B","cpp","CORE",driver,prefix);
+        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(core);
+        when(prerequisites.profile(core)).thenReturn(new Profile(problem.toString(),"cpp",calibration,new Limits(1000000000L,268435456L,3000000000L),40000000000L));
+        String source="class Solution {};\n";
+
+        String id=service.create(user,UUID.randomUUID().toString(),request(source)).view().id();
+
+        var input=service.input(id);
+        assertEquals(driver,input.completeSource());
+        assertEquals(SubmissionService.sha(driver),input.sourceSha256());
+        assertEquals(prefix+source,input.solutionSource());
+        assertEquals(SubmissionService.sha(prefix+source),input.solutionSha256());
+        assertEquals(2,input.solutionPrefixLineCount());
+        assertEquals(source,service.source(user,id).source());
+
+        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(problem.toString(),"A+B","cpp","ACM",null,null));
+        String acm=service.create(user,UUID.randomUUID().toString(),request("int main() {}")).view().id();
+        String payload=jdbc.queryForObject("SELECT CAST(payload AS CHAR) FROM judge_input WHERE submission_id=?",String.class,acm);
+        assertFalse(payload.contains("solution"),payload);
+    }
+    /** 快照的代码模式与它带的 CORE 字段对不上：不建提交，按"暂时无法判题"处理。 */
+    @Test void inconsistentCoreSnapshotsNeverCreateSubmissions() {
+        long before=jdbc.queryForObject("SELECT COUNT(*) FROM submission",Long.class);
+        for(var snapshot:List.of(new Snapshot(problem.toString(),"A+B","cpp","CORE",null,"p\n"),
+                new Snapshot(problem.toString(),"A+B","cpp","CORE","driver","no newline"),
+                new Snapshot(problem.toString(),"A+B","cpp","ACM","driver",null))) {
+            when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
+            var error=assertThrows(SubmissionException.class,() -> service.create(user,UUID.randomUUID().toString(),request("x")));
+            assertEquals("INVALID_JUDGE_SNAPSHOT",error.code());
+        }
+        assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM submission",Long.class));
+    }
     @Test void failedOutboxInsertRollsBackInputSubmissionAndIdempotencyKey() {
         var failing=mock(SubmissionMapper.class,org.mockito.AdditionalAnswers.delegatesTo(store));
         doThrow(new IllegalStateException("injected failure"))
@@ -86,9 +121,9 @@ class SubmissionPersistenceTests {
     }
     @Test void mismatchedSnapshotAndMissingProfileNeverCreateSubmission() {
         long before=jdbc.queryForObject("SELECT COUNT(*) FROM submission",Long.class);
-        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(UUID.randomUUID().toString(),"A+B","cpp","ACM"));
+        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(UUID.randomUUID().toString(),"A+B","cpp","ACM",null,null));
         assertThrows(SubmissionException.class,() -> service.create(user,UUID.randomUUID().toString(),request("source")));
-        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(problem.toString(),"A+B","cpp","ACM"));
+        when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(new Snapshot(problem.toString(),"A+B","cpp","ACM",null,null));
         when(prerequisites.profile(any())).thenReturn(null);
         assertThrows(SubmissionException.class,() -> service.create(user,UUID.randomUUID().toString(),request("source")));
         assertEquals(before,jdbc.queryForObject("SELECT COUNT(*) FROM submission",Long.class));

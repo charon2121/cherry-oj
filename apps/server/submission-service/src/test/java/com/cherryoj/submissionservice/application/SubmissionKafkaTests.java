@@ -44,7 +44,7 @@ class SubmissionKafkaTests {
     @Test void durableRequestCrossesKafkaAndDuplicateCompletionOnlyAppliesOnce() throws Exception {
         UUID problem=UUID.randomUUID();
         String user=UUID.randomUUID().toString();
-        var snapshot=new Snapshot(problem.toString(),"A+B","cpp","ACM");
+        var snapshot=new Snapshot(problem.toString(),"A+B","cpp","ACM",null,null);
         when(prerequisites.snapshot(problem.toString(),"cpp")).thenReturn(snapshot);
         when(prerequisites.profile(snapshot)).thenReturn(new Profile(problem.toString(),"cpp",UUID.randomUUID().toString(),new Limits(1000,2000,3000L),40000000000L));
         var created=service.create(user,UUID.randomUUID().toString(),new Create(problem,"cpp","private source marker"));
