@@ -95,8 +95,13 @@ corpus/judge/a-plus-b/
 | `seed` | 生成 `.in` 用的整数种子；同一种子与同一生成程序必须得到逐字节相同的数据 |
 | `limits` | `cpuNs`、`memoryBytes`、`clockNs`，原样放进判题请求的 `limits`，均为正整数 |
 | `requires` | 本题成立所需的节点配置标签（§4），可以为空 |
+| `driver` | 可选。CORE 题的驱动文件名（本题目录下，匹配 `^[a-z0-9][a-z0-9_]{0,62}\.cpp$`） |
 
 不允许出现其他字段。
+
+有 `driver` 的题是 CORE 题：判题请求的 `source` 是驱动文件全文，每个提交作为 `solutionSource`（judge 收到的用户文件，
+已含平台前缀）；请求级用例与试运行同样如此。judge 按 `contracts/judge.schema.json` 的 `x-language-files` 给两个文件命名，
+报错位置保持编译器的原始输出。CORE 题的提交不能写 `sandbox` 运行说明：sandbox 入口只编译单个文件。
 
 ### 2.2 一道题只检验一个容易出错的点
 

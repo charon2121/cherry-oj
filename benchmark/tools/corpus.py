@@ -26,6 +26,7 @@ from specs import RunSpec, parse_run_specs
 
 PROBLEM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ITEM_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}")
+DRIVER_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}\.cpp")
 VERDICTS = ("AC", "WA", "PE", "CE", "RE", "TLE", "MLE", "OLE", "SE")
 TRIAL_VERDICTS = VERDICTS + ("RAN",)
 # 从最严重到最轻（协议 §3.1）；RAN 只出现在试运行里。
@@ -113,6 +114,7 @@ class Problem:
     requires: tuple[str, ...]
     digest: str
     testcase_names: tuple[str, ...]
+    driver: str | None = None  # CORE 题的驱动文件全文；有它时，提交是 judge 收到的用户文件（协议 §2.1）
     submissions: dict[str, Submission] = field(default_factory=dict)
     requests: dict[str, RequestCase] = field(default_factory=dict)
     trials: dict[str, TrialCase] = field(default_factory=dict)
@@ -120,6 +122,12 @@ class Problem:
     @property
     def testdata(self) -> Path:
         return self.directory / "testdata"
+
+    def sources(self, text: str) -> dict[str, str]:
+        """判题请求里的源码字段：ACM 题只有 source；CORE 题 source 是驱动文件，提交作为 solutionSource。"""
+        if self.driver is None:
+            return {"source": text}
+        return {"source": self.driver, "solutionSource": text}
 
 
 @dataclass(frozen=True)
@@ -212,7 +220,7 @@ def load_problem(directory: Path) -> Problem:
         raise CorpusError(f"题名 {name!r} 不符合 {PROBLEM_NAME.pattern}")
     meta_path = directory / "problem.json"
     meta = fields(read_json(meta_path), str(meta_path),
-                  ("schemaVersion", "name", "title", "seed", "limits", "requires"))
+                  ("schemaVersion", "name", "title", "seed", "limits", "requires"), ("driver",))
     if meta["schemaVersion"] != 1:
         raise CorpusError(f"{meta_path} 的 schemaVersion 只支持 1")
     if meta["name"] != name:
@@ -223,11 +231,18 @@ def load_problem(directory: Path) -> Problem:
         raise CorpusError(f"{meta_path} 的 seed 必须是整数")
     limits = fields(meta["limits"], f"{meta_path} 的 limits", LIMIT_KEYS)
     digest, names = testdata_info(directory / "testdata")
+    driver = None
+    if "driver" in meta:
+        if not isinstance(meta["driver"], str) or not DRIVER_NAME.fullmatch(meta["driver"]):
+            raise CorpusError(f"{meta_path} 的 driver 必须是本题目录下的文件名，符合 {DRIVER_NAME.pattern}")
+        if not (directory / meta["driver"]).is_file():
+            raise CorpusError(f"{meta_path} 的 driver 指向的 {meta['driver']} 不存在")
+        driver = (directory / meta["driver"]).read_text(encoding="utf-8")
     problem = Problem(
         name=name, directory=directory, title=meta["title"], seed=meta["seed"],
         limits=Limits(*(positive_int(limits[key], f"{meta_path} 的 limits.{key}") for key in LIMIT_KEYS)),
         requires=parse_requires(meta["requires"], f"{meta_path} 的 requires"),
-        digest=digest, testcase_names=names)
+        digest=digest, testcase_names=names, driver=driver)
     expect_path = directory / "expect.json"
     expect = fields(read_json(expect_path), str(expect_path),
                     ("schemaVersion", "submissions", "requests"), ("trials",))
@@ -278,6 +293,8 @@ def load_submissions(problem: Problem, declared: Any, expect_path: Path) -> dict
                 raise CorpusError(f"{where}：整体 {verdict} 与逐点结论按严重度取最坏者（{worst(testcases)}）不一致")
         if not isinstance(item.get("probe", False), bool):
             raise CorpusError(f"{where}.probe 必须是布尔值")
+        if problem.driver is not None and "sandbox" in item:
+            raise CorpusError(f"{where}：CORE 题的提交只是用户文件，sandbox 入口单独编译它没有意义，不能写 sandbox")
         path = files[name]
         result[name] = Submission(
             name=name, path=path, language=LANGUAGES[path.suffix], source=path.read_text(encoding="utf-8"),

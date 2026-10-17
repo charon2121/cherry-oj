@@ -285,7 +285,7 @@ class JudgeRunner:
     def _submit_request(self, problem: Problem, source: str, language: str, location: Path | str,
                         limits: dict[str, int] | None = None) -> dict[str, Any]:
         return {"submissionId": self._submission_id(), "problemId": problem.name, "mode": "submit",
-                "testDataLocation": str(location), "languageId": language, "source": source,
+                "testDataLocation": str(location), "languageId": language, **problem.sources(source),
                 "limits": problem.limits.request(limits)}
 
     def run_submission(self, problem: Problem, location: Path, submission: Submission) -> Item:
@@ -337,7 +337,7 @@ class JudgeRunner:
         source = submission.source if submission else trial.source_text or ""
         language = submission.language if submission else "cpp"
         request = {"submissionId": self._submission_id(), "problemId": problem.name, "mode": "trial",
-                   "languageId": language, "source": source, "limits": problem.limits.request(trial.limits),
+                   "languageId": language, **problem.sources(source), "limits": problem.limits.request(trial.limits),
                    "testcases": [{"name": c.name, "input": c.input, **({"expected": c.expected} if c.expected is not None else {})}
                                  for c in trial.testcases]}
         outcome = self._call(request, len(trial.testcases))

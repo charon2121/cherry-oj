@@ -43,12 +43,16 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
 
     def respond(request: dict[str, Any]) -> tuple[int, Any]:
         language = request["languageId"]
+        # CORE 题的 source 都是同一份驱动文件，提交要按用户文件认。
+        submitted = request.get("solutionSource", request["source"])
+        if "solutionSource" in request and language != "cpp":
+            return 200, {"verdict": "SE", "message": f'language "{language}" does not accept a solution file'}
         if language == "python":
             return 200, {"verdict": "SE", "message": "run: init failed: phase=6 errno=2"}
         if language != "cpp":
             return 200, {"verdict": "SE", "message": f'unknown language: "{language}"'}
         if request["mode"] == "trial":
-            case = trials[(request["source"], tuple((t["input"], t.get("expected")) for t in request["testcases"]))]
+            case = trials[(submitted, tuple((t["input"], t.get("expected")) for t in request["testcases"]))]
             rows = []
             for index, t in enumerate(case.testcases, start=1):
                 row = testcase_row(index, t.name, t.verdict, True)
@@ -62,8 +66,10 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
         for name in (f"{n}{s}" for n in problem.testcase_names for s in (".in", ".out")):
             if (location / name).read_bytes() != (problem.testdata / name).read_bytes():
                 return 200, {"verdict": "SE", "message": "testdata changed"}
-        submission = by_source[request["source"]]
-        message = "main.cpp: error: BENCHMARK_EXPECTED_COMPILE_ERROR" if submission.verdict == "CE" else None
+        submission = by_source[submitted]
+        message = None
+        if submission.verdict == "CE":
+            message = submission.message.value if submission.message else "main.cpp: error: compile failed"
         return 200, result(problem, submission.verdict, submission.testcases, message)
 
     return respond

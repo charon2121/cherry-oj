@@ -30,7 +30,16 @@ class RealCorpusTest(unittest.TestCase):
         problem = corpus.problems["a-plus-b"]
         self.assertEqual(problem.testcase_names, ("1", "2", "3"))
         self.assertEqual(len(problem.submissions), 10)
-        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 42)
+        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 47)
+
+    def test_core_problem_sends_driver_and_solution(self):
+        problem = lib.load_corpus(REAL).problems["core-add"]
+        self.assertIn('#include "solution.cpp"', problem.driver)
+        solution = problem.submissions["ac_class"].source
+        self.assertEqual(problem.sources(solution), {"source": problem.driver, "solutionSource": solution})
+        acm = lib.load_corpus(REAL).problems["a-plus-b"]
+        self.assertIsNone(acm.driver)
+        self.assertEqual(acm.sources("x"), {"source": "x"})
 
     def test_covers_every_verdict_but_se_through_submissions(self):
         problem = lib.load_corpus(REAL).problems["a-plus-b"]
@@ -81,6 +90,19 @@ class RejectsBadCorpusTest(unittest.TestCase):
 
     def expect(self, change) -> None:
         edit_json(self.problem / "expect.json", change)
+
+    def test_core_driver_must_exist(self):
+        (self.root / "judge" / "core-add" / "driver.cpp").unlink()
+        self.assertRejected("不存在")
+
+    def test_core_driver_must_be_a_plain_file_name(self):
+        edit_json(self.root / "judge" / "core-add" / "problem.json", lambda v: v.update(driver="../a-plus-b/x.cpp"))
+        self.assertRejected("文件名")
+
+    def test_core_submissions_cannot_run_in_the_sandbox_entry(self):
+        edit_json(self.root / "judge" / "core-add" / "expect.json",
+                  lambda v: v["submissions"]["ac_class"].update(sandbox=[{"testcase": "1", "facts": {"exitCode": 0}}]))
+        self.assertRejected("不能写 sandbox")
 
     def test_unknown_problem_field(self):
         edit_json(self.problem / "problem.json", lambda v: v.update(extra=1))

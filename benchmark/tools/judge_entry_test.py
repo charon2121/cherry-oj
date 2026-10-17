@@ -72,6 +72,23 @@ class RunnerTest(unittest.TestCase):
         revealing = Declared(backend="linux", languages=("cpp",), reveal_expected=True)
         self.assertEqual(self.run_with(leaky, revealing, {"wa_minus"})["wa_minus"].status, "pass")
 
+    def test_core_requests_carry_the_driver_and_the_solution(self):
+        problem = lib.load_corpus(REAL).problems["core-add"]
+        ideal, seen = fake_judge.ideal(problem, self.root / "core-add"), []
+
+        def record(request):
+            seen.append(request)
+            return ideal(request)
+        with fake_judge.FakeJudge(record) as judge:
+            runner = JudgeRunner(JudgeClient(judge.url), self.root, Declared(backend="linux", languages=("cpp",)), 3, "t")
+            result = runner.run_problem(problem)
+        self.assertTrue(all(item.status == "pass" for item in result.items), [(i.name, i.diffs) for i in result.items])
+        solutions = {s.source for s in problem.submissions.values()}
+        self.assertTrue(seen)
+        for request in seen:
+            self.assertEqual(request["source"], problem.driver)
+            self.assertIn(request["solutionSource"], solutions)
+
     def test_test_data_digest_must_be_the_published_one(self):
         def stale(request):
             status, payload = self.ideal(request)

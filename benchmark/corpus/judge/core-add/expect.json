@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_class": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "ce_solution": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "solution.cpp:5:"
+      }
+    },
+    "ce_signature": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "Main.cpp:8:"
+      }
+    },
+    "re_abort": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    }
+  },
+  "requests": {
+    "solution_unsupported_language": {
+      "source": "ac_class",
+      "languageId": "python",
+      "verdict": "SE",
+      "message": {
+        "contains": "does not accept a solution file"
+      }
+    }
+  },
+  "trials": {
+    "trial_ac": {
+      "source": "ac_class",
+      "verdict": "AC",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "AC"
+        }
+      ]
+    }
+  }
+}

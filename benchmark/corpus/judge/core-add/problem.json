@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "name": "core-add",
+  "title": "核心代码模式：驱动文件与用户文件一起编译，报错位置保持原样",
+  "seed": 1,
+  "limits": { "cpuNs": 1000000000, "memoryBytes": 268435456, "clockNs": 3000000000 },
+  "requires": [],
+  "driver": "driver.cpp"
+}
