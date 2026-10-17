@@ -188,7 +188,7 @@ test('source is not polled and logout hides historical code', async ({ page }) =
   await expect(page.getByRole('textbox', { name: '历史提交代码' })).toBeVisible();
   await expect.poll(() => state.sourceRequests).toBe(1);
   await page.screenshot({ path: '/tmp/work043-history-detail.png', fullPage: true });
-  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(page.getByText('答案错误', { exact: true })).toBeVisible({ timeout: 10000 });
   expect(state.sourceRequests).toBe(1);
   state.loggedIn = false;
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));

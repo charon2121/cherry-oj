@@ -65,7 +65,8 @@ async function setup(page: Page) {
   await expect(page.getByRole('button', { name: '运行', exact: true })).toBeEnabled();
 }
 const input = (page: Page) => page.getByRole('textbox', { name: '自定义输入数据', exact: true });
-test('empty input snapshot, edits during execution and tabs never resubmit or steal focus', async ({
+const customCase = (page: Page) => page.getByRole('button', { name: '自定义', exact: true });
+test('runs every sample against its expected output; edits during execution never resubmit', async ({
   page,
 }) => {
   let count = 0;
@@ -75,8 +76,9 @@ test('empty input snapshot, edits during execution and tabs never resubmit or st
   });
   await page.route('**/api/custom-runs', async (route) => {
     count++;
+    // 自定义输入为空时只跑样例。
     expect(route.request().postDataJSON()).toMatchObject({
-      inputText: '',
+      inputText: '1 2',
       source: starterCode,
       problemId,
     });
@@ -88,13 +90,15 @@ test('empty input snapshot, edits during execution and tabs never resubmit or st
   await page.getByRole('button', { name: '运行', exact: true }).click();
   await expect.poll(() => count).toBe(1);
   await expect(page.getByRole('button', { name: '正在运行…', exact: true })).toBeDisabled();
-  await page.getByRole('tab', { name: '自定义输入', exact: true }).click();
+  await page.getByRole('tab', { name: '测试用例', exact: true }).click();
+  await customCase(page).click();
   await input(page).fill('changed');
   release();
   await expect(page.getByRole('button', { name: '运行', exact: true })).toBeEnabled();
   await expect(input(page)).toBeVisible();
   await page.getByRole('tab', { name: '运行结果', exact: true }).click();
-  await expect(page.getByText('运行完成（未校验答案）', { exact: true })).toBeVisible();
+  await expect(page.getByText('样例全部通过', { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '预期输出', exact: true })).toContainText('3');
   await expect(page.getByText('代码或输入已修改，这些修改尚未运行。')).toBeVisible();
   await expect(page.getByRole('textbox', { name: '错误输出', exact: true })).toContainText('debug');
   expect(count).toBe(1);
@@ -116,6 +120,7 @@ test('empty input snapshot, edits during execution and tabs never resubmit or st
   await page.screenshot({ path: '/tmp/cherry-work044-mobile.png' });
   await page.reload();
   await page.getByRole('tab', { name: '代码', exact: true }).click();
+  await customCase(page).click();
   await expect(input(page)).toHaveText('');
 });
 test('replace and clear require confirmation; errors show retry delay without automatic POST', async ({
@@ -140,12 +145,14 @@ test('replace and clear require confirmation; errors show retry delay without au
     });
   });
   await setup(page);
+  await customCase(page).click();
   await input(page).fill('keep me');
-  await page.getByRole('button', { name: '清空输入', exact: true }).click();
+  await page.getByRole('button', { name: '清空', exact: true }).click();
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await expect(input(page)).toContainText('keep me');
-  await page.getByRole('combobox', { name: '使用样例' }).click();
-  await page.getByRole('option', { name: '样例 1', exact: true }).click();
+  // 样例输入只读；复制到自定义会覆盖手写过的输入，要先确认。
+  await page.getByRole('button', { name: '样例 1', exact: true }).click();
+  await page.getByRole('button', { name: '复制到自定义', exact: true }).click();
   await page.getByRole('button', { name: '确认替换', exact: true }).click();
   await expect(input(page)).toContainText('1 2');
   await page.getByRole('button', { name: '运行', exact: true }).click();
@@ -167,6 +174,7 @@ test('switching accounts clears private input and discards a late result', async
     await success(route, result);
   });
   await setup(page);
+  await customCase(page).click();
   await input(page).fill('private input');
   await page.getByRole('button', { name: '运行', exact: true }).click();
   await expect.poll(() => received).toBe(true);
@@ -175,10 +183,57 @@ test('switching accounts clears private input and discards a late result', async
   );
   await page.clock.setFixedTime(Date.now() + 60000);
   await page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
+  await customCase(page).click();
   await expect(input(page)).toBeVisible();
   await expect(input(page)).toHaveText('');
   release();
   await page.getByRole('tab', { name: '运行结果', exact: true }).click();
-  await expect(page.getByText('填写输入后点击运行，结果会显示在这里。')).toBeVisible();
-  await expect(page.getByText('运行完成（未校验答案）', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('运行后结果会显示在这里。')).toBeVisible();
+  await expect(page.getByText('样例全部通过', { exact: true })).toHaveCount(0);
+});
+
+test('a wrong sample is selected first and custom input runs after the samples', async ({
+  page,
+}) => {
+  const inputs: string[] = [];
+  await page.route('**/api/custom-runs', async (route) => {
+    const body = route.request().postDataJSON() as { inputText: string };
+    inputs.push(body.inputText);
+    const text = body.inputText === '1 2' ? '4\n' : 'own\n';
+    await success(route, {
+      ...result,
+      stdout: { text, capturedBytes: text.length, truncated: false },
+      stderr: { text: '', capturedBytes: 0, truncated: false },
+    });
+  });
+  await setup(page);
+  await customCase(page).click();
+  await input(page).fill('5 6');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect(page.getByText('样例通过 0 / 1', { exact: true })).toBeVisible();
+  expect(inputs).toEqual(['1 2', '5 6']);
+  const report = page.getByRole('region', { name: '样例 1结果', exact: true });
+  await expect(report.getByText('答案错误', { exact: true })).toBeVisible();
+  await expect(report.getByRole('textbox', { name: '实际输出', exact: true })).toContainText('4');
+  await expect(report.getByRole('textbox', { name: '预期输出', exact: true })).toContainText('3');
+  await page.getByRole('button', { name: '自定义 （运行完成）', exact: true }).click();
+  const own = page.getByRole('region', { name: '自定义结果', exact: true });
+  await expect(own.getByRole('textbox', { name: '实际输出', exact: true })).toContainText('own');
+  await expect(own.getByRole('textbox', { name: '预期输出', exact: true })).toHaveCount(0);
+});
+
+test('Ctrl+Enter runs from inside the code editor without inserting a newline', async ({
+  page,
+}) => {
+  let count = 0;
+  await page.route('**/api/custom-runs', async (route) => {
+    count++;
+    await success(route, result);
+  });
+  await setup(page);
+  await page.locator('.monaco-editor .view-lines').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Control+Enter');
+  await expect(page.getByText('样例全部通过', { exact: true })).toBeVisible();
+  expect(count).toBe(1);
+  await expect(page.locator('.monaco-editor .view-line')).toHaveCount(1);
 });

@@ -586,7 +586,7 @@ test('formal submission freezes code, restores a result on refresh, and stops at
   await page.goto('/problems/workspace-sum');
   await replaceCode(page, 'int answer = 42;');
   await page.getByRole('button', { name: '提交', exact: true }).click();
-  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  await expect(page.getByText('答案错误', { exact: true })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`submissionId=${submissionId}`));
   expect(posts).toHaveLength(1);
   expect(posts[0]?.body).toEqual({
@@ -611,7 +611,7 @@ test('formal submission freezes code, restores a result on refresh, and stops at
   await page.setViewportSize({ width: 320, height: 720 });
   await page.getByRole('tab', { name: '代码', exact: true }).click();
   await page.getByRole('region', { name: '本次提交结果' }).scrollIntoViewIfNeeded();
-  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  await expect(page.getByText('答案错误', { exact: true })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);
@@ -646,7 +646,7 @@ test('a lost response survives a problem edit and retries the original code and 
   await expect(page.getByRole('button', { name: '用原代码重试同一次提交' })).toBeEnabled();
   expect(posts).toHaveLength(1);
   await page.getByRole('button', { name: '用原代码重试同一次提交' }).click();
-  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  await expect(page.getByText('答案错误', { exact: true })).toBeVisible();
   expect(posts).toHaveLength(2);
   expect(posts[1]).toEqual(posts[0]);
   // 题目没有版本：本机草稿按题目保存，刷新后仍是用户改过的代码，而不是新的起始代码。
@@ -680,7 +680,7 @@ test('a request the server never accepted does not lock the submit button', asyn
   await expect(submitButton).toBeEnabled();
   await replaceCode(page, 'int edited = 2;');
   await submitButton.click();
-  await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible();
+  await expect(page.getByText('答案错误', { exact: true })).toBeVisible();
   expect(posts).toHaveLength(3);
   expect(posts[2]?.key).not.toBe(posts[0]?.key);
   expect(posts[2]?.body).toMatchObject({ source: 'int edited = 2;' });

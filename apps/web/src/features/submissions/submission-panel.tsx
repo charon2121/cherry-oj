@@ -6,6 +6,8 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ProblemDetail, SubmissionData } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
+import { modKey, useModEnter } from '@/lib/use-mod-enter';
+import { cn } from '@/lib/utils';
 
 import {
   loadRecovery,
@@ -35,6 +37,7 @@ export function SubmissionPanel({
   runControl,
   renderResults,
   onSubmissionStart,
+  className,
 }: {
   userId: string;
   problem: ProblemDetail;
@@ -44,6 +47,8 @@ export function SubmissionPanel({
   /** 自己排版结果区；actions 是运行与提交按钮，放在哪一行由调用方决定。 */
   renderResults?: (results: ReactNode, actions: ReactNode) => ReactNode;
   onSubmissionStart?: () => void;
+  /** 自己排版结果区时，外层容器的样式（例如做题页的测试卡片）。 */
+  className?: string | undefined;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: '/problems/$slug' });
@@ -198,6 +203,7 @@ export function SubmissionPanel({
       : result.error instanceof Error
         ? result.error.message
         : null;
+  const idle = !shown && !id && !requestKey && !notice && !submit.isPending && !disabled;
   const results = (
     <>
       <div
@@ -213,6 +219,9 @@ export function SubmissionPanel({
         {!shown && (id || requestKey) && result.isFetching ? <p>正在确认提交结果…</p> : null}
         {shown ? <SubmissionResult value={shown} /> : null}
       </div>
+      {idle && !invalidSource ? (
+        <p className="text-fg-muted text-sm">提交后结果会显示在这里。</p>
+      ) : null}
       {(unknown || result.isError) && !disabled && !submit.isPending ? (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -240,6 +249,12 @@ export function SubmissionPanel({
       ) : null}
     </>
   );
+  const submitDisabled =
+    disabled || busy || (unknown && !notAccepted) || invalidSource || Boolean(initial.error);
+  // ⌘/Ctrl + Shift + Enter 提交：比运行多按一个 Shift，提交会留下记录，不该误触。
+  useModEnter(true, () => {
+    if (!submitDisabled) send();
+  });
   const actions = (
     <>
       {runControl ?? (
@@ -250,11 +265,11 @@ export function SubmissionPanel({
       )}
       <Button
         size="sm"
-        disabled={
-          disabled || busy || (unknown && !notAccepted) || invalidSource || Boolean(initial.error)
-        }
+        disabled={submitDisabled}
         onClick={() => send()}
         aria-describedby="submission-notice"
+        aria-keyshortcuts="Meta+Shift+Enter Control+Shift+Enter"
+        title={`提交（${modKey} Shift Enter）`}
       >
         <Upload aria-hidden="true" />
         {submit.isPending ? '正在提交…' : '提交'}
@@ -263,7 +278,12 @@ export function SubmissionPanel({
   );
   if (renderResults) {
     return (
-      <div className="border-border-soft bg-panel border-t-hairline max-h-1/2 shrink-0 overflow-y-auto px-4 py-2">
+      <div
+        className={cn(
+          'border-border-soft bg-panel border-t-hairline max-h-1/2 shrink-0 overflow-y-auto px-4 py-2',
+          className,
+        )}
+      >
         {renderResults(results, actions)}
       </div>
     );
@@ -284,11 +304,23 @@ export function SubmissionPanel({
 export function SubmissionResult({ value }: { value: SubmissionData }) {
   return (
     <section aria-label="本次提交结果" className="space-y-2">
-      <p className="text-foreground">
+      {/* 与运行结果同一种总结：通过是绿色，其余判定是红色，判题中用次级文字。 */}
+      <p
+        className={cn(
+          'font-heading text-sm',
+          value.status !== 'DONE'
+            ? 'text-fg-2'
+            : value.verdict === 'AC'
+              ? 'text-success'
+              : 'text-danger',
+        )}
+      >
         {value.status === 'DONE' && value.verdict
-          ? `${value.verdict} · ${labels[value.verdict]}`
+          ? labels[value.verdict]
           : value.status === 'JUDGING'
-            ? '正在判题'
+            ? value.executedTestcaseCount !== undefined && value.testcaseCount !== undefined
+              ? `正在判题 ${value.executedTestcaseCount} / ${value.testcaseCount}`
+              : '正在判题'
             : '等待判题'}
       </p>
       <div className="text-fg-meta flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
