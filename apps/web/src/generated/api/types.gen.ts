@@ -415,7 +415,7 @@ export type AdminProblemLanguage = {
      */
     judgeTemplate?: string | null;
     /**
-     * CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。只读，ACM 为 null；只在管理端返回
+     * CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。在管理端"语言"页修改，这里只读；ACM 为 null；只在管理端返回
      */
     solutionPrefix?: string | null;
 };
@@ -557,6 +557,47 @@ export type JudgeNodeListData = {
 export type JudgeNodeListSuccess = {
     data: JudgeNodeListData;
     meta: ApiMeta;
+};
+
+/**
+ * 一门语言的平台级设置。目前只有 CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。
+ */
+export type AdminLanguageSetting = {
+    id: string;
+    displayName: string;
+    /**
+     * 以换行结尾；前缀行数 = 换行个数，judging-service 据此把报错里的用户文件行号换算成编辑器行号
+     */
+    solutionPrefix: string;
+    /**
+     * 最近一次修改前缀的时间；保存时原样带回作为并发前提
+     */
+    updatedAt: string;
+};
+
+export type AdminLanguageSettingListData = {
+    items: Array<AdminLanguageSetting>;
+};
+
+export type AdminLanguageSettingListSuccess = {
+    data: AdminLanguageSettingListData;
+    meta: ApiMeta;
+};
+
+export type AdminLanguageSettingSuccess = {
+    data: AdminLanguageSetting;
+    meta: ApiMeta;
+};
+
+export type UpdateLanguageSettingRequest = {
+    /**
+     * 必须以换行结尾
+     */
+    solutionPrefix: string;
+    /**
+     * 读到的 updatedAt；与当前值不同返回 409 ROW_VERSION_CONFLICT
+     */
+    expectedUpdatedAt: string;
 };
 
 export type LoginRequestWritable = {
@@ -1534,3 +1575,58 @@ export type ListJudgeNodesResponses = {
 };
 
 export type ListJudgeNodesResponse = ListJudgeNodesResponses[keyof ListJudgeNodesResponses];
+
+export type ListLanguageSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/admin/languages';
+};
+
+export type ListLanguageSettingsErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ListLanguageSettingsError = ListLanguageSettingsErrors[keyof ListLanguageSettingsErrors];
+
+export type ListLanguageSettingsResponses = {
+    /**
+     * 语言设置列表
+     */
+    200: AdminLanguageSettingListSuccess;
+};
+
+export type ListLanguageSettingsResponse = ListLanguageSettingsResponses[keyof ListLanguageSettingsResponses];
+
+export type UpdateLanguageSettingData = {
+    body: UpdateLanguageSettingRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        languageId: string;
+    };
+    query?: never;
+    url: '/api/admin/languages/{languageId}';
+};
+
+export type UpdateLanguageSettingErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type UpdateLanguageSettingError = UpdateLanguageSettingErrors[keyof UpdateLanguageSettingErrors];
+
+export type UpdateLanguageSettingResponses = {
+    /**
+     * 已保存
+     */
+    200: AdminLanguageSettingSuccess;
+};
+
+export type UpdateLanguageSettingResponse = UpdateLanguageSettingResponses[keyof UpdateLanguageSettingResponses];

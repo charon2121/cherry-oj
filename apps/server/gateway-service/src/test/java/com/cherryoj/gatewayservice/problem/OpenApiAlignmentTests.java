@@ -27,6 +27,8 @@ class OpenApiAlignmentTests {
 		assertAligned("LanguageCalibration", ProblemDtos.LanguageCalibration.class);
 		assertAligned("ProblemSummary", ProblemDtos.ProblemSummary.class);
 		assertAligned("ProblemDetail", ProblemDtos.ProblemDetail.class);
+		assertAligned("AdminLanguageSetting", ProblemDtos.AdminLanguageSetting.class);
+		assertAligned("AdminLanguageSettingListData", ProblemDtos.AdminLanguageSettingListData.class);
 	}
 
 	@Test
@@ -40,6 +42,7 @@ class OpenApiAlignmentTests {
 		assertAligned("UpdateProblemRequest", AdminProblemsController.UpdateProblemRequest.class);
 		assertAligned("CalibrateProblemRequest", AdminProblemsController.CalibrateProblemRequest.class);
 		assertAligned("RowVersionRequest", AdminProblemsController.RowVersionRequest.class);
+		assertAligned("UpdateLanguageSettingRequest", AdminLanguagesController.UpdateLanguageSettingRequest.class);
 	}
 
 	@Test

@@ -48,6 +48,8 @@ function AdminNavigationLeafLink({
       <Link to="/admin" />
     ) : item.to === '/admin/users' ? (
       <Link to="/admin/users" search={{ page: 1 }} />
+    ) : item.to === '/admin/languages' ? (
+      <Link to="/admin/languages" />
     ) : (
       <Link to="/admin/problems" search={{ page: 1, q: '', status: 'ALL' }} />
     );

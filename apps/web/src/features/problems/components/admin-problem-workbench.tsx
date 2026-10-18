@@ -718,7 +718,7 @@ function WorkbenchEditor({
               <EditorSection
                 id={`${ids}-solution-prefix`}
                 title="前缀代码"
-                description={`C++ 所有核心代码题共用，只读。用户文件 solution.cpp = 这 ${prefixLines} 行 + 用户代码。`}
+                description={`C++ 所有核心代码题共用，在"语言"页修改。用户文件 solution.cpp = 这 ${prefixLines} 行 + 用户代码。`}
               >
                 <CodeBlockEditor
                   language="cpp"

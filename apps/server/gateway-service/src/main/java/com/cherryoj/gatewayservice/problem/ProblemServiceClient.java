@@ -80,6 +80,18 @@ final class ProblemServiceClient {
 				.bodyValue(body), ProblemDtos.AdminProblem.class);
 	}
 
+	Mono<ProblemDtos.AdminLanguageSettingListData> listLanguageSettings(DelegatedIdentity identity) {
+		return json(requests.authenticated(client.get().uri("/internal/admin/languages"), identity),
+				ProblemDtos.AdminLanguageSettingListData.class);
+	}
+
+	Mono<ProblemDtos.AdminLanguageSetting> updateLanguageSetting(
+			DelegatedIdentity identity, String languageId, Object body) {
+		return json(requests.authenticated(
+				client.put().uri("/internal/admin/languages/{languageId}", languageId), identity)
+				.bodyValue(body), ProblemDtos.AdminLanguageSetting.class);
+	}
+
 	Mono<ProblemDtos.AdminProblem> getProblem(DelegatedIdentity identity, String problemId) {
 		return json(requests.authenticated(
 				client.get().uri("/internal/admin/problems/{problemId}", problemId), identity),

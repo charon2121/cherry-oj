@@ -1715,6 +1715,108 @@
           }
         }
       }
+    },
+    "/api/admin/languages": {
+      "get": {
+        "operationId": "listLanguageSettings",
+        "summary": "读取各语言的平台级设置",
+        "description": "管理端\"语言\"页使用，按 id 排序。",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "语言设置列表",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminLanguageSettingListSuccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiProblemResponse"
+          }
+        }
+      }
+    },
+    "/api/admin/languages/{languageId}": {
+      "put": {
+        "operationId": "updateLanguageSetting",
+        "summary": "保存语言的前缀代码",
+        "description": "立即对之后的正式提交、自测与标定生效；已冻结的判题输入不变。已标定的 CORE 题会在公开检查里提示重新标定（不自动失效）。前缀必须以换行结尾，否则 422 VALIDATION_FAILED；语言不存在返回 404 LANGUAGE_NOT_FOUND；expectedUpdatedAt 过期返回 409 ROW_VERSION_CONFLICT。",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "languageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,31}$"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLanguageSettingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已保存",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminLanguageSettingSuccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiProblemResponse"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3504,7 +3606,7 @@
               "null"
             ],
             "maxLength": 65536,
-            "description": "CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。只读，ACM 为 null；只在管理端返回"
+            "description": "CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。在管理端\"语言\"页修改，这里只读；ACM 为 null；只在管理端返回"
           }
         }
       },
@@ -4009,6 +4111,107 @@
           },
           "meta": {
             "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "AdminLanguageSetting": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "displayName",
+          "solutionPrefix",
+          "updatedAt"
+        ],
+        "description": "一门语言的平台级设置。目前只有 CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "displayName": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "solutionPrefix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536,
+            "description": "以换行结尾；前缀行数 = 换行个数，judging-service 据此把报错里的用户文件行号换算成编辑器行号"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "最近一次修改前缀的时间；保存时原样带回作为并发前提"
+          }
+        }
+      },
+      "AdminLanguageSettingListData": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/AdminLanguageSetting"
+            }
+          }
+        }
+      },
+      "AdminLanguageSettingListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdminLanguageSettingListData"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "AdminLanguageSettingSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/AdminLanguageSetting"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "UpdateLanguageSettingRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "solutionPrefix",
+          "expectedUpdatedAt"
+        ],
+        "properties": {
+          "solutionPrefix": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536,
+            "description": "必须以换行结尾"
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "读到的 updatedAt；与当前值不同返回 409 ROW_VERSION_CONFLICT"
           }
         }
       }

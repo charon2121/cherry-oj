@@ -17,6 +17,7 @@ import { Route as SiteLoginRouteImport } from './routes/_site.login'
 import { Route as SiteProblemsRouteImport } from './routes/_site.problems'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminDashboradRouteImport } from './routes/admin.dashborad'
+import { Route as AdminLanguagesRouteImport } from './routes/admin.languages'
 import { Route as AdminProblemsRouteImport } from './routes/admin.problems'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SiteAccountPasswordRouteImport } from './routes/_site.account.password'
@@ -64,6 +65,11 @@ const AdminDashboradRoute = AdminDashboradRouteImport.update({
   path: '/dashborad',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminLanguagesRoute = AdminLanguagesRouteImport.update({
+  id: '/languages',
+  path: '/languages',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminProblemsRoute = AdminProblemsRouteImport.update({
   id: '/problems',
   path: '/problems',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof SiteLoginRoute
   '/problems': typeof SiteProblemsRouteWithChildren
   '/admin/dashborad': typeof AdminDashboradRoute
+  '/admin/languages': typeof AdminLanguagesRoute
   '/admin/problems': typeof AdminProblemsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/forbidden': typeof SiteForbiddenRoute
   '/login': typeof SiteLoginRoute
   '/admin/dashborad': typeof AdminDashboradRoute
+  '/admin/languages': typeof AdminLanguagesRoute
   '/admin/users': typeof AdminUsersRoute
   '/': typeof SiteIndexRoute
   '/admin': typeof AdminIndexRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/_site/login': typeof SiteLoginRoute
   '/_site/problems': typeof SiteProblemsRouteWithChildren
   '/admin/dashborad': typeof AdminDashboradRoute
+  '/admin/languages': typeof AdminLanguagesRoute
   '/admin/problems': typeof AdminProblemsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/_site/': typeof SiteIndexRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/problems'
     | '/admin/dashborad'
+    | '/admin/languages'
     | '/admin/problems'
     | '/admin/users'
     | '/admin/'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/forbidden'
     | '/login'
     | '/admin/dashborad'
+    | '/admin/languages'
     | '/admin/users'
     | '/'
     | '/admin'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/_site/login'
     | '/_site/problems'
     | '/admin/dashborad'
+    | '/admin/languages'
     | '/admin/problems'
     | '/admin/users'
     | '/_site/'
@@ -257,6 +269,13 @@ declare module '@tanstack/react-router' {
       path: '/dashborad'
       fullPath: '/admin/dashborad'
       preLoaderRoute: typeof AdminDashboradRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/languages': {
+      id: '/admin/languages'
+      path: '/languages'
+      fullPath: '/admin/languages'
+      preLoaderRoute: typeof AdminLanguagesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/problems': {
@@ -359,6 +378,7 @@ const AdminProblemsRouteWithChildren = AdminProblemsRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminDashboradRoute: typeof AdminDashboradRoute
+  AdminLanguagesRoute: typeof AdminLanguagesRoute
   AdminProblemsRoute: typeof AdminProblemsRouteWithChildren
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -366,6 +386,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminDashboradRoute: AdminDashboradRoute,
+  AdminLanguagesRoute: AdminLanguagesRoute,
   AdminProblemsRoute: AdminProblemsRouteWithChildren,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,

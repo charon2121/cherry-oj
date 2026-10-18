@@ -90,6 +90,13 @@
     <select id="findLanguagePrefix" resultMap="languagePrefixRow">
         SELECT language_id, display_name, solution_prefix, updated_at FROM language WHERE language_id = #{languageId}
     </select>
+    <select id="findLanguageSettings" resultMap="languagePrefixRow">
+        SELECT language_id, display_name, solution_prefix, updated_at FROM language ORDER BY language_id
+    </select>
+    <update id="updateLanguagePrefix">
+        UPDATE language SET solution_prefix = #{solutionPrefix}, updated_at = #{updatedAt}
+        WHERE language_id = #{languageId} AND updated_at = #{expectedUpdatedAt}
+    </update>
 
     <insert id="insertProblem">
         INSERT INTO problem (id, slug, visibility, status, code_mode, title,

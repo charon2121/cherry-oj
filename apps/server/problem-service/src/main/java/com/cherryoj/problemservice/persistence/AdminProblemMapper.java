@@ -31,6 +31,15 @@ public interface AdminProblemMapper {
 
     LanguagePrefixRow findLanguagePrefix(@Param("languageId") String languageId);
 
+    List<LanguagePrefixRow> findLanguageSettings();
+
+    /** 以读到的 updated_at 作为并发前提；返回 0 表示语言不存在或已被别人改过。 */
+    int updateLanguagePrefix(
+            @Param("languageId") String languageId,
+            @Param("solutionPrefix") String solutionPrefix,
+            @Param("expectedUpdatedAt") LocalDateTime expectedUpdatedAt,
+            @Param("updatedAt") LocalDateTime updatedAt);
+
     int insertProblem(@Param("problem") ProblemRow problem, @Param("createdBy") String createdBy);
 
     int insertSample(

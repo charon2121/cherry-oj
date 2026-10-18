@@ -1,11 +1,11 @@
-import { BookOpen, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
+import { BookOpen, Braces, LayoutDashboard, type LucideIcon, Users } from 'lucide-react';
 
 type AdminNavigationLeaf = Readonly<{
   activePaths: readonly string[];
   icon?: LucideIcon;
   id: string;
   label: string;
-  to: '/admin' | '/admin/users' | '/admin/problems';
+  to: '/admin' | '/admin/users' | '/admin/problems' | '/admin/languages';
 }>;
 
 type AdminNavigationGroup = Readonly<{
@@ -17,7 +17,7 @@ type AdminNavigationGroup = Readonly<{
 
 type AdminNavigationEntry = AdminNavigationGroup | AdminNavigationLeaf;
 
-// 三个平级入口，名字用对象而不是"××管理"：侧栏本身就在管理端里，"管理"两个字不带信息。
+// 几个平级入口，名字用对象而不是"××管理"：侧栏本身就在管理端里，"管理"两个字不带信息。
 // 只有一个子项的分组会让人多点一次才能到达，因此不再使用。
 const adminNavigationEntries: readonly AdminNavigationEntry[] = [
   {
@@ -33,6 +33,14 @@ const adminNavigationEntries: readonly AdminNavigationEntry[] = [
     id: 'problems',
     label: '题目',
     to: '/admin/problems',
+  },
+  {
+    // 语言是平台级配置（核心代码的前缀），不属于某一道题，所以单独成页而不是放进题目工作台。
+    activePaths: ['/admin/languages'],
+    icon: Braces,
+    id: 'languages',
+    label: '语言',
+    to: '/admin/languages',
   },
   {
     activePaths: ['/admin/users'],

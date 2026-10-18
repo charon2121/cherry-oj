@@ -7,8 +7,13 @@ import {
 } from './admin-navigation-model';
 
 describe('admin navigation model', () => {
-  it('keeps the agreed overview, problems, accounts order as flat entries', () => {
-    expect(adminNavigationEntries.map((entry) => entry.label)).toEqual(['总览', '题目', '账号']);
+  it('keeps the agreed overview, problems, languages, accounts order as flat entries', () => {
+    expect(adminNavigationEntries.map((entry) => entry.label)).toEqual([
+      '总览',
+      '题目',
+      '语言',
+      '账号',
+    ]);
     expect(adminNavigationEntries.some(isAdminNavigationGroup)).toBe(false);
   });
 

@@ -46,6 +46,13 @@ final class ProblemDtos {
 	record AdminProblemListData(List<AdminProblemSummary> items) {
 	}
 
+	/** 语言的平台级设置：目前只有 CORE 用户文件的前缀（以换行结尾）。 */
+	record AdminLanguageSetting(String id, String displayName, String solutionPrefix, String updatedAt) {
+	}
+
+	record AdminLanguageSettingListData(List<AdminLanguageSetting> items) {
+	}
+
 	/** judgeTemplate 是 CORE 的驱动代码，solutionPrefix 是该语言共用的前缀（只读）；都只在管理端返回，ACM 时为 null。 */
 	record AdminLanguage(String id, String displayName, String starterCode, String judgeTemplate,
 			String solutionPrefix) {

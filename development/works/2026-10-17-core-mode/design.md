@@ -10,7 +10,7 @@
 | 文本 | 粒度 | 公开吗 | 存在哪里 |
 |---|---|---|---|
 | **驱动代码** | 题目 × 语言 | 不下发给用户，报错里出现照常显示 | problem-service `problem_language.judge_template`（已有列） |
-| **前缀代码** | 每门语言一份，所有题目共用 | 不保密（只有 include/import） | problem-service 新增的语言表 `language.solution_prefix`；开发阶段直接改数据库 |
+| **前缀代码** | 每门语言一份，所有题目共用 | 不保密（只有 include/import） | problem-service 新增的语言表 `language.solution_prefix`；管理端"语言"页修改 |
 | **模板代码**（给用户的起始代码） | 题目 × 语言 | 公开 | problem-service `problem_language.starter_code`（已有列） |
 
 一次 CORE 判题由两个文件组成：
@@ -186,8 +186,10 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 ### 6.3 problem-service
 
 - **语言表：** 改写 V1，新增 `language(language_id, display_name, solution_prefix, updated_at, ...)`；`problem_language` 加 `judge_template_updated_at`（§5.6），并插入 `cpp` 一行，前缀为
-  `#include <bits/stdc++.h>\nusing namespace std;\n`。开发阶段直接改库，不做编辑界面；管理端 CORE 题的工作台在"驱动代码"上方只读展示当前前缀与行数（2026-10-18 用户决定的第一档），
-  经 `AdminProblemLanguage.solutionPrefix` 返回，ACM 为 null。
+  `#include <bits/stdc++.h>\nusing namespace std;\n`。管理端 CORE 题的工作台在"驱动代码"上方只读展示当前前缀与行数（`AdminProblemLanguage.solutionPrefix`，ACM 为 null）。
+- **语言页（2026-10-18 追加）：** 管理端侧栏"语言"页编辑前缀：手动保存（前缀对所有 CORE 题立即生效，不自动保存）；以 `updatedAt`
+  作为并发前提（语言表没有 rowVersion，加列要改 V1）；页面补齐末尾换行，服务端拒绝缺换行、`\r`、空字符；修改只记结构化日志
+  `language.prefix_changed`（前后 sha256）。不试编译、不新增语言。V1 里 `language` 表的注释仍写"没有管理界面"，为避免本地库校验和变化未改。
 - **创建：** 允许 `codeMode=CORE`；CORE 题的语言行 `starter_code=''`、`judge_template` 为空，此时不能公开。**代码模式创建后不可修改**，更新接口不接收它。
 - **更新：** CORE 接收 `judgeTemplate`，做 §5.4 的检查；ACM 收到 `judgeTemplate` 返回 400；驱动代码变化时追加审计事件
   `PROBLEM_JUDGE_TEMPLATE_CHANGED`（不记内容）。
@@ -259,7 +261,7 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 为控制前期开发复杂度，下列内容先不做，以后按需要再考虑（用户 2026-10-17 决定）：
 
 - 修改驱动代码或前缀后自动让标定失效（标定绑定内容指纹）；现在只做 §5.6 的提示。
-- 前缀代码的编辑界面；现在只读展示，修改仍直接改数据库。
+- 改前缀前用样例程序试编译（§5.7）；在页面上新增语言。
 - 报错里驱动代码的遮蔽或替换；现在照常显示。
 - 驱动代码按函数签名自动生成、C++ 以外的语言、诊断映射到编辑器标记、驱动代码版本历史。
 
@@ -269,7 +271,7 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 |---|---|---|
 | D1 | 行号偏移怎么解决 | 驱动代码单独成文件 + 按用户文件名统一改写 |
 | D2 | 代码文本怎么组织 | 三段：驱动代码（题目 × 语言）、前缀代码（每门语言一份，所有题目复用）、模板代码；用户文件 = 前缀 + 用户代码 |
-| D3 | 前缀存在哪里 | problem-service 的语言表；开发阶段直接改数据库 |
+| D3 | 前缀存在哪里 | problem-service 的语言表；管理端"语言"页修改（2026-10-18 追加） |
 | D4 | 改写放在哪里 | Java 服务（judging-service），不放 judge |
 | D5 | 驱动代码的可见性 | 不主动展示（不下发到前端），也不刻意遮掩：报错里出现照常显示（§5.5） |
 | D6 | 前缀行出错怎么显示 | 由设计决定：`[预置代码]:行:列`，保留摘录（§5.3） |
