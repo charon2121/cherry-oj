@@ -35,7 +35,7 @@ async function mockAdmin(page: Page) {
   );
 }
 
-test('an administrator edits a language prefix explicitly and sees the effect before saving', async ({
+test('an administrator opens a language from the list, edits its prefix and confirms the save', async ({
   page,
 }) => {
   let current = { id: 'cpp', displayName: 'C++', solutionPrefix: prefix, updatedAt: timestamp };
@@ -58,17 +58,33 @@ test('an administrator edits a language prefix explicitly and sees the effect be
     .getByRole('link', { name: '语言' })
     .click();
   await expect(page).toHaveURL(/\/admin\/languages$/);
-  await expect(page.getByRole('heading', { level: 1, name: '语言' })).toBeVisible();
-  const section = page.getByRole('region', { name: 'C++' });
-  await expect(section).toContainText('前缀代码 2 行');
-  // 没改动时没有保存按钮：前缀对所有核心代码题立即生效，不做自动保存。
-  await expect(section.getByRole('button', { name: '保存' })).toHaveCount(0);
+  const row = page
+    .getByRole('region', { name: '语言' })
+    .getByRole('listitem')
+    .filter({ hasText: 'C++' });
+  await expect(row).toContainText('前缀代码 2 行');
+  await row.getByRole('link', { name: 'C++' }).click();
 
-  await section.getByRole('textbox', { name: 'C++ 前缀代码' }).click();
+  await expect(page).toHaveURL(/\/admin\/languages\/cpp$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'C++' })).toBeVisible();
+  const breadcrumb = page.getByRole('navigation', { name: /breadcrumb|面包屑/i });
+  await expect(breadcrumb.getByRole('link', { name: '语言' })).toBeVisible();
+  const save = page
+    .getByRole('region', { name: '前缀代码' })
+    .getByRole('button', { name: '保存', exact: true });
+  await expect(save).toBeDisabled();
+
+  await page.getByRole('textbox', { name: 'C++ 前缀代码' }).click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('using ll = long long;');
-  await expect(section.getByRole('status')).toContainText('已标定的核心代码题会提示重新标定');
-  await section.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByRole('status').filter({ hasText: '未保存' })).toHaveText('3 行 · 未保存');
+  await page.keyboard.press('ControlOrMeta+s');
+
+  // 保存前确认：影响写在确认框里，页面上不常驻说明。
+  const dialog = page.getByRole('dialog', { name: '保存 C++ 前缀代码' });
+  await expect(dialog).toContainText('已标定的题目会在公开检查里提示重新标定');
+  expect(saved).toBeUndefined();
+  await dialog.getByRole('button', { name: '保存' }).click();
 
   // 末尾的换行由页面补上；并发前提是读到的 updatedAt。
   await expect
@@ -77,11 +93,14 @@ test('an administrator edits a language prefix explicitly and sees the effect be
       solutionPrefix: `${prefix}using ll = long long;\n`,
       expectedUpdatedAt: timestamp,
     });
-  await expect(section).toContainText('前缀代码 3 行');
-  await expect(section.getByRole('button', { name: '保存' })).toHaveCount(0);
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: '行' })).toHaveText('3 行');
+  await expect(save).toBeDisabled();
 });
 
-test('a stale window is told to reload instead of overwriting another save', async ({ page }) => {
+test('leaving with an unsaved prefix asks first, and a stale window is told to reload', async ({
+  page,
+}) => {
   await mockAdmin(page);
   await page.route('**/api/admin/languages', (route) =>
     success(route, {
@@ -105,16 +124,28 @@ test('a stale window is told to reload instead of overwriting another save', asy
     }),
   );
 
-  await page.goto('/admin/languages');
-  const section = page.getByRole('region', { name: 'C++' });
-  await section.getByRole('textbox', { name: 'C++ 前缀代码' }).click();
+  await page.goto('/admin/languages/cpp');
+  await page.getByRole('textbox', { name: 'C++ 前缀代码' }).click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('#include <ranges>');
-  await section.getByRole('button', { name: '保存' }).click();
 
+  await page
+    .getByRole('navigation', { name: '管理侧栏导航' })
+    .getByRole('link', { name: '题目' })
+    .click();
+  const leave = page.getByRole('dialog', { name: '离开前确认未保存内容' });
+  await leave.getByRole('button', { name: '留在此页' }).click();
+  const editor = page.getByRole('region', { name: '前缀代码' });
+  await expect(page).toHaveURL(/\/admin\/languages\/cpp$/);
+
+  await editor.getByRole('button', { name: '保存', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: '保存 C++ 前缀代码' })
+    .getByRole('button', { name: '保存' })
+    .click();
   await expect(page.getByRole('alert')).toContainText('前缀已被其他窗口修改，请重新加载。');
-  await expect(section.getByRole('button', { name: '保存' })).toBeDisabled();
-  await section.getByRole('button', { name: '放弃改动并重新加载' }).click();
-  await expect(section.getByRole('button', { name: '保存' })).toHaveCount(0);
+  await expect(editor.getByRole('button', { name: '保存', exact: true })).toBeDisabled();
+  await editor.getByRole('button', { name: '放弃改动并重新加载' }).click();
   await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(editor.getByRole('button', { name: '还原' })).toBeDisabled();
 });

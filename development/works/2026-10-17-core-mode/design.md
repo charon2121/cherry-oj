@@ -187,7 +187,9 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 
 - **语言表：** 改写 V1，新增 `language(language_id, display_name, solution_prefix, updated_at, ...)`；`problem_language` 加 `judge_template_updated_at`（§5.6），并插入 `cpp` 一行，前缀为
   `#include <bits/stdc++.h>\nusing namespace std;\n`。管理端 CORE 题的工作台在"驱动代码"上方只读展示当前前缀与行数（`AdminProblemLanguage.solutionPrefix`，ACM 为 null）。
-- **语言页（2026-10-18 追加）：** 管理端侧栏"语言"页编辑前缀：手动保存（前缀对所有 CORE 题立即生效，不自动保存）；以 `updatedAt`
+- **语言页（2026-10-18 追加）：** 管理端侧栏"语言"：`/admin/languages` 列出各语言，点进 `/admin/languages/{id}` 编辑前缀
+  （构图照 linear.app Settings › Templates 的列表与编辑页，见 docs/design-system/PROMPT.md 页面对照表）。手动保存、保存前确认
+  （前缀对所有 CORE 题立即生效，影响写在确认框里），离开前提示未保存；以 `updatedAt`
   作为并发前提（语言表没有 rowVersion，加列要改 V1）；页面补齐末尾换行，服务端拒绝缺换行、`\r`、空字符；修改只记结构化日志
   `language.prefix_changed`（前后 sha256）。不试编译、不新增语言。V1 里 `language` 表的注释仍写"没有管理界面"，为避免本地库校验和变化未改。
 - **创建：** 允许 `codeMode=CORE`；CORE 题的语言行 `starter_code=''`、`judge_template` 为空，此时不能公开。**代码模式创建后不可修改**，更新接口不接收它。

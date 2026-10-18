@@ -64,4 +64,14 @@ describe('page templates', () => {
     const aside = screen.getByText('元信息');
     expect(body.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
+
+  it('narrows a single-column detail page to the 760px reading column', () => {
+    const { container } = render(
+      <DetailPageTemplate title="C++" width="narrow">
+        <span>前缀代码</span>
+      </DetailPageTemplate>,
+    );
+
+    expect(container.querySelector('[data-slot="container"]')).toHaveClass('max-w-[760px]');
+  });
 });

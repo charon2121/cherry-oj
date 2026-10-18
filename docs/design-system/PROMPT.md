@@ -77,6 +77,7 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 | 列表 | `features/problems/components/problem-list-page.tsx`、`admin-problem-list-page.tsx` | Issues 列表 | `ListPageTemplate` + `Toolbar` + `DataList`，见下方「页面语法」 |
 | 成员/账号管理 | `features/admin-users/components/admin-users-page.tsx` | Settings › Members | 页标题、一行工具条、成组的行 |
 | 对象编辑（一页到底） | `features/problems/components/admin-problem-workbench.tsx` | Issue 详情 | 左正文、右属性栏（`property-button.tsx` 的属性胶囊原地改）；长文本用 `RichMarkdownEditor`（所见即所得，存 Markdown）；不属于"写"的动作是属性栏打开的对话框，可用 `?panel=` 直达；保存规则见 `../design-system.md` §7.1 |
+| 平台级条目设置（列表 → 单项编辑） | `features/admin-languages/components/admin-language-list-page.tsx`、`admin-language-edit-page.tsx` | Settings › Templates（列表一行一项，点开是单独的编辑页） | 列表用 `ListPageTemplate width="column"` + `DataList align="packed"`；编辑页 `DetailPageTemplate width="narrow"`（760px 一列），区块标题行放状态，右下"还原 / 保存"，影响全局的保存先确认、影响写在确认框里；返回靠外壳面包屑 |
 | 新建对象 | `features/problems/components/admin-problem-create-dialog.tsx` | 新建 issue 对话框 | 只问必要字段（标题、标识、难度），其余在编辑页补 |
 | 做题页（编码工作台） | `features/problems/components/problem-detail-page.tsx`、`features/custom-runs/custom-run-workbench.tsx` | 无直接对应，由 Linear 零件组合 | 面包屑一行（题库 › 题名，右侧 slug）；宽屏 `SplitPane` 分栏（题目｜代码/测试，栏间 0.5px 线，可拖、可键盘调）；每栏顶部 `PaneHeader`（44px、0.5px 下边）；栏内切换用胶囊 `Tabs`；窄屏用 `Tabs` 在题目/代码间切换 |
 

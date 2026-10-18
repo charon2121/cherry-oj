@@ -138,6 +138,11 @@ type DetailPageTemplateProps = BasePageProps &
   Readonly<{
     /** 与主内容并列的侧栏（元信息、目录）。窄屏落到主内容之后。 */
     aside?: ReactNode;
+    /**
+     * `narrow`（760px）给只有一列短内容的编辑页，对应 linear.app 设置里的条目编辑页（内容列 750px）；
+     * 铺满 1200px 会让几行代码的编辑框横跨整屏。
+     */
+    width?: 'default' | 'narrow';
   }>;
 
 // 详情页 = 标题 + 主内容 + 可选侧栏。侧栏在窄屏落到下方，不挤压正文可读宽度。
@@ -149,9 +154,10 @@ function DetailPageTemplate({
   title,
   titleAction,
   titleVisible = true,
+  width = 'default',
 }: DetailPageTemplateProps) {
   return (
-    <Container className={className}>
+    <Container className={className} width={width}>
       <Section>
         <PageTitle title={title} visible={titleVisible} action={titleAction} />
         {state ?? (

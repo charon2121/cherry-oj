@@ -1,7 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { AdminLanguagesPage } from '@/features/admin-languages/components/admin-languages-page';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/admin/languages')({
-  component: AdminLanguagesPage,
+  component: Outlet,
 });

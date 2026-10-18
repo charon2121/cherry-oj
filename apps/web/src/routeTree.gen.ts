@@ -23,6 +23,8 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as SiteAccountPasswordRouteImport } from './routes/_site.account.password'
 import { Route as SiteProblemsIndexRouteImport } from './routes/_site.problems.index'
 import { Route as SiteProblemsSlugRouteImport } from './routes/_site.problems.$slug'
+import { Route as AdminLanguagesIndexRouteImport } from './routes/admin.languages.index'
+import { Route as AdminLanguagesLanguageIdRouteImport } from './routes/admin.languages.$languageId'
 import { Route as AdminProblemsIndexRouteImport } from './routes/admin.problems.index'
 import { Route as AdminProblemsProblemIdRouteImport } from './routes/admin.problems.$problemId'
 
@@ -95,6 +97,17 @@ const SiteProblemsSlugRoute = SiteProblemsSlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => SiteProblemsRoute,
 } as any)
+const AdminLanguagesIndexRoute = AdminLanguagesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminLanguagesRoute,
+} as any)
+const AdminLanguagesLanguageIdRoute =
+  AdminLanguagesLanguageIdRouteImport.update({
+    id: '/$languageId',
+    path: '/$languageId',
+    getParentRoute: () => AdminLanguagesRoute,
+  } as any)
 const AdminProblemsIndexRoute = AdminProblemsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -113,28 +126,31 @@ export interface FileRoutesByFullPath {
   '/login': typeof SiteLoginRoute
   '/problems': typeof SiteProblemsRouteWithChildren
   '/admin/dashborad': typeof AdminDashboradRoute
-  '/admin/languages': typeof AdminLanguagesRoute
+  '/admin/languages': typeof AdminLanguagesRouteWithChildren
   '/admin/problems': typeof AdminProblemsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/admin/': typeof AdminIndexRoute
   '/account/password': typeof SiteAccountPasswordRoute
   '/problems/$slug': typeof SiteProblemsSlugRoute
+  '/admin/languages/$languageId': typeof AdminLanguagesLanguageIdRoute
   '/admin/problems/$problemId': typeof AdminProblemsProblemIdRoute
   '/problems/': typeof SiteProblemsIndexRoute
+  '/admin/languages/': typeof AdminLanguagesIndexRoute
   '/admin/problems/': typeof AdminProblemsIndexRoute
 }
 export interface FileRoutesByTo {
   '/forbidden': typeof SiteForbiddenRoute
   '/login': typeof SiteLoginRoute
   '/admin/dashborad': typeof AdminDashboradRoute
-  '/admin/languages': typeof AdminLanguagesRoute
   '/admin/users': typeof AdminUsersRoute
   '/': typeof SiteIndexRoute
   '/admin': typeof AdminIndexRoute
   '/account/password': typeof SiteAccountPasswordRoute
   '/problems/$slug': typeof SiteProblemsSlugRoute
+  '/admin/languages/$languageId': typeof AdminLanguagesLanguageIdRoute
   '/admin/problems/$problemId': typeof AdminProblemsProblemIdRoute
   '/problems': typeof SiteProblemsIndexRoute
+  '/admin/languages': typeof AdminLanguagesIndexRoute
   '/admin/problems': typeof AdminProblemsIndexRoute
 }
 export interface FileRoutesById {
@@ -145,15 +161,17 @@ export interface FileRoutesById {
   '/_site/login': typeof SiteLoginRoute
   '/_site/problems': typeof SiteProblemsRouteWithChildren
   '/admin/dashborad': typeof AdminDashboradRoute
-  '/admin/languages': typeof AdminLanguagesRoute
+  '/admin/languages': typeof AdminLanguagesRouteWithChildren
   '/admin/problems': typeof AdminProblemsRouteWithChildren
   '/admin/users': typeof AdminUsersRoute
   '/_site/': typeof SiteIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/_site/account/password': typeof SiteAccountPasswordRoute
   '/_site/problems/$slug': typeof SiteProblemsSlugRoute
+  '/admin/languages/$languageId': typeof AdminLanguagesLanguageIdRoute
   '/admin/problems/$problemId': typeof AdminProblemsProblemIdRoute
   '/_site/problems/': typeof SiteProblemsIndexRoute
+  '/admin/languages/': typeof AdminLanguagesIndexRoute
   '/admin/problems/': typeof AdminProblemsIndexRoute
 }
 export interface FileRouteTypes {
@@ -171,22 +189,25 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/account/password'
     | '/problems/$slug'
+    | '/admin/languages/$languageId'
     | '/admin/problems/$problemId'
     | '/problems/'
+    | '/admin/languages/'
     | '/admin/problems/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forbidden'
     | '/login'
     | '/admin/dashborad'
-    | '/admin/languages'
     | '/admin/users'
     | '/'
     | '/admin'
     | '/account/password'
     | '/problems/$slug'
+    | '/admin/languages/$languageId'
     | '/admin/problems/$problemId'
     | '/problems'
+    | '/admin/languages'
     | '/admin/problems'
   id:
     | '__root__'
@@ -203,8 +224,10 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/_site/account/password'
     | '/_site/problems/$slug'
+    | '/admin/languages/$languageId'
     | '/admin/problems/$problemId'
     | '/_site/problems/'
+    | '/admin/languages/'
     | '/admin/problems/'
   fileRoutesById: FileRoutesById
 }
@@ -313,6 +336,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SiteProblemsSlugRouteImport
       parentRoute: typeof SiteProblemsRoute
     }
+    '/admin/languages/': {
+      id: '/admin/languages/'
+      path: '/'
+      fullPath: '/admin/languages/'
+      preLoaderRoute: typeof AdminLanguagesIndexRouteImport
+      parentRoute: typeof AdminLanguagesRoute
+    }
+    '/admin/languages/$languageId': {
+      id: '/admin/languages/$languageId'
+      path: '/$languageId'
+      fullPath: '/admin/languages/$languageId'
+      preLoaderRoute: typeof AdminLanguagesLanguageIdRouteImport
+      parentRoute: typeof AdminLanguagesRoute
+    }
     '/admin/problems/': {
       id: '/admin/problems/'
       path: '/'
@@ -362,6 +399,20 @@ const SiteRouteChildren: SiteRouteChildren = {
 
 const SiteRouteWithChildren = SiteRoute._addFileChildren(SiteRouteChildren)
 
+interface AdminLanguagesRouteChildren {
+  AdminLanguagesLanguageIdRoute: typeof AdminLanguagesLanguageIdRoute
+  AdminLanguagesIndexRoute: typeof AdminLanguagesIndexRoute
+}
+
+const AdminLanguagesRouteChildren: AdminLanguagesRouteChildren = {
+  AdminLanguagesLanguageIdRoute: AdminLanguagesLanguageIdRoute,
+  AdminLanguagesIndexRoute: AdminLanguagesIndexRoute,
+}
+
+const AdminLanguagesRouteWithChildren = AdminLanguagesRoute._addFileChildren(
+  AdminLanguagesRouteChildren,
+)
+
 interface AdminProblemsRouteChildren {
   AdminProblemsProblemIdRoute: typeof AdminProblemsProblemIdRoute
   AdminProblemsIndexRoute: typeof AdminProblemsIndexRoute
@@ -378,7 +429,7 @@ const AdminProblemsRouteWithChildren = AdminProblemsRoute._addFileChildren(
 
 interface AdminRouteChildren {
   AdminDashboradRoute: typeof AdminDashboradRoute
-  AdminLanguagesRoute: typeof AdminLanguagesRoute
+  AdminLanguagesRoute: typeof AdminLanguagesRouteWithChildren
   AdminProblemsRoute: typeof AdminProblemsRouteWithChildren
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -386,7 +437,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminDashboradRoute: AdminDashboradRoute,
-  AdminLanguagesRoute: AdminLanguagesRoute,
+  AdminLanguagesRoute: AdminLanguagesRouteWithChildren,
   AdminProblemsRoute: AdminProblemsRouteWithChildren,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
