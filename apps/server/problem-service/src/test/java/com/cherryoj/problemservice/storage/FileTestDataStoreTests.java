@@ -126,36 +126,54 @@ class FileTestDataStoreTests {
     void rejectsUnsafeEntriesBrokenUtf8MissingPairsAndCorruptZipWithoutResidue() throws Exception {
         Path root = temporary.resolve("unsafe");
         FileTestDataStore store = store(root, 100);
-        Map<String, byte[]> archives = new LinkedHashMap<>();
-        archives.put("parent", zip(Map.of("../1.in", bytes("1"), "1.out", bytes("1"))));
-        archives.put("directory", zipWithMode("folder/", new byte[0], UnixStat.DIR_FLAG | 0700));
-        archives.put("symlink", zipWithMode("1.in", bytes("target"), UnixStat.LINK_FLAG | 0700));
-        archives.put("unicode", zip(Map.of("题.in", bytes("1"), "题.out", bytes("1"))));
-        archives.put("orphan", zip(Map.of("1.in", bytes("1"))));
-        archives.put("duplicate", zipEntries("1.in", "1.in", "1.out"));
-        archives.put("invalid-utf8", zip(Map.of("1.in", new byte[] {(byte) 0xc3, 0x28}, "1.out", bytes("1"))));
-        archives.put("corrupt", new byte[] {1, 2, 3, 4});
-        archives.put("multiple-wrappers", zip(Map.of(
+        // 每种问题报出各自的原因代码；能确定是哪个条目时一并带出（多条目 Map.of 的遍历顺序不定，那些只核对代码）。
+        record Rejection(byte[] zip, String code, String entry) {
+        }
+        Map<String, Rejection> archives = new LinkedHashMap<>();
+        archives.put("parent", new Rejection(zip(Map.of("../1.in", bytes("1"), "1.out", bytes("1"))),
+                "TEST_DATA_UNSAFE_ENTRY_PATH", null));
+        archives.put("directory", new Rejection(zipWithMode("folder/", new byte[0], UnixStat.DIR_FLAG | 0700),
+                "TEST_DATA_NO_TESTCASES", null));
+        archives.put("symlink", new Rejection(zipWithMode("1.in", bytes("target"), UnixStat.LINK_FLAG | 0700),
+                "TEST_DATA_ENTRY_NOT_REGULAR_FILE", "1.in"));
+        // Python zipfile.writestr 直接传文件名时只写权限位 0600、不写文件类型。
+        archives.put("permission-bits-without-file-type", new Rejection(zipWithMode("1.in", bytes("1"), 0600),
+                "TEST_DATA_ENTRY_NOT_REGULAR_FILE", "1.in"));
+        archives.put("unicode", new Rejection(zip(Map.of("题.in", bytes("1"), "题.out", bytes("1"))),
+                "TEST_DATA_UNEXPECTED_ENTRY", null));
+        archives.put("orphan", new Rejection(zip(Map.of("1.in", bytes("1"))), "TEST_DATA_CASE_PAIR_REQUIRED", "1.out"));
+        archives.put("duplicate", new Rejection(zipEntries("1.in", "1.in", "1.out"), "TEST_DATA_DUPLICATE_ENTRY", "1.in"));
+        archives.put("invalid-utf8", new Rejection(
+                zip(Map.of("1.in", new byte[] {(byte) 0xc3, 0x28}, "1.out", bytes("1"))), "TEST_DATA_FILE_NOT_UTF8", "1.in"));
+        archives.put("corrupt", new Rejection(new byte[] {1, 2, 3, 4}, "TEST_DATA_INVALID_ZIP", null));
+        archives.put("multiple-wrappers", new Rejection(zip(Map.of(
                 "first/1.in", bytes("1"), "first/1.out", bytes("1"),
-                "second/2.in", bytes("2"), "second/2.out", bytes("2"))));
-        archives.put("mixed-roots", zip(Map.of(
+                "second/2.in", bytes("2"), "second/2.out", bytes("2"))), "TEST_DATA_MIXED_ROOTS", null));
+        archives.put("mixed-roots", new Rejection(zip(Map.of(
                 "1.in", bytes("1"), "1.out", bytes("1"),
-                "wrapped/2.in", bytes("2"), "wrapped/2.out", bytes("2"))));
-        archives.put("nested-cases", zip(Map.of(
-                "wrapped/cases/1.in", bytes("1"), "wrapped/cases/1.out", bytes("1"))));
-        archives.put("unknown-hidden-file", zip(Map.of(
+                "wrapped/2.in", bytes("2"), "wrapped/2.out", bytes("2"))), "TEST_DATA_MIXED_ROOTS", null));
+        archives.put("nested-cases", new Rejection(zip(Map.of(
+                "wrapped/cases/1.in", bytes("1"), "wrapped/cases/1.out", bytes("1"))), "TEST_DATA_UNEXPECTED_ENTRY", null));
+        archives.put("unknown-hidden-file", new Rejection(zip(Map.of(
                 "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
-                "wrapped/.Spotlight-V100", bytes("metadata"))));
-        archives.put("metadata-from-other-root", zip(Map.of(
+                "wrapped/.Spotlight-V100", bytes("metadata"))), "TEST_DATA_UNEXPECTED_ENTRY", "wrapped/.Spotlight-V100"));
+        archives.put("metadata-from-other-root", new Rejection(zip(Map.of(
                 "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
-                "other/.DS_Store", bytes("metadata"))));
-        archives.put("name-too-long-for-the-protocol", zip(Map.of(
-                "a".repeat(125) + ".in", bytes("1"), "a".repeat(125) + ".out", bytes("1"))));
+                "other/.DS_Store", bytes("metadata"))), "TEST_DATA_MIXED_ROOTS", "other/"));
+        archives.put("name-too-long-for-the-protocol", new Rejection(zip(Map.of(
+                "a".repeat(125) + ".in", bytes("1"), "a".repeat(125) + ".out", bytes("1"))),
+                "TEST_DATA_UNEXPECTED_ENTRY", null));
 
         for (var candidate : archives.entrySet()) {
-            assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(candidate.getValue())))
+            Rejection expected = candidate.getValue();
+            assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(expected.zip())))
                     .as(candidate.getKey())
-                    .isInstanceOf(AssetException.class);
+                    .isInstanceOfSatisfying(AssetException.class, error -> {
+                        assertThat(error.getMessage()).as(candidate.getKey()).isEqualTo(expected.code());
+                        if (expected.entry() != null) {
+                            assertThat(error.entry()).as(candidate.getKey()).isEqualTo(expected.entry());
+                        }
+                    });
         }
         // 失败不留任何残留：没有暂存文件，没有数据目录，没有地址
         try (var staged = Files.list(root.resolve("tmp")); var generations = Files.list(root.resolve(".store"))) {
@@ -175,14 +193,22 @@ class FileTestDataStoreTests {
         store.initialize();
 
         assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(new byte[301])))
-                .isInstanceOfSatisfying(AssetException.class,
-                        error -> assertThat(error.kind()).isEqualTo(TestDataStore.Kind.PAYLOAD_TOO_LARGE));
+                .isInstanceOfSatisfying(AssetException.class, error -> {
+                    assertThat(error.kind()).isEqualTo(TestDataStore.Kind.PAYLOAD_TOO_LARGE);
+                    assertThat(error.getMessage()).isEqualTo("TEST_DATA_ARCHIVE_TOO_LARGE");
+                    assertThat(error.limit()).isEqualTo("300 字节");
+                });
 
+        // 报出是哪个文件、上限是多少，管理员才知道该改哪一组数据。
         byte[] compressed = zip(Map.of("1.in", "a".repeat(100).getBytes(), "1.out", bytes("1")));
         assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(compressed)))
-                .isInstanceOfSatisfying(AssetException.class,
-                        error -> assertThat(error.kind()).isEqualTo(TestDataStore.Kind.PAYLOAD_TOO_LARGE));
+                .isInstanceOfSatisfying(AssetException.class, error -> {
+                    assertThat(error.kind()).isEqualTo(TestDataStore.Kind.PAYLOAD_TOO_LARGE);
+                    assertThat(error.getMessage()).isIn("TEST_DATA_COMPRESSION_RATIO_EXCEEDED", "TEST_DATA_ENTRY_TOO_LARGE");
+                    assertThat(error.entry()).isEqualTo("1.in");
+                });
 
+        // 三个条目的 ZIP 本身就超过这里 300 字节的上传上限，先被那一条拦下；文件数上限由下面的 entryLimitStore 单独验证。
         byte[] tooMany = zip(Map.of("1.in", bytes("1"), "1.out", bytes("1"), "2.in", bytes("2")));
         assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(tooMany)))
                 .isInstanceOf(AssetException.class);
@@ -195,8 +221,10 @@ class FileTestDataStoreTests {
         var entryLimitStore = new FileTestDataStore(entryLimitProperties, CLOCK, JsonMapper.builder().build());
         entryLimitStore.initialize();
         assertThatThrownBy(() -> entryLimitStore.prepare(PROBLEM, new ByteArrayInputStream(metadataCounts)))
-                .isInstanceOfSatisfying(AssetException.class,
-                        error -> assertThat(error.getMessage()).isEqualTo("TEST_DATA_TOO_MANY_FILES"));
+                .isInstanceOfSatisfying(AssetException.class, error -> {
+                    assertThat(error.getMessage()).isEqualTo("TEST_DATA_TOO_MANY_FILES");
+                    assertThat(error.limit()).isEqualTo("2");
+                });
     }
 
     @Test

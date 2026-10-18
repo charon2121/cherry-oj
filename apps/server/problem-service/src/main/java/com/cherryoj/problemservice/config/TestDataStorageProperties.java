@@ -25,4 +25,12 @@ public record TestDataStorageProperties(
             throw new IllegalArgumentException("Invalid test data storage configuration");
         }
     }
+
+    /** 上限写进报错给人看：整 MiB/KiB 用对应单位，其余写字节数。 */
+    public static String readable(DataSize size) {
+        long bytes = size.toBytes();
+        if (bytes % (1024 * 1024) == 0) return bytes / (1024 * 1024) + " MiB";
+        if (bytes % 1024 == 0) return bytes / 1024 + " KiB";
+        return bytes + " 字节";
+    }
 }

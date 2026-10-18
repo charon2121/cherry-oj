@@ -69,8 +69,8 @@ public class TestDataService {
             throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "TEST_DATA_EMPTY", "测试数据 ZIP 不能为空。");
         }
         if (file.getSize() > storageProperties.maxArchiveSize().toBytes()) {
-            throw new ProblemApiException(
-                    HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
+            throw new ProblemApiException(HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE",
+                    "ZIP 超过 " + TestDataStorageProperties.readable(storageProperties.maxArchiveSize()) + " 的上传上限。");
         }
         transactions.executeWithoutResult(status -> requireActive(requireProblem(problemId, false)));
 
@@ -168,7 +168,7 @@ public class TestDataService {
     private static ProblemApiException assetProblem(AssetException error) {
         return switch (error.kind()) {
             case PAYLOAD_TOO_LARGE -> new ProblemApiException(
-                    HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
+                    HttpStatus.PAYLOAD_TOO_LARGE, "PAYLOAD_TOO_LARGE", tooLargeDetail(error));
             case INVALID_ARCHIVE -> new ProblemApiException(
                     HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_TEST_DATA_ARCHIVE", invalidArchiveDetail(error));
             case NOT_FOUND -> new ProblemApiException(
@@ -178,15 +178,42 @@ public class TestDataService {
         };
     }
 
+    // 每条都说清是哪一个文件、哪一条规则或哪一个上限，以及怎么改；原因代码见 FileTestDataStore。
     private static String invalidArchiveDetail(AssetException error) {
+        String entry = error.entry();
+        String limit = error.limit();
         return switch (error.getMessage()) {
             case "TEST_DATA_INVALID_ZIP" -> "无法读取该 ZIP，请确认文件没有损坏后重试。";
-            case "TEST_DATA_INVALID_ZIP_ENTRY" ->
-                    "ZIP 只支持根目录或一个外层文件夹中的成对 .in/.out 文件，请移除其他目录和文件后重试。";
-            case "TEST_DATA_CASE_PAIR_REQUIRED" -> "每个测试点都必须同时包含同名的 .in 和 .out 文件。";
-            case "TEST_DATA_FILE_NOT_UTF8" -> "测试数据文件必须使用 UTF-8 文本编码。";
-            case "TEST_DATA_TOO_MANY_FILES" -> "测试点或文件数量超过上限。";
+            case "TEST_DATA_UNSAFE_ENTRY_PATH" ->
+                    "ZIP 里有不安全的路径（绝对路径、上级目录 ..、反斜杠或超长名字），请重新打包。";
+            case "TEST_DATA_DUPLICATE_ENTRY" -> "「" + entry + "」在 ZIP 里出现了不止一次，请只保留一份。";
+            case "TEST_DATA_ENTRY_NOT_REGULAR_FILE" -> "「" + entry
+                    + "」不是可读取的普通文件：可能是符号链接、加密条目，或打包工具没有把它标记为普通文件。"
+                    + "请用系统自带的压缩功能或 zip 命令重新打包。";
+            case "TEST_DATA_UNEXPECTED_ENTRY" -> "「" + entry
+                    + "」不是测试数据文件。只接受「名字.in」「名字.out」，名字由英文字母、数字、点、下划线或连字符组成，"
+                    + "放在根目录或一个外层文件夹里。";
+            case "TEST_DATA_MIXED_ROOTS" -> "测试数据要么都在根目录，要么都在同一个外层文件夹里；「" + entry
+                    + "」和其他文件不在同一处。";
+            case "TEST_DATA_NO_TESTCASES" -> "ZIP 里没有找到 .in/.out 文件。";
+            case "TEST_DATA_CASE_PAIR_REQUIRED" -> "缺少「" + entry + "」：每个测试点都必须同时有同名的 .in 和 .out 文件。";
+            case "TEST_DATA_FILE_NOT_UTF8" -> "「" + entry + "」不是 UTF-8 文本，请转换编码后重新打包。";
+            case "TEST_DATA_TOO_MANY_FILES" -> "ZIP 里的文件超过 " + limit + " 个的上限。";
+            case "TEST_DATA_TOO_MANY_CASES" -> "测试点超过 " + limit + " 个的上限。";
             default -> "测试数据 ZIP 格式无效。";
+        };
+    }
+
+    private static String tooLargeDetail(AssetException error) {
+        String entry = error.entry();
+        String limit = error.limit();
+        return switch (error.getMessage()) {
+            case "TEST_DATA_ARCHIVE_TOO_LARGE" -> "ZIP 超过 " + limit + " 的上传上限。";
+            case "TEST_DATA_ENTRY_TOO_LARGE" -> "「" + entry + "」解压后超过单个文件 " + limit + " 的上限。";
+            case "TEST_DATA_EXPANDED_SIZE_EXCEEDED" -> "解压后的总大小超过 " + limit + " 的上限。";
+            case "TEST_DATA_COMPRESSION_RATIO_EXCEEDED" -> "「" + entry + "」的压缩比超过 " + limit
+                    + " 倍的上限：内容重复度太高，会被当作压缩炸弹拦下。请让这组数据不那么重复后重试。";
+            default -> "测试数据 ZIP 超过安全限额。";
         };
     }
 

@@ -46,6 +46,7 @@ import org.apache.commons.compress.archivers.zip.UnixStat;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.springframework.stereotype.Component;
+import org.springframework.util.unit.DataSize;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -377,52 +378,60 @@ public final class FileTestDataStore implements TestDataStore {
             while (entries.hasMoreElements()) {
                 ZipArchiveEntry entry = entries.nextElement();
                 if (++entryCount > properties.maxFiles()) {
-                    throw invalid("TEST_DATA_TOO_MANY_FILES");
+                    throw invalid("TEST_DATA_TOO_MANY_FILES", null, String.valueOf(properties.maxFiles()));
                 }
                 String name = entry.getName();
-                if (!isSafeEntryPath(name) || !physicalNames.add(name)) {
-                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                if (!isSafeEntryPath(name)) {
+                    throw invalid("TEST_DATA_UNSAFE_ENTRY_PATH", null, null);
+                }
+                if (!physicalNames.add(name)) {
+                    throw invalid("TEST_DATA_DUPLICATE_ENTRY", name, null);
                 }
                 MetadataPath metadata = metadataPath(name);
                 if (metadata != null) {
                     if ((!entry.isDirectory() && (!isRegularFile(entry) || !archive.canReadEntryData(entry)))
                             || entry.isUnixSymlink()) {
-                        throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                        throw invalid("TEST_DATA_ENTRY_NOT_REGULAR_FILE", name, null);
                     }
                     if (metadata.wrapper() != null) metadataPrefixes.add(metadata.wrapper());
                     continue;
                 }
                 if (entry.isDirectory()) {
-                    if (entry.isUnixSymlink()) throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                    if (entry.isUnixSymlink()) throw invalid("TEST_DATA_ENTRY_NOT_REGULAR_FILE", name, null);
                     directoryMarkers.add(trimTrailingSlash(name));
                     continue;
                 }
                 TestcasePath testcasePath = testcasePath(name);
-                if (testcasePath == null || !isRegularFile(entry) || !archive.canReadEntryData(entry)) {
-                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                if (testcasePath == null) {
+                    throw invalid("TEST_DATA_UNEXPECTED_ENTRY", name, null);
+                }
+                if (!isRegularFile(entry) || !archive.canReadEntryData(entry)) {
+                    throw invalid("TEST_DATA_ENTRY_NOT_REGULAR_FILE", name, null);
                 }
                 if (!logicalRootSelected) {
                     wrapper = testcasePath.wrapper();
                     logicalRootSelected = true;
                 }
                 else if (!Objects.equals(wrapper, testcasePath.wrapper())) {
-                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                    throw invalid("TEST_DATA_MIXED_ROOTS", name, null);
                 }
                 if (!logicalNames.add(testcasePath.logicalName())) {
-                    throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+                    throw invalid("TEST_DATA_DUPLICATE_ENTRY", testcasePath.logicalName(), null);
                 }
                 if (entry.getSize() > properties.maxEntrySize().toBytes()) {
-                    throw tooLarge("TEST_DATA_ENTRY_TOO_LARGE");
+                    throw tooLarge("TEST_DATA_ENTRY_TOO_LARGE", name, size(properties.maxEntrySize()));
                 }
                 EntryDigest digest = digestEntry(archive, entry);
                 totalBytes = Math.addExact(totalBytes, digest.size());
                 if (totalBytes > properties.maxExpandedSize().toBytes()) {
-                    throw tooLarge("TEST_DATA_EXPANDED_SIZE_EXCEEDED");
+                    throw tooLarge("TEST_DATA_EXPANDED_SIZE_EXCEEDED", null, size(properties.maxExpandedSize()));
                 }
                 long compressed = entry.getCompressedSize();
                 if (digest.size() > 0 && (compressed <= 0
                         || (double) digest.size() / compressed > properties.maxCompressionRatio())) {
-                    throw tooLarge("TEST_DATA_COMPRESSION_RATIO_EXCEEDED");
+                    throw tooLarge("TEST_DATA_COMPRESSION_RATIO_EXCEEDED", name,
+                            new java.math.BigDecimal(String.valueOf(properties.maxCompressionRatio()))
+                                    .stripTrailingZeros().toPlainString());
                 }
                 files.add(new ValidatedFile(testcasePath.logicalName(), name, digest.size(), digest.sha256()));
                 pairs.computeIfAbsent(testcasePath.testcaseName(), ignored -> new HashSet<>()).add(testcasePath.extension());
@@ -432,23 +441,35 @@ public final class FileTestDataStore implements TestDataStore {
             throw error;
         }
         catch (ArithmeticException error) {
-            throw tooLarge("TEST_DATA_EXPANDED_SIZE_EXCEEDED");
+            throw tooLarge("TEST_DATA_EXPANDED_SIZE_EXCEEDED", null, size(properties.maxExpandedSize()));
         }
         catch (IOException | RuntimeException error) {
             throw new AssetException(Kind.INVALID_ARCHIVE, "TEST_DATA_INVALID_ZIP", error);
         }
         String selectedWrapper = wrapper;
-        if (files.isEmpty()
-                || directoryMarkers.stream().anyMatch(directory -> !Objects.equals(directory, selectedWrapper))
-                || metadataPrefixes.stream()
-                        .anyMatch(prefix -> !prefix.isEmpty() && !Objects.equals(prefix, selectedWrapper))) {
-            throw invalid("TEST_DATA_INVALID_ZIP_ENTRY");
+        if (files.isEmpty()) {
+            throw invalid("TEST_DATA_NO_TESTCASES", null, null);
         }
-        if (pairs.values().stream().anyMatch(extensions -> !extensions.equals(Set.of("in", "out")))) {
-            throw invalid("TEST_DATA_CASE_PAIR_REQUIRED");
+        var strayDirectory = directoryMarkers.stream()
+                .filter(directory -> !Objects.equals(directory, selectedWrapper)).sorted().findFirst();
+        if (strayDirectory.isPresent()) {
+            throw invalid("TEST_DATA_MIXED_ROOTS", strayDirectory.get() + "/", null);
+        }
+        var strayMetadata = metadataPrefixes.stream()
+                .filter(prefix -> !prefix.isEmpty() && !Objects.equals(prefix, selectedWrapper)).sorted().findFirst();
+        if (strayMetadata.isPresent()) {
+            throw invalid("TEST_DATA_MIXED_ROOTS", strayMetadata.get() + "/", null);
+        }
+        // 报出排在最前的那个缺失文件，例如只有 3.in 时是 3.out。
+        var missing = pairs.entrySet().stream()
+                .filter(pair -> !pair.getValue().equals(Set.of("in", "out")))
+                .map(pair -> pair.getKey() + (pair.getValue().contains("in") ? ".out" : ".in"))
+                .sorted().findFirst();
+        if (missing.isPresent()) {
+            throw invalid("TEST_DATA_CASE_PAIR_REQUIRED", missing.get(), null);
         }
         if (pairs.size() > TestDataMetadata.MAX_CASES) {
-            throw invalid("TEST_DATA_TOO_MANY_FILES");
+            throw invalid("TEST_DATA_TOO_MANY_CASES", null, String.valueOf(TestDataMetadata.MAX_CASES));
         }
         return new Validation(totalBytes, List.copyOf(files));
     }
@@ -467,7 +488,7 @@ public final class FileTestDataStore implements TestDataStore {
             while ((read = input.read(bytes)) != -1) {
                 size += read;
                 if (size > properties.maxEntrySize().toBytes()) {
-                    throw tooLarge("TEST_DATA_ENTRY_TOO_LARGE");
+                    throw tooLarge("TEST_DATA_ENTRY_TOO_LARGE", entry.getName(), size(properties.maxEntrySize()));
                 }
                 digest.update(bytes, 0, read);
                 if (encoded.remaining() < read) {
@@ -480,7 +501,7 @@ public final class FileTestDataStore implements TestDataStore {
             decoder.flush(decoded.clear());
         }
         catch (CharacterCodingException error) {
-            throw invalid("TEST_DATA_FILE_NOT_UTF8");
+            throw invalid("TEST_DATA_FILE_NOT_UTF8", entry.getName(), null);
         }
         return new EntryDigest(size, HexFormat.of().formatHex(digest.digest()));
     }
@@ -554,7 +575,7 @@ public final class FileTestDataStore implements TestDataStore {
         int read;
         while ((read = input.read(buffer)) != -1) {
             total += read;
-            if (total > limit) throw tooLarge("TEST_DATA_ARCHIVE_TOO_LARGE");
+            if (total > limit) throw tooLarge("TEST_DATA_ARCHIVE_TOO_LARGE", null, size(DataSize.ofBytes(limit)));
             output.write(buffer, 0, read);
         }
     }
@@ -656,12 +677,16 @@ public final class FileTestDataStore implements TestDataStore {
         }
     }
 
-    private static AssetException invalid(String code) {
-        return new AssetException(Kind.INVALID_ARCHIVE, code);
+    private static AssetException invalid(String code, String entry, String limit) {
+        return new AssetException(Kind.INVALID_ARCHIVE, code, entry, limit);
     }
 
-    private static AssetException tooLarge(String code) {
-        return new AssetException(Kind.PAYLOAD_TOO_LARGE, code);
+    private static AssetException tooLarge(String code, String entry, String limit) {
+        return new AssetException(Kind.PAYLOAD_TOO_LARGE, code, entry, limit);
+    }
+
+    private static String size(DataSize size) {
+        return TestDataStorageProperties.readable(size);
     }
 
     private record Validation(long totalBytes, List<ValidatedFile> files) {

@@ -51,7 +51,7 @@ public class ProblemExceptionHandler {
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ResponseEntity<Map<String, Object>> uploadTooLarge(MaxUploadSizeExceededException ignored) {
-        return response(413, "PAYLOAD_TOO_LARGE", "测试数据 ZIP 超过安全限额。");
+        return response(413, "PAYLOAD_TOO_LARGE", "上传的文件超过大小上限。");
     }
 
     @ExceptionHandler(Exception.class)

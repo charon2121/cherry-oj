@@ -41,21 +41,43 @@ public interface TestDataStore {
     record RecoveryResult(int temporaryFilesDeleted, int temporaryDirectoriesDeleted) {
     }
 
+    /**
+     * message 是原因代码（如 TEST_DATA_COMPRESSION_RATIO_EXCEEDED）；entry 是出问题的 ZIP 条目名，limit 是触发的上限
+     * （已格式化，如"64 MiB"），都可能为 null。面向管理员的文字由 TestDataService 按代码拼出。
+     */
     final class AssetException extends Exception {
         private final Kind kind;
+        private final String entry;
+        private final String limit;
 
         public AssetException(Kind kind, String message) {
+            this(kind, message, null, null);
+        }
+
+        public AssetException(Kind kind, String message, String entry, String limit) {
             super(message);
             this.kind = kind;
+            this.entry = entry;
+            this.limit = limit;
         }
 
         public AssetException(Kind kind, String message, Throwable cause) {
             super(message, cause);
             this.kind = kind;
+            this.entry = null;
+            this.limit = null;
         }
 
         public Kind kind() {
             return kind;
+        }
+
+        public String entry() {
+            return entry;
+        }
+
+        public String limit() {
+            return limit;
         }
     }
 

@@ -158,7 +158,7 @@ class TestDataPersistenceIntegrationTests {
         assertThatThrownBy(() -> testData.upload(problem.id(), multipart(orphan), ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
-                    assertThat(error.getMessage()).isEqualTo("每个测试点都必须同时包含同名的 .in 和 .out 文件。");
+                    assertThat(error.getMessage()).isEqualTo("缺少「1.out」：每个测试点都必须同时有同名的 .in 和 .out 文件。");
                 });
 
         assertThat(testData.forJudging(problem.id()).digest()).isEqualTo(good.digest());
@@ -295,6 +295,36 @@ class TestDataPersistenceIntegrationTests {
             }
             @Override public void transferTo(java.io.File destination) { throw new UnsupportedOperationException(); }
         };
+    }
+
+    /** 2026-10-18 出题时真实遇到的两种拒绝：报错要指出是哪个文件、什么原因、上限多少，而不是一句笼统的规则。 */
+    @Test
+    void rejectionsNameTheFileTheReasonAndTheLimit() throws Exception {
+        var problem = createProblem("explained");
+
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ZipArchiveOutputStream archive = new ZipArchiveOutputStream(output)) {
+            for (String name : new String[] {"1.in", "1.out"}) {
+                ZipArchiveEntry entry = new ZipArchiveEntry(name);
+                entry.setUnixMode(0600);
+                archive.putArchiveEntry(entry);
+                archive.write(bytes("1\n"));
+                archive.closeArchiveEntry();
+            }
+        }
+        assertThatThrownBy(() -> testData.upload(problem.id(), multipart(output.toByteArray()), ACTOR))
+                .isInstanceOfSatisfying(ProblemApiException.class, error -> {
+                    assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
+                    assertThat(error.getMessage()).startsWith("「1.in」不是可读取的普通文件").contains("重新打包");
+                });
+
+        byte[] repetitive = zip(Map.of("1.in", bytes("10000 ".repeat(100_000)), "1.out", bytes("1\n")));
+        assertThatThrownBy(() -> testData.upload(problem.id(), multipart(repetitive), ACTOR))
+                .isInstanceOfSatisfying(ProblemApiException.class, error -> {
+                    assertThat(error.code()).isEqualTo("PAYLOAD_TOO_LARGE");
+                    assertThat(error.getMessage()).isEqualTo("「1.in」的压缩比超过 100 倍的上限：内容重复度太高，"
+                            + "会被当作压缩炸弹拦下。请让这组数据不那么重复后重试。");
+                });
     }
 
     private static byte[] goldenZip() throws Exception {
