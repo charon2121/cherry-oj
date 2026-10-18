@@ -116,6 +116,11 @@ const adminProblemSchema = z
             .string()
             .nullish()
             .transform((value) => value ?? null),
+          // 该语言所有 CORE 题共用的前缀，只读；ACM 为 null。
+          solutionPrefix: z
+            .string()
+            .nullish()
+            .transform((value) => value ?? null),
         })
         .loose(),
     ]),

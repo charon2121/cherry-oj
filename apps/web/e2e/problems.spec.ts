@@ -342,6 +342,7 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
         displayName: 'C++',
         starterCode: 'class Solution {};',
         judgeTemplate: null as string | null,
+        solutionPrefix: '#include <bits/stdc++.h>\nusing namespace std;\n',
       },
     ],
     testData: null,
@@ -425,6 +426,11 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
   await expect(page.getByRole('button', { name: '核心代码 · C++' })).toBeDisabled();
   const driverSection = page.getByRole('region', { name: '驱动代码' });
   await expect(driverSection).toBeVisible();
+  // 前缀代码只读展示，写驱动代码时能看到用户文件里已有哪些库。
+  const prefixSection = page.getByRole('region', { name: '前缀代码' });
+  await expect(prefixSection).toContainText('这 2 行 + 用户代码');
+  await expect(prefixSection).toContainText('#include <bits/stdc++.h>');
+  await expect(prefixSection.getByRole('button')).toHaveCount(0);
 
   // 驱动代码为空时给出骨架；填入后自动保存，并提示改过的驱动代码需要重新标定。
   await driverSection.getByRole('button', { name: '填入骨架' }).click();

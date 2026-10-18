@@ -186,7 +186,8 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 ### 6.3 problem-service
 
 - **语言表：** 改写 V1，新增 `language(language_id, display_name, solution_prefix, updated_at, ...)`；`problem_language` 加 `judge_template_updated_at`（§5.6），并插入 `cpp` 一行，前缀为
-  `#include <bits/stdc++.h>\nusing namespace std;\n`。开发阶段直接改库，不做管理界面。
+  `#include <bits/stdc++.h>\nusing namespace std;\n`。开发阶段直接改库，不做编辑界面；管理端 CORE 题的工作台在"驱动代码"上方只读展示当前前缀与行数（2026-10-18 用户决定的第一档），
+  经 `AdminProblemLanguage.solutionPrefix` 返回，ACM 为 null。
 - **创建：** 允许 `codeMode=CORE`；CORE 题的语言行 `starter_code=''`、`judge_template` 为空，此时不能公开。**代码模式创建后不可修改**，更新接口不接收它。
 - **更新：** CORE 接收 `judgeTemplate`，做 §5.4 的检查；ACM 收到 `judgeTemplate` 返回 400；驱动代码变化时追加审计事件
   `PROBLEM_JUDGE_TEMPLATE_CHANGED`（不记内容）。
@@ -258,7 +259,7 @@ judge 只多了一项通用能力："一个程序由驱动文件和用户文件�
 为控制前期开发复杂度，下列内容先不做，以后按需要再考虑（用户 2026-10-17 决定）：
 
 - 修改驱动代码或前缀后自动让标定失效（标定绑定内容指纹）；现在只做 §5.6 的提示。
-- 前缀代码的管理界面；现在直接改数据库。
+- 前缀代码的编辑界面；现在只读展示，修改仍直接改数据库。
 - 报错里驱动代码的遮蔽或替换；现在照常显示。
 - 驱动代码按函数签名自动生成、C++ 以外的语言、诊断映射到编辑器标记、驱动代码版本历史。
 

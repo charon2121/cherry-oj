@@ -265,6 +265,9 @@ function WorkbenchEditor({
   const isCore = problem.codeMode === 'CORE';
   // 改了驱动代码不会让标定失效（只提示）：本次会话里保存过改动后的驱动代码，就提示重新标定，标定成功后收起。
   const savedDriver = useRef(problem.allowedLanguages[0].judgeTemplate ?? '');
+  const solutionPrefix = problem.allowedLanguages[0].solutionPrefix;
+  // 前缀以换行结尾，行数 = 换行个数（与服务端换算报错行号的规则一致）。
+  const prefixLines = solutionPrefix ? solutionPrefix.split('\n').length - 1 : 0;
   const [driverChanged, setDriverChanged] = useState(false);
   // 题目没有草稿：除归档外都可直接编辑，公开题目的修改立即对学生生效。
   const editable = problem.status === 'ACTIVE';
@@ -711,13 +714,29 @@ function WorkbenchEditor({
               </form.Field>
             </EditorSection>
 
+            {isCore && solutionPrefix ? (
+              <EditorSection
+                id={`${ids}-solution-prefix`}
+                title="前缀代码"
+                description={`C++ 所有核心代码题共用，只读。用户文件 solution.cpp = 这 ${prefixLines} 行 + 用户代码。`}
+              >
+                <CodeBlockEditor
+                  language="cpp"
+                  value={solutionPrefix}
+                  readOnly
+                  aria-label="C++ 前缀代码"
+                  onChange={() => undefined}
+                />
+              </EditorSection>
+            ) : null}
+
             {isCore ? (
               <form.Field name="judgeTemplate">
                 {(field) => (
                   <EditorSection
                     id={`${ids}-judge-template`}
                     title="驱动代码"
-                    description="引用 solution.cpp（已含 bits/stdc++.h）；报错里会显示它，不要写答案。"
+                    description="引用 solution.cpp（前缀代码 + 用户代码）；报错里会显示它，不要写答案。"
                     actions={
                       editable && !field.state.value.trim() ? (
                         <Button

@@ -125,6 +125,8 @@ class AdminProblemPersistenceIntegrationTests {
                 ACTOR);
         assertThat(created.codeMode()).isEqualTo(CodeMode.CORE);
         assertThat(created.allowedLanguages().getFirst().judgeTemplate()).isNull();
+        assertThat(created.allowedLanguages().getFirst().solutionPrefix())
+                .isEqualTo("#include <bits/stdc++.h>\nusing namespace std;\n");
 
         String driver = "#include \"solution.cpp\"\nint main() { /* driver-canary */ }\n";
         var saved = admin.update(created.id(), coreUpdate(created.slug(), driver, 0), ACTOR);
@@ -157,6 +159,7 @@ class AdminProblemPersistenceIntegrationTests {
         var acm = admin.create(new CreateProblemRequest(
                 "acm-" + UUID.randomUUID().toString().substring(0, 8), "Acm", Difficulty.EASY, CodeMode.ACM, "cpp"),
                 ACTOR);
+        assertThat(acm.allowedLanguages().getFirst().solutionPrefix()).isNull();
         assertThatThrownBy(() -> admin.update(acm.id(), coreUpdate(acm.slug(), "int main() {}", 0), ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class,
                         error -> assertThat(error.getMessage()).contains("ACM 题目没有驱动代码"));

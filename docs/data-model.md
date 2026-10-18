@@ -237,7 +237,7 @@ user_audit_event
 | `solutionPrefix` | 是 | CORE 前缀代码：挑选过的常用库 include/import，以换行结尾 |
 | `updatedAt` | 是 | 最近修改时间；晚于标定时管理端提示"建议重新标定" |
 
-开发阶段直接改数据库，没有管理界面；改前缀时同时更新 `updatedAt`。前缀挑选常用库而不是"所有库"，
+开发阶段直接改数据库，没有编辑界面（管理端 CORE 题的工作台只读展示当前前缀，见 `AdminProblemLanguage.solutionPrefix`）；改前缀时同时更新 `updatedAt`。前缀挑选常用库而不是"所有库"，
 避免名字冲突（如 Java 的 `java.util.*` 与 `java.awt.*` 都有 `List`）。
 
 ### 4.6 ProblemJudgeSnapshot
@@ -873,7 +873,7 @@ contracts → Go contract/实现 → Java DTO/服务 → Gateway OpenAPI → web
 - 多工作空间与完整 RBAC。
 - SPJ、交互题、部分分、子任务和 hack 数据。
 - 通用 CORE 函数签名和值编解码框架；驱动代码自动生成。
-- 修改驱动代码或前缀后标定自动失效（目前只提示）；前缀的管理界面。
+- 修改驱动代码或前缀后标定自动失效（目前只提示）；前缀的编辑界面（现在只读展示）。
 - 自动重判和面向用户的重判任务。
 - WebSocket/SSE 推送；web 先轮询。
 - Agent、模型供应商和提示词模型。

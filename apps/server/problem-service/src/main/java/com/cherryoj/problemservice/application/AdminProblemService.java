@@ -14,6 +14,7 @@ import com.cherryoj.problemservice.api.PublicProblemDtos;
 import com.cherryoj.problemservice.api.TestDataDtos;
 import com.cherryoj.problemservice.domain.UuidV7;
 import com.cherryoj.problemservice.persistence.AdminProblemMapper;
+import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguagePrefixRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.SampleRow;
@@ -213,13 +214,18 @@ public class AdminProblemService {
         List<AdminProblemDtos.Language> languages = mapper.findLanguages(row.id()).stream()
                 .map((LanguageRow language) -> new AdminProblemDtos.Language(
                         language.languageId(), displayName(language.languageId()), language.starterCode(),
-                        language.judgeTemplate()))
+                        language.judgeTemplate(), row.codeMode() == CodeMode.CORE ? prefix(language.languageId()) : null))
                 .toList();
         return new Problem(
                 row.id(), row.slug(), row.visibility(), row.status(), row.codeMode(), row.title(),
                 row.statementMarkdown(), row.inputDescriptionMarkdown(), row.outputDescriptionMarkdown(),
                 row.constraintsMarkdown(), row.hintMarkdown(), row.difficulty(), readTags(row.tagsJson()), samples,
                 languages, testData(row), row.createdAt(), row.updatedAt(), row.publishedAt(), row.rowVersion());
+    }
+
+    private String prefix(String languageId) {
+        LanguagePrefixRow prefix = mapper.findLanguagePrefix(languageId);
+        return prefix == null ? null : prefix.solutionPrefix();
     }
 
     /** 读不到的测试数据按「没有」展示；公开检查会指出具体原因。 */

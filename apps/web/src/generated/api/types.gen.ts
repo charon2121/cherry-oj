@@ -414,6 +414,10 @@ export type AdminProblemLanguage = {
      * CORE 的驱动代码，尚未填写时为 null；ACM 为 null。只在管理端返回
      */
     judgeTemplate?: string | null;
+    /**
+     * CORE 用户文件的前缀：该语言所有 CORE 题共用，用户文件 = 前缀 + 用户代码。只读，ACM 为 null；只在管理端返回
+     */
+    solutionPrefix?: string | null;
 };
 
 export type TestDataManifestFile = {

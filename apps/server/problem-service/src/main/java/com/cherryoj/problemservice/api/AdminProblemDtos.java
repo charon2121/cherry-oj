@@ -98,8 +98,12 @@ public final class AdminProblemDtos {
             long rowVersion) {
     }
 
-    /** judgeTemplate 只在管理端返回：CORE 的驱动代码，尚未填写或 ACM 时为 null。 */
-    public record Language(String id, String displayName, String starterCode, String judgeTemplate) {
+    /**
+     * judgeTemplate 只在管理端返回：CORE 的驱动代码，尚未填写或 ACM 时为 null。
+     * solutionPrefix 是该语言共用的前缀（只读，在语言表里维护），让写驱动代码的人知道用户文件里已有哪些库；ACM 时为 null。
+     */
+    public record Language(String id, String displayName, String starterCode, String judgeTemplate,
+            String solutionPrefix) {
     }
 
     public record BenchmarkSummary(
