@@ -23,4 +23,6 @@ password
 
 # benchmark 的运行报告，不入库
 /benchmark/reports/
-/benchmark/**/__pycache__/
+# Python 字节码缓存：任何目录都不入库
+__pycache__/
+*.pyc

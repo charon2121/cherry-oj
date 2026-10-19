@@ -623,7 +623,7 @@ test('formal submission freezes code, restores a result on refresh, and stops at
   expect(reads).toBe(doneReads);
   for (let theme = 0; theme < 2; theme++) {
     const scheme = await page.locator('html').getAttribute('data-color-scheme');
-    await page.screenshot({ path: `/tmp/work002-visual/result-${scheme}.png` });
+    await page.screenshot({ path: `/tmp/e2e-visual/result-${scheme}.png` });
     await page.getByRole('button', { name: /^切换到/ }).click();
   }
   await page.setViewportSize({ width: 320, height: 720 });
@@ -634,7 +634,7 @@ test('formal submission freezes code, restores a result on refresh, and stops at
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
-  await page.screenshot({ path: '/tmp/work002-visual/result-narrow-forced.png' });
+  await page.screenshot({ path: '/tmp/e2e-visual/result-narrow-forced.png' });
 });
 
 test('a lost response survives a problem edit and retries the original code and key', async ({

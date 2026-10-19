@@ -112,7 +112,7 @@ judging-service 判题或标定时通过服务令牌向 problem-service 取题�
 控制 token 通过 `CHERRY_JUDGE_CONTROL_TOKEN` 配给两端，本地默认值仅用于本机开发；生产必须显式
 提供 token 和数据库连接，节点 advertise URL 必须能被 Java 访问。测试用临时 MySQL 8.4 验证
 约束、并发注册、租约边界、标定过期和任务租约；真实五服务 Compose 回归入口为
-`scripts/work-002-e2e.py`。
+`scripts/e2e.py`。
 
 ## 本地启动默认与生产配置边界
 

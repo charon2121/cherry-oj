@@ -6,11 +6,11 @@ import { expect, test } from '@playwright/test';
 
 import { themeRegistry, themeStorageKey } from '../src/generated/design-system/themes.js';
 
-// Run against `scripts/work-002-e2e.py --keep`; all API responses come from the isolated real stack.
+// Run against `scripts/e2e.py --keep`; all API responses come from the isolated real stack.
 test('real node offline and recovery are shown in the workbench', async ({ page }, testInfo) => {
-  test.skip(!process.env.WORK002_E2E_DIRECTORY, 'requires isolated work-002-e2e.py --keep stack');
+  test.skip(!process.env.E2E_DIRECTORY, 'requires isolated e2e.py --keep stack');
   test.setTimeout(150_000);
-  const directory = process.env.WORK002_E2E_DIRECTORY!;
+  const directory = process.env.E2E_DIRECTORY!;
   const evidence = JSON.parse(readFileSync(resolve(directory, 'evidence.json'), 'utf8')) as {
     project: string;
     ports: { gateway: number };
@@ -33,7 +33,7 @@ test('real node offline and recovery are shown in the workbench', async ({ page 
   const csrf = csrfResponse.data.token;
   const login = await page.request.post(`${gateway}/api/auth/login`, {
     headers: { Origin: evidence.webOrigin, 'X-CSRF-Token': csrf },
-    data: { username: 'work002admin', password: 'Work002-Changed-Password' },
+    data: { username: 'e2eadmin', password: 'E2e-Changed-Password' },
   });
   expect(login.ok()).toBeTruthy();
   await page.route('**/api/**', async (route) => {
