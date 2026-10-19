@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 2,
+  "suite": "business",
+  "sourceSha": "946ba8f19476bec521bb90a1272d3b178368ba5a",
+  "harnessSha": "ced2bd7183da9eba1d72c72bc369a56bcbe571b9922318ee889da0aeb44559ea",
+  "runId": "39196126198",
+  "runAttempt": "1",
+  "startedAt": "2026-10-19T03:47:24.743293+00:00",
+  "finishedAt": "2026-10-19T03:49:40.678859+00:00",
+  "environment": {
+    "system": "Linux",
+    "kernel": "6.17.0-1022-azure",
+    "architecture": "x86_64",
+    "osRelease": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "cpuCount": 4,
+    "memoryInfo": "MemTotal:       16372432 kB\nMemFree:         7291408 kB\nMemAvailable:   14659096 kB\nBuffers:          209116 kB\nCached:          7125040 kB\nSwapCached:            0 kB\nActive:           983416 kB\nInactive:        6748152 kB\nActive(anon):     457232 kB\nInactive(anon):        0 kB\nActive(file):     526184 kB\nInactive(file):  6748152 kB\nUnevictable:       45384 kB\nMlocked:           42312 kB\nSwapTotal:       3145724 kB\nSwapFree:        3145724 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:            901152 kB\nWriteback:             0 kB\nAnonPages:        404960 kB\nMapped:           335800 kB\nShmem:             52464 kB\nKReclaimable:     439312 kB\nSlab:             558412 kB\nSReclaimable:     439312 kB\nSUnreclaim:       119100 kB\nKernelStack:        4208 kB\nPageTables:         6956 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    11331940 kB\nCommitted_AS:    2249172 kB\nVmallocTotal:   13743895347199 kB\nVmallocUsed:       38012 kB\nVmallocChunk:          0 kB\nPercpu:             2288 kB\nHardwareCorrupted:     0 kB\nAnonHugePages:    151552 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:    126976 kB\nFilePmdMapped:         0 kB\nCmaTotal:              0 kB\nCmaFree:               0 kB\nUnaccepted:            0 kB\nBalloon:               0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:      138368 kB\nDirectMap2M:     4050944 kB\nDirectMap1G:    14680064 kB\n",
+    "lsm": "lockdown,capability,landlock,yama,apparmor,ima,evm",
+    "runnerImage": "20261012.334.1",
+    "before": {
+      "tasks": [],
+      "mounts": [],
+      "cgroups": []
+    }
+  },
+  "cases": [
+    {
+      "id": "business.node-registration",
+      "status": "PASS",
+      "evidence": [
+        "node-registration.json",
+        "native.log"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.prepare",
+      "status": "PASS",
+      "evidence": [
+        "test-data.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.calibrate",
+      "status": "PASS",
+      "evidence": [
+        "calibration.json",
+        "preparation-requests.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.io",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.ce",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.re",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.signal",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.cpu",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.memory",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.output",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.empty",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "execution-observations.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.ac",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "ac-kafka.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.wa",
+      "status": "PASS",
+      "evidence": [
+        "live.json",
+        "wa-kafka.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.history",
+      "status": "PASS",
+      "evidence": [
+        "live.json"
+      ],
+      "details": {}
+    },
+    {
+      "id": "business.cleanup",
+      "status": "PASS",
+      "evidence": [
+        "live-idle.json",
+        "dependencies-after.json",
+        "native-resources-after.json"
+      ],
+      "details": {}
+    }
+  ],
+  "cleanup": {
+    "status": "PASS",
+    "evidence": "cleanup.json"
+  }
+}
