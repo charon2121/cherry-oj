@@ -122,9 +122,12 @@ class Stack:
             wait_health(PORTS[service])
 
     def browser_server(self, node):
+        # vite preview 沿用开发服务器的 /api 代理，目标端口来自 ports.env（本地联调用的 9080）；
+        # 这里的 gateway 在 PORTS['gateway']，用同名环境变量覆盖（vite.config.ts：同名环境变量优先）。
         self.unit('preview', [node, ROOT / 'apps/web/node_modules/vite/bin/vite.js', 'preview',
                              '--host', '127.0.0.1', '--port', '4173', '--strictPort'],
-                  memory=256, cwd=ROOT / 'apps/web')
+                  memory=256, cwd=ROOT / 'apps/web',
+                  environment=dict(CHERRY_GATEWAY_PORT=str(PORTS['gateway'])))
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             try:

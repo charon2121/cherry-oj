@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 from business_api import API, MAX_BODY, failure_kind, fixture_zip
-from business_config import DATABASES, create, environment
+from business_config import DATABASES, PORTS, create, environment
 from business_evidence import Evidence, uuid
 from business_journal import MAX_ENTRIES, fact, journal, service_facts
 from business_observer import Observer, verify_observations
@@ -235,6 +235,21 @@ class BusinessTests(unittest.TestCase):
             for i in range(1, 7):
                 self.assertEqual(sum(map(int, archive.read(f'{i}.in').split())), int(archive.read(f'{i}.out')))
         self.assertLess(len(fixture_zip()), 4096)
+
+    def test_web_preview_proxies_api_to_this_stacks_gateway(self):
+        # ports.env 是本地联调端口；不覆盖的话 preview 会把 /api 代理到 9080，登录页拿不到会话。
+        import business_stack
+        stack = business_stack.Stack.__new__(business_stack.Stack)
+        calls = []
+        stack.unit = lambda name, argv, **options: calls.append((name, options))
+        response = Mock(status=200)
+        response.read.return_value = b'<!doctype html>'
+        response.__enter__ = lambda self: self
+        response.__exit__ = lambda *args: None
+        with patch.object(business_stack.urllib.request, 'urlopen', return_value=response):
+            stack.browser_server('/node')
+        self.assertEqual(calls[0][0], 'preview')
+        self.assertEqual(calls[0][1]['environment'], {'CHERRY_GATEWAY_PORT': str(PORTS['gateway'])})
 
     def test_fresh_credentials_are_private_and_nonlocal_config_is_explicit(self):
         with tempfile.TemporaryDirectory() as temp:
