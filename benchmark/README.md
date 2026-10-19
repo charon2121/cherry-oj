@@ -1,8 +1,7 @@
 # benchmark
 
 针对 judge 与 sandbox 的正确性和安全性测试库：测试代码，加上测试所需的「用户提交的代码」。
-格式与运行结果的含义见 [benchmark 协议](../docs/protocols/benchmark.md)，设计与里程碑见
-[设计文档](../development/works/2026-10-08-judge-benchmark/design.md)。
+格式与运行结果的含义见 [benchmark 协议](../docs/protocols/benchmark.md)。
 
 **目前是 M5：** 判题部分 9 道题、47 个提交（其中 `core-add` 是 CORE 题），攻击样本 29 个，`judge` 与 `sandbox` 两个入口。
 

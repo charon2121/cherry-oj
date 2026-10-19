@@ -3,8 +3,7 @@
 > 本项目跨语言约定见 [`project-conventions.md`](../project-conventions.md)，通用编码指令见
 > [`general.md`](../general.md)。
 
-本仓库的 Python 不是业务代码，而是**工具代码**：`scripts/work`（可选工作记录助手）、
-`scripts/*_test.py`（文档与契约校验）、`deploy/sandbox-linux/ci/*.py`（按需沙箱回归）、
+本仓库的 Python 不是业务代码，而是**工具代码**：`scripts/*_test.py`（文档与契约校验）、`deploy/sandbox-linux/ci/*.py`（按需沙箱回归）、
 各服务的 `scripts/*.py`。它们服务于核心 CI 和按需验证，错误会影响开发或部署，所以约束比一般脚本严。
 
 ## 1. 零第三方依赖
@@ -60,10 +59,10 @@ ROOT = Path(__file__).resolve().parents[1]
 ## 5. 测试
 
 - **测试文件命名 `*_test.py`，不是 `test_*.py`。** 这是本仓库的约定（和 Go 一致），
-  `work_test.py`、`docs_test.py`、`contracts_test.py` 都如此。
+  `docs_test.py`、`contracts_test.py` 都如此。
 - **用标准库 `unittest`，不用 pytest**（见 §1）。测试类继承 `unittest.TestCase`。
-- 需要文件系统的测试用 `tempfile.TemporaryDirectory()` 建临时根，从
-  `development/templates` 复制所需骨架，**不要在真实仓库目录上跑写操作**。
+- 需要文件系统的测试用 `tempfile.TemporaryDirectory()` 建临时根，在里面造所需文件，
+  **不要在真实仓库目录上跑写操作**。
 - 校验类脚本（`docs_test.py`、`contracts_test.py`）本身也要有测试
   （`docs_test_test.py`），否则校验器静默失效时没人知道。
 

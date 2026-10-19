@@ -22,10 +22,8 @@ staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
 go_files=$(printf '%s\n' "$staged" | grep "^$ENGINE/.*\.go$" || true)
 json_files=$(printf '%s\n' "$staged" | grep '^contracts/.*\.json$' || true)
-development_files=$(printf '%s\n' "$staged" \
-    | grep -E '^(development/|scripts/work$|scripts/work_test\.py$)' || true)
 documentation_files=$(printf '%s\n' "$staged" \
-    | grep -E '^(docs/|development/|\.agents/skills/dev-work/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test(_test)?\.py$)' || true)
+    | grep -E '^(docs/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test(_test)?\.py$)' || true)
 web_format_files=$(printf '%s\n' "$staged" \
     | sed -n "s|^$WEB/||p" \
     | grep -E '\.(cjs|css|js|json|jsx|md|mjs|ts|tsx)$' || true)
@@ -103,13 +101,6 @@ except json.JSONDecodeError as e:
             fail=1
         fi
     done
-fi
-
-# ── development：工作入口与历史原件完整性 ────────────────
-if [ -n "$development_files" ] && ! work_out=$(scripts/work check 2>&1); then
-    echo "✗ 工作记录完整性校验失败："
-    printf '%s\n' "$work_out" | sed 's/^/    /'
-    fail=1
 fi
 
 if [ -n "$documentation_files" ]; then

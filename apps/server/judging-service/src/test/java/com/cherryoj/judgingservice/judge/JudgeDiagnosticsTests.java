@@ -22,7 +22,7 @@ import tools.jackson.databind.json.JsonMapper;
 class JudgeDiagnosticsTests {
 
     /**
-     * 13 门语言的真实编译、运行输出（development/works/2026-10-17-core-mode/rewrite-samples/）：用户文件前都有 3 行前缀，
+     * 13 门语言的真实编译、运行输出（测试资源 diagnostics/）：用户文件前都有 3 行前缀，
      * 在用户代码的某一行引用了未定义的名字。改写后，所有指向用户文件的位置都必须是用户自己的行号，且不再有沙箱目录。
      */
     @ParameterizedTest(name = "{0}")

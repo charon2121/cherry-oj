@@ -1,8 +1,7 @@
 # TASK-100 业务验收夹具
 
 仅通过已登录的 Cherry OJ 管理页/题目页执行。程序为本项目静态测试夹具，不含隐藏测试数据。
-资源类夹具只交给已核验的 Linux 后端；本机只做语法检查。切换对象、审批与回退步骤见
-[`TASK-100`](../../../../development/works/WORK-048/60-task-TASK-100.md)。
+资源类夹具只交给已核验的 Linux 后端；本机只做语法检查。业务闭环 CI（`.github/workflows/business.yml`）用这些夹具。
 
 ## 前置条件
 

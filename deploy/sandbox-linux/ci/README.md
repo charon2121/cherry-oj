@@ -21,10 +21,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 deploy/sandbox-linux/ci/basic.py --output /tmp
 - `business_prepare.py` 与 `business.py` 准备并验证 Java、Web、Kafka 与 Linux 判题节点的完整业务链路。
 - `cases.json`、`report.py` 和 `summary.py` 保存原回归清单与报告规则；旧汇总仍按原工作流的任务集合校验，不能用来汇总当前核心 CI。
 
-完整回归入口仍要求一次性、独占的 GitHub-hosted Linux/amd64 VM、运行身份和 root 权限，
-需要另行准备调用环境。不要在日常开发机或已有服务的服务器上运行；Mac 不运行资源耗尽夹具。
-本次精简没有改变测试断言、资源预算或清理逻辑。旧设计与验收证据保留在
-[WORK-050](../../../development/works/WORK-050/00-work.md) 及关联历史记录中。
+完整回归入口要求一次性、独占的 GitHub-hosted Linux/amd64 VM、运行身份和 root 权限。业务闭环由手动触发的
+`.github/workflows/business.yml` 调用（2026-10-19 起）。不要在日常开发机或已有服务的服务器上运行；Mac 不运行资源耗尽夹具。
 
 真实 Linux 隔离、资源计量与执行组回收不再由这里的脚本检验：它们由 [benchmark](../../../benchmark/README.md) 在
 真实节点上检验，执行器自己的协议与回收行为见 [apps/sandbox](../../../apps/sandbox/README.md) 的测试。

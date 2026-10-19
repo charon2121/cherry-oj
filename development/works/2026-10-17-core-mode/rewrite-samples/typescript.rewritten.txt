@@ -1,2 +1,0 @@
-solution.ts(5,45): error TS2304: Cannot find name 'missing'.
-

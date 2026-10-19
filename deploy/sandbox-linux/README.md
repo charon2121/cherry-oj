@@ -1,7 +1,7 @@
 # Linux 沙箱交付准备
 
-TASK-098已完成首站执行后端实机验证。TASK-099正在准备[原生节点部署包与安装清单](install/README.md)，正式安装与服务权限组合仍待实机验证。
-设计、支持矩阵及实施任务见 [WORK-048](../../development/works/WORK-048/00-work.md)。
+原生节点的部署包与安装清单见 [install/README.md](install/README.md)，安装布局见
+[安装布局协议](../../docs/protocols/install-layout.md)。
 
 ## 只读探针
 

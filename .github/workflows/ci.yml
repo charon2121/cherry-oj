@@ -22,12 +22,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: 契约、文档校验器与记录工具测试
+      - name: 契约与文档校验器测试
         run: python3 -m unittest discover -s scripts -p '*_test.py'
-      - name: 文档链接与历史原件完整性
-        run: |
-          python3 scripts/docs_test.py
-          scripts/work check
+      - name: 文档链接
+        run: python3 scripts/docs_test.py
 
   go:
     name: judge-engine (Go)

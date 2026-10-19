@@ -1,2 +1,0 @@
-# command-line-arguments
-./solution.go:10:24: undefined: missing

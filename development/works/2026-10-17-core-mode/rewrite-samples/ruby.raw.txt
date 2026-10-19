@@ -1,9 +1,0 @@
-Syntax OK
-/w/solution.rb:10:in `block in two_sum': undefined local variable or method `missing' for main (NameError)
-
-    return [seen[target - x], i + missing] if seen.key?(target - x)
-                                  ^^^^^^^
-	from /w/solution.rb:9:in `each'
-	from /w/solution.rb:9:in `each_with_index'
-	from /w/solution.rb:9:in `two_sum'
-	from main.rb:7:in `<main>'

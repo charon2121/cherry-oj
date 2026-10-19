@@ -356,8 +356,8 @@ EventEnvelope {
 
 ## 7. CORE 模式
 
-CORE 不是一种新的判题协议。一次 CORE 判题由两个文件组成（2026-10-17 取代原"唯一占位符替换"，
-依据见 [`development/works/2026-10-17-core-mode/`](../development/works/2026-10-17-core-mode/design.md)）：
+CORE 不是一种新的判题协议。一次 CORE 判题由两个文件组成（2026-10-17 取代原"唯一占位符替换"；
+LeetCode/LintCode 实测与 13 门语言的输出样例见提交 `97e4626` 及其后的 CORE 提交）：
 
 | 文件 | 内容 | 来源 |
 |---|---|---|

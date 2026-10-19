@@ -35,7 +35,7 @@ class RepositoryTargetTest(unittest.TestCase):
         tracked = {self.root / "docs" / "README.md"}
         self.assertFalse(repository_target_is_tracked(target, tracked))
 
-    def test_skill_reference_is_checked_with_other_document_links(self) -> None:
+    def test_entrypoint_links_are_checked_like_other_document_links(self) -> None:
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch).resolve()
             entrypoints = tuple(root / path.relative_to(docs_test.ROOT) for path in docs_test.ACTIVE_ENTRYPOINTS)
@@ -43,14 +43,14 @@ class RepositoryTargetTest(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("# 入口\n", encoding="utf-8")
             (root / ".gitignore").write_text("", encoding="utf-8")
-            skill = root / ".agents/skills/dev-work/SKILL.md"
-            skill.parent.mkdir(parents=True, exist_ok=True)
-            skill.write_text("# Skill\n\n[依据](../../../development/missing.md)\n", encoding="utf-8")
-            tracked = set(entrypoints) | {skill}
+            agents = root / "AGENTS.md"
+            agents.write_text("# 入口\n\n[协议](./docs/protocols/missing.md)\n", encoding="utf-8")
+            tracked = set(entrypoints)
             with patch.object(docs_test, "ROOT", root), patch.object(docs_test, "ACTIVE_ENTRYPOINTS", entrypoints), patch.object(docs_test, "tracked_paths", return_value=tracked), patch("sys.stdout", new_callable=io.StringIO), patch("sys.stderr", new_callable=io.StringIO):
                 self.assertEqual(docs_test.main(), 1)
-                target = root / "development/missing.md"
-                target.write_text("# 实际依据\n", encoding="utf-8")
+                target = root / "docs/protocols/missing.md"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("# 协议\n", encoding="utf-8")
                 tracked.add(target)
                 self.assertEqual(docs_test.main(), 0)
 
