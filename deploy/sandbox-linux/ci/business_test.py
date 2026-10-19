@@ -253,6 +253,10 @@ class BusinessTests(unittest.TestCase):
             for name in DATABASES:
                 self.assertIn('/cherry_ci_' + name, env['CHERRY_' + name.upper() + '_DB_URL'])
             self.assertTrue(all('application-local' not in value for value in env.values()))
+            # 原生节点的 judge 用户要按地址读测试数据：根目录不能在 0700 的私有目录里，且自身可遍历。
+            testdata = Path(env['CHERRY_TEST_DATA_ROOT'])
+            self.assertFalse(testdata.is_relative_to(root / 'a'))
+            self.assertEqual(testdata.stat().st_mode & 0o777, 0o755)
 
     def test_mutating_http_failure_is_not_retried_or_logged_with_secret_body(self):
         api = API()

@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.request
 
-from business_config import IMAGES, PORTS, SERVICES, create
+from business_config import IMAGES, PORTS, SERVICES, create, testdata_root
 from business_journal import journal
 from business_resources import Dependencies
 from command import run
@@ -50,7 +50,7 @@ class Stack:
         run(['bash', ROOT / 'scripts/identity-keys', 'init', PRIVATE / 'keys'], self.output / 'keys.log', 20)
         run(['bash', ROOT / 'scripts/service-identity-keys.sh', PRIVATE / 'service-identity'],
             self.output / 'service-identity-keys.log', 20)
-        for path in [PRIVATE, *PRIVATE.rglob('*')]:
+        for path in [PRIVATE, *PRIVATE.rglob('*'), testdata_root(PRIVATE)]:
             os.chown(path, self.runner.pw_uid, self.runner.pw_gid)
         # Mounted individual files must be readable by the containers' own non-root users.
         # The host parent remains mode 0700; neither file is part of public artifacts.

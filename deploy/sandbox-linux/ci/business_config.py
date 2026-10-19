@@ -17,6 +17,13 @@ def private(path, text):
     return path
 
 
+def testdata_root(directory):
+    """测试数据根目录：problem-service 写、原生节点的 judge 用户按地址读，所以不能放在 0700 的私有目录里，
+    放在它旁边、权限 0755；清理时随 BASE 一起删除。"""
+    directory = Path(directory)
+    return directory.parent / (directory.name + '-testdata')
+
+
 def environment(directory, credentials):
     directory = Path(directory)
     env = dict(SPRING_PROFILES_ACTIVE='test', SERVER_ADDRESS='127.0.0.1',
@@ -27,7 +34,7 @@ def environment(directory, credentials):
                CHERRY_IDENTITY_METADATA_URI='http://127.0.0.1:8081/internal/identity/metadata',
                CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:' + str(directory / 'keys/active-private.pem'),
                CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:' + str(directory / 'keys/active-public.pem'),
-               CHERRY_TEST_DATA_ROOT=str(directory / 'problem-testdata'),
+               CHERRY_TEST_DATA_ROOT=str(testdata_root(directory)),
                CHERRY_JUDGE_CONTROL_TOKEN=credentials['control'],
                CHERRY_SUBMISSION_ACCEPTING='true', CHERRY_SUBMISSION_MESSAGING_ENABLED='true',
                CHERRY_FORMAL_JUDGING_ENABLED='true', CHERRY_CUSTOM_RUN_ENABLED='true',
@@ -51,6 +58,9 @@ def create(directory):
     directory = Path(directory)
     directory.mkdir(mode=0o700)
     (directory / 'logs').mkdir(mode=0o700)
+    testdata = testdata_root(directory)
+    testdata.mkdir()
+    testdata.chmod(0o755)
     credentials = {key: secrets.token_hex(32) for key in (*DATABASES, 'root', 'redis', 'control')}
     credentials.update(username='ci_admin', initialPassword='Ci-A!' + secrets.token_hex(16),
                        password='Ci-B!' + secrets.token_hex(16))
