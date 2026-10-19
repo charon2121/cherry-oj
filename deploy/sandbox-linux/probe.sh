@@ -1,5 +1,5 @@
 #!/bin/sh
-# TASK-093: inventory only. No files, cgroups, namespaces or services are created.
+# Inventory only. No files, cgroups, namespaces or services are created.
 # Exit 0 means inventory completed, never that isolation is supported.
 set -u
 export LC_ALL=C

@@ -207,7 +207,7 @@ Query key factory、失效范围、重试策略和 loader 预取规则见
 
 ### 4.4 代码草稿
 
-- WORK-041 使用 localStorage 同步保存小型单文件草稿，键包含版本化命名空间（当前 v2）及
+- 做题页编辑器使用 localStorage 同步保存小型单文件草稿，键包含版本化命名空间（当前 v2）及
   `userId + problemId + languageId`（题目没有版本，管理员改题不影响本机草稿）。每页面 writer 使用独立恢复副本，
   revision、父 revision 和合并记录用于发现分支；不把“读后写”当成原子 CAS。
 - 约 500ms 防抖保存，空字符串是有效草稿；pagehide/unmount flush 到旧身份键。UTF-8 256 KiB

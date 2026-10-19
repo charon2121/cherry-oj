@@ -57,7 +57,7 @@ async function generateLock() {
     modified: {
       for: "Cherry OJ",
       date: "2026-09-03",
-      summary: "Records the unmodified 99-file visual source snapshot used by WORK-034."
+      summary: "Records the unmodified 99-file visual source snapshot (frozen 2026-09-03)."
     },
     sourceDirectory: "source/claude-design-v1",
     fileCount: files.length,

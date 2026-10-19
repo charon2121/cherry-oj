@@ -16,7 +16,7 @@ def main():
     manifest_hash = manage.digest(manage.ETC / 'deployment.json')
     sentinel = manage.STATE / 'judge/.work048-uninstall-retention'
     with sentinel.open('xb') as stream:
-        stream.write(b'WORK-048 retained data check\n')
+        stream.write(b'retained data check\n')
     sentinel.chmod(0o600)
     os.chown(sentinel, 61010, 61010)
     sentinel_hash = manage.digest(sentinel)

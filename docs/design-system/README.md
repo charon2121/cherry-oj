@@ -10,7 +10,7 @@ production dual-theme interpretation for Cherry OJ.
 追溯，**不持有任何设计值**——token、主题、合同、adapter 和校验器的唯一真源是
 `apps/web/design-system/`。
 
-WORK-035 之前，本目录还存放着与代码树字节相同的 token、主题、合同、adapter 和一份 1336 行的校验器。
+2026-09 中旬以前，本目录还存放着与代码树字节相同的 token、主题、合同、adapter 和一份 1336 行的校验器。
 那份副本没有消费者，也没有任何机制保证它与真源一致，只是让每次改动都要在两处各做一遍。现在它们
 已被删除：需要查某个值，去代码树；需要查这个值凭什么是这样，看 `source/`。
 

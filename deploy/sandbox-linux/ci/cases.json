@@ -392,7 +392,7 @@
     {
       "id": "machine-reboot",
       "status": "deferred",
-      "reason": "TASK-108用户明确留置"
+      "reason": "用户明确留置：机器重启恢复未授权验证"
     },
     {
       "id": "other-linux",

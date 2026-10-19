@@ -94,7 +94,7 @@ judge:
     requestTimeout: 5s
 
 # Linux 执行器的 stdout/stderr 每路硬界为 1MiB；启用 linux 后端时同时把
-# judge.output.stdoutMaxBytes、stderrMaxBytes 设为 1048576，并使用新节点身份重新校准。其他Linux节点部署材料见WORK-048/TASK-099。
+# judge.output.stdoutMaxBytes、stderrMaxBytes 设为 1048576，并使用新节点身份重新校准。其他Linux节点部署材料见 deploy/sandbox-linux/install/README.md。
 
 
 # judge 在本进程内装配的执行层。环境变量前缀 CHERRY_OJ_EXECUTION_：

@@ -175,7 +175,7 @@ Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验�
 ## 当前明确还没有的工具
 
 数据库与资源服务器能力只按服务职责引入：user-service、problem-service 和 judging-service 已拥有各自
-MySQL 持久化/Flyway 与 Spring Security，submission-service 在 WORK-002 中新增 MyBatis + MySQL/Flyway 与 Kafka，用于冻结输入、幂等请求、Outbox/Inbox 和结果查询。
+MySQL 持久化/Flyway 与 Spring Security，submission-service 在 C++ ACM 首个切片中新增 MyBatis + MySQL/Flyway 与 Kafka，用于冻结输入、幂等请求、Outbox/Inbox 和结果查询。
 Kafka 依赖只进入正式消息链所在模块；未引入新的服务注册或可观测性后端。这不是遗漏说明，而是当前实施阶段的真实边界。
 
 当任务需要这些能力时，应单独说明：由哪个服务拥有、解决哪个业务问题、失败策略是什么、怎样测试，以及是否改变跨服务契约。不要因为架构路线图提过某项技术，就提前把依赖装进所有模块。
@@ -212,7 +212,7 @@ Kafka 依赖只进入正式消息链所在模块；未引入新的服务注册�
 5. 为业务行为补测试，从 `apps/server` 运行 `./mvnw clean verify`。
 6. 同步更新本说明；涉及跨语言 DTO 时，同时核对 `contracts/`，不能在 Java 侧另造字段。
 
-## WORK-002 提交服务新增配置
+## 提交服务新增配置
 
 submission-service 使用 `spring-boot-starter-kafka` 与 MyBatis 4.0.1，版本由已有 Spring Boot BOM/既有 MyBatis 版本决定；
 Flyway 按同仓服务显式初始化，新增迁移不清理既有数据。Testcontainers MySQL/Kafka 仅用于测试。

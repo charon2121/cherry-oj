@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          'WORK-034 冻结来源中的 14 个核心配方。通过工具栏切换 Cherry Black 与 Pure White；两者共享结构、密度和状态层级。',
+          '冻结来源中的 14 个核心配方。通过工具栏切换 Cherry Black 与 Pure White；两者共享结构、密度和状态层级。',
       },
     },
   },

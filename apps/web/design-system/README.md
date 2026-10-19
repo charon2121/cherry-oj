@@ -6,7 +6,7 @@ creating a runtime dependency on repository documentation.
 
 # Cherry OJ Web 设计系统代码包
 
-本目录是 `apps/web` 唯一的可执行设计系统真源。WORK-034 以
+本目录是 `apps/web` 唯一的可执行设计系统真源。2026-09-03 起以
 `docs/design-system/source/claude-design-v1/` 中冻结的 99 文件 Claude Design 产物为视觉与构图依据，
 在这里转换成 React、TypeScript、Tailwind、Base UI 和可访问性检查可直接消费的生产合同。Web 的安装、
 构建、Storybook 与 E2E 不读取 `docs/`，也不执行下载包中的 demo 代码。

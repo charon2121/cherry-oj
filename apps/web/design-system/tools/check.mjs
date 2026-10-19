@@ -102,7 +102,7 @@ function createExpectedContractShape() {
   for (const name of ["--ds-fg", "--ds-fg-2", "--ds-fg-muted", "--ds-fg-meta"]) {
     define(name, "color", "text", neutralSurfaces);
   }
-  // Disabled text is deliberately NOT held to the 4.5:1 text threshold (WORK-036 / DECISION-020).
+  // Disabled text is deliberately NOT held to the 4.5:1 text threshold (deliberate, see design-system.md: fg-disabled).
   // WCAG 2.2 SC 1.4.3 exempts text in inactive user interface components, and requiring a disabled
   // label to be as legible as live text is what previously collapsed fg-muted, fg-meta and
   // fg-disabled onto one grey — erasing the difference between "extra information" and
@@ -499,7 +499,7 @@ function verifyTheme(theme, contract, css, selectorBlock) {
   // value makes `build.mjs --check` (and verifyGeneratedOutputs below) report a stale output.
   // A hand-copied table here would be a second, unverifiable transcription of the same values.
   // --ds-fg-disabled is exempt from the 4.5:1 text threshold, so nothing else would notice if it
-  // drifted back onto --ds-fg-meta. That collapse is exactly the defect WORK-036 fixed: when
+  // drifted back onto --ds-fg-meta. That collapse is exactly the defect fixed in 2026-09: when
   // "unavailable" and "extra information" share a grey, a disabled control stops looking disabled.
   // Assert the ladder instead of the threshold — disabled must read measurably weaker than meta.
   // Only run once the ladder is actually present: missing or malformed tokens are already
@@ -789,7 +789,7 @@ async function run() {
       fail(`${theme.id} contains a Linear purple value`);
     }
     if (/#de1c4e|#dd2c53|#d7194b|#c01242|#f9667a|#ff8494|#a70f38/i.test(css)) {
-      fail(`${theme.id} contains a retired pre-WORK-034 Cherry value`);
+      fail(`${theme.id} contains a retired pre-2026-09 Cherry value`);
     }
   }
 
@@ -910,7 +910,7 @@ async function runSelfTest() {
         const meta = themeCss.match(/--ds-fg-meta:\s*([^;]+);/)?.[1]?.trim();
         const disabled = themeCss.match(/--ds-fg-disabled:\s*([^;]+);/)?.[1]?.trim();
         if (!meta || !disabled) throw new Error("cherry-black fixture does not declare the fg ladder");
-        // The pre-WORK-036 defect: disabled silently drifts back onto the metadata grey.
+        // The earlier defect: disabled silently drifts back onto the metadata grey.
         await writeFile(themePath, themeCss.replace(`--ds-fg-disabled: ${disabled};`, `--ds-fg-disabled: ${meta};`), "utf8");
         await runFixtureBuild();
       },
@@ -927,7 +927,7 @@ async function runSelfTest() {
         // #de1c4e is a retired value the checker legitimately blacklists, not a current one.
         await writeFile(themePath, themeCss.replace(`--ds-brand-surface: ${current};`, "--ds-brand-surface: #de1c4e;"), "utf8");
       },
-      "contains a retired pre-WORK-034 Cherry value"
+      "contains a retired pre-2026-09 Cherry value"
     );
 
     await expectFailure(

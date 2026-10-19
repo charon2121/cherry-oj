@@ -814,7 +814,7 @@
         "Hidden mobile panels are inert; desktop panels are independent regions"
       ],
       "constraints": [
-        "WORK-041: run and submit are disabled with a readable explanation",
+        "Run and submit are disabled with a readable explanation",
         "Desktop CodeEditor uses locally bundled async Monaco; mobile touch uses TextEditor",
         "Parent owns source identity; dispose editor/model on identity change; theme changes preserve undo",
         "Drafts are per account/problem/version/language and remain in this browser"

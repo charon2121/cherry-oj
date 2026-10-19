@@ -4,7 +4,7 @@
 > 后续 Web 组件、业务组件和页面的视觉与交互合同。
 >
 > **系统的来历要说准确，因为说错过。** token 结构、主题合同、Tailwind adapter 与校验器由
-> WORK-015 在 2026-08-28 建立；Claude Design 下载版 2026-09-03 引入并冻结，颜色与光学间距派生自它；
+> 2026-08-28 建立；Claude Design 下载版 2026-09-03 引入并冻结，颜色与光学间距派生自它；
 > 排版刻度与本文 §7.2 的结构原则来自 2026-09-04 对一份 Figma 社区还原的实测；2026-10-16 改以
 > **linear.app 真实页面**的实测为准，骨架、字重、线宽、浮层材质与暗色明度台阶据此重定，数值记录在
 > [`design-system/measurements.md`](./design-system/measurements.md)。
@@ -33,7 +33,7 @@
 
 **设计值只有一处手写定义**，在 `apps/web/design-system/` 的 `tokens.foundation.css` 与 `themes/*.css`。
 其余出现该值的地方必须是生成物（`tokens.css`、`design-tokens.json`）或冻结来源。文档不复述具体值——
-复述出来的那一份迟早会和真源对不上，WORK-035 之前就是这样：同一个品牌色散落在 7 个文件里，
+复述出来的那一份迟早会和真源对不上，早先就是这样：同一个品牌色散落在 7 个文件里，
 其中两个还是负责检查它对不对的校验器。
 
 `docs/design-system/` 不参与构建，也不持有任何设计值；删除它不得影响 Web 的 `npm ci`、开发服务器、
@@ -182,7 +182,7 @@ default、hover、pressed、focus-visible、disabled 和 loading；disabled 不�
 [`guidelines/`](./design-system/source/claude-design-v1/guidelines/)；
 它们用于评审，不是 token 或组件行为的真源。
 
-WORK-034 的来源核心配方为 Button、IconButton、Pill、Input、SearchInput、Textarea、Container、Stack、
+冻结来源的核心配方为 Button、IconButton、Pill、Input、SearchInput、Textarea、Container、Stack、
 NavBar、Badge、Card、Eyebrow、Heading 与 Text。生产实现保留其 anatomy、精确密度、surface、圆角和状态层级，
 同时把原型中的 clickable span、随机 id、鼠标状态、inline style 与手写 SVG 转换成原生语义、`useId`、CSS
 状态、共享 class 与 Lucide。Dialog、Popover、Sheet、Sidebar、Select、Notice 和 TextEditor 属于 Cherry OJ
@@ -198,7 +198,7 @@ NavBar、Badge、Card、Eyebrow、Heading 与 Text。生产实现保留其 anato
 - 长 Markdown、长纯文本和后台代码使用项目统一的 `TextEditor`/`MarkdownEditor`。当前基线采用
   CodeMirror 6；项目维护 React 适配、Cherry 主题、有限扩展与可访问性合同，不 fork、复制或自行维护
   上游编辑器内核。
-- WORK-041 按用户指定在题目编码区采用 `CodeEditor`（Monaco 0.56，本地异步 ESM/C++/worker），
+- 按用户指定在题目编码区采用 `CodeEditor`（Monaco 0.56，本地异步 ESM/C++/worker），
   手机触控端回退 CodeMirror `TextEditor size="fill"`。后台基础 Markdown/C++ 录入仍使用 CodeMirror。
   新增 Monaco 使用点须在 DESIGN 中说明收益、移动端边界和 bundle 代价，不扩散为普通长文本组件。
 - 用户答题页面使用 `WorkbenchPageTemplate variant="coding"`，顶部是面包屑一行。宽屏用 `SplitPane`
@@ -389,7 +389,7 @@ diff——它能指到具体是哪个元素的哪个属性变了，而截图只�
 Web 的 Foundation 已登记默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color
 scheme、首屏防闪和主题偏好合同。可执行资产与内部合同位于 `apps/web/design-system/`；
 Web 的 install/check/dev/build/Storybook/E2E 不读取 `docs/`。这条不是声明而是被验证过的事实：
-WORK-035 把 `docs/` 整个移出仓库后重跑了全套命令，check、build、Storybook 与 E2E 均通过。
+曾把 `docs/` 整个移出仓库后重跑全套命令，check、build、Storybook 与 E2E 均通过。
 `contracts/web-api.openapi.json` 的 OpenAPI 生成检查仍是 Web 明确保留的 monorepo 契约依赖，
 不属于设计文档依赖。
 
@@ -400,7 +400,7 @@ WORK-035 把 `docs/` 整个移出仓库后重跑了全套命令，check、build�
 共享 UI 与 Storybook 已迁移到 14 个来源核心配方及同语法生产扩展。切换入口只在这两个正式主题间
 工作，沿用同一偏好 key 和无闪烁首屏流程，不新增“旧系统/新系统”开关。
 
-**已解决**（WORK-036）：前景色四档已恢复，两个主题的全部允许 surface 上均 ≥4.5:1；
+**已解决**：前景色四档已恢复，两个主题的全部允许 surface 上均 ≥4.5:1；
 `fg-disabled` 移出正文约束，成为独立的第五个前景色，"不可用"重新可辨。
 `data-table-list` 与 `app-shell-navigation` 已有实现（`DataList`、`app/shells/`）；
 业务层不再直接消费 `--ds-*`，由 lint 拦截。

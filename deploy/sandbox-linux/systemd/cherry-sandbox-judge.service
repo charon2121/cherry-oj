@@ -20,7 +20,7 @@ CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN 
 # 执行器靠 setuid 取得特权，因此这里不能设置 NoNewPrivileges，也不能设置任何对非 root 服务
 # 隐含 NoNewPrivileges 的选项（RestrictAddressFamilies、LockPersonality、ProtectKernel*、
 # RestrictSUIDSGID、RestrictNamespaces 等基于 seccomp 的硬化）；cgroupfs 也必须可写
-# （不能设置 ProtectControlGroups）。这是 WORK-061 明确接受的代价，其余隔离保留：
+# （不能设置 ProtectControlGroups）。这是 2026-09-30 把执行层并入 judge 时明确接受的代价，其余隔离保留：
 ProtectSystem=strict
 ReadWritePaths=/opt/cherry-oj/judge /sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service
 ProtectHome=yes

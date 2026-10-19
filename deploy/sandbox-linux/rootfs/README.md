@@ -8,7 +8,7 @@
 {"version":1,"architecture":"amd64","layout":"usr-merged","source":"发行版快照的可追溯 URL/日期","packages":[{"file":"实际文件.deb","package":"实际包名","version":"完整版本","architecture":"amd64","sha256":"实际包 SHA-256"}]}
 ```
 
-准备 C++ 编译器、binutils、运行库、动态加载器、提供 `/usr/bin/true` 的 coreutils 及其完整依赖，同时保留包内 `usr/share/doc/*/copyright`。不得删除来源许可证。首个可交付包锁须在 TASK-098 的目标工具链验证后固定，当前 [ubuntu24-amd64-smoke.lock.json](./ubuntu24-amd64-smoke.lock.json) 的56包集合已通过 Ubuntu 24.04 / Linux 6.8 / amd64 有界 C++ 编译运行冒烟；尚未通过完整安全验收，不能作为正式节点版本承诺。
+准备 C++ 编译器、binutils、运行库、动态加载器、提供 `/usr/bin/true` 的 coreutils 及其完整依赖，同时保留包内 `usr/share/doc/*/copyright`。不得删除来源许可证。当前 [ubuntu24-amd64-smoke.lock.json](./ubuntu24-amd64-smoke.lock.json) 的56包集合已通过 Ubuntu 24.04 / Linux 6.8 / amd64 有界 C++ 编译运行冒烟；尚未通过完整安全验收，不能作为正式节点版本承诺。
 
 ```sh
 python3 deploy/sandbox-linux/rootfs/build.py \
@@ -21,7 +21,7 @@ python3 deploy/sandbox-linux/rootfs/build.py \
 
 运行时将整个版本目录安装为 root 所有、非 root 不可写，sandbox 的启动配置固定 rootfs、manifest 路径与 manifest 摘要。sandbox 启动脚本（install/sandbox-start.py）逐项校验，额外文件、缺失文件、摘要或权限不符均拒绝启动；不通过重新生成摘要来掩盖部署偏差。执行器每次把这棵树只读挂进隔离环境，payload 的请求不能选择挂载来源。
 
-测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/sandbox-linux/rootfs -p '*_test.py'`。这些测试只验证清单和文件处理，实际 g++ 编译/链接及隔离运行证据见 WORK-048/VERIFY-049；其他环境仍待运行。
+测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/sandbox-linux/rootfs -p '*_test.py'`。这些测试只验证清单和文件处理，实际 g++ 编译/链接及隔离运行由 Benchmark 工作流在真实节点上验证。
 
 judge 开放 HTTP 端口前，进程内执行层会通过执行器运行 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 judge 当作只读探测。
 

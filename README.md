@@ -23,7 +23,7 @@
 - [Java 服务工具链说明](./apps/server/TOOLCHAIN.md)：Maven、Spring Boot Parent、BOM、Plugin 和 Starter 的区别。
 
 这些应用文档解释“怎样工作、工具为何存在”；全局产品边界见 [`docs/product.md`](./docs/product.md)，
-具体功能的历史验收口径可从对应工作短说明进入原定义与验证资料。
+功能的来由与取舍见对应提交说明。
 
 ## Docker Compose 启动
 

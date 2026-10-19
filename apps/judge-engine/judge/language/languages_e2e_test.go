@@ -11,7 +11,7 @@ import (
 	"cherry-oj/judge-engine/judge/language"
 )
 
-// 可信功能夹具需容纳CI首次加载工具链的等待，依据见WORK-050/TASK-115。
+// 可信功能夹具需容纳CI首次加载工具链的等待（冷启动实测过长时间）。
 // 诊断仍显式测原5秒；生产、运行期限和严格资源回归不受影响。
 var compileClock = flag.Duration("language-compile-clock", 15*time.Second, "trusted language fixture compile deadline (0 < deadline <= 30s)")
 

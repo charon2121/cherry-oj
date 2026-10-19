@@ -99,6 +99,6 @@ Maven jar 插件在打包前排除所有 application-local.*，Boot repackage �
 Docker context 也排除源码私有文件；镜像只复制已验证 JAR，不复制开发 resources/target 目录。
 发布 JAR 由部署环境提供秘密，不依靠本地 YAML。检查最终 JAR，不能只检查 Git 忽略规则。
 
-本轮原配置备份位于 `apps/server/.local/backups/WORK-046-*/`，目录不入 Git。
+原配置备份位于 `apps/server/.local/backups/`，目录不入 Git。
 原 .properties 私有值已迁移并保留备份；数据库密码与账号权限没有改变。
 回退应先停止相应服务，恢复原 YAML、私有文件、POM 及启动项；不删除数据卷或重置密码。

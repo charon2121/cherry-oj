@@ -1,6 +1,4 @@
-# 原生节点安装准备（TASK-099）
-
-2026-09-10经用户明确“安装”，首站已安装并启动三个原生服务，最终新节点cherry-linux-2通过SSH隧道注册为REGISTERED（cherry-linux-1保留为收敛权限前的历史环境），原环境仍ACTIVE。正式权限组合、C++编译执行、全部线程降权、24项资源限额、缺配置/清单/isolator拒绝及恢复已实机验证，证据见WORK-048的VERIFY-049。正式单元在途崩溃、卸载/恢复和权限删减对照已完成；机器重启未授权、未验证，业务校准与验收属于TASK-100。最终结果见VERIFY-049。
+# 原生节点安装
 
 ## 首次部署清单
 
@@ -12,7 +10,7 @@
 | 并发 / 队列 | `render.py --parallelism N`（1～256，默认 1）/ 4；并发数同时决定执行器的 `box_count`、judge 的 `parallelism` 和创建的账号数 |
 | 家目录 | **`/opt/cherry-oj`**：本项目在节点上的全部持久文件都在这里，卸载清理只看这一处。例外只有 systemd 单元（`/etc/systemd/system`）与 cgroup（按 cgroup v2 的位置） |
 | 目录布局 | `etc/` 配置（root 所有）、`releases/<版本>/` 与 `current` 链接、`judge/{boxes,blobs,testdata,logs}`（服务用户所有，工作区）、`operations/` 运维脚本、`installation.json` 回执 |
-| 单元 | cherry-sandbox.slice、cherry-sandbox-judge.service（执行层在 judge 进程内，WORK-061） |
+| 单元 | cherry-sandbox.slice、cherry-sandbox-judge.service（执行层在 judge 进程内，2026-09-30 起） |
 | 资源限制 | 只加在每次执行的组上（由执行器按请求设置）；slice、judge 服务、supervisor 和 jobs 不设总量上限，也不核对 |
 | 隔离执行器 | releases/<版本>/libexec/sandbox，root:cherry-judge 4754（setuid-root，仅 judge 组可执行；其他人可读，供部署清单核对摘要） |
 | 监听地址 | judge 127.0.0.1:15051 |
@@ -22,7 +20,7 @@
 
 隔离由 setuid-root 的一次性执行器（apps/sandbox）完成，没有常驻特权进程。执行器需要的八项能力（SYS_ADMIN、SETUID、SETGID、SETPCAP、CHOWN、DAC_OVERRIDE、MKNOD、KILL；KILL 用于执行器意外死亡时让 init 的 PDEATHSIG 生效）以 judge 服务单元的能力边界集为唯一真源：setuid 取得的能力不会超出它；judge 进程本身非 root、没有任何有效能力。payload/init 全部线程最终 cap 集合为零、NNP=1。verify-capabilities.py 逐项删除八项能力，每次 judge 都必须在执行层启动冒烟时失败。
 
-代价：为了让 setuid 生效，judge 服务单元不能设置 NoNewPrivileges，也不能设置对非 root 服务隐含它的 seccomp 类硬化（RestrictAddressFamilies、LockPersonality、ProtectKernel*、RestrictSUIDSGID、RestrictNamespaces 等），也不能设置 ProtectControlGroups（cgroupfs 必须可写）。合并前这些让步只落在不联网的 sandbox 服务上，合并后落在要连控制面的 judge 上，这是 WORK-061 明确接受的取舍；judge 仍保留 ProtectSystem=strict、ProtectHome、PrivateTmp 与只允许本机的 IP 访问控制。
+代价：为了让 setuid 生效，judge 服务单元不能设置 NoNewPrivileges，也不能设置对非 root 服务隐含它的 seccomp 类硬化（RestrictAddressFamilies、LockPersonality、ProtectKernel*、RestrictSUIDSGID、RestrictNamespaces 等），也不能设置 ProtectControlGroups（cgroupfs 必须可写）。合并前这些让步只落在不联网的 sandbox 服务上，合并后落在要连控制面的 judge 上，这是 2026-09-30 把执行层并入 judge 时明确接受的取舍；judge 仍保留 ProtectSystem=strict、ProtectHome、PrivateTmp 与只允许本机的 IP 访问控制。
 
 回环监听防止外部直接访问；HTTP没有新增应用层鉴权，宿主root/运维及云代理属于可信域。任务network namespace无法访问宿主回环。不能把此配置用于存在恶意宿主普通用户的共享机器并宣称按Judge身份鉴权。
 
@@ -89,13 +87,3 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build ./...
 ```
 
 systemd行为参考官方[委派说明](https://github.com/systemd/systemd/blob/main/docs/CGROUP_DELEGATION.md)与[服务执行选项](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml)。发行版名称不代替运行验证；首轮部署只准备Ubuntu24.04/systemd255/amd64，其他配置仍须独立验证。
-
-本轮完整候选包已生成在项目忽略目录`.local/work048-linux-v1-bundle`：含release/bin、固定manifest/包锁、rootfs.tar.gz、review、install脚本及SHA256SUMS。最终rootfs由已有镜像内的Linux tmpfs构建（无网络、768MiB内存/64进程/CPU100%、512MiB tmpfs），与TASK-098固定摘要一致；不是未核验的新rootfs。错误的macOS共享目录构建仅留作本地差异证据，不进入候选包。
-
-正式授权后，候选包先传到本轮独占`/var/tmp/cherry-sandbox-work048-linux-v1`（root700），校验SHA256SUMS，再`tar --no-same-owner -xzf rootfs.tar.gz -C release`。安装器只接受完整release-source目录。控制面token另存0600私有文件，不打包；准备目录在保留审计后按本项目所有权清理。
-
-本次原22文件归档保留为安装历史；实测修订后的目录现有24文件及新SHA256SUMS，新增两项原生验证脚本，另存`work048-linux-v1-bundle-revised.tar.gz`供后续初装。已装单元变更在首次注册前完成，旧单元/清单/回执及新旧摘要保存在installation-revisions/001-isolator-setuid；持久运维工具在002-operations，实测日志在003-install-verification。临时上传token已删除，准备目录其余材料保留供审计；不要把旧归档当成修订版安装包。
-
-正式isolator崩溃曾发现遗留socket inode误报就绪，已修正为同时检查/proc/net/unix监听态；不以连接半开协议占用槽位。生产部署不使用测试drop-in。verify-faults.py逐项选择judge/sandbox/isolator，verify-uninstall.py验证保留数据并restore/start，verify-capabilities.py只缩小isolator权限作对照；它们会短暂停止新节点，只能串行、在排空后运行。权限对照最长120s，其余驱动90s，每次外层128MiB/swap0/32tasks/CPU50%。
-
-最终交付使用`.local/work048-linux-mincaps-bundle.tar.gz`（27文件及SHA256SUMS），节点ID为cherry-linux-2、isolator七项能力；较早的v1/revised归档只保留历史。故障恢复、卸载恢复和能力对照的最终日志在installation-revisions/007-task099-final。
