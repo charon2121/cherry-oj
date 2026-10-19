@@ -47,5 +47,4 @@ Java 21 LTS。下面只写本仓库反复出现、且容易写歪的部分。
 
 - 排版只由格式化器决定：[Palantir Java Format](https://github.com/palantir/palantir-java-format)（4 空格缩进、120 列），
   经 Spotless 接入 Maven。改完跑 `cd apps/server && ./mvnw spotless:apply`；`verify` 与 pre-commit 会拦住没格式化的代码。
-- 评审不讨论排版。格式化器不会替你改结构：`if (...) throw ...` 这类省略大括号的写法、一行声明多个变量，
-  它只换行不改写，新代码不要这样写。
+- 能通过格式化器即可，评审不讨论排版。
