@@ -50,7 +50,7 @@ class BusinessObserverTest(unittest.TestCase):
 
                 def read(path: Path) -> str:
                     if path.name == 'status':
-                        return 'Uid:\t61002\t61002\t61002\t61002\n'
+                        return 'Uid:\t61100\t61100\t61100\t61100\n'
                     return original_read(path)
 
                 def counter(fd: int) -> str:
@@ -114,7 +114,7 @@ class BusinessObserverTest(unittest.TestCase):
                         if path.name == site:
                             raise OSError(number, 'injected')
                         if path.name == 'status':
-                            return 'Uid:\t61002\t61002\t61002\t61002\n'
+                            return 'Uid:\t61100\t61100\t61100\t61100\n'
                         return original_read(path)
 
                     def argv(path: Path) -> bytes:

@@ -9,9 +9,18 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 import time
 
 from command import run
+
+sys.path.append(str(Path(__file__).resolve().parents[1] / 'install'))
+from layout import INIT_UID, JUDGE_UID, MAX_PARALLELISM, PAYLOAD_UID
+
+# 本项目在 VM 上可能用到的全部身份：旧夹具用过的 61001–61009，以及安装器布局里的 judge、payload、init。
+# 预检要求它们都未被占用；快照据此找残留进程。布局改动时这里跟着变，不再各自抄一份数字。
+PROJECT_UIDS = frozenset(range(61001, 61010)) | {JUDGE_UID} | frozenset(
+    range(PAYLOAD_UID, PAYLOAD_UID + MAX_PARALLELISM)) | frozenset(range(INIT_UID, INIT_UID + MAX_PARALLELISM))
 
 BASE = Path('/var/lib/cherry-sandbox-test')
 CGROUP = Path('/sys/fs/cgroup/system.slice')
@@ -37,7 +46,7 @@ def snapshot():
         try:
             status = dict(line.split(':', 1) for line in (proc / 'status').read_text().splitlines() if ':' in line)
             uids = [int(v) for v in status['Uid'].split()]
-            if any(61001 <= uid <= 61010 for uid in uids):
+            if any(uid in PROJECT_UIDS for uid in uids):
                 tasks.append(dict(pid=int(proc.name), uids=uids, state=status['State'].strip(),
                                   cgroup=(proc / 'cgroup').read_text().strip()))
             # Inspect every surviving mount namespace, including namespaces different from this driver.
@@ -59,7 +68,7 @@ def preflight():
     for name in ('/opt/cherry-oj/etc', '/opt/cherry-oj'):
         if Path(name).exists() or Path(name).is_symlink():
             raise RuntimeError('existing native sandbox installation')
-    for uid in range(61001, 61011):
+    for uid in sorted(PROJECT_UIDS):
         for lookup in (pwd.getpwuid, grp.getgrgid):
             try:
                 lookup(uid)

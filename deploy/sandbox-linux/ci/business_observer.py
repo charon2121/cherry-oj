@@ -6,8 +6,15 @@ import errno
 import json
 import os
 from pathlib import Path
+import sys
 import threading
 import time
+
+sys.path.append(str(Path(__file__).resolve().parents[1] / 'install'))
+from layout import MAX_PARALLELISM, PAYLOAD_UID
+
+# 用户程序以 box N 的 payload 身份运行（UID 取自安装器布局：PAYLOAD_UID + N）。
+PAYLOAD_UIDS = frozenset(str(uid) for uid in range(PAYLOAD_UID, PAYLOAD_UID + MAX_PARALLELISM))
 
 # 执行器按 box 固定组名（box-N）；一次执行的记录在其用户进程消失时结束，组名复用不会混淆。
 JOBS = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice/cherry-sandbox-judge.service/jobs')
@@ -78,7 +85,7 @@ class Observer(AbstractContextManager):
                             proc = Path('/proc') / pid
                             uid = next(line.split()[1:] for line in (proc / 'status').read_text().splitlines() if line.startswith('Uid:'))
                             argv = (proc / 'cmdline').read_bytes().split(b'\0')[0]
-                            if uid == ['61002'] * 4 and Path(os.fsdecode(argv)).name == 'Main':
+                            if len(set(uid)) == 1 and uid[0] in PAYLOAD_UIDS and Path(os.fsdecode(argv)).name == 'Main':
                                 files = {}
                                 try:
                                     operation = 'open-counters'
