@@ -70,6 +70,14 @@ jobs:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/business-browsers
         run: npx playwright install --with-deps chromium
 
+      # 安装布局协议规则 1：节点家目录 /opt/cherry-oj 的所有祖先必须归 root 且不被组或其他用户写入。托管虚拟机上的
+      # /opt 不满足（与 benchmark 工作流同样处理）；这是一次性机器，直接规整它。
+      - name: 规整 /opt 的属主与权限
+        run: |
+          set -eu
+          stat -c '%A %U:%G %n' /opt
+          sudo chown root:root /opt
+          sudo chmod 755 /opt
       - name: 新环境、数据部署、独立校准与真实页面判题
         run: >-
           sudo --preserve-env=GITHUB_ACTIONS,RUNNER_ENVIRONMENT,GITHUB_RUN_ID,GITHUB_RUN_ATTEMPT,ImageVersion,PYTHONDONTWRITEBYTECODE

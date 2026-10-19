@@ -179,10 +179,10 @@
       ]
     },
     {
-      "id": "business.deploy",
+      "id": "business.prepare",
       "suite": "business",
       "execution": "prepare",
-      "assertion": "合成6对数据上传并远端核验，当前session回执READY",
+      "assertion": "合成6对数据上传为协议目录，在线节点身份不变，记录上传时的数据指纹（测试数据没有部署回执）",
       "sources": [
         {
           "path": "deploy/sandbox-linux/tests/acceptance/README.md"

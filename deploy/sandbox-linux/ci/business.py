@@ -17,7 +17,7 @@ from business_stack import PRIVATE, Stack
 from command import install_signal_handlers
 from build_check import verify_build
 from native import INSTALL, Native
-from native_resources import Installation, RECORD as NATIVE_RECORD, STATE
+from native_resources import ACCOUNTS, Installation, RECORD as NATIVE_RECORD, STATE
 from native_results import check as check_native
 from owned import MARKER, Owned, github_vm, preflight
 from report import ROOT, Report, git_sha, read_json, validate, verify_files
@@ -61,7 +61,8 @@ def idle():
     for path in Path('/proc').glob('[0-9]*/status'):
         try:
             uid = next(line.split()[1:] for line in path.read_text().splitlines() if line.startswith('Uid:'))
-            if set(map(int, uid)) & set(range(61002, 61010)):
+            # 只看 payload/init 身份（UID 取自安装器的布局）；judge 服务自己的进程不算残留。
+            if set(map(int, uid)) & {value for name, value in ACCOUNTS.items() if name != 'cherry-judge'}:
                 tasks.append(int(path.parent.name))
         except (FileNotFoundError, ProcessLookupError):
             continue
