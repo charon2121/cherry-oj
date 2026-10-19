@@ -9,5 +9,7 @@ public final class ProblemTestDataException extends RuntimeException {
         this.code = code;
     }
 
-    public String code() { return code; }
+    public String code() {
+        return code;
+    }
 }

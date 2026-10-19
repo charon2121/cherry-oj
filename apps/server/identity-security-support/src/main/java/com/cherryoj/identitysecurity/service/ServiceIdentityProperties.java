@@ -11,7 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("cherry.service-identity")
 public record ServiceIdentityProperties(String name, String privateKeyLocation, URI tokenUri) {
 
-	public ServiceIdentityProperties {
-		ServiceNames.require(name, "cherry.service-identity.name");
-	}
+    public ServiceIdentityProperties {
+        ServiceNames.require(name, "cherry.service-identity.name");
+    }
 }

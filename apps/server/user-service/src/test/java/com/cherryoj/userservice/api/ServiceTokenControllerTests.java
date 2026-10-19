@@ -51,20 +51,37 @@ class ServiceTokenControllerTests {
         issuer = rsa();
         judging = rsa();
         Path judgingPublic = directory.resolve("judging-service-public.pem");
-        Files.writeString(judgingPublic, "-----BEGIN PUBLIC KEY-----\n"
-                + Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(judging.getPublic().getEncoded())
-                + "\n-----END PUBLIC KEY-----\n");
-        var rsa = new RSAKey.Builder((RSAPublicKey) issuer.getPublic()).privateKey((RSAPrivateKey) issuer.getPrivate())
-                .keyID("issuer-key").algorithm(JWSAlgorithm.RS256).build();
-        var keys = new SigningKeys(rsa, new JWKSet(rsa.toPublicJWK()), (RSAPublicKey) issuer.getPublic(),
-                (RSAPrivateKey) issuer.getPrivate());
-        var properties = new AuthProperties("server", ISSUER, "cherry-oj-internal", null, "unused", "unused", Map.of(),
-                Duration.ofHours(2), Duration.ofSeconds(30), "fixed-absolute", 2_592_000);
+        Files.writeString(
+                judgingPublic,
+                "-----BEGIN PUBLIC KEY-----\n"
+                        + Base64.getMimeEncoder(64, "\n".getBytes())
+                                .encodeToString(judging.getPublic().getEncoded())
+                        + "\n-----END PUBLIC KEY-----\n");
+        var rsa = new RSAKey.Builder((RSAPublicKey) issuer.getPublic())
+                .privateKey((RSAPrivateKey) issuer.getPrivate())
+                .keyID("issuer-key")
+                .algorithm(JWSAlgorithm.RS256)
+                .build();
+        var keys =
+                new SigningKeys(rsa, new JWKSet(rsa.toPublicJWK()), (RSAPublicKey) issuer.getPublic(), (RSAPrivateKey)
+                        issuer.getPrivate());
+        var properties = new AuthProperties(
+                "server",
+                ISSUER,
+                "cherry-oj-internal",
+                null,
+                "unused",
+                "unused",
+                Map.of(),
+                Duration.ofHours(2),
+                Duration.ofSeconds(30),
+                "fixed-absolute",
+                2_592_000);
         var clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        var tokens = new TokenService(new NimbusJwtEncoder(new ImmutableJWKSet<SecurityContext>(new JWKSet(rsa))),
-                keys, properties, clock);
-        var registry = new ServiceClientRegistry(new ServiceClientsProperties(
-                Map.of("judging-service", "file:" + judgingPublic)));
+        var tokens = new TokenService(
+                new NimbusJwtEncoder(new ImmutableJWKSet<SecurityContext>(new JWKSet(rsa))), keys, properties, clock);
+        var registry = new ServiceClientRegistry(
+                new ServiceClientsProperties(Map.of("judging-service", "file:" + judgingPublic)));
         controller = new ServiceTokenController(registry, new AssertionReplayGuard(clock), tokens, properties, clock);
     }
 
@@ -78,7 +95,8 @@ class ServiceTokenControllerTests {
         assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
         var body = (ServiceTokenController.Response) response.getBody();
         assertThat(body.expiresAt()).isEqualTo(NOW.plus(Duration.ofMinutes(15)));
-        var decoder = NimbusJwtDecoder.withPublicKey((RSAPublicKey) issuer.getPublic()).build();
+        var decoder = NimbusJwtDecoder.withPublicKey((RSAPublicKey) issuer.getPublic())
+                .build();
         decoder.setJwtValidator(ServiceCallVerifier.validator(ISSUER, "problem-service", Duration.ofDays(36500)));
         var jwt = decoder.decode(body.accessToken());
         assertThat(jwt.getSubject()).isEqualTo("judging-service");
@@ -92,17 +110,29 @@ class ServiceTokenControllerTests {
         String assertion = ClientAssertion.sign("judging-service", (RSAPrivateKey) judging.getPrivate(), ISSUER, NOW);
         controller.issue("Bearer " + assertion, new ServiceTokenController.Request("problem-service"));
 
-        assertThat(controller.issue("Bearer " + assertion, new ServiceTokenController.Request("problem-service"))
-                .getStatusCode()).as("replayed assertion").isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(controller
+                        .issue("Bearer " + assertion, new ServiceTokenController.Request("problem-service"))
+                        .getStatusCode())
+                .as("replayed assertion")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
         String forged = ClientAssertion.sign("judging-service", (RSAPrivateKey) rsa().getPrivate(), ISSUER, NOW);
-        assertThat(controller.issue("Bearer " + forged, new ServiceTokenController.Request("problem-service"))
-                .getStatusCode()).as("signed by another key").isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(controller.issue(null, new ServiceTokenController.Request("problem-service"))
-                .getStatusCode()).as("no assertion").isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(controller
+                        .issue("Bearer " + forged, new ServiceTokenController.Request("problem-service"))
+                        .getStatusCode())
+                .as("signed by another key")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(controller
+                        .issue(null, new ServiceTokenController.Request("problem-service"))
+                        .getStatusCode())
+                .as("no assertion")
+                .isEqualTo(HttpStatus.UNAUTHORIZED);
         for (String audience : new String[] {"gateway-service", "judging-service", "unknown-service", "../x"}) {
             String fresh = ClientAssertion.sign("judging-service", (RSAPrivateKey) judging.getPrivate(), ISSUER, NOW);
-            assertThat(controller.issue("Bearer " + fresh, new ServiceTokenController.Request(audience))
-                    .getStatusCode()).as("audience " + audience).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(controller
+                            .issue("Bearer " + fresh, new ServiceTokenController.Request(audience))
+                            .getStatusCode())
+                    .as("audience " + audience)
+                    .isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 

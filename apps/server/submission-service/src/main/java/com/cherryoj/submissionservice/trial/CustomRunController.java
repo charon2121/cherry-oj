@@ -1,12 +1,12 @@
 package com.cherryoj.submissionservice.trial;
 
-import com.cherryoj.submissionservice.application.JudgeSources;
-import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
-import com.cherryoj.submissionservice.api.SubmissionException;
-import com.cherryoj.submissionservice.security.CurrentIdentity;
 import com.cherryoj.serviceidentity.ServiceIdentityException;
 import com.cherryoj.serviceidentity.ServiceNames;
 import com.cherryoj.serviceidentity.ServiceTokenClient;
+import com.cherryoj.submissionservice.api.SubmissionException;
+import com.cherryoj.submissionservice.application.JudgeSources;
+import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import com.cherryoj.submissionservice.security.CurrentIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.net.URI;
@@ -25,136 +25,145 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 public class CustomRunController {
 
-	private final SubmissionPrerequisites prerequisites;
+    private final SubmissionPrerequisites prerequisites;
 
-	private final ObjectMapper json;
+    private final ObjectMapper json;
 
-	private final String url;
+    private final String url;
 
-	private final ServiceTokenClient tokens;
+    private final ServiceTokenClient tokens;
 
-	private final HttpClient http = HttpClient.newBuilder()
-		.connectTimeout(Duration.ofSeconds(2))
-		.followRedirects(HttpClient.Redirect.NEVER)
-		.build();
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(2))
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
 
-	public CustomRunController(SubmissionPrerequisites prerequisites, ObjectMapper json,
-			@Value("${cherry.submission.judging-url}") String url, ServiceTokenClient tokens) {
-		this.prerequisites = prerequisites;
-		this.json = json;
-		this.url = url;
-		this.tokens = tokens;
-	}
+    public CustomRunController(
+            SubmissionPrerequisites prerequisites,
+            ObjectMapper json,
+            @Value("${cherry.submission.judging-url}") String url,
+            ServiceTokenClient tokens) {
+        this.prerequisites = prerequisites;
+        this.json = json;
+        this.url = url;
+        this.tokens = tokens;
+    }
 
-	public record Request(@NotNull UUID problemId,
-			@NotNull @Pattern(regexp = "cpp") String languageId, @NotBlank @Size(max = 262144) String source,
-			@NotNull @Size(max = 65536) String inputText) {
-		@Override
-		public String toString() {
-			return "CustomRunRequest[private]";
-		}
-	}
+    public record Request(
+            @NotNull UUID problemId,
+            @NotNull @Pattern(regexp = "cpp") String languageId,
+            @NotBlank @Size(max = 262144) String source,
+            @NotNull @Size(max = 65536) String inputText) {
+        @Override
+        public String toString() {
+            return "CustomRunRequest[private]";
+        }
+    }
 
-	@PostMapping("/api/custom-runs")
-	public ResponseEntity<tools.jackson.databind.JsonNode> run(@Valid @RequestBody Request r,
-			JwtAuthenticationToken identity,
-			@RequestHeader(value = "X-Custom-Run-Deadline", required = false) Long outerDeadline,
-			@RequestHeader(value = "traceparent", required = false) String trace) {
-		CurrentIdentity.from(identity);
-		long deadline = Math.min(outerDeadline == null ? Long.MAX_VALUE : outerDeadline,
-				System.currentTimeMillis() + 45000);
-		if (r.source().getBytes(StandardCharsets.UTF_8).length > 262144
-				|| r.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
-			throw failure(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入超过大小限制。");
-		var s = prerequisites.snapshot(r.problemId().toString(), r.languageId());
-		if (s == null || !r.problemId().toString().equals(s.problemId()) || !JudgeSources.consistent(s)
-				|| !"cpp".equals(s.languageId()))
-			throw unavailable();
-		// 与正式提交同一套合并：CORE 送驱动文件 + 用户文件，judging-service 据前缀行数换算报错行号。
-		var sources = JudgeSources.of(s, r.source());
-		String token;
-		try {
-			token = tokens.tokenFor(ServiceNames.JUDGING);
-		}
-		catch (ServiceIdentityException error) {
-			org.slf4j.LoggerFactory.getLogger(getClass())
-				.warn("custom.run.failed stage=service-identity reason={}", error.reason());
-			throw unavailable();
-		}
-		var body = new java.util.LinkedHashMap<String, Object>(Map.of("problemId", s.problemId(), "languageId", "cpp",
-				"source", sources.source(), "inputText", r.inputText(), "deadlineEpochMs", deadline));
-		if (sources.solutionSource() != null) {
-			body.put("solutionSource", sources.solutionSource());
-			body.put("solutionPrefixLineCount", sources.solutionPrefixLineCount());
-		}
-		long remaining = deadline - System.currentTimeMillis();
-		if (remaining <= 0)
-			throw timeout();
-		var builder = HttpRequest.newBuilder(URI.create(url.replaceAll("/$", "") + "/internal/submission/trials"))
-			.timeout(Duration.ofMillis(remaining))
-			.header("Content-Type", "application/json")
-			.header("Authorization", "Bearer " + token)
-			.POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
-		if (trace != null && trace.matches("[a-f0-9]{2}-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}"))
-			builder.header("traceparent", trace);
-		var future = http.sendAsync(builder.build(), ignored -> new LimitedBody(1024 * 1024));
-		try {
-			var response = future.get(remaining, TimeUnit.MILLISECONDS);
-			if (response.statusCode() == 401)
-				tokens.invalidate(ServiceNames.JUDGING);
-			if (response.statusCode() != 200) {
-				org.slf4j.LoggerFactory.getLogger(getClass())
-					.warn("custom.run.failed stage=judging httpStatus={}", response.statusCode());
-				throw switch (response.statusCode()) {
-					case 429 -> failure(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
-					case 422 -> failure(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
-					case 504 -> timeout();
-					default -> unavailable();
-				};
-			}
-			var result = json.readTree(response.body());
-			if (!result.isObject() || !Set
-				.of("COMPLETED", "COMPILE_ERROR", "RUNTIME_ERROR", "TIME_LIMIT_EXCEEDED", "MEMORY_LIMIT_EXCEEDED",
-						"OUTPUT_LIMIT_EXCEEDED")
-				.contains(result.path("status").asText()))
-				throw unavailable();
-			var output = json.createObjectNode();
-			for (String field : List.of("status", "cpuNs", "memoryBytes", "stdout", "stderr", "compileDiagnostic",
-					"effectiveLimits"))
-				if (result.has(field))
-					output.set(field, result.get(field));
-			output.put("problemId", s.problemId());
-			output.put("languageId", "cpp");
-			return ResponseEntity.ok().header("Cache-Control", "no-store").body(output);
-		}
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw timeout();
-		}
-		catch (TimeoutException e) {
-			throw timeout();
-		}
-		catch (ExecutionException e) {
-			if (e.getCause() instanceof HttpTimeoutException)
-				throw timeout();
-			throw unavailable();
-		}
-		finally {
-			if (!future.isDone())
-				future.cancel(true);
-		}
-	}
+    @PostMapping("/api/custom-runs")
+    public ResponseEntity<tools.jackson.databind.JsonNode> run(
+            @Valid @RequestBody Request r,
+            JwtAuthenticationToken identity,
+            @RequestHeader(value = "X-Custom-Run-Deadline", required = false) Long outerDeadline,
+            @RequestHeader(value = "traceparent", required = false) String trace) {
+        CurrentIdentity.from(identity);
+        long deadline =
+                Math.min(outerDeadline == null ? Long.MAX_VALUE : outerDeadline, System.currentTimeMillis() + 45000);
+        if (r.source().getBytes(StandardCharsets.UTF_8).length > 262144
+                || r.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
+            throw failure(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入超过大小限制。");
+        var s = prerequisites.snapshot(r.problemId().toString(), r.languageId());
+        if (s == null
+                || !r.problemId().toString().equals(s.problemId())
+                || !JudgeSources.consistent(s)
+                || !"cpp".equals(s.languageId())) throw unavailable();
+        // 与正式提交同一套合并：CORE 送驱动文件 + 用户文件，judging-service 据前缀行数换算报错行号。
+        var sources = JudgeSources.of(s, r.source());
+        String token;
+        try {
+            token = tokens.tokenFor(ServiceNames.JUDGING);
+        } catch (ServiceIdentityException error) {
+            org.slf4j.LoggerFactory.getLogger(getClass())
+                    .warn("custom.run.failed stage=service-identity reason={}", error.reason());
+            throw unavailable();
+        }
+        var body = new java.util.LinkedHashMap<String, Object>(Map.of(
+                "problemId",
+                s.problemId(),
+                "languageId",
+                "cpp",
+                "source",
+                sources.source(),
+                "inputText",
+                r.inputText(),
+                "deadlineEpochMs",
+                deadline));
+        if (sources.solutionSource() != null) {
+            body.put("solutionSource", sources.solutionSource());
+            body.put("solutionPrefixLineCount", sources.solutionPrefixLineCount());
+        }
+        long remaining = deadline - System.currentTimeMillis();
+        if (remaining <= 0) throw timeout();
+        var builder = HttpRequest.newBuilder(URI.create(url.replaceAll("/$", "") + "/internal/submission/trials"))
+                .timeout(Duration.ofMillis(remaining))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + token)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
+        if (trace != null && trace.matches("[a-f0-9]{2}-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}"))
+            builder.header("traceparent", trace);
+        var future = http.sendAsync(builder.build(), ignored -> new LimitedBody(1024 * 1024));
+        try {
+            var response = future.get(remaining, TimeUnit.MILLISECONDS);
+            if (response.statusCode() == 401) tokens.invalidate(ServiceNames.JUDGING);
+            if (response.statusCode() != 200) {
+                org.slf4j.LoggerFactory.getLogger(getClass())
+                        .warn("custom.run.failed stage=judging httpStatus={}", response.statusCode());
+                throw switch (response.statusCode()) {
+                    case 429 -> failure(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
+                    case 422 -> failure(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
+                    case 504 -> timeout();
+                    default -> unavailable();
+                };
+            }
+            var result = json.readTree(response.body());
+            if (!result.isObject()
+                    || !Set.of(
+                                    "COMPLETED",
+                                    "COMPILE_ERROR",
+                                    "RUNTIME_ERROR",
+                                    "TIME_LIMIT_EXCEEDED",
+                                    "MEMORY_LIMIT_EXCEEDED",
+                                    "OUTPUT_LIMIT_EXCEEDED")
+                            .contains(result.path("status").asText())) throw unavailable();
+            var output = json.createObjectNode();
+            for (String field : List.of(
+                    "status", "cpuNs", "memoryBytes", "stdout", "stderr", "compileDiagnostic", "effectiveLimits"))
+                if (result.has(field)) output.set(field, result.get(field));
+            output.put("problemId", s.problemId());
+            output.put("languageId", "cpp");
+            return ResponseEntity.ok().header("Cache-Control", "no-store").body(output);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw timeout();
+        } catch (TimeoutException e) {
+            throw timeout();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof HttpTimeoutException) throw timeout();
+            throw unavailable();
+        } finally {
+            if (!future.isDone()) future.cancel(true);
+        }
+    }
 
-	private static SubmissionException failure(HttpStatus s, String c, String m) {
-		return new SubmissionException(s, c, m);
-	}
+    private static SubmissionException failure(HttpStatus s, String c, String m) {
+        return new SubmissionException(s, c, m);
+    }
 
-	private static SubmissionException unavailable() {
-		return failure(HttpStatus.SERVICE_UNAVAILABLE, "CUSTOM_RUN_UNAVAILABLE", "运行服务暂不可用。");
-	}
+    private static SubmissionException unavailable() {
+        return failure(HttpStatus.SERVICE_UNAVAILABLE, "CUSTOM_RUN_UNAVAILABLE", "运行服务暂不可用。");
+    }
 
-	private static SubmissionException timeout() {
-		return failure(HttpStatus.GATEWAY_TIMEOUT, "CUSTOM_RUN_TIMEOUT", "本次运行结果未能确认，请稍后重试。");
-	}
-
+    private static SubmissionException timeout() {
+        return failure(HttpStatus.GATEWAY_TIMEOUT, "CUSTOM_RUN_TIMEOUT", "本次运行结果未能确认，请稍后重试。");
+    }
 }

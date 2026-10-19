@@ -7,8 +7,8 @@ import java.util.Map;
  * 这里按它在报错里认出用户文件。两边各有对齐测试，任何一处改名都会立即失败。
  */
 public record LanguageFiles(String driverFile, String solutionFile) {
-    private static final Map<String, LanguageFiles> REGISTRY = Map.of(
-            "cpp", new LanguageFiles("Main.cpp", "solution.cpp"));
+    private static final Map<String, LanguageFiles> REGISTRY =
+            Map.of("cpp", new LanguageFiles("Main.cpp", "solution.cpp"));
 
     /** 不支持 CORE 的语言返回 null。 */
     public static LanguageFiles of(String languageId) {

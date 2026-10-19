@@ -53,7 +53,8 @@ class FileTestDataStoreTests {
         assertThat(root.resolve(PROBLEM)).doesNotExist();
         String location = store.activate(PROBLEM, prepared);
 
-        assertThat(location).isEqualTo(root.toAbsolutePath().normalize().resolve(PROBLEM).toString());
+        assertThat(location)
+                .isEqualTo(root.toAbsolutePath().normalize().resolve(PROBLEM).toString());
         assertThat(prepared.info().digest()).isEqualTo(GOLDEN_DIGEST);
         assertThat(prepared.info().testcaseCount()).isEqualTo(2);
         assertThat(prepared.info().totalBytes()).isEqualTo(16);
@@ -71,15 +72,17 @@ class FileTestDataStoreTests {
         // judge 通常是另一个系统用户，所以数据要让其他用户可读；暂存的 ZIP 已经删掉
         assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(address.resolve("1.in"))))
                 .isEqualTo("rw-r--r--");
-        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(
-                root.resolve(".store").resolve(prepared.generation())))).isEqualTo("rwxr-xr-x");
+        assertThat(PosixFilePermissions.toString(
+                        Files.getPosixFilePermissions(root.resolve(".store").resolve(prepared.generation()))))
+                .isEqualTo("rwxr-xr-x");
         try (var staged = Files.list(root.resolve("tmp"))) {
             assertThat(staged).isEmpty();
         }
 
         var described = store.describe(location);
         assertThat(described).isEqualTo(prepared.info());
-        assertThat(described.manifest().files()).extracting(file -> file.name())
+        assertThat(described.manifest().files())
+                .extracting(file -> file.name())
                 .containsExactly("1.in", "1.out", "2.in", "2.out");
     }
 
@@ -94,9 +97,19 @@ class FileTestDataStoreTests {
 
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(entries)));
 
-        assertThat(prepared.info().manifest().files()).extracting(file -> file.name())
-                .containsExactly("1.in", "1.out", "2.in", "2.out", "10.in", "10.out",
-                        "big-1.in", "big-1.out", "small.in", "small.out");
+        assertThat(prepared.info().manifest().files())
+                .extracting(file -> file.name())
+                .containsExactly(
+                        "1.in",
+                        "1.out",
+                        "2.in",
+                        "2.out",
+                        "10.in",
+                        "10.out",
+                        "big-1.in",
+                        "big-1.out",
+                        "small.in",
+                        "small.out");
     }
 
     @Test
@@ -127,42 +140,104 @@ class FileTestDataStoreTests {
         Path root = temporary.resolve("unsafe");
         FileTestDataStore store = store(root, 100);
         // 每种问题报出各自的原因代码；能确定是哪个条目时一并带出（多条目 Map.of 的遍历顺序不定，那些只核对代码）。
-        record Rejection(byte[] zip, String code, String entry) {
-        }
+        record Rejection(byte[] zip, String code, String entry) {}
         Map<String, Rejection> archives = new LinkedHashMap<>();
-        archives.put("parent", new Rejection(zip(Map.of("../1.in", bytes("1"), "1.out", bytes("1"))),
-                "TEST_DATA_UNSAFE_ENTRY_PATH", null));
-        archives.put("directory", new Rejection(zipWithMode("folder/", new byte[0], UnixStat.DIR_FLAG | 0700),
-                "TEST_DATA_NO_TESTCASES", null));
-        archives.put("symlink", new Rejection(zipWithMode("1.in", bytes("target"), UnixStat.LINK_FLAG | 0700),
-                "TEST_DATA_ENTRY_NOT_REGULAR_FILE", "1.in"));
+        archives.put(
+                "parent",
+                new Rejection(
+                        zip(Map.of("../1.in", bytes("1"), "1.out", bytes("1"))), "TEST_DATA_UNSAFE_ENTRY_PATH", null));
+        archives.put(
+                "directory",
+                new Rejection(
+                        zipWithMode("folder/", new byte[0], UnixStat.DIR_FLAG | 0700), "TEST_DATA_NO_TESTCASES", null));
+        archives.put(
+                "symlink",
+                new Rejection(
+                        zipWithMode("1.in", bytes("target"), UnixStat.LINK_FLAG | 0700),
+                        "TEST_DATA_ENTRY_NOT_REGULAR_FILE",
+                        "1.in"));
         // Python zipfile.writestr 直接传文件名时只写权限位 0600、不写文件类型。
-        archives.put("permission-bits-without-file-type", new Rejection(zipWithMode("1.in", bytes("1"), 0600),
-                "TEST_DATA_ENTRY_NOT_REGULAR_FILE", "1.in"));
-        archives.put("unicode", new Rejection(zip(Map.of("题.in", bytes("1"), "题.out", bytes("1"))),
-                "TEST_DATA_UNEXPECTED_ENTRY", null));
+        archives.put(
+                "permission-bits-without-file-type",
+                new Rejection(zipWithMode("1.in", bytes("1"), 0600), "TEST_DATA_ENTRY_NOT_REGULAR_FILE", "1.in"));
+        archives.put(
+                "unicode",
+                new Rejection(
+                        zip(Map.of("题.in", bytes("1"), "题.out", bytes("1"))), "TEST_DATA_UNEXPECTED_ENTRY", null));
         archives.put("orphan", new Rejection(zip(Map.of("1.in", bytes("1"))), "TEST_DATA_CASE_PAIR_REQUIRED", "1.out"));
-        archives.put("duplicate", new Rejection(zipEntries("1.in", "1.in", "1.out"), "TEST_DATA_DUPLICATE_ENTRY", "1.in"));
-        archives.put("invalid-utf8", new Rejection(
-                zip(Map.of("1.in", new byte[] {(byte) 0xc3, 0x28}, "1.out", bytes("1"))), "TEST_DATA_FILE_NOT_UTF8", "1.in"));
+        archives.put(
+                "duplicate", new Rejection(zipEntries("1.in", "1.in", "1.out"), "TEST_DATA_DUPLICATE_ENTRY", "1.in"));
+        archives.put(
+                "invalid-utf8",
+                new Rejection(
+                        zip(Map.of("1.in", new byte[] {(byte) 0xc3, 0x28}, "1.out", bytes("1"))),
+                        "TEST_DATA_FILE_NOT_UTF8",
+                        "1.in"));
         archives.put("corrupt", new Rejection(new byte[] {1, 2, 3, 4}, "TEST_DATA_INVALID_ZIP", null));
-        archives.put("multiple-wrappers", new Rejection(zip(Map.of(
-                "first/1.in", bytes("1"), "first/1.out", bytes("1"),
-                "second/2.in", bytes("2"), "second/2.out", bytes("2"))), "TEST_DATA_MIXED_ROOTS", null));
-        archives.put("mixed-roots", new Rejection(zip(Map.of(
-                "1.in", bytes("1"), "1.out", bytes("1"),
-                "wrapped/2.in", bytes("2"), "wrapped/2.out", bytes("2"))), "TEST_DATA_MIXED_ROOTS", null));
-        archives.put("nested-cases", new Rejection(zip(Map.of(
-                "wrapped/cases/1.in", bytes("1"), "wrapped/cases/1.out", bytes("1"))), "TEST_DATA_UNEXPECTED_ENTRY", null));
-        archives.put("unknown-hidden-file", new Rejection(zip(Map.of(
-                "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
-                "wrapped/.Spotlight-V100", bytes("metadata"))), "TEST_DATA_UNEXPECTED_ENTRY", "wrapped/.Spotlight-V100"));
-        archives.put("metadata-from-other-root", new Rejection(zip(Map.of(
-                "wrapped/1.in", bytes("1"), "wrapped/1.out", bytes("1"),
-                "other/.DS_Store", bytes("metadata"))), "TEST_DATA_MIXED_ROOTS", "other/"));
-        archives.put("name-too-long-for-the-protocol", new Rejection(zip(Map.of(
-                "a".repeat(125) + ".in", bytes("1"), "a".repeat(125) + ".out", bytes("1"))),
-                "TEST_DATA_UNEXPECTED_ENTRY", null));
+        archives.put(
+                "multiple-wrappers",
+                new Rejection(
+                        zip(Map.of(
+                                "first/1.in",
+                                bytes("1"),
+                                "first/1.out",
+                                bytes("1"),
+                                "second/2.in",
+                                bytes("2"),
+                                "second/2.out",
+                                bytes("2"))),
+                        "TEST_DATA_MIXED_ROOTS",
+                        null));
+        archives.put(
+                "mixed-roots",
+                new Rejection(
+                        zip(Map.of(
+                                "1.in",
+                                bytes("1"),
+                                "1.out",
+                                bytes("1"),
+                                "wrapped/2.in",
+                                bytes("2"),
+                                "wrapped/2.out",
+                                bytes("2"))),
+                        "TEST_DATA_MIXED_ROOTS",
+                        null));
+        archives.put(
+                "nested-cases",
+                new Rejection(
+                        zip(Map.of("wrapped/cases/1.in", bytes("1"), "wrapped/cases/1.out", bytes("1"))),
+                        "TEST_DATA_UNEXPECTED_ENTRY",
+                        null));
+        archives.put(
+                "unknown-hidden-file",
+                new Rejection(
+                        zip(Map.of(
+                                "wrapped/1.in",
+                                bytes("1"),
+                                "wrapped/1.out",
+                                bytes("1"),
+                                "wrapped/.Spotlight-V100",
+                                bytes("metadata"))),
+                        "TEST_DATA_UNEXPECTED_ENTRY",
+                        "wrapped/.Spotlight-V100"));
+        archives.put(
+                "metadata-from-other-root",
+                new Rejection(
+                        zip(Map.of(
+                                "wrapped/1.in",
+                                bytes("1"),
+                                "wrapped/1.out",
+                                bytes("1"),
+                                "other/.DS_Store",
+                                bytes("metadata"))),
+                        "TEST_DATA_MIXED_ROOTS",
+                        "other/"));
+        archives.put(
+                "name-too-long-for-the-protocol",
+                new Rejection(
+                        zip(Map.of("a".repeat(125) + ".in", bytes("1"), "a".repeat(125) + ".out", bytes("1"))),
+                        "TEST_DATA_UNEXPECTED_ENTRY",
+                        null));
 
         for (var candidate : archives.entrySet()) {
             Rejection expected = candidate.getValue();
@@ -176,7 +251,8 @@ class FileTestDataStoreTests {
                     });
         }
         // 失败不留任何残留：没有暂存文件，没有数据目录，没有地址
-        try (var staged = Files.list(root.resolve("tmp")); var generations = Files.list(root.resolve(".store"))) {
+        try (var staged = Files.list(root.resolve("tmp"));
+                var generations = Files.list(root.resolve(".store"))) {
             assertThat(staged).isEmpty();
             assertThat(generations).isEmpty();
         }
@@ -187,9 +263,9 @@ class FileTestDataStoreTests {
     void enforcesActualArchiveExpandedEntryFileCountAndCompressionRatioLimits() throws Exception {
         Path root = temporary.resolve("limits");
         var properties = new TestDataStorageProperties(
-                root, DataSize.ofBytes(300), DataSize.ofBytes(30), DataSize.ofBytes(20),
-                2, 2, Duration.ofHours(1));
-        var store = new FileTestDataStore(properties, CLOCK, JsonMapper.builder().build());
+                root, DataSize.ofBytes(300), DataSize.ofBytes(30), DataSize.ofBytes(20), 2, 2, Duration.ofHours(1));
+        var store =
+                new FileTestDataStore(properties, CLOCK, JsonMapper.builder().build());
         store.initialize();
 
         assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(new byte[301])))
@@ -204,7 +280,8 @@ class FileTestDataStoreTests {
         assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(compressed)))
                 .isInstanceOfSatisfying(AssetException.class, error -> {
                     assertThat(error.kind()).isEqualTo(TestDataStore.Kind.PAYLOAD_TOO_LARGE);
-                    assertThat(error.getMessage()).isIn("TEST_DATA_COMPRESSION_RATIO_EXCEEDED", "TEST_DATA_ENTRY_TOO_LARGE");
+                    assertThat(error.getMessage())
+                            .isIn("TEST_DATA_COMPRESSION_RATIO_EXCEEDED", "TEST_DATA_ENTRY_TOO_LARGE");
                     assertThat(error.entry()).isEqualTo("1.in");
                 });
 
@@ -213,12 +290,17 @@ class FileTestDataStoreTests {
         assertThatThrownBy(() -> store.prepare(PROBLEM, new ByteArrayInputStream(tooMany)))
                 .isInstanceOf(AssetException.class);
 
-        byte[] metadataCounts = zip(Map.of(
-                "1.in", bytes("1"), "1.out", bytes("1"), ".DS_Store", bytes("metadata")));
+        byte[] metadataCounts = zip(Map.of("1.in", bytes("1"), "1.out", bytes("1"), ".DS_Store", bytes("metadata")));
         var entryLimitProperties = new TestDataStorageProperties(
-                root.resolve("entry-limit"), DataSize.ofMegabytes(1), DataSize.ofMegabytes(1),
-                DataSize.ofKilobytes(512), 2, 100, Duration.ofHours(1));
-        var entryLimitStore = new FileTestDataStore(entryLimitProperties, CLOCK, JsonMapper.builder().build());
+                root.resolve("entry-limit"),
+                DataSize.ofMegabytes(1),
+                DataSize.ofMegabytes(1),
+                DataSize.ofKilobytes(512),
+                2,
+                100,
+                Duration.ofHours(1));
+        var entryLimitStore = new FileTestDataStore(
+                entryLimitProperties, CLOCK, JsonMapper.builder().build());
         entryLimitStore.initialize();
         assertThatThrownBy(() -> entryLimitStore.prepare(PROBLEM, new ByteArrayInputStream(metadataCounts)))
                 .isInstanceOfSatisfying(AssetException.class, error -> {
@@ -254,19 +336,23 @@ class FileTestDataStoreTests {
         String location = null;
         String lastGeneration = null;
         for (int version = 1; version <= 4; version++) {
-            var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of(
-                    "1.in", bytes("in " + version), "1.out", bytes("out " + version)))));
+            var prepared = store.prepare(
+                    PROBLEM,
+                    new ByteArrayInputStream(
+                            zip(Map.of("1.in", bytes("in " + version), "1.out", bytes("out " + version)))));
             location = store.activate(PROBLEM, prepared);
             store.prune(PROBLEM);
             lastGeneration = prepared.generation();
             assertThat(Files.readString(Path.of(location).resolve("1.in"))).isEqualTo("in " + version);
-            Files.setLastModifiedTime(root.resolve(".store").resolve(lastGeneration),
+            Files.setLastModifiedTime(
+                    root.resolve(".store").resolve(lastGeneration),
                     FileTime.from(Instant.parse("2026-08-30T00:00:00Z").plusSeconds(version)));
         }
 
         try (var generations = Files.list(root.resolve(".store"))) {
             assertThat(generations.map(path -> path.getFileName().toString()).toList())
-                    .hasSize(2).contains(lastGeneration);
+                    .hasSize(2)
+                    .contains(lastGeneration);
         }
         assertThat(lastGeneration).endsWith(store.describe(location).digest().substring(0, 16));
     }
@@ -275,12 +361,13 @@ class FileTestDataStoreTests {
     void pruningOneProblemNeverTouchesAnotherProblemsData() throws Exception {
         Path root = temporary.resolve("isolation");
         FileTestDataStore store = store(root, 100);
-        var other = store.prepare(OTHER_PROBLEM, new ByteArrayInputStream(zip(Map.of(
-                "1.in", bytes("x"), "1.out", bytes("y")))));
+        var other = store.prepare(
+                OTHER_PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("x"), "1.out", bytes("y")))));
         String otherLocation = store.activate(OTHER_PROBLEM, other);
         for (int version = 1; version <= 3; version++) {
-            var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of(
-                    "1.in", bytes("in " + version), "1.out", bytes("out")))));
+            var prepared = store.prepare(
+                    PROBLEM,
+                    new ByteArrayInputStream(zip(Map.of("1.in", bytes("in " + version), "1.out", bytes("out")))));
             store.activate(PROBLEM, prepared);
             store.prune(PROBLEM);
         }
@@ -298,8 +385,10 @@ class FileTestDataStoreTests {
     void readersNeverSeeAPartialDirectoryWhileTheAddressIsSwitched() throws Exception {
         Path root = temporary.resolve("atomic");
         FileTestDataStore store = store(root, 100);
-        var first = store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A")))));
-        var second = store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("b"), "1.out", bytes("B")))));
+        var first =
+                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A")))));
+        var second =
+                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("b"), "1.out", bytes("B")))));
         String location = store.activate(PROBLEM, first);
 
         AtomicBoolean running = new AtomicBoolean(true);
@@ -310,13 +399,11 @@ class FileTestDataStoreTests {
                 while (running.get()) {
                     try {
                         seen.add(store.describe(location).digest());
-                    }
-                    catch (AssetException firstAttempt) {
+                    } catch (AssetException firstAttempt) {
                         seen.add(store.describe(location).digest());
                     }
                 }
-            }
-            catch (Throwable error) {
+            } catch (Throwable error) {
                 failure.set(error);
             }
         });
@@ -328,16 +415,19 @@ class FileTestDataStoreTests {
         reader.join();
 
         assertThat(failure.get()).isNull();
-        assertThat(seen).containsExactlyInAnyOrder(first.info().digest(), second.info().digest());
+        assertThat(seen)
+                .containsExactlyInAnyOrder(first.info().digest(), second.info().digest());
     }
 
     @Test
     void discardRemovesOnlyDirectoriesNoAddressPointsTo() throws Exception {
         Path root = temporary.resolve("discard");
         FileTestDataStore store = store(root, 100);
-        var live = store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A")))));
+        var live =
+                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A")))));
         store.activate(PROBLEM, live);
-        var pending = store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("b"), "1.out", bytes("B")))));
+        var pending =
+                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("b"), "1.out", bytes("B")))));
 
         store.discard(pending);
         store.discard(live);
@@ -353,18 +443,23 @@ class FileTestDataStoreTests {
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries())));
         String location = store.activate(PROBLEM, prepared);
 
-        for (String bad : List.of("/etc", "relative/path", "", root.resolve("../elsewhere").toString())) {
+        for (String bad : List.of(
+                "/etc", "relative/path", "", root.resolve("../elsewhere").toString())) {
             assertThatThrownBy(() -> store.describe(bad)).as(bad).isInstanceOf(AssetException.class);
         }
         assertThatThrownBy(() -> store.describe(root.resolve(OTHER_PROBLEM).toString()))
-                .isInstanceOfSatisfying(AssetException.class,
+                .isInstanceOfSatisfying(
+                        AssetException.class,
                         error -> assertThat(error.kind()).isEqualTo(TestDataStore.Kind.NOT_FOUND));
 
         Path metadata = Path.of(location).resolve("testdata.json");
         String valid = Files.readString(metadata);
         Path generation = root.resolve(".store").resolve(prepared.generation());
-        Files.setPosixFilePermissions(generation.resolve("testdata.json"), PosixFilePermissions.fromString("rw-------"));
-        for (String broken : List.of("not json", valid.replace(GOLDEN_DIGEST, "0".repeat(64)),
+        Files.setPosixFilePermissions(
+                generation.resolve("testdata.json"), PosixFilePermissions.fromString("rw-------"));
+        for (String broken : List.of(
+                "not json",
+                valid.replace(GOLDEN_DIGEST, "0".repeat(64)),
                 valid.replace("\"schemaVersion\":1", "\"schemaVersion\":2"))) {
             Files.writeString(metadata, broken);
             assertThatThrownBy(() -> store.describe(location)).as(broken).isInstanceOf(AssetException.class);
@@ -376,7 +471,8 @@ class FileTestDataStoreTests {
         FileTestDataStore store = store(temporary.resolve("ids"), 100);
         byte[] archive = zip(goldenEntries());
         for (String bad : List.of("../x", "1-1-1-1-1", PROBLEM.toUpperCase(), "", PROBLEM + "/..")) {
-            assertThatThrownBy(() -> store.prepare(bad, new ByteArrayInputStream(archive))).as(bad)
+            assertThatThrownBy(() -> store.prepare(bad, new ByteArrayInputStream(archive)))
+                    .as(bad)
                     .isInstanceOf(AssetException.class);
         }
     }
@@ -386,14 +482,16 @@ class FileTestDataStoreTests {
         Path root = temporary.resolve("remove");
         FileTestDataStore store = store(root, 100);
         store.activate(PROBLEM, store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries()))));
-        store.activate(PROBLEM, store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of(
-                "1.in", bytes("a"), "1.out", bytes("A"))))));
+        store.activate(
+                PROBLEM,
+                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A"))))));
         var other = store.prepare(OTHER_PROBLEM, new ByteArrayInputStream(zip(goldenEntries())));
         store.activate(OTHER_PROBLEM, other);
 
         store.remove(PROBLEM);
 
-        assertThat(Files.exists(root.resolve(PROBLEM), LinkOption.NOFOLLOW_LINKS)).isFalse();
+        assertThat(Files.exists(root.resolve(PROBLEM), LinkOption.NOFOLLOW_LINKS))
+                .isFalse();
         try (var generations = Files.list(root.resolve(".store"))) {
             assertThat(generations.map(path -> path.getFileName().toString()).toList())
                     .containsExactly(other.generation());
@@ -407,9 +505,15 @@ class FileTestDataStoreTests {
         // （macOS 上改不了符号链接自身的时间，所以不能反过来给链接设一个旧时间。）
         Clock later = Clock.fixed(Instant.now().plus(Duration.ofDays(2)), ZoneOffset.UTC);
         var properties = new TestDataStorageProperties(
-                root, DataSize.ofMegabytes(1), DataSize.ofMegabytes(1), DataSize.ofKilobytes(512),
-                20, 100, Duration.ofHours(1));
-        FileTestDataStore store = new FileTestDataStore(properties, later, JsonMapper.builder().build());
+                root,
+                DataSize.ofMegabytes(1),
+                DataSize.ofMegabytes(1),
+                DataSize.ofKilobytes(512),
+                20,
+                100,
+                Duration.ofHours(1));
+        FileTestDataStore store =
+                new FileTestDataStore(properties, later, JsonMapper.builder().build());
         store.initialize();
         var live = store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries())));
         String location = store.activate(PROBLEM, live);
@@ -444,9 +548,15 @@ class FileTestDataStoreTests {
 
     private FileTestDataStore store(Path root, double ratio) {
         var properties = new TestDataStorageProperties(
-                root, DataSize.ofMegabytes(1), DataSize.ofMegabytes(1), DataSize.ofKilobytes(512),
-                20, ratio, Duration.ofHours(1));
-        var store = new FileTestDataStore(properties, CLOCK, JsonMapper.builder().build());
+                root,
+                DataSize.ofMegabytes(1),
+                DataSize.ofMegabytes(1),
+                DataSize.ofKilobytes(512),
+                20,
+                ratio,
+                Duration.ofHours(1));
+        var store =
+                new FileTestDataStore(properties, CLOCK, JsonMapper.builder().build());
         store.initialize();
         return store;
     }

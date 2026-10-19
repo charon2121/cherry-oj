@@ -1,5 +1,7 @@
 package com.cherryoj.judgingservice.judge;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.cherryoj.judgingservice.config.JudgingProperties;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
@@ -9,32 +11,46 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
-import static org.junit.jupiter.api.Assertions.*;
 
 class HttpJudgeGatewaySizeTests {
-    @Test void largeLegalWrongAnswerResponseKeepsItsVerdictAndDiscardsPrivateOutput() throws Exception {
-        String cases=IntStream.rangeClosed(1,300).mapToObj(i -> "{\"idx\":"+i
-                +",\"verdict\":\"WA\",\"output\":{\"excerpt\":\""+"x".repeat(4096)+"\"}}")
+    @Test
+    void largeLegalWrongAnswerResponseKeepsItsVerdictAndDiscardsPrivateOutput() throws Exception {
+        String cases = IntStream.rangeClosed(1, 300)
+                .mapToObj(i ->
+                        "{\"idx\":" + i + ",\"verdict\":\"WA\",\"output\":{\"excerpt\":\"" + "x".repeat(4096) + "\"}}")
                 .collect(Collectors.joining(","));
-        byte[] body=("{\"verdict\":\"WA\",\"testcaseResults\":["+cases+"]}")
+        byte[] body = ("{\"verdict\":\"WA\",\"testcaseResults\":[" + cases + "]}")
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue(body.length>1_048_576);
-        var server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
-        server.createContext("/judge",exchange -> {
+        assertTrue(body.length > 1_048_576);
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/judge", exchange -> {
             exchange.getRequestBody().readAllBytes();
-            exchange.sendResponseHeaders(200,body.length);
-            try(var output=exchange.getResponseBody()) { output.write(body); }
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) {
+                output.write(body);
+            }
         });
         server.start();
         try {
-            var properties=new JudgingProperties(Duration.ofSeconds(10));
-            var gateway=new HttpJudgeGateway(HttpClient.newHttpClient(),JsonMapper.builder()
-                    .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build(),properties);
-            var result=gateway.judge("http://127.0.0.1:"+server.getAddress().getPort(),
-                    new JudgeGateway.JudgeRequest("s","p","/data/p","cpp","source",null,new JudgeGateway.Limits(1,1,null),"submit"),null);
-            assertEquals("WA",result.verdict());
-            assertEquals(300,result.testcaseResults().size());
-            assertFalse(new tools.jackson.databind.ObjectMapper().writeValueAsString(result).contains("excerpt"));
-        } finally { server.stop(0); }
+            var properties = new JudgingProperties(Duration.ofSeconds(10));
+            var gateway = new HttpJudgeGateway(
+                    HttpClient.newHttpClient(),
+                    JsonMapper.builder()
+                            .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                            .build(),
+                    properties);
+            var result = gateway.judge(
+                    "http://127.0.0.1:" + server.getAddress().getPort(),
+                    new JudgeGateway.JudgeRequest(
+                            "s", "p", "/data/p", "cpp", "source", null, new JudgeGateway.Limits(1, 1, null), "submit"),
+                    null);
+            assertEquals("WA", result.verdict());
+            assertEquals(300, result.testcaseResults().size());
+            assertFalse(new tools.jackson.databind.ObjectMapper()
+                    .writeValueAsString(result)
+                    .contains("excerpt"));
+        } finally {
+            server.stop(0);
+        }
     }
 }

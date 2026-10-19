@@ -32,14 +32,11 @@ public interface TestDataStore {
     /** 清理中断的上传留下的临时文件。 */
     RecoveryResult recover();
 
-    record Info(String digest, int testcaseCount, long totalBytes, Manifest manifest) {
-    }
+    record Info(String digest, int testcaseCount, long totalBytes, Manifest manifest) {}
 
-    record Prepared(String problemId, String generation, Info info) {
-    }
+    record Prepared(String problemId, String generation, Info info) {}
 
-    record RecoveryResult(int temporaryFilesDeleted, int temporaryDirectoriesDeleted) {
-    }
+    record RecoveryResult(int temporaryFilesDeleted, int temporaryDirectoriesDeleted) {}
 
     /**
      * message 是原因代码（如 TEST_DATA_COMPRESSION_RATIO_EXCEEDED）；entry 是出问题的 ZIP 条目名，limit 是触发的上限
@@ -81,5 +78,10 @@ public interface TestDataStore {
         }
     }
 
-    enum Kind { PAYLOAD_TOO_LARGE, INVALID_ARCHIVE, STORAGE_UNAVAILABLE, NOT_FOUND }
+    enum Kind {
+        PAYLOAD_TOO_LARGE,
+        INVALID_ARCHIVE,
+        STORAGE_UNAVAILABLE,
+        NOT_FOUND
+    }
 }

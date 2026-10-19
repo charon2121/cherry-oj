@@ -3,7 +3,6 @@ package com.cherryoj.judgingservice.security;
 import com.cherryoj.identitysecurity.IdentityVerifierConfiguration;
 import com.cherryoj.identitysecurity.service.ServiceIdentityConfiguration;
 import com.cherryoj.identitysecurity.service.ServiceTokenClientConfiguration;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -14,24 +13,31 @@ import org.springframework.security.oauth2.server.resource.web.authentication.Be
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration(proxyBeanMethods = false)
-@Import({IdentityVerifierConfiguration.class, ServiceIdentityConfiguration.class, ServiceTokenClientConfiguration.class})
+@Import({IdentityVerifierConfiguration.class, ServiceIdentityConfiguration.class, ServiceTokenClientConfiguration.class
+})
 class ResourceSecurityConfig {
 
-	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityProblemWriter problems,
-			JwtAuthenticationConverter identityJwtAuthenticationConverter) throws Exception {
-		return http.addFilterBefore(new IdentityKeyFailureFilter(problems), BearerTokenAuthenticationFilter.class)
-				.csrf(csrf -> csrf.disable())
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				.authorizeHttpRequests(requests -> requests
-						.requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
-						.requestMatchers("/internal/admin/**").hasRole("ADMIN")
-						.anyRequest().authenticated())
-				.oauth2ResourceServer(resource -> resource
-						.jwt(jwt -> jwt.jwtAuthenticationConverter(identityJwtAuthenticationConverter))
-						.authenticationEntryPoint(problems))
-				.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(problems)
-						.accessDeniedHandler(problems))
-				.httpBasic(basic -> basic.disable()).build();
-	}
+    @Bean
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            SecurityProblemWriter problems,
+            JwtAuthenticationConverter identityJwtAuthenticationConverter)
+            throws Exception {
+        return http.addFilterBefore(new IdentityKeyFailureFilter(problems), BearerTokenAuthenticationFilter.class)
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(requests -> requests.requestMatchers("/actuator/health/**", "/actuator/info")
+                        .permitAll()
+                        .requestMatchers("/internal/admin/**")
+                        .hasRole("ADMIN")
+                        .anyRequest()
+                        .authenticated())
+                .oauth2ResourceServer(resource -> resource.jwt(
+                                jwt -> jwt.jwtAuthenticationConverter(identityJwtAuthenticationConverter))
+                        .authenticationEntryPoint(problems))
+                .exceptionHandling(exceptions ->
+                        exceptions.authenticationEntryPoint(problems).accessDeniedHandler(problems))
+                .httpBasic(basic -> basic.disable())
+                .build();
+    }
 }

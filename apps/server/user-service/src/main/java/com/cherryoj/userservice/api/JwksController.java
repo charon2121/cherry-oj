@@ -1,7 +1,7 @@
 package com.cherryoj.userservice.api;
 
-import com.cherryoj.userservice.security.SigningKeys;
 import com.cherryoj.userservice.config.AuthProperties;
+import com.cherryoj.userservice.security.SigningKeys;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -53,8 +53,8 @@ public class JwksController {
 
     private String etag() {
         try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
-                    keys.publicJwkSet().toString().getBytes(StandardCharsets.UTF_8));
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(keys.publicJwkSet().toString().getBytes(StandardCharsets.UTF_8));
             return "\"" + Base64.getUrlEncoder().withoutPadding().encodeToString(digest) + "\"";
         } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException("SHA-256 is unavailable", error);

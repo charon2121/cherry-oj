@@ -12,11 +12,20 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/internal/judge-nodes/v1")
 public class JudgeNodeController {
     private final JudgeNodeRegistry registry;
-    public JudgeNodeController(JudgeNodeRegistry registry) { this.registry = registry; }
+
+    public JudgeNodeController(JudgeNodeRegistry registry) {
+        this.registry = registry;
+    }
+
     @PostMapping("/register")
-    public JudgeNodeDtos.Lease register(@Valid @RequestBody JudgeNodeDtos.Registration request) { return registry.register(request); }
+    public JudgeNodeDtos.Lease register(@Valid @RequestBody JudgeNodeDtos.Registration request) {
+        return registry.register(request);
+    }
+
     @PostMapping("/heartbeat")
-    public JudgeNodeDtos.Lease heartbeat(@Valid @RequestBody JudgeNodeDtos.Heartbeat request) { return registry.heartbeat(request); }
+    public JudgeNodeDtos.Lease heartbeat(@Valid @RequestBody JudgeNodeDtos.Heartbeat request) {
+        return registry.heartbeat(request);
+    }
 
     // This private protocol has its own two-field Error contract, separate from
     // the administrator API's problem envelope. Never return parser details.
@@ -27,6 +36,7 @@ public class JudgeNodeController {
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class})
     ResponseEntity<Map<String, String>> invalid(Exception ignored) {
-        return ResponseEntity.badRequest().body(Map.of("code", "NODE_INVALID_REQUEST", "detail", "Node request invalid"));
+        return ResponseEntity.badRequest()
+                .body(Map.of("code", "NODE_INVALID_REQUEST", "detail", "Node request invalid"));
     }
 }

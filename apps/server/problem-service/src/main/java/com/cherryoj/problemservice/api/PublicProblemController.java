@@ -31,8 +31,7 @@ public class PublicProblemController {
     PublicProblemDtos.ProblemList list(
             @RequestParam(required = false) @Size(min = 1, max = 100) String q,
             @RequestParam(required = false) Difficulty difficulty,
-            @RequestParam(name = "tag", required = false) @Size(max = 10)
-                    List<@Size(min = 1, max = 32) String> tags,
+            @RequestParam(name = "tag", required = false) @Size(max = 10) List<@Size(min = 1, max = 32) String> tags,
             @RequestParam(required = false) CodeMode codeMode,
             @RequestParam(required = false) @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$") String language,
             @RequestParam(defaultValue = "UPDATED_DESC") Sort sort,

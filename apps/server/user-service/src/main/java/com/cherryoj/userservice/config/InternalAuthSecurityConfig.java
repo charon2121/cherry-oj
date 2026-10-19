@@ -39,10 +39,13 @@ class InternalAuthSecurityConfig {
 
     @Bean
     @Order(1)
-    SecurityFilterChain internalAuthChain(HttpSecurity http, SigningKeys keys, AuthProperties properties) throws Exception {
+    SecurityFilterChain internalAuthChain(HttpSecurity http, SigningKeys keys, AuthProperties properties)
+            throws Exception {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withPublicKey(keys.publicKey())
-                .signatureAlgorithm(SignatureAlgorithm.RS256).build();
-        decoder.setJwtValidator(ServiceCallVerifier.validator(properties.issuer(), ServiceNames.USER, properties.clockSkew()));
+                .signatureAlgorithm(SignatureAlgorithm.RS256)
+                .build();
+        decoder.setJwtValidator(
+                ServiceCallVerifier.validator(properties.issuer(), ServiceNames.USER, properties.clockSkew()));
         http.securityMatcher("/internal/auth/**");
         return new ServiceCallVerifier(decoder, ServiceNames.USER).restrictTo(http, ServiceNames.GATEWAY);
     }

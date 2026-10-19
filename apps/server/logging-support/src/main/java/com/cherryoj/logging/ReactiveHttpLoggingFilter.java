@@ -1,13 +1,11 @@
 package com.cherryoj.logging;
 
-import io.micrometer.tracing.Tracer;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.contextpropagation.ObservationThreadLocalAccessor;
-
+import io.micrometer.tracing.Tracer;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
-
 import reactor.core.publisher.Mono;
 
 final class ReactiveHttpLoggingFilter implements WebFilter {

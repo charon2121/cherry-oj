@@ -1,7 +1,6 @@
 package com.cherryoj.submissionservice;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
 class SubmissionServiceApplicationTests {
 
@@ -9,5 +8,4 @@ class SubmissionServiceApplicationTests {
     void applicationEntryPointExists() {
         org.junit.jupiter.api.Assertions.assertNotNull(SubmissionServiceApplication.class);
     }
-
 }

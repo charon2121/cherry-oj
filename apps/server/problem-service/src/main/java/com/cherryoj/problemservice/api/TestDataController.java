@@ -42,6 +42,7 @@ public class TestDataController {
             JwtAuthenticationToken authentication) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(testData.upload(problemId, file, CurrentIdentity.from(authentication).userId()));
+                .body(testData.upload(
+                        problemId, file, CurrentIdentity.from(authentication).userId()));
     }
 }

@@ -2,9 +2,9 @@ package com.cherryoj.userservice;
 
 import java.util.Arrays;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
-import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
 
 @SpringBootApplication
@@ -22,5 +22,4 @@ public class UserServiceApplication {
             System.exit(SpringApplication.exit(context));
         }
     }
-
 }

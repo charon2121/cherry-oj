@@ -13,15 +13,14 @@ import org.springframework.web.reactive.config.WebFluxConfigurer;
 @Configuration(proxyBeanMethods = false)
 public class RunCodecConfig implements WebFluxConfigurer {
 
-	public void configureHttpMessageCodecs(ServerCodecConfigurer codecs) {
-		var decoder = new JacksonJsonDecoder() {
-			@Override
-			public boolean canDecode(ResolvableType type, MimeType mime) {
-				return type.toClass() == CustomRunController.Request.class && super.canDecode(type, mime);
-			}
-		};
-		decoder.setMaxInMemorySize(2 * 1024 * 1024);
-		codecs.customCodecs().register(decoder);
-	}
-
+    public void configureHttpMessageCodecs(ServerCodecConfigurer codecs) {
+        var decoder = new JacksonJsonDecoder() {
+            @Override
+            public boolean canDecode(ResolvableType type, MimeType mime) {
+                return type.toClass() == CustomRunController.Request.class && super.canDecode(type, mime);
+            }
+        };
+        decoder.setMaxInMemorySize(2 * 1024 * 1024);
+        codecs.customCodecs().register(decoder);
+    }
 }

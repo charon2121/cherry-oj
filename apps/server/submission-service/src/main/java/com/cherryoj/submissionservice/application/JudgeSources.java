@@ -29,7 +29,10 @@ public record JudgeSources(String source, String solutionSource, Integer solutio
                 || solution.getBytes(StandardCharsets.UTF_8).length > MAX_SOLUTION_BYTES) {
             throw new SubmissionException(HttpStatus.PAYLOAD_TOO_LARGE, "SOURCE_TOO_LARGE", "代码超过大小限制。");
         }
-        int prefixLines = (int) snapshot.solutionPrefix().chars().filter(character -> character == '\n').count();
+        int prefixLines = (int) snapshot.solutionPrefix()
+                .chars()
+                .filter(character -> character == '\n')
+                .count();
         return new JudgeSources(snapshot.judgeTemplate(), solution, prefixLines);
     }
 
@@ -39,9 +42,14 @@ public record JudgeSources(String source, String solutionSource, Integer solutio
             return snapshot.judgeTemplate() == null && snapshot.solutionPrefix() == null;
         }
         return "CORE".equals(snapshot.codeMode())
-                && snapshot.judgeTemplate() != null && !snapshot.judgeTemplate().isBlank()
-                && snapshot.solutionPrefix() != null && snapshot.solutionPrefix().endsWith("\n");
+                && snapshot.judgeTemplate() != null
+                && !snapshot.judgeTemplate().isBlank()
+                && snapshot.solutionPrefix() != null
+                && snapshot.solutionPrefix().endsWith("\n");
     }
 
-    @Override public String toString() { return "JudgeSources[solution=" + (solutionSource != null) + "]"; }
+    @Override
+    public String toString() {
+        return "JudgeSources[solution=" + (solutionSource != null) + "]";
+    }
 }

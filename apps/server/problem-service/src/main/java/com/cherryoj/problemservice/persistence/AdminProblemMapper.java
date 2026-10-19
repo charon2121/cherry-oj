@@ -85,9 +85,7 @@ public interface AdminProblemMapper {
 
     /** 测试数据另有自己的指纹，不改乐观锁计数，免得上传数据让正在编辑题面的人白白冲突。 */
     int updateTestData(
-            @Param("id") String id,
-            @Param("location") String location,
-            @Param("updatedAt") LocalDateTime updatedAt);
+            @Param("id") String id, @Param("location") String location, @Param("updatedAt") LocalDateTime updatedAt);
 
     int deleteSamples(@Param("problemId") String problemId);
 

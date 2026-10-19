@@ -63,7 +63,9 @@ class ContractAlignmentTests {
     }
 
     private static Set<String> components(Class<? extends Record> type) {
-        return Arrays.stream(type.getRecordComponents()).map(RecordComponent::getName).collect(Collectors.toSet());
+        return Arrays.stream(type.getRecordComponents())
+                .map(RecordComponent::getName)
+                .collect(Collectors.toSet());
     }
 
     private static Set<String> fieldNames(JsonNode object) {

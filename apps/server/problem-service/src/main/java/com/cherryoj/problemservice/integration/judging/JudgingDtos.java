@@ -15,18 +15,39 @@ public final class JudgingDtos {
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CalibrationRequest(
-            String problemId, String languageId, String testDataLocation, String testDataDigest,
-            long cpuNs, long memoryBytes, Long clockNs, String referenceSource,
-            String referenceSolutionSource, Integer solutionPrefixLineCount) {}
+            String problemId,
+            String languageId,
+            String testDataLocation,
+            String testDataDigest,
+            long cpuNs,
+            long memoryBytes,
+            Long clockNs,
+            String referenceSource,
+            String referenceSolutionSource,
+            Integer solutionPrefixLineCount) {}
+
     public record BenchmarkSummary(
             String sourceSha256, String verdict, Long maxCpuNs, Long maxMemoryBytes, Long maxClockNs) {}
+
     public record Calibration(
-            String id, String problemId, String languageId, String status, Long cpuNs, Long memoryBytes, Long clockNs,
-            String testDataDigest, BenchmarkSummary benchmarkSummary, String errorMessage,
-            LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion) {}
+            String id,
+            String problemId,
+            String languageId,
+            String status,
+            Long cpuNs,
+            Long memoryBytes,
+            Long clockNs,
+            String testDataDigest,
+            BenchmarkSummary benchmarkSummary,
+            String errorMessage,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            long rowVersion) {}
+
     public record ReadinessCheck(String code, boolean passed, String message) {}
     /** calibratedAt 是这条标定的批准时间（UTC）；驱动代码或前缀晚于它修改时提示重新标定。 */
     public record ExecutionProfile(
             String calibrationId, long cpuNs, long memoryBytes, Long clockNs, LocalDateTime calibratedAt) {}
+
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

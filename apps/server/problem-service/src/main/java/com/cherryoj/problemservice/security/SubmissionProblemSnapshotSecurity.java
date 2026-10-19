@@ -11,8 +11,10 @@ import org.springframework.security.web.SecurityFilterChain;
 /** submission-service 创建提交时取题目快照；只接受 submission-service 的服务令牌。 */
 @Configuration(proxyBeanMethods = false)
 class SubmissionProblemSnapshotSecurity {
-    @Bean @Order(-10)
-    SecurityFilterChain submissionProblemSnapshotChain(HttpSecurity http, ServiceCallVerifier services) throws Exception {
+    @Bean
+    @Order(-10)
+    SecurityFilterChain submissionProblemSnapshotChain(HttpSecurity http, ServiceCallVerifier services)
+            throws Exception {
         http.securityMatcher("/internal/submission/problem-snapshot");
         return services.restrictTo(http, ServiceNames.SUBMISSION);
     }

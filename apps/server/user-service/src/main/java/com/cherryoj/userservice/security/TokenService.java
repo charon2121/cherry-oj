@@ -1,7 +1,6 @@
 package com.cherryoj.userservice.security;
 
 import com.cherryoj.serviceidentity.ServiceTokenClaims;
-
 import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.LoginGrant;
 import com.cherryoj.userservice.domain.UserAccount;
@@ -61,7 +60,8 @@ public class TokenService {
                 .keyId(keys.activeKid())
                 .type("JWT")
                 .build();
-        return new TokenValue(encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue(), expiresAt);
+        return new TokenValue(
+                encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue(), expiresAt);
     }
 
     private TokenValue issue(String userId, String role, long sessionVersion, boolean passwordChangeRequired) {

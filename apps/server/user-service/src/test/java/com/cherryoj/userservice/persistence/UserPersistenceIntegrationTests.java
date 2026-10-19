@@ -2,26 +2,26 @@ package com.cherryoj.userservice.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.ArgumentMatchers.any;
 
-import com.github.dockerjava.api.model.LogConfig;
 import com.cherryoj.userservice.application.AuditService;
 import com.cherryoj.userservice.application.AuthenticationService;
 import com.cherryoj.userservice.application.UserAdministrationService;
 import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.AuthenticationFailedException;
 import com.cherryoj.userservice.domain.IdentityConflictException;
+import com.cherryoj.userservice.domain.LoginGrant;
+import com.cherryoj.userservice.domain.UserAccount;
+import com.cherryoj.userservice.domain.UserStatus;
 import com.cherryoj.userservice.domain.UsernamePolicy;
 import com.cherryoj.userservice.domain.UuidV7;
-import com.cherryoj.userservice.domain.UserStatus;
-import com.cherryoj.userservice.domain.UserAccount;
-import com.cherryoj.userservice.domain.LoginGrant;
 import com.cherryoj.userservice.security.LoginGrantCodec;
 import com.cherryoj.userservice.security.PasswordService;
 import com.cherryoj.userservice.security.TokenService;
 import com.cherryoj.userservice.security.TokenValue;
+import com.github.dockerjava.api.model.LogConfig;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -43,11 +43,12 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = {
-        "cherry.auth.mode=test",
-        "spring.main.web-application-type=none",
-        "management.endpoint.health.validate-group-membership=false"
-})
+@SpringBootTest(
+        properties = {
+            "cherry.auth.mode=test",
+            "spring.main.web-application-type=none",
+            "management.endpoint.health.validate-group-membership=false"
+        })
 @Testcontainers(disabledWithoutDocker = true)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class UserPersistenceIntegrationTests {
@@ -62,8 +63,8 @@ class UserPersistenceIntegrationTests {
                     .withMemorySwap(1024L << 20)
                     .withNanoCPUs(1_000_000_000L)
                     .withPidsLimit(256L)
-                    .withLogConfig(new LogConfig(LogConfig.LoggingType.LOCAL,
-                            Map.of("max-size", "1m", "max-file", "2"))));
+                    .withLogConfig(
+                            new LogConfig(LogConfig.LoggingType.LOCAL, Map.of("max-size", "1m", "max-file", "2"))));
 
     @DynamicPropertySource
     static void mysqlProperties(DynamicPropertyRegistry registry) {
@@ -118,7 +119,10 @@ class UserPersistenceIntegrationTests {
         assertThat(users.listUsers(1, 20).totalElements()).isEqualTo(2);
 
         var disabled = users.updateStatus(
-                admin.id(), created.user().id(), UserStatus.DISABLED, created.user().rowVersion());
+                admin.id(),
+                created.user().id(),
+                UserStatus.DISABLED,
+                created.user().rowVersion());
         assertThat(disabled.status()).isEqualTo(UserStatus.DISABLED);
         var reset = users.resetPassword(admin.id(), created.user().id(), disabled.rowVersion());
         assertThat(reset.user().passwordChangeRequired()).isTrue();
@@ -163,12 +167,10 @@ class UserPersistenceIntegrationTests {
         var created = users.createUser(null, "SessionLearner");
         String rawGrant = grants.generate();
         byte[] digest = grants.digest(rawGrant);
-        LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)
-                .truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime now =
+                LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
         LocalDateTime absolute = now.plusDays(30);
-        sessions.insert(
-                uuidV7.next().toString(), created.user().id(), digest, 0,
-                now, absolute);
+        sessions.insert(uuidV7.next().toString(), created.user().id(), digest, 0, now, absolute);
 
         var initial = sessions.findActiveByGrantHash(digest, now.plusMinutes(31));
         assertThat(initial).isNotNull();
@@ -185,7 +187,10 @@ class UserPersistenceIntegrationTests {
         var created = users.createUser(null, "PrecisionLearner");
         LocalDateTime createdAt = accounts.findById(created.user().id()).createdAt();
         // Follow the persisted account's clock instead of a calendar date that eventually becomes its past.
-        Instant second = createdAt.toInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS).plusSeconds(1);
+        Instant second = createdAt
+                .toInstant(ZoneOffset.UTC)
+                .truncatedTo(ChronoUnit.SECONDS)
+                .plusSeconds(1);
         for (int inputNs : new int[] {123456789, 999999999, 123456000, 0}) {
             Instant instant = second.plusNanos(inputNs);
             // Advance whole seconds so MySQL rounding of 999999999 ns cannot put the next login in the past.
@@ -199,22 +204,26 @@ class UserPersistenceIntegrationTests {
             var exchanged = new TransactionTemplate(transactionManager)
                     .execute(ignored -> authentication.exchange(issued.loginGrant()));
 
-            assertThat(validated.sessionAbsoluteExpiresAt()).as("validate fraction ns=%s", inputNs)
+            assertThat(validated.sessionAbsoluteExpiresAt())
+                    .as("validate fraction ns=%s", inputNs)
                     .isEqualTo(issued.sessionAbsoluteExpiresAt());
             assertThat(exchanged).isNotNull();
-            assertThat(exchanged.sessionAbsoluteExpiresAt()).as("exchange fraction ns=%s", inputNs)
+            assertThat(exchanged.sessionAbsoluteExpiresAt())
+                    .as("exchange fraction ns=%s", inputNs)
                     .isEqualTo(issued.sessionAbsoluteExpiresAt());
             assertThat(issued.sessionAbsoluteExpiresAt())
-                    .isBeforeOrEqualTo(LocalDateTime.ofInstant(instant, ZoneOffset.UTC)
-                            .plus(properties.sessionAbsoluteTimeout()));
+                    .isBeforeOrEqualTo(
+                            LocalDateTime.ofInstant(instant, ZoneOffset.UTC).plus(properties.sessionAbsoluteTimeout()));
 
             Instant deadline = issued.sessionAbsoluteExpiresAt().toInstant(ZoneOffset.UTC);
-            assertThat(authenticationAt(deadline.minusNanos(1000)).validate(issued.loginGrant())
-                    .sessionAbsoluteExpiresAt()).isEqualTo(issued.sessionAbsoluteExpiresAt());
+            assertThat(authenticationAt(deadline.minusNanos(1000))
+                            .validate(issued.loginGrant())
+                            .sessionAbsoluteExpiresAt())
+                    .isEqualTo(issued.sessionAbsoluteExpiresAt());
             assertThatThrownBy(() -> authenticationAt(deadline).validate(issued.loginGrant()))
                     .isInstanceOf(AuthenticationFailedException.class);
-            new TransactionTemplate(transactionManager).executeWithoutResult(
-                    ignored -> authentication.revoke(issued.loginGrant()));
+            new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(ignored -> authentication.revoke(issued.loginGrant()));
             assertThatThrownBy(() -> authentication.validate(issued.loginGrant()))
                     .isInstanceOf(AuthenticationFailedException.class);
         }
@@ -225,7 +234,17 @@ class UserPersistenceIntegrationTests {
         TokenValue token = new TokenValue("test-token", instant.plus(properties.accessTokenTtl()));
         when(tokens.issue(any(UserAccount.class))).thenReturn(token);
         when(tokens.issue(any(LoginGrant.class))).thenReturn(token);
-        return new AuthenticationService(accounts, sessions, usernames, passwords, grants, tokens,
-                audit, uuidV7, properties, Clock.fixed(instant, ZoneOffset.UTC), transactionManager);
+        return new AuthenticationService(
+                accounts,
+                sessions,
+                usernames,
+                passwords,
+                grants,
+                tokens,
+                audit,
+                uuidV7,
+                properties,
+                Clock.fixed(instant, ZoneOffset.UTC),
+                transactionManager);
     }
 }

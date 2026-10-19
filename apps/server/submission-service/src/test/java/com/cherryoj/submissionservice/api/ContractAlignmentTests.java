@@ -18,7 +18,8 @@ class ContractAlignmentTests {
     @Test
     void judgeInputAndProblemSnapshotHaveExactlyTheContractFields() throws Exception {
         assertThat(components(SubmissionDtos.Input.class)).isEqualTo(properties("judge-input.schema.json"));
-        assertThat(components(SubmissionDtos.Snapshot.class)).isEqualTo(properties("problem-judge-snapshot.schema.json"));
+        assertThat(components(SubmissionDtos.Snapshot.class))
+                .isEqualTo(properties("problem-judge-snapshot.schema.json"));
     }
 
     @Test
@@ -31,7 +32,9 @@ class ContractAlignmentTests {
     }
 
     private static Set<String> components(Class<? extends Record> type) {
-        return Arrays.stream(type.getRecordComponents()).map(RecordComponent::getName).collect(Collectors.toSet());
+        return Arrays.stream(type.getRecordComponents())
+                .map(RecordComponent::getName)
+                .collect(Collectors.toSet());
     }
 
     private static Set<String> properties(String name) throws Exception {
@@ -39,6 +42,8 @@ class ContractAlignmentTests {
     }
 
     private static JsonNode schema(String name) throws Exception {
-        return JsonMapper.builder().build().readTree(Files.readString(Path.of("../../../contracts").resolve(name)));
+        return JsonMapper.builder()
+                .build()
+                .readTree(Files.readString(Path.of("../../../contracts").resolve(name)));
     }
 }

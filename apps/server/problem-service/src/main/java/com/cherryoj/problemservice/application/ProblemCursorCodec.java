@@ -25,8 +25,7 @@ final class ProblemCursorCodec {
         try {
             byte[] json = objectMapper.writeValueAsBytes(new CursorPayload(sort, key, id, filterFingerprint));
             return Base64.getUrlEncoder().withoutPadding().encodeToString(json);
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new IllegalStateException("Could not encode problem cursor", error);
         }
     }
@@ -43,7 +42,9 @@ final class ProblemCursorCodec {
             CursorPayload payload = objectMapper.readValue(json, CursorPayload.class);
             if (!expectedSort.equals(payload.sort())
                     || !expectedFilterFingerprint.equals(payload.filterFingerprint())
-                    || payload.key() == null || payload.key().isBlank() || payload.key().length() > 512) {
+                    || payload.key() == null
+                    || payload.key().isBlank()
+                    || payload.key().length() > 512) {
                 throw invalid();
             }
             UUID.fromString(payload.id());
@@ -51,11 +52,9 @@ final class ProblemCursorCodec {
                 LocalDateTime.parse(payload.key(), DATE_TIME);
             }
             return new CursorPosition(payload.key(), payload.id());
-        }
-        catch (ProblemApiException error) {
+        } catch (ProblemApiException error) {
             throw error;
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw invalid();
         }
     }
@@ -64,9 +63,7 @@ final class ProblemCursorCodec {
         return new ProblemApiException(HttpStatus.BAD_REQUEST, "INVALID_CURSOR", "题库游标无效或已与筛选条件失配。");
     }
 
-    record CursorPosition(String key, String id) {
-    }
+    record CursorPosition(String key, String id) {}
 
-    private record CursorPayload(String sort, String key, String id, String filterFingerprint) {
-    }
+    private record CursorPayload(String sort, String key, String id, String filterFingerprint) {}
 }

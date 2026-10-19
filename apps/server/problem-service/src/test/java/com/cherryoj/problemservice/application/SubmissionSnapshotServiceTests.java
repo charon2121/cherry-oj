@@ -40,15 +40,18 @@ class SubmissionSnapshotServiceTests {
         when(problem.codeMode()).thenReturn(CodeMode.ACM);
         when(problem.testDataLocation()).thenReturn("/srv/problem/p");
         when(problems.findProblem("p")).thenReturn(problem);
-        when(problems.findLanguages("p")).thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
+        when(problems.findLanguages("p"))
+                .thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
 
         // 测试数据读不到：提交时就拒绝，而不是让它进队列后判成 SE
-        when(data.describe(anyString())).thenThrow(new TestDataStore.AssetException(
-                TestDataStore.Kind.NOT_FOUND, "TEST_DATA_NOT_FOUND"));
+        when(data.describe(anyString()))
+                .thenThrow(new TestDataStore.AssetException(TestDataStore.Kind.NOT_FOUND, "TEST_DATA_NOT_FOUND"));
         assertThrows(ProblemApiException.class, () -> service.resolve("p", "cpp"));
 
         // 再配具体的桩时不能在 when(...) 里调用已经被模糊桩住的方法，改用 doReturn
-        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, null)).when(data).describe("/srv/problem/p");
+        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, null))
+                .when(data)
+                .describe("/srv/problem/p");
         var snapshot = service.resolve("p", "cpp");
         assertEquals("p", snapshot.problemId());
         assertEquals("A+B", snapshot.problemTitle());
@@ -64,10 +67,15 @@ class SubmissionSnapshotServiceTests {
     void aCoreSnapshotCarriesTheDriverAndThePrefixButNeverPrintsThem() throws Exception {
         var problem = publicProblem(CodeMode.CORE);
         String driver = "#include \"solution.cpp\"\nint main() { /* driver-canary */ }\n";
-        when(problems.findLanguages("p")).thenReturn(List.of(
-                new AdminProblemRows.LanguageRow("cpp", 1, "", driver, LocalDateTime.of(2026, 10, 17, 0, 0))));
-        when(problems.findLanguagePrefix("cpp")).thenReturn(new AdminProblemRows.LanguagePrefixRow(
-                "cpp", "C++", "#include <bits/stdc++.h>\nusing namespace std;\n", LocalDateTime.of(2026, 10, 1, 0, 0)));
+        when(problems.findLanguages("p"))
+                .thenReturn(List.of(
+                        new AdminProblemRows.LanguageRow("cpp", 1, "", driver, LocalDateTime.of(2026, 10, 17, 0, 0))));
+        when(problems.findLanguagePrefix("cpp"))
+                .thenReturn(new AdminProblemRows.LanguagePrefixRow(
+                        "cpp",
+                        "C++",
+                        "#include <bits/stdc++.h>\nusing namespace std;\n",
+                        LocalDateTime.of(2026, 10, 1, 0, 0)));
 
         var snapshot = service.resolve("p", "cpp");
 
@@ -80,11 +88,13 @@ class SubmissionSnapshotServiceTests {
     @Test
     void aCoreProblemWithoutADriverOrPrefixIsUnavailable() throws Exception {
         publicProblem(CodeMode.CORE);
-        when(problems.findLanguages("p")).thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
+        when(problems.findLanguages("p"))
+                .thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
         assertThrows(ProblemApiException.class, () -> service.resolve("p", "cpp"));
 
-        when(problems.findLanguages("p")).thenReturn(List.of(
-                new AdminProblemRows.LanguageRow("cpp", 1, "", "int main() {}", LocalDateTime.of(2026, 10, 17, 0, 0))));
+        when(problems.findLanguages("p"))
+                .thenReturn(List.of(new AdminProblemRows.LanguageRow(
+                        "cpp", 1, "", "int main() {}", LocalDateTime.of(2026, 10, 17, 0, 0))));
         assertThrows(ProblemApiException.class, () -> service.resolve("p", "cpp"));
     }
 
@@ -92,7 +102,8 @@ class SubmissionSnapshotServiceTests {
     @Test
     void anAcmSnapshotSerializesWithoutCoreFields() throws Exception {
         publicProblem(CodeMode.ACM);
-        when(problems.findLanguages("p")).thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
+        when(problems.findLanguages("p"))
+                .thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
 
         String json = JsonMapper.builder().build().writeValueAsString(service.resolve("p", "cpp"));
 
@@ -109,7 +120,9 @@ class SubmissionSnapshotServiceTests {
         when(problem.codeMode()).thenReturn(codeMode);
         when(problem.testDataLocation()).thenReturn("/srv/problem/p");
         when(problems.findProblem("p")).thenReturn(problem);
-        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, null)).when(data).describe("/srv/problem/p");
+        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, null))
+                .when(data)
+                .describe("/srv/problem/p");
         return problem;
     }
 
@@ -120,7 +133,8 @@ class SubmissionSnapshotServiceTests {
         when(problem.status()).thenReturn(ProblemStatus.ACTIVE);
         when(problem.codeMode()).thenReturn(CodeMode.ACM);
         when(problems.findProblem("p")).thenReturn(problem);
-        when(problems.findLanguages("p")).thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
+        when(problems.findLanguages("p"))
+                .thenReturn(List.of(new AdminProblemRows.LanguageRow("cpp", 1, "", null, null)));
         assertThrows(ProblemApiException.class, () -> service.resolve("p", "cpp"));
     }
 }

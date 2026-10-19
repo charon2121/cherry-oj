@@ -8,14 +8,11 @@ import java.util.List;
 /** 语言的平台级设置（contracts/web-api.openapi.json 的 AdminLanguageSetting）：目前只有 CORE 用户文件的前缀。 */
 public final class LanguageSettingDtos {
 
-    private LanguageSettingDtos() {
-    }
+    private LanguageSettingDtos() {}
 
-    public record LanguageSetting(String id, String displayName, String solutionPrefix, LocalDateTime updatedAt) {
-    }
+    public record LanguageSetting(String id, String displayName, String solutionPrefix, LocalDateTime updatedAt) {}
 
-    public record LanguageSettingList(List<LanguageSetting> items) {
-    }
+    public record LanguageSettingList(List<LanguageSetting> items) {}
 
     /** 语言表没有 rowVersion：以读到的 updatedAt 作为并发前提。 */
     public record UpdateLanguageSettingRequest(
@@ -24,8 +21,8 @@ public final class LanguageSettingDtos {
 
         @Override
         public String toString() {
-            return "UpdateLanguageSettingRequest[solutionPrefix=<" + solutionPrefix.length() + " chars>, expectedUpdatedAt="
-                    + expectedUpdatedAt + "]";
+            return "UpdateLanguageSettingRequest[solutionPrefix=<" + solutionPrefix.length()
+                    + " chars>, expectedUpdatedAt=" + expectedUpdatedAt + "]";
         }
     }
 }

@@ -22,12 +22,12 @@ public final class JudgeDiagnostics {
     /** 目录部分：前面不能紧挨着字母数字或点（避免把 "2/3"、"a.b/c" 当路径），后面必须还有文件名（避免吃掉 " / "）。 */
     private static final Pattern DIRECTORIES = Pattern.compile(
             "(?<![\\w.])(?:[A-Za-z]:)?(?:\\.{1,2})?[/\\\\](?:[^\\s/\\\\:\"'()\\[\\]]+[/\\\\])*(?=[^\\s/\\\\:\"'()\\[\\]])");
-    private static final Pattern ANY_LOCATION = Pattern.compile(
-            "[\\w.\\-]+\\.\\w+(?::\\d+|\\(\\d+,|\", line \\d+| on line \\d+)");
+
+    private static final Pattern ANY_LOCATION =
+            Pattern.compile("[\\w.\\-]+\\.\\w+(?::\\d+|\\(\\d+,|\", line \\d+| on line \\d+)");
     private static final Pattern GUTTER = Pattern.compile("^(\\s*)(\\d+)( \\|)");
 
-    private JudgeDiagnostics() {
-    }
+    private JudgeDiagnostics() {}
 
     /** 编译器的诊断总以换行结尾；judge 只给出截断后的片段、不给截断标记，最后没有换行就说明被切过。 */
     public static boolean looksCut(String compilerOutput) {
@@ -42,7 +42,8 @@ public final class JudgeDiagnostics {
         if (text == null) {
             return null;
         }
-        String cleaned = stripDirectories(CONTROL.matcher(ANSI.matcher(text).replaceAll("")).replaceAll(""));
+        String cleaned = stripDirectories(
+                CONTROL.matcher(ANSI.matcher(text).replaceAll("")).replaceAll(""));
         if (solutionFile == null || prefixLines == null) {
             return cleaned;
         }
@@ -75,19 +76,19 @@ public final class JudgeDiagnostics {
                 StringBuilder replaced = new StringBuilder();
                 while (matcher.find()) {
                     solutionLocation = true;
-                    matcher.appendReplacement(replaced, Matcher.quoteReplacement(
-                            shiftedLocation(matcher.group(1), solutionFile, Long.parseLong(matcher.group(2)), prefixLines)));
+                    matcher.appendReplacement(
+                            replaced,
+                            Matcher.quoteReplacement(shiftedLocation(
+                                    matcher.group(1), solutionFile, Long.parseLong(matcher.group(2)), prefixLines)));
                 }
                 matcher.appendTail(replaced);
                 rewritten = replaced.toString();
             }
             if (solutionLocation) {
                 excerptBelongsToSolution = true;
-            }
-            else if (ANY_LOCATION.matcher(line).find()) {
+            } else if (ANY_LOCATION.matcher(line).find()) {
                 excerptBelongsToSolution = false;
-            }
-            else if (excerptBelongsToSolution) {
+            } else if (excerptBelongsToSolution) {
                 rewritten = shiftedGutter(rewritten, prefixLines);
             }
             out.append(rewritten).append('\n');

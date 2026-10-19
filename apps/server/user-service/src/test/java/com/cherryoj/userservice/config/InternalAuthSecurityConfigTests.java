@@ -50,22 +50,40 @@ class InternalAuthSecurityConfigTests {
         }
     }
 
-    @Configuration @EnableWebSecurity @EnableWebMvc @Import({InternalAuthSecurityConfig.class, SecurityConfig.class})
+    @Configuration
+    @EnableWebSecurity
+    @EnableWebMvc
+    @Import({InternalAuthSecurityConfig.class, SecurityConfig.class})
     static class Config {
-        @Bean org.springframework.security.oauth2.jwt.JwtDecoder userJwtDecoder() throws Exception {
-            return org.springframework.security.oauth2.jwt.NimbusJwtDecoder.withPublicKey(KEY.toRSAPublicKey()).build();
+        @Bean
+        org.springframework.security.oauth2.jwt.JwtDecoder userJwtDecoder() throws Exception {
+            return org.springframework.security.oauth2.jwt.NimbusJwtDecoder.withPublicKey(KEY.toRSAPublicKey())
+                    .build();
         }
 
-        @Bean SigningKeys signingKeys() throws Exception {
+        @Bean
+        SigningKeys signingKeys() throws Exception {
             return new SigningKeys(KEY, new JWKSet(KEY.toPublicJWK()), KEY.toRSAPublicKey(), KEY.toRSAPrivateKey());
         }
 
-        @Bean AuthProperties authProperties() {
-            return new AuthProperties("server", ISSUER, "cherry-oj-internal", null, "unused", "unused", Map.of(),
-                    Duration.ofHours(2), Duration.ofSeconds(30), "fixed-absolute", 2_592_000);
+        @Bean
+        AuthProperties authProperties() {
+            return new AuthProperties(
+                    "server",
+                    ISSUER,
+                    "cherry-oj-internal",
+                    null,
+                    "unused",
+                    "unused",
+                    Map.of(),
+                    Duration.ofHours(2),
+                    Duration.ofSeconds(30),
+                    "fixed-absolute",
+                    2_592_000);
         }
 
-        @Bean StubAuthEndpoint stub() {
+        @Bean
+        StubAuthEndpoint stub() {
             return new StubAuthEndpoint();
         }
     }
@@ -76,13 +94,17 @@ class InternalAuthSecurityConfigTests {
             context.setServletContext(new MockServletContext());
             context.register(Config.class);
             context.refresh();
-            var mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+            var mvc = MockMvcBuilders.webAppContextSetup(context)
+                    .apply(springSecurity())
+                    .build();
             String path = "/internal/auth/validate";
 
             // 此前这些端点对任何能连到 user-service 的进程开放。
             mvc.perform(post(path)).andExpect(status().isUnauthorized());
-            mvc.perform(post(path).header("Authorization", "Bearer " + userToken())).andExpect(status().isUnauthorized());
-            mvc.perform(post(path).header("Authorization", "Bearer " + serviceToken("gateway-service", "problem-service")))
+            mvc.perform(post(path).header("Authorization", "Bearer " + userToken()))
+                    .andExpect(status().isUnauthorized());
+            mvc.perform(post(path)
+                            .header("Authorization", "Bearer " + serviceToken("gateway-service", "problem-service")))
                     .andExpect(status().isUnauthorized());
             mvc.perform(post(path).header("Authorization", "Bearer " + serviceToken("judging-service", "user-service")))
                     .andExpect(status().isForbidden());
@@ -96,19 +118,28 @@ class InternalAuthSecurityConfigTests {
     }
 
     private static String serviceToken(String caller, String audience) throws Exception {
-        return sign(new JWTClaimsSet.Builder().subject(caller).audience(audience).claim("token_use", "service"));
+        return sign(
+                new JWTClaimsSet.Builder().subject(caller).audience(audience).claim("token_use", "service"));
     }
 
     private static String userToken() throws Exception {
-        return sign(new JWTClaimsSet.Builder().subject(UUID.randomUUID().toString()).audience("cherry-oj-internal")
-                .claim("roles", List.of("ADMIN")).claim("sv", 0).claim("pwd", false));
+        return sign(new JWTClaimsSet.Builder()
+                .subject(UUID.randomUUID().toString())
+                .audience("cherry-oj-internal")
+                .claim("roles", List.of("ADMIN"))
+                .claim("sv", 0)
+                .claim("pwd", false));
     }
 
     private static String sign(JWTClaimsSet.Builder claims) throws Exception {
         Instant now = Instant.now();
-        var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(KEY.getKeyID()).build(),
-                claims.issuer(ISSUER).issueTime(Date.from(now)).expirationTime(Date.from(now.plusSeconds(900)))
-                        .jwtID(UUID.randomUUID().toString()).build());
+        var jwt = new SignedJWT(
+                new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(KEY.getKeyID()).build(),
+                claims.issuer(ISSUER)
+                        .issueTime(Date.from(now))
+                        .expirationTime(Date.from(now.plusSeconds(900)))
+                        .jwtID(UUID.randomUUID().toString())
+                        .build());
         jwt.sign(new RSASSASigner(KEY));
         return jwt.serialize();
     }
@@ -116,8 +147,7 @@ class InternalAuthSecurityConfigTests {
     private static RSAKey generate() {
         try {
             return new RSAKeyGenerator(2048).keyID("issuer-key").generate();
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new ExceptionInInitializerError(error);
         }
     }

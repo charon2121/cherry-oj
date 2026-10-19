@@ -1,7 +1,6 @@
 package com.cherryoj.problemservice.application;
 
 import com.cherryoj.problemservice.api.ProblemApiException;
-import com.cherryoj.problemservice.api.PublicProblemDtos;
 import com.cherryoj.problemservice.api.PublicProblemDtos.LanguageSummary;
 import com.cherryoj.problemservice.api.PublicProblemDtos.ProblemDetail;
 import com.cherryoj.problemservice.api.PublicProblemDtos.ProblemLanguage;
@@ -36,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PublicProblemService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PublicProblemService.class);
-    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() { };
+    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
 
     private final PublicProblemMapper mapper;
     private final ProblemCursorCodec cursors;
@@ -84,14 +83,13 @@ public class PublicProblemService {
         List<ProblemSummary> items = rows.stream()
                 .map(row -> summary(row, languages.getOrDefault(row.problemId(), List.of())))
                 .toList();
-        String nextCursor = hasMore && !rows.isEmpty()
-                ? cursorFor(rows.getLast(), sort, fingerprint)
-                : null;
+        String nextCursor = hasMore && !rows.isEmpty() ? cursorFor(rows.getLast(), sort, fingerprint) : null;
         LOGGER.atInfo()
                 .addKeyValue("event", "public_problem_list")
                 .addKeyValue("result_count", items.size())
                 .addKeyValue("has_more", hasMore)
-                .addKeyValue("elapsed_ms", Duration.between(startedAt, Instant.now()).toMillis())
+                .addKeyValue(
+                        "elapsed_ms", Duration.between(startedAt, Instant.now()).toMillis())
                 .log("Public problem list completed");
         return new ProblemList(items, nextCursor, hasMore);
     }
@@ -104,16 +102,29 @@ public class PublicProblemService {
         }
         List<ProblemSample> samples = mapper.findSamples(row.problemId()).stream()
                 .map(sample -> new ProblemSample(
-                        sample.ordinal(), sample.inputText(), sample.expectedOutputText(), sample.explanationMarkdown()))
+                        sample.ordinal(),
+                        sample.inputText(),
+                        sample.expectedOutputText(),
+                        sample.explanationMarkdown()))
                 .toList();
         List<ProblemLanguage> languages = mapper.findLanguages(List.of(row.problemId())).stream()
                 .map(languageRow -> new ProblemLanguage(
                         languageRow.languageId(), displayName(languageRow.languageId()), languageRow.starterCode()))
                 .toList();
         return new ProblemDetail(
-                row.problemId(), row.slug(), row.codeMode(), row.title(),
-                row.difficulty(), tags(row), row.statementMarkdown(), row.inputDescriptionMarkdown(),
-                row.outputDescriptionMarkdown(), row.constraintsMarkdown(), row.hintMarkdown(), samples, languages);
+                row.problemId(),
+                row.slug(),
+                row.codeMode(),
+                row.title(),
+                row.difficulty(),
+                tags(row),
+                row.statementMarkdown(),
+                row.inputDescriptionMarkdown(),
+                row.outputDescriptionMarkdown(),
+                row.constraintsMarkdown(),
+                row.hintMarkdown(),
+                samples,
+                languages);
     }
 
     private Map<String, List<LanguageRow>> languages(List<ProblemRow> rows) {
@@ -121,17 +132,25 @@ public class PublicProblemService {
             return Map.of();
         }
         List<String> ids = rows.stream().map(ProblemRow::problemId).toList();
-        return mapper.findLanguages(ids).stream().collect(Collectors.groupingBy(
-                LanguageRow::problemId,
-                Collectors.collectingAndThen(Collectors.toList(), values -> values.stream()
-                        .sorted(Comparator.comparingInt(LanguageRow::displayOrder))
-                        .toList())));
+        return mapper.findLanguages(ids).stream()
+                .collect(Collectors.groupingBy(
+                        LanguageRow::problemId,
+                        Collectors.collectingAndThen(
+                                Collectors.toList(),
+                                values -> values.stream()
+                                        .sorted(Comparator.comparingInt(LanguageRow::displayOrder))
+                                        .toList())));
     }
 
     private ProblemSummary summary(ProblemRow row, List<LanguageRow> languages) {
         return new ProblemSummary(
-                row.problemId(), row.slug(), row.title(), row.difficulty(),
-                tags(row), row.codeMode(), languages.stream()
+                row.problemId(),
+                row.slug(),
+                row.title(),
+                row.difficulty(),
+                tags(row),
+                row.codeMode(),
+                languages.stream()
                         .map(language -> new LanguageSummary(language.languageId(), displayName(language.languageId())))
                         .toList());
     }
@@ -139,16 +158,13 @@ public class PublicProblemService {
     private List<String> tags(ProblemRow row) {
         try {
             return List.copyOf(objectMapper.readValue(row.tagsJson(), STRING_LIST));
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new IllegalStateException("Public problem tags are invalid", error);
         }
     }
 
     private String cursorFor(ProblemRow row, Sort sort, String fingerprint) {
-        String key = sort == Sort.TITLE_ASC
-                ? row.title()
-                : row.updatedAt().format(ProblemCursorCodec.DATE_TIME);
+        String key = sort == Sort.TITLE_ASC ? row.title() : row.updatedAt().format(ProblemCursorCodec.DATE_TIME);
         return cursors.encode(sort.name(), key, row.problemId(), fingerprint);
     }
 
@@ -184,18 +200,25 @@ public class PublicProblemService {
     private static String fingerprint(
             String q, Difficulty difficulty, List<String> tags, CodeMode codeMode, String language, Sort sort) {
         try {
-            String source = String.join("\u001f",
-                    value(q), name(difficulty), String.join("\u001e", tags), name(codeMode), value(language), sort.name());
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(source.getBytes(StandardCharsets.UTF_8)));
-        }
-        catch (Exception error) {
+            String source = String.join(
+                    "\u001f",
+                    value(q),
+                    name(difficulty),
+                    String.join("\u001e", tags),
+                    name(codeMode),
+                    value(language),
+                    sort.name());
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception error) {
             throw new IllegalStateException("SHA-256 is unavailable", error);
         }
     }
 
     private static String escapeLike(String value) {
-        return value == null ? null : value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return value == null
+                ? null
+                : value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private static String displayName(String languageId) {
@@ -210,9 +233,21 @@ public class PublicProblemService {
         return value == null ? "" : value;
     }
 
-    public enum Difficulty { UNRATED, EASY, MEDIUM, HARD }
+    public enum Difficulty {
+        UNRATED,
+        EASY,
+        MEDIUM,
+        HARD
+    }
 
-    public enum CodeMode { ACM, CORE }
+    public enum CodeMode {
+        ACM,
+        CORE
+    }
 
-    public enum Sort { UPDATED_DESC, UPDATED_ASC, TITLE_ASC }
+    public enum Sort {
+        UPDATED_DESC,
+        UPDATED_ASC,
+        TITLE_ASC
+    }
 }

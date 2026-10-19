@@ -25,9 +25,7 @@ public interface UserAccountMapper {
     int insert(UserAccount account);
 
     int recordLoginFailure(
-            @Param("id") String id,
-            @Param("now") LocalDateTime now,
-            @Param("lockedUntil") LocalDateTime lockedUntil);
+            @Param("id") String id, @Param("now") LocalDateTime now, @Param("lockedUntil") LocalDateTime lockedUntil);
 
     int recordLoginSuccess(@Param("id") String id, @Param("now") LocalDateTime now);
 

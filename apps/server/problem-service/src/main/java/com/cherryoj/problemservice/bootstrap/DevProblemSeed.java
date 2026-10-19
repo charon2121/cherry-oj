@@ -31,6 +31,7 @@ public class DevProblemSeed implements ApplicationRunner {
                 }
             };
             """;
+
     private static final String CORE_DRIVER = """
             #include "solution.cpp"
 
@@ -67,8 +68,7 @@ public class DevProblemSeed implements ApplicationRunner {
         try {
             var prepared = testData.prepare(problemId, new ByteArrayInputStream(zip()));
             return testData.activate(problemId, prepared);
-        }
-        catch (TestDataStore.AssetException | IOException error) {
+        } catch (TestDataStore.AssetException | IOException error) {
             throw new IllegalStateException("Could not write the development test data", error);
         }
     }

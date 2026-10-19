@@ -4,10 +4,10 @@ import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
 import com.cherryoj.judgingservice.problem.ProblemTestDataException;
-import org.slf4j.LoggerFactory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,35 +18,49 @@ public class SubmissionExecutionProfileController {
     private final FormalProperties budgets;
     private final ProblemTestDataClient testData;
 
-    public SubmissionExecutionProfileController(JudgingReadinessService service, FormalProperties budgets,
-                                                ProblemTestDataClient testData) {
-        this.service = service; this.budgets = budgets; this.testData = testData;
+    public SubmissionExecutionProfileController(
+            JudgingReadinessService service, FormalProperties budgets, ProblemTestDataClient testData) {
+        this.service = service;
+        this.budgets = budgets;
+        this.testData = testData;
     }
 
     @PostMapping("/internal/submission/execution-profile")
-    public Profile resolve(@Valid @RequestBody Request request,
-                           @RequestHeader(value = "traceparent", required = false) String trace) {
+    public Profile resolve(
+            @Valid @RequestBody Request request, @RequestHeader(value = "traceparent", required = false) String trace) {
         var data = currentTestData(request.problemId(), trace);
         var readiness = service.readiness(request.problemId(), request.languageId(), data.digest());
         var profile = readiness.executionProfile();
         if (!readiness.ready() || profile == null) throw unavailable();
         boolean trial = "trial".equals(request.purpose());
         long budget;
-        try { budget = budgets.executionBudget(profile.cpuNs(), profile.clockNs(), trial ? 1 : data.testcaseCount()).toNanos(); }
-        catch (ArithmeticException invalid) { throw unavailable(); }
-        if (trial && budget > java.time.Duration.ofSeconds(45).toNanos()) throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
+        try {
+            budget = budgets.executionBudget(profile.cpuNs(), profile.clockNs(), trial ? 1 : data.testcaseCount())
+                    .toNanos();
+        } catch (ArithmeticException invalid) {
+            throw unavailable();
+        }
+        if (trial && budget > java.time.Duration.ofSeconds(45).toNanos())
+            throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
         if (!trial && budget >= budgets.deadline().toNanos()) throw unavailable();
-        return new Profile(request.problemId(), request.languageId(), profile.calibrationId(),
-                new Limits(profile.cpuNs(), profile.memoryBytes(), profile.clockNs()), budget);
+        return new Profile(
+                request.problemId(),
+                request.languageId(),
+                profile.calibrationId(),
+                new Limits(profile.cpuNs(), profile.memoryBytes(), profile.clockNs()),
+                budget);
     }
 
     private com.cherryoj.judgingservice.problem.ProblemTestData currentTestData(String problemId, String trace) {
-        try { return testData.current(problemId, trace); }
-        catch (ProblemTestDataException error) {
+        try {
+            return testData.current(problemId, trace);
+        } catch (ProblemTestDataException error) {
             // 例如 PROBLEM_SERVICE_NOT_CONFIGURED：对调用方仍是"暂时无法判题"，日志里给出真实原因。
-            LoggerFactory.getLogger(SubmissionExecutionProfileController.class).atWarn()
+            LoggerFactory.getLogger(SubmissionExecutionProfileController.class)
+                    .atWarn()
                     .addKeyValue("event", "judging.profile.test_data_unavailable")
-                    .addKeyValue("problemId", problemId).addKeyValue("reason", error.code())
+                    .addKeyValue("problemId", problemId)
+                    .addKeyValue("reason", error.code())
                     .log("judging.profile.test_data_unavailable");
             throw unavailable();
         }
@@ -56,13 +70,20 @@ public class SubmissionExecutionProfileController {
         return new JudgingApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_NOT_READY", "当前题目暂时无法判题。");
     }
 
-    public record Request(@NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String problemId,
-                          @NotBlank @Pattern(regexp = "cpp") String languageId,
-                          @Pattern(regexp = "formal|trial") String purpose) {}
+    public record Request(
+            @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN)
+            String problemId,
+
+            @NotBlank @Pattern(regexp = "cpp") String languageId,
+            @Pattern(regexp = "formal|trial") String purpose) {}
 
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     public record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
 
-    public record Profile(String problemId, String languageId, String languageCalibrationId,
-                          Limits effectiveLimits, long executionBudgetNs) {}
+    public record Profile(
+            String problemId,
+            String languageId,
+            String languageCalibrationId,
+            Limits effectiveLimits,
+            long executionBudgetNs) {}
 }

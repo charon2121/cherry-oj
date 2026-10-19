@@ -63,12 +63,10 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public final class FileTestDataStore implements TestDataStore {
 
-    private static final Pattern FILE_NAME = Pattern.compile(
-            "^([A-Za-z0-9][A-Za-z0-9._-]{0,123})\\.(in|out)$");
-    private static final Pattern WRAPPER_NAME = Pattern.compile(
-            "^[\\p{L}\\p{N}][\\p{L}\\p{N} ._-]{0,127}$");
-    private static final Pattern PROBLEM_ID = Pattern.compile(
-            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+    private static final Pattern FILE_NAME = Pattern.compile("^([A-Za-z0-9][A-Za-z0-9._-]{0,123})\\.(in|out)$");
+    private static final Pattern WRAPPER_NAME = Pattern.compile("^[\\p{L}\\p{N}][\\p{L}\\p{N} ._-]{0,127}$");
+    private static final Pattern PROBLEM_ID =
+            Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
     private static final String STORE_DIRECTORY = ".store";
     private static final String TEMPORARY_DIRECTORY = "tmp";
     private static final int GENERATION_SUFFIX = 17; // "-" 加 16 位 digest
@@ -105,8 +103,7 @@ public final class FileTestDataStore implements TestDataStore {
             createDirectory(root, SHARED_DIRECTORY);
             createDirectory(temporaryDirectory, PRIVATE_DIRECTORY);
             createDirectory(storeDirectory, SHARED_DIRECTORY);
-        }
-        catch (IOException error) {
+        } catch (IOException error) {
             throw new IllegalStateException("Could not initialize test data storage", error);
         }
     }
@@ -125,14 +122,11 @@ public final class FileTestDataStore implements TestDataStore {
             String generation = problemId + "-" + document.digest().substring(0, 16);
             materialize(staged, validation, document, generation);
             return new Prepared(problemId, generation, info(document));
-        }
-        catch (AssetException error) {
+        } catch (AssetException error) {
             throw error;
-        }
-        catch (IOException error) {
+        } catch (IOException error) {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_STORAGE_WRITE_FAILED", error);
-        }
-        finally {
+        } finally {
             deletePath(staged);
         }
     }
@@ -141,7 +135,8 @@ public final class FileTestDataStore implements TestDataStore {
     public String activate(String problemId, Prepared prepared) throws AssetException {
         requireProblemId(problemId);
         Path target = storeDirectory.resolve(prepared.generation()).normalize();
-        if (!storeDirectory.equals(target.getParent()) || !prepared.generation().startsWith(problemId + "-")
+        if (!storeDirectory.equals(target.getParent())
+                || !prepared.generation().startsWith(problemId + "-")
                 || !Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_GENERATION_MISSING");
         }
@@ -154,8 +149,7 @@ public final class FileTestDataStore implements TestDataStore {
         try {
             Files.createSymbolicLink(link, Path.of(STORE_DIRECTORY, prepared.generation()));
             Files.move(link, address, StandardCopyOption.ATOMIC_MOVE);
-        }
-        catch (IOException | UnsupportedOperationException error) {
+        } catch (IOException | UnsupportedOperationException error) {
             deletePath(link);
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_ACTIVATE_FAILED", error);
         }
@@ -181,15 +175,14 @@ public final class FileTestDataStore implements TestDataStore {
         }
         String current = currentGeneration(problemId);
         try (var children = Files.list(storeDirectory)) {
-            List<Path> others = children
-                    .filter(path -> path.getFileName().toString().startsWith(problemId + "-")
-                            && !path.getFileName().toString().equals(current)
-                            && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+            List<Path> others = children.filter(
+                            path -> path.getFileName().toString().startsWith(problemId + "-")
+                                    && !path.getFileName().toString().equals(current)
+                                    && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
                     .sorted(Comparator.comparing(FileTestDataStore::modified).reversed())
                     .toList();
             others.stream().skip(1).forEach(FileTestDataStore::deleteTree);
-        }
-        catch (IOException ignored) {
+        } catch (IOException ignored) {
             // 清理是尽力而为，下一次上传还会再清理。
         }
     }
@@ -199,8 +192,7 @@ public final class FileTestDataStore implements TestDataStore {
         Path directory;
         try {
             directory = Path.of(location).normalize();
-        }
-        catch (InvalidPathException | NullPointerException error) {
+        } catch (InvalidPathException | NullPointerException error) {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_LOCATION_INVALID");
         }
         // 地址都是本服务自己写出的；读取之前确认它没有指到存储根之外。
@@ -210,11 +202,9 @@ public final class FileTestDataStore implements TestDataStore {
         byte[] bytes;
         try (InputStream input = Files.newInputStream(directory.resolve(TestDataMetadata.FILE_NAME))) {
             bytes = input.readNBytes(MAX_METADATA_BYTES + 1);
-        }
-        catch (NoSuchFileException error) {
+        } catch (NoSuchFileException error) {
             throw new AssetException(Kind.NOT_FOUND, "TEST_DATA_NOT_FOUND");
-        }
-        catch (IOException error) {
+        } catch (IOException error) {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_STORAGE_READ_FAILED", error);
         }
         if (bytes.length > MAX_METADATA_BYTES) {
@@ -223,8 +213,7 @@ public final class FileTestDataStore implements TestDataStore {
         TestDataMetadata.Document document;
         try {
             document = json.readValue(bytes, TestDataMetadata.Document.class);
-        }
-        catch (RuntimeException error) {
+        } catch (RuntimeException error) {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_METADATA_INVALID", error);
         }
         if (document.problem() != null) {
@@ -242,8 +231,7 @@ public final class FileTestDataStore implements TestDataStore {
         try (var children = Files.list(storeDirectory)) {
             children.filter(path -> path.getFileName().toString().startsWith(problemId + "-"))
                     .forEach(FileTestDataStore::deleteTree);
-        }
-        catch (IOException ignored) {
+        } catch (IOException ignored) {
             // 残留目录没有任何地址指向，读不到，之后的清理会处理。
         }
     }
@@ -257,8 +245,8 @@ public final class FileTestDataStore implements TestDataStore {
         return new RecoveryResult(files, directories);
     }
 
-    private void materialize(Path archive, Validation validation, TestDataMetadata.Document document,
-            String generation) throws AssetException, IOException {
+    private void materialize(Path archive, Validation validation, TestDataMetadata.Document document, String generation)
+            throws AssetException, IOException {
         Path target = storeDirectory.resolve(generation);
         // 内容寻址：同样的数据已经写好就直接复用。
         if (Files.isRegularFile(target.resolve(TestDataMetadata.FILE_NAME), LinkOption.NOFOLLOW_LINKS)) {
@@ -275,22 +263,23 @@ public final class FileTestDataStore implements TestDataStore {
             setPermissions(metadata, SHARED_FILE);
             try {
                 Files.move(building, target, StandardCopyOption.ATOMIC_MOVE);
-            }
-            catch (IOException error) {
+            } catch (IOException error) {
                 // 另一个上传同时写好了同样的内容：目录已经在了，丢掉自己这份。
                 if (!Files.isRegularFile(target.resolve(TestDataMetadata.FILE_NAME), LinkOption.NOFOLLOW_LINKS)) {
                     throw error;
                 }
             }
-        }
-        finally {
+        } finally {
             deleteTree(building);
         }
     }
 
     private static void extract(Path archivePath, Validation validation, Path directory)
             throws AssetException, IOException {
-        try (ZipFile archive = ZipFile.builder().setPath(archivePath).setCharset(StandardCharsets.UTF_8).get()) {
+        try (ZipFile archive = ZipFile.builder()
+                .setPath(archivePath)
+                .setCharset(StandardCharsets.UTF_8)
+                .get()) {
             for (ValidatedFile file : validation.files()) {
                 ZipArchiveEntry entry = archive.getEntry(file.entryName());
                 if (entry == null) {
@@ -310,7 +299,8 @@ public final class FileTestDataStore implements TestDataStore {
                     }
                 }
                 // 校验时读到的内容与这里写出的必须一致，否则不能当作已校验的数据。
-                if (size != file.size() || !HexFormat.of().formatHex(digest.digest()).equals(file.sha256())) {
+                if (size != file.size()
+                        || !HexFormat.of().formatHex(digest.digest()).equals(file.sha256())) {
                     throw new AssetException(Kind.INVALID_ARCHIVE, "TEST_DATA_ARCHIVE_CHANGED");
                 }
                 setPermissions(output, SHARED_FILE);
@@ -322,13 +312,16 @@ public final class FileTestDataStore implements TestDataStore {
         Map<String, Map<String, ValidatedFile>> byTestcase = new HashMap<>();
         for (ValidatedFile file : validation.files()) {
             int dot = file.name().lastIndexOf('.');
-            byTestcase.computeIfAbsent(file.name().substring(0, dot), ignored -> new HashMap<>())
+            byTestcase
+                    .computeIfAbsent(file.name().substring(0, dot), ignored -> new HashMap<>())
                     .put(file.name().substring(dot + 1), file);
         }
         List<TestDataMetadata.TestcaseEntry> testcases = byTestcase.keySet().stream()
                 .sorted(TestDataMetadata.defaultOrder())
-                .map(name -> new TestDataMetadata.TestcaseEntry(name,
-                        entry(byTestcase.get(name).get("in")), entry(byTestcase.get(name).get("out"))))
+                .map(name -> new TestDataMetadata.TestcaseEntry(
+                        name,
+                        entry(byTestcase.get(name).get("in")),
+                        entry(byTestcase.get(name).get("out"))))
                 .toList();
         return TestDataMetadata.Document.of(testcases);
     }
@@ -340,18 +333,26 @@ public final class FileTestDataStore implements TestDataStore {
     private static Info info(TestDataMetadata.Document document) {
         List<ManifestFile> files = new ArrayList<>();
         for (TestDataMetadata.TestcaseEntry entry : document.testcases()) {
-            files.add(new ManifestFile(entry.name() + ".in", entry.input().sizeBytes(), entry.input().sha256()));
-            files.add(new ManifestFile(entry.name() + ".out", entry.output().sizeBytes(), entry.output().sha256()));
+            files.add(new ManifestFile(
+                    entry.name() + ".in",
+                    entry.input().sizeBytes(),
+                    entry.input().sha256()));
+            files.add(new ManifestFile(
+                    entry.name() + ".out",
+                    entry.output().sizeBytes(),
+                    entry.output().sha256()));
         }
-        return new Info(document.digest(), document.testcaseCount(), document.totalBytes(),
+        return new Info(
+                document.digest(),
+                document.testcaseCount(),
+                document.totalBytes(),
                 new Manifest(document.testcaseCount(), document.totalBytes(), List.copyOf(files)));
     }
 
     private String currentGeneration(String problemId) {
         try {
             return Files.readSymbolicLink(root.resolve(problemId)).getFileName().toString();
-        }
-        catch (IOException | UnsupportedOperationException error) {
+        } catch (IOException | UnsupportedOperationException error) {
             return "";
         }
     }
@@ -359,7 +360,8 @@ public final class FileTestDataStore implements TestDataStore {
     private boolean isReferenced(Path generation) {
         String name = generation.getFileName().toString();
         int problemEnd = name.length() - GENERATION_SUFFIX;
-        return problemEnd > 0 && currentGeneration(name.substring(0, problemEnd)).equals(name);
+        return problemEnd > 0
+                && currentGeneration(name.substring(0, problemEnd)).equals(name);
     }
 
     private Validation validateArchive(Path path) throws AssetException {
@@ -373,7 +375,10 @@ public final class FileTestDataStore implements TestDataStore {
         int entryCount = 0;
         String wrapper = null;
         boolean logicalRootSelected = false;
-        try (ZipFile archive = ZipFile.builder().setPath(path).setCharset(StandardCharsets.UTF_8).get()) {
+        try (ZipFile archive = ZipFile.builder()
+                .setPath(path)
+                .setCharset(StandardCharsets.UTF_8)
+                .get()) {
             Enumeration<ZipArchiveEntry> entries = archive.getEntries();
             while (entries.hasMoreElements()) {
                 ZipArchiveEntry entry = entries.nextElement();
@@ -411,8 +416,7 @@ public final class FileTestDataStore implements TestDataStore {
                 if (!logicalRootSelected) {
                     wrapper = testcasePath.wrapper();
                     logicalRootSelected = true;
-                }
-                else if (!Objects.equals(wrapper, testcasePath.wrapper())) {
+                } else if (!Objects.equals(wrapper, testcasePath.wrapper())) {
                     throw invalid("TEST_DATA_MIXED_ROOTS", name, null);
                 }
                 if (!logicalNames.add(testcasePath.logicalName())) {
@@ -427,23 +431,25 @@ public final class FileTestDataStore implements TestDataStore {
                     throw tooLarge("TEST_DATA_EXPANDED_SIZE_EXCEEDED", null, size(properties.maxExpandedSize()));
                 }
                 long compressed = entry.getCompressedSize();
-                if (digest.size() > 0 && (compressed <= 0
-                        || (double) digest.size() / compressed > properties.maxCompressionRatio())) {
-                    throw tooLarge("TEST_DATA_COMPRESSION_RATIO_EXCEEDED", name,
+                if (digest.size() > 0
+                        && (compressed <= 0
+                                || (double) digest.size() / compressed > properties.maxCompressionRatio())) {
+                    throw tooLarge(
+                            "TEST_DATA_COMPRESSION_RATIO_EXCEEDED",
+                            name,
                             new java.math.BigDecimal(String.valueOf(properties.maxCompressionRatio()))
-                                    .stripTrailingZeros().toPlainString());
+                                    .stripTrailingZeros()
+                                    .toPlainString());
                 }
                 files.add(new ValidatedFile(testcasePath.logicalName(), name, digest.size(), digest.sha256()));
-                pairs.computeIfAbsent(testcasePath.testcaseName(), ignored -> new HashSet<>()).add(testcasePath.extension());
+                pairs.computeIfAbsent(testcasePath.testcaseName(), ignored -> new HashSet<>())
+                        .add(testcasePath.extension());
             }
-        }
-        catch (AssetException error) {
+        } catch (AssetException error) {
             throw error;
-        }
-        catch (ArithmeticException error) {
+        } catch (ArithmeticException error) {
             throw tooLarge("TEST_DATA_EXPANDED_SIZE_EXCEEDED", null, size(properties.maxExpandedSize()));
-        }
-        catch (IOException | RuntimeException error) {
+        } catch (IOException | RuntimeException error) {
             throw new AssetException(Kind.INVALID_ARCHIVE, "TEST_DATA_INVALID_ZIP", error);
         }
         String selectedWrapper = wrapper;
@@ -451,12 +457,16 @@ public final class FileTestDataStore implements TestDataStore {
             throw invalid("TEST_DATA_NO_TESTCASES", null, null);
         }
         var strayDirectory = directoryMarkers.stream()
-                .filter(directory -> !Objects.equals(directory, selectedWrapper)).sorted().findFirst();
+                .filter(directory -> !Objects.equals(directory, selectedWrapper))
+                .sorted()
+                .findFirst();
         if (strayDirectory.isPresent()) {
             throw invalid("TEST_DATA_MIXED_ROOTS", strayDirectory.get() + "/", null);
         }
         var strayMetadata = metadataPrefixes.stream()
-                .filter(prefix -> !prefix.isEmpty() && !Objects.equals(prefix, selectedWrapper)).sorted().findFirst();
+                .filter(prefix -> !prefix.isEmpty() && !Objects.equals(prefix, selectedWrapper))
+                .sorted()
+                .findFirst();
         if (strayMetadata.isPresent()) {
             throw invalid("TEST_DATA_MIXED_ROOTS", strayMetadata.get() + "/", null);
         }
@@ -464,7 +474,8 @@ public final class FileTestDataStore implements TestDataStore {
         var missing = pairs.entrySet().stream()
                 .filter(pair -> !pair.getValue().equals(Set.of("in", "out")))
                 .map(pair -> pair.getKey() + (pair.getValue().contains("in") ? ".out" : ".in"))
-                .sorted().findFirst();
+                .sorted()
+                .findFirst();
         if (missing.isPresent()) {
             throw invalid("TEST_DATA_CASE_PAIR_REQUIRED", missing.get(), null);
         }
@@ -476,7 +487,8 @@ public final class FileTestDataStore implements TestDataStore {
 
     private EntryDigest digestEntry(ZipFile archive, ZipArchiveEntry entry) throws IOException, AssetException {
         MessageDigest digest = sha256();
-        var decoder = StandardCharsets.UTF_8.newDecoder()
+        var decoder = StandardCharsets.UTF_8
+                .newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT);
         byte[] bytes = new byte[8192];
@@ -499,8 +511,7 @@ public final class FileTestDataStore implements TestDataStore {
             }
             decode(decoder, encoded, decoded, true);
             decoder.flush(decoded.clear());
-        }
-        catch (CharacterCodingException error) {
+        } catch (CharacterCodingException error) {
             throw invalid("TEST_DATA_FILE_NOT_UTF8", entry.getName(), null);
         }
         return new EntryDigest(size, HexFormat.of().formatHex(digest.digest()));
@@ -525,14 +536,20 @@ public final class FileTestDataStore implements TestDataStore {
     }
 
     private static boolean isSafeEntryPath(String name) {
-        if (name == null || name.isBlank() || name.length() > 512 || name.startsWith("/")
-                || name.indexOf('\\') >= 0 || name.indexOf('\0') >= 0) {
+        if (name == null
+                || name.isBlank()
+                || name.length() > 512
+                || name.startsWith("/")
+                || name.indexOf('\\') >= 0
+                || name.indexOf('\0') >= 0) {
             return false;
         }
         String candidate = trimTrailingSlash(name);
         if (candidate.isEmpty()) return false;
         for (String component : candidate.split("/", -1)) {
-            if (component.isEmpty() || component.equals(".") || component.equals("..")
+            if (component.isEmpty()
+                    || component.equals(".")
+                    || component.equals("..")
                     || component.chars().anyMatch(Character::isISOControl)) {
                 return false;
             }
@@ -559,9 +576,7 @@ public final class FileTestDataStore implements TestDataStore {
         String logicalName = slash < 0 ? name : name.substring(slash + 1);
         if (wrapper != null && !WRAPPER_NAME.matcher(wrapper).matches()) return null;
         Matcher matcher = FILE_NAME.matcher(logicalName);
-        return matcher.matches()
-                ? new TestcasePath(wrapper, logicalName, matcher.group(1), matcher.group(2))
-                : null;
+        return matcher.matches() ? new TestcasePath(wrapper, logicalName, matcher.group(1), matcher.group(2)) : null;
     }
 
     private static String trimTrailingSlash(String name) {
@@ -588,18 +603,17 @@ public final class FileTestDataStore implements TestDataStore {
                 boolean right = directories
                         ? Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS)
                         : !Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS);
-                if (!name.endsWith(suffix) || !right
+                if (!name.endsWith(suffix)
+                        || !right
                         || !modified(child).toInstant().isBefore(cutoff)) continue;
                 if (directories) {
                     deleteTree(child);
                     deleted++;
-                }
-                else if (deletePath(child)) {
+                } else if (deletePath(child)) {
                     deleted++;
                 }
             }
-        }
-        catch (IOException ignored) {
+        } catch (IOException ignored) {
             // 恢复是尽力而为，只会删上面三种明确命名的临时项，不会超出这几个目录。
         }
         return deleted;
@@ -608,8 +622,7 @@ public final class FileTestDataStore implements TestDataStore {
     private static FileTime modified(Path path) {
         try {
             return Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS);
-        }
-        catch (IOException error) {
+        } catch (IOException error) {
             return FileTime.fromMillis(0);
         }
     }
@@ -623,8 +636,7 @@ public final class FileTestDataStore implements TestDataStore {
     private static MessageDigest sha256() {
         try {
             return MessageDigest.getInstance("SHA-256");
-        }
-        catch (NoSuchAlgorithmException error) {
+        } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }
     }
@@ -640,8 +652,7 @@ public final class FileTestDataStore implements TestDataStore {
     private static void setPermissions(Path path, Set<PosixFilePermission> permissions) throws IOException {
         try {
             Files.setPosixFilePermissions(path, permissions);
-        }
-        catch (UnsupportedOperationException ignored) {
+        } catch (UnsupportedOperationException ignored) {
             // 非 POSIX 平台依靠部署目录的 ACL。
         }
     }
@@ -649,8 +660,7 @@ public final class FileTestDataStore implements TestDataStore {
     private static boolean deletePath(Path path) {
         try {
             return Files.deleteIfExists(path);
-        }
-        catch (IOException ignored) {
+        } catch (IOException ignored) {
             return false;
         }
     }
@@ -671,8 +681,7 @@ public final class FileTestDataStore implements TestDataStore {
                     return FileVisitResult.CONTINUE;
                 }
             });
-        }
-        catch (IOException ignored) {
+        } catch (IOException ignored) {
             // 残留的临时目录由 recover 清理。
         }
     }
@@ -689,19 +698,14 @@ public final class FileTestDataStore implements TestDataStore {
         return TestDataStorageProperties.readable(size);
     }
 
-    private record Validation(long totalBytes, List<ValidatedFile> files) {
-    }
+    private record Validation(long totalBytes, List<ValidatedFile> files) {}
 
     /** name 是协议里的文件名（不含包装目录），entryName 是它在 ZIP 里的完整条目名。 */
-    private record ValidatedFile(String name, String entryName, long size, String sha256) {
-    }
+    private record ValidatedFile(String name, String entryName, long size, String sha256) {}
 
-    private record EntryDigest(long size, String sha256) {
-    }
+    private record EntryDigest(long size, String sha256) {}
 
-    private record MetadataPath(String wrapper) {
-    }
+    private record MetadataPath(String wrapper) {}
 
-    private record TestcasePath(String wrapper, String logicalName, String testcaseName, String extension) {
-    }
+    private record TestcasePath(String wrapper, String logicalName, String testcaseName, String extension) {}
 }

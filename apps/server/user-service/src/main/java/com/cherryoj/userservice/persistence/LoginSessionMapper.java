@@ -16,13 +16,9 @@ public interface LoginSessionMapper {
             @Param("now") LocalDateTime now,
             @Param("absoluteExpiresAt") LocalDateTime absoluteExpiresAt);
 
-    LoginGrant findActiveByGrantHash(
-            @Param("grantHash") byte[] grantHash,
-            @Param("now") LocalDateTime now);
+    LoginGrant findActiveByGrantHash(@Param("grantHash") byte[] grantHash, @Param("now") LocalDateTime now);
 
-    LoginGrant findActiveByGrantHashForUpdate(
-            @Param("grantHash") byte[] grantHash,
-            @Param("now") LocalDateTime now);
+    LoginGrant findActiveByGrantHashForUpdate(@Param("grantHash") byte[] grantHash, @Param("now") LocalDateTime now);
 
     int markUsed(
             @Param("id") String id,
@@ -30,12 +26,7 @@ public interface LoginSessionMapper {
             @Param("expectedRowVersion") long expectedRowVersion);
 
     int revokeCurrent(
-            @Param("grantHash") byte[] grantHash,
-            @Param("now") LocalDateTime now,
-            @Param("reason") String reason);
+            @Param("grantHash") byte[] grantHash, @Param("now") LocalDateTime now, @Param("reason") String reason);
 
-    int revokeAll(
-            @Param("userId") String userId,
-            @Param("now") LocalDateTime now,
-            @Param("reason") String reason);
+    int revokeAll(@Param("userId") String userId, @Param("now") LocalDateTime now, @Param("reason") String reason);
 }

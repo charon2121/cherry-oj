@@ -1,11 +1,10 @@
 package com.cherryoj.judgingservice.problem;
 
-import com.cherryoj.serviceidentity.ServiceIdentityException;
-import com.cherryoj.serviceidentity.ServiceTokenClient;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.cherryoj.serviceidentity.ServiceIdentityException;
+import com.cherryoj.serviceidentity.ServiceTokenClient;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.util.concurrent.atomic.AtomicReference;
@@ -23,7 +22,8 @@ class HttpProblemTestDataClientTests {
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
     private int status = 200;
-    private String body = "{\"location\":\"/data/problems/p\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":2,\"totalBytes\":16}";
+    private String body =
+            "{\"location\":\"/data/problems/p\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":2,\"totalBytes\":16}";
 
     @BeforeEach
     void start() throws Exception {
@@ -33,26 +33,34 @@ class HttpProblemTestDataClientTests {
             path.set(exchange.getRequestURI().getPath());
             byte[] bytes = body.getBytes();
             exchange.sendResponseHeaders(status, bytes.length);
-            try (var out = exchange.getResponseBody()) { out.write(bytes); }
+            try (var out = exchange.getResponseBody()) {
+                out.write(bytes);
+            }
         });
         server.start();
     }
 
     @AfterEach
-    void stop() { server.stop(0); }
+    void stop() {
+        server.stop(0);
+    }
 
     private HttpProblemTestDataClient client(String token) {
         var tokens = org.mockito.Mockito.mock(ServiceTokenClient.class);
         if (token.isEmpty()) {
-            org.mockito.Mockito.when(tokens.tokenFor("problem-service")).thenThrow(
-                    new ServiceIdentityException("TOKEN_ENDPOINT_UNAVAILABLE", "user-service unreachable"));
+            org.mockito.Mockito.when(tokens.tokenFor("problem-service"))
+                    .thenThrow(new ServiceIdentityException("TOKEN_ENDPOINT_UNAVAILABLE", "user-service unreachable"));
         } else {
             org.mockito.Mockito.when(tokens.tokenFor("problem-service")).thenReturn(token);
         }
         lastTokens = tokens;
-        return new HttpProblemTestDataClient(new ProblemServiceProperties(
-                "http://127.0.0.1:" + server.getAddress().getPort()), JsonMapper.builder()
-                .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build(), tokens);
+        return new HttpProblemTestDataClient(
+                new ProblemServiceProperties(
+                        "http://127.0.0.1:" + server.getAddress().getPort()),
+                JsonMapper.builder()
+                        .disable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                        .build(),
+                tokens);
     }
 
     private ServiceTokenClient lastTokens;
@@ -69,11 +77,13 @@ class HttpProblemTestDataClientTests {
 
     @Test
     void missingDataAndFailuresAreDistinguishedAndNeverReturnHalfAnAnswer() {
-        status = 404; body = "{}";
+        status = 404;
+        body = "{}";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_MISSING");
         status = 503;
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_UNAVAILABLE");
-        status = 200; body = "{\"location\":\"/x\",\"digest\":\"bad\",\"testcaseCount\":2,\"totalBytes\":1}";
+        status = 200;
+        body = "{\"location\":\"/x\",\"digest\":\"bad\",\"testcaseCount\":2,\"totalBytes\":1}";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
         body = "{\"location\":\"/x\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":0,\"totalBytes\":1}";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
@@ -90,7 +100,8 @@ class HttpProblemTestDataClientTests {
 
     @Test
     void aRejectedServiceTokenIsDroppedSoTheNextCallFetchesAFreshOne() {
-        status = 401; body = "{}";
+        status = 401;
+        body = "{}";
         assertThatThrownBy(() -> client(TOKEN).current(PROBLEM, null)).hasMessage("SERVICE_TOKEN_REJECTED");
         org.mockito.Mockito.verify(lastTokens).invalidate("problem-service");
     }

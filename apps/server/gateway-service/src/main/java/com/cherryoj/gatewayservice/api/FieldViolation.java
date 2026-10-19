@@ -1,4 +1,3 @@
 package com.cherryoj.gatewayservice.api;
 
-public record FieldViolation(String path, String code, String message) {
-}
+public record FieldViolation(String path, String code, String message) {}

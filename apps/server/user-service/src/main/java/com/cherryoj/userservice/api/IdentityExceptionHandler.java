@@ -26,14 +26,12 @@ public class IdentityExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<IdentityApiError> beanValidation() {
-        return ResponseEntity.unprocessableEntity()
-                .body(new IdentityApiError("VALIDATION_FAILED", "请求字段不符合要求"));
+        return ResponseEntity.unprocessableEntity().body(new IdentityApiError("VALIDATION_FAILED", "请求字段不符合要求"));
     }
 
     @ExceptionHandler(IdentityConflictException.class)
     ResponseEntity<IdentityApiError> conflict(IdentityConflictException error) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new IdentityApiError(error.code(), error.getMessage()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(new IdentityApiError(error.code(), error.getMessage()));
     }
 
     @ExceptionHandler(IdentityNotFoundException.class)

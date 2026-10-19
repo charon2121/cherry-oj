@@ -59,22 +59,30 @@ class LanguageSettingIntegrationTests {
         assertThat(cpp.id()).isEqualTo("cpp");
         assertThat(cpp.solutionPrefix()).isEqualTo("#include <bits/stdc++.h>\nusing namespace std;\n");
 
-        assertThat(languages.update("cpp", new UpdateLanguageSettingRequest(cpp.solutionPrefix(), cpp.updatedAt()), ACTOR))
+        assertThat(languages.update(
+                        "cpp", new UpdateLanguageSettingRequest(cpp.solutionPrefix(), cpp.updatedAt()), ACTOR))
                 .isEqualTo(cpp);
 
         String changed = cpp.solutionPrefix() + "using ll = long long;\n";
-        LanguageSetting saved = languages.update("cpp", new UpdateLanguageSettingRequest(changed, cpp.updatedAt()), ACTOR);
+        LanguageSetting saved =
+                languages.update("cpp", new UpdateLanguageSettingRequest(changed, cpp.updatedAt()), ACTOR);
         assertThat(saved.solutionPrefix()).isEqualTo(changed);
         assertThat(saved.updatedAt()).isAfter(cpp.updatedAt());
 
-        var core = admin.create(new CreateProblemRequest(
-                "prefix-" + UUID.randomUUID().toString().substring(0, 8), "Prefix", Difficulty.EASY, CodeMode.CORE, "cpp"),
+        var core = admin.create(
+                new CreateProblemRequest(
+                        "prefix-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Prefix",
+                        Difficulty.EASY,
+                        CodeMode.CORE,
+                        "cpp"),
                 ACTOR);
         assertThat(core.allowedLanguages().getFirst().solutionPrefix()).isEqualTo(changed);
 
-        assertThatThrownBy(() -> languages.update("cpp",
-                new UpdateLanguageSettingRequest(cpp.solutionPrefix(), cpp.updatedAt()), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+        assertThatThrownBy(() -> languages.update(
+                        "cpp", new UpdateLanguageSettingRequest(cpp.solutionPrefix(), cpp.updatedAt()), ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("ROW_VERSION_CONFLICT"));
         languages.update("cpp", new UpdateLanguageSettingRequest(cpp.solutionPrefix(), saved.updatedAt()), ACTOR);
     }
@@ -83,12 +91,16 @@ class LanguageSettingIntegrationTests {
     void aPrefixMustEndWithAPlainNewlineAndTheLanguageMustExist() {
         LanguageSetting cpp = languages.list().items().getFirst();
         for (String invalid : new String[] {"#include <vector>", "#include <vector>\r\n", "a\0b\n"}) {
-            assertThatThrownBy(() -> languages.update("cpp", new UpdateLanguageSettingRequest(invalid, cpp.updatedAt()),
-                    ACTOR)).isInstanceOfSatisfying(ProblemApiException.class,
+            assertThatThrownBy(() ->
+                            languages.update("cpp", new UpdateLanguageSettingRequest(invalid, cpp.updatedAt()), ACTOR))
+                    .isInstanceOfSatisfying(
+                            ProblemApiException.class,
                             error -> assertThat(error.code()).isEqualTo("VALIDATION_FAILED"));
         }
-        assertThatThrownBy(() -> languages.update("rust", new UpdateLanguageSettingRequest("use std::io;\n",
-                cpp.updatedAt()), ACTOR)).isInstanceOfSatisfying(ProblemApiException.class,
+        assertThatThrownBy(() -> languages.update(
+                        "rust", new UpdateLanguageSettingRequest("use std::io;\n", cpp.updatedAt()), ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("LANGUAGE_NOT_FOUND"));
         assertThat(languages.list().items().getFirst()).isEqualTo(cpp);
     }

@@ -19,8 +19,10 @@ public class ServiceClientRegistry {
 
     public ServiceClientRegistry(ServiceClientsProperties properties) {
         var loaded = new LinkedHashMap<String, RSAPublicKey>();
-        properties.serviceClients().forEach((name, location) ->
-                loaded.put(ServiceNames.require(name, "cherry.service-clients key"), ServiceKeys.publicKey(location)));
+        properties
+                .serviceClients()
+                .forEach((name, location) -> loaded.put(
+                        ServiceNames.require(name, "cherry.service-clients key"), ServiceKeys.publicKey(location)));
         this.keys = Map.copyOf(loaded);
     }
 

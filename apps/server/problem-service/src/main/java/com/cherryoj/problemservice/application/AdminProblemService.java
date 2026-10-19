@@ -19,12 +19,12 @@ import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.SampleRow;
 import com.cherryoj.problemservice.storage.TestDataStore;
-import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
@@ -46,7 +46,7 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class AdminProblemService {
 
-    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() { };
+    private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
 
     private final AdminProblemMapper mapper;
     private final UuidV7 ids;
@@ -71,8 +71,16 @@ public class AdminProblemService {
         String query = normalizeSearch(q);
         long total = mapper.countProblems(query, status);
         List<ProblemSummary> items = mapper.listProblems(query, status, (long) (page - 1) * size, size).stream()
-                .map(row -> new ProblemSummary(row.id(), row.slug(), row.title(), row.visibility(), row.status(),
-                        row.difficulty(), row.testDataLocation() != null, row.updatedAt(), row.publishedAt(),
+                .map(row -> new ProblemSummary(
+                        row.id(),
+                        row.slug(),
+                        row.title(),
+                        row.visibility(),
+                        row.status(),
+                        row.difficulty(),
+                        row.testDataLocation() != null,
+                        row.updatedAt(),
+                        row.publishedAt(),
                         row.rowVersion()))
                 .toList();
         return new ProblemPage(items, page, size, total, total == 0 ? 0 : (int) ((total + size - 1) / size));
@@ -92,14 +100,30 @@ public class AdminProblemService {
         LocalDateTime now = now();
         String problemId = ids.next().toString();
         ProblemRow row = new ProblemRow(
-                problemId, request.slug(), Visibility.PRIVATE, ProblemStatus.ACTIVE, request.codeMode(), request.title(),
-                "", "", "", null, null, request.difficulty(), "[]", null, null, now, now, null, 0);
+                problemId,
+                request.slug(),
+                Visibility.PRIVATE,
+                ProblemStatus.ACTIVE,
+                request.codeMode(),
+                request.title(),
+                "",
+                "",
+                "",
+                null,
+                null,
+                request.difficulty(),
+                "[]",
+                null,
+                null,
+                now,
+                now,
+                null,
+                0);
         try {
             mapper.insertProblem(row, actorUserId);
             mapper.insertLanguage(problemId, "cpp", 1, "");
             audit(problemId, actorUserId, "PROBLEM_CREATED", Map.of());
-        }
-        catch (DuplicateKeyException error) {
+        } catch (DuplicateKeyException error) {
             throw slugConflict();
         }
         return getProblem(problemId);
@@ -117,45 +141,74 @@ public class AdminProblemService {
         validateJudgeTemplate(current.codeMode(), request.judgeTemplate());
         // 公开题目的修改立即生效，所以不能把它改成用户看不懂的样子；要大改请先转为私有。
         if (current.visibility() == Visibility.PUBLIC
-                && (!hasContent(request.title(), request.statementMarkdown(), request.inputDescriptionMarkdown(),
-                        request.outputDescriptionMarkdown()) || request.samples().isEmpty())) {
+                && (!hasContent(
+                                request.title(),
+                                request.statementMarkdown(),
+                                request.inputDescriptionMarkdown(),
+                                request.outputDescriptionMarkdown())
+                        || request.samples().isEmpty())) {
             throw validation("已公开的题目必须保留完整题面和至少一个样例；需要大改请先转为私有。");
         }
         LocalDateTime now = now();
         ProblemRow changed = new ProblemRow(
-                current.id(), request.slug(), current.visibility(), current.status(), current.codeMode(),
-                request.title(), request.statementMarkdown(), request.inputDescriptionMarkdown(),
-                request.outputDescriptionMarkdown(), request.constraintsMarkdown(), request.hintMarkdown(),
-                request.difficulty(), writeJson(tags), current.testDataLocation(), current.testDataUpdatedAt(),
-                current.createdAt(), now, current.publishedAt(), current.rowVersion());
+                current.id(),
+                request.slug(),
+                current.visibility(),
+                current.status(),
+                current.codeMode(),
+                request.title(),
+                request.statementMarkdown(),
+                request.inputDescriptionMarkdown(),
+                request.outputDescriptionMarkdown(),
+                request.constraintsMarkdown(),
+                request.hintMarkdown(),
+                request.difficulty(),
+                writeJson(tags),
+                current.testDataLocation(),
+                current.testDataUpdatedAt(),
+                current.createdAt(),
+                now,
+                current.publishedAt(),
+                current.rowVersion());
         try {
             if (mapper.updateContent(changed, request.rowVersion()) != 1) {
                 throw conflict();
             }
-        }
-        catch (DuplicateKeyException error) {
+        } catch (DuplicateKeyException error) {
             throw slugConflict();
         }
         mapper.deleteSamples(problemId);
         for (var sample : request.samples()) {
-            mapper.insertSample(ids.next().toString(), problemId, sample.ordinal(), sample.input(), sample.output(),
+            mapper.insertSample(
+                    ids.next().toString(),
+                    problemId,
+                    sample.ordinal(),
+                    sample.input(),
+                    sample.output(),
                     sample.explanationMarkdown());
         }
         LanguageRow language = mapper.findLanguages(problemId).getFirst();
-        boolean templateChanged = request.judgeTemplate() != null
-                && !request.judgeTemplate().equals(language.judgeTemplate());
+        boolean templateChanged =
+                request.judgeTemplate() != null && !request.judgeTemplate().equals(language.judgeTemplate());
         String judgeTemplate = templateChanged ? request.judgeTemplate() : language.judgeTemplate();
         LocalDateTime templateUpdatedAt = templateChanged ? now : language.judgeTemplateUpdatedAt();
-        if (mapper.updateLanguage(problemId, language.languageId(), request.starterCode(), judgeTemplate,
-                templateUpdatedAt) != 1) {
+        if (mapper.updateLanguage(
+                        problemId, language.languageId(), request.starterCode(), judgeTemplate, templateUpdatedAt)
+                != 1) {
             throw new IllegalStateException("Problem language row disappeared while updating " + problemId);
         }
-        audit(problemId, actorUserId, "PROBLEM_UPDATED", Map.of(
-                "sampleCount", request.samples().size(), "tagCount", tags.size()));
+        audit(
+                problemId,
+                actorUserId,
+                "PROBLEM_UPDATED",
+                Map.of("sampleCount", request.samples().size(), "tagCount", tags.size()));
         if (templateChanged) {
             // 只记指纹不记内容：驱动代码不下发给普通用户，审计也不留全文。
-            audit(problemId, actorUserId, "PROBLEM_JUDGE_TEMPLATE_CHANGED", Map.of(
-                    "languageId", language.languageId(), "judgeTemplateSha256", sha256(judgeTemplate)));
+            audit(
+                    problemId,
+                    actorUserId,
+                    "PROBLEM_JUDGE_TEMPLATE_CHANGED",
+                    Map.of("languageId", language.languageId(), "judgeTemplateSha256", sha256(judgeTemplate)));
         }
         return getProblem(problemId);
     }
@@ -199,28 +252,61 @@ public class AdminProblemService {
     public PublicProblemDtos.ProblemDetail preview(String problemId) {
         Problem value = problem(requireProblem(problemId, false));
         return new PublicProblemDtos.ProblemDetail(
-                value.id(), value.slug(), value.codeMode().name(), value.title(), value.difficulty().name(),
-                value.tags(), value.statementMarkdown(), value.inputDescriptionMarkdown(),
-                value.outputDescriptionMarkdown(), value.constraintsMarkdown(), value.hintMarkdown(), value.samples(),
-                value.allowedLanguages().stream().map(language -> new PublicProblemDtos.ProblemLanguage(
-                        language.id(), language.displayName(), language.starterCode())).toList());
+                value.id(),
+                value.slug(),
+                value.codeMode().name(),
+                value.title(),
+                value.difficulty().name(),
+                value.tags(),
+                value.statementMarkdown(),
+                value.inputDescriptionMarkdown(),
+                value.outputDescriptionMarkdown(),
+                value.constraintsMarkdown(),
+                value.hintMarkdown(),
+                value.samples(),
+                value.allowedLanguages().stream()
+                        .map(language -> new PublicProblemDtos.ProblemLanguage(
+                                language.id(), language.displayName(), language.starterCode()))
+                        .toList());
     }
 
     private Problem problem(ProblemRow row) {
         List<PublicProblemDtos.ProblemSample> samples = mapper.findSamples(row.id()).stream()
                 .map((SampleRow sample) -> new PublicProblemDtos.ProblemSample(
-                        sample.ordinal(), sample.inputText(), sample.expectedOutputText(), sample.explanationMarkdown()))
+                        sample.ordinal(),
+                        sample.inputText(),
+                        sample.expectedOutputText(),
+                        sample.explanationMarkdown()))
                 .toList();
         List<AdminProblemDtos.Language> languages = mapper.findLanguages(row.id()).stream()
                 .map((LanguageRow language) -> new AdminProblemDtos.Language(
-                        language.languageId(), displayName(language.languageId()), language.starterCode(),
-                        language.judgeTemplate(), row.codeMode() == CodeMode.CORE ? prefix(language.languageId()) : null))
+                        language.languageId(),
+                        displayName(language.languageId()),
+                        language.starterCode(),
+                        language.judgeTemplate(),
+                        row.codeMode() == CodeMode.CORE ? prefix(language.languageId()) : null))
                 .toList();
         return new Problem(
-                row.id(), row.slug(), row.visibility(), row.status(), row.codeMode(), row.title(),
-                row.statementMarkdown(), row.inputDescriptionMarkdown(), row.outputDescriptionMarkdown(),
-                row.constraintsMarkdown(), row.hintMarkdown(), row.difficulty(), readTags(row.tagsJson()), samples,
-                languages, testData(row), row.createdAt(), row.updatedAt(), row.publishedAt(), row.rowVersion());
+                row.id(),
+                row.slug(),
+                row.visibility(),
+                row.status(),
+                row.codeMode(),
+                row.title(),
+                row.statementMarkdown(),
+                row.inputDescriptionMarkdown(),
+                row.outputDescriptionMarkdown(),
+                row.constraintsMarkdown(),
+                row.hintMarkdown(),
+                row.difficulty(),
+                readTags(row.tagsJson()),
+                samples,
+                languages,
+                testData(row),
+                row.createdAt(),
+                row.updatedAt(),
+                row.publishedAt(),
+                row.rowVersion());
     }
 
     private String prefix(String languageId) {
@@ -237,8 +323,7 @@ public class AdminProblemService {
             TestDataStore.Info info = testDataStore.describe(row.testDataLocation());
             return new TestDataDtos.TestData(
                     info.digest(), info.testcaseCount(), info.totalBytes(), row.testDataUpdatedAt(), info.manifest());
-        }
-        catch (TestDataStore.AssetException error) {
+        } catch (TestDataStore.AssetException error) {
             return null;
         }
     }
@@ -289,10 +374,9 @@ public class AdminProblemService {
 
     private static String sha256(String value) {
         try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        }
-        catch (NoSuchAlgorithmException impossible) {
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
     }
@@ -311,8 +395,7 @@ public class AdminProblemService {
     private String writeJson(Object value) {
         try {
             return json.writeValueAsString(value);
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new IllegalStateException("Could not serialize problem data", error);
         }
     }
@@ -320,8 +403,7 @@ public class AdminProblemService {
     private List<String> readTags(String tagsJson) {
         try {
             return List.copyOf(json.readValue(tagsJson, STRING_LIST));
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new IllegalStateException("Problem tags are invalid", error);
         }
     }

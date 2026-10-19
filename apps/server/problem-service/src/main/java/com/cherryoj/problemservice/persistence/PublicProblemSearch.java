@@ -11,5 +11,4 @@ public record PublicProblemSearch(
         String sort,
         String cursorKey,
         String cursorId,
-        int limit) {
-}
+        int limit) {}

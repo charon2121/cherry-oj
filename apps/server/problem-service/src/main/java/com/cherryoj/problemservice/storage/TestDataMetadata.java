@@ -21,20 +21,20 @@ public final class TestDataMetadata {
 
     private static final Pattern SHA256 = Pattern.compile("^[a-f0-9]{64}$");
 
-    private TestDataMetadata() {
-    }
+    private TestDataMetadata() {}
 
-    public record FileEntry(long sizeBytes, String sha256) {
-    }
+    public record FileEntry(long sizeBytes, String sha256) {}
 
-    public record TestcaseEntry(String name, FileEntry input, FileEntry output) {
-    }
+    public record TestcaseEntry(String name, FileEntry input, FileEntry output) {}
 
-    public record Document(int schemaVersion, int testcaseCount, long totalBytes, String digest, List<TestcaseEntry> testcases) {
+    public record Document(
+            int schemaVersion, int testcaseCount, long totalBytes, String digest, List<TestcaseEntry> testcases) {
 
         /** 按给定顺序（即判题顺序）生成文档：总字节数与 digest 都由测试点算出。 */
         public static Document of(List<TestcaseEntry> testcases) {
-            long total = testcases.stream().mapToLong(c -> c.input().sizeBytes() + c.output().sizeBytes()).sum();
+            long total = testcases.stream()
+                    .mapToLong(c -> c.input().sizeBytes() + c.output().sizeBytes())
+                    .sum();
             return new Document(SCHEMA_VERSION, testcases.size(), total, digestOf(testcases), List.copyOf(testcases));
         }
 
@@ -43,13 +43,19 @@ public final class TestDataMetadata {
             if (schemaVersion != SCHEMA_VERSION) {
                 return "schemaVersion is " + schemaVersion + ", only " + SCHEMA_VERSION + " is supported";
             }
-            if (testcases == null || testcaseCount < 1 || testcaseCount > MAX_CASES || testcases.size() != testcaseCount) {
+            if (testcases == null
+                    || testcaseCount < 1
+                    || testcaseCount > MAX_CASES
+                    || testcases.size() != testcaseCount) {
                 return "testcaseCount must be between 1 and " + MAX_CASES + " and match testcases";
             }
             long total = 0;
             for (TestcaseEntry entry : testcases) {
-                if (entry == null || entry.name() == null || !NAME.matcher(entry.name()).matches()
-                        || !valid(entry.input()) || !valid(entry.output())) {
+                if (entry == null
+                        || entry.name() == null
+                        || !NAME.matcher(entry.name()).matches()
+                        || !valid(entry.input())
+                        || !valid(entry.output())) {
                     return "a case has an invalid name or file entry";
                 }
                 total += entry.input().sizeBytes() + entry.output().sizeBytes();
@@ -64,7 +70,9 @@ public final class TestDataMetadata {
         }
 
         private static boolean valid(FileEntry file) {
-            return file != null && file.sizeBytes() >= 0 && file.sha256() != null
+            return file != null
+                    && file.sizeBytes() >= 0
+                    && file.sha256() != null
                     && SHA256.matcher(file.sha256()).matches();
         }
     }
@@ -76,14 +84,20 @@ public final class TestDataMetadata {
     public static String digestOf(List<TestcaseEntry> testcases) {
         StringBuilder lines = new StringBuilder();
         for (TestcaseEntry entry : testcases) {
-            lines.append(entry.input().sha256()).append("  ").append(entry.name()).append(".in\n");
-            lines.append(entry.output().sha256()).append("  ").append(entry.name()).append(".out\n");
+            lines.append(entry.input().sha256())
+                    .append("  ")
+                    .append(entry.name())
+                    .append(".in\n");
+            lines.append(entry.output().sha256())
+                    .append("  ")
+                    .append(entry.name())
+                    .append(".out\n");
         }
         try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(lines.toString().getBytes(StandardCharsets.UTF_8)));
-        }
-        catch (NoSuchAlgorithmException error) {
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256")
+                            .digest(lines.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }
     }

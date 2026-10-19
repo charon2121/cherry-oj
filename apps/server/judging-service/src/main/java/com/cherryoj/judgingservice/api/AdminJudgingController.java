@@ -41,7 +41,8 @@ public class AdminJudgingController {
             @Valid @RequestBody JudgingDtos.CalibrationRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceId,
             JwtAuthenticationToken authentication) {
-        return noStore(service.calibrate(request, CurrentIdentity.from(authentication).userId(), traceId));
+        return noStore(
+                service.calibrate(request, CurrentIdentity.from(authentication).userId(), traceId));
     }
 
     @GetMapping("/readiness")

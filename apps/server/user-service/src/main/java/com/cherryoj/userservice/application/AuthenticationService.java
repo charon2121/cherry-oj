@@ -69,8 +69,7 @@ public class AuthenticationService {
     }
 
     public AuthenticationResult authenticate(String username, String password) {
-        AuthenticationResult result = transactions.execute(
-                ignored -> authenticateInTransaction(username, password));
+        AuthenticationResult result = transactions.execute(ignored -> authenticateInTransaction(username, password));
         if (result == null) {
             throw new AuthenticationFailedException();
         }
@@ -107,8 +106,8 @@ public class AuthenticationService {
         String grant = grants.generate();
         // MySQL DATETIME(6) must preserve the exact deadline returned to the gateway.
         // Truncate before both persistence and issuance so rounding cannot extend the session.
-        LocalDateTime absoluteExpiresAt = now.plus(properties.sessionAbsoluteTimeout())
-                .truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime absoluteExpiresAt =
+                now.plus(properties.sessionAbsoluteTimeout()).truncatedTo(ChronoUnit.MICROS);
         sessions.insert(
                 uuidV7.next().toString(),
                 account.id(),
@@ -168,7 +167,8 @@ public class AuthenticationService {
     @Transactional
     public void changePassword(String userId, String currentPassword, String newPassword) {
         UserAccount account = accounts.findByIdForUpdate(userId);
-        if (account == null || account.status() != UserStatus.ACTIVE
+        if (account == null
+                || account.status() != UserStatus.ACTIVE
                 || !passwords.matches(currentPassword, account.passwordHash())) {
             throw new AuthenticationFailedException();
         }

@@ -35,6 +35,8 @@ class AuthPropertiesTests {
                 "unused",
                 Map.of(),
                 Duration.ofSeconds(120),
-                Duration.ofSeconds(30), policy, absolute);
+                Duration.ofSeconds(30),
+                policy,
+                absolute);
     }
 }

@@ -28,14 +28,14 @@ public final class HttpJudgingClient implements JudgingClient {
     public HttpJudgingClient(JudgingClientProperties properties, ObjectMapper json) {
         this.properties = properties;
         this.json = json;
-        this.http = HttpClient.newBuilder().connectTimeout(properties.connectTimeout()).build();
+        this.http = HttpClient.newBuilder()
+                .connectTimeout(properties.connectTimeout())
+                .build();
     }
 
     @Override
     public JudgingDtos.Calibration calibrate(
-            JudgingDtos.CalibrationRequest value,
-            String delegatedJwt,
-            String traceparent) {
+            JudgingDtos.CalibrationRequest value, String delegatedJwt, String traceparent) {
         HttpRequest request = request("/internal/admin/calibrations", delegatedJwt, traceparent)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(writeJson(value)))
@@ -45,15 +45,14 @@ public final class HttpJudgingClient implements JudgingClient {
 
     @Override
     public JudgingDtos.Readiness readiness(
-            String problemId,
-            String languageId,
-            String testDataDigest,
-            String delegatedJwt,
-            String traceparent) {
+            String problemId, String languageId, String testDataDigest, String delegatedJwt, String traceparent) {
         String query = "?problemId=" + encode(problemId)
                 + "&languageId=" + encode(languageId)
                 + "&testDataDigest=" + encode(testDataDigest);
-        return send(request("/internal/admin/readiness" + query, delegatedJwt, traceparent).GET().build(),
+        return send(
+                request("/internal/admin/readiness" + query, delegatedJwt, traceparent)
+                        .GET()
+                        .build(),
                 JudgingDtos.Readiness.class);
     }
 
@@ -75,26 +74,22 @@ public final class HttpJudgingClient implements JudgingClient {
             try (InputStream body = response.body()) {
                 byte[] bytes = body.readNBytes(MAX_RESPONSE_BYTES + 1);
                 if (bytes.length > MAX_RESPONSE_BYTES) throw downstream("JUDGING_INVALID_RESPONSE", "判题服务响应超限。");
-                if (response.statusCode() < 200 || response.statusCode() >= 300) throw status(response.statusCode(), bytes);
+                if (response.statusCode() < 200 || response.statusCode() >= 300)
+                    throw status(response.statusCode(), bytes);
                 try {
                     return json.readValue(bytes, responseType);
-                }
-                catch (Exception error) {
+                } catch (Exception error) {
                     throw downstream("JUDGING_INVALID_RESPONSE", "判题服务响应格式无效。");
                 }
             }
-        }
-        catch (HttpTimeoutException error) {
+        } catch (HttpTimeoutException error) {
             throw new ProblemApiException(HttpStatus.GATEWAY_TIMEOUT, "JUDGING_TIMEOUT", "判题服务请求超时，请读取状态后重试。");
-        }
-        catch (ConnectException error) {
+        } catch (ConnectException error) {
             throw new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE", "判题服务暂时不可用。");
-        }
-        catch (InterruptedException error) {
+        } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             throw new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_INTERRUPTED", "判题服务请求已中断。");
-        }
-        catch (IOException error) {
+        } catch (IOException error) {
             throw downstream("JUDGING_IO_FAILURE", "判题服务通信失败。");
         }
     }
@@ -102,8 +97,7 @@ public final class HttpJudgingClient implements JudgingClient {
     private byte[] writeJson(Object value) {
         try {
             return json.writeValueAsBytes(value);
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new IllegalStateException("Could not encode judging request", error);
         }
     }
@@ -127,11 +121,16 @@ public final class HttpJudgingClient implements JudgingClient {
                     default -> null;
                 };
                 if (detail != null) return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, code, detail);
-            } catch (RuntimeException ignored) { /* 未知或非法正文始终收敛。 */ }
+            } catch (RuntimeException ignored) {
+                /* 未知或非法正文始终收敛。 */
+            }
         }
         if (status == 409) return new ProblemApiException(HttpStatus.CONFLICT, "JUDGING_STATE_CONFLICT", "判题资源状态冲突。");
-        if (status == 422 || status == 400) return new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "JUDGING_VALIDATION_FAILED", "判题服务拒绝了请求数据。");
-        if (status >= 500) return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE", "判题服务暂时不可用。");
+        if (status == 422 || status == 400)
+            return new ProblemApiException(
+                    HttpStatus.UNPROCESSABLE_ENTITY, "JUDGING_VALIDATION_FAILED", "判题服务拒绝了请求数据。");
+        if (status >= 500)
+            return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE", "判题服务暂时不可用。");
         return downstream("JUDGING_REJECTED", "判题服务拒绝了委托请求。");
     }
 

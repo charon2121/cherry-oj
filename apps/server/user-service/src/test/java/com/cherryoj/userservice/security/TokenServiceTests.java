@@ -21,8 +21,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 class TokenServiceTests {
@@ -51,8 +51,8 @@ class TokenServiceTests {
                 Duration.ofSeconds(30),
                 "fixed-absolute",
                 2_592_000);
-        var keys = new SigningKeys(rsa, new JWKSet(rsa.toPublicJWK()),
-                (RSAPublicKey) pair.getPublic(), (RSAPrivateKey) pair.getPrivate());
+        var keys = new SigningKeys(
+                rsa, new JWKSet(rsa.toPublicJWK()), (RSAPublicKey) pair.getPublic(), (RSAPrivateKey) pair.getPrivate());
         var service = new TokenService(encoder, keys, properties, Clock.fixed(instant, ZoneOffset.UTC));
         LocalDateTime now = LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
         var account = new UserAccount(
@@ -72,7 +72,8 @@ class TokenServiceTests {
                 0);
 
         TokenValue token = service.issue(account);
-        var decoder = NimbusJwtDecoder.withPublicKey((RSAPublicKey) pair.getPublic()).build();
+        var decoder =
+                NimbusJwtDecoder.withPublicKey((RSAPublicKey) pair.getPublic()).build();
         decoder.setJwtValidator(jwt -> OAuth2TokenValidatorResult.success());
         var decoded = decoder.decode(token.value());
 

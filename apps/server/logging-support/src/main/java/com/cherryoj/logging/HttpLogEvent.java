@@ -1,10 +1,8 @@
 package com.cherryoj.logging;
 
-import java.util.concurrent.TimeUnit;
-
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
-
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.spi.LoggingEventBuilder;
@@ -13,8 +11,7 @@ final class HttpLogEvent {
 
     private static final Logger log = LoggerFactory.getLogger(HttpLogEvent.class);
 
-    private HttpLogEvent() {
-    }
+    private HttpLogEvent() {}
 
     static TraceFields currentTrace(Tracer tracer) {
         Span span = tracer.currentSpan();
@@ -34,8 +31,7 @@ final class HttpLogEvent {
                 .addKeyValue("http_status", status)
                 .addKeyValue("duration_ms", durationMs);
         if (trace.present()) {
-            event.addKeyValue("trace_id", trace.traceId())
-                    .addKeyValue("span_id", trace.spanId());
+            event.addKeyValue("trace_id", trace.traceId()).addKeyValue("span_id", trace.spanId());
         }
         if (validRequestId(requestId)) {
             event.addKeyValue("request_id", requestId);

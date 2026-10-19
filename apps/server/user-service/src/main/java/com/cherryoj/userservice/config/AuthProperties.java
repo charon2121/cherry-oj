@@ -22,8 +22,7 @@ public record AuthProperties(
         mode = mode == null ? "server" : mode;
         previousPublicKeys = previousPublicKeys == null ? Map.of() : Map.copyOf(previousPublicKeys);
         if (!"fixed-absolute".equals(sessionLifetimePolicy)) {
-            throw new IllegalArgumentException(
-                    "cherry.auth.session-lifetime-policy must be fixed-absolute");
+            throw new IllegalArgumentException("cherry.auth.session-lifetime-policy must be fixed-absolute");
         }
         if (sessionAbsoluteTimeoutSeconds < 86_400 || sessionAbsoluteTimeoutSeconds > 7_776_000) {
             throw new IllegalArgumentException(

@@ -17,11 +17,13 @@ class RequestIdWebFilterTests {
 
     @Test
     void replacesUntrustedRequestIdAndMakesGeneratedValueAvailableToDownstream() {
-        EntityExchangeResult<String> result = webTestClient.get()
+        EntityExchangeResult<String> result = webTestClient
+                .get()
                 .uri("/request-id")
                 .header(ApiRequestContext.REQUEST_ID_HEADER, "attacker-controlled")
                 .exchange()
-                .expectStatus().isOk()
+                .expectStatus()
+                .isOk()
                 .expectBody(String.class)
                 .returnResult();
 

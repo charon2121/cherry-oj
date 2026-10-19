@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,95 +31,95 @@ import org.springframework.web.client.RestTemplate;
 @EnableConfigurationProperties(IdentityVerifierProperties.class)
 public class IdentityVerifierConfiguration {
 
-	private static final OAuth2Error INVALID_TOKEN =
-			new OAuth2Error("invalid_token", "Required identity claims are invalid", null);
+    private static final OAuth2Error INVALID_TOKEN =
+            new OAuth2Error("invalid_token", "Required identity claims are invalid", null);
 
-	@Bean
-	public IdentityVerifierHealth identityVerifierHealth(IdentityVerifierProperties properties) {
-		return new IdentityVerifierHealth(properties);
-	}
+    @Bean
+    public IdentityVerifierHealth identityVerifierHealth(IdentityVerifierProperties properties) {
+        return new IdentityVerifierHealth(properties);
+    }
 
-	@Bean
-	public JwtDecoder identityJwtDecoder(IdentityVerifierProperties properties, IdentityVerifierHealth health) {
-		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-		requestFactory.setConnectTimeout(properties.connectTimeout());
-		requestFactory.setReadTimeout(properties.readTimeout());
-		NimbusJwtDecoder delegate = NimbusJwtDecoder.withJwkSetUri(properties.jwksUri().toString())
-				.jwsAlgorithm(SignatureAlgorithm.RS256)
-				.restOperations(new RestTemplate(requestFactory))
-				.build();
-		delegate.setClaimSetConverter(identityClaimsConverter());
-		JwtTimestampValidator timestamp = new JwtTimestampValidator(properties.clockSkew());
-		timestamp.setAllowEmptyExpiryClaim(false);
-		delegate.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-				timestamp,
-				new JwtIssuerValidator(properties.issuer()),
-				new JwtAudienceValidator(properties.audience()),
-				requiredClaims()));
-		return token -> {
-			try {
-				Jwt jwt = delegate.decode(token);
-				health.verified();
-				return jwt;
-			}
-			catch (JwtException error) {
-				if (IdentityFailureClassifier.classify(null, error)
-						== IdentityFailureReason.KEY_SERVICE_UNAVAILABLE) {
-					health.keyServiceUnavailable();
-				}
-				throw error;
-			}
-		};
-	}
+    @Bean
+    public JwtDecoder identityJwtDecoder(IdentityVerifierProperties properties, IdentityVerifierHealth health) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(properties.connectTimeout());
+        requestFactory.setReadTimeout(properties.readTimeout());
+        NimbusJwtDecoder delegate = NimbusJwtDecoder.withJwkSetUri(
+                        properties.jwksUri().toString())
+                .jwsAlgorithm(SignatureAlgorithm.RS256)
+                .restOperations(new RestTemplate(requestFactory))
+                .build();
+        delegate.setClaimSetConverter(identityClaimsConverter());
+        JwtTimestampValidator timestamp = new JwtTimestampValidator(properties.clockSkew());
+        timestamp.setAllowEmptyExpiryClaim(false);
+        delegate.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
+                timestamp,
+                new JwtIssuerValidator(properties.issuer()),
+                new JwtAudienceValidator(properties.audience()),
+                requiredClaims()));
+        return token -> {
+            try {
+                Jwt jwt = delegate.decode(token);
+                health.verified();
+                return jwt;
+            } catch (JwtException error) {
+                if (IdentityFailureClassifier.classify(null, error) == IdentityFailureReason.KEY_SERVICE_UNAVAILABLE) {
+                    health.keyServiceUnavailable();
+                }
+                throw error;
+            }
+        };
+    }
 
-	private static Converter<Map<String, Object>, Map<String, Object>> identityClaimsConverter() {
-		Converter<Map<String, Object>, Map<String, Object>> defaults =
-				MappedJwtClaimSetConverter.withDefaults(Map.of());
-		return claims -> {
-			boolean issuedAtPresent = claims.get("iat") != null;
-			Map<String, Object> converted = new LinkedHashMap<>(defaults.convert(claims));
-			if (!issuedAtPresent) {
-				converted.remove("iat");
-			}
-			return converted;
-		};
-	}
+    private static Converter<Map<String, Object>, Map<String, Object>> identityClaimsConverter() {
+        Converter<Map<String, Object>, Map<String, Object>> defaults =
+                MappedJwtClaimSetConverter.withDefaults(Map.of());
+        return claims -> {
+            boolean issuedAtPresent = claims.get("iat") != null;
+            Map<String, Object> converted = new LinkedHashMap<>(defaults.convert(claims));
+            if (!issuedAtPresent) {
+                converted.remove("iat");
+            }
+            return converted;
+        };
+    }
 
-	@Bean
-	public JwtAuthenticationConverter identityJwtAuthenticationConverter() {
-		JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-		authorities.setAuthoritiesClaimName("roles");
-		authorities.setAuthorityPrefix("ROLE_");
-		JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-		converter.setPrincipalClaimName("sub");
-		converter.setJwtGrantedAuthoritiesConverter(authorities);
-		return converter;
-	}
+    @Bean
+    public JwtAuthenticationConverter identityJwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
+        authorities.setAuthoritiesClaimName("roles");
+        authorities.setAuthorityPrefix("ROLE_");
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setPrincipalClaimName("sub");
+        converter.setJwtGrantedAuthoritiesConverter(authorities);
+        return converter;
+    }
 
-	private static OAuth2TokenValidator<Jwt> requiredClaims() {
-		return jwt -> jwt.getIssuedAt() != null
-				&& validSubject(jwt.getSubject())
-				&& validRoles(jwt.getClaimAsStringList("roles"))
-				&& jwt.getClaim("sv") instanceof Number
-				&& jwt.getClaim("pwd") instanceof Boolean passwordChangeRequired
-				&& !passwordChangeRequired
-				&& jwt.getId() != null && !jwt.getId().isBlank()
-				&& jwt.getHeaders().get("kid") instanceof String kid && !kid.isBlank()
-				? OAuth2TokenValidatorResult.success()
-				: OAuth2TokenValidatorResult.failure(INVALID_TOKEN);
-	}
+    private static OAuth2TokenValidator<Jwt> requiredClaims() {
+        return jwt -> jwt.getIssuedAt() != null
+                        && validSubject(jwt.getSubject())
+                        && validRoles(jwt.getClaimAsStringList("roles"))
+                        && jwt.getClaim("sv") instanceof Number
+                        && jwt.getClaim("pwd") instanceof Boolean passwordChangeRequired
+                        && !passwordChangeRequired
+                        && jwt.getId() != null
+                        && !jwt.getId().isBlank()
+                        && jwt.getHeaders().get("kid") instanceof String kid
+                        && !kid.isBlank()
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(INVALID_TOKEN);
+    }
 
-	private static boolean validSubject(String subject) {
-		try {
-			UUID.fromString(subject);
-			return true;
-		}
-		catch (RuntimeException error) {
-			return false;
-		}
-	}
+    private static boolean validSubject(String subject) {
+        try {
+            UUID.fromString(subject);
+            return true;
+        } catch (RuntimeException error) {
+            return false;
+        }
+    }
 
-	private static boolean validRoles(List<String> roles) {
-		return roles != null && !roles.isEmpty() && Set.of("USER", "ADMIN").containsAll(roles);
-	}
+    private static boolean validRoles(List<String> roles) {
+        return roles != null && !roles.isEmpty() && Set.of("USER", "ADMIN").containsAll(roles);
+    }
 }

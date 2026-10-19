@@ -76,15 +76,25 @@ class AdminProblemPersistenceIntegrationTests {
     @Test
     void createSavePreviewConflictAndRollbackAreAtomic() {
         String slug = "managed-" + UUID.randomUUID().toString().substring(0, 8);
-        var created = admin.create(new CreateProblemRequest(slug, "Managed", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
+        var created =
+                admin.create(new CreateProblemRequest(slug, "Managed", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
         assertThat(created.visibility()).isEqualTo(Visibility.PRIVATE);
         assertThat(created.testData()).isNull();
 
         UpdateProblemRequest update = new UpdateProblemRequest(
-                slug, "Managed A+B", "statement", "input", "output", "constraints", null, Difficulty.EASY,
+                slug,
+                "Managed A+B",
+                "statement",
+                "input",
+                "output",
+                "constraints",
+                null,
+                Difficulty.EASY,
                 List.of("入门", "数学"),
                 List.of(new SampleInput(1, "1 2\n", "3\n", null), new SampleInput(2, "4 5\n", "9\n", "解释")),
-                "int main() {}", null, 0);
+                "int main() {}",
+                null,
+                0);
         var saved = admin.update(created.id(), update, ACTOR);
         assertThat(saved.rowVersion()).isEqualTo(1);
         assertThat(saved.samples()).extracting(sample -> sample.ordinal()).containsExactly(1, 2);
@@ -93,13 +103,25 @@ class AdminProblemPersistenceIntegrationTests {
 
         // 同一个 rowVersion 再提交一次：乐观锁拒绝，内容不变
         assertThatThrownBy(() -> admin.update(created.id(), update, ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("ROW_VERSION_CONFLICT"));
 
         // 样例序号不连续：整次修改回滚，标题、样例都保持原样
         UpdateProblemRequest invalidSamples = new UpdateProblemRequest(
-                slug, "Should rollback", "statement", "input", "output", null, null, Difficulty.EASY,
-                List.of(), List.of(new SampleInput(2, "x", "y", null)), "", null, 1);
+                slug,
+                "Should rollback",
+                "statement",
+                "input",
+                "output",
+                null,
+                null,
+                Difficulty.EASY,
+                List.of(),
+                List.of(new SampleInput(2, "x", "y", null)),
+                "",
+                null,
+                1);
         assertThatThrownBy(() -> admin.update(created.id(), invalidSamples, ACTOR))
                 .isInstanceOf(ProblemApiException.class);
         var unchanged = admin.getProblem(created.id());
@@ -120,8 +142,13 @@ class AdminProblemPersistenceIntegrationTests {
     /** 驱动代码原地保存：省略或原样提交都不动它的修改时间，只有内容真的变了才更新时间并留下只含指纹的审计。 */
     @Test
     void aCoreDriverKeepsItsTimeUntilItReallyChanges() {
-        var created = admin.create(new CreateProblemRequest(
-                "core-" + UUID.randomUUID().toString().substring(0, 8), "Core", Difficulty.EASY, CodeMode.CORE, "cpp"),
+        var created = admin.create(
+                new CreateProblemRequest(
+                        "core-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Core",
+                        Difficulty.EASY,
+                        CodeMode.CORE,
+                        "cpp"),
                 ACTOR);
         assertThat(created.codeMode()).isEqualTo(CodeMode.CORE);
         assertThat(created.allowedLanguages().getFirst().judgeTemplate()).isNull();
@@ -132,8 +159,10 @@ class AdminProblemPersistenceIntegrationTests {
         var saved = admin.update(created.id(), coreUpdate(created.slug(), driver, 0), ACTOR);
         assertThat(saved.allowedLanguages().getFirst().judgeTemplate()).isEqualTo(driver);
         LocalDateTime past = LocalDateTime.of(2026, 1, 1, 0, 0);
-        jdbc.update("UPDATE problem_language SET judge_template_updated_at = ? WHERE problem_id = UUID_TO_BIN(?)",
-                past, created.id());
+        jdbc.update(
+                "UPDATE problem_language SET judge_template_updated_at = ? WHERE problem_id = UUID_TO_BIN(?)",
+                past,
+                created.id());
 
         var omitted = admin.update(created.id(), coreUpdate(created.slug(), null, saved.rowVersion()), ACTOR);
         var same = admin.update(created.id(), coreUpdate(created.slug(), driver, omitted.rowVersion()), ACTOR);
@@ -156,16 +185,27 @@ class AdminProblemPersistenceIntegrationTests {
 
     @Test
     void driverCodeIsRejectedForAcmAndCannotBeBlank() {
-        var acm = admin.create(new CreateProblemRequest(
-                "acm-" + UUID.randomUUID().toString().substring(0, 8), "Acm", Difficulty.EASY, CodeMode.ACM, "cpp"),
+        var acm = admin.create(
+                new CreateProblemRequest(
+                        "acm-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Acm",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
                 ACTOR);
         assertThat(acm.allowedLanguages().getFirst().solutionPrefix()).isNull();
         assertThatThrownBy(() -> admin.update(acm.id(), coreUpdate(acm.slug(), "int main() {}", 0), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.getMessage()).contains("ACM 题目没有驱动代码"));
 
-        var core = admin.create(new CreateProblemRequest(
-                "core-" + UUID.randomUUID().toString().substring(0, 8), "Core", Difficulty.EASY, CodeMode.CORE, "cpp"),
+        var core = admin.create(
+                new CreateProblemRequest(
+                        "core-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Core",
+                        Difficulty.EASY,
+                        CodeMode.CORE,
+                        "cpp"),
                 ACTOR);
         assertThatThrownBy(() -> admin.update(core.id(), coreUpdate(core.slug(), "  \n", 0), ACTOR))
                 .isInstanceOf(ProblemApiException.class);
@@ -173,15 +213,27 @@ class AdminProblemPersistenceIntegrationTests {
     }
 
     private static UpdateProblemRequest coreUpdate(String slug, String judgeTemplate, long rowVersion) {
-        return new UpdateProblemRequest(slug, "Core", "statement", "input", "output", null, null, Difficulty.EASY,
-                List.of(), List.of(new SampleInput(1, "1 2\n", "3\n", null)), "class Solution {};", judgeTemplate,
+        return new UpdateProblemRequest(
+                slug,
+                "Core",
+                "statement",
+                "input",
+                "output",
+                null,
+                null,
+                Difficulty.EASY,
+                List.of(),
+                List.of(new SampleInput(1, "1 2\n", "3\n", null)),
+                "class Solution {};",
+                judgeTemplate,
                 rowVersion);
     }
 
     private LocalDateTime templateUpdatedAt(String problemId) {
         return jdbc.queryForObject(
                 "SELECT judge_template_updated_at FROM problem_language WHERE problem_id = UUID_TO_BIN(?)",
-                LocalDateTime.class, problemId);
+                LocalDateTime.class,
+                problemId);
     }
 
     /** 题目没有版本，改了就是改了：公开题目的编辑立即对读者生效，但不能被改成读不懂的样子。 */
@@ -189,26 +241,71 @@ class AdminProblemPersistenceIntegrationTests {
     void editsToAPublicProblemTakeEffectImmediatelyButCannotBlankTheStatement() {
         String slug = "live-" + UUID.randomUUID().toString().substring(0, 8);
         ProblemFixtures.insertPublic(jdbc, slug, "Live problem", "EASY", "live", LocalDateTime.now(ZoneOffset.UTC));
-        var before = admin.getProblem(admin.list(slug, null, 1, 10).items().getFirst().id());
+        var before = admin.getProblem(
+                admin.list(slug, null, 1, 10).items().getFirst().id());
         assertThat(publicProblems.detail(slug).statementMarkdown()).isEqualTo("statement");
 
-        var edited = admin.update(before.id(), new UpdateProblemRequest(
-                slug, "Live problem v2", "new statement", "input", "output", null, null, Difficulty.HARD,
-                List.of("live"), List.of(new SampleInput(1, "1", "1", null)), "int main() {}", null, before.rowVersion()), ACTOR);
+        var edited = admin.update(
+                before.id(),
+                new UpdateProblemRequest(
+                        slug,
+                        "Live problem v2",
+                        "new statement",
+                        "input",
+                        "output",
+                        null,
+                        null,
+                        Difficulty.HARD,
+                        List.of("live"),
+                        List.of(new SampleInput(1, "1", "1", null)),
+                        "int main() {}",
+                        null,
+                        before.rowVersion()),
+                ACTOR);
 
         assertThat(edited.visibility()).isEqualTo(Visibility.PUBLIC);
         assertThat(publicProblems.detail(slug).statementMarkdown()).isEqualTo("new statement");
         assertThat(publicProblems.detail(slug).title()).isEqualTo("Live problem v2");
 
-        assertThatThrownBy(() -> admin.update(before.id(), new UpdateProblemRequest(
-                slug, "Blank", "", "input", "output", null, null, Difficulty.HARD,
-                List.of(), List.of(new SampleInput(1, "1", "1", null)), "", null, edited.rowVersion()), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+        assertThatThrownBy(() -> admin.update(
+                        before.id(),
+                        new UpdateProblemRequest(
+                                slug,
+                                "Blank",
+                                "",
+                                "input",
+                                "output",
+                                null,
+                                null,
+                                Difficulty.HARD,
+                                List.of(),
+                                List.of(new SampleInput(1, "1", "1", null)),
+                                "",
+                                null,
+                                edited.rowVersion()),
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("VALIDATION_FAILED"));
-        assertThatThrownBy(() -> admin.update(before.id(), new UpdateProblemRequest(
-                slug, "No samples", "statement", "input", "output", null, null, Difficulty.HARD,
-                List.of(), List.of(), "", null, edited.rowVersion()), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+        assertThatThrownBy(() -> admin.update(
+                        before.id(),
+                        new UpdateProblemRequest(
+                                slug,
+                                "No samples",
+                                "statement",
+                                "input",
+                                "output",
+                                null,
+                                null,
+                                Difficulty.HARD,
+                                List.of(),
+                                List.of(),
+                                "",
+                                null,
+                                edited.rowVersion()),
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("VALIDATION_FAILED"));
         assertThat(publicProblems.detail(slug).statementMarkdown()).isEqualTo("new statement");
     }
@@ -224,8 +321,14 @@ class AdminProblemPersistenceIntegrationTests {
             assertThat(List.of(first.get(), second.get())).containsExactlyInAnyOrder("CREATED", "SLUG_CONFLICT");
         }
 
-        var problem = admin.create(new CreateProblemRequest(
-                "race-" + UUID.randomUUID().toString().substring(0, 8), "Race", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
+        var problem = admin.create(
+                new CreateProblemRequest(
+                        "race-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Race",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
+                ACTOR);
         CountDownLatch updateStart = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> updateAfter(updateStart, problem.id(), problem.slug(), "first", 0));
@@ -239,8 +342,10 @@ class AdminProblemPersistenceIntegrationTests {
     @Test
     void archiveKeepsTheProblemAndImmediatelyRemovesPublicRead() {
         String slug = "archive-" + UUID.randomUUID().toString().substring(0, 8);
-        ProblemFixtures.insertPublic(jdbc, slug, "Published fixture", "MEDIUM", "fixture", LocalDateTime.now(ZoneOffset.UTC));
-        var before = admin.getProblem(admin.list(slug, null, 1, 10).items().getFirst().id());
+        ProblemFixtures.insertPublic(
+                jdbc, slug, "Published fixture", "MEDIUM", "fixture", LocalDateTime.now(ZoneOffset.UTC));
+        var before = admin.getProblem(
+                admin.list(slug, null, 1, 10).items().getFirst().id());
         assertThat(publicProblems.detail(slug).title()).isEqualTo("Published fixture");
 
         var archived = admin.archive(before.id(), before.rowVersion(), ACTOR);
@@ -248,16 +353,23 @@ class AdminProblemPersistenceIntegrationTests {
         assertThat(archived.status().name()).isEqualTo("ARCHIVED");
         assertThat(archived.samples()).isNotEmpty();
         assertThatThrownBy(() -> publicProblems.detail(slug))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("PROBLEM_NOT_FOUND"));
     }
 
     @Test
     void onlyNeverPublishedProblemsCanBeDeletedAndTheirTestDataGoesWithThem() throws Exception {
-        var draft = admin.create(new CreateProblemRequest(
-                "draft-" + UUID.randomUUID().toString().substring(0, 8), "Draft", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
-        var uploaded = testData.upload(draft.id(), new MockMultipartFile(
-                "file", "cases.zip", "application/zip", zip()), ACTOR);
+        var draft = admin.create(
+                new CreateProblemRequest(
+                        "draft-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Draft",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
+                ACTOR);
+        var uploaded = testData.upload(
+                draft.id(), new MockMultipartFile("file", "cases.zip", "application/zip", zip()), ACTOR);
         Path address = STORAGE_ROOT.resolve(draft.id());
         assertThat(Files.exists(address, LinkOption.NOFOLLOW_LINKS)).isTrue();
         assertThat(uploaded.digest()).matches("[a-f0-9]{64}");
@@ -265,11 +377,15 @@ class AdminProblemPersistenceIntegrationTests {
         admin.delete(draft.id(), admin.getProblem(draft.id()).rowVersion());
 
         assertThatThrownBy(() -> admin.getProblem(draft.id()))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("PROBLEM_NOT_FOUND"));
         // 审计事件与样例、语言一起删掉，数据目录和所有代际也删掉；别的题目的数据不受影响
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?)",
-                Integer.class, draft.id())).isZero();
+        assertThat(jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?)",
+                        Integer.class,
+                        draft.id()))
+                .isZero();
         assertThat(Files.exists(address, LinkOption.NOFOLLOW_LINKS)).isFalse();
         try (var generations = Files.list(STORAGE_ROOT.resolve(".store"))) {
             assertThat(generations.map(path -> path.getFileName().toString()))
@@ -278,9 +394,11 @@ class AdminProblemPersistenceIntegrationTests {
 
         String slug = "never-delete-" + UUID.randomUUID().toString().substring(0, 8);
         ProblemFixtures.insertPublic(jdbc, slug, "Published", "EASY", "x", LocalDateTime.now(ZoneOffset.UTC));
-        var published = admin.getProblem(admin.list(slug, null, 1, 10).items().getFirst().id());
+        var published = admin.getProblem(
+                admin.list(slug, null, 1, 10).items().getFirst().id());
         assertThatThrownBy(() -> admin.delete(published.id(), published.rowVersion()))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
         // 公开过的题目哪怕转回私有也不能删：它可能已经有提交
         assertThat(admin.getProblem(published.id()).slug()).isEqualTo(slug);
@@ -291,8 +409,7 @@ class AdminProblemPersistenceIntegrationTests {
         try {
             admin.create(new CreateProblemRequest(slug, "Race", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
             return "CREATED";
-        }
-        catch (ProblemApiException error) {
+        } catch (ProblemApiException error) {
             return error.code();
         }
     }
@@ -301,11 +418,25 @@ class AdminProblemPersistenceIntegrationTests {
             throws Exception {
         start.await();
         try {
-            admin.update(problemId, new UpdateProblemRequest(slug, title, "s", "i", "o", null, null, Difficulty.EASY,
-                    List.of(), List.of(), "", null, rowVersion), ACTOR);
+            admin.update(
+                    problemId,
+                    new UpdateProblemRequest(
+                            slug,
+                            title,
+                            "s",
+                            "i",
+                            "o",
+                            null,
+                            null,
+                            Difficulty.EASY,
+                            List.of(),
+                            List.of(),
+                            "",
+                            null,
+                            rowVersion),
+                    ACTOR);
             return "UPDATED";
-        }
-        catch (ProblemApiException error) {
+        } catch (ProblemApiException error) {
             return error.code();
         }
     }
@@ -325,8 +456,7 @@ class AdminProblemPersistenceIntegrationTests {
     private static Path temporaryRoot() {
         try {
             return Files.createTempDirectory("cherry-admin-problem-");
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new ExceptionInInitializerError(error);
         }
     }

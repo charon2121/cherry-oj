@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,10 +25,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = {
-        "cherry.problem.test-data.root=${java.io.tmpdir}/cherry-oj-public-problem-testdata",
-        "cherry.problem.test-data.recovery-enabled=false"
-})
+@SpringBootTest(
+        properties = {
+            "cherry.problem.test-data.root=${java.io.tmpdir}/cherry-oj-public-problem-testdata",
+            "cherry.problem.test-data.recovery-enabled=false"
+        })
 @ActiveProfiles("dev")
 @Testcontainers(disabledWithoutDocker = true)
 class ProblemPersistenceIntegrationTests {
@@ -82,16 +82,25 @@ class ProblemPersistenceIntegrationTests {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM problem WHERE slug = 'a-plus-b'", Integer.class))
                 .isEqualTo(1);
         // 种子题目的测试数据是真实的协议目录：地址指向的目录里有 testdata.json
-        String location = jdbc.queryForObject(
-                "SELECT test_data_location FROM problem WHERE slug = 'a-plus-b'", String.class);
+        String location =
+                jdbc.queryForObject("SELECT test_data_location FROM problem WHERE slug = 'a-plus-b'", String.class);
         assertThat(java.nio.file.Path.of(location).resolve("testdata.json")).isRegularFile();
 
-        var page = problems.list("A+B", PublicProblemService.Difficulty.EASY, List.of("入门"),
-                PublicProblemService.CodeMode.ACM, "cpp", PublicProblemService.Sort.UPDATED_DESC, null, 20);
+        var page = problems.list(
+                "A+B",
+                PublicProblemService.Difficulty.EASY,
+                List.of("入门"),
+                PublicProblemService.CodeMode.ACM,
+                "cpp",
+                PublicProblemService.Sort.UPDATED_DESC,
+                null,
+                20);
         assertThat(page.items()).hasSize(1);
         ProblemDetail detail = problems.detail("a-plus-b");
         assertThat(detail.samples()).hasSize(1);
-        assertThat(detail.allowedLanguages()).extracting(language -> language.id()).containsExactly("cpp");
+        assertThat(detail.allowedLanguages())
+                .extracting(language -> language.id())
+                .containsExactly("cpp");
 
         jdbc.update("""
                 UPDATE problem_language SET judge_template = 'HIDDEN_CANARY', judge_template_updated_at = UTC_TIMESTAMP(6)
@@ -108,8 +117,7 @@ class ProblemPersistenceIntegrationTests {
                      checker_type, created_by, created_at, updated_at, row_version)
                 VALUES (UUID_TO_BIN(UUID()), 'invalid-public', 'PUBLIC', 'ACTIVE', 'ACM', 't', 's', 'i', 'o',
                         'EASY', JSON_ARRAY(), 'DEFAULT', UUID_TO_BIN(UUID()), UTC_TIMESTAMP(6), UTC_TIMESTAMP(6), 0)
-                """))
-                .isInstanceOf(DataAccessException.class);
+                """)).isInstanceOf(DataAccessException.class);
 
         List<Map<String, Object>> plan = jdbc.queryForList("""
                 EXPLAIN SELECT p.id
@@ -117,43 +125,57 @@ class ProblemPersistenceIntegrationTests {
                 WHERE p.visibility = 'PUBLIC' AND p.status = 'ACTIVE'
                 ORDER BY p.updated_at DESC, p.id DESC LIMIT 21
                 """);
-        assertThat(plan.stream().map(row -> String.valueOf(row.get("key"))))
-                .contains("idx_problem_listing");
+        assertThat(plan.stream().map(row -> String.valueOf(row.get("key")))).contains("idx_problem_listing");
     }
 
     @Test
     void keysetPaginationHandlesEqualTimestampsAndConcurrentNewerRows() {
         LocalDateTime sharedTime = LocalDateTime.of(2026, 8, 29, 1, 0);
         for (int index = 0; index < 25; index++) {
-            ProblemFixtures.insertPublic(jdbc, "page-" + String.format("%02d", index),
-                    "page-" + String.format("%02d", index), "MEDIUM", "pagination", sharedTime);
+            ProblemFixtures.insertPublic(
+                    jdbc,
+                    "page-" + String.format("%02d", index),
+                    "page-" + String.format("%02d", index),
+                    "MEDIUM",
+                    "pagination",
+                    sharedTime);
         }
 
         // 分页开始时已经公开的题目：25 道分页题加上 dev 种子题；分页途中新插入的那道更新的题不应出现。
         int publicBeforePaging = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM problem WHERE visibility = 'PUBLIC' AND status = 'ACTIVE'", Integer.class);
-        var first = problems.list(null, null, null, null, null,
-                PublicProblemService.Sort.UPDATED_DESC, null, 10);
+        var first = problems.list(null, null, null, null, null, PublicProblemService.Sort.UPDATED_DESC, null, 10);
         assertThat(first.items()).hasSize(10);
         assertThat(first.hasMore()).isTrue();
 
-        ProblemFixtures.insertPublic(jdbc, "newer-during-pagination", "newer-during-pagination", "MEDIUM",
-                "pagination", LocalDateTime.now(ZoneOffset.UTC).plusMinutes(1));
+        ProblemFixtures.insertPublic(
+                jdbc,
+                "newer-during-pagination",
+                "newer-during-pagination",
+                "MEDIUM",
+                "pagination",
+                LocalDateTime.now(ZoneOffset.UTC).plusMinutes(1));
 
-        List<String> seen = new ArrayList<>(first.items().stream().map(item -> item.problemId()).toList());
+        List<String> seen = new ArrayList<>(
+                first.items().stream().map(item -> item.problemId()).toList());
         String cursor = first.nextCursor();
         while (cursor != null) {
-            var page = problems.list(null, null, null, null, null,
-                    PublicProblemService.Sort.UPDATED_DESC, cursor, 10);
+            var page = problems.list(null, null, null, null, null, PublicProblemService.Sort.UPDATED_DESC, cursor, 10);
             seen.addAll(page.items().stream().map(item -> item.problemId()).toList());
             cursor = page.nextCursor();
         }
         assertThat(seen).hasSize(publicBeforePaging);
         assertThat(new HashSet<>(seen)).hasSize(publicBeforePaging);
 
-        var filtered = problems.list(null, PublicProblemService.Difficulty.MEDIUM,
-                List.of("pagination"), PublicProblemService.CodeMode.ACM, "cpp",
-                PublicProblemService.Sort.TITLE_ASC, null, 100);
+        var filtered = problems.list(
+                null,
+                PublicProblemService.Difficulty.MEDIUM,
+                List.of("pagination"),
+                PublicProblemService.CodeMode.ACM,
+                "cpp",
+                PublicProblemService.Sort.TITLE_ASC,
+                null,
+                100);
         assertThat(filtered.items()).hasSize(26);
         assertThat(filtered.items()).extracting(item -> item.title()).isSorted();
     }

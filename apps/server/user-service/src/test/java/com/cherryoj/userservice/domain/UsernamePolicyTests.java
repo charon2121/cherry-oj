@@ -17,9 +17,7 @@ class UsernamePolicyTests {
 
     @Test
     void rejectsWhitespaceAndNonAsciiNames() {
-        assertThatThrownBy(() -> policy.normalize(" learner"))
-                .isInstanceOf(IdentityValidationException.class);
-        assertThatThrownBy(() -> policy.normalize("学习者"))
-                .isInstanceOf(IdentityValidationException.class);
+        assertThatThrownBy(() -> policy.normalize(" learner")).isInstanceOf(IdentityValidationException.class);
+        assertThatThrownBy(() -> policy.normalize("学习者")).isInstanceOf(IdentityValidationException.class);
     }
 }

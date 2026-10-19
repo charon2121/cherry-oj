@@ -47,10 +47,17 @@ class JudgingReadinessIntegrationTests {
         registry.add("spring.datasource.password", MYSQL::getPassword);
     }
 
-    @Autowired JudgingReadinessService service;
-    @Autowired JudgeNodeRegistry registry;
-    @Autowired JdbcTemplate jdbc;
-    @MockitoBean JudgeGateway judge;
+    @Autowired
+    JudgingReadinessService service;
+
+    @Autowired
+    JudgeNodeRegistry registry;
+
+    @Autowired
+    JdbcTemplate jdbc;
+
+    @MockitoBean
+    JudgeGateway judge;
 
     @BeforeEach
     void onlineNode() {
@@ -78,8 +85,8 @@ class JudgingReadinessIntegrationTests {
         assertThat(readiness.executionProfile().cpuNs()).isEqualTo(1_000_000_000L);
         // 批准时间随执行配置返回：problem-service 据此判断驱动代码或前缀是否在标定之后改过
         assertThat(readiness.executionProfile().calibratedAt()).isEqualTo(calibrated.updatedAt());
-        String details = String.join("", jdbc.queryForList(
-                "SELECT CAST(detail_json AS CHAR) FROM judging_audit_event", String.class));
+        String details = String.join(
+                "", jdbc.queryForList("SELECT CAST(detail_json AS CHAR) FROM judging_audit_event", String.class));
         assertThat(details).doesNotContain(request.referenceSource());
     }
 
@@ -89,7 +96,8 @@ class JudgingReadinessIntegrationTests {
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
         var captured = org.mockito.ArgumentCaptor.forClass(JudgeGateway.JudgeRequest.class);
-        org.mockito.Mockito.verify(judge).judge(org.mockito.ArgumentMatchers.eq("http://127.0.0.1:15051"), captured.capture(), any());
+        org.mockito.Mockito.verify(judge)
+                .judge(org.mockito.ArgumentMatchers.eq("http://127.0.0.1:15051"), captured.capture(), any());
         assertThat(captured.getValue().testDataLocation()).isEqualTo(LOCATION);
         assertThat(captured.getValue().problemId()).isEqualTo(problem);
         assertThat(captured.getValue().mode()).isEqualTo("submit");
@@ -105,7 +113,10 @@ class JudgingReadinessIntegrationTests {
         var stale = service.readiness(problem, "cpp", newDigest);
         assertThat(stale.ready()).isFalse();
         assertThat(stale.executionProfile()).isNull();
-        assertThat(stale.checks()).filteredOn(check -> !check.passed()).extracting("code").containsExactly("CALIBRATION");
+        assertThat(stale.checks())
+                .filteredOn(check -> !check.passed())
+                .extracting("code")
+                .containsExactly("CALIBRATION");
 
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(newDigest));
         var fresh = service.calibrate(calibration(problem, newDigest, "// ref"), ACTOR, null);
@@ -125,7 +136,9 @@ class JudgingReadinessIntegrationTests {
         assertThat(service.readiness(problem, "cpp", DIGEST).ready()).isFalse();
         // 判题结果没带指纹同样不能当作成功
         when(judge.judge(anyString(), any(), any())).thenReturn(new JudgeGateway.JudgeResult("AC", 1L, 2L, 100));
-        assertThat(service.calibrate(calibration(problem, DIGEST, "// ref2"), ACTOR, null).status()).isEqualTo("FAILED");
+        assertThat(service.calibrate(calibration(problem, DIGEST, "// ref2"), ACTOR, null)
+                        .status())
+                .isEqualTo("FAILED");
     }
 
     @Test
@@ -134,8 +147,8 @@ class JudgingReadinessIntegrationTests {
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         var valid = service.calibrate(calibration(problem, DIGEST, "// valid"), ACTOR, null);
 
-        when(judge.judge(anyString(), any(), any())).thenReturn(
-                new JudgeGateway.JudgeResult("WA", 3L, 4L, 0, null, null, DIGEST));
+        when(judge.judge(anyString(), any(), any()))
+                .thenReturn(new JudgeGateway.JudgeResult("WA", 3L, 4L, 0, null, null, DIGEST));
         var failed = service.calibrate(calibration(problem, DIGEST, "// wrong"), ACTOR, null);
         assertThat(failed.status()).isEqualTo("FAILED");
         assertThat(failed.benchmarkSummary().verdict()).isEqualTo("WA");
@@ -151,9 +164,22 @@ class JudgingReadinessIntegrationTests {
     @Test
     void calibrationNeedsAnOnlineNodeForTheLanguage() {
         String problem = UUID.randomUUID().toString();
-        assertThatThrownBy(() -> service.calibrate(new CalibrationRequest(problem, "python", LOCATION, DIGEST,
-                1_000_000_000L, 268_435_456L, null, "print(1)", null, null), ACTOR, null))
-                .isInstanceOf(JudgingApiException.class).hasMessageContaining("没有在线判题节点");
+        assertThatThrownBy(() -> service.calibrate(
+                        new CalibrationRequest(
+                                problem,
+                                "python",
+                                LOCATION,
+                                DIGEST,
+                                1_000_000_000L,
+                                268_435_456L,
+                                null,
+                                "print(1)",
+                                null,
+                                null),
+                        ACTOR,
+                        null))
+                .isInstanceOf(JudgingApiException.class)
+                .hasMessageContaining("没有在线判题节点");
     }
 
     @Test
@@ -194,9 +220,20 @@ class JudgingReadinessIntegrationTests {
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         String solution = "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {};\n";
 
-        var calibrated = service.calibrate(new CalibrationRequest(problem, "cpp", LOCATION, DIGEST,
-                1_000_000_000L, 268_435_456L, null, "#include \"solution.cpp\"\nint main(){}\n", solution, 2),
-                ACTOR, null);
+        var calibrated = service.calibrate(
+                new CalibrationRequest(
+                        problem,
+                        "cpp",
+                        LOCATION,
+                        DIGEST,
+                        1_000_000_000L,
+                        268_435_456L,
+                        null,
+                        "#include \"solution.cpp\"\nint main(){}\n",
+                        solution,
+                        2),
+                ACTOR,
+                null);
 
         assertThat(calibrated.status()).isEqualTo("VALID");
         var sent = org.mockito.ArgumentCaptor.forClass(JudgeGateway.JudgeRequest.class);
@@ -208,14 +245,31 @@ class JudgingReadinessIntegrationTests {
     @Test
     void aCoreCalibrationNeedsBothTheSolutionFileAndThePrefixLineCount() {
         String problem = UUID.randomUUID().toString();
-        assertThatThrownBy(() -> service.calibrate(new CalibrationRequest(problem, "cpp", LOCATION, DIGEST,
-                1_000_000_000L, 268_435_456L, null, "driver", "class Solution {};", null), ACTOR, null))
-                .isInstanceOf(JudgingApiException.class).hasMessageContaining("同时给出");
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM language_calibration WHERE problem_id = UUID_TO_BIN(?)",
-                Integer.class, problem)).isZero();
+        assertThatThrownBy(() -> service.calibrate(
+                        new CalibrationRequest(
+                                problem,
+                                "cpp",
+                                LOCATION,
+                                DIGEST,
+                                1_000_000_000L,
+                                268_435_456L,
+                                null,
+                                "driver",
+                                "class Solution {};",
+                                null),
+                        ACTOR,
+                        null))
+                .isInstanceOf(JudgingApiException.class)
+                .hasMessageContaining("同时给出");
+        assertThat(jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM language_calibration WHERE problem_id = UUID_TO_BIN(?)",
+                        Integer.class,
+                        problem))
+                .isZero();
     }
 
     private static CalibrationRequest calibration(String problem, String digest, String source) {
-        return new CalibrationRequest(problem, "cpp", LOCATION, digest, 1_000_000_000L, 268_435_456L, null, source, null, null);
+        return new CalibrationRequest(
+                problem, "cpp", LOCATION, digest, 1_000_000_000L, 268_435_456L, null, source, null, null);
     }
 }

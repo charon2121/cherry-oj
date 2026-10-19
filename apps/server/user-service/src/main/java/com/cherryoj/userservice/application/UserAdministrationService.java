@@ -74,14 +74,15 @@ public class UserAdministrationService {
         int safeSize = Math.max(1, Math.min(100, size));
         long total = accounts.countUsers();
         long offset = (long) (safePage - 1) * safeSize;
-        List<UserView> items = accounts.listUsers(offset, safeSize).stream().map(UserView::from).toList();
+        List<UserView> items = accounts.listUsers(offset, safeSize).stream()
+                .map(UserView::from)
+                .toList();
         int totalPages = total == 0 ? 0 : (int) ((total + safeSize - 1) / safeSize);
         return new UserPage(items, safePage, safeSize, total, totalPages);
     }
 
     @Transactional
-    public UserView updateStatus(
-            String actorUserId, String userId, UserStatus status, long expectedRowVersion) {
+    public UserView updateStatus(String actorUserId, String userId, UserStatus status, long expectedRowVersion) {
         UserAccount account = requireUserForUpdate(userId);
         if (account.rowVersion() != expectedRowVersion) {
             throw versionConflict();

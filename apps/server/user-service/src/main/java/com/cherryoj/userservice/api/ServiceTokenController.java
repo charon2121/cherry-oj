@@ -36,8 +36,12 @@ public class ServiceTokenController {
     private final AuthProperties properties;
     private final Clock clock;
 
-    public ServiceTokenController(ServiceClientRegistry clients, AssertionReplayGuard replay, TokenService tokens,
-            AuthProperties properties, Clock clock) {
+    public ServiceTokenController(
+            ServiceClientRegistry clients,
+            AssertionReplayGuard replay,
+            TokenService tokens,
+            AuthProperties properties,
+            Clock clock) {
         this.clients = clients;
         this.replay = replay;
         this.tokens = tokens;
@@ -45,24 +49,26 @@ public class ServiceTokenController {
         this.clock = clock;
     }
 
-    public record Request(String audience) {
-    }
+    public record Request(String audience) {}
 
-    public record Response(String accessToken, Instant expiresAt) {
-    }
+    public record Response(String accessToken, Instant expiresAt) {}
 
     @PostMapping("/internal/service-tokens")
-    ResponseEntity<?> issue(@RequestHeader(name = "Authorization", required = false) String authorization,
+    ResponseEntity<?> issue(
+            @RequestHeader(name = "Authorization", required = false) String authorization,
             @RequestBody(required = false) Request request) {
         if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() > 8192) {
             return reject(HttpStatus.UNAUTHORIZED, "SERVICE_UNAUTHORIZED", "MISSING_ASSERTION", null);
         }
         ClientAssertion.Verified caller;
         try {
-            caller = ClientAssertion.verify(authorization.substring("Bearer ".length()), clients::publicKey,
-                    properties.issuer(), clock.instant(), properties.clockSkew());
-        }
-        catch (ServiceIdentityException error) {
+            caller = ClientAssertion.verify(
+                    authorization.substring("Bearer ".length()),
+                    clients::publicKey,
+                    properties.issuer(),
+                    clock.instant(),
+                    properties.clockSkew());
+        } catch (ServiceIdentityException error) {
             return reject(HttpStatus.UNAUTHORIZED, "SERVICE_UNAUTHORIZED", error.reason(), null);
         }
         if (!replay.firstUse(caller.caller(), caller.jti(), caller.expiresAt())) {
@@ -73,17 +79,25 @@ public class ServiceTokenController {
             return reject(HttpStatus.BAD_REQUEST, "INVALID_AUDIENCE", "UNKNOWN_AUDIENCE", caller.caller());
         }
         var token = tokens.issueService(caller.caller(), audience);
-        LOGGER.atInfo().addKeyValue("event", "service_token_issued").addKeyValue("caller", caller.caller())
-                .addKeyValue("audience", audience).log("service_token_issued");
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+        LOGGER.atInfo()
+                .addKeyValue("event", "service_token_issued")
+                .addKeyValue("caller", caller.caller())
+                .addKeyValue("audience", audience)
+                .log("service_token_issued");
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
                 .body(new Response(token.value(), token.expiresAt()));
     }
 
-    private static ResponseEntity<IdentityApiError> reject(HttpStatus status, String code, String reason, String caller) {
-        LOGGER.atWarn().addKeyValue("event", "service_token_rejected").addKeyValue("reason", reason)
-                .addKeyValue("caller", caller == null ? "" : caller).log("service_token_rejected");
-        return ResponseEntity.status(status).cacheControl(CacheControl.noStore())
-                .body(new IdentityApiError(code, status == HttpStatus.BAD_REQUEST
-                        ? "目标服务未登记。" : "服务身份校验失败。"));
+    private static ResponseEntity<IdentityApiError> reject(
+            HttpStatus status, String code, String reason, String caller) {
+        LOGGER.atWarn()
+                .addKeyValue("event", "service_token_rejected")
+                .addKeyValue("reason", reason)
+                .addKeyValue("caller", caller == null ? "" : caller)
+                .log("service_token_rejected");
+        return ResponseEntity.status(status)
+                .cacheControl(CacheControl.noStore())
+                .body(new IdentityApiError(code, status == HttpStatus.BAD_REQUEST ? "目标服务未登记。" : "服务身份校验失败。"));
     }
 }

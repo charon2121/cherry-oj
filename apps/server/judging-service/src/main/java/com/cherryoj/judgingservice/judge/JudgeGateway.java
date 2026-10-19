@@ -3,7 +3,8 @@ package com.cherryoj.judgingservice.judge;
 public interface JudgeGateway {
     JudgeResult judge(String endpointRef, JudgeRequest request, String traceId) throws JudgeCallException;
 
-    default JudgeResult judge(String endpoint, JudgeRequest request, String trace, java.time.Duration budget) throws JudgeCallException {
+    default JudgeResult judge(String endpoint, JudgeRequest request, String trace, java.time.Duration budget)
+            throws JudgeCallException {
         return judge(endpoint, request, trace);
     }
 
@@ -12,25 +13,52 @@ public interface JudgeGateway {
      * solutionSource 只有 CORE 才带：source 是驱动文件，它是用户文件（前缀 + 用户代码）；ACM 时为 null，不序列化。
      */
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-    record JudgeRequest(String submissionId, String problemId, String testDataLocation, String languageId,
-                        String source, String solutionSource, Limits limits, String mode) {}
+    record JudgeRequest(
+            String submissionId,
+            String problemId,
+            String testDataLocation,
+            String languageId,
+            String source,
+            String solutionSource,
+            Limits limits,
+            String mode) {}
+
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
     record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
-    record JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
-                       java.util.List<TestcaseResult> testcaseResults, String testDataDigest) {
+
+    record JudgeResult(
+            String verdict,
+            Long cpuNs,
+            Long memoryBytes,
+            Integer score,
+            String message,
+            java.util.List<TestcaseResult> testcaseResults,
+            String testDataDigest) {
         public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score) {
-            this(verdict,cpuNs,memoryBytes,score,null,null,null);
+            this(verdict, cpuNs, memoryBytes, score, null, null, null);
         }
-        public JudgeResult(String verdict, Long cpuNs, Long memoryBytes, Integer score, String message,
-                           java.util.List<TestcaseResult> testcaseResults) {
-            this(verdict,cpuNs,memoryBytes,score,message,testcaseResults,null);
+
+        public JudgeResult(
+                String verdict,
+                Long cpuNs,
+                Long memoryBytes,
+                Integer score,
+                String message,
+                java.util.List<TestcaseResult> testcaseResults) {
+            this(verdict, cpuNs, memoryBytes, score, message, testcaseResults, null);
         }
     }
-    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown=true)
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     record TestcaseResult(int idx, String verdict, Long cpuNs, Long memoryBytes) {}
 
     final class JudgeCallException extends Exception {
-        public JudgeCallException(String message) { super(message); }
-        public JudgeCallException(String message, Throwable cause) { super(message, cause); }
+        public JudgeCallException(String message) {
+            super(message);
+        }
+
+        public JudgeCallException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }

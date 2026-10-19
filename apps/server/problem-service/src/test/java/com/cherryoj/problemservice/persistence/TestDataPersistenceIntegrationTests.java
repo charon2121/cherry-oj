@@ -84,7 +84,8 @@ class TestDataPersistenceIntegrationTests {
     void uploadWritesAProtocolDirectoryRecordsOnlyTheAddressAndServesJudging() throws Exception {
         var problem = createProblem("asset");
         assertThatThrownBy(() -> testData.forJudging(problem.id()))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("TEST_DATA_NOT_FOUND"));
 
         var uploaded = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
@@ -92,7 +93,8 @@ class TestDataPersistenceIntegrationTests {
         assertThat(uploaded.digest()).isEqualTo(GOLDEN_DIGEST);
         assertThat(uploaded.testcaseCount()).isEqualTo(2);
         assertThat(uploaded.totalBytes()).isEqualTo(16);
-        assertThat(uploaded.manifest().files()).extracting(file -> file.name())
+        assertThat(uploaded.manifest().files())
+                .extracting(file -> file.name())
                 .containsExactly("1.in", "1.out", "2.in", "2.out");
         // 对外的数据里没有服务器路径，也没有测试数据内容
         assertThat(json.writeValueAsString(uploaded)).doesNotContain(STORAGE_ROOT.toString(), "location", "1 2\\n");
@@ -100,7 +102,12 @@ class TestDataPersistenceIntegrationTests {
         // 数据库里只有地址，没有指纹、清单或数据本身
         String location = jdbc.queryForObject(
                 "SELECT test_data_location FROM problem WHERE id = UUID_TO_BIN(?)", String.class, problem.id());
-        assertThat(location).isEqualTo(STORAGE_ROOT.toAbsolutePath().normalize().resolve(problem.id()).toString());
+        assertThat(location)
+                .isEqualTo(STORAGE_ROOT
+                        .toAbsolutePath()
+                        .normalize()
+                        .resolve(problem.id())
+                        .toString());
         assertThat(Files.readString(Path.of(location).resolve("testdata.json"))).contains(GOLDEN_DIGEST);
         assertThat(Files.readString(Path.of(location).resolve("2.out"))).isEqualTo("93\n");
 
@@ -126,8 +133,8 @@ class TestDataPersistenceIntegrationTests {
         var first = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
         String address = testData.forJudging(problem.id()).location();
 
-        var second = testData.upload(problem.id(), multipart(zip(Map.of(
-                "1.in", bytes("5 6\n"), "1.out", bytes("11\n")))), ACTOR);
+        var second = testData.upload(
+                problem.id(), multipart(zip(Map.of("1.in", bytes("5 6\n"), "1.out", bytes("11\n")))), ACTOR);
 
         assertThat(second.digest()).isNotEqualTo(first.digest());
         assertThat(second.testcaseCount()).isEqualTo(1);
@@ -140,8 +147,11 @@ class TestDataPersistenceIntegrationTests {
         // 再换一次：只保留当前与上一代，磁盘占用有界
         testData.upload(problem.id(), multipart(zip(Map.of("1.in", bytes("7\n"), "1.out", bytes("8\n")))), ACTOR);
         try (var generations = Files.list(STORAGE_ROOT.resolve(".store"))) {
-            assertThat(generations.map(path -> path.getFileName().toString())
-                    .filter(name -> name.startsWith(problem.id())).toList()).hasSize(2);
+            assertThat(generations
+                            .map(path -> path.getFileName().toString())
+                            .filter(name -> name.startsWith(problem.id()))
+                            .toList())
+                    .hasSize(2);
         }
         assertThat(jdbc.queryForList("""
                 SELECT action FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?) ORDER BY created_at
@@ -172,11 +182,13 @@ class TestDataPersistenceIntegrationTests {
         var problem = createProblem("interrupted");
 
         assertThatThrownBy(() -> testData.upload(problem.id(), interruptedMultipart(goldenZip()), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("TEST_DATA_STORAGE_UNAVAILABLE"));
 
         assertThat(admin.getProblem(problem.id()).testData()).isNull();
-        assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS)).isFalse();
+        assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS))
+                .isFalse();
         try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
             assertThat(temporaryFiles).isEmpty();
         }
@@ -188,9 +200,11 @@ class TestDataPersistenceIntegrationTests {
         admin.archive(problem.id(), problem.rowVersion(), ACTOR);
 
         assertThatThrownBy(() -> testData.upload(problem.id(), multipart(goldenZip()), ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
-        assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS)).isFalse();
+        assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS))
+                .isFalse();
     }
 
     /** 两个管理员同时上传不同的数据：两次都成功，最终只有一份完整、自洽的数据，地址与指纹始终对得上。 */
@@ -211,7 +225,8 @@ class TestDataPersistenceIntegrationTests {
         var current = testData.forJudging(problem.id());
         assertThat(digests).contains(current.digest());
         // 地址下的 testdata.json、数据文件与数据库读到的指纹是同一份
-        assertThat(Files.readString(Path.of(current.location()).resolve("testdata.json"))).contains(current.digest());
+        assertThat(Files.readString(Path.of(current.location()).resolve("testdata.json")))
+                .contains(current.digest());
         assertThat(admin.getProblem(problem.id()).testData().digest()).isEqualTo(current.digest());
     }
 
@@ -238,14 +253,16 @@ class TestDataPersistenceIntegrationTests {
 
         Files.writeString(metadata, "not json");
         assertThatThrownBy(() -> testData.forJudging(problem.id()))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("TEST_DATA_STORAGE_UNAVAILABLE"));
         // 管理端按「没有」展示，公开检查会给出具体原因
         assertThat(admin.getProblem(problem.id()).testData()).isNull();
 
         Files.delete(metadata);
         assertThatThrownBy(() -> testData.forJudging(problem.id()))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("TEST_DATA_NOT_FOUND"));
     }
 
@@ -255,9 +272,14 @@ class TestDataPersistenceIntegrationTests {
     }
 
     private com.cherryoj.problemservice.api.AdminProblemDtos.Problem createProblem(String prefix) {
-        return admin.create(new CreateProblemRequest(
-                prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
-                "Test data fixture", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
+        return admin.create(
+                new CreateProblemRequest(
+                        prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Test data fixture",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
+                ACTOR);
     }
 
     private static MockMultipartFile multipart(byte[] content) {
@@ -266,13 +288,38 @@ class TestDataPersistenceIntegrationTests {
 
     private static MultipartFile interruptedMultipart(byte[] content) {
         return new MultipartFile() {
-            @Override public String getName() { return "file"; }
-            @Override public String getOriginalFilename() { return "cases.zip"; }
-            @Override public String getContentType() { return "application/zip"; }
-            @Override public boolean isEmpty() { return false; }
-            @Override public long getSize() { return content.length; }
-            @Override public byte[] getBytes() { return content.clone(); }
-            @Override public InputStream getInputStream() {
+            @Override
+            public String getName() {
+                return "file";
+            }
+
+            @Override
+            public String getOriginalFilename() {
+                return "cases.zip";
+            }
+
+            @Override
+            public String getContentType() {
+                return "application/zip";
+            }
+
+            @Override
+            public boolean isEmpty() {
+                return false;
+            }
+
+            @Override
+            public long getSize() {
+                return content.length;
+            }
+
+            @Override
+            public byte[] getBytes() {
+                return content.clone();
+            }
+
+            @Override
+            public InputStream getInputStream() {
                 return new InputStream() {
                     private int position;
 
@@ -293,7 +340,11 @@ class TestDataPersistenceIntegrationTests {
                     }
                 };
             }
-            @Override public void transferTo(java.io.File destination) { throw new UnsupportedOperationException(); }
+
+            @Override
+            public void transferTo(java.io.File destination) {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -315,22 +366,23 @@ class TestDataPersistenceIntegrationTests {
         assertThatThrownBy(() -> testData.upload(problem.id(), multipart(output.toByteArray()), ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("INVALID_TEST_DATA_ARCHIVE");
-                    assertThat(error.getMessage()).startsWith("「1.in」不是可读取的普通文件").contains("重新打包");
+                    assertThat(error.getMessage())
+                            .startsWith("「1.in」不是可读取的普通文件")
+                            .contains("重新打包");
                 });
 
         byte[] repetitive = zip(Map.of("1.in", bytes("10000 ".repeat(100_000)), "1.out", bytes("1\n")));
         assertThatThrownBy(() -> testData.upload(problem.id(), multipart(repetitive), ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("PAYLOAD_TOO_LARGE");
-                    assertThat(error.getMessage()).isEqualTo("「1.in」的压缩比超过 100 倍的上限：内容重复度太高，"
-                            + "会被当作压缩炸弹拦下。请让这组数据不那么重复后重试。");
+                    assertThat(error.getMessage())
+                            .isEqualTo("「1.in」的压缩比超过 100 倍的上限：内容重复度太高，" + "会被当作压缩炸弹拦下。请让这组数据不那么重复后重试。");
                 });
     }
 
     private static byte[] goldenZip() throws Exception {
         return zip(Map.of(
-                "1.in", bytes("1 2\n"), "1.out", bytes("3\n"),
-                "2.in", bytes("100 -7\n"), "2.out", bytes("93\n")));
+                "1.in", bytes("1 2\n"), "1.out", bytes("3\n"), "2.in", bytes("100 -7\n"), "2.out", bytes("93\n")));
     }
 
     private static byte[] zip(Map<String, byte[]> entries) throws Exception {
@@ -352,8 +404,7 @@ class TestDataPersistenceIntegrationTests {
     private static Path temporaryRoot() {
         try {
             return Files.createTempDirectory("cherry-problem-test-data-");
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new ExceptionInInitializerError(error);
         }
     }

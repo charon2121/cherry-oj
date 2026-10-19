@@ -78,10 +78,11 @@ public class ProblemPublicationService {
         if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
             throw state("题面、样例、语言或测试数据尚未就绪。");
         }
-        JudgingDtos.Calibration result = judging.calibrate(calibrationRequest(problemId, request, local),
-                delegatedJwt, traceparent);
+        JudgingDtos.Calibration result =
+                judging.calibrate(calibrationRequest(problemId, request, local), delegatedJwt, traceparent);
         CalibrationStatus remoteStatus = calibrationStatus(result.status());
-        if (!problemId.equals(result.problemId()) || !request.languageId().equals(result.languageId())
+        if (!problemId.equals(result.problemId())
+                || !request.languageId().equals(result.languageId())
                 || (remoteStatus != CalibrationStatus.VALID && remoteStatus != CalibrationStatus.FAILED)) {
             throw invalidResponse();
         }
@@ -94,8 +95,11 @@ public class ProblemPublicationService {
             detail.put("sourceSha256", result.benchmarkSummary().sourceSha256());
             detail.put("verdict", result.benchmarkSummary().verdict());
         }
-        transactions.executeWithoutResult(status -> audit(problemId, actorUserId,
-                remoteStatus == CalibrationStatus.VALID ? "PROBLEM_CALIBRATED" : "PROBLEM_CALIBRATION_FAILED", detail));
+        transactions.executeWithoutResult(status -> audit(
+                problemId,
+                actorUserId,
+                remoteStatus == CalibrationStatus.VALID ? "PROBLEM_CALIBRATED" : "PROBLEM_CALIBRATION_FAILED",
+                detail));
         return calibration(result);
     }
 
@@ -106,14 +110,14 @@ public class ProblemPublicationService {
             checks.add(item(PublishCheckCode.CALIBRATION, false, "测试数据就绪后才能检查标定。"));
             return result(checks);
         }
-        JudgingDtos.Readiness remote = judging.readiness(
-                problemId, "cpp", local.info().digest(), delegatedJwt, traceparent);
+        JudgingDtos.Readiness remote =
+                judging.readiness(problemId, "cpp", local.info().digest(), delegatedJwt, traceparent);
         mergeRemoteLanguage(checks, remote);
         // 在线节点的事实要保留到管理工作台：标定按钮据此提示并禁用。
-        checks.add(remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE,
-                "当前没有在线判题节点，请启动节点并等待注册。"));
-        PublishCheckItem calibration = remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION,
-                "该语言缺少与当前测试数据匹配的有效标定，请重新标定。");
+        checks.add(
+                remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE, "当前没有在线判题节点，请启动节点并等待注册。"));
+        PublishCheckItem calibration =
+                remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION, "该语言缺少与当前测试数据匹配的有效标定，请重新标定。");
         String hint = calibration.passed() ? recalibrationHint(local, remote.executionProfile()) : null;
         checks.add(hint == null ? calibration : item(PublishCheckCode.CALIBRATION, true, calibration.message() + hint));
         return result(checks);
@@ -128,13 +132,30 @@ public class ProblemPublicationService {
         String location = local.problem().testDataLocation();
         String digest = local.info().digest();
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
-            return new JudgingDtos.CalibrationRequest(problemId, request.languageId(), location, digest,
-                    request.cpuNs(), request.memoryBytes(), request.clockNs(), request.referenceSource(), null, null);
+            return new JudgingDtos.CalibrationRequest(
+                    problemId,
+                    request.languageId(),
+                    location,
+                    digest,
+                    request.cpuNs(),
+                    request.memoryBytes(),
+                    request.clockNs(),
+                    request.referenceSource(),
+                    null,
+                    null);
         }
         String prefix = local.prefix().solutionPrefix();
-        return new JudgingDtos.CalibrationRequest(problemId, request.languageId(), location, digest,
-                request.cpuNs(), request.memoryBytes(), request.clockNs(), local.languages().getFirst().judgeTemplate(),
-                prefix + request.referenceSource(), lineCount(prefix));
+        return new JudgingDtos.CalibrationRequest(
+                problemId,
+                request.languageId(),
+                location,
+                digest,
+                request.cpuNs(),
+                request.memoryBytes(),
+                request.clockNs(),
+                local.languages().getFirst().judgeTemplate(),
+                prefix + request.referenceSource(),
+                lineCount(prefix));
     }
 
     private static int lineCount(String prefix) {
@@ -146,7 +167,8 @@ public class ProblemPublicationService {
      * 只比较时间，不比较内容；judging-service 没给出标定时间时不提示。
      */
     private static String recalibrationHint(Snapshot local, JudgingDtos.ExecutionProfile profile) {
-        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE || profile == null
+        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE
+                || profile == null
                 || profile.calibratedAt() == null) {
             return null;
         }
@@ -185,7 +207,11 @@ public class ProblemPublicationService {
                 throw state("测试数据已改变，请重新检查。");
             }
             if (problems.publishProblem(problemId, now(), rowVersion) != 1) throw conflict();
-            audit(problemId, actorUserId, "PROBLEM_PUBLISHED", Map.of("testDataDigest", locked.info().digest()));
+            audit(
+                    problemId,
+                    actorUserId,
+                    "PROBLEM_PUBLISHED",
+                    Map.of("testDataDigest", locked.info().digest()));
         });
         return adminProblems.getProblem(problemId);
     }
@@ -210,13 +236,14 @@ public class ProblemPublicationService {
         if (problem.testDataLocation() != null) {
             try {
                 info = testData.describe(problem.testDataLocation());
-            }
-            catch (TestDataStore.AssetException error) {
+            } catch (TestDataStore.AssetException error) {
                 dataProblem = "测试数据读取不到或已损坏，请重新上传。";
             }
         }
         List<LanguageRow> languages = problems.findLanguages(problemId);
-        LanguagePrefixRow prefix = languages.isEmpty() ? null : problems.findLanguagePrefix(languages.getFirst().languageId());
+        LanguagePrefixRow prefix = languages.isEmpty()
+                ? null
+                : problems.findLanguagePrefix(languages.getFirst().languageId());
         return new Snapshot(problem, problems.findSamples(problemId), languages, prefix, info, dataProblem);
     }
 
@@ -235,21 +262,25 @@ public class ProblemPublicationService {
         boolean language = languageProblem == null;
         boolean data = local.info() != null;
         ArrayList<PublishCheckItem> checks = new ArrayList<>(6);
-        checks.add(item(PublishCheckCode.CONTENT, content,
-                content ? "题面必填章节完整。" : "标题、题面、输入或输出说明不完整。"));
-        checks.add(item(PublishCheckCode.SAMPLES, samples,
-                samples ? "已有样例。" : "至少需要一个样例。"));
-        checks.add(item(PublishCheckCode.LANGUAGE, language, language
-                ? (problem.codeMode() == AdminProblemDtos.CodeMode.CORE ? "C++ 核心代码配置有效。" : "C++ ACM 语言配置有效。")
-                : languageProblem));
-        checks.add(item(PublishCheckCode.TEST_DATA, data,
+        checks.add(item(PublishCheckCode.CONTENT, content, content ? "题面必填章节完整。" : "标题、题面、输入或输出说明不完整。"));
+        checks.add(item(PublishCheckCode.SAMPLES, samples, samples ? "已有样例。" : "至少需要一个样例。"));
+        checks.add(item(
+                PublishCheckCode.LANGUAGE,
+                language,
+                language
+                        ? (problem.codeMode() == AdminProblemDtos.CodeMode.CORE ? "C++ 核心代码配置有效。" : "C++ ACM 语言配置有效。")
+                        : languageProblem));
+        checks.add(item(
+                PublishCheckCode.TEST_DATA,
+                data,
                 data ? "测试数据就绪：" + local.info().testcaseCount() + " 个测试点。" : local.dataProblem()));
         return checks;
     }
 
     /** 语言配置不能公开的原因；可以公开时返回 null。 */
     private static String languageProblem(Snapshot local) {
-        if (local.languages().size() != 1 || !"cpp".equals(local.languages().getFirst().languageId())) {
+        if (local.languages().size() != 1
+                || !"cpp".equals(local.languages().getFirst().languageId())) {
             return "目前只支持单一 C++ 语言配置。";
         }
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
@@ -276,13 +307,11 @@ public class ProblemPublicationService {
     }
 
     private static PublishCheckItem remoteCheck(
-            JudgingDtos.Readiness readiness,
-            String remoteCode,
-            PublishCheckCode publicCode,
-            String fallback) {
+            JudgingDtos.Readiness readiness, String remoteCode, PublishCheckCode publicCode, String fallback) {
         if (readiness.checks() != null) {
             for (JudgingDtos.ReadinessCheck check : readiness.checks()) {
-                if (remoteCode.equals(check.code())) return item(publicCode, check.passed(), safeMessage(check.message(), fallback));
+                if (remoteCode.equals(check.code()))
+                    return item(publicCode, check.passed(), safeMessage(check.message(), fallback));
             }
         }
         return item(publicCode, false, fallback);
@@ -291,8 +320,7 @@ public class ProblemPublicationService {
     private static void mergeRemoteLanguage(List<PublishCheckItem> checks, JudgingDtos.Readiness readiness) {
         PublishCheckItem local = checks.get(2);
         if (!local.passed()) return;
-        PublishCheckItem language = remoteCheck(
-                readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持 C++。");
+        PublishCheckItem language = remoteCheck(readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持 C++。");
         if (!language.passed()) checks.set(2, language);
     }
 
@@ -316,22 +344,31 @@ public class ProblemPublicationService {
 
     private static AdminProblemDtos.LanguageCalibration calibration(JudgingDtos.Calibration value) {
         try {
-            AdminProblemDtos.BenchmarkSummary summary = value.benchmarkSummary() == null ? null
+            AdminProblemDtos.BenchmarkSummary summary = value.benchmarkSummary() == null
+                    ? null
                     : new AdminProblemDtos.BenchmarkSummary(
                             value.benchmarkSummary().sourceSha256(),
                             JudgeVerdict.valueOf(value.benchmarkSummary().verdict()),
-                            value.benchmarkSummary().maxCpuNs(), value.benchmarkSummary().maxMemoryBytes(),
+                            value.benchmarkSummary().maxCpuNs(),
+                            value.benchmarkSummary().maxMemoryBytes(),
                             value.benchmarkSummary().maxClockNs());
             return new AdminProblemDtos.LanguageCalibration(
-                    value.id(), value.problemId(), value.languageId(),
-                    calibrationStatus(value.status()), value.cpuNs(), value.memoryBytes(), value.clockNs(),
-                    value.testDataDigest(), summary, value.errorMessage(), value.createdAt(), value.updatedAt(),
+                    value.id(),
+                    value.problemId(),
+                    value.languageId(),
+                    calibrationStatus(value.status()),
+                    value.cpuNs(),
+                    value.memoryBytes(),
+                    value.clockNs(),
+                    value.testDataDigest(),
+                    summary,
+                    value.errorMessage(),
+                    value.createdAt(),
+                    value.updatedAt(),
                     value.rowVersion());
-        }
-        catch (ProblemApiException error) {
+        } catch (ProblemApiException error) {
             throw error;
-        }
-        catch (RuntimeException error) {
+        } catch (RuntimeException error) {
             throw invalidResponse();
         }
     }
@@ -339,8 +376,7 @@ public class ProblemPublicationService {
     private static CalibrationStatus calibrationStatus(String value) {
         try {
             return CalibrationStatus.valueOf(value);
-        }
-        catch (RuntimeException error) {
+        } catch (RuntimeException error) {
             throw invalidResponse();
         }
     }
@@ -352,8 +388,7 @@ public class ProblemPublicationService {
     private String writeJson(Object value) {
         try {
             return json.writeValueAsString(value);
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new IllegalStateException("Could not serialize publication audit", error);
         }
     }

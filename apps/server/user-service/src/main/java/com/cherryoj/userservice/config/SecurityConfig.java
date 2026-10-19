@@ -22,8 +22,7 @@ public class SecurityConfig {
         JwtAuthenticationConverter authentication = new JwtAuthenticationConverter();
         authentication.setJwtGrantedAuthoritiesConverter(authorities);
 
-        return http
-                .csrf(csrf -> csrf.disable())
+        return http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(
                                 "/actuator/health/**",
@@ -31,7 +30,8 @@ public class SecurityConfig {
                                 "/.well-known/jwks.json",
                                 "/internal/identity/metadata")
                         .permitAll()
-                        .anyRequest().authenticated())
+                        .anyRequest()
+                        .authenticated())
                 .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(authentication)))
                 .build();
     }

@@ -75,11 +75,20 @@ class ProblemPublicationIntegrationTests {
         registry.add("cherry.problem.test-data.recovery-enabled", () -> "false");
     }
 
-    @Autowired AdminProblemService admin;
-    @Autowired TestDataService testData;
-    @Autowired ProblemPublicationService publication;
-    @Autowired FakeJudgingClient judging;
-    @Autowired JdbcTemplate jdbc;
+    @Autowired
+    AdminProblemService admin;
+
+    @Autowired
+    TestDataService testData;
+
+    @Autowired
+    ProblemPublicationService publication;
+
+    @Autowired
+    FakeJudgingClient judging;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     @BeforeEach
     void resetFake() {
@@ -91,9 +100,12 @@ class ProblemPublicationIntegrationTests {
         Fixture fixture = fixture("calibrate");
         String sourceCanary = "source-canary-" + UUID.randomUUID();
 
-        var result = publication.calibrate(fixture.problemId(), new CalibrateProblemRequest(
-                "cpp", 1_000_000L, 64_000_000L, null, sourceCanary),
-                "delegated-admin-token", "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01", ACTOR);
+        var result = publication.calibrate(
+                fixture.problemId(),
+                new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, sourceCanary),
+                "delegated-admin-token",
+                "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
+                ACTOR);
 
         assertThat(result.status()).isEqualTo(AdminProblemDtos.CalibrationStatus.VALID);
         assertThat(result.problemId()).isEqualTo(fixture.problemId());
@@ -126,24 +138,30 @@ class ProblemPublicationIntegrationTests {
         Fixture fixture = fixture("failed");
         judging.calibrationStatus = "FAILED";
 
-        var result = publication.calibrate(fixture.problemId(),
-                new CalibrateProblemRequest("cpp", 1, 1, null, "reference"), "jwt", null, ACTOR);
+        var result = publication.calibrate(
+                fixture.problemId(), new CalibrateProblemRequest("cpp", 1, 1, null, "reference"), "jwt", null, ACTOR);
 
         assertThat(result.status()).isEqualTo(AdminProblemDtos.CalibrationStatus.FAILED);
         assertThat(jdbc.queryForList("""
                 SELECT action FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?) AND action LIKE 'PROBLEM_CALIBRAT%'
-                """, String.class, fixture.problemId())).containsExactly("PROBLEM_CALIBRATION_FAILED");
+                """, String.class, fixture.problemId()))
+                .containsExactly("PROBLEM_CALIBRATION_FAILED");
     }
 
     @Test
     void anAmbiguousRemoteTimeoutLeavesTheProblemUntouched() throws Exception {
         Fixture fixture = fixture("timeout");
-        judging.calibrationFailure = new ProblemApiException(
-                HttpStatus.GATEWAY_TIMEOUT, "JUDGING_TIMEOUT", "判题服务请求超时，请读取状态后重试。");
+        judging.calibrationFailure =
+                new ProblemApiException(HttpStatus.GATEWAY_TIMEOUT, "JUDGING_TIMEOUT", "判题服务请求超时，请读取状态后重试。");
 
-        assertThatThrownBy(() -> publication.calibrate(fixture.problemId(),
-                new CalibrateProblemRequest("cpp", 1, 1, null, "temporary-reference"), "jwt", null, ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+        assertThatThrownBy(() -> publication.calibrate(
+                        fixture.problemId(),
+                        new CalibrateProblemRequest("cpp", 1, 1, null, "temporary-reference"),
+                        "jwt",
+                        null,
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("JUDGING_TIMEOUT"));
 
         assertThat(admin.getProblem(fixture.problemId()).rowVersion()).isEqualTo(fixture.rowVersion());
@@ -151,12 +169,19 @@ class ProblemPublicationIntegrationTests {
 
     @Test
     void calibrationNeedsTheProblemToBeLocallyReadyAndNeverCallsJudgingOtherwise() throws Exception {
-        var empty = admin.create(new CreateProblemRequest(
-                "empty-" + UUID.randomUUID().toString().substring(0, 8), "Empty", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
+        var empty = admin.create(
+                new CreateProblemRequest(
+                        "empty-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Empty",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
+                ACTOR);
 
-        assertThatThrownBy(() -> publication.calibrate(empty.id(),
-                new CalibrateProblemRequest("cpp", 1, 1, null, "reference"), "jwt", null, ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+        assertThatThrownBy(() -> publication.calibrate(
+                        empty.id(), new CalibrateProblemRequest("cpp", 1, 1, null, "reference"), "jwt", null, ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
         assertThat(judging.calibrateCalls.get()).isZero();
     }
@@ -167,14 +192,16 @@ class ProblemPublicationIntegrationTests {
 
         judging.ready = false;
         var missing = publication.publishCheck(fixture.problemId(), "jwt", null);
-        assertThat(missing.checks()).extracting(value -> value.code().name())
+        assertThat(missing.checks())
+                .extracting(value -> value.code().name())
                 .containsExactly("CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "ONLINE_JUDGE_NODE", "CALIBRATION");
         assertThat(missing.ready()).isFalse();
         // 判题服务收到的是题目当前测试数据的指纹，用它判断标定是否过期
         assertThat(judging.readinessDigest).isEqualTo(fixture.digest());
         assertThat(admin.getProblem(fixture.problemId()).visibility()).isEqualTo(Visibility.PRIVATE);
         assertThatThrownBy(() -> publication.publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR))
-                .isInstanceOfSatisfying(ProblemApiException.class,
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
 
         judging.ready = true;
@@ -182,7 +209,9 @@ class ProblemPublicationIntegrationTests {
         assertThat(published.visibility()).isEqualTo(Visibility.PUBLIC);
         assertThat(published.publishedAt()).isNotNull();
         // 重复发布是幂等的：不改首次公开时间
-        assertThat(publication.publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR).publishedAt())
+        assertThat(publication
+                        .publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR)
+                        .publishedAt())
                 .isEqualTo(published.publishedAt());
         assertThat(count(fixture.problemId(), "PROBLEM_PUBLISHED")).isEqualTo(1);
 
@@ -197,14 +226,22 @@ class ProblemPublicationIntegrationTests {
 
     @Test
     void withoutTestDataThereIsNothingToAskJudgingAbout() throws Exception {
-        var problem = admin.create(new CreateProblemRequest(
-                "nodata-" + UUID.randomUUID().toString().substring(0, 8), "No data", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
+        var problem = admin.create(
+                new CreateProblemRequest(
+                        "nodata-" + UUID.randomUUID().toString().substring(0, 8),
+                        "No data",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
+                ACTOR);
 
         var check = publication.publishCheck(problem.id(), "jwt", null);
 
         assertThat(check.ready()).isFalse();
-        assertThat(check.checks()).filteredOn(item -> item.code().name().equals("TEST_DATA"))
-                .singleElement().satisfies(item -> assertThat(item.message()).contains("没有上传"));
+        assertThat(check.checks())
+                .filteredOn(item -> item.code().name().equals("TEST_DATA"))
+                .singleElement()
+                .satisfies(item -> assertThat(item.message()).contains("没有上传"));
         assertThat(judging.readinessCalls.get()).isZero();
     }
 
@@ -228,10 +265,15 @@ class ProblemPublicationIntegrationTests {
         Fixture fixture = fixture("data-race");
         judging.afterReadiness = () -> {
             try {
-                testData.upload(fixture.problemId(), new MockMultipartFile("file", "cases.zip", "application/zip",
-                        zip(Map.of("1.in", bytes("9 9\n"), "1.out", bytes("18\n")))), ACTOR);
-            }
-            catch (Exception error) {
+                testData.upload(
+                        fixture.problemId(),
+                        new MockMultipartFile(
+                                "file",
+                                "cases.zip",
+                                "application/zip",
+                                zip(Map.of("1.in", bytes("9 9\n"), "1.out", bytes("18\n")))),
+                        ACTOR);
+            } catch (Exception error) {
                 throw new IllegalStateException(error);
             }
         };
@@ -247,10 +289,11 @@ class ProblemPublicationIntegrationTests {
     private String publishAfter(CountDownLatch start, Fixture fixture) throws Exception {
         start.await();
         try {
-            return publication.publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR)
-                    .visibility().name();
-        }
-        catch (ProblemApiException error) {
+            return publication
+                    .publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR)
+                    .visibility()
+                    .name();
+        } catch (ProblemApiException error) {
             return error.code();
         }
     }
@@ -265,14 +308,16 @@ class ProblemPublicationIntegrationTests {
     void coreCalibrationSendsTheDriverAndTheReferenceWithTheLanguagePrefix() throws Exception {
         Fixture fixture = coreFixture("core-calibrate", DRIVER);
 
-        publication.calibrate(fixture.problemId(),
+        publication.calibrate(
+                fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, "class Solution {};\n"),
-                "jwt", null, ACTOR);
+                "jwt",
+                null,
+                ACTOR);
 
         // 驱动文件原样作为 referenceSource，参考核心代码前面加上 C++ 前缀，前缀行数随请求带过去用于换算报错行号
         assertThat(judging.calibration.referenceSource()).isEqualTo(DRIVER);
-        assertThat(judging.calibration.referenceSolutionSource())
-                .isEqualTo(CPP_PREFIX + "class Solution {};\n");
+        assertThat(judging.calibration.referenceSolutionSource()).isEqualTo(CPP_PREFIX + "class Solution {};\n");
         assertThat(judging.calibration.solutionPrefixLineCount()).isEqualTo(2);
     }
 
@@ -280,8 +325,12 @@ class ProblemPublicationIntegrationTests {
     void acmCalibrationSendsNoSolutionFile() throws Exception {
         Fixture fixture = fixture("acm-calibrate");
 
-        publication.calibrate(fixture.problemId(),
-                new CalibrateProblemRequest("cpp", 1, 1, null, "int main() {}"), "jwt", null, ACTOR);
+        publication.calibrate(
+                fixture.problemId(),
+                new CalibrateProblemRequest("cpp", 1, 1, null, "int main() {}"),
+                "jwt",
+                null,
+                ACTOR);
 
         assertThat(judging.calibration.referenceSolutionSource()).isNull();
         assertThat(judging.calibration.solutionPrefixLineCount()).isNull();
@@ -294,13 +343,19 @@ class ProblemPublicationIntegrationTests {
         var check = publication.publishCheck(fixture.problemId(), "jwt", null);
 
         assertThat(check.ready()).isFalse();
-        assertThat(check.checks()).filteredOn(item -> item.code() == AdminProblemDtos.PublishCheckCode.LANGUAGE)
-                .singleElement().satisfies(item -> {
+        assertThat(check.checks())
+                .filteredOn(item -> item.code() == AdminProblemDtos.PublishCheckCode.LANGUAGE)
+                .singleElement()
+                .satisfies(item -> {
                     assertThat(item.passed()).isFalse();
                     assertThat(item.message()).contains("驱动代码");
                 });
-        assertThatThrownBy(() -> publication.calibrate(fixture.problemId(),
-                new CalibrateProblemRequest("cpp", 1, 1, null, "class Solution {};"), "jwt", null, ACTOR))
+        assertThatThrownBy(() -> publication.calibrate(
+                        fixture.problemId(),
+                        new CalibrateProblemRequest("cpp", 1, 1, null, "class Solution {};"),
+                        "jwt",
+                        null,
+                        ACTOR))
                 .isInstanceOf(ProblemApiException.class);
         assertThat(judging.calibrateCalls.get()).isZero();
     }
@@ -319,15 +374,16 @@ class ProblemPublicationIntegrationTests {
         assertThat(stale.passed()).isTrue();
         assertThat(stale.message()).contains("驱动代码在最近一次标定后修改过，建议重新标定");
 
-        jdbc.update("UPDATE problem_language SET judge_template_updated_at = ? WHERE problem_id = UUID_TO_BIN(?)",
-                now.minusDays(2), fixture.problemId());
-        LocalDateTime prefixUpdatedAt = jdbc.queryForObject(
-                "SELECT updated_at FROM language WHERE language_id = 'cpp'", LocalDateTime.class);
+        jdbc.update(
+                "UPDATE problem_language SET judge_template_updated_at = ? WHERE problem_id = UUID_TO_BIN(?)",
+                now.minusDays(2),
+                fixture.problemId());
+        LocalDateTime prefixUpdatedAt =
+                jdbc.queryForObject("SELECT updated_at FROM language WHERE language_id = 'cpp'", LocalDateTime.class);
         try {
             jdbc.update("UPDATE language SET updated_at = ? WHERE language_id = 'cpp'", now);
             assertThat(calibrationItem(fixture).message()).contains("前缀代码在最近一次标定后修改过");
-        }
-        finally {
+        } finally {
             jdbc.update("UPDATE language SET updated_at = ? WHERE language_id = 'cpp'", prefixUpdatedAt);
         }
     }
@@ -342,7 +398,9 @@ class ProblemPublicationIntegrationTests {
 
     private AdminProblemDtos.PublishCheckItem calibrationItem(Fixture fixture) {
         return publication.publishCheck(fixture.problemId(), "jwt", null).checks().stream()
-                .filter(item -> item.code() == AdminProblemDtos.PublishCheckCode.CALIBRATION).findFirst().orElseThrow();
+                .filter(item -> item.code() == AdminProblemDtos.PublishCheckCode.CALIBRATION)
+                .findFirst()
+                .orElseThrow();
     }
 
     private static final String CPP_PREFIX = "#include <bits/stdc++.h>\nusing namespace std;\n";
@@ -350,28 +408,80 @@ class ProblemPublicationIntegrationTests {
 
     /** driver 为 null 时只建题不写驱动代码。 */
     private Fixture coreFixture(String prefix, String driver) throws Exception {
-        var problem = admin.create(new CreateProblemRequest(
-                prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
-                "Core problem", Difficulty.EASY, CodeMode.CORE, "cpp"), ACTOR);
-        var saved = admin.update(problem.id(), new UpdateProblemRequest(
-                problem.slug(), "Core problem", "statement", "input", "output", null, null,
-                Difficulty.EASY, List.of(), List.of(new SampleInput(1, "1 2\n", "3\n", null)),
-                "class Solution {};", driver, 0), ACTOR);
-        var uploaded = testData.upload(problem.id(), new MockMultipartFile("file", "cases.zip", "application/zip",
-                zip(Map.of("1.in", bytes("1 2\n"), "1.out", bytes("3\n")))), ACTOR);
-        return new Fixture(problem.id(), uploaded.digest(), testData.forJudging(problem.id()).location(), saved.rowVersion());
+        var problem = admin.create(
+                new CreateProblemRequest(
+                        prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Core problem",
+                        Difficulty.EASY,
+                        CodeMode.CORE,
+                        "cpp"),
+                ACTOR);
+        var saved = admin.update(
+                problem.id(),
+                new UpdateProblemRequest(
+                        problem.slug(),
+                        "Core problem",
+                        "statement",
+                        "input",
+                        "output",
+                        null,
+                        null,
+                        Difficulty.EASY,
+                        List.of(),
+                        List.of(new SampleInput(1, "1 2\n", "3\n", null)),
+                        "class Solution {};",
+                        driver,
+                        0),
+                ACTOR);
+        var uploaded = testData.upload(
+                problem.id(),
+                new MockMultipartFile(
+                        "file",
+                        "cases.zip",
+                        "application/zip",
+                        zip(Map.of("1.in", bytes("1 2\n"), "1.out", bytes("3\n")))),
+                ACTOR);
+        return new Fixture(
+                problem.id(),
+                uploaded.digest(),
+                testData.forJudging(problem.id()).location(),
+                saved.rowVersion());
     }
 
     private Fixture fixture(String prefix) throws Exception {
-        var problem = admin.create(new CreateProblemRequest(
-                prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
-                "Complete problem", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
-        var saved = admin.update(problem.id(), new UpdateProblemRequest(
-                problem.slug(), "Complete problem", "statement", "input", "output", "constraints", null,
-                Difficulty.EASY, List.of("math"), List.of(new SampleInput(1, "1 2\n", "3\n", null)),
-                "int main() {}", null, 0), ACTOR);
-        var uploaded = testData.upload(problem.id(), new MockMultipartFile("file", "cases.zip", "application/zip",
-                zip(Map.of("1.in", bytes("1 2\n"), "1.out", bytes("3\n")))), ACTOR);
+        var problem = admin.create(
+                new CreateProblemRequest(
+                        prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Complete problem",
+                        Difficulty.EASY,
+                        CodeMode.ACM,
+                        "cpp"),
+                ACTOR);
+        var saved = admin.update(
+                problem.id(),
+                new UpdateProblemRequest(
+                        problem.slug(),
+                        "Complete problem",
+                        "statement",
+                        "input",
+                        "output",
+                        "constraints",
+                        null,
+                        Difficulty.EASY,
+                        List.of("math"),
+                        List.of(new SampleInput(1, "1 2\n", "3\n", null)),
+                        "int main() {}",
+                        null,
+                        0),
+                ACTOR);
+        var uploaded = testData.upload(
+                problem.id(),
+                new MockMultipartFile(
+                        "file",
+                        "cases.zip",
+                        "application/zip",
+                        zip(Map.of("1.in", bytes("1 2\n"), "1.out", bytes("3\n")))),
+                ACTOR);
         String location = testData.forJudging(problem.id()).location();
         return new Fixture(problem.id(), uploaded.digest(), location, saved.rowVersion());
     }
@@ -395,8 +505,7 @@ class ProblemPublicationIntegrationTests {
     private static Path temporaryRoot() {
         try {
             return Files.createTempDirectory("cherry-publication-");
-        }
-        catch (Exception error) {
+        } catch (Exception error) {
             throw new ExceptionInInitializerError(error);
         }
     }
@@ -444,8 +553,7 @@ class ProblemPublicationIntegrationTests {
         }
 
         @Override
-        public JudgingDtos.Calibration calibrate(
-                JudgingDtos.CalibrationRequest request, String token, String trace) {
+        public JudgingDtos.Calibration calibrate(JudgingDtos.CalibrationRequest request, String token, String trace) {
             calibrateCalls.incrementAndGet();
             if (TransactionSynchronizationManager.isActualTransactionActive()) transactionObserved.set(true);
             if (calibrationFailure != null) throw calibrationFailure;
@@ -455,10 +563,19 @@ class ProblemPublicationIntegrationTests {
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             String verdict = "VALID".equals(calibrationStatus) ? "AC" : "WA";
             return new JudgingDtos.Calibration(
-                    UUID.randomUUID().toString(), request.problemId(), request.languageId(), calibrationStatus,
-                    request.cpuNs(), request.memoryBytes(), request.clockNs(), request.testDataDigest(),
+                    UUID.randomUUID().toString(),
+                    request.problemId(),
+                    request.languageId(),
+                    calibrationStatus,
+                    request.cpuNs(),
+                    request.memoryBytes(),
+                    request.clockNs(),
+                    request.testDataDigest(),
                     new JudgingDtos.BenchmarkSummary("a".repeat(64), verdict, 1L, 1L, 1L),
-                    "VALID".equals(calibrationStatus) ? null : "REFERENCE_NOT_ACCEPTED", now, now, 1);
+                    "VALID".equals(calibrationStatus) ? null : "REFERENCE_NOT_ACCEPTED",
+                    now,
+                    now,
+                    1);
         }
 
         @Override
@@ -470,17 +587,20 @@ class ProblemPublicationIntegrationTests {
             if (readinessBarrier != null) {
                 try {
                     readinessBarrier.await(10, TimeUnit.SECONDS);
-                }
-                catch (Exception error) {
+                } catch (Exception error) {
                     throw new IllegalStateException(error);
                 }
             }
-            var result = new JudgingDtos.Readiness(ready, List.of(
-                    new JudgingDtos.ReadinessCheck("ONLINE_JUDGE_NODE", true, "Node online."),
-                    new JudgingDtos.ReadinessCheck("LANGUAGE", true, "Language ready."),
-                    new JudgingDtos.ReadinessCheck("CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
-                    ready ? new JudgingDtos.ExecutionProfile(
-                            UUID.randomUUID().toString(), 1, 1, null, calibratedAt) : null);
+            var result = new JudgingDtos.Readiness(
+                    ready,
+                    List.of(
+                            new JudgingDtos.ReadinessCheck("ONLINE_JUDGE_NODE", true, "Node online."),
+                            new JudgingDtos.ReadinessCheck("LANGUAGE", true, "Language ready."),
+                            new JudgingDtos.ReadinessCheck(
+                                    "CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
+                    ready
+                            ? new JudgingDtos.ExecutionProfile(UUID.randomUUID().toString(), 1, 1, null, calibratedAt)
+                            : null);
             if (afterReadiness != null) afterReadiness.run();
             return result;
         }

@@ -16,12 +16,21 @@ public record TestDataStorageProperties(
         Duration staleAge) {
 
     public TestDataStorageProperties {
-        if (root == null || maxArchiveSize == null || maxExpandedSize == null || maxEntrySize == null
-                || maxArchiveSize.toBytes() <= 0 || maxExpandedSize.toBytes() <= 0
-                || maxEntrySize.toBytes() <= 0 || maxEntrySize.toBytes() > maxExpandedSize.toBytes()
-                || maxFiles < 2 || maxFiles > 2_000
-                || !Double.isFinite(maxCompressionRatio) || maxCompressionRatio <= 1
-                || staleAge == null || staleAge.isZero() || staleAge.isNegative()) {
+        if (root == null
+                || maxArchiveSize == null
+                || maxExpandedSize == null
+                || maxEntrySize == null
+                || maxArchiveSize.toBytes() <= 0
+                || maxExpandedSize.toBytes() <= 0
+                || maxEntrySize.toBytes() <= 0
+                || maxEntrySize.toBytes() > maxExpandedSize.toBytes()
+                || maxFiles < 2
+                || maxFiles > 2_000
+                || !Double.isFinite(maxCompressionRatio)
+                || maxCompressionRatio <= 1
+                || staleAge == null
+                || staleAge.isZero()
+                || staleAge.isNegative()) {
             throw new IllegalArgumentException("Invalid test data storage configuration");
         }
     }

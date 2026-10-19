@@ -2,10 +2,10 @@ package com.cherryoj.judgingservice.trial;
 
 import com.cherryoj.judgingservice.api.*;
 import com.cherryoj.judgingservice.formal.FormalProperties;
-import com.cherryoj.judgingservice.persistence.*;
 import com.cherryoj.judgingservice.http.LimitedHttpBody;
 import com.cherryoj.judgingservice.judge.JudgeDiagnostics;
 import com.cherryoj.judgingservice.judge.LanguageFiles;
+import com.cherryoj.judgingservice.persistence.*;
 import jakarta.annotation.PreDestroy;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -24,271 +24,286 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 public class TrialController {
 
-	private final SubmissionExecutionProfileController profiles;
+    private final SubmissionExecutionProfileController profiles;
 
-	private final JudgeNodeRepository nodes;
+    private final JudgeNodeRepository nodes;
 
-	private final FormalProperties budgets;
+    private final FormalProperties budgets;
 
-	private final ObjectMapper json;
+    private final ObjectMapper json;
 
-	private final HttpClient http;
+    private final HttpClient http;
 
-	private final Semaphore slots = new Semaphore(1);
+    private final Semaphore slots = new Semaphore(1);
 
-	private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-	public TrialController(SubmissionExecutionProfileController profiles, JudgeNodeRepository nodes,
-			FormalProperties budgets, ObjectMapper json, HttpClient http) {
-		this.profiles = profiles;
-		this.nodes = nodes;
-		this.budgets = budgets;
-		this.json = json;
-		this.http = http;
-	}
+    public TrialController(
+            SubmissionExecutionProfileController profiles,
+            JudgeNodeRepository nodes,
+            FormalProperties budgets,
+            ObjectMapper json,
+            HttpClient http) {
+        this.profiles = profiles;
+        this.nodes = nodes;
+        this.budgets = budgets;
+        this.json = json;
+        this.http = http;
+    }
 
-	/**
-	 * 契约见 contracts/custom-run-internal.schema.json。CORE 时 source 是驱动文件，solutionSource 是用户文件（前缀 + 用户代码），
-	 * 两个 CORE 字段同时出现或同时缺席；用户代码自身的 256 KiB 上限由 submission-service 在入口检查。
-	 */
-	public record Request(@NotNull UUID problemId,
-			@Pattern(regexp = "cpp") @NotNull String languageId, @NotBlank @Size(max = 1048576) String source,
-			@Size(min = 1, max = 327680) String solutionSource, @Min(0) Integer solutionPrefixLineCount,
-			@NotNull @Size(max = 65536) String inputText, @Positive long deadlineEpochMs) {
-		@Override
-		public String toString() {
-			return "TrialRequest[private]";
-		}
-	}
+    /**
+     * 契约见 contracts/custom-run-internal.schema.json。CORE 时 source 是驱动文件，solutionSource 是用户文件（前缀 + 用户代码），
+     * 两个 CORE 字段同时出现或同时缺席；用户代码自身的 256 KiB 上限由 submission-service 在入口检查。
+     */
+    public record Request(
+            @NotNull UUID problemId,
+            @Pattern(regexp = "cpp") @NotNull String languageId,
+            @NotBlank @Size(max = 1048576) String source,
+            @Size(min = 1, max = 327680) String solutionSource,
+            @Min(0) Integer solutionPrefixLineCount,
+            @NotNull @Size(max = 65536) String inputText,
+            @Positive long deadlineEpochMs) {
+        @Override
+        public String toString() {
+            return "TrialRequest[private]";
+        }
+    }
 
-	public record Output(String text, long capturedBytes, boolean truncated) {
-		@Override
-		public String toString() {
-			return "Output[private]";
-		}
-	}
+    public record Output(String text, long capturedBytes, boolean truncated) {
+        @Override
+        public String toString() {
+            return "Output[private]";
+        }
+    }
 
-	@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-	public record Result(String status, Long cpuNs, Long memoryBytes, Output stdout, Output stderr,
-			String compileDiagnostic, SubmissionExecutionProfileController.Limits effectiveLimits) {
-		@Override
-		public String toString() {
-			return "TrialResult[status=" + status + "]";
-		}
-	}
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record Result(
+            String status,
+            Long cpuNs,
+            Long memoryBytes,
+            Output stdout,
+            Output stderr,
+            String compileDiagnostic,
+            SubmissionExecutionProfileController.Limits effectiveLimits) {
+        @Override
+        public String toString() {
+            return "TrialResult[status=" + status + "]";
+        }
+    }
 
-	@PostMapping("/internal/submission/trials")
-	public ResponseEntity<Result> run(@Valid @RequestBody Request request,
-			@RequestHeader(value = "traceparent", required = false) String trace) {
-		if (request.source().getBytes(StandardCharsets.UTF_8).length > 1048576
-				|| (request.solutionSource() != null
-						&& request.solutionSource().getBytes(StandardCharsets.UTF_8).length > 327680)
-				|| request.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
-			throw error(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "代码或输入过大。");
-		if ((request.solutionSource() == null) != (request.solutionPrefixLineCount() == null))
-			throw error(HttpStatus.BAD_REQUEST, "INVALID_RUN_REQUEST", "用户文件与前缀行数必须同时给出。");
-		long deadline = Math.min(request.deadlineEpochMs(), System.currentTimeMillis() + 45000);
-		if (!slots.tryAcquire())
-			throw error(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
-		// 0=未开始，1=工作线程持有槽位，2=启动前取消；取消与启动竞态只能释放一次。
-		var started = new java.util.concurrent.atomic.AtomicInteger();
-		var released = new java.util.concurrent.atomic.AtomicBoolean();
-		Runnable release = () -> {
-			if (released.compareAndSet(false, true))
-				slots.release();
-		};
-		Future<Result> task;
-		try {
-			task = executor.submit(() -> {
-				if (!started.compareAndSet(0, 1))
-					throw unavailable();
-				try {
-					return execute(request, trace, deadline);
-				}
-				finally {
-					release.run();
-				}
-			});
-		}
-		catch (RejectedExecutionException stopped) {
-			slots.release();
-			throw unavailable();
-		}
-		try {
-			return ResponseEntity.ok()
-				.header("Cache-Control", "no-store")
-				.body(task.get(Math.max(1, deadline - System.currentTimeMillis()), TimeUnit.MILLISECONDS));
-		}
-		catch (InterruptedException e) {
-			task.cancel(true);
-			if (started.compareAndSet(0, 2))
-				release.run();
-			Thread.currentThread().interrupt();
-			throw timeout();
-		}
-		catch (TimeoutException e) {
-			task.cancel(true);
-			if (started.compareAndSet(0, 2))
-				release.run();
-			throw timeout();
-		}
-		catch (ExecutionException e) {
-			if (e.getCause() instanceof JudgingApiException known) {
-				org.slf4j.LoggerFactory.getLogger(getClass())
-					.warn("custom.run.failed stage=execution code={}", known.code());
-				throw known;
-			}
-			org.slf4j.LoggerFactory.getLogger(getClass())
-				.warn("custom.run.failed stage=execution code=UNEXPECTED_FAILURE");
-			throw unavailable();
-		}
-	}
+    @PostMapping("/internal/submission/trials")
+    public ResponseEntity<Result> run(
+            @Valid @RequestBody Request request, @RequestHeader(value = "traceparent", required = false) String trace) {
+        if (request.source().getBytes(StandardCharsets.UTF_8).length > 1048576
+                || (request.solutionSource() != null
+                        && request.solutionSource().getBytes(StandardCharsets.UTF_8).length > 327680)
+                || request.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
+            throw error(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "代码或输入过大。");
+        if ((request.solutionSource() == null) != (request.solutionPrefixLineCount() == null))
+            throw error(HttpStatus.BAD_REQUEST, "INVALID_RUN_REQUEST", "用户文件与前缀行数必须同时给出。");
+        long deadline = Math.min(request.deadlineEpochMs(), System.currentTimeMillis() + 45000);
+        if (!slots.tryAcquire()) throw error(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
+        // 0=未开始，1=工作线程持有槽位，2=启动前取消；取消与启动竞态只能释放一次。
+        var started = new java.util.concurrent.atomic.AtomicInteger();
+        var released = new java.util.concurrent.atomic.AtomicBoolean();
+        Runnable release = () -> {
+            if (released.compareAndSet(false, true)) slots.release();
+        };
+        Future<Result> task;
+        try {
+            task = executor.submit(() -> {
+                if (!started.compareAndSet(0, 1)) throw unavailable();
+                try {
+                    return execute(request, trace, deadline);
+                } finally {
+                    release.run();
+                }
+            });
+        } catch (RejectedExecutionException stopped) {
+            slots.release();
+            throw unavailable();
+        }
+        try {
+            return ResponseEntity.ok()
+                    .header("Cache-Control", "no-store")
+                    .body(task.get(Math.max(1, deadline - System.currentTimeMillis()), TimeUnit.MILLISECONDS));
+        } catch (InterruptedException e) {
+            task.cancel(true);
+            if (started.compareAndSet(0, 2)) release.run();
+            Thread.currentThread().interrupt();
+            throw timeout();
+        } catch (TimeoutException e) {
+            task.cancel(true);
+            if (started.compareAndSet(0, 2)) release.run();
+            throw timeout();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof JudgingApiException known) {
+                org.slf4j.LoggerFactory.getLogger(getClass())
+                        .warn("custom.run.failed stage=execution code={}", known.code());
+                throw known;
+            }
+            org.slf4j.LoggerFactory.getLogger(getClass())
+                    .warn("custom.run.failed stage=execution code=UNEXPECTED_FAILURE");
+            throw unavailable();
+        }
+    }
 
-	private Result execute(Request r, String trace, long deadline) {
-		var profile = profiles.resolve(new SubmissionExecutionProfileController.Request(r.problemId().toString(),
-				"cpp", "trial"), trace);
-		var limits = profile.effectiveLimits();
-		long clock = limits.clockNs() != null ? limits.clockNs()
-				: Math.multiplyExact(limits.cpuNs(), budgets.wallRatio());
-		var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
-		if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline)))
-			throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
-		// 自测只用请求里的输入，不读测试数据：任何在线、声明了 cpp 的节点都行。
-		var online = nodes.online("cpp", LocalDateTime.now(ZoneOffset.UTC));
-		if (online.isEmpty())
-			throw unavailable();
-		var node = online.getFirst();
-		Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of("submissionId", UUID.randomUUID().toString(),
-				"problemId", r.problemId(), "languageId", "cpp", "source", r.source(), "limits", effective, "mode",
-				"trial", "testcases", List.of(Map.of("input", r.inputText()))));
-		if (r.solutionSource() != null)
-			body.put("solutionSource", r.solutionSource());
-		// CORE：报错里用户文件的行号按前缀行数换算；ACM 时两者为 null，只清理路径。
-		String solutionFile = r.solutionSource() == null ? null : LanguageFiles.of("cpp").solutionFile();
-		Integer prefixLines = r.solutionPrefixLineCount();
-		var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
-			.timeout(Duration.ofMillis(remaining(deadline)))
-			.header("Content-Type", "application/json")
-			.POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
-		if (trace != null && trace.matches("[a-f0-9]{2}-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}"))
-			builder.header("traceparent", trace);
-		var response = http.sendAsync(builder.build(), ignored -> new LimitedHttpBody(2 * 1024 * 1024));
-		try {
-			var received = response.get(remaining(deadline), TimeUnit.MILLISECONDS);
-			if (received.statusCode() != 200) {
-				org.slf4j.LoggerFactory.getLogger(getClass())
-					.warn("custom.run.failed stage=judge httpStatus={}", received.statusCode());
-				throw unavailable();
-			}
-			var tree = json.readTree(received.body());
-			String verdict = tree.path("verdict").asText();
-			if ("CE".equals(verdict))
-				return new Result("COMPILE_ERROR", null, null, null, null,
-						diagnostic(tree.path("message").asText(""), solutionFile, prefixLines), effective);
-			String status = switch (verdict) {
-				case "RAN" -> "COMPLETED";
-				case "RE" -> "RUNTIME_ERROR";
-				case "TLE" -> "TIME_LIMIT_EXCEEDED";
-				case "MLE" -> "MEMORY_LIMIT_EXCEEDED";
-				case "OLE" -> "OUTPUT_LIMIT_EXCEEDED";
-				default -> throw unavailable();
-			};
-			var testcases = tree.path("testcaseResults");
-			if (!testcases.isArray() || testcases.size() != 1)
-				throw unavailable();
-			var c = testcases.get(0);
-			if (!verdict.equals(c.path("verdict").asText()) || c.path("idx").asInt() != 1)
-				throw unavailable();
-			// Missing streams indicate an old judge binary; never pretend stderr was
-			// empty.
-			// 标准输出是程序自己打印的，原样返回；stderr 里的运行错误位置同样换算。
-			return new Result(status, nonnegative(c, "cpuNs"), nonnegative(c, "memoryBytes"), output(c.path("output")),
-					stderr(output(c.path("stderr")), solutionFile, prefixLines), null, effective);
-		}
-		catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-			throw timeout();
-		}
-		catch (TimeoutException e) {
-			throw timeout();
-		}
-		catch (ExecutionException e) {
-			if (e.getCause() instanceof HttpTimeoutException)
-				throw timeout();
-			throw unavailable();
-		}
-		finally {
-			if (!response.isDone())
-				response.cancel(true);
-		}
-	}
+    private Result execute(Request r, String trace, long deadline) {
+        var profile = profiles.resolve(
+                new SubmissionExecutionProfileController.Request(r.problemId().toString(), "cpp", "trial"), trace);
+        var limits = profile.effectiveLimits();
+        long clock =
+                limits.clockNs() != null ? limits.clockNs() : Math.multiplyExact(limits.cpuNs(), budgets.wallRatio());
+        var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
+        if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline)))
+            throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
+        // 自测只用请求里的输入，不读测试数据：任何在线、声明了 cpp 的节点都行。
+        var online = nodes.online("cpp", LocalDateTime.now(ZoneOffset.UTC));
+        if (online.isEmpty()) throw unavailable();
+        var node = online.getFirst();
+        Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of(
+                "submissionId",
+                UUID.randomUUID().toString(),
+                "problemId",
+                r.problemId(),
+                "languageId",
+                "cpp",
+                "source",
+                r.source(),
+                "limits",
+                effective,
+                "mode",
+                "trial",
+                "testcases",
+                List.of(Map.of("input", r.inputText()))));
+        if (r.solutionSource() != null) body.put("solutionSource", r.solutionSource());
+        // CORE：报错里用户文件的行号按前缀行数换算；ACM 时两者为 null，只清理路径。
+        String solutionFile =
+                r.solutionSource() == null ? null : LanguageFiles.of("cpp").solutionFile();
+        Integer prefixLines = r.solutionPrefixLineCount();
+        var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
+                .timeout(Duration.ofMillis(remaining(deadline)))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
+        if (trace != null && trace.matches("[a-f0-9]{2}-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}"))
+            builder.header("traceparent", trace);
+        var response = http.sendAsync(builder.build(), ignored -> new LimitedHttpBody(2 * 1024 * 1024));
+        try {
+            var received = response.get(remaining(deadline), TimeUnit.MILLISECONDS);
+            if (received.statusCode() != 200) {
+                org.slf4j.LoggerFactory.getLogger(getClass())
+                        .warn("custom.run.failed stage=judge httpStatus={}", received.statusCode());
+                throw unavailable();
+            }
+            var tree = json.readTree(received.body());
+            String verdict = tree.path("verdict").asText();
+            if ("CE".equals(verdict))
+                return new Result(
+                        "COMPILE_ERROR",
+                        null,
+                        null,
+                        null,
+                        null,
+                        diagnostic(tree.path("message").asText(""), solutionFile, prefixLines),
+                        effective);
+            String status = switch (verdict) {
+                case "RAN" -> "COMPLETED";
+                case "RE" -> "RUNTIME_ERROR";
+                case "TLE" -> "TIME_LIMIT_EXCEEDED";
+                case "MLE" -> "MEMORY_LIMIT_EXCEEDED";
+                case "OLE" -> "OUTPUT_LIMIT_EXCEEDED";
+                default -> throw unavailable();
+            };
+            var testcases = tree.path("testcaseResults");
+            if (!testcases.isArray() || testcases.size() != 1) throw unavailable();
+            var c = testcases.get(0);
+            if (!verdict.equals(c.path("verdict").asText()) || c.path("idx").asInt() != 1) throw unavailable();
+            // Missing streams indicate an old judge binary; never pretend stderr was
+            // empty.
+            // 标准输出是程序自己打印的，原样返回；stderr 里的运行错误位置同样换算。
+            return new Result(
+                    status,
+                    nonnegative(c, "cpuNs"),
+                    nonnegative(c, "memoryBytes"),
+                    output(c.path("output")),
+                    stderr(output(c.path("stderr")), solutionFile, prefixLines),
+                    null,
+                    effective);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw timeout();
+        } catch (TimeoutException e) {
+            throw timeout();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof HttpTimeoutException) throw timeout();
+            throw unavailable();
+        } finally {
+            if (!response.isDone()) response.cancel(true);
+        }
+    }
 
-	private static long nonnegative(tools.jackson.databind.JsonNode n, String field) {
-		var v = n.path(field);
-		if (v.isMissingNode())
-			return 0;
-		if (!v.isIntegralNumber() || !v.canConvertToLong() || v.longValue() < 0)
-			throw unavailable();
-		return v.longValue();
-	}
+    private static long nonnegative(tools.jackson.databind.JsonNode n, String field) {
+        var v = n.path(field);
+        if (v.isMissingNode()) return 0;
+        if (!v.isIntegralNumber() || !v.canConvertToLong() || v.longValue() < 0) throw unavailable();
+        return v.longValue();
+    }
 
-	private static Output output(tools.jackson.databind.JsonNode n) {
-		if (!n.isObject() || !n.path("excerpt").isString() || !n.path("bytes").isIntegralNumber())
-			throw unavailable();
-		String text = n.path("excerpt").asText();
-		long bytes = nonnegative(n, "bytes");
-		if (bytes < text.getBytes(StandardCharsets.UTF_8).length)
-			throw unavailable();
-		return new Output(clip(text, 16384), bytes,
-				n.path("truncated").asBoolean(false) || text.getBytes(StandardCharsets.UTF_8).length > 16384);
-	}
+    private static Output output(tools.jackson.databind.JsonNode n) {
+        if (!n.isObject() || !n.path("excerpt").isString() || !n.path("bytes").isIntegralNumber()) throw unavailable();
+        String text = n.path("excerpt").asText();
+        long bytes = nonnegative(n, "bytes");
+        if (bytes < text.getBytes(StandardCharsets.UTF_8).length) throw unavailable();
+        return new Output(
+                clip(text, 16384),
+                bytes,
+                n.path("truncated").asBoolean(false) || text.getBytes(StandardCharsets.UTF_8).length > 16384);
+    }
 
-	static String clip(String text, int max) {
-		int end = 0, count = 0;
-		while (end < text.length()) {
-			int cp = text.codePointAt(end);
-			int size = new String(Character.toChars(cp)).getBytes(StandardCharsets.UTF_8).length;
-			if (count + size > max)
-				break;
-			count += size;
-			end += Character.charCount(cp);
-		}
-		return text.substring(0, end);
-	}
+    static String clip(String text, int max) {
+        int end = 0, count = 0;
+        while (end < text.length()) {
+            int cp = text.codePointAt(end);
+            int size = new String(Character.toChars(cp)).getBytes(StandardCharsets.UTF_8).length;
+            if (count + size > max) break;
+            count += size;
+            end += Character.charCount(cp);
+        }
+        return text.substring(0, end);
+    }
 
-	static String diagnostic(String text, String solutionFile, Integer prefixLines) {
-		return clip(JudgeDiagnostics.forUser(text, solutionFile, prefixLines, JudgeDiagnostics.looksCut(text)), 8192);
-	}
+    static String diagnostic(String text, String solutionFile, Integer prefixLines) {
+        return clip(JudgeDiagnostics.forUser(text, solutionFile, prefixLines, JudgeDiagnostics.looksCut(text)), 8192);
+    }
 
-	private static Output stderr(Output raw, String solutionFile, Integer prefixLines) {
-		if (solutionFile == null)
-			return raw;
-		return new Output(JudgeDiagnostics.forUser(raw.text(), solutionFile, prefixLines, raw.truncated()),
-				raw.capturedBytes(), raw.truncated());
-	}
+    private static Output stderr(Output raw, String solutionFile, Integer prefixLines) {
+        if (solutionFile == null) return raw;
+        return new Output(
+                JudgeDiagnostics.forUser(raw.text(), solutionFile, prefixLines, raw.truncated()),
+                raw.capturedBytes(),
+                raw.truncated());
+    }
 
-	static long remaining(long deadline) {
-		long ms = deadline - System.currentTimeMillis();
-		if (ms <= 0)
-			throw timeout();
-		return ms;
-	}
+    static long remaining(long deadline) {
+        long ms = deadline - System.currentTimeMillis();
+        if (ms <= 0) throw timeout();
+        return ms;
+    }
 
-	static JudgingApiException error(HttpStatus status, String code, String detail) {
-		return new JudgingApiException(status, code, detail);
-	}
+    static JudgingApiException error(HttpStatus status, String code, String detail) {
+        return new JudgingApiException(status, code, detail);
+    }
 
-	static JudgingApiException unavailable() {
-		return error(HttpStatus.SERVICE_UNAVAILABLE, "CUSTOM_RUN_UNAVAILABLE", "运行服务暂不可用。");
-	}
+    static JudgingApiException unavailable() {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "CUSTOM_RUN_UNAVAILABLE", "运行服务暂不可用。");
+    }
 
-	static JudgingApiException timeout() {
-		return error(HttpStatus.GATEWAY_TIMEOUT, "CUSTOM_RUN_TIMEOUT", "本次运行结果未能确认，请稍后重试。");
-	}
+    static JudgingApiException timeout() {
+        return error(HttpStatus.GATEWAY_TIMEOUT, "CUSTOM_RUN_TIMEOUT", "本次运行结果未能确认，请稍后重试。");
+    }
 
-	@PreDestroy
-	public void close() {
-		executor.shutdownNow();
-	}
-
+    @PreDestroy
+    public void close() {
+        executor.shutdownNow();
+    }
 }

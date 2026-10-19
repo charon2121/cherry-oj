@@ -4,17 +4,13 @@ import java.util.List;
 
 public final class PublicProblemDtos {
 
-    private PublicProblemDtos() {
-    }
+    private PublicProblemDtos() {}
 
-    public record LanguageSummary(String id, String displayName) {
-    }
+    public record LanguageSummary(String id, String displayName) {}
 
-    public record ProblemLanguage(String id, String displayName, String starterCode) {
-    }
+    public record ProblemLanguage(String id, String displayName, String starterCode) {}
 
-    public record ProblemSample(int ordinal, String input, String output, String explanationMarkdown) {
-    }
+    public record ProblemSample(int ordinal, String input, String output, String explanationMarkdown) {}
 
     public record ProblemSummary(
             String problemId,
@@ -23,11 +19,9 @@ public final class PublicProblemDtos {
             String difficulty,
             List<String> tags,
             String codeMode,
-            List<LanguageSummary> allowedLanguages) {
-    }
+            List<LanguageSummary> allowedLanguages) {}
 
-    public record ProblemList(List<ProblemSummary> items, String nextCursor, boolean hasMore) {
-    }
+    public record ProblemList(List<ProblemSummary> items, String nextCursor, boolean hasMore) {}
 
     public record ProblemDetail(
             String problemId,
@@ -42,6 +36,5 @@ public final class PublicProblemDtos {
             String constraintsMarkdown,
             String hintMarkdown,
             List<ProblemSample> samples,
-            List<ProblemLanguage> allowedLanguages) {
-    }
+            List<ProblemLanguage> allowedLanguages) {}
 }

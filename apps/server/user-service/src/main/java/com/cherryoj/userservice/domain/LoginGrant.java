@@ -14,5 +14,4 @@ public record LoginGrant(
         LocalDateTime userUpdatedAt,
         long userRowVersion,
         LocalDateTime absoluteExpiresAt,
-        long rowVersion) {
-}
+        long rowVersion) {}

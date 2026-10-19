@@ -1,7 +1,8 @@
 package com.cherryoj.problemservice;
 
-import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import org.junit.jupiter.api.Test;
 
 class ProblemServiceApplicationTests {
 
@@ -9,5 +10,4 @@ class ProblemServiceApplicationTests {
     void applicationEntryPointExists() {
         assertThat(ProblemServiceApplication.class).isNotNull();
     }
-
 }

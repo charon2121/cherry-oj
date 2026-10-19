@@ -39,7 +39,11 @@ public class LanguageSettingController {
             @PathVariable @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$") String languageId,
             @Valid @RequestBody UpdateLanguageSettingRequest request,
             JwtAuthenticationToken authentication) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(languages.update(languageId, request, CurrentIdentity.from(authentication).userId()));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(languages.update(
+                        languageId,
+                        request,
+                        CurrentIdentity.from(authentication).userId()));
     }
 }

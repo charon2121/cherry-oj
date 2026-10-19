@@ -14,16 +14,18 @@ import org.springframework.web.client.RestTemplate;
 @EnableConfigurationProperties(ServiceIdentityProperties.class)
 public class ServiceIdentityConfiguration {
 
-	@Bean
-	public ServiceCallVerifier serviceCallVerifier(IdentityVerifierProperties identity, ServiceIdentityProperties service) {
-		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-		requestFactory.setConnectTimeout(identity.connectTimeout());
-		requestFactory.setReadTimeout(identity.readTimeout());
-		NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(identity.jwksUri().toString())
-				.jwsAlgorithm(SignatureAlgorithm.RS256)
-				.restOperations(new RestTemplate(requestFactory))
-				.build();
-		decoder.setJwtValidator(ServiceCallVerifier.validator(identity.issuer(), service.name(), identity.clockSkew()));
-		return new ServiceCallVerifier(decoder, service.name());
-	}
+    @Bean
+    public ServiceCallVerifier serviceCallVerifier(
+            IdentityVerifierProperties identity, ServiceIdentityProperties service) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(identity.connectTimeout());
+        requestFactory.setReadTimeout(identity.readTimeout());
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(
+                        identity.jwksUri().toString())
+                .jwsAlgorithm(SignatureAlgorithm.RS256)
+                .restOperations(new RestTemplate(requestFactory))
+                .build();
+        decoder.setJwtValidator(ServiceCallVerifier.validator(identity.issuer(), service.name(), identity.clockSkew()));
+        return new ServiceCallVerifier(decoder, service.name());
+    }
 }

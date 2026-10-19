@@ -56,8 +56,7 @@ public class AdminProblemController {
     @PostMapping
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
     AdminProblemDtos.Problem create(
-            @Valid @RequestBody CreateProblemRequest request,
-            JwtAuthenticationToken authentication) {
+            @Valid @RequestBody CreateProblemRequest request, JwtAuthenticationToken authentication) {
         return problems.create(request, actor(authentication));
     }
 
@@ -76,8 +75,7 @@ public class AdminProblemController {
 
     @DeleteMapping("/{problemId}")
     ResponseEntity<Void> delete(
-            @PathVariable @Pattern(regexp = ID) String problemId,
-            @RequestParam @Min(0) long rowVersion) {
+            @PathVariable @Pattern(regexp = ID) String problemId, @RequestParam @Min(0) long rowVersion) {
         problems.delete(problemId, rowVersion);
         return ResponseEntity.noContent().build();
     }
@@ -101,8 +99,8 @@ public class AdminProblemController {
             @Valid @RequestBody CalibrateProblemRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceparent,
             JwtAuthenticationToken authentication) {
-        return noStore(publication.calibrate(problemId, request,
-                token(authentication), traceparent, actor(authentication)));
+        return noStore(
+                publication.calibrate(problemId, request, token(authentication), traceparent, actor(authentication)));
     }
 
     @GetMapping("/{problemId}/publish-check")
@@ -119,8 +117,8 @@ public class AdminProblemController {
             @Valid @RequestBody RowVersionRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceparent,
             JwtAuthenticationToken authentication) {
-        return noStore(publication.publish(problemId, request.rowVersion(),
-                token(authentication), traceparent, actor(authentication)));
+        return noStore(publication.publish(
+                problemId, request.rowVersion(), token(authentication), traceparent, actor(authentication)));
     }
 
     @PostMapping("/{problemId}/unpublish")

@@ -13,12 +13,17 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties(ServiceIdentityProperties.class)
 public class ServiceTokenClientConfiguration {
 
-	@Bean
-	public ServiceTokenClient serviceTokenClient(ServiceIdentityProperties service, IdentityVerifierProperties identity) {
-		if (service.tokenUri() == null) {
-			throw new IllegalStateException("cherry.service-identity.token-uri is required for " + service.name());
-		}
-		return new ServiceTokenClient(service.name(), ServiceKeys.privateKey(service.privateKeyLocation()),
-				identity.issuer(), service.tokenUri(), Clock.systemUTC());
-	}
+    @Bean
+    public ServiceTokenClient serviceTokenClient(
+            ServiceIdentityProperties service, IdentityVerifierProperties identity) {
+        if (service.tokenUri() == null) {
+            throw new IllegalStateException("cherry.service-identity.token-uri is required for " + service.name());
+        }
+        return new ServiceTokenClient(
+                service.name(),
+                ServiceKeys.privateKey(service.privateKeyLocation()),
+                identity.issuer(),
+                service.tokenUri(),
+                Clock.systemUTC());
+    }
 }

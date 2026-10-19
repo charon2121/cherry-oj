@@ -1,10 +1,9 @@
 package com.cherryoj.judgingservice.problem;
 
+import com.cherryoj.judgingservice.http.LimitedHttpBody;
 import com.cherryoj.serviceidentity.ServiceIdentityException;
 import com.cherryoj.serviceidentity.ServiceNames;
 import com.cherryoj.serviceidentity.ServiceTokenClient;
-
-import com.cherryoj.judgingservice.http.LimitedHttpBody;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -17,12 +16,15 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class HttpProblemTestDataClient implements ProblemTestDataClient {
     private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(2)).followRedirects(HttpClient.Redirect.NEVER).build();
+            .connectTimeout(Duration.ofSeconds(2))
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
     private final ProblemServiceProperties properties;
     private final ObjectMapper json;
     private final ServiceTokenClient tokens;
 
-    public HttpProblemTestDataClient(ProblemServiceProperties properties, ObjectMapper json, ServiceTokenClient tokens) {
+    public HttpProblemTestDataClient(
+            ProblemServiceProperties properties, ObjectMapper json, ServiceTokenClient tokens) {
         this.properties = properties;
         this.json = json;
         this.tokens = tokens;
@@ -40,7 +42,9 @@ public class HttpProblemTestDataClient implements ProblemTestDataClient {
         }
         var builder = HttpRequest.newBuilder(URI.create(properties.url().replaceAll("/$", "")
                         + "/internal/judging/problems/" + problemId + "/test-data"))
-                .timeout(Duration.ofSeconds(5)).header("Authorization", "Bearer " + token).GET();
+                .timeout(Duration.ofSeconds(5))
+                .header("Authorization", "Bearer " + token)
+                .GET();
         if (traceParent != null && traceParent.matches("[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}")) {
             builder.header("traceparent", traceParent);
         }
@@ -55,8 +59,12 @@ public class HttpProblemTestDataClient implements ProblemTestDataClient {
             }
             if (response.statusCode() != 200) throw new ProblemTestDataException("TEST_DATA_UNAVAILABLE");
             var data = json.readValue(response.body(), ProblemTestData.class);
-            if (data.location() == null || data.location().isBlank() || data.digest() == null
-                    || !data.digest().matches("[a-f0-9]{64}") || data.testcaseCount() < 1 || data.testcaseCount() > 1000) {
+            if (data.location() == null
+                    || data.location().isBlank()
+                    || data.digest() == null
+                    || !data.digest().matches("[a-f0-9]{64}")
+                    || data.testcaseCount() < 1
+                    || data.testcaseCount() > 1000) {
                 throw new ProblemTestDataException("TEST_DATA_INVALID");
             }
             return data;

@@ -9,8 +9,25 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
 public class CoreConfig {
-    @Bean Clock clock() { return Clock.systemUTC(); }
-    @Bean SecureRandom secureRandom() { return new SecureRandom(); }
-    @Bean UuidV7 uuidV7(Clock clock, SecureRandom random) { return new UuidV7(clock, random); }
-    @Bean HttpClient httpClient() { return HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build(); }
+    @Bean
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean
+    SecureRandom secureRandom() {
+        return new SecureRandom();
+    }
+
+    @Bean
+    UuidV7 uuidV7(Clock clock, SecureRandom random) {
+        return new UuidV7(clock, random);
+    }
+
+    @Bean
+    HttpClient httpClient() {
+        return HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+    }
 }

@@ -1,14 +1,15 @@
 package com.cherryoj.gatewayservice.auth;
 
-import java.net.URI;
-import java.util.List;
-
+import com.cherryoj.gatewayservice.api.ApiRequestContext;
+import com.cherryoj.gatewayservice.api.ApiSuccess;
+import com.cherryoj.gatewayservice.api.PagePagination;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-
+import java.net.URI;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -22,11 +23,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
-
-import com.cherryoj.gatewayservice.api.ApiRequestContext;
-import com.cherryoj.gatewayservice.api.ApiSuccess;
-import com.cherryoj.gatewayservice.api.PagePagination;
-
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -34,99 +30,105 @@ import reactor.core.publisher.Mono;
 @Validated
 public class AdminUserController {
 
-	private final AdminGatewayAccess adminAccess;
-	private final UserServiceClient userService;
+    private final AdminGatewayAccess adminAccess;
+    private final UserServiceClient userService;
 
-	@Autowired
-	AdminUserController(AdminGatewayAccess adminAccess, UserServiceClient userService) {
-		this.adminAccess = adminAccess;
-		this.userService = userService;
-	}
+    @Autowired
+    AdminUserController(AdminGatewayAccess adminAccess, UserServiceClient userService) {
+        this.adminAccess = adminAccess;
+        this.userService = userService;
+    }
 
-	AdminUserController(GatewayAuthenticationService authentication, UserServiceClient userService) {
-		this(new AdminGatewayAccess(authentication), userService);
-	}
+    AdminUserController(GatewayAuthenticationService authentication, UserServiceClient userService) {
+        this(new AdminGatewayAccess(authentication), userService);
+    }
 
-	@GetMapping
-	Mono<ResponseEntity<ApiSuccess<UserListData>>> list(
-			@RequestParam(defaultValue = "1") @Min(1) int page,
-			@RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
-			ServerWebExchange exchange) {
-		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.delegatedIdentity(exchange, requestId)
-				.flatMap(identity -> userService.listUsers(identity, page, size))
-				.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
-				.map(result -> ResponseEntity.ok()
-								.cacheControl(CacheControl.noStore())
-								.body(ApiSuccess.of(
-										new UserListData(result.items().stream()
-												.map(UserServiceClient.InternalUser::publicView).toList()),
-										requestId,
-										new PagePagination(result.page(), result.size(),
-												result.totalElements(), result.totalPages()))));
-	}
+    @GetMapping
+    Mono<ResponseEntity<ApiSuccess<UserListData>>> list(
+            @RequestParam(defaultValue = "1") @Min(1) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            ServerWebExchange exchange) {
+        String requestId = ApiRequestContext.requestId(exchange);
+        return adminAccess
+                .delegatedIdentity(exchange, requestId)
+                .flatMap(identity -> userService.listUsers(identity, page, size))
+                .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                .map(result -> ResponseEntity.ok()
+                        .cacheControl(CacheControl.noStore())
+                        .body(ApiSuccess.of(
+                                new UserListData(result.items().stream()
+                                        .map(UserServiceClient.InternalUser::publicView)
+                                        .toList()),
+                                requestId,
+                                new PagePagination(
+                                        result.page(), result.size(), result.totalElements(), result.totalPages()))));
+    }
 
-	@PostMapping
-	Mono<ResponseEntity<ApiSuccess<CreateUserData>>> create(
-			@Valid @RequestBody CreateUserRequest request,
-			ServerWebExchange exchange) {
-		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(identity ->
-				userService.createUser(identity, request.username())
-						.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
-						.map(created -> ResponseEntity
-								.created(URI.create("/api/admin/users/" + created.user().id()))
-								.cacheControl(CacheControl.noStore())
-								.body(ApiSuccess.of(new CreateUserData(
-										created.user().publicView(), created.temporaryPassword()), requestId))));
-	}
+    @PostMapping
+    Mono<ResponseEntity<ApiSuccess<CreateUserData>>> create(
+            @Valid @RequestBody CreateUserRequest request, ServerWebExchange exchange) {
+        String requestId = ApiRequestContext.requestId(exchange);
+        return adminAccess
+                .delegatedIdentity(exchange, requestId)
+                .flatMap(identity -> userService
+                        .createUser(identity, request.username())
+                        .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                        .map(created -> ResponseEntity.created(URI.create(
+                                        "/api/admin/users/" + created.user().id()))
+                                .cacheControl(CacheControl.noStore())
+                                .body(ApiSuccess.of(
+                                        new CreateUserData(created.user().publicView(), created.temporaryPassword()),
+                                        requestId))));
+    }
 
-	@PatchMapping("/{userId}/status")
-	Mono<ResponseEntity<ApiSuccess<UserAccountData>>> updateStatus(
-			@PathVariable @Pattern(regexp = "^[0-9a-fA-F-]{36}$") String userId,
-			@Valid @RequestBody UpdateUserStatusRequest request,
-			ServerWebExchange exchange) {
-		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(identity ->
-				userService.updateStatus(
-						identity, userId, request.status(), request.rowVersion())
-						.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
-						.map(user -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
-								.body(ApiSuccess.of(user.publicView(), requestId))));
-	}
+    @PatchMapping("/{userId}/status")
+    Mono<ResponseEntity<ApiSuccess<UserAccountData>>> updateStatus(
+            @PathVariable @Pattern(regexp = "^[0-9a-fA-F-]{36}$") String userId,
+            @Valid @RequestBody UpdateUserStatusRequest request,
+            ServerWebExchange exchange) {
+        String requestId = ApiRequestContext.requestId(exchange);
+        return adminAccess
+                .delegatedIdentity(exchange, requestId)
+                .flatMap(identity -> userService
+                        .updateStatus(identity, userId, request.status(), request.rowVersion())
+                        .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                        .map(user -> ResponseEntity.ok()
+                                .cacheControl(CacheControl.noStore())
+                                .body(ApiSuccess.of(user.publicView(), requestId))));
+    }
 
-	@PostMapping("/{userId}/password-reset")
-	Mono<ResponseEntity<ApiSuccess<ResetUserPasswordData>>> resetPassword(
-			@PathVariable @Pattern(regexp = "^[0-9a-fA-F-]{36}$") String userId,
-			@Valid @RequestBody ResetUserPasswordRequest request,
-			ServerWebExchange exchange) {
-		String requestId = ApiRequestContext.requestId(exchange);
-		return adminAccess.delegatedIdentity(exchange, requestId).flatMap(identity ->
-				userService.resetPassword(identity, userId, request.rowVersion())
-						.onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
-						.map(created -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
-								.body(ApiSuccess.of(
-										new ResetUserPasswordData(created.temporaryPassword()), requestId))));
-	}
+    @PostMapping("/{userId}/password-reset")
+    Mono<ResponseEntity<ApiSuccess<ResetUserPasswordData>>> resetPassword(
+            @PathVariable @Pattern(regexp = "^[0-9a-fA-F-]{36}$") String userId,
+            @Valid @RequestBody ResetUserPasswordRequest request,
+            ServerWebExchange exchange) {
+        String requestId = ApiRequestContext.requestId(exchange);
+        return adminAccess
+                .delegatedIdentity(exchange, requestId)
+                .flatMap(identity -> userService
+                        .resetPassword(identity, userId, request.rowVersion())
+                        .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                        .map(created -> ResponseEntity.ok()
+                                .cacheControl(CacheControl.noStore())
+                                .body(ApiSuccess.of(
+                                        new ResetUserPasswordData(created.temporaryPassword()), requestId))));
+    }
 
-	record UserListData(List<UserAccountData> items) {
-	}
+    record UserListData(List<UserAccountData> items) {}
 
-	record CreateUserData(UserAccountData user, String temporaryPassword) {
-	}
+    record CreateUserData(UserAccountData user, String temporaryPassword) {}
 
-	record ResetUserPasswordData(String temporaryPassword) {
-	}
+    record ResetUserPasswordData(String temporaryPassword) {}
 
-	record CreateUserRequest(
-			@NotBlank @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$") String username) {
-	}
+    record CreateUserRequest(
+            @NotBlank @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
+            String username) {}
 
-	record UpdateUserStatusRequest(
-			@NotBlank @Pattern(regexp = "^(ACTIVE|DISABLED)$") String status,
-			@Min(0) long rowVersion) {
-	}
+    record UpdateUserStatusRequest(
+            @NotBlank @Pattern(regexp = "^(ACTIVE|DISABLED)$")
+            String status,
 
-	record ResetUserPasswordRequest(@Min(0) long rowVersion) {
-	}
+            @Min(0) long rowVersion) {}
+
+    record ResetUserPasswordRequest(@Min(0) long rowVersion) {}
 }

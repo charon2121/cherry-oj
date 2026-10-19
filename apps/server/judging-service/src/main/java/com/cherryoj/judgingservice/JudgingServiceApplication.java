@@ -11,5 +11,4 @@ public class JudgingServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(JudgingServiceApplication.class, args);
     }
-
 }

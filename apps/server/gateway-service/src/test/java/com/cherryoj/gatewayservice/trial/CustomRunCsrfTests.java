@@ -10,23 +10,22 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 @SpringBootTest
 class CustomRunCsrfTests {
 
-	@Autowired
-	ApplicationContext context;
+    @Autowired
+    ApplicationContext context;
 
-	@Test
-	void realRouteRejectsPostWithoutCsrfBeforeExecution() {
-		WebTestClient.bindToApplicationContext(context)
-			.build()
-			.post()
-			.uri("/api/custom-runs")
-			.header("Content-Type", "application/json")
-			.bodyValue("{}")
-			.exchange()
-			.expectStatus()
-			.isForbidden()
-			.expectBody()
-			.jsonPath("$.code")
-			.isEqualTo("CSRF_REJECTED");
-	}
-
+    @Test
+    void realRouteRejectsPostWithoutCsrfBeforeExecution() {
+        WebTestClient.bindToApplicationContext(context)
+                .build()
+                .post()
+                .uri("/api/custom-runs")
+                .header("Content-Type", "application/json")
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus()
+                .isForbidden()
+                .expectBody()
+                .jsonPath("$.code")
+                .isEqualTo("CSRF_REJECTED");
+    }
 }

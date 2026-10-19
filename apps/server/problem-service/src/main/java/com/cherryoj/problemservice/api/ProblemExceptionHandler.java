@@ -40,10 +40,10 @@ public class ProblemExceptionHandler {
     }
 
     @ExceptionHandler({
-            ConstraintViolationException.class,
-            HandlerMethodValidationException.class,
-            MethodArgumentNotValidException.class,
-            MethodArgumentTypeMismatchException.class
+        ConstraintViolationException.class,
+        HandlerMethodValidationException.class,
+        MethodArgumentNotValidException.class,
+        MethodArgumentTypeMismatchException.class
     })
     ResponseEntity<Map<String, Object>> validation(Exception ignored) {
         return response(400, "INVALID_QUERY", "题库查询参数无效。");
@@ -56,9 +56,12 @@ public class ProblemExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<Map<String, Object>> unexpected(Exception error, HttpServletRequest request) throws Exception {
-        boolean frameworkHandled = error instanceof ErrorResponse || error instanceof TypeMismatchException
-                || error instanceof HttpMessageNotReadableException || error instanceof HttpMessageNotWritableException
-                || error instanceof MethodValidationException || error instanceof AsyncRequestNotUsableException;
+        boolean frameworkHandled = error instanceof ErrorResponse
+                || error instanceof TypeMismatchException
+                || error instanceof HttpMessageNotReadableException
+                || error instanceof HttpMessageNotWritableException
+                || error instanceof MethodValidationException
+                || error instanceof AsyncRequestNotUsableException;
 
         // Existing advice matches known causes before MVC's status resolvers or the security filter run.
         var seen = Collections.newSetFromMap(new IdentityHashMap<Throwable, Boolean>());
@@ -67,14 +70,17 @@ public class ProblemExceptionHandler {
             if (cause instanceof ProblemApiException problem) {
                 return problem(problem);
             }
-            if (cause instanceof ConstraintViolationException || cause instanceof HandlerMethodValidationException
-                    || cause instanceof MethodArgumentNotValidException || cause instanceof MethodArgumentTypeMismatchException) {
+            if (cause instanceof ConstraintViolationException
+                    || cause instanceof HandlerMethodValidationException
+                    || cause instanceof MethodArgumentNotValidException
+                    || cause instanceof MethodArgumentTypeMismatchException) {
                 return validation((Exception) cause);
             }
             if (cause instanceof MaxUploadSizeExceededException upload) {
                 return uploadTooLarge(upload);
             }
-            if (cause instanceof AccessDeniedException || cause instanceof AuthenticationException
+            if (cause instanceof AccessDeniedException
+                    || cause instanceof AuthenticationException
                     || cause instanceof RequestRejectedException
                     || cause instanceof ResponseStatusException
                     || AnnotatedElementUtils.findMergedAnnotation(cause.getClass(), ResponseStatus.class) != null) {

@@ -4,8 +4,7 @@ import java.time.LocalDateTime;
 
 public final class PublicProblemRows {
 
-    private PublicProblemRows() {
-    }
+    private PublicProblemRows() {}
 
     public record ProblemRow(
             String problemId,
@@ -19,17 +18,10 @@ public final class PublicProblemRows {
             String hintMarkdown,
             String difficulty,
             String tagsJson,
-            LocalDateTime updatedAt) {
-    }
+            LocalDateTime updatedAt) {}
 
     public record SampleRow(
-            String problemId,
-            int ordinal,
-            String inputText,
-            String expectedOutputText,
-            String explanationMarkdown) {
-    }
+            String problemId, int ordinal, String inputText, String expectedOutputText, String explanationMarkdown) {}
 
-    public record LanguageRow(String problemId, String languageId, int displayOrder, String starterCode) {
-    }
+    public record LanguageRow(String problemId, String languageId, int displayOrder, String starterCode) {}
 }

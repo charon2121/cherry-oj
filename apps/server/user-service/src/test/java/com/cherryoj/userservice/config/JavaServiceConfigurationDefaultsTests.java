@@ -11,18 +11,11 @@ import org.junit.jupiter.api.Test;
 
 class JavaServiceConfigurationDefaultsTests {
 
-    private static final Pattern CHERRY_PLACEHOLDER =
-            Pattern.compile("\\$\\{(CHERRY_[A-Z0-9_]+)(?::([^}]*))?}");
-    private static final Set<String> JAVA_SERVICES = Set.of(
-            "gateway-service",
-            "user-service",
-            "problem-service",
-            "submission-service",
-            "judging-service");
-    private static final Set<String> RESOURCE_SERVICES = Set.of(
-            "problem-service",
-            "submission-service",
-            "judging-service");
+    private static final Pattern CHERRY_PLACEHOLDER = Pattern.compile("\\$\\{(CHERRY_[A-Z0-9_]+)(?::([^}]*))?}");
+    private static final Set<String> JAVA_SERVICES =
+            Set.of("gateway-service", "user-service", "problem-service", "submission-service", "judging-service");
+    private static final Set<String> RESOURCE_SERVICES =
+            Set.of("problem-service", "submission-service", "judging-service");
     private static final String LOCAL_JWKS_DEFAULT =
             "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/.well-known/jwks.json}";
 
@@ -32,7 +25,9 @@ class JavaServiceConfigurationDefaultsTests {
         for (String service : JAVA_SERVICES) {
             Path resources = root.resolve(service + "/src/main/resources");
             String configuration = Files.readString(resources.resolve("application.yaml"));
-            assertThat(configuration).contains("default: local").doesNotContain("spring.config.additional-location", "optional:file:");
+            assertThat(configuration)
+                    .contains("default: local")
+                    .doesNotContain("spring.config.additional-location", "optional:file:");
             assertThat(resources.resolve("application-local.example.yaml")).isRegularFile();
             var matcher = CHERRY_PLACEHOLDER.matcher(configuration);
             while (matcher.find()) {
@@ -42,10 +37,13 @@ class JavaServiceConfigurationDefaultsTests {
                 } else if (key.endsWith("_PRIVATE_KEY_LOCATION")) {
                     // 服务私钥只能来自部署环境或本地生成目录，不能默认指向打包进 jar 的资源。
                     assertThat(value == null || !value.startsWith("classpath:"))
-                            .as(key + " cannot default to a bundled key").isTrue();
+                            .as(key + " cannot default to a bundled key")
+                            .isTrue();
                 } else if ((key.contains("TOKEN") && !key.contains("TTL") && !key.endsWith("_URI"))
                         || key.endsWith("_PASSWORD")) {
-                    assertThat(value == null || value.isEmpty()).as(key + " cannot have a shared secret default").isTrue();
+                    assertThat(value == null || value.isEmpty())
+                            .as(key + " cannot have a shared secret default")
+                            .isTrue();
                 }
             }
         }
@@ -56,8 +54,8 @@ class JavaServiceConfigurationDefaultsTests {
         Path serverRoot = serverRoot();
 
         for (String service : RESOURCE_SERVICES) {
-            String configuration = Files.readString(
-                    serverRoot.resolve(service + "/src/main/resources/application.yaml"));
+            String configuration =
+                    Files.readString(serverRoot.resolve(service + "/src/main/resources/application.yaml"));
             assertThat(configuration)
                     .as(service + " local JWKS configuration")
                     .contains(LOCAL_JWKS_DEFAULT)

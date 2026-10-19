@@ -12,20 +12,22 @@ import java.util.List;
 
 public final class AdminProblemDtos {
 
-    private AdminProblemDtos() {
-    }
+    private AdminProblemDtos() {}
 
     public record CreateProblemRequest(
-            @NotBlank @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128) String slug,
+            @NotBlank @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128)
+            String slug,
+
             @NotBlank @Size(max = 512) String title,
             @NotNull Difficulty difficulty,
             @NotNull CodeMode codeMode,
-            @NotBlank String languageId) {
-    }
+            @NotBlank String languageId) {}
 
     /** 题目没有版本，改了就是改了：一次请求改写 slug、题面、样例和起始代码，可见性与测试数据另有接口。 */
     public record UpdateProblemRequest(
-            @NotBlank @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128) String slug,
+            @NotBlank @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128)
+            String slug,
+
             @NotBlank @Size(max = 512) String title,
             @NotNull @Size(max = 16_777_215) String statementMarkdown,
             @NotNull @Size(max = 16_777_215) String inputDescriptionMarkdown,
@@ -38,26 +40,22 @@ public final class AdminProblemDtos {
             @NotNull @Size(max = 1_048_576) String starterCode,
             // CORE 的驱动代码；省略表示不改。ACM 题目必须省略。代码模式不能通过更新修改。
             @Size(min = 1, max = 1_048_576) String judgeTemplate,
-            @Min(0) long rowVersion) {
-    }
+            @Min(0) long rowVersion) {}
 
-    public record RowVersionRequest(@Min(0) long rowVersion) {
-    }
+    public record RowVersionRequest(@Min(0) long rowVersion) {}
 
     public record CalibrateProblemRequest(
             @NotBlank @Pattern(regexp = "^cpp$") String languageId,
             @Min(1) long cpuNs,
             @Min(1) long memoryBytes,
             @Min(1) Long clockNs,
-            @NotBlank @Size(max = 1_048_576) String referenceSource) {
-    }
+            @NotBlank @Size(max = 1_048_576) String referenceSource) {}
 
     public record SampleInput(
             @Min(1) @Max(100) int ordinal,
             @NotNull @Size(max = 1_048_576) String input,
             @NotNull @Size(max = 1_048_576) String output,
-            @Size(max = 1_048_576) String explanationMarkdown) {
-    }
+            @Size(max = 1_048_576) String explanationMarkdown) {}
 
     public record ProblemSummary(
             String id,
@@ -69,11 +67,9 @@ public final class AdminProblemDtos {
             boolean hasTestData,
             LocalDateTime updatedAt,
             LocalDateTime publishedAt,
-            long rowVersion) {
-    }
+            long rowVersion) {}
 
-    public record ProblemPage(List<ProblemSummary> items, int page, int size, long totalElements, int totalPages) {
-    }
+    public record ProblemPage(List<ProblemSummary> items, int page, int size, long totalElements, int totalPages) {}
 
     public record Problem(
             String id,
@@ -95,24 +91,17 @@ public final class AdminProblemDtos {
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
             LocalDateTime publishedAt,
-            long rowVersion) {
-    }
+            long rowVersion) {}
 
     /**
      * judgeTemplate 只在管理端返回：CORE 的驱动代码，尚未填写或 ACM 时为 null。
      * solutionPrefix 是该语言共用的前缀（只读，在语言表里维护），让写驱动代码的人知道用户文件里已有哪些库；ACM 时为 null。
      */
-    public record Language(String id, String displayName, String starterCode, String judgeTemplate,
-            String solutionPrefix) {
-    }
+    public record Language(
+            String id, String displayName, String starterCode, String judgeTemplate, String solutionPrefix) {}
 
     public record BenchmarkSummary(
-            String sourceSha256,
-            JudgeVerdict verdict,
-            Long maxCpuNs,
-            Long maxMemoryBytes,
-            Long maxClockNs) {
-    }
+            String sourceSha256, JudgeVerdict verdict, Long maxCpuNs, Long maxMemoryBytes, Long maxClockNs) {}
 
     public record LanguageCalibration(
             String id,
@@ -127,30 +116,60 @@ public final class AdminProblemDtos {
             String errorMessage,
             LocalDateTime createdAt,
             LocalDateTime updatedAt,
-            long rowVersion) {
+            long rowVersion) {}
+
+    public record PublishCheckItem(PublishCheckCode code, boolean passed, String message) {}
+
+    public record PublishCheck(boolean ready, List<PublishCheckItem> checks) {}
+
+    public enum Visibility {
+        PRIVATE,
+        PUBLIC
     }
 
-    public record PublishCheckItem(PublishCheckCode code, boolean passed, String message) {
+    public enum ProblemStatus {
+        ACTIVE,
+        ARCHIVED
     }
 
-    public record PublishCheck(boolean ready, List<PublishCheckItem> checks) {
+    public enum CodeMode {
+        ACM,
+        CORE
     }
 
-    public enum Visibility { PRIVATE, PUBLIC }
+    public enum Difficulty {
+        UNRATED,
+        EASY,
+        MEDIUM,
+        HARD
+    }
 
-    public enum ProblemStatus { ACTIVE, ARCHIVED }
+    public enum CalibrationStatus {
+        VALIDATING,
+        VALID,
+        FAILED,
+        SUPERSEDED
+    }
 
-    public enum CodeMode { ACM, CORE }
+    public enum JudgeVerdict {
+        AC,
+        WA,
+        TLE,
+        MLE,
+        RE,
+        CE,
+        SE
+    }
 
-    public enum Difficulty { UNRATED, EASY, MEDIUM, HARD }
+    public enum PublishCheckCode {
+        CONTENT,
+        SAMPLES,
+        LANGUAGE,
+        TEST_DATA,
+        CALIBRATION,
+        ONLINE_JUDGE_NODE
+    }
 
-    public enum CalibrationStatus { VALIDATING, VALID, FAILED, SUPERSEDED }
-
-    public enum JudgeVerdict { AC, WA, TLE, MLE, RE, CE, SE }
-
-    public enum PublishCheckCode { CONTENT, SAMPLES, LANGUAGE, TEST_DATA, CALIBRATION, ONLINE_JUDGE_NODE }
-
-    public static final String UUID_PATTERN =
-            "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
+    public static final String UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
     public static final String SHA_PATTERN = "^[a-f0-9]{64}$";
 }

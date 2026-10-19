@@ -67,12 +67,11 @@ public class AdminUserController {
     }
 
     public record CreateUserRequest(
-            @NotBlank @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$") String username) {
-    }
+            @NotBlank @Pattern(regexp = "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
+            String username) {}
 
-    public record UpdateStatusRequest(@NotNull UserStatus status, @Min(0) long rowVersion) {
-    }
+    public record UpdateStatusRequest(
+            @NotNull UserStatus status, @Min(0) long rowVersion) {}
 
-    public record ResetPasswordRequest(@Min(0) long rowVersion) {
-    }
+    public record ResetPasswordRequest(@Min(0) long rowVersion) {}
 }

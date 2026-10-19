@@ -38,7 +38,9 @@ public class LanguageSettingService {
     }
 
     public LanguageSettingList list() {
-        return new LanguageSettingList(mapper.findLanguageSettings().stream().map(LanguageSettingService::view).toList());
+        return new LanguageSettingList(mapper.findLanguageSettings().stream()
+                .map(LanguageSettingService::view)
+                .toList());
     }
 
     @Transactional
@@ -58,14 +60,19 @@ public class LanguageSettingService {
         if (prefix.equals(current.solutionPrefix())) {
             return view(current);
         }
-        LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
+        LocalDateTime now =
+                LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
         if (mapper.updateLanguagePrefix(languageId, prefix, request.expectedUpdatedAt(), now) != 1) {
             throw new ProblemApiException(HttpStatus.CONFLICT, "ROW_VERSION_CONFLICT", "前缀已被其他窗口修改，请重新加载。");
         }
         // 语言不是题目，挂不进 problem_audit_event；留一条结构化日志，只记指纹。
-        LOGGER.atInfo().addKeyValue("event", "language.prefix_changed").addKeyValue("language_id", languageId)
-                .addKeyValue("actor_user_id", actorUserId).addKeyValue("previous_sha256", sha256(current.solutionPrefix()))
-                .addKeyValue("solution_prefix_sha256", sha256(prefix)).log("Language solution prefix changed");
+        LOGGER.atInfo()
+                .addKeyValue("event", "language.prefix_changed")
+                .addKeyValue("language_id", languageId)
+                .addKeyValue("actor_user_id", actorUserId)
+                .addKeyValue("previous_sha256", sha256(current.solutionPrefix()))
+                .addKeyValue("solution_prefix_sha256", sha256(prefix))
+                .log("Language solution prefix changed");
         return view(mapper.findLanguagePrefix(languageId));
     }
 
@@ -79,10 +86,9 @@ public class LanguageSettingService {
 
     private static String sha256(String value) {
         try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        }
-        catch (NoSuchAlgorithmException impossible) {
+            return HexFormat.of()
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException(impossible);
         }
     }

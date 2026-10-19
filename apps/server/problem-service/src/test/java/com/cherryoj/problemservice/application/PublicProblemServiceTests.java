@@ -29,31 +29,42 @@ class PublicProblemServiceTests {
 
     @BeforeEach
     void languages() {
-        when(mapper.findLanguages(any())).thenAnswer(invocation -> ((List<String>) invocation.getArgument(0)).stream()
-                .map(id -> new LanguageRow(id, "cpp", 1, "int main() {}"))
-                .toList());
+        when(mapper.findLanguages(any()))
+                .thenAnswer(invocation -> ((List<String>) invocation.getArgument(0))
+                        .stream()
+                                .map(id -> new LanguageRow(id, "cpp", 1, "int main() {}"))
+                                .toList());
     }
 
     @Test
     void listUsesSizePlusOneAndIssuesFilterBoundCursor() {
-        when(mapper.findPublicProblems(any())).thenReturn(List.of(
-                row("101", "alpha", "2026-08-30T01:00:03"),
-                row("102", "beta", "2026-08-30T01:00:02"),
-                row("103", "gamma", "2026-08-30T01:00:01")));
+        when(mapper.findPublicProblems(any()))
+                .thenReturn(List.of(
+                        row("101", "alpha", "2026-08-30T01:00:03"),
+                        row("102", "beta", "2026-08-30T01:00:02"),
+                        row("103", "gamma", "2026-08-30T01:00:01")));
 
-        var page = service.list(null, null, List.of("入门"), null, "cpp",
-                PublicProblemService.Sort.UPDATED_DESC, null, 2);
+        var page =
+                service.list(null, null, List.of("入门"), null, "cpp", PublicProblemService.Sort.UPDATED_DESC, null, 2);
 
         assertThat(page.items()).extracting(item -> item.slug()).containsExactly("alpha", "beta");
         assertThat(page.hasMore()).isTrue();
         assertThat(page.nextCursor()).isNotBlank();
-        assertThat(page.items().getFirst().allowedLanguages().getFirst().displayName()).isEqualTo("C++");
+        assertThat(page.items().getFirst().allowedLanguages().getFirst().displayName())
+                .isEqualTo("C++");
 
         ArgumentCaptor<PublicProblemSearch> search = ArgumentCaptor.forClass(PublicProblemSearch.class);
         verify(mapper).findPublicProblems(search.capture());
         assertThat(search.getValue().limit()).isEqualTo(3);
-        assertThatThrownBy(() -> service.list(null, null, List.of("不同标签"), null, "cpp",
-                PublicProblemService.Sort.UPDATED_DESC, page.nextCursor(), 2))
+        assertThatThrownBy(() -> service.list(
+                        null,
+                        null,
+                        List.of("不同标签"),
+                        null,
+                        "cpp",
+                        PublicProblemService.Sort.UPDATED_DESC,
+                        page.nextCursor(),
+                        2))
                 .isInstanceOf(ProblemApiException.class)
                 .hasMessageContaining("游标");
     }
@@ -62,31 +73,47 @@ class PublicProblemServiceTests {
     void detailOnlySerializesThePublicFieldWhitelist() throws Exception {
         ProblemRow row = row("101", "a-plus-b", "2026-08-30T01:00:03");
         when(mapper.findPublicProblemBySlug("a-plus-b")).thenReturn(row);
-        when(mapper.findSamples(row.problemId())).thenReturn(List.of(
-                new SampleRow(row.problemId(), 1, "1 2\n", "3\n", null)));
+        when(mapper.findSamples(row.problemId()))
+                .thenReturn(List.of(new SampleRow(row.problemId(), 1, "1 2\n", "3\n", null)));
 
         String body = json.writeValueAsString(service.detail("a-plus-b"));
 
         assertThat(body).contains("a-plus-b", "statementMarkdown", "allowedLanguages");
-        assertThat(body).doesNotContain(
-                "judgeTemplate", "testDataLocation", "testData", "problemVersionId", "versionNo", "createdBy", "audit");
+        assertThat(body)
+                .doesNotContain(
+                        "judgeTemplate",
+                        "testDataLocation",
+                        "testData",
+                        "problemVersionId",
+                        "versionNo",
+                        "createdBy",
+                        "audit");
     }
 
     @Test
     void missingOrInvisibleProblemHasOneNotFoundShape() {
         when(mapper.findPublicProblemBySlug("missing")).thenReturn(null);
 
-        assertThatThrownBy(() -> service.detail("missing"))
-                .isInstanceOfSatisfying(ProblemApiException.class, error -> {
-                    assertThat(error.status().value()).isEqualTo(404);
-                    assertThat(error.code()).isEqualTo("PROBLEM_NOT_FOUND");
-                });
+        assertThatThrownBy(() -> service.detail("missing")).isInstanceOfSatisfying(ProblemApiException.class, error -> {
+            assertThat(error.status().value()).isEqualTo(404);
+            assertThat(error.code()).isEqualTo("PROBLEM_NOT_FOUND");
+        });
     }
 
     private static ProblemRow row(String suffix, String slug, String updatedAt) {
         String id = "019c8e42-7f70-7000-8000-000000000" + suffix;
         return new ProblemRow(
-                id, slug, "ACM", slug, "statement", "input", "output", null, null,
-                "EASY", "[\"入门\"]", LocalDateTime.parse(updatedAt));
+                id,
+                slug,
+                "ACM",
+                slug,
+                "statement",
+                "input",
+                "output",
+                null,
+                null,
+                "EASY",
+                "[\"入门\"]",
+                LocalDateTime.parse(updatedAt));
     }
 }

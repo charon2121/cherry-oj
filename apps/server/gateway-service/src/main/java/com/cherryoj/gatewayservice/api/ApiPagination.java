@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public sealed interface ApiPagination permits CursorPagination, PagePagination {
 
-	@JsonProperty("kind")
-	String kind();
-
+    @JsonProperty("kind")
+    String kind();
 }

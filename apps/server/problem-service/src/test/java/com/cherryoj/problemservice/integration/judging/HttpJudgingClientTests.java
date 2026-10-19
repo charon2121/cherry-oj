@@ -47,11 +47,19 @@ class HttpJudgingClientTests {
         server.start();
         HttpJudgingClient client = client(Duration.ofSeconds(5));
         var request = new JudgingDtos.CalibrationRequest(
-                "019c8e42-7f70-7000-8000-000000000010", "cpp", "/srv/problem/p", "a".repeat(64),
-                1_000_000_000L, 268_435_456L, null, "int main() { return 0; }", null, null);
+                "019c8e42-7f70-7000-8000-000000000010",
+                "cpp",
+                "/srv/problem/p",
+                "a".repeat(64),
+                1_000_000_000L,
+                268_435_456L,
+                null,
+                "int main() { return 0; }",
+                null,
+                null);
 
-        var response = client.calibrate(request, "secret-delegated-jwt",
-                "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01");
+        var response = client.calibrate(
+                request, "secret-delegated-jwt", "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01");
 
         assertThat(response.status()).isEqualTo("VALID");
         assertThat(response.testDataDigest()).isEqualTo("a".repeat(64));
@@ -73,22 +81,24 @@ class HttpJudgingClientTests {
         });
         server.start();
 
-        var readiness = client(Duration.ofSeconds(2)).readiness(
-                "019c8e42-7f70-7000-8000-000000000010", "cpp", "b".repeat(64), "jwt", null);
+        var readiness = client(Duration.ofSeconds(2))
+                .readiness("019c8e42-7f70-7000-8000-000000000010", "cpp", "b".repeat(64), "jwt", null);
 
         assertThat(readiness.ready()).isFalse();
-        assertThat(query.get()).isEqualTo("problemId=019c8e42-7f70-7000-8000-000000000010&languageId=cpp&testDataDigest="
-                + "b".repeat(64));
+        assertThat(query.get())
+                .isEqualTo("problemId=019c8e42-7f70-7000-8000-000000000010&languageId=cpp&testDataDigest="
+                        + "b".repeat(64));
     }
 
     @Test
     void mapsDownstreamFailuresToStableSafeErrors() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/internal/admin/readiness", exchange -> respond(exchange, 503, "private downstream detail"));
+        server.createContext(
+                "/internal/admin/readiness", exchange -> respond(exchange, 503, "private downstream detail"));
         server.start();
 
-        assertThatThrownBy(() -> client(Duration.ofSeconds(2)).readiness(
-                "019c8e42-7f70-7000-8000-000000000001", "cpp", "a".repeat(64), "jwt", null))
+        assertThatThrownBy(() -> client(Duration.ofSeconds(2))
+                        .readiness("019c8e42-7f70-7000-8000-000000000001", "cpp", "a".repeat(64), "jwt", null))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("JUDGING_UNAVAILABLE");
                     assertThat(error.getMessage()).doesNotContain("private downstream detail", "jwt");
@@ -99,8 +109,10 @@ class HttpJudgingClientTests {
     void nodeErrorsPreserveOnlyAllowlistedCodesAndFixedDetails() throws Exception {
         var code = new AtomicReference<>("NO_ONLINE_JUDGE_NODE");
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/internal/admin/readiness", exchange -> respond(exchange, 503,
-                "{\"code\":\"" + code.get() + "\",\"detail\":\"private token path\"}"));
+        server.createContext(
+                "/internal/admin/readiness",
+                exchange ->
+                        respond(exchange, 503, "{\"code\":\"" + code.get() + "\",\"detail\":\"private token path\"}"));
         server.start();
         for (String value : List.of("NO_ONLINE_JUDGE_NODE", "JUDGE_NODE_UNREACHABLE", "UNKNOWN")) {
             code.set(value);
@@ -113,8 +125,11 @@ class HttpJudgingClientTests {
     }
 
     private HttpJudgingClient client(Duration timeout) {
-        return new HttpJudgingClient(new JudgingClientProperties(
-                URI.create("http://127.0.0.1:" + server.getAddress().getPort()), Duration.ofSeconds(1), timeout),
+        return new HttpJudgingClient(
+                new JudgingClientProperties(
+                        URI.create("http://127.0.0.1:" + server.getAddress().getPort()),
+                        Duration.ofSeconds(1),
+                        timeout),
                 JsonMapper.builder().build());
     }
 

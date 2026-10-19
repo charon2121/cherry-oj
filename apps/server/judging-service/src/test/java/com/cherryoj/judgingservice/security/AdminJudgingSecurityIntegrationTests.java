@@ -37,11 +37,12 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 @org.springframework.test.context.ActiveProfiles("test")
-@SpringBootTest(properties = {
-        "spring.flyway.enabled=false",
-        "spring.datasource.url=jdbc:mysql://127.0.0.1:1/not-used",
-        "spring.datasource.username=none"
-})
+@SpringBootTest(
+        properties = {
+            "spring.flyway.enabled=false",
+            "spring.datasource.url=jdbc:mysql://127.0.0.1:1/not-used",
+            "spring.datasource.username=none"
+        })
 class AdminJudgingSecurityIntegrationTests {
     private static final String USER_ID = "019c8e42-7f70-7000-8000-000000000001";
     private static final RSAKey KEY = newKey();
@@ -49,24 +50,36 @@ class AdminJudgingSecurityIntegrationTests {
 
     private final MockMvc mvc;
 
-    @MockitoBean JudgingReadinessService service;
-    @MockitoBean com.cherryoj.judgingservice.application.JudgeNodeRegistry nodes;
-    @MockitoBean com.cherryoj.judgingservice.api.SubmissionExecutionProfileController executionProfiles;
+    @MockitoBean
+    JudgingReadinessService service;
+
+    @MockitoBean
+    com.cherryoj.judgingservice.application.JudgeNodeRegistry nodes;
+
+    @MockitoBean
+    com.cherryoj.judgingservice.api.SubmissionExecutionProfileController executionProfiles;
 
     @Autowired
     AdminJudgingSecurityIntegrationTests(WebApplicationContext context) {
-        mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        mvc = MockMvcBuilders.webAppContextSetup(context)
+                .apply(springSecurity())
+                .build();
     }
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("cherry.identity.jwks-uri",
+        registry.add(
+                "cherry.identity.jwks-uri",
                 () -> "http://127.0.0.1:" + JWKS.getAddress().getPort() + "/jwks");
-        registry.add("cherry.identity.metadata-uri",
+        registry.add(
+                "cherry.identity.metadata-uri",
                 () -> "http://127.0.0.1:" + JWKS.getAddress().getPort() + "/metadata");
     }
 
-    @AfterAll static void stop() { JWKS.stop(0); }
+    @AfterAll
+    static void stop() {
+        JWKS.stop(0);
+    }
 
     @Test
     void readinessRejectsAnonymousAndUserButAllowsAdminWithoutCaching() throws Exception {
@@ -86,9 +99,13 @@ class AdminJudgingSecurityIntegrationTests {
     @Test
     void judgeNodeStatusRejectsAnonymousAndUserButAllowsAdminWithoutCaching() throws Exception {
         String path = "/internal/admin/judge-nodes";
-        when(nodes.status()).thenReturn(new com.cherryoj.judgingservice.api.JudgeNodeDtos.NodeStatusList(List.of(
-                new com.cherryoj.judgingservice.api.JudgeNodeDtos.NodeStatus("judge-local-1", List.of("cpp"), true,
-                        java.time.Instant.parse("2026-10-16T04:00:00Z")))));
+        when(nodes.status())
+                .thenReturn(new com.cherryoj.judgingservice.api.JudgeNodeDtos.NodeStatusList(
+                        List.of(new com.cherryoj.judgingservice.api.JudgeNodeDtos.NodeStatus(
+                                "judge-local-1",
+                                List.of("cpp"),
+                                true,
+                                java.time.Instant.parse("2026-10-16T04:00:00Z")))));
 
         mvc.perform(get(path)).andExpect(status().isUnauthorized());
         mvc.perform(get(path).header("Authorization", "Bearer " + token("USER")))
@@ -96,10 +113,12 @@ class AdminJudgingSecurityIntegrationTests {
         mvc.perform(get(path).header("Authorization", "Bearer " + token("ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.items[0].endpoint").doesNotExist())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
-                        .jsonPath("$.items[0].lastSeenAt").value("2026-10-16T04:00:00Z"));
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                "$.items[0].endpoint")
+                        .doesNotExist())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                "$.items[0].lastSeenAt")
+                        .value("2026-10-16T04:00:00Z"));
     }
 
     @Test
@@ -112,17 +131,23 @@ class AdminJudgingSecurityIntegrationTests {
         String suffix = "\"memoryBytes\":268435456,\"referenceSource\":\"int main(){}\"}";
         String authorization = "Bearer " + token("ADMIN");
 
-        mvc.perform(post("/internal/admin/calibrations").contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", authorization).content(prefix + "\"cpuNs\":0," + suffix))
+        mvc.perform(post("/internal/admin/calibrations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", authorization)
+                        .content(prefix + "\"cpuNs\":0," + suffix))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/internal/admin/calibrations").contentType(MediaType.APPLICATION_JSON)
-                        .header("Authorization", authorization).content(prefix + suffix))
+        mvc.perform(post("/internal/admin/calibrations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Authorization", authorization)
+                        .content(prefix + suffix))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/internal/admin/calibrations").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/internal/admin/calibrations")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", authorization)
                         .content(prefix + "\"cpuNs\":1,\"clockNs\":0," + suffix))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/internal/admin/calibrations").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/internal/admin/calibrations")
+                        .contentType(MediaType.APPLICATION_JSON)
                         .header("Authorization", authorization)
                         .content(prefix + "\"cpuNs\":9223372036854775808," + suffix))
                 .andExpect(status().isBadRequest());
@@ -138,62 +163,97 @@ class AdminJudgingSecurityIntegrationTests {
                 """.formatted(System.currentTimeMillis() + 45000);
         mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
-                .header("Authorization", "Bearer " + token("ADMIN"))).andExpect(status().isUnauthorized());
-        // 服务令牌发往别的服务（aud 不是 judging-service）→ 401；有效但调用方不是 submission-service → 403。
-        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
-                .header("Authorization", "Bearer " + serviceToken("submission-service", "problem-service")))
+        mvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .header("Authorization", "Bearer " + token("ADMIN")))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
-                .header("Authorization", "Bearer " + serviceToken("problem-service", "judging-service")))
+        // 服务令牌发往别的服务（aud 不是 judging-service）→ 401；有效但调用方不是 submission-service → 403。
+        mvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .header("Authorization", "Bearer " + serviceToken("submission-service", "problem-service")))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .header("Authorization", "Bearer " + serviceToken("problem-service", "judging-service")))
                 .andExpect(status().isForbidden());
         // 下游无需功能开关；正确凭据进入执行配置检查，错误凭据不能触及执行逻辑。
         org.mockito.Mockito.verifyNoInteractions(executionProfiles);
         when(executionProfiles.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
                 .thenThrow(new com.cherryoj.judgingservice.api.JudgingApiException(
                         org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
-                        "RUN_LIMIT_UNSUPPORTED", "测试执行配置不支持自测。"));
-        mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body)
-                .header("Authorization", "Bearer " + serviceToken("submission-service", "judging-service")))
+                        "RUN_LIMIT_UNSUPPORTED",
+                        "测试执行配置不支持自测。"));
+        mvc.perform(post(path)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .header("Authorization", "Bearer " + serviceToken("submission-service", "judging-service")))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code").value("RUN_LIMIT_UNSUPPORTED"));
-        org.mockito.Mockito.verify(executionProfiles).resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
+                        .value("RUN_LIMIT_UNSUPPORTED"));
+        org.mockito.Mockito.verify(executionProfiles)
+                .resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
     /** 用测试 JWKS 的同一把密钥签发服务令牌，与 user-service 签发的形状一致。 */
     private static String serviceToken(String caller, String audience) {
         try {
             Instant now = Instant.now();
-            JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer("cherry-oj-user-service")
-                    .audience(audience).subject(caller).issueTime(Date.from(now))
-                    .expirationTime(Date.from(now.plusSeconds(900))).jwtID("svc-" + caller + "-" + audience)
-                    .claim("token_use", "service").build();
-            SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256)
-                    .keyID(KEY.getKeyID()).build(), claims);
+            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .issuer("cherry-oj-user-service")
+                    .audience(audience)
+                    .subject(caller)
+                    .issueTime(Date.from(now))
+                    .expirationTime(Date.from(now.plusSeconds(900)))
+                    .jwtID("svc-" + caller + "-" + audience)
+                    .claim("token_use", "service")
+                    .build();
+            SignedJWT jwt = new SignedJWT(
+                    new JWSHeader.Builder(JWSAlgorithm.RS256)
+                            .keyID(KEY.getKeyID())
+                            .build(),
+                    claims);
             jwt.sign(new RSASSASigner(KEY));
             return jwt.serialize();
+        } catch (Exception error) {
+            throw new IllegalStateException(error);
         }
-        catch (Exception error) { throw new IllegalStateException(error); }
     }
 
     private static String token(String role) {
         try {
             Instant now = Instant.now();
-            JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer("cherry-oj-user-service")
-                    .audience("cherry-oj-internal").subject(USER_ID).issueTime(Date.from(now))
-                    .expirationTime(Date.from(now.plusSeconds(120))).jwtID("jti-" + role)
-                    .claim("roles", List.of(role)).claim("sv", 0).claim("pwd", false).build();
-            SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256)
-                    .keyID(KEY.getKeyID()).build(), claims);
+            JWTClaimsSet claims = new JWTClaimsSet.Builder()
+                    .issuer("cherry-oj-user-service")
+                    .audience("cherry-oj-internal")
+                    .subject(USER_ID)
+                    .issueTime(Date.from(now))
+                    .expirationTime(Date.from(now.plusSeconds(120)))
+                    .jwtID("jti-" + role)
+                    .claim("roles", List.of(role))
+                    .claim("sv", 0)
+                    .claim("pwd", false)
+                    .build();
+            SignedJWT jwt = new SignedJWT(
+                    new JWSHeader.Builder(JWSAlgorithm.RS256)
+                            .keyID(KEY.getKeyID())
+                            .build(),
+                    claims);
             jwt.sign(new RSASSASigner(KEY));
             return jwt.serialize();
+        } catch (Exception error) {
+            throw new IllegalStateException(error);
         }
-        catch (Exception error) { throw new IllegalStateException(error); }
     }
 
     private static RSAKey newKey() {
-        try { return new RSAKeyGenerator(2048).keyID("judging-admin-key").generate(); }
-        catch (Exception error) { throw new ExceptionInInitializerError(error); }
+        try {
+            return new RSAKeyGenerator(2048).keyID("judging-admin-key").generate();
+        } catch (Exception error) {
+            throw new ExceptionInInitializerError(error);
+        }
     }
 
     private static HttpServer startServer() {
@@ -207,7 +267,8 @@ class AdminJudgingSecurityIntegrationTests {
             });
             server.start();
             return server;
+        } catch (Exception error) {
+            throw new ExceptionInInitializerError(error);
         }
-        catch (Exception error) { throw new ExceptionInInitializerError(error); }
     }
 }

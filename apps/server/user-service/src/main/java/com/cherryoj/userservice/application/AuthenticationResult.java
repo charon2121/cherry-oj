@@ -10,5 +10,4 @@ public record AuthenticationResult(
         Instant accessTokenExpiresAt,
         LocalDateTime sessionAbsoluteExpiresAt,
         long sessionAbsoluteTimeoutSeconds,
-        String sessionLifetimePolicy) {
-}
+        String sessionLifetimePolicy) {}

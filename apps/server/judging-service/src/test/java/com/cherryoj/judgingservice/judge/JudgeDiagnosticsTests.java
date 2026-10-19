@@ -27,19 +27,19 @@ class JudgeDiagnosticsTests {
      */
     @ParameterizedTest(name = "{0}")
     @CsvSource({
-            "c, solution.c, 7",
-            "cpp, solution.cpp, 7",
-            "java, Solution.java, 8",
-            "python, solution.py, 6",
-            "go, solution.go, 7",
-            "javascript, solution.js, 9",
-            "typescript, solution.ts, 5",
-            "csharp, Solution.cs, 5",
-            "kotlin, Solution.kt, 6",
-            "rust, solution.rs, 8",
-            "swift, solution.swift, 5",
-            "php, solution.php, 12",
-            "ruby, solution.rb, '6 7'",
+        "c, solution.c, 7",
+        "cpp, solution.cpp, 7",
+        "java, Solution.java, 8",
+        "python, solution.py, 6",
+        "go, solution.go, 7",
+        "javascript, solution.js, 9",
+        "typescript, solution.ts, 5",
+        "csharp, Solution.cs, 5",
+        "kotlin, Solution.kt, 6",
+        "rust, solution.rs, 8",
+        "swift, solution.swift, 5",
+        "php, solution.php, 12",
+        "ruby, solution.rb, '6 7'",
     })
     void everyLanguagesUserFileLinesComeBackToTheEditorsNumbers(String language, String solutionFile, String lines)
             throws IOException {
@@ -47,7 +47,8 @@ class JudgeDiagnosticsTests {
 
         String rewritten = JudgeDiagnostics.forUser(raw, solutionFile, 3, false);
 
-        Set<Long> expected = java.util.Arrays.stream(lines.split(" ")).map(Long::parseLong)
+        Set<Long> expected = java.util.Arrays.stream(lines.split(" "))
+                .map(Long::parseLong)
                 .collect(Collectors.toCollection(TreeSet::new));
         assertThat(userFileLines(rewritten, solutionFile)).isEqualTo(expected);
         assertThat(userFileLines(raw.replace("/w/", ""), solutionFile))
@@ -77,8 +78,12 @@ class JudgeDiagnosticsTests {
 
         String rewritten = JudgeDiagnostics.forUser(raw, "solution.cpp", 2, false);
 
-        assertThat(rewritten).contains("Main.cpp:8:30:", "    8 |     cout << Solution().add(a, b)",
-                "solution.cpp:3:15:", "    3 |     long long add(long long a)");
+        assertThat(rewritten)
+                .contains(
+                        "Main.cpp:8:30:",
+                        "    8 |     cout << Solution().add(a, b)",
+                        "solution.cpp:3:15:",
+                        "    3 |     long long add(long long a)");
     }
 
     @Test
@@ -87,7 +92,9 @@ class JudgeDiagnosticsTests {
 
         String rewritten = JudgeDiagnostics.forUser(raw, "solution.cpp", 2, false);
 
-        assertThat(rewritten).startsWith("[预置代码]:2:1: error").contains("    2 | using namespace std;")
+        assertThat(rewritten)
+                .startsWith("[预置代码]:2:1: error")
+                .contains("    2 | using namespace std;")
                 .doesNotContain("solution.cpp:0", "solution.cpp:-");
     }
 
@@ -109,25 +116,32 @@ class JudgeDiagnosticsTests {
 
         String rewritten = JudgeDiagnostics.forUser(raw, null, null, true);
 
-        assertThat(rewritten).isEqualTo("Main.cpp:3:1: error in stl_vector.h:1125\n"
-                + "  a / b and 2/3 stay; [Main.csproj] and main.go:5 lose their directories\n");
+        assertThat(rewritten)
+                .isEqualTo("Main.cpp:3:1: error in stl_vector.h:1125\n"
+                        + "  a / b and 2/3 stay; [Main.csproj] and main.go:5 lose their directories\n");
     }
 
     /** 文件名以 contracts/judge.schema.json 的 x-language-files 为准；judge 那边也有同样的对齐测试。 */
     @Test
     void languageFilesMatchTheContract() throws IOException {
-        JsonNode files = JsonMapper.builder().build()
-                .readTree(Files.readString(Path.of("../../../contracts/judge.schema.json"))).get("x-language-files");
-        Map<String, LanguageFiles> contract = files.propertyNames().stream().collect(Collectors.toMap(
-                name -> name, name -> new LanguageFiles(files.get(name).get("driverFile").asString(),
-                        files.get(name).get("solutionFile").asString())));
+        JsonNode files = JsonMapper.builder()
+                .build()
+                .readTree(Files.readString(Path.of("../../../contracts/judge.schema.json")))
+                .get("x-language-files");
+        Map<String, LanguageFiles> contract = files.propertyNames().stream()
+                .collect(Collectors.toMap(
+                        name -> name,
+                        name -> new LanguageFiles(
+                                files.get(name).get("driverFile").asString(),
+                                files.get(name).get("solutionFile").asString())));
 
         assertThat(LanguageFiles.all()).isEqualTo(contract);
     }
 
     private static Set<Long> userFileLines(String text, String solutionFile) {
         Matcher matcher = Pattern.compile("(?<![\\w.\\-])" + Pattern.quote(solutionFile)
-                + "(?::(\\d+)|\\((\\d+),|\", line (\\d+)| on line (\\d+))").matcher(text);
+                        + "(?::(\\d+)|\\((\\d+),|\", line (\\d+)| on line (\\d+))")
+                .matcher(text);
         Set<Long> lines = new TreeSet<>();
         while (matcher.find()) {
             for (int group = 1; group <= 4; group++) {

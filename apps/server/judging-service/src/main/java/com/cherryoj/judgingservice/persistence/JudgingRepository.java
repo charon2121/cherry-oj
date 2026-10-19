@@ -11,10 +11,19 @@ import org.springframework.stereotype.Repository;
 public class JudgingRepository {
     private final JdbcTemplate jdbc;
 
-    public JudgingRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public JudgingRepository(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
-    public void insertCalibration(String id, String problemId, String languageId, String testDataDigest,
-                                  long cpuNs, long memoryBytes, Long clockNs, LocalDateTime now) {
+    public void insertCalibration(
+            String id,
+            String problemId,
+            String languageId,
+            String testDataDigest,
+            long cpuNs,
+            long memoryBytes,
+            Long clockNs,
+            LocalDateTime now) {
         jdbc.update("""
                 INSERT INTO language_calibration
                   (id, problem_id, language_id, test_data_digest, status, source_type,
@@ -26,16 +35,19 @@ public class JudgingRepository {
     }
 
     public CalibrationRow findCalibration(String id) {
-        List<CalibrationRow> rows = jdbc.query(calibrationSelect() + " WHERE id = UUID_TO_BIN(?)",
-                JudgingRepository::calibration, id);
+        List<CalibrationRow> rows =
+                jdbc.query(calibrationSelect() + " WHERE id = UUID_TO_BIN(?)", JudgingRepository::calibration, id);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
     public CalibrationRow findValid(String problemId, String languageId, boolean lock) {
-        List<CalibrationRow> rows = jdbc.query(calibrationSelect() + """
+        List<CalibrationRow> rows = jdbc.query(
+                calibrationSelect() + """
                  WHERE problem_id = UUID_TO_BIN(?) AND language_id = ? AND status = 'VALID'
-                """ + (lock ? " FOR UPDATE" : ""), JudgingRepository::calibration,
-                problemId, languageId);
+                """ + (lock ? " FOR UPDATE" : ""),
+                JudgingRepository::calibration,
+                problemId,
+                languageId);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
@@ -46,8 +58,8 @@ public class JudgingRepository {
                 """, now, id, rowVersion);
     }
 
-    public int markCalibrationValid(String id, String actorId, String supersedesId,
-                                    String summaryJson, LocalDateTime now) {
+    public int markCalibrationValid(
+            String id, String actorId, String supersedesId, String summaryJson, LocalDateTime now) {
         return jdbc.update("""
                 UPDATE language_calibration SET status = 'VALID', benchmark_summary_json = CAST(? AS JSON),
                     approved_by = UUID_TO_BIN(?), approved_at = ?, supersedes_id = UUID_TO_BIN(?),
@@ -64,8 +76,15 @@ public class JudgingRepository {
                 """, summaryJson, error, now, id);
     }
 
-    public void insertAudit(String id, String aggregateType, String aggregateId, String actorId,
-                            String action, String traceId, String detailJson, LocalDateTime now) {
+    public void insertAudit(
+            String id,
+            String aggregateType,
+            String aggregateId,
+            String actorId,
+            String action,
+            String traceId,
+            String detailJson,
+            LocalDateTime now) {
         jdbc.update("""
                 INSERT INTO judging_audit_event
                   (id, aggregate_type, aggregate_id, actor_user_id, action, trace_id, detail_json, created_at)
@@ -85,17 +104,36 @@ public class JudgingRepository {
 
     private static CalibrationRow calibration(ResultSet rs, int ignored) throws SQLException {
         Long clock = rs.getObject("clock_ns", Long.class);
-        return new CalibrationRow(rs.getString("id"), rs.getString("problem_id"),
-                rs.getString("language_id"), rs.getString("test_data_digest"), rs.getString("status"),
-                rs.getObject("cpu_ns", Long.class), rs.getObject("memory_bytes", Long.class), clock,
-                rs.getString("benchmark_summary_json"), rs.getString("error_message"),
-                rs.getObject("created_at", LocalDateTime.class), rs.getObject("updated_at", LocalDateTime.class),
-                rs.getLong("row_version"), rs.getObject("approved_at", LocalDateTime.class));
+        return new CalibrationRow(
+                rs.getString("id"),
+                rs.getString("problem_id"),
+                rs.getString("language_id"),
+                rs.getString("test_data_digest"),
+                rs.getString("status"),
+                rs.getObject("cpu_ns", Long.class),
+                rs.getObject("memory_bytes", Long.class),
+                clock,
+                rs.getString("benchmark_summary_json"),
+                rs.getString("error_message"),
+                rs.getObject("created_at", LocalDateTime.class),
+                rs.getObject("updated_at", LocalDateTime.class),
+                rs.getLong("row_version"),
+                rs.getObject("approved_at", LocalDateTime.class));
     }
 
-    public record CalibrationRow(String id, String problemId, String languageId, String testDataDigest,
-                                 String status, Long cpuNs, Long memoryBytes, Long clockNs,
-                                 String benchmarkSummaryJson, String errorMessage,
-                                 LocalDateTime createdAt, LocalDateTime updatedAt, long rowVersion,
-                                 LocalDateTime approvedAt) {}
+    public record CalibrationRow(
+            String id,
+            String problemId,
+            String languageId,
+            String testDataDigest,
+            String status,
+            Long cpuNs,
+            Long memoryBytes,
+            Long clockNs,
+            String benchmarkSummaryJson,
+            String errorMessage,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt,
+            long rowVersion,
+            LocalDateTime approvedAt) {}
 }

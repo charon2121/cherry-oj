@@ -17,7 +17,9 @@ class JudgingServiceClient {
     private final WebClient client;
     private final InternalRequestFactory requests;
 
-    JudgingServiceClient(WebClient.Builder builder, InternalRequestFactory requests,
+    JudgingServiceClient(
+            WebClient.Builder builder,
+            InternalRequestFactory requests,
             @Value("${cherry.gateway.judging-service-url:http://127.0.0.1:8084}") String url) {
         this.client = builder.clone().baseUrl(url).build();
         this.requests = requests;
@@ -37,14 +39,16 @@ class JudgingServiceClient {
     private static JudgeNodeDtos.JudgeNodeListData validate(JudgeNodeDtos.JudgeNodeListData data) {
         if (data.items() == null || data.items().size() > MAX_NODES) throw unavailable();
         for (var node : data.items()) {
-            if (node.nodeId() == null || !node.nodeId().matches("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
-                    || node.languages() == null || node.lastSeenAt() == null) throw unavailable();
+            if (node.nodeId() == null
+                    || !node.nodeId().matches("^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$")
+                    || node.languages() == null
+                    || node.lastSeenAt() == null) throw unavailable();
         }
         return data;
     }
 
     static ApiProblemException unavailable() {
-        return new ApiProblemException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE",
-                "判题服务暂不可用", "暂时读不到判题节点状态，请稍后重试。");
+        return new ApiProblemException(
+                HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE", "判题服务暂不可用", "暂时读不到判题节点状态，请稍后重试。");
     }
 }

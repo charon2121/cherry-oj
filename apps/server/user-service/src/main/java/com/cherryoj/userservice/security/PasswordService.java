@@ -29,7 +29,9 @@ public final class PasswordService {
     }
 
     public boolean matches(String rawPassword, String encodedPassword) {
-        if (rawPassword == null || rawPassword.length() > 128 || encodedPassword == null
+        if (rawPassword == null
+                || rawPassword.length() > 128
+                || encodedPassword == null
                 || !encodedPassword.startsWith(PREFIX)) {
             return false;
         }

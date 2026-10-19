@@ -4,5 +4,4 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("cherry.judging")
-public record JudgingProperties(Duration judgeTimeout) {
-}
+public record JudgingProperties(Duration judgeTimeout) {}

@@ -27,10 +27,11 @@ public class AdminJudgeNodesController {
     @GetMapping
     Mono<ResponseEntity<ApiSuccess<JudgeNodeDtos.JudgeNodeListData>>> list(ServerWebExchange exchange) {
         String requestId = ApiRequestContext.requestId(exchange);
-        return adminAccess.delegatedIdentity(exchange, requestId)
+        return adminAccess
+                .delegatedIdentity(exchange, requestId)
                 .flatMap(judging::judgeNodes)
                 .onErrorMap(error -> error instanceof ApiProblemException ? error : JudgingServiceClient.unavailable())
-                .map(data -> ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                        .body(ApiSuccess.of(data, requestId)));
+                .map(data ->
+                        ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiSuccess.of(data, requestId)));
     }
 }
