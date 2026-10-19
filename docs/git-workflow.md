@@ -14,7 +14,7 @@ sh scripts/setup-hooks.sh
 
 | hook | 检查 | 耗时 |
 |---|---|---|
-| `pre-commit` | Go 格式/vet、contracts JSON、全局/开发文档系统 | ~0.5s |
+| `pre-commit` | Go 格式/vet、Java 格式（暂存的 `.java`，~2s）、Web 格式/lint、contracts JSON、文档链接 | ~0.5s（有 Java 时 ~2.5s） |
 | `commit-msg` | 标题符合 Conventional Commits | 瞬时 |
 | `pre-push` | `go test -race -count=1 ./...`（无 Go 改动时自动跳过） | ~6s |
 

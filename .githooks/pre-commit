@@ -22,6 +22,7 @@ staged=$(git diff --cached --name-only --diff-filter=ACMR)
 
 go_files=$(printf '%s\n' "$staged" | grep "^$ENGINE/.*\.go$" || true)
 json_files=$(printf '%s\n' "$staged" | grep '^contracts/.*\.json$' || true)
+java_files=$(printf '%s\n' "$staged" | grep '^apps/server/.*\.java$' || true)
 documentation_files=$(printf '%s\n' "$staged" \
     | grep -E '^(docs/|AGENTS\.md$|CLAUDE\.md$|README\.md$|scripts/docs_test(_test)?\.py$)' || true)
 web_format_files=$(printf '%s\n' "$staged" \
@@ -57,6 +58,19 @@ fi
 
 # ── Web：Prettier / ESLint ────────────────────────────────
 # 只检查暂存文件对应的工作区内容；不 --write、不 --fix，也不重新 git add。
+# ── Java：Palantir 格式（只查暂存的文件，约 2s）──────────────
+if [ -n "$java_files" ]; then
+    root=$(pwd)
+    java_targets=$(printf '%s\n' "$java_files" | sed "s|^|$root/|" | paste -sd, -)
+    if ! java_out=$(cd apps/server && ./mvnw -q -B spotless:check -DspotlessFiles="$java_targets" 2>&1); then
+        echo "✗ 以下 Java 文件未格式化："
+        printf '%s\n' "$java_out" | grep -E '^\[ERROR\] +src/' | sed 's/^\[ERROR\] */    /' | sort -u
+        echo
+        echo "  请跑：cd apps/server && ./mvnw spotless:apply，然后重新 git add"
+        fail=1
+    fi
+fi
+
 if [ -n "$web_format_files" ] || [ -n "$web_lint_files" ]; then
     if [ ! -x "$WEB/node_modules/.bin/prettier" ] || [ ! -x "$WEB/node_modules/.bin/eslint" ]; then
         echo "✗ 缺少 $WEB 的本地质量工具，请先运行："

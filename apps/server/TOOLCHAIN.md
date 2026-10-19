@@ -172,6 +172,12 @@ Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验�
 
 当前每个模块只有应用上下文启动测试。后续业务实现应补 Controller、领域规则、持久化和契约测试，不能把“上下文能启动”当成完整质量证据。
 
+### Spotless Maven Plugin 与 Palantir Java Format
+
+`spotless-maven-plugin`（3.10.4）在根 `pom.xml` 中对全部模块生效，用 Palantir Java Format（2.102.0，4 空格、120 列）
+决定排版。`./mvnw spotless:apply` 改写全部 Java 文件；`spotless:check` 绑定在 `verify` 阶段，没格式化的代码会让
+`clean verify` 失败；pre-commit 只检查暂存的 Java 文件。它是构建插件，不进入任何 JAR。
+
 ## 当前明确还没有的工具
 
 数据库与资源服务器能力只按服务职责引入：user-service、problem-service 和 judging-service 已拥有各自
@@ -188,6 +194,7 @@ Kafka 依赖只进入正式消息链所在模块；未引入新的服务注册�
 - `./mvnw -pl problem-service test`：只选择一个模块运行测试。
 - `./mvnw -pl gateway-service spring-boot:run`：从源码启动一个服务，适合本地联调。
 - `./mvnw dependency:tree`：查看直接和传递依赖，用于排查版本来源，不是日常验收命令。
+- `./mvnw spotless:apply`：按 Palantir 格式改写全部 Java 文件；`./mvnw spotless:check` 只检查不改。
 
 `-DskipTests` 会跳过测试执行，应只用于明确的本地排查。它不能作为任务完成证据。
 
