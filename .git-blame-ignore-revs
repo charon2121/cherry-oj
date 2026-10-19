@@ -1,0 +1,3 @@
+# 只改排版、不改语义的提交。git blame --ignore-revs-file .git-blame-ignore-revs（GitHub 默认读取）会跳过它们。
+# style(server): 引入 Spotless + Palantir Java Format，统一格式化全部 Java 代码
+f913feb3a02a2fe54f918a0de5e259508a7b3eb1
