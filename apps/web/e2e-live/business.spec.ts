@@ -12,15 +12,17 @@ import {
   source,
 } from './support.ts';
 
+// 运行会拿样例的预期输出逐个比对（自定义输入留空时只跑样例）。这道题只有一个样例（输入 1 2，预期 3），
+// 所以每次运行恰好一次请求；结果区显示"代码 · 名称"，编译错误只显示总结。
 const cases = [
-  ['io', 'io', 'COMPLETED', '运行完成（未校验答案）'],
-  ['ce', 'compile_error', 'COMPILE_ERROR', '编译失败'],
-  ['re', 'runtime_error', 'RUNTIME_ERROR', '程序运行错误'],
-  ['signal', 'signal_kill', 'RUNTIME_ERROR', '程序运行错误'],
-  ['cpu', 'cpu_limit', 'TIME_LIMIT_EXCEEDED', '超过时间限制'],
-  ['memory', 'memory_limit', 'MEMORY_LIMIT_EXCEEDED', '超过内存限制'],
-  ['output', 'output_limit', 'OUTPUT_LIMIT_EXCEEDED', '超过输出限制'],
-  ['empty', 'empty', 'COMPLETED', '运行完成（未校验答案）'],
+  ['io', 'io', 'COMPLETED', 'AC · 通过'],
+  ['ce', 'compile_error', 'COMPILE_ERROR', '编译错误'],
+  ['re', 'runtime_error', 'RUNTIME_ERROR', 'RE · 运行错误'],
+  ['signal', 'signal_kill', 'RUNTIME_ERROR', 'RE · 运行错误'],
+  ['cpu', 'cpu_limit', 'TIME_LIMIT_EXCEEDED', 'TLE · 超过时间限制'],
+  ['memory', 'memory_limit', 'MEMORY_LIMIT_EXCEEDED', 'MLE · 超过内存限制'],
+  ['output', 'output_limit', 'OUTPUT_LIMIT_EXCEEDED', 'OLE · 超过输出限制'],
+  ['empty', 'empty', 'COMPLETED', 'WA · 答案错误'],
 ] as const;
 
 test('fresh Linux node: custom runs, Kafka submissions and history', async ({ page }) => {
@@ -55,10 +57,6 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
   for (const [key, fixture, status, label] of cases) {
     await test.step(key, async () => {
       await replace(page, source(fixture));
-      await page.getByRole('tab', { name: '自定义输入', exact: true }).click();
-      await page
-        .getByRole('textbox', { name: '自定义输入数据', exact: true })
-        .fill(key === 'io' ? '1 2\n' : '');
       if (key === 'cpu' || key === 'memory') observe(key);
       const started = process.hrtime.bigint();
       const received = page.waitForResponse(
@@ -82,14 +80,15 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
       expect(data.effectiveLimits.memoryBytes).toBe(268_435_456);
       expect(meta.requestId).toBeTruthy();
       await page.getByRole('tab', { name: '运行结果', exact: true }).click();
-      await expect(page.getByText(label, { exact: true })).toBeVisible();
+      const result = page.getByRole('region', { name: '自定义运行结果' });
+      await expect(result.getByText(label, { exact: true })).toBeVisible();
       if (key === 'io') {
         expect(data.stdout?.text).toBe('3\n');
         expect(data.stderr?.text).toBe('work048-stderr\n');
-        await expect(page.getByRole('textbox', { name: '标准输出', exact: true })).toContainText(
+        await expect(result.getByRole('textbox', { name: '实际输出', exact: true })).toContainText(
           '3',
         );
-        await expect(page.getByRole('textbox', { name: '错误输出', exact: true })).toContainText(
+        await expect(result.getByRole('textbox', { name: '错误输出', exact: true })).toContainText(
           'work048-stderr',
         );
       }

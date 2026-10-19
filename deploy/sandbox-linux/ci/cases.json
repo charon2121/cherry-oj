@@ -417,7 +417,7 @@
       "TestExecutorClearsTheBoxAfterEachRun"
     ],
     "cherry-oj/judge-engine/judge/node/preflight": [
-      "TestDeploymentRejectsChangedFilesAndLimits",
+      "TestDeploymentRejectsChangedFiles",
       "TestCheckRefusesMissingManifestOrWrongBackend"
     ],
     "cherry-oj/judge-engine/execution/runner": [
