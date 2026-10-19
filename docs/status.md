@@ -6,6 +6,9 @@
 规范怎么写见 [`coding-standards/README.md`](./coding-standards/README.md)，架构为什么这样分见
 [`architecture.md`](./architecture.md)。
 
+**完整 MVP（PRD §3.4 六条基线）2026-10-19 起已交付**，证据见 [MVP 收尾验证](../development/works/2026-10-19-mvp-closure/00-work.md)；
+尚未部署到现有使用环境，测试服务器节点仍是不支持 CORE 的 2026-10-14 版本。
+
 | 部分 | 状态 |
 |---|---|
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
