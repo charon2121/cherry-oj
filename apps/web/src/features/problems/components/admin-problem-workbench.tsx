@@ -547,7 +547,8 @@ function WorkbenchEditor({
             onClick={() => void form.handleSubmit()}
           >
             <Save aria-hidden="true" />
-            保存
+            {/* 窄屏顶栏放不下文字（导航、品牌、保存、更多、主题、账号），只留图标；名字仍给读屏。 */}
+            <span className="max-sm:sr-only">保存</span>
           </Button>
         )}
         <DropdownMenu>

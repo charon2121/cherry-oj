@@ -47,7 +47,8 @@ function AdminAppShell() {
 
         {/* 主内容是一块内嵌面板（linear.app 实测）：侧栏与画布同底，面板四周留 shell-inset、
           比画布亮一档、0.5px 边与 12px 圆角；顶栏与滚动区都在面板内部。窄屏不内嵌。 */}
-        <div className="bg-panel md:border-border md:shadow-subtle md:my-shell-inset md:mr-shell-inset md:border-hairline grid min-h-0 min-w-0 grid-rows-[var(--layout-header)_minmax(0,1fr)] md:overflow-hidden md:rounded-xl">
+        {/* 列宽用 minmax(0,1fr)：顶栏里的操作再多也只挤顶栏自己，不会把隐式列和整页撑出横向滚动。 */}
+        <div className="bg-panel md:border-border md:shadow-subtle md:my-shell-inset md:mr-shell-inset md:border-hairline grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--layout-header)_minmax(0,1fr)] md:overflow-hidden md:rounded-xl">
           <header className="border-border-soft bg-panel border-b-hairline sticky top-0 z-40">
             <Container className="h-full max-w-none">
               <div className="flex h-full min-w-0 flex-nowrap items-center gap-2">

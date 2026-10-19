@@ -442,3 +442,63 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
   await expect(page).toHaveURL(/panel=calibration/);
   await expect(page.getByRole('dialog', { name: '运行参考核心代码校准' })).toBeVisible();
 });
+
+test('a published problem keeps its manual save reachable without widening a 320px page', async ({
+  page,
+}) => {
+  const timestamp = '2026-10-19T01:00:00Z';
+  await page.route('**/api/auth/session', (route) =>
+    success(route, {
+      authenticated: true,
+      user: {
+        id: 'd0e35399-6487-4ac8-8138-8d5bd60eb003',
+        username: 'root-admin',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        passwordChangeRequired: false,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        rowVersion: 0,
+      },
+    }),
+  );
+  await page.route(`**/api/admin/problems/${problemId}`, (route) =>
+    success(route, {
+      id: problemId,
+      slug: 'published-sum',
+      visibility: 'PUBLIC',
+      status: 'ACTIVE',
+      codeMode: 'ACM',
+      title: '已公开的长题目标题：两个整数求和',
+      statementMarkdown: '计算两数之和。',
+      inputDescriptionMarkdown: '两个整数。',
+      outputDescriptionMarkdown: '它们的和。',
+      constraintsMarkdown: null,
+      hintMarkdown: null,
+      difficulty: 'EASY',
+      tags: [],
+      samples: [{ ordinal: 1, input: '1 2', output: '3', explanationMarkdown: null }],
+      allowedLanguages: [{ id: 'cpp', displayName: 'C++', starterCode: '', judgeTemplate: null }],
+      testData: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      publishedAt: timestamp,
+      rowVersion: 3,
+    }),
+  );
+  await page.route(`**/api/admin/problems/${problemId}/publish-check`, (route) =>
+    success(route, { ready: true, checks: [] }),
+  );
+
+  // 已公开的题目不自动保存，顶栏多出"保存"：窄屏只留图标，名字仍可读、可点，页面不横向滚动。
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto(`/admin/problems/${problemId}`);
+  const save = page.getByRole('button', { name: '保存', exact: true });
+  await expect(save).toBeVisible();
+  await expect(page.getByRole('button', { name: '更多操作' })).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+    .toBeLessThanOrEqual(1);
+  const box = await save.boundingBox();
+  expect(box && box.x + box.width).toBeLessThanOrEqual(320);
+});
