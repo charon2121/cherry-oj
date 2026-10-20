@@ -10,7 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.AuthenticationFailedException;
-import com.cherryoj.userservice.domain.LoginGrant;
+import com.cherryoj.userservice.domain.LoginSession;
+import com.cherryoj.userservice.domain.SessionInvalidException;
 import com.cherryoj.userservice.domain.UserAccount;
 import com.cherryoj.userservice.domain.UserRole;
 import com.cherryoj.userservice.domain.UserStatus;
@@ -18,10 +19,8 @@ import com.cherryoj.userservice.domain.UsernamePolicy;
 import com.cherryoj.userservice.domain.UuidV7;
 import com.cherryoj.userservice.persistence.LoginSessionMapper;
 import com.cherryoj.userservice.persistence.UserAccountMapper;
-import com.cherryoj.userservice.security.LoginGrantCodec;
 import com.cherryoj.userservice.security.PasswordService;
-import com.cherryoj.userservice.security.TokenService;
-import com.cherryoj.userservice.security.TokenValue;
+import com.cherryoj.userservice.security.SessionIdCodec;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -48,8 +47,7 @@ class AuthenticationServiceTests {
             UserAccountMapper accounts = mock(UserAccountMapper.class);
             LoginSessionMapper sessions = mock(LoginSessionMapper.class);
             PasswordService passwords = mock(PasswordService.class);
-            LoginGrantCodec grants = mock(LoginGrantCodec.class);
-            TokenService tokens = mock(TokenService.class);
+            SessionIdCodec sessionIds = mock(SessionIdCodec.class);
             UuidV7 ids = mock(UuidV7.class);
             UUID sessionId = UUID.fromString("019c8e42-7f70-7000-8000-000000000002");
             byte[] digest = {1, 2, 3};
@@ -57,17 +55,15 @@ class AuthenticationServiceTests {
             when(transactions.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
             when(accounts.findByNormalizedUsernameForUpdate("learner01")).thenReturn(account());
             when(passwords.matches("correct-password", "stored-hash")).thenReturn(true);
-            when(grants.generate()).thenReturn("grant-value");
-            when(grants.digest("grant-value")).thenReturn(digest);
+            when(sessionIds.generate()).thenReturn("session-value");
+            when(sessionIds.digest("session-value")).thenReturn(digest);
             when(ids.next()).thenReturn(sessionId);
-            when(tokens.issue(account())).thenReturn(new TokenValue("token", instant.plusSeconds(7200)));
             AuthenticationService authentication = new AuthenticationService(
                     accounts,
                     sessions,
                     new UsernamePolicy(),
                     passwords,
-                    grants,
-                    tokens,
+                    sessionIds,
                     mock(AuditService.class),
                     ids,
                     properties(),
@@ -77,7 +73,8 @@ class AuthenticationServiceTests {
             var result = authentication.authenticate("Learner01", "correct-password");
 
             LocalDateTime expected = localNow().plusDays(30).withNano(expectedNs);
-            assertThat(result.sessionAbsoluteExpiresAt())
+            assertThat(result.sessionId()).isEqualTo("session-value");
+            assertThat(LocalDateTime.ofInstant(result.sessionExpiresAt(), ZoneOffset.UTC))
                     .as("input fraction ns=%s", inputNs)
                     .isEqualTo(expected)
                     .isBeforeOrEqualTo(now.plusDays(30));
@@ -88,9 +85,7 @@ class AuthenticationServiceTests {
                             digest,
                             account().sessionVersion(),
                             now,
-                            result.sessionAbsoluteExpiresAt());
-            // Only the session deadline is normalized; token TTL and other timestamps retain their meaning.
-            assertThat(result.accessTokenExpiresAt()).isEqualTo(instant.plusSeconds(7200));
+                            expected);
             verify(accounts).recordLoginSuccess(account().id(), now);
         });
     }
@@ -109,8 +104,7 @@ class AuthenticationServiceTests {
                 accounts,
                 mock(LoginSessionMapper.class),
                 passwords,
-                mock(LoginGrantCodec.class),
-                mock(TokenService.class),
+                mock(SessionIdCodec.class),
                 audit,
                 transactionManager);
 
@@ -123,49 +117,40 @@ class AuthenticationServiceTests {
     }
 
     @Test
-    void validateIsReadOnlyAndReturnsUnchangedAbsoluteDeadline() {
+    void validateReturnsTheUserAndTheUnchangedAbsoluteDeadline() {
         LoginSessionMapper sessions = mock(LoginSessionMapper.class);
-        LoginGrantCodec grants = mock(LoginGrantCodec.class);
+        SessionIdCodec sessionIds = mock(SessionIdCodec.class);
         byte[] digest = {1, 2, 3};
-        LoginGrant grant = loginGrant();
-        when(grants.digest("grant-value")).thenReturn(digest);
-        when(sessions.findActiveByGrantHash(digest, localNow())).thenReturn(grant);
+        LoginSession session = loginSession();
+        when(sessionIds.digest("session-value")).thenReturn(digest);
+        when(sessions.findActiveByHash(digest, localNow())).thenReturn(session);
 
-        SessionTouchResult result =
-                service(sessions, grants, mock(TokenService.class)).validate("grant-value");
+        SessionValidation result = service(sessions, sessionIds).validate("session-value");
 
-        assertThat(result.sessionAbsoluteExpiresAt()).isEqualTo(grant.absoluteExpiresAt());
-        assertThat(result.sessionLifetimePolicy()).isEqualTo("fixed-absolute");
-        verify(sessions, never()).markUsed(any(), any(), any(Long.class));
+        assertThat(result.user().id()).isEqualTo(account().id());
+        assertThat(result.sessionExpiresAt())
+                .isEqualTo(session.absoluteExpiresAt().toInstant(ZoneOffset.UTC));
+        verify(sessions).touch(session.sessionId(), localNow());
     }
 
     @Test
-    void exchangeRecordsUsageButNeverExtendsAbsoluteDeadline() {
+    void anUnknownSessionIsInvalidForValidateAndRevoke() {
         LoginSessionMapper sessions = mock(LoginSessionMapper.class);
-        LoginGrantCodec grants = mock(LoginGrantCodec.class);
-        TokenService tokens = mock(TokenService.class);
-        byte[] digest = {1, 2, 3};
-        LoginGrant grant = loginGrant();
-        when(grants.digest("grant-value")).thenReturn(digest);
-        when(sessions.findActiveByGrantHashForUpdate(digest, localNow())).thenReturn(grant);
-        when(sessions.markUsed(grant.sessionId(), localNow(), grant.rowVersion()))
-                .thenReturn(1);
-        when(tokens.issue(grant)).thenReturn(new TokenValue("token", NOW.plus(Duration.ofHours(2))));
+        SessionIdCodec sessionIds = mock(SessionIdCodec.class);
+        when(sessionIds.digest(any())).thenReturn(new byte[32]);
+        var service = service(sessions, sessionIds);
 
-        TokenExchangeResult result = service(sessions, grants, tokens).exchange("grant-value");
-
-        assertThat(result.sessionAbsoluteExpiresAt()).isEqualTo(grant.absoluteExpiresAt());
-        verify(sessions).markUsed(grant.sessionId(), localNow(), grant.rowVersion());
+        assertThatThrownBy(() -> service.validate("unknown")).isInstanceOf(SessionInvalidException.class);
+        assertThatThrownBy(() -> service.revoke("unknown")).isInstanceOf(SessionInvalidException.class);
+        verify(sessions, never()).revokeCurrent(any(), any(), any());
     }
 
-    private static AuthenticationService service(
-            LoginSessionMapper sessions, LoginGrantCodec grants, TokenService tokens) {
+    private static AuthenticationService service(LoginSessionMapper sessions, SessionIdCodec sessionIds) {
         return service(
                 mock(UserAccountMapper.class),
                 sessions,
                 mock(PasswordService.class),
-                grants,
-                tokens,
+                sessionIds,
                 mock(AuditService.class),
                 mock(PlatformTransactionManager.class));
     }
@@ -174,8 +159,7 @@ class AuthenticationServiceTests {
             UserAccountMapper accounts,
             LoginSessionMapper sessions,
             PasswordService passwords,
-            LoginGrantCodec grants,
-            TokenService tokens,
+            SessionIdCodec sessionIds,
             AuditService audit,
             PlatformTransactionManager transactionManager) {
         return new AuthenticationService(
@@ -183,8 +167,7 @@ class AuthenticationServiceTests {
                 sessions,
                 new UsernamePolicy(),
                 passwords,
-                grants,
-                tokens,
+                sessionIds,
                 audit,
                 mock(UuidV7.class),
                 properties(),
@@ -192,8 +175,8 @@ class AuthenticationServiceTests {
                 transactionManager);
     }
 
-    private static LoginGrant loginGrant() {
-        return new LoginGrant(
+    private static LoginSession loginSession() {
+        return new LoginSession(
                 "019c8e42-7f70-7000-8000-000000000002",
                 account().id(),
                 account().username(),
@@ -228,18 +211,7 @@ class AuthenticationServiceTests {
     }
 
     private static AuthProperties properties() {
-        return new AuthProperties(
-                "server",
-                "cherry-oj-user-service",
-                "cherry-oj-internal",
-                "test-key",
-                "unused",
-                "unused",
-                Map.of(),
-                Duration.ofHours(2),
-                Duration.ofSeconds(30),
-                "fixed-absolute",
-                2_592_000);
+        return new AuthProperties("server", 2_592_000);
     }
 
     private static LocalDateTime localNow() {

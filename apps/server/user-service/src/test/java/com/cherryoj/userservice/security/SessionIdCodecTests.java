@@ -5,11 +5,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.security.SecureRandom;
 import org.junit.jupiter.api.Test;
 
-class LoginGrantCodecTests {
+class SessionIdCodecTests {
 
     @Test
-    void grantsAreOpaqueAndOnlyDigestIsStable() {
-        LoginGrantCodec codec = new LoginGrantCodec(new SecureRandom());
+    void sessionIdsAreOpaqueAndOnlyDigestIsStable() {
+        SessionIdCodec codec = new SessionIdCodec(new SecureRandom());
 
         String first = codec.generate();
         String second = codec.generate();

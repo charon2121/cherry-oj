@@ -1,38 +1,35 @@
 package com.cherryoj.userservice.config;
 
+import com.cherryoj.identity.resource.CallSecurity;
+import com.cherryoj.identity.resource.EndpointPolicies;
+import com.cherryoj.identity.token.ServiceNames;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
 
+/** 本服务接受哪些调用。bootstrap 模式不启动 Web，也不需要服务密钥。 */
 @Configuration(proxyBeanMethods = false)
-@EnableMethodSecurity
+@Import(CallSecurity.class)
 @ConditionalOnProperty(prefix = "cherry.auth", name = "mode", havingValue = "server", matchIfMissing = true)
 public class SecurityConfig {
-
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
-        authorities.setAuthoritiesClaimName("roles");
-        authorities.setAuthorityPrefix("ROLE_");
-        JwtAuthenticationConverter authentication = new JwtAuthenticationConverter();
-        authentication.setJwtGrantedAuthoritiesConverter(authorities);
-
-        return http.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                "/actuator/health/**",
-                                "/actuator/info",
-                                "/.well-known/jwks.json",
-                                "/internal/identity/metadata")
-                        .permitAll()
-                        .anyRequest()
-                        .authenticated())
-                .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtAuthenticationConverter(authentication)))
+    EndpointPolicies endpointPolicies() {
+        return EndpointPolicies.builder()
+                .endpoint(
+                        HttpMethod.POST,
+                        "/internal/auth/authenticate",
+                        "/internal/auth/validate",
+                        "/internal/auth/revoke")
+                .callers(ServiceNames.GATEWAY)
+                .withoutUser()
+                .endpoint(HttpMethod.POST, "/internal/users/me/password")
+                .callers(ServiceNames.GATEWAY)
+                .anyUser()
+                .endpoint("/internal/admin/users", "/internal/admin/users/**")
+                .callers(ServiceNames.GATEWAY)
+                .admin()
                 .build();
     }
 }

@@ -1,29 +1,13 @@
 package com.cherryoj.userservice.config;
 
 import java.time.Duration;
-import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/** mode：server 提供接口，bootstrap 只创建初始管理员后退出。会话自登录起按固定时长过期。 */
 @ConfigurationProperties("cherry.auth")
-public record AuthProperties(
-        String mode,
-        String issuer,
-        String audience,
-        String keyId,
-        String privateKeyLocation,
-        String publicKeyLocation,
-        Map<String, String> previousPublicKeys,
-        Duration accessTokenTtl,
-        Duration clockSkew,
-        String sessionLifetimePolicy,
-        long sessionAbsoluteTimeoutSeconds) {
-
+public record AuthProperties(String mode, long sessionAbsoluteTimeoutSeconds) {
     public AuthProperties {
         mode = mode == null ? "server" : mode;
-        previousPublicKeys = previousPublicKeys == null ? Map.of() : Map.copyOf(previousPublicKeys);
-        if (!"fixed-absolute".equals(sessionLifetimePolicy)) {
-            throw new IllegalArgumentException("cherry.auth.session-lifetime-policy must be fixed-absolute");
-        }
         if (sessionAbsoluteTimeoutSeconds < 86_400 || sessionAbsoluteTimeoutSeconds > 7_776_000) {
             throw new IllegalArgumentException(
                     "cherry.auth.session-absolute-timeout-seconds must be within [86400, 7776000]");

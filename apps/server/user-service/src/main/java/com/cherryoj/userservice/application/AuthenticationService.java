@@ -4,19 +4,19 @@ import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.AuthenticationFailedException;
 import com.cherryoj.userservice.domain.IdentityConflictException;
 import com.cherryoj.userservice.domain.IdentityValidationException;
-import com.cherryoj.userservice.domain.LoginGrant;
+import com.cherryoj.userservice.domain.LoginSession;
+import com.cherryoj.userservice.domain.SessionInvalidException;
 import com.cherryoj.userservice.domain.UserAccount;
 import com.cherryoj.userservice.domain.UserStatus;
 import com.cherryoj.userservice.domain.UsernamePolicy;
 import com.cherryoj.userservice.domain.UuidV7;
 import com.cherryoj.userservice.persistence.LoginSessionMapper;
 import com.cherryoj.userservice.persistence.UserAccountMapper;
-import com.cherryoj.userservice.security.LoginGrantCodec;
 import com.cherryoj.userservice.security.PasswordService;
-import com.cherryoj.userservice.security.TokenService;
-import com.cherryoj.userservice.security.TokenValue;
+import com.cherryoj.userservice.security.SessionIdCodec;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -35,8 +35,7 @@ public class AuthenticationService {
     private final LoginSessionMapper sessions;
     private final UsernamePolicy usernames;
     private final PasswordService passwords;
-    private final LoginGrantCodec grants;
-    private final TokenService tokens;
+    private final SessionIdCodec sessionIds;
     private final AuditService audit;
     private final UuidV7 uuidV7;
     private final AuthProperties properties;
@@ -48,8 +47,7 @@ public class AuthenticationService {
             LoginSessionMapper sessions,
             UsernamePolicy usernames,
             PasswordService passwords,
-            LoginGrantCodec grants,
-            TokenService tokens,
+            SessionIdCodec sessionIds,
             AuditService audit,
             UuidV7 uuidV7,
             AuthProperties properties,
@@ -59,8 +57,7 @@ public class AuthenticationService {
         this.sessions = sessions;
         this.usernames = usernames;
         this.passwords = passwords;
-        this.grants = grants;
-        this.tokens = tokens;
+        this.sessionIds = sessionIds;
         this.audit = audit;
         this.uuidV7 = uuidV7;
         this.properties = properties;
@@ -103,65 +100,40 @@ public class AuthenticationService {
         }
 
         accounts.recordLoginSuccess(account.id(), now);
-        String grant = grants.generate();
+        String sessionId = sessionIds.generate();
         // MySQL DATETIME(6) must preserve the exact deadline returned to the gateway.
-        // Truncate before both persistence and issuance so rounding cannot extend the session.
+        // Truncate before both persistence and the response so rounding cannot extend the session.
         LocalDateTime absoluteExpiresAt =
                 now.plus(properties.sessionAbsoluteTimeout()).truncatedTo(ChronoUnit.MICROS);
         sessions.insert(
                 uuidV7.next().toString(),
                 account.id(),
-                grants.digest(grant),
+                sessionIds.digest(sessionId),
                 account.sessionVersion(),
                 now,
                 absoluteExpiresAt);
-        TokenValue token = tokens.issue(account);
         audit.record(account.id(), account.id(), "LOGIN_SUCCEEDED");
-        return new AuthenticationResult(
-                UserView.from(account),
-                grant,
-                token.value(),
-                token.expiresAt(),
-                absoluteExpiresAt,
-                properties.sessionAbsoluteTimeoutSeconds(),
-                properties.sessionLifetimePolicy());
+        return new AuthenticationResult(sessionId, UserView.from(account), instant(absoluteExpiresAt));
     }
 
     @Transactional
-    public TokenExchangeResult exchange(String loginGrant) {
+    public SessionValidation validate(String sessionId) {
         LocalDateTime now = now();
-        LoginGrant grant = sessions.findActiveByGrantHashForUpdate(grants.digest(loginGrant), now);
-        if (grant == null) {
-            throw new AuthenticationFailedException();
+        LoginSession session = sessions.findActiveByHash(sessionIds.digest(sessionId), now);
+        if (session == null) {
+            throw new SessionInvalidException();
         }
-        if (sessions.markUsed(grant.sessionId(), now, grant.rowVersion()) != 1) {
-            throw new IdentityConflictException("SESSION_CONFLICT", "登录状态发生并发变化，请重试");
-        }
-        TokenValue token = tokens.issue(grant);
-        return new TokenExchangeResult(
-                UserView.from(grant),
-                token.value(),
-                token.expiresAt(),
-                grant.absoluteExpiresAt(),
-                properties.sessionAbsoluteTimeoutSeconds(),
-                properties.sessionLifetimePolicy());
-    }
-
-    public SessionTouchResult validate(String loginGrant) {
-        LocalDateTime now = now();
-        LoginGrant grant = sessions.findActiveByGrantHash(grants.digest(loginGrant), now);
-        if (grant == null) {
-            throw new AuthenticationFailedException();
-        }
-        return new SessionTouchResult(
-                grant.absoluteExpiresAt(),
-                properties.sessionAbsoluteTimeoutSeconds(),
-                properties.sessionLifetimePolicy());
+        sessions.touch(session.sessionId(), now);
+        return new SessionValidation(UserView.from(session), instant(session.absoluteExpiresAt()));
     }
 
     @Transactional
-    public void revoke(String loginGrant) {
-        sessions.revokeCurrent(grants.digest(loginGrant), now(), "LOGOUT");
+    public void revoke(String sessionId) {
+        LocalDateTime now = now();
+        if (sessions.findActiveByHash(sessionIds.digest(sessionId), now) == null) {
+            throw new SessionInvalidException();
+        }
+        sessions.revokeCurrent(sessionIds.digest(sessionId), now, "LOGOUT");
     }
 
     @Transactional
@@ -180,6 +152,10 @@ public class AuthenticationService {
         }
         sessions.revokeAll(account.id(), now, "PASSWORD_CHANGED");
         audit.record(account.id(), account.id(), "PASSWORD_CHANGED");
+    }
+
+    private static Instant instant(LocalDateTime utc) {
+        return utc.toInstant(ZoneOffset.UTC);
     }
 
     private LocalDateTime now() {

@@ -2,9 +2,6 @@ package com.cherryoj.userservice.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.cherryoj.userservice.application.AuditService;
 import com.cherryoj.userservice.application.AuthenticationService;
@@ -12,15 +9,12 @@ import com.cherryoj.userservice.application.UserAdministrationService;
 import com.cherryoj.userservice.config.AuthProperties;
 import com.cherryoj.userservice.domain.AuthenticationFailedException;
 import com.cherryoj.userservice.domain.IdentityConflictException;
-import com.cherryoj.userservice.domain.LoginGrant;
-import com.cherryoj.userservice.domain.UserAccount;
+import com.cherryoj.userservice.domain.SessionInvalidException;
 import com.cherryoj.userservice.domain.UserStatus;
 import com.cherryoj.userservice.domain.UsernamePolicy;
 import com.cherryoj.userservice.domain.UuidV7;
-import com.cherryoj.userservice.security.LoginGrantCodec;
 import com.cherryoj.userservice.security.PasswordService;
-import com.cherryoj.userservice.security.TokenService;
-import com.cherryoj.userservice.security.TokenValue;
+import com.cherryoj.userservice.security.SessionIdCodec;
 import com.github.dockerjava.api.model.LogConfig;
 import java.time.Clock;
 import java.time.Instant;
@@ -89,7 +83,7 @@ class UserPersistenceIntegrationTests {
     PasswordService passwords;
 
     @Autowired
-    LoginGrantCodec grants;
+    SessionIdCodec sessionIds;
 
     @Autowired
     AuditService audit;
@@ -143,8 +137,7 @@ class UserPersistenceIntegrationTests {
                 sessions,
                 usernames,
                 passwords,
-                grants,
-                mock(TokenService.class),
+                sessionIds,
                 audit,
                 uuidV7,
                 properties,
@@ -165,20 +158,19 @@ class UserPersistenceIntegrationTests {
     @Order(3)
     void mysqlValidationIgnoresLegacyIdleAndNeverExtendsAbsoluteDeadline() {
         var created = users.createUser(null, "SessionLearner");
-        String rawGrant = grants.generate();
-        byte[] digest = grants.digest(rawGrant);
+        String sessionId = sessionIds.generate();
+        byte[] digest = sessionIds.digest(sessionId);
         LocalDateTime now =
                 LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
         LocalDateTime absolute = now.plusDays(30);
         sessions.insert(uuidV7.next().toString(), created.user().id(), digest, 0, now, absolute);
 
-        var initial = sessions.findActiveByGrantHash(digest, now.plusMinutes(31));
+        var initial = sessions.findActiveByHash(digest, now.plusMinutes(31));
         assertThat(initial).isNotNull();
-        assertThat(sessions.markUsed(initial.sessionId(), now.plusMinutes(31), initial.rowVersion()))
-                .isEqualTo(1);
-        var fixed = sessions.findActiveByGrantHash(digest, now.plusDays(29));
+        assertThat(sessions.touch(initial.sessionId(), now.plusMinutes(31))).isEqualTo(1);
+        var fixed = sessions.findActiveByHash(digest, now.plusDays(29));
         assertThat(fixed.absoluteExpiresAt()).isEqualTo(absolute);
-        assertThat(sessions.findActiveByGrantHash(digest, absolute)).isNull();
+        assertThat(sessions.findActiveByHash(digest, absolute)).isNull();
     }
 
     @Test
@@ -200,47 +192,37 @@ class UserPersistenceIntegrationTests {
             // Exercise real authentication and persistence; never pre-truncate the clock or insert a session here.
             var issued = authentication.authenticate(created.user().username(), created.temporaryPassword());
             assertThat(accounts.findById(created.user().id()).updatedAt()).isAfterOrEqualTo(createdAt);
-            var validated = authentication.validate(issued.loginGrant());
-            var exchanged = new TransactionTemplate(transactionManager)
-                    .execute(ignored -> authentication.exchange(issued.loginGrant()));
+            var validated = authentication.validate(issued.sessionId());
 
-            assertThat(validated.sessionAbsoluteExpiresAt())
+            assertThat(validated.sessionExpiresAt())
                     .as("validate fraction ns=%s", inputNs)
-                    .isEqualTo(issued.sessionAbsoluteExpiresAt());
-            assertThat(exchanged).isNotNull();
-            assertThat(exchanged.sessionAbsoluteExpiresAt())
-                    .as("exchange fraction ns=%s", inputNs)
-                    .isEqualTo(issued.sessionAbsoluteExpiresAt());
-            assertThat(issued.sessionAbsoluteExpiresAt())
-                    .isBeforeOrEqualTo(
-                            LocalDateTime.ofInstant(instant, ZoneOffset.UTC).plus(properties.sessionAbsoluteTimeout()));
+                    .isEqualTo(issued.sessionExpiresAt());
+            assertThat(validated.user().id()).isEqualTo(created.user().id());
+            assertThat(issued.sessionExpiresAt()).isBeforeOrEqualTo(instant.plus(properties.sessionAbsoluteTimeout()));
 
-            Instant deadline = issued.sessionAbsoluteExpiresAt().toInstant(ZoneOffset.UTC);
+            Instant deadline = issued.sessionExpiresAt();
             assertThat(authenticationAt(deadline.minusNanos(1000))
-                            .validate(issued.loginGrant())
-                            .sessionAbsoluteExpiresAt())
-                    .isEqualTo(issued.sessionAbsoluteExpiresAt());
-            assertThatThrownBy(() -> authenticationAt(deadline).validate(issued.loginGrant()))
-                    .isInstanceOf(AuthenticationFailedException.class);
+                            .validate(issued.sessionId())
+                            .sessionExpiresAt())
+                    .isEqualTo(issued.sessionExpiresAt());
+            assertThatThrownBy(() -> authenticationAt(deadline).validate(issued.sessionId()))
+                    .isInstanceOf(SessionInvalidException.class);
             new TransactionTemplate(transactionManager)
-                    .executeWithoutResult(ignored -> authentication.revoke(issued.loginGrant()));
-            assertThatThrownBy(() -> authentication.validate(issued.loginGrant()))
-                    .isInstanceOf(AuthenticationFailedException.class);
+                    .executeWithoutResult(ignored -> authentication.revoke(issued.sessionId()));
+            assertThatThrownBy(() -> authentication.validate(issued.sessionId()))
+                    .isInstanceOf(SessionInvalidException.class);
+            assertThatThrownBy(() -> authentication.revoke(issued.sessionId()))
+                    .isInstanceOf(SessionInvalidException.class);
         }
     }
 
     private AuthenticationService authenticationAt(Instant instant) {
-        TokenService tokens = mock(TokenService.class);
-        TokenValue token = new TokenValue("test-token", instant.plus(properties.accessTokenTtl()));
-        when(tokens.issue(any(UserAccount.class))).thenReturn(token);
-        when(tokens.issue(any(LoginGrant.class))).thenReturn(token);
         return new AuthenticationService(
                 accounts,
                 sessions,
                 usernames,
                 passwords,
-                grants,
-                tokens,
+                sessionIds,
                 audit,
                 uuidV7,
                 properties,

@@ -2,7 +2,7 @@ package com.cherryoj.userservice.domain;
 
 import java.time.LocalDateTime;
 
-public record LoginGrant(
+public record LoginSession(
         String sessionId,
         String userId,
         String username,

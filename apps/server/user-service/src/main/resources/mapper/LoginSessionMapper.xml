@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.cherryoj.userservice.persistence.LoginSessionMapper">
-    <resultMap id="loginGrant" type="com.cherryoj.userservice.domain.LoginGrant">
+    <resultMap id="loginSession" type="com.cherryoj.userservice.domain.LoginSession">
         <constructor>
             <arg column="session_id" javaType="java.lang.String"/>
             <arg column="user_id" javaType="java.lang.String"/>
@@ -22,7 +22,7 @@
         INSERT INTO user_login_session (
             id,
             user_id,
-            grant_hash,
+            session_id_hash,
             session_version,
             created_at,
             last_used_at,
@@ -32,7 +32,7 @@
         ) VALUES (
             UUID_TO_BIN(#{id}),
             UUID_TO_BIN(#{userId}),
-            #{grantHash},
+            #{hash},
             #{sessionVersion},
             #{now},
             #{now},
@@ -42,7 +42,7 @@
         )
     </insert>
 
-    <select id="findActiveByGrantHashForUpdate" resultMap="loginGrant">
+    <select id="findActiveByHash" resultMap="loginSession">
         SELECT BIN_TO_UUID(login_session.id) AS session_id,
                BIN_TO_UUID(account.id) AS user_id,
                account.username,
@@ -57,43 +57,19 @@
                login_session.row_version
         FROM user_login_session AS login_session
         JOIN user_account AS account ON account.id = login_session.user_id
-        WHERE login_session.grant_hash = #{grantHash}
-          AND login_session.revoked_at IS NULL
-          AND login_session.absolute_expires_at > #{now}
-          AND login_session.session_version = account.session_version
-          AND account.status = 'ACTIVE'
-        FOR UPDATE
-    </select>
-
-    <select id="findActiveByGrantHash" resultMap="loginGrant">
-        SELECT BIN_TO_UUID(login_session.id) AS session_id,
-               BIN_TO_UUID(account.id) AS user_id,
-               account.username,
-               account.role,
-               account.status,
-               account.password_change_required,
-               account.session_version,
-               account.created_at AS user_created_at,
-               account.updated_at AS user_updated_at,
-               account.row_version AS user_row_version,
-               login_session.absolute_expires_at,
-               login_session.row_version
-        FROM user_login_session AS login_session
-        JOIN user_account AS account ON account.id = login_session.user_id
-        WHERE login_session.grant_hash = #{grantHash}
+        WHERE login_session.session_id_hash = #{hash}
           AND login_session.revoked_at IS NULL
           AND login_session.absolute_expires_at > #{now}
           AND login_session.session_version = account.session_version
           AND account.status = 'ACTIVE'
     </select>
 
-    <update id="markUsed">
+    <update id="touch">
         UPDATE user_login_session
         SET last_used_at = #{now},
             row_version = row_version + 1
         WHERE id = UUID_TO_BIN(#{id})
           AND revoked_at IS NULL
-          AND row_version = #{expectedRowVersion}
     </update>
 
     <update id="revokeCurrent">
@@ -101,7 +77,7 @@
         SET revoked_at = #{now},
             revoke_reason = #{reason},
             row_version = row_version + 1
-        WHERE grant_hash = #{grantHash}
+        WHERE session_id_hash = #{hash}
           AND revoked_at IS NULL
     </update>
 

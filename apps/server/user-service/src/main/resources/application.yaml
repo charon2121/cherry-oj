@@ -20,25 +20,11 @@ mybatis:
 cherry:
   auth:
     mode: "${CHERRY_AUTH_MODE:server}"
-    key-id: "${CHERRY_AUTH_KEY_ID:}"
-    # 旧公钥按 key-id 映射，仅在轮换时配置，不包含私钥。
-    # previous-public-keys:
-    #   old-key-id: "file:/path/to/old-public.pem"
-    issuer: "${CHERRY_AUTH_ISSUER:cherry-oj-user-service}"
-    audience: "${CHERRY_AUTH_AUDIENCE:cherry-oj-internal}"
-    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION:file:./data/identity-keys/active-private.pem}"
-    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION:file:./data/identity-keys/active-public.pem}"
-    access-token-ttl: 2h
-    clock-skew: 30s
-    session-lifetime-policy: fixed-absolute
     session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
-
-  # 可以换取服务令牌的调用方：服务名 → 公钥（PEM）。只登记公钥，不含秘密；私钥只在各服务手里。
-  # 本地由 scripts/dev-server.sh 生成到 .local/service-identity/；部署时用环境变量指向挂载的公钥。
-  service-clients:
-    gateway-service: "${CHERRY_SERVICE_PUBLIC_KEY_GATEWAY:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/gateway-service-public.pem}"
-    submission-service: "${CHERRY_SERVICE_PUBLIC_KEY_SUBMISSION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/submission-service-public.pem}"
-    judging-service: "${CHERRY_SERVICE_PUBLIC_KEY_JUDGING:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/judging-service-public.pem}"
+  service-identity:
+    name: "${spring.application.name}"
+    private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
+    public-keys-dir: "${CHERRY_SERVICE_PUBLIC_KEYS_DIR:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}}"
 
 server:
   port: "${CHERRY_USER_PORT:8081}"
@@ -70,7 +56,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,identitySigningKey
+          include: readinessState
 
 logging:
   file:
@@ -103,8 +89,3 @@ spring:
       on-profile: "prod | production"
   datasource:
     password: "${CHERRY_USER_DB_PASSWORD}"
-
-cherry:
-  auth:
-    private-key-location: "${CHERRY_AUTH_PRIVATE_KEY_LOCATION}"
-    public-key-location: "${CHERRY_AUTH_PUBLIC_KEY_LOCATION}"

@@ -1,6 +1,6 @@
 package com.cherryoj.userservice.application;
 
-import com.cherryoj.userservice.domain.LoginGrant;
+import com.cherryoj.userservice.domain.LoginSession;
 import com.cherryoj.userservice.domain.UserAccount;
 import com.cherryoj.userservice.domain.UserRole;
 import com.cherryoj.userservice.domain.UserStatus;
@@ -28,15 +28,15 @@ public record UserView(
                 account.rowVersion());
     }
 
-    public static UserView from(LoginGrant grant) {
+    public static UserView from(LoginSession session) {
         return new UserView(
-                grant.userId(),
-                grant.username(),
-                grant.role(),
-                grant.status(),
-                grant.passwordChangeRequired(),
-                grant.userCreatedAt(),
-                grant.userUpdatedAt(),
-                grant.userRowVersion());
+                session.userId(),
+                session.username(),
+                session.role(),
+                session.status(),
+                session.passwordChangeRequired(),
+                session.userCreatedAt(),
+                session.userUpdatedAt(),
+                session.userRowVersion());
     }
 }

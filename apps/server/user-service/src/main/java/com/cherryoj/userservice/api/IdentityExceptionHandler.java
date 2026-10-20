@@ -4,6 +4,7 @@ import com.cherryoj.userservice.domain.AuthenticationFailedException;
 import com.cherryoj.userservice.domain.IdentityConflictException;
 import com.cherryoj.userservice.domain.IdentityNotFoundException;
 import com.cherryoj.userservice.domain.IdentityValidationException;
+import com.cherryoj.userservice.domain.SessionInvalidException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -17,6 +18,12 @@ public class IdentityExceptionHandler {
     ResponseEntity<IdentityApiError> authenticationFailed(AuthenticationFailedException error) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(new IdentityApiError("AUTHENTICATION_FAILED", error.getMessage()));
+    }
+
+    @ExceptionHandler(SessionInvalidException.class)
+    ResponseEntity<IdentityApiError> sessionInvalid(SessionInvalidException error) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new IdentityApiError("SESSION_INVALID", error.getMessage()));
     }
 
     @ExceptionHandler(IdentityValidationException.class)
