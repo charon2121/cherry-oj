@@ -1,8 +1,7 @@
 package com.cherryoj.judgingservice.formal;
 
-import com.cherryoj.serviceidentity.ServiceIdentityException;
-import com.cherryoj.serviceidentity.ServiceNames;
-import com.cherryoj.serviceidentity.ServiceTokenClient;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import java.net.URI;
 import java.net.http.*;
 import java.time.Duration;
@@ -19,33 +18,26 @@ public class HttpFormalInputClient implements FormalInputClient {
             .build();
     private final FormalProperties properties;
     private final ObjectMapper json;
-    private final ServiceTokenClient tokens;
+    private final CallTokenSigner calls;
 
-    public HttpFormalInputClient(FormalProperties properties, ObjectMapper json, ServiceTokenClient tokens) {
+    public HttpFormalInputClient(FormalProperties properties, ObjectMapper json, CallTokenSigner calls) {
         this.properties = properties;
         this.json = json;
-        this.tokens = tokens;
+        this.calls = calls;
     }
 
     public FormalInput get(String id, String trace) {
         UUID.fromString(id);
-        String token;
-        try {
-            token = tokens.tokenFor(ServiceNames.SUBMISSION);
-        } catch (ServiceIdentityException error) {
-            throw new FormalFailure("JUDGE_INPUT_UNAVAILABLE");
-        }
         var builder = HttpRequest.newBuilder(URI.create(
                         properties.submissionUrl().replaceAll("/$", "") + "/internal/judging/judge-inputs/" + id))
                 .timeout(Duration.ofSeconds(5))
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", calls.authorization(ServiceNames.SUBMISSION, null))
                 .GET();
         if (trace != null) builder.header("traceparent", trace);
         var future = http.sendAsync(
                 builder.build(), ignored -> new com.cherryoj.judgingservice.http.LimitedHttpBody(2097152));
         try {
             var response = future.get(6, TimeUnit.SECONDS);
-            if (response.statusCode() == 401) tokens.invalidate(ServiceNames.SUBMISSION);
             if (response.statusCode() != 200) throw new FormalFailure("JUDGE_INPUT_UNAVAILABLE");
             return json.readValue(response.body(), FormalInput.class);
         } catch (InterruptedException error) {

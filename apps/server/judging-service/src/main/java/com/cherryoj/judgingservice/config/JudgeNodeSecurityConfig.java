@@ -16,7 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** 节点协议拥有单独的鉴权链，不依赖管理员 JWT 或其 JWKS 可用性。 */
+/** 判题节点用共享控制令牌，不用调用令牌（见节点控制协议），所以单独一条鉴权链，排在主链之前。 */
 @Configuration(proxyBeanMethods = false)
 class JudgeNodeSecurityConfig {
     @Bean
