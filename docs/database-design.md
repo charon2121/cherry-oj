@@ -124,7 +124,7 @@ user_account
   └─ user_audit_event（actor/target；允许系统事件为空）
 ```
 
-Gateway Session 在 Redis；`session_version` 是使既有 Session/JWT 失效的持久化版本号。JWT 私钥属于
+Gateway Session 在 Redis；`session_version` 是使既有登录会话失效的持久化版本号。服务私钥属于
 部署 Secret，不进入 MySQL。
 
 ### 3.2 字段字典
@@ -140,7 +140,7 @@ Gateway Session 在 Redis；`session_version` 是使既有 Session/JWT 失效的
 | `password_hash` | `VARCHAR(255)` | 否 | Spring Security 自适应密码摘要；禁止通过 API、日志或事件返回。 |
 | `role` | `VARCHAR(16)` | 否 | 用户角色，MVP 仅允许 USER 或 ADMIN。 |
 | `status` | `VARCHAR(16)` | 否 | 该记录当前状态；允许值和必需字段组合由 CHECK 约束。 |
-| `session_version` | `BIGINT` | 否 | 会话失效版本；密码修改或封禁时递增，使旧 Session/JWT 失效。 |
+| `session_version` | `BIGINT` | 否 | 会话失效版本；密码修改或封禁时递增，使已有登录会话失效。 |
 | `created_at` | `DATETIME(6)` | 否 | 记录创建时间，使用 UTC。 |
 | `updated_at` | `DATETIME(6)` | 否 | 记录最后更新时间，使用 UTC。 |
 | `row_version` | `BIGINT` | 否 | 乐观锁版本；每次成功更新递增。 |

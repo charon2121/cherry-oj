@@ -64,7 +64,7 @@ submission-service
 
 | 事实 | 唯一写入服务 | 其它服务如何读取 |
 |---|---|---|
-| 用户、密码、角色、账号状态 | user-service | 内部 JWT / 受权用户接口 |
+| 用户、密码、角色、账号状态 | user-service | 会话接口 / 受权用户接口 |
 | 题目、样例、CORE 驱动代码、语言前缀 | problem-service | ProblemJudgeSnapshot HTTP |
 | 测试数据（协议目录）与它的地址 | problem-service | 内部 `GET /internal/judging/problems/{id}/test-data`（地址、指纹、测试点数） |
 | 判题节点、语言标定 | judging-service | ExecutionProfile HTTP |
@@ -133,7 +133,7 @@ JudgeInput 与 Submission 在同一个 submission-service 本地事务创建。�
 | `passwordHash` | 是 | 自适应密码摘要，不通过 API 返回 |
 | `role` | 是 | `USER | ADMIN` |
 | `status` | 是 | `ACTIVE | DISABLED` |
-| `sessionVersion` | 是 | 密码修改、封禁等事件使旧内部 JWT/Session 失效 |
+| `sessionVersion` | 是 | 密码修改、封禁等事件使已有登录会话失效 |
 | `createdAt` | 是 | 创建时间 |
 | `updatedAt` | 是 | 修改时间 |
 | `rowVersion` | 是 | 乐观锁 |
@@ -589,7 +589,7 @@ CreateSubmissionRequest { problemId, languageId, source }
 
 流程：
 
-1. Gateway 验证 Session；submission-service 从已验证 JWT 取得 userId。
+1. Gateway 验证 Session；submission-service 从已校验的调用令牌取得 userId。
 2. 校验 Idempotency-Key 和 source 大小。
 3. HTTP 调 problem-service 获取 ProblemJudgeSnapshot。
 4. HTTP 调 judging-service，按题目和语言解析 ExecutionProfile。

@@ -159,4 +159,6 @@ gateway-service 调用，user-service 提供；调用方须为 gateway-service�
 
 ## 8. 实测记录
 
-暂无。
+- 2026-10-20，本机（macOS，`scripts/e2e.py`）：五个服务各用自己的私钥签发调用令牌、按公钥目录校验；
+  登录、会话核对、改密码后重新登录、管理端、公开题库、正式提交（ACM 与 CORE）、自测、标定、
+  USER/ADMIN 权限与账号切换前置检查全部通过。

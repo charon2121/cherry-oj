@@ -84,7 +84,7 @@ submission-service：Pending → Judging → Done + verdict
 
 - 浏览器唯一后端入口和 BFF 路由。
 - Redis Session、Cookie、CSRF、CORS、基础限流。
-- 将 user-service 签发的短期内部 JWT 转发给资源服务。
+- 按会话代表用户调用下游：每次调用用 gateway 的私钥签发调用令牌，带上用户（见 §11）。
 - 生成公开 request ID、关联内部 trace、统一外部错误格式并隐藏内部服务拓扑。
 
 不负责：密码校验、签发用户身份、业务表写入、聚合跨服务事务。
@@ -94,8 +94,7 @@ submission-service：Pending → Judging → Done + verdict
 唯一写入：
 
 - User、密码摘要、账号状态、角色。
-- 内部 JWT 密钥与会话版本。
-- 服务令牌签发：各服务用自己的私钥证明身份，换取发往目标服务的短期服务令牌（见 §11）。
+- 登录会话（`sessionId`）与会话版本：登录、核对、吊销只对 gateway 开放。
 - 用户安全审计。
 
 MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约束限制管理员记录数。
@@ -113,7 +112,7 @@ MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约�
 
 - 面向用户/管理员的题库、详情、编辑、公开 API；测试数据上传即整体替换。
 - 面向 submission-service 的 `ProblemJudgeSnapshot`：题目、标题、语言和代码模式（CORE 另含驱动代码与前缀代码），不含测试数据地址。
-- 面向 judging-service 的内部读取 `GET /internal/judging/problems/{id}/test-data`：当前测试数据的地址、指纹、测试点数（只认 judging-service 的服务令牌）。
+- 面向 judging-service 的内部读取 `GET /internal/judging/problems/{id}/test-data`：当前测试数据的地址、指纹、测试点数（只接受 judging-service 的调用）。
 
 problem-service 不保存 Submission，不选择判题节点，不保存标定后的绝对限制，不执行判题。
 
@@ -331,8 +330,8 @@ EventEnvelope {
 
 ```text
 1. 浏览器 POST /api/submissions { problemId, languageId, source }
-2. Gateway 验证 Session，转发内部 JWT
-3. submission-service 从 JWT 取得 userId，校验幂等键
+2. Gateway 验证 Session，签发带用户的调用令牌
+3. submission-service 从调用令牌取得 userId，校验幂等键
 4. HTTP → problem-service：解析 ProblemJudgeSnapshot
 5. HTTP → judging-service：解析 ExecutionProfile
 6. submission-service 准备送判源码
@@ -488,16 +487,16 @@ cherry-oj/
 
 ## 11. 安全与可观测性
 
-- 浏览器只持有 Session Cookie，不接触内部 JWT。
-- 每个资源服务自行验证 JWT，不信任裸 `X-User-Id`。
-- 内部调用只有两种身份，用同一个签发方（user-service）与同一个 JWKS 校验：
-  - **用户委托 JWT**：代表某个用户，带 `roles`，`aud` 为内部受众；资源服务据此判断用户权限。
-  - **服务令牌**：没有用户在场的服务调用（取题目快照、拉取 JudgeInput、读测试数据地址、gateway 调用登录与
-    会话端点）。调用方用自己的私钥签客户端断言，向 user-service 换取；`sub` 是调用方服务名，`aud` 是被调方
-    服务名，`token_use=service`，没有 `roles`。被调端点按写在代码里的服务名允许名单放行。两种令牌不能互相
-    冒用：服务令牌进不了用户端点，用户 JWT 进不了服务端点。
-- 服务之间没有共享密钥：每个服务只持有自己的私钥，user-service 只登记公钥。判题节点的控制令牌另属节点协议。
-- 源码、密码、Cookie、JWT、隐藏数据和标准答案不得进入日志或 Kafka。
+- 浏览器只持有 Session Cookie；gateway 在会话里保存 user-service 给的 `sessionId`，最多每 30 秒向
+  user-service 核对一次（被禁用、改密码、改角色在此后生效），`sessionId` 不发给浏览器。
+- 服务之间的每次调用只有一种身份：**调用令牌**。调用方用自己的私钥现签（`aud` 为被调方，60 秒），代表用户时
+  带 `user {id, role}`；被调方用公钥目录里调用方的公钥校验，再按自己声明的端点策略（允许的调用方、是否需要
+  用户、所需角色）放行。代表用户调用下游时只能原样转发收到的 `user`。规则见
+  [服务身份协议](./protocols/service-identity.md)。
+- 每个资源服务自行校验调用令牌，不信任裸 `X-User-Id`。
+- 服务之间没有共享密钥，也没有令牌签发中心：每个服务只持有自己的私钥，公钥目录里是五个服务的公钥。
+  判题节点的控制令牌另属节点控制协议。
+- 源码、密码、Cookie、`sessionId`、调用令牌、隐藏数据和标准答案不得进入日志或 Kafka。
 - 日志统一包含 traceId；判题链路包含 submissionId、taskId、attemptNo 和 nodeId。
 - public request ID 由 Gateway 生成，只关联一次同步 HTTP 支持请求；内部 Trace 使用 W3C
   `traceparent`/`tracestate`。未来实现必须由 Gateway 丢弃外部 trace/baggage 上下文并新建内部 root；baseline

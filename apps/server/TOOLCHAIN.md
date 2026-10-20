@@ -36,7 +36,7 @@ JDK 不是 Maven 依赖，不能通过 `pom.xml` 自动安装。若本地 JDK �
 
 根 POM 的 `packaging` 是 `pom`，它本身不生成业务服务，主要承担四件事：
 
-- 聚合五个服务与 `logging-support` 基础库，让一条命令能构建全部服务。
+- 聚合五个服务与 `logging-support`、`identity-token-support`、`identity-resource-support` 三个基础库，让一条命令能构建全部服务。
 - 继承 Spring Boot Parent 的通用版本和 Maven 默认配置。
 - 用 Spring Cloud BOM 统一 Cloud 组件版本。
 - 统一 Java 版本和 Spring Boot 打包插件。
@@ -101,7 +101,7 @@ judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J 与测试�
 判题任务（含每次尝试实际读取的数据指纹）和审计；不读取 problem-service 数据库。
 
 测试数据不再由 Java 推送给节点：problem-service 按[测试数据协议](../../docs/protocols/testdata.md)写成目录，
-judging-service 判题或标定时通过服务令牌向 problem-service 取题目此刻的地址与指纹，把地址交给任意在线、
+judging-service 判题或标定时带调用令牌向 problem-service 取题目此刻的地址与指纹，把地址交给任意在线、
 声明了该语言的节点，节点自己按地址读取。Java 不创建 Judge 数据目录，也不要求共享 Unix UID；
 节点需要能读到该地址（本地路径要挂载同一路径）。
 
@@ -121,33 +121,13 @@ application-local.example.yaml 提供填写示例，application.yaml 保留公�
 无需注入配置用途的启动参数或环境变量。发布 JAR 排除私有配置；测试选择非 local Profile。
 详见 [CONFIGURATION.md](./CONFIGURATION.md)。judging 的开发预置现在只保留在测试资源中。
 
-user-service 默认读取 `apps/server/data/identity-keys` 中的持久 RSA 密钥。首次本地运行前从仓库根执行
-`scripts/identity-keys init`；命令使用 3072 位 RSA、原子落盘、拒绝覆盖，并将私钥目录和文件限制为仅
-owner 可访问。普通重启只重新读取同一把 key，`kid` 由规范化公钥的 SHA-256 指纹生成，不再由配置命名。
-`scripts/identity-keys prepare` 后，user-service 会从 `rotation.state` 自动把 next 公钥加入 JWKS；重启
-user-service 后必须用下面的具名命令同时探测三个资源服务，全部 readiness 都为 `UP` 且都已经
-看到 next kid，`activate` 才允许切 signer：
-
-```bash
-scripts/identity-keys probe <目录> \
-  problem-service=http://problem-service:8082/actuator/health/readiness \
-  submission-service=http://submission-service:8083/actuator/health/readiness \
-  judging-service=http://judging-service:8084/actuator/health/readiness
-```
-
-内部服务位于可信网络时可使用 HTTP；部署已经提供内部 TLS 时也可使用 HTTPS。新增任何使用共享 verifier 的
-资源服务时，必须同时把服务名加入该脚本的 required verifier 清单和轮换演练，不能只部署依赖而漏掉轮换门禁。旧公私钥会
-作为可回退 key 保留，JWKS 自动维持 K1+K2；`retire` 至少等待
-2 小时 JWT、30 秒时钟偏差和 5 分钟缓存窗口后才停止发布 K1，不删除回退 key material。
-生产环境继续通过 `CHERRY_AUTH_PRIVATE_KEY_LOCATION` 与 `CHERRY_AUTH_PUBLIC_KEY_LOCATION` 挂载只读 Secret；
-旧 `CHERRY_AUTH_KEY_ID` 在一个兼容周期内可读取但会被忽略并记录弃用告警；兼容期额外公钥继续按 Spring
-Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验。
+服务之间的调用身份见 [CONFIGURATION.md](./CONFIGURATION.md#服务之间的调用身份)：每个服务一把私钥，
+本地由 `scripts/dev-server.sh` 自动生成，不需要手工准备任何令牌或密钥。
 
 `prod` 或 `production` profile 提供生产安全默认值：Gateway Session Cookie 默认启用 `Secure`，必要时仍可由
 明确的高优先级部署配置覆盖；
-三个数据库密码和 user-service 的三项当前密钥配置
-没有默认值，必须由部署 Secret 注入；user-service 代码也拒绝 `generated:local` 和默认本地 `kid`。
-身份/JWKS/metadata 及服务间调用均接受 HTTP 或 HTTPS，以适配可信内网和已有反向代理；
+数据库密码没有默认值，必须由部署 Secret 注入；服务私钥只能来自部署环境或本地生成目录，不能打包进 jar。
+服务间调用接受 HTTP 或 HTTPS，以适配可信内网和已有反向代理；
 基础配置不再包含本地数据库口令。真实密码只写入本机 application-local.yaml 或由部署环境提供，不能进入 Git、JAR、镜像或测试配置。
 
 ## 五个服务共有的依赖
@@ -157,6 +137,13 @@ Resource 地址读取，内容仍执行 RSA 强度、指纹和重复 key 校验�
 仓库内共享基础库，统一提供 Spring 原生 JSON 日志、MVC/WebFlux HTTP 完成事件和 W3C Trace 关联。
 它只处理日志与传播，不包含业务 DTO、Metrics、远端 exporter 或采集后端；五个服务仍独立打包部署。
 日志文件目录通过 `CHERRY_LOG_PATH` 配置，并按 UTC 日期滚动。
+
+### `identity-token-support` 与 `identity-resource-support`
+
+服务之间的调用身份（[服务身份协议](../../docs/protocols/service-identity.md)）。`identity-token-support`
+签发与校验调用令牌、加载本服务私钥和公钥目录，不依赖 Web 栈，gateway 与 servlet 服务都用；它的 test-jar
+带五个服务各一对仅供测试的密钥和 `TestCallTokens`。`identity-resource-support` 给 servlet 服务提供主安全链：
+校验调用令牌、执行本服务声明的 `EndpointPolicies`，业务代码从 `CurrentCall` 取调用方与用户。
 
 ### `spring-boot-starter-actuator`
 
@@ -224,9 +211,8 @@ Kafka 依赖只进入正式消息链所在模块；未引入新的服务注册�
 submission-service 使用 `spring-boot-starter-kafka` 与 MyBatis 4.0.1，版本由已有 Spring Boot BOM/既有 MyBatis 版本决定；
 Flyway 按同仓服务显式初始化，新增迁移不清理既有数据。Testcontainers MySQL/Kafka 仅用于测试。
 
-`CHERRY_SUBMISSION_ACCEPTING` 与 `CHERRY_SUBMISSION_MESSAGING_ENABLED` 默认 false：先配置独立数据库、Kafka、
-两条快照调用凭据和 JudgeInput 读取凭据，再启用消息处理和新受理；关闭新受理仍允许本人查询和幂等恢复。
-服务凭据无默认值，不复用用户 JWT 或节点 control token；只在指定内部端点验证。
+`CHERRY_SUBMISSION_ACCEPTING` 与 `CHERRY_SUBMISSION_MESSAGING_ENABLED` 默认 false：先配置独立数据库、Kafka
+与服务身份密钥，再启用消息处理和新受理；关闭新受理仍允许本人查询和幂等恢复。
 
 数据库通过 `CHERRY_SUBMISSION_DB_URL/USERNAME/PASSWORD` 注入，Kafka 使用 `CHERRY_KAFKA_BOOTSTRAP_SERVERS`，
 两个 topic 可由 `CHERRY_JUDGE_REQUESTS_TOPIC` 与 `CHERRY_JUDGE_LIFECYCLE_TOPIC` 隔离。

@@ -64,7 +64,7 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 - 浏览器访问后端的唯一入口，提供 BFF 边界。
 - 路由、统一 REST 成功/错误格式、公开 request ID 与内部 trace 关联、基础限流和跨域处理。
 - 接收注册、登录和退出请求，但不在 Gateway 内实现密码校验；认证逻辑交给自建 user-service。
-- 登录成功后持有浏览器 Session，并向下游转发自建用户服务签发的内部短期 JWT。
+- 登录成功后持有浏览器 Session；代表用户调用下游时，用自己的私钥签发调用令牌并带上用户。
 - 隐藏内部微服务拓扑；前端不直接访问任何内部服务。
 
 技术：Spring Cloud Gateway、WebFlux、Spring Security、Spring Session Redis。
@@ -75,11 +75,11 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 
 - 自建用户注册、登录、退出、密码修改和账号状态管理。
 - 持有用户、密码摘要、角色、权限以及登录会话的唯一真源。
-- 校验账号密码，向 Gateway 返回认证结果，并签发只用于 Cherry OJ 内部调用的短期 JWT。
-- 管理内部令牌的签名密钥、轮换和公开验证密钥；私钥不得离开 user-service。
+- 校验账号密码，向 Gateway 返回认证结果与 `sessionId`，并提供会话的核对与吊销。
+- 不签发任何令牌：服务之间的调用身份由各服务自己的密钥证明（见 §4.3）。
 - 不接入外部身份提供商，不依赖第三方用户系统，也不提供社交账号登录。
 
-技术：Spring MVC、Spring Security 7、Spring Security JWT/JOSE、MyBatis、MySQL、Flyway。
+技术：Spring MVC、Spring Security 7、MyBatis、MySQL、Flyway。
 
 ### 3.3 problem-service
 
@@ -130,17 +130,17 @@ Go 侧继续保持标准库优先。目前外部运行时依赖只有 `gopkg.in/
 
 ## 4. API、鉴权与身份传递
 
-用户系统和认证能力均由 Cherry OJ 自建。这里使用 JWT 作为内部身份信封，但不采用第三方 IdP、
-OIDC 登录跳转或独立的 OAuth 授权服务器。
+用户系统和认证能力均由 Cherry OJ 自建，不采用第三方 IdP、OIDC 登录跳转或独立的 OAuth 授权服务器。
+服务之间的调用令牌与会话接口以[服务身份协议](./protocols/service-identity.md)为准。
 
 ### 4.1 登录链路
 
 1. 浏览器向 Gateway 的 `/api/auth/login` 提交账号和密码。
 2. Gateway 将凭据通过内部 HTTPS 转发给 user-service；不得记录密码或完整登录请求体。
 3. user-service 从自己的 MySQL 读取用户和密码摘要，使用 Spring Security `PasswordEncoder` 校验。
-4. 认证成功后，user-service 返回最小用户主体，并签发短期内部 JWT；失败统一返回模糊错误，避免泄露账号是否存在。
-5. Gateway 在 Redis 创建登录 Session，浏览器只收到随机 Session Cookie，不接触 JWT。
-6. 后续请求由 Gateway 从 Session 取得内部 JWT 并转发给目标服务。
+4. 认证成功后，user-service 建立登录会话，返回 `sessionId` 与最小用户主体；失败统一返回模糊错误，避免泄露账号是否存在。
+5. Gateway 在 Redis 创建登录 Session 并保存 `sessionId`，浏览器只收到随机 Session Cookie，不接触 `sessionId`。
+6. 后续请求由 Gateway 从 Session 取得用户（距上次核对超过 30 秒时先向 user-service 核对），再签发调用令牌访问目标服务。
 7. 退出登录时 Gateway 销毁 Redis Session；user-service 同步失效对应登录会话。密码修改、封禁等安全事件
    必须使已有会话失效。
 
@@ -151,17 +151,17 @@ OIDC 登录跳转或独立的 OAuth 授权服务器。
 - Gateway Session 存在 Redis。Cookie 至少启用 `HttpOnly`、`Secure` 和合适的 `SameSite`，并对基于 Cookie
   的写请求启用 CSRF 防护。
 - 登录失败需要按账号和来源做限速；连续失败、账号锁定和安全审计由 user-service 负责。
-- Session Cookie 是浏览器认证凭据；内部 JWT 只是 Gateway 和微服务之间的身份传递格式，两者不能混用。
+- Session Cookie 是浏览器认证凭据；`sessionId` 只在 Gateway 与 user-service 之间使用；调用令牌只在服务之间使用，三者不能混用。
 
-### 4.3 内部 JWT
+### 4.3 调用令牌
 
-- JWT 由 user-service 使用非对称密钥签发，私钥只存在 user-service，其他服务只持有公钥。
-- claim 至少包含 `sub`（userId）、`roles` / `permissions`、`iat`、`exp`、`iss`、`aud`、`jti` 和会话版本。
-- JWT 必须短期有效；Gateway 在自己的 Redis Session 存续期间，通过 user-service 的内部接口续签，
-  续签凭据不得下发给浏览器。
-- 各资源服务必须自行验证签名、issuer、audience、有效期和权限，不能只相信 Gateway 请求头。
-- 服务间身份不使用可伪造的 `X-User-Id` 作为安全依据；业务 userId 只能从验证后的 `sub` 读取。
-- 密钥通过 `kid` 支持轮换；轮换期间同时保留当前与上一把公钥，避免在途请求瞬间失效。
+- 每个服务一把 RSA 私钥，调用其他服务时现签调用令牌：`aud` 为被调方，60 秒有效；代表用户时带 `user {id, role}`。
+- 被调方用公钥目录里调用方的公钥校验，再按自己声明的端点策略放行：允许哪些调用方、是否需要用户、需要什么角色。
+  端点策略写在各服务 `security/SecurityConfig` 的 `EndpointPolicies`，是"谁能调谁"的唯一出处。
+- 代表用户调用下游时只能原样转发收到的 `user`，不能换成别的用户或提升角色。
+- 业务 userId 只能从校验后的调用令牌读取（`CurrentCall`），不使用可伪造的 `X-User-Id`。
+- 共用实现：`identity-token-support`（签发、校验、公钥目录，不依赖 Web 栈）与 `identity-resource-support`
+  （servlet 服务的安全链与端点策略）。
 
 ### 4.4 浏览器 REST 协议
 
