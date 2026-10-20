@@ -37,6 +37,11 @@ public class CallSecurity {
                 .formLogin(form -> form.disable())
                 .logout(logout -> logout.disable())
                 .addFilterBefore(filter, AnonymousAuthenticationFilter.class)
+                // 过滤器之后才出现的鉴权异常（例如业务代码抛出 AccessDeniedException）也按协议的格式返回。
+                .exceptionHandling(errors -> errors.authenticationEntryPoint((request, response, error) ->
+                                CallRejection.CALL_UNAUTHENTICATED.write(request, response, null, "ENTRY_POINT"))
+                        .accessDeniedHandler((request, response, error) ->
+                                CallRejection.FORBIDDEN.write(request, response, null, "ACCESS_DENIED")))
                 // 错误转发（/error）发生在原请求已通过校验之后，不再校验一次。
                 .authorizeHttpRequests(requests -> requests.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
