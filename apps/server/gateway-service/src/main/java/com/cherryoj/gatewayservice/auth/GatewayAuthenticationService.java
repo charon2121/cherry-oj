@@ -54,6 +54,13 @@ final class GatewayAuthenticationService {
         if (state == null) {
             return Mono.error(unauthenticated());
         }
+        // 升级前保存的会话缺少这些字段：按未登录处理，让用户重新登录。
+        if (state.user() == null
+                || state.sessionId() == null
+                || state.sessionExpiresAt() == null
+                || state.validatedAt() == null) {
+            return invalidateThenUnauthenticated(session);
+        }
         Instant now = clock.instant();
         if (!now.isBefore(state.sessionExpiresAt())) {
             return invalidateThenUnauthenticated(session);

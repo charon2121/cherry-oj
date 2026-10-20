@@ -91,6 +91,17 @@ class GatewayAuthenticationServiceTests {
     }
 
     @Test
+    void aSessionSavedBeforeTheUpgradeIsTreatedAsLoggedOut() {
+        UserServiceClient client = mock(UserServiceClient.class);
+        MockWebSession session =
+                session(new AuthSessionState(internalUser("ADMIN").publicView(), null, EXPIRES, null));
+
+        assertUnauthenticated(() -> service(client).current(session, "req_test").block());
+        assertThat(session.getAttributes()).isEmpty();
+        verifyNoInteractions(client);
+    }
+
+    @Test
     void anUnreachableUserServiceKeepsTheSessionButFailsTheRequest() {
         UserServiceClient client = mock(UserServiceClient.class);
         AuthSessionState initial = state(NOW.minusSeconds(60), "ADMIN");
