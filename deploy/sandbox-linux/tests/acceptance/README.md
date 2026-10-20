@@ -15,7 +15,7 @@
 
 | 顺序 | 入口 / 夹具 | 输入 | 预期 |
 |---|---|---|---|
-| 1 | 自定义 / io.cpp | `1 2` + 换行 | COMPLETED；stdout为`3\n`，stderr为`work048-stderr\n` |
+| 1 | 自定义 / io.cpp | `1 2` + 换行 | COMPLETED；stdout为`3\n`，stderr为`cherry-stderr\n` |
 | 2 | 自定义 / compile_error.cpp | 空 | COMPILE_ERROR，诊断包含预设编译错误标记 |
 | 3 | 自定义 / runtime_error.cpp | 空 | RUNTIME_ERROR |
 | 4 | 自定义 / signal_kill.cpp | 空 | RUNTIME_ERROR，不能映射成TLE/MLE |

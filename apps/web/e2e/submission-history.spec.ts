@@ -177,7 +177,7 @@ test('tabs and history preserve the editor; load requires confirmation and retai
   });
   expect(measurements.height).toBeGreaterThanOrEqual(44);
   expect(measurements.fontSize).toBe('13px');
-  await page.screenshot({ path: '/tmp/work043-history-list.png', fullPage: true });
+  await page.screenshot({ path: '/tmp/cherry-submission-history-list.png', fullPage: true });
 });
 
 test('source is not polled and logout hides historical code', async ({ page }) => {
@@ -187,7 +187,7 @@ test('source is not polled and logout hides historical code', async ({ page }) =
   await page.getByRole('button', { name: /WA · 答案错误/ }).click();
   await expect(page.getByRole('textbox', { name: '历史提交代码' })).toBeVisible();
   await expect.poll(() => state.sourceRequests).toBe(1);
-  await page.screenshot({ path: '/tmp/work043-history-detail.png', fullPage: true });
+  await page.screenshot({ path: '/tmp/cherry-submission-history-detail.png', fullPage: true });
   await expect(page.getByText('WA · 答案错误', { exact: true })).toBeVisible({ timeout: 10000 });
   expect(state.sourceRequests).toBe(1);
   state.loggedIn = false;
@@ -205,7 +205,7 @@ test('mobile nested tabs keep code and visitors can read the statement', async (
   await page.goto('/problems/history-sum');
   await page.getByRole('tab', { name: '提交记录', exact: true }).click();
   await expect(page.getByRole('button', { name: /WA · 答案错误/ })).toBeVisible();
-  await page.screenshot({ path: '/tmp/work043-history-mobile.png', fullPage: true });
+  await page.screenshot({ path: '/tmp/cherry-submission-history-mobile.png', fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -251,14 +251,17 @@ test('history remains reachable at zoom and forced colors', async ({ page }) => 
   await page.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('button', { name: /^切换到/ }).click();
   await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'light');
-  await page.screenshot({ path: '/tmp/work043-history-zoom-light.png', fullPage: true });
+  await page.screenshot({ path: '/tmp/cherry-submission-history-zoom-light.png', fullPage: true });
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await page.getByRole('button', { name: '返回提交记录' }).click();
   const entry = page.getByRole('button', { name: /WA · 答案错误/ });
   await entry.focus();
   await expect(entry).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: '/tmp/work043-history-forced-colors.png', fullPage: true });
+  await page.screenshot({
+    path: '/tmp/cherry-submission-history-forced-colors.png',
+    fullPage: true,
+  });
 });
 
 test('a denied source is hidden and can be retried without overwriting code', async ({ page }) => {

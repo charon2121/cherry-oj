@@ -2,7 +2,7 @@
 # 私有 apt 配置不加载宿主 apt hooks；只更新测试索引并下载，不安装软件。
 set -eu
 base=$1
-case "$base" in /var/lib/cherry-sandbox-test/work048-*) ;; *) exit 2;; esac
+case "$base" in /var/lib/cherry-sandbox-test/toolchain-*) ;; *) exit 2;; esac
 mkdir -p "$base/debs" "$base/apt-cache" "$base/apt-log" "$base/apt-lists"
 : > "$base/empty-status"
 cat > "$base/apt.conf" <<CONFIG

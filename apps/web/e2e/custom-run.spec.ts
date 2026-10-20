@@ -106,9 +106,9 @@ test('runs every sample against its expected output; edits during execution neve
   await expect(codeEditor).toBeVisible();
   const editorBox = await page.locator('.monaco-editor').boundingBox();
   expect(editorBox?.height ?? 0).toBeGreaterThan(100);
-  await page.screenshot({ path: '/tmp/cherry-work044-desktop.png' });
+  await page.screenshot({ path: '/tmp/cherry-custom-run-desktop.png' });
   await page.getByRole('button', { name: /^切换到/ }).click();
-  await page.screenshot({ path: '/tmp/cherry-work044-light.png', animations: 'disabled' });
+  await page.screenshot({ path: '/tmp/cherry-custom-run-light.png', animations: 'disabled' });
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await expect(page.getByRole('tab', { name: '运行结果', exact: true })).toBeVisible();
   await page.emulateMedia({ forcedColors: 'none' });
@@ -117,7 +117,7 @@ test('runs every sample against its expected output; edits during execution neve
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);
-  await page.screenshot({ path: '/tmp/cherry-work044-mobile.png' });
+  await page.screenshot({ path: '/tmp/cherry-custom-run-mobile.png' });
   await page.reload();
   await page.getByRole('tab', { name: '代码', exact: true }).click();
   await customCase(page).click();

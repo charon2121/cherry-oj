@@ -101,13 +101,13 @@ class Installation:
             facts = properties(unit)
             if facts.get('FragmentPath', '') not in ('', str(path)) or facts.get('UnitFileState') in ('enabled', 'enabled-runtime'):
                 raise RuntimeError('unit ownership or enable state changed: ' + unit)
-            allowed = str(DROPINS / '90-work048-capability-test.conf') if unit == UNITS[1] else ''
+            allowed = str(DROPINS / '90-cherry-capability-test.conf') if unit == UNITS[1] else ''
             if facts.get('DropInPaths', '') not in ('', allowed):
                 raise RuntimeError('unknown native unit drop-in')
         if DROPINS.exists() or DROPINS.is_symlink():
-            if DROPINS.is_symlink() or not {p.name for p in DROPINS.iterdir()} <= {'90-work048-capability-test.conf'}:
+            if DROPINS.is_symlink() or not {p.name for p in DROPINS.iterdir()} <= {'90-cherry-capability-test.conf'}:
                 raise RuntimeError('unknown capability test directory')
-            path = DROPINS / '90-work048-capability-test.conf'
+            path = DROPINS / '90-cherry-capability-test.conf'
             if path.exists() or path.is_symlink():
                 regular(path)
                 allowed = {capability_content(CAPS)} | {capability_content(tuple(c for c in CAPS if c != excluded)) for excluded in CAPS}
@@ -135,7 +135,7 @@ class Installation:
             if path.exists():
                 path.unlink()
         if DROPINS.exists():
-            (DROPINS / '90-work048-capability-test.conf').unlink(missing_ok=True)
+            (DROPINS / '90-cherry-capability-test.conf').unlink(missing_ok=True)
             DROPINS.rmdir()
         subprocess.run(['systemctl', 'daemon-reload'], check=True, timeout=15)
         # Only the exact names/IDs absent before this invocation can be removed; never userdel -r.

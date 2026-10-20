@@ -13,7 +13,7 @@ class DeploymentTests(unittest.TestCase):
     def test_review_plan_has_no_embedded_token_and_separate_identities(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'review'
-            render(root,'work048-linux-v1','cherry-linux-1','http://127.0.0.1:18084',
+            render(root,'test-release','cherry-linux-1','http://127.0.0.1:18084',
                    'http://127.0.0.1:15051','a'*64)
             plan=json.loads((root/'plan.json').read_text())
             self.assertEqual(len(set(plan['accounts'].values())),3)
@@ -91,7 +91,7 @@ class DeploymentTests(unittest.TestCase):
     def test_parallelism_sets_box_count_judge_parallelism_and_account_count(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'review'
-            render(root,'work048-linux-v1','cherry-linux-1','http://127.0.0.1:18084',
+            render(root,'test-release','cherry-linux-1','http://127.0.0.1:18084',
                    'http://127.0.0.1:15051','a'*64,parallelism=3)
             plan=json.loads((root/'plan.json').read_text())
             executor=dict(line.split('=',1) for line in (root/'executor.conf').read_text().splitlines())
@@ -106,7 +106,7 @@ class DeploymentTests(unittest.TestCase):
         for bad in (0,257,True):
             with tempfile.TemporaryDirectory() as temp:
                 with self.assertRaises(ValueError):
-                    render(Path(temp)/'review','work048-linux-v1','cherry-linux-1','http://127.0.0.1:18084',
+                    render(Path(temp)/'review','test-release','cherry-linux-1','http://127.0.0.1:18084',
                            'http://127.0.0.1:15051','a'*64,parallelism=bad)
 
     def test_max_parallelism_keeps_identity_ranges_apart(self):

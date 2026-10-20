@@ -14,7 +14,7 @@ def main():
     before = manage.owned()
     identities = {name: tuple(pwd.getpwnam(name)) for name in before['accounts']}
     manifest_hash = manage.digest(manage.ETC / 'deployment.json')
-    sentinel = manage.STATE / 'judge/.work048-uninstall-retention'
+    sentinel = manage.STATE / 'judge/.uninstall-retention'
     with sentinel.open('xb') as stream:
         stream.write(b'retained data check\n')
     sentinel.chmod(0o600)

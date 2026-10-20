@@ -202,7 +202,7 @@ class TransportTests(unittest.TestCase):
 class LocalTLSTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.directory = tempfile.TemporaryDirectory(prefix='cherry-work054-tls-')
+        cls.directory = tempfile.TemporaryDirectory(prefix='cherry-tls-')
         cls.addClassCleanup(cls.directory.cleanup)
         cls.root = Path(cls.directory.name)
         subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',

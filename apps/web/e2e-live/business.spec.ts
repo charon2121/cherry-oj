@@ -84,15 +84,15 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
       await expect(result.getByText(label, { exact: true })).toBeVisible();
       if (key === 'io') {
         expect(data.stdout?.text).toBe('3\n');
-        expect(data.stderr?.text).toBe('work048-stderr\n');
+        expect(data.stderr?.text).toBe('cherry-stderr\n');
         await expect(result.getByRole('textbox', { name: '实际输出', exact: true })).toContainText(
           '3',
         );
         await expect(result.getByRole('textbox', { name: '错误输出', exact: true })).toContainText(
-          'work048-stderr',
+          'cherry-stderr',
         );
       }
-      if (key === 'ce') expect(data.compileDiagnostic).toContain('WORK048_EXPECTED_COMPILE_ERROR');
+      if (key === 'ce') expect(data.compileDiagnostic).toContain('CHERRY_EXPECTED_COMPILE_ERROR');
       if (key === 'output') {
         expect(data.stdout?.truncated).toBe(true);
         expect(Buffer.byteLength(data.stdout?.text ?? '', 'utf8')).toBeLessThanOrEqual(16_384);
@@ -185,7 +185,7 @@ test('fresh Linux node: custom runs, Kafka submissions and history', async ({ pa
     const history = historyResponse.parse(await historicalResponse.json());
     expect(history.data.source).toBe(source('wrong_answer'));
     await expect(page.getByRole('textbox', { name: '历史提交代码' })).toContainText(
-      'WORK048_WRONG_ANSWER',
+      'CHERRY_WRONG_ANSWER',
     );
     await expect.poll(() => editorCode(page)).toBe('// live CI draft must survive history');
     await page.getByRole('button', { name: '载入编辑器', exact: true }).click();

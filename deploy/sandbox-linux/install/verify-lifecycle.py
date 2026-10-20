@@ -24,7 +24,7 @@ def main():
     key={'executor-config':'executorConfig','rootfs-manifest':'rootfsManifest','executor-binary':'executor'}[args.case]
     path=Path(manifest['files'][key]['path'])
     assert manage.digest(path)==manifest['files'][key]['sha256']
-    saved=path.with_name(path.name+'.work048-missing-test')
+    saved=path.with_name(path.name+'.missing-test')
     if saved.exists() or saved.is_symlink():raise RuntimeError('test backup already exists')
     manage.operate('stop')
     moved=False

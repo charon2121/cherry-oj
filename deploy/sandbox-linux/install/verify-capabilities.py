@@ -20,7 +20,7 @@ CAPS = ('CAP_SYS_ADMIN', 'CAP_SETUID', 'CAP_SETGID', 'CAP_SETPCAP',
         'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD', 'CAP_KILL')
 UNIT = 'cherry-sandbox-judge.service'
 DIRECTORY = Path('/run/systemd/system/cherry-sandbox-judge.service.d')
-DROPIN = DIRECTORY / '90-work048-capability-test.conf'
+DROPIN = DIRECTORY / '90-cherry-capability-test.conf'
 
 
 def stopped():

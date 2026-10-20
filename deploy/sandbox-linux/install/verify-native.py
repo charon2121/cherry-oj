@@ -25,7 +25,7 @@ LIMITS=dict(cpuNs=1_000_000_000,clockNs=5_000_000_000,memoryBytes=64<<20,
 
 def trial(source,expected,**limits):
     """经 judge 判一次 C++ trial：编译与运行都走进程内执行层与 setuid 执行器。"""
-    body=dict(submissionId='work061-native',problemId='work061-probe',
+    body=dict(submissionId='native-smoke',problemId='native-probe',
               languageId='cpp',source=source,mode='trial',
               testcases=[dict(input='',expected=expected)],
               limits=dict(cpuNs=1_000_000_000,memoryBytes=64<<20,clockNs=5_000_000_000,**limits))

@@ -25,7 +25,7 @@ PROJECT_UIDS = frozenset(range(61001, 61010)) | {JUDGE_UID} | frozenset(
 BASE = Path('/var/lib/cherry-sandbox-test')
 CGROUP = Path('/sys/fs/cgroup/system.slice')
 MARKER = BASE / '.ci-owner.json'
-PREFIX = 'cherry-sandbox-test-work048-'
+PREFIX = 'cherry-sandbox-test-ci-'
 
 
 def github_vm():

@@ -26,7 +26,7 @@ class OwnershipTests(unittest.TestCase):
 
     def test_stop_cannot_target_an_unregistered_unit(self):
         resources = owned.Owned.__new__(owned.Owned)
-        resources.data = {'units': ['cherry-sandbox-test-work048-owned-1-1']}
+        resources.data = {'units': ['cherry-sandbox-test-ci-owned-1-1']}
         with mock.patch.object(owned.subprocess, 'run') as run:
             with self.assertRaises(ValueError):
                 resources.stop('user-database.service')

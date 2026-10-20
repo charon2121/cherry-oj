@@ -56,7 +56,7 @@ class Native:
         self.control = BASE / 'control'
 
     def command(self, name, argv, seconds=90):
-        unit = 'cherry-sandbox-test-work048-native-' + name + '-' + self.owned.identity
+        unit = 'cherry-sandbox-test-ci-native-' + name + '-' + self.owned.identity
         self.owned.register(unit)
         observation = (observe(CGROUP / (unit + '.service'), self.report.output / 'install-memory.json')
                        if name == 'install' else nullcontext())
@@ -74,7 +74,7 @@ class Native:
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
-        unit = 'cherry-sandbox-test-work048-native-control-' + self.owned.identity
+        unit = 'cherry-sandbox-test-ci-native-control-' + self.owned.identity
         self.owned.register(unit)
         self.owned.launch(unit, ['python3', '-B', ROOT / 'deploy/sandbox-linux/ci/native_control.py',
                                 '--directory', self.control, '--node', self.node, '--port', port],

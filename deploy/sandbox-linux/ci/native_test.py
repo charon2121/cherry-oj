@@ -126,7 +126,7 @@ class NativeOwnershipTest(unittest.TestCase):
 
     def test_only_known_capability_dropin_is_removable(self):
         self.dropins.mkdir()
-        file = self.dropins / '90-work048-capability-test.conf'
+        file = self.dropins / '90-cherry-capability-test.conf'
         with patch.object(resources, 'properties', return_value={}):
             self.obj.verify_units()  # Cancellation between mkdir and writing the known drop-in.
             file.write_text(resources.capability_content(resources.CAPS))

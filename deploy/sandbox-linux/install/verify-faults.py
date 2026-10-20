@@ -38,7 +38,7 @@ def request(port, method, path, data=None):
 
 def trial(source):
     return request(15051, 'POST', '/judge', dict(
-        submissionId='work048-native-fault', problemId='work048-probe',
+        submissionId='native-fault', problemId='native-probe',
         languageId='cpp',
         source=source, mode='trial', testcases=[dict(input='')],
         limits=dict(cpuNs=1_000_000_000, memoryBytes=64 << 20, clockNs=20_000_000_000)))

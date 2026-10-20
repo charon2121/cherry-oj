@@ -71,7 +71,7 @@ class MemoryWatchTest(unittest.TestCase):
             for name in ('start', 'native', 'executor-config', 'rootfs-manifest', 'executor-binary',
                          'kill-judge', 'kill-sandbox', 'kill-executor', 'caps', 'uninstall'):
                 obj.command(name, ['python3', 'verify.py'], 120 if name == 'caps' else 90)
-        observe.assert_called_once_with(native.CGROUP / 'cherry-sandbox-test-work048-native-install-123-1.service',
+        observe.assert_called_once_with(native.CGROUP / 'cherry-sandbox-test-ci-native-install-123-1.service',
                                         self.root / 'install-memory.json')
         self.assertEqual(owned.launch.call_args_list[0].kwargs, {'seconds': 90, 'memory': 256})
         for call in owned.launch.call_args_list[1:]:
