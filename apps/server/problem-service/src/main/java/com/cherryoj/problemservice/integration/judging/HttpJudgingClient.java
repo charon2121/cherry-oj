@@ -1,5 +1,8 @@
 package com.cherryoj.problemservice.integration.judging;
 
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.CallUser;
+import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.problemservice.api.ProblemApiException;
 import com.cherryoj.problemservice.config.JudgingClientProperties;
 import java.io.IOException;
@@ -24,19 +27,20 @@ public final class HttpJudgingClient implements JudgingClient {
     private final JudgingClientProperties properties;
     private final ObjectMapper json;
     private final HttpClient http;
+    private final CallTokenSigner calls;
 
-    public HttpJudgingClient(JudgingClientProperties properties, ObjectMapper json) {
+    public HttpJudgingClient(JudgingClientProperties properties, ObjectMapper json, CallTokenSigner calls) {
         this.properties = properties;
         this.json = json;
+        this.calls = calls;
         this.http = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .build();
     }
 
     @Override
-    public JudgingDtos.Calibration calibrate(
-            JudgingDtos.CalibrationRequest value, String delegatedJwt, String traceparent) {
-        HttpRequest request = request("/internal/admin/calibrations", delegatedJwt, traceparent)
+    public JudgingDtos.Calibration calibrate(JudgingDtos.CalibrationRequest value, CallUser admin, String traceparent) {
+        HttpRequest request = request("/internal/admin/calibrations", admin, traceparent)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(writeJson(value)))
                 .build();
@@ -45,24 +49,21 @@ public final class HttpJudgingClient implements JudgingClient {
 
     @Override
     public JudgingDtos.Readiness readiness(
-            String problemId, String languageId, String testDataDigest, String delegatedJwt, String traceparent) {
+            String problemId, String languageId, String testDataDigest, CallUser admin, String traceparent) {
         String query = "?problemId=" + encode(problemId)
                 + "&languageId=" + encode(languageId)
                 + "&testDataDigest=" + encode(testDataDigest);
         return send(
-                request("/internal/admin/readiness" + query, delegatedJwt, traceparent)
+                request("/internal/admin/readiness" + query, admin, traceparent)
                         .GET()
                         .build(),
                 JudgingDtos.Readiness.class);
     }
 
-    private HttpRequest.Builder request(String path, String delegatedJwt, String traceparent) {
-        if (delegatedJwt == null || delegatedJwt.isBlank()) {
-            throw new ProblemApiException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_REQUIRED", "需要管理员身份。");
-        }
+    private HttpRequest.Builder request(String path, CallUser admin, String traceparent) {
         HttpRequest.Builder request = HttpRequest.newBuilder(resolve(path))
                 .timeout(properties.requestTimeout())
-                .header("Authorization", "Bearer " + delegatedJwt)
+                .header("Authorization", calls.authorization(ServiceNames.JUDGING, admin))
                 .header("Accept", "application/json");
         if (traceparent != null && traceparent.matches(TRACEPARENT_PATTERN)) request.header("traceparent", traceparent);
         return request;
@@ -131,7 +132,7 @@ public final class HttpJudgingClient implements JudgingClient {
                     HttpStatus.UNPROCESSABLE_ENTITY, "JUDGING_VALIDATION_FAILED", "判题服务拒绝了请求数据。");
         if (status >= 500)
             return new ProblemApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_UNAVAILABLE", "判题服务暂时不可用。");
-        return downstream("JUDGING_REJECTED", "判题服务拒绝了委托请求。");
+        return downstream("JUDGING_REJECTED", "判题服务拒绝了请求。");
     }
 
     private static ProblemApiException downstream(String code, String message) {

@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -21,6 +21,9 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.cherryoj.identity.resource.CallAuthentication;
+import com.cherryoj.identity.token.ServiceNames;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import jakarta.servlet.Filter;
@@ -51,7 +54,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.test.web.servlet.MockMvc;
@@ -364,7 +366,7 @@ class ProblemExceptionHandlerTests {
 
     private static MockHttpServletRequestBuilder adminPatch() {
         return patch("/internal/admin/problems/019c8e42-7f70-7000-8000-000000000101")
-                .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))
+                .with(authentication(new CallAuthentication(ServiceNames.GATEWAY, TestCallTokens.ADMIN)))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
 						{"slug":"a-plus-b","title":"A+B","statementMarkdown":"s","inputDescriptionMarkdown":"i",

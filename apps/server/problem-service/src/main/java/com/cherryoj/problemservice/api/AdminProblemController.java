@@ -1,5 +1,6 @@
 package com.cherryoj.problemservice.api;
 
+import com.cherryoj.identity.resource.CurrentCall;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CreateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemStatus;
@@ -7,7 +8,6 @@ import com.cherryoj.problemservice.api.AdminProblemDtos.RowVersionRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateProblemRequest;
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
-import com.cherryoj.problemservice.security.CurrentIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -16,7 +16,6 @@ import jakarta.validation.constraints.Size;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -55,9 +54,8 @@ public class AdminProblemController {
 
     @PostMapping
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
-    AdminProblemDtos.Problem create(
-            @Valid @RequestBody CreateProblemRequest request, JwtAuthenticationToken authentication) {
-        return problems.create(request, actor(authentication));
+    AdminProblemDtos.Problem create(@Valid @RequestBody CreateProblemRequest request) {
+        return problems.create(request, actor());
     }
 
     @GetMapping("/{problemId}")
@@ -67,10 +65,8 @@ public class AdminProblemController {
 
     @PatchMapping("/{problemId}")
     AdminProblemDtos.Problem update(
-            @PathVariable @Pattern(regexp = ID) String problemId,
-            @Valid @RequestBody UpdateProblemRequest request,
-            JwtAuthenticationToken authentication) {
-        return problems.update(problemId, request, actor(authentication));
+            @PathVariable @Pattern(regexp = ID) String problemId, @Valid @RequestBody UpdateProblemRequest request) {
+        return problems.update(problemId, request, actor());
     }
 
     @DeleteMapping("/{problemId}")
@@ -82,10 +78,8 @@ public class AdminProblemController {
 
     @PostMapping("/{problemId}/archive")
     AdminProblemDtos.Problem archive(
-            @PathVariable @Pattern(regexp = ID) String problemId,
-            @Valid @RequestBody RowVersionRequest request,
-            JwtAuthenticationToken authentication) {
-        return problems.archive(problemId, request.rowVersion(), actor(authentication));
+            @PathVariable @Pattern(regexp = ID) String problemId, @Valid @RequestBody RowVersionRequest request) {
+        return problems.archive(problemId, request.rowVersion(), actor());
     }
 
     @GetMapping("/{problemId}/preview")
@@ -97,47 +91,37 @@ public class AdminProblemController {
     ResponseEntity<AdminProblemDtos.LanguageCalibration> calibrate(
             @PathVariable @Pattern(regexp = ID) String problemId,
             @Valid @RequestBody CalibrateProblemRequest request,
-            @RequestHeader(name = "traceparent", required = false) String traceparent,
-            JwtAuthenticationToken authentication) {
-        return noStore(
-                publication.calibrate(problemId, request, token(authentication), traceparent, actor(authentication)));
+            @RequestHeader(name = "traceparent", required = false) String traceparent) {
+        return noStore(publication.calibrate(problemId, request, CurrentCall.requireUser(), traceparent, actor()));
     }
 
     @GetMapping("/{problemId}/publish-check")
     ResponseEntity<AdminProblemDtos.PublishCheck> publishCheck(
             @PathVariable @Pattern(regexp = ID) String problemId,
-            @RequestHeader(name = "traceparent", required = false) String traceparent,
-            JwtAuthenticationToken authentication) {
-        return noStore(publication.publishCheck(problemId, token(authentication), traceparent));
+            @RequestHeader(name = "traceparent", required = false) String traceparent) {
+        return noStore(publication.publishCheck(problemId, CurrentCall.requireUser(), traceparent));
     }
 
     @PostMapping("/{problemId}/publish")
     ResponseEntity<AdminProblemDtos.Problem> publish(
             @PathVariable @Pattern(regexp = ID) String problemId,
             @Valid @RequestBody RowVersionRequest request,
-            @RequestHeader(name = "traceparent", required = false) String traceparent,
-            JwtAuthenticationToken authentication) {
-        return noStore(publication.publish(
-                problemId, request.rowVersion(), token(authentication), traceparent, actor(authentication)));
+            @RequestHeader(name = "traceparent", required = false) String traceparent) {
+        return noStore(
+                publication.publish(problemId, request.rowVersion(), CurrentCall.requireUser(), traceparent, actor()));
     }
 
     @PostMapping("/{problemId}/unpublish")
     ResponseEntity<AdminProblemDtos.Problem> unpublish(
-            @PathVariable @Pattern(regexp = ID) String problemId,
-            @Valid @RequestBody RowVersionRequest request,
-            JwtAuthenticationToken authentication) {
-        return noStore(publication.unpublish(problemId, request.rowVersion(), actor(authentication)));
+            @PathVariable @Pattern(regexp = ID) String problemId, @Valid @RequestBody RowVersionRequest request) {
+        return noStore(publication.unpublish(problemId, request.rowVersion(), actor()));
     }
 
     private static <T> ResponseEntity<T> noStore(T value) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(value);
     }
 
-    private static String actor(JwtAuthenticationToken authentication) {
-        return CurrentIdentity.from(authentication).userId();
-    }
-
-    private static String token(JwtAuthenticationToken authentication) {
-        return authentication.getToken().getTokenValue();
+    private static String actor() {
+        return CurrentCall.requireUser().id();
     }
 }

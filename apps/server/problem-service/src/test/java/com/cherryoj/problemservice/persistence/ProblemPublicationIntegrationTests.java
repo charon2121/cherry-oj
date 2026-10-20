@@ -4,6 +4,8 @@ import static com.cherryoj.problemservice.persistence.ProblemFixtures.ACTOR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.cherryoj.identity.token.CallUser;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.cherryoj.problemservice.api.AdminProblemDtos;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CodeMode;
@@ -103,7 +105,7 @@ class ProblemPublicationIntegrationTests {
         var result = publication.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, sourceCanary),
-                "delegated-admin-token",
+                TestCallTokens.ADMIN,
                 "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
                 ACTOR);
 
@@ -114,7 +116,7 @@ class ProblemPublicationIntegrationTests {
         assertThat(judging.calibration.testDataLocation()).isEqualTo(fixture.location());
         assertThat(judging.calibration.testDataDigest()).isEqualTo(fixture.digest());
         assertThat(judging.calibration.referenceSource()).isEqualTo(sourceCanary);
-        assertThat(judging.jwt).isEqualTo("delegated-admin-token");
+        assertThat(judging.admin).isEqualTo(TestCallTokens.ADMIN);
         assertThat(judging.traceparent).startsWith("00-");
         assertThat(judging.transactionObserved.get()).isFalse();
         // 标定不改题目：没有草稿、验证中这些状态
@@ -139,7 +141,11 @@ class ProblemPublicationIntegrationTests {
         judging.calibrationStatus = "FAILED";
 
         var result = publication.calibrate(
-                fixture.problemId(), new CalibrateProblemRequest("cpp", 1, 1, null, "reference"), "jwt", null, ACTOR);
+                fixture.problemId(),
+                new CalibrateProblemRequest("cpp", 1, 1, null, "reference"),
+                TestCallTokens.ADMIN,
+                null,
+                ACTOR);
 
         assertThat(result.status()).isEqualTo(AdminProblemDtos.CalibrationStatus.FAILED);
         assertThat(jdbc.queryForList("""
@@ -157,7 +163,7 @@ class ProblemPublicationIntegrationTests {
         assertThatThrownBy(() -> publication.calibrate(
                         fixture.problemId(),
                         new CalibrateProblemRequest("cpp", 1, 1, null, "temporary-reference"),
-                        "jwt",
+                        TestCallTokens.ADMIN,
                         null,
                         ACTOR))
                 .isInstanceOfSatisfying(
@@ -179,7 +185,11 @@ class ProblemPublicationIntegrationTests {
                 ACTOR);
 
         assertThatThrownBy(() -> publication.calibrate(
-                        empty.id(), new CalibrateProblemRequest("cpp", 1, 1, null, "reference"), "jwt", null, ACTOR))
+                        empty.id(),
+                        new CalibrateProblemRequest("cpp", 1, 1, null, "reference"),
+                        TestCallTokens.ADMIN,
+                        null,
+                        ACTOR))
                 .isInstanceOfSatisfying(
                         ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
@@ -191,7 +201,7 @@ class ProblemPublicationIntegrationTests {
         Fixture fixture = fixture("publish");
 
         judging.ready = false;
-        var missing = publication.publishCheck(fixture.problemId(), "jwt", null);
+        var missing = publication.publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null);
         assertThat(missing.checks())
                 .extracting(value -> value.code().name())
                 .containsExactly("CONTENT", "SAMPLES", "LANGUAGE", "TEST_DATA", "ONLINE_JUDGE_NODE", "CALIBRATION");
@@ -199,18 +209,20 @@ class ProblemPublicationIntegrationTests {
         // 判题服务收到的是题目当前测试数据的指纹，用它判断标定是否过期
         assertThat(judging.readinessDigest).isEqualTo(fixture.digest());
         assertThat(admin.getProblem(fixture.problemId()).visibility()).isEqualTo(Visibility.PRIVATE);
-        assertThatThrownBy(() -> publication.publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR))
+        assertThatThrownBy(() -> publication.publish(
+                        fixture.problemId(), fixture.rowVersion(), TestCallTokens.ADMIN, null, ACTOR))
                 .isInstanceOfSatisfying(
                         ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
 
         judging.ready = true;
-        var published = publication.publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR);
+        var published =
+                publication.publish(fixture.problemId(), fixture.rowVersion(), TestCallTokens.ADMIN, null, ACTOR);
         assertThat(published.visibility()).isEqualTo(Visibility.PUBLIC);
         assertThat(published.publishedAt()).isNotNull();
         // 重复发布是幂等的：不改首次公开时间
         assertThat(publication
-                        .publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR)
+                        .publish(fixture.problemId(), fixture.rowVersion(), TestCallTokens.ADMIN, null, ACTOR)
                         .publishedAt())
                 .isEqualTo(published.publishedAt());
         assertThat(count(fixture.problemId(), "PROBLEM_PUBLISHED")).isEqualTo(1);
@@ -218,7 +230,7 @@ class ProblemPublicationIntegrationTests {
         var hidden = publication.unpublish(fixture.problemId(), published.rowVersion(), ACTOR);
         assertThat(hidden.visibility()).isEqualTo(Visibility.PRIVATE);
         assertThat(hidden.publishedAt()).isEqualTo(published.publishedAt());
-        var again = publication.publish(fixture.problemId(), hidden.rowVersion(), "jwt", null, ACTOR);
+        var again = publication.publish(fixture.problemId(), hidden.rowVersion(), TestCallTokens.ADMIN, null, ACTOR);
         assertThat(again.visibility()).isEqualTo(Visibility.PUBLIC);
         assertThat(again.publishedAt()).isEqualTo(published.publishedAt());
         assertThat(count(fixture.problemId(), "PROBLEM_UNPUBLISHED")).isEqualTo(1);
@@ -235,7 +247,7 @@ class ProblemPublicationIntegrationTests {
                         "cpp"),
                 ACTOR);
 
-        var check = publication.publishCheck(problem.id(), "jwt", null);
+        var check = publication.publishCheck(problem.id(), TestCallTokens.ADMIN, null);
 
         assertThat(check.ready()).isFalse();
         assertThat(check.checks())
@@ -278,7 +290,8 @@ class ProblemPublicationIntegrationTests {
             }
         };
 
-        assertThatThrownBy(() -> publication.publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR))
+        assertThatThrownBy(() -> publication.publish(
+                        fixture.problemId(), fixture.rowVersion(), TestCallTokens.ADMIN, null, ACTOR))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT");
                     assertThat(error.getMessage()).contains("测试数据已改变");
@@ -290,7 +303,7 @@ class ProblemPublicationIntegrationTests {
         start.await();
         try {
             return publication
-                    .publish(fixture.problemId(), fixture.rowVersion(), "jwt", null, ACTOR)
+                    .publish(fixture.problemId(), fixture.rowVersion(), TestCallTokens.ADMIN, null, ACTOR)
                     .visibility()
                     .name();
         } catch (ProblemApiException error) {
@@ -311,7 +324,7 @@ class ProblemPublicationIntegrationTests {
         publication.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, "class Solution {};\n"),
-                "jwt",
+                TestCallTokens.ADMIN,
                 null,
                 ACTOR);
 
@@ -328,7 +341,7 @@ class ProblemPublicationIntegrationTests {
         publication.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1, 1, null, "int main() {}"),
-                "jwt",
+                TestCallTokens.ADMIN,
                 null,
                 ACTOR);
 
@@ -340,7 +353,7 @@ class ProblemPublicationIntegrationTests {
     void aCoreProblemNeedsADriverBeforeItCanBePublished() throws Exception {
         Fixture fixture = coreFixture("core-no-driver", null);
 
-        var check = publication.publishCheck(fixture.problemId(), "jwt", null);
+        var check = publication.publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null);
 
         assertThat(check.ready()).isFalse();
         assertThat(check.checks())
@@ -353,7 +366,7 @@ class ProblemPublicationIntegrationTests {
         assertThatThrownBy(() -> publication.calibrate(
                         fixture.problemId(),
                         new CalibrateProblemRequest("cpp", 1, 1, null, "class Solution {};"),
-                        "jwt",
+                        TestCallTokens.ADMIN,
                         null,
                         ACTOR))
                 .isInstanceOf(ProblemApiException.class);
@@ -397,7 +410,7 @@ class ProblemPublicationIntegrationTests {
     }
 
     private AdminProblemDtos.PublishCheckItem calibrationItem(Fixture fixture) {
-        return publication.publishCheck(fixture.problemId(), "jwt", null).checks().stream()
+        return publication.publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null).checks().stream()
                 .filter(item -> item.code() == AdminProblemDtos.PublishCheckCode.CALIBRATION)
                 .findFirst()
                 .orElseThrow();
@@ -522,7 +535,7 @@ class ProblemPublicationIntegrationTests {
     }
 
     static final class FakeJudgingClient implements JudgingClient {
-        volatile String jwt;
+        volatile CallUser admin;
         volatile String traceparent;
         volatile JudgingDtos.CalibrationRequest calibration;
         volatile String readinessDigest;
@@ -537,7 +550,7 @@ class ProblemPublicationIntegrationTests {
         final AtomicInteger readinessCalls = new AtomicInteger();
 
         void reset() {
-            jwt = null;
+            admin = null;
             traceparent = null;
             calibration = null;
             readinessDigest = null;
@@ -553,12 +566,12 @@ class ProblemPublicationIntegrationTests {
         }
 
         @Override
-        public JudgingDtos.Calibration calibrate(JudgingDtos.CalibrationRequest request, String token, String trace) {
+        public JudgingDtos.Calibration calibrate(JudgingDtos.CalibrationRequest request, CallUser admin, String trace) {
             calibrateCalls.incrementAndGet();
             if (TransactionSynchronizationManager.isActualTransactionActive()) transactionObserved.set(true);
             if (calibrationFailure != null) throw calibrationFailure;
             calibration = request;
-            jwt = token;
+            this.admin = admin;
             traceparent = trace;
             LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
             String verdict = "VALID".equals(calibrationStatus) ? "AC" : "WA";
@@ -580,7 +593,7 @@ class ProblemPublicationIntegrationTests {
 
         @Override
         public JudgingDtos.Readiness readiness(
-                String problemId, String languageId, String testDataDigest, String token, String trace) {
+                String problemId, String languageId, String testDataDigest, CallUser admin, String trace) {
             readinessCalls.incrementAndGet();
             if (TransactionSynchronizationManager.isActualTransactionActive()) transactionObserved.set(true);
             readinessDigest = testDataDigest;

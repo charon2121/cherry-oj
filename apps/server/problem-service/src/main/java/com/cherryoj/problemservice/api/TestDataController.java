@@ -1,12 +1,11 @@
 package com.cherryoj.problemservice.api;
 
+import com.cherryoj.identity.resource.CurrentCall;
 import com.cherryoj.problemservice.application.TestDataService;
-import com.cherryoj.problemservice.security.CurrentIdentity;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,12 +36,9 @@ public class TestDataController {
     /** 上传即替换：题目只有一份测试数据。 */
     @PutMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<TestDataDtos.TestData> upload(
-            @PathVariable @Pattern(regexp = ID) String problemId,
-            @RequestPart("file") MultipartFile file,
-            JwtAuthenticationToken authentication) {
+            @PathVariable @Pattern(regexp = ID) String problemId, @RequestPart("file") MultipartFile file) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(testData.upload(
-                        problemId, file, CurrentIdentity.from(authentication).userId()));
+                .body(testData.upload(problemId, file, CurrentCall.requireUser().id()));
     }
 }

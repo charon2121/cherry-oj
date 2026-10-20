@@ -24,9 +24,10 @@ mybatis:
     map-underscore-to-camel-case: true
 
 cherry:
-  # 服务身份：被调时只接受 aud 为本服务名的服务令牌，并按服务名放行。本服务不调用其他服务，不需要私钥。
   service-identity:
     name: "${spring.application.name}"
+    private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
+    public-keys-dir: "${CHERRY_SERVICE_PUBLIC_KEYS_DIR:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}}"
   problem:
     test-data:
       root: "${CHERRY_TEST_DATA_ROOT:./data/problem-testdata}"
@@ -41,15 +42,6 @@ cherry:
       base-url: "${CHERRY_JUDGING_BASE_URL:http://127.0.0.1:${CHERRY_JUDGING_PORT:8084}}"
       connect-timeout: "${CHERRY_JUDGING_CONNECT_TIMEOUT:2s}"
       request-timeout: "${CHERRY_JUDGING_REQUEST_TIMEOUT:120s}"
-  identity:
-    issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
-    audience: "${CHERRY_IDENTITY_AUDIENCE:cherry-oj-internal}"
-    jwks-uri: "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/.well-known/jwks.json}"
-    metadata-uri: "${CHERRY_IDENTITY_METADATA_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/internal/identity/metadata}"
-    access-token-ttl: 2h
-    clock-skew: 30s
-    connect-timeout: 2s
-    read-timeout: 2s
 
 server:
   port: "${CHERRY_PROBLEM_PORT:8082}"
@@ -81,7 +73,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,identityVerifierHealth
+          include: readinessState
           show-details: always
 
 logging:

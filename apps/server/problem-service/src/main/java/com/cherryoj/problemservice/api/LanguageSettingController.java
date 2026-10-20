@@ -1,15 +1,14 @@
 package com.cherryoj.problemservice.api;
 
+import com.cherryoj.identity.resource.CurrentCall;
 import com.cherryoj.problemservice.api.LanguageSettingDtos.LanguageSetting;
 import com.cherryoj.problemservice.api.LanguageSettingDtos.LanguageSettingList;
 import com.cherryoj.problemservice.api.LanguageSettingDtos.UpdateLanguageSettingRequest;
 import com.cherryoj.problemservice.application.LanguageSettingService;
-import com.cherryoj.problemservice.security.CurrentIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,13 +36,10 @@ public class LanguageSettingController {
     @PutMapping("/{languageId}")
     ResponseEntity<LanguageSetting> update(
             @PathVariable @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$") String languageId,
-            @Valid @RequestBody UpdateLanguageSettingRequest request,
-            JwtAuthenticationToken authentication) {
+            @Valid @RequestBody UpdateLanguageSettingRequest request) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(languages.update(
-                        languageId,
-                        request,
-                        CurrentIdentity.from(authentication).userId()));
+                        languageId, request, CurrentCall.requireUser().id()));
     }
 }

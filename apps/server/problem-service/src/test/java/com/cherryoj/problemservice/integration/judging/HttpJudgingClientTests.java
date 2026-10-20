@@ -3,6 +3,12 @@ package com.cherryoj.problemservice.integration.judging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.cherryoj.identity.token.CallToken;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.PublicKeyDirectory;
+import com.cherryoj.identity.token.ServiceKeys;
+import com.cherryoj.identity.token.ServiceNames;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.cherryoj.problemservice.api.ProblemApiException;
 import com.cherryoj.problemservice.config.JudgingClientProperties;
 import com.sun.net.httpserver.HttpExchange;
@@ -10,7 +16,9 @@ import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
@@ -26,7 +34,7 @@ class HttpJudgingClientTests {
     }
 
     @Test
-    void delegatesJwtAndTraceAndSendsTheTestDataAddressAndDigestInTheBody() throws Exception {
+    void signsACallForTheAdminAndSendsTraceAndTheTestDataAddressAndDigestInTheBody() throws Exception {
         AtomicReference<String> authorization = new AtomicReference<>();
         AtomicReference<String> traceparent = new AtomicReference<>();
         AtomicReference<String> contentType = new AtomicReference<>();
@@ -59,16 +67,23 @@ class HttpJudgingClientTests {
                 null);
 
         var response = client.calibrate(
-                request, "secret-delegated-jwt", "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01");
+                request, TestCallTokens.ADMIN, "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01");
 
         assertThat(response.status()).isEqualTo("VALID");
         assertThat(response.testDataDigest()).isEqualTo("a".repeat(64));
-        assertThat(authorization.get()).isEqualTo("Bearer secret-delegated-jwt");
+        // 代表管理员调用：调用令牌由本服务签发，发给 judging-service，原样带上管理员
+        var call = CallToken.verify(
+                authorization.get().substring("Bearer ".length()),
+                PublicKeyDirectory.load("classpath:test-service-identity"),
+                ServiceNames.JUDGING,
+                Instant.now());
+        assertThat(call.caller()).isEqualTo(ServiceNames.PROBLEM);
+        assertThat(call.user()).contains(TestCallTokens.ADMIN);
         assertThat(traceparent.get()).startsWith("00-");
         assertThat(contentType.get()).isEqualTo("application/json");
         assertThat(new String(requestBody.get(), StandardCharsets.UTF_8))
                 .contains("\"testDataLocation\":\"/srv/problem/p\"", "\"testDataDigest\":\"" + "a".repeat(64) + "\"")
-                .doesNotContain("secret-delegated-jwt", "ersion");
+                .doesNotContain("Bearer", "ersion");
     }
 
     @Test
@@ -82,7 +97,7 @@ class HttpJudgingClientTests {
         server.start();
 
         var readiness = client(Duration.ofSeconds(2))
-                .readiness("019c8e42-7f70-7000-8000-000000000010", "cpp", "b".repeat(64), "jwt", null);
+                .readiness("019c8e42-7f70-7000-8000-000000000010", "cpp", "b".repeat(64), TestCallTokens.ADMIN, null);
 
         assertThat(readiness.ready()).isFalse();
         assertThat(query.get())
@@ -98,10 +113,15 @@ class HttpJudgingClientTests {
         server.start();
 
         assertThatThrownBy(() -> client(Duration.ofSeconds(2))
-                        .readiness("019c8e42-7f70-7000-8000-000000000001", "cpp", "a".repeat(64), "jwt", null))
+                        .readiness(
+                                "019c8e42-7f70-7000-8000-000000000001",
+                                "cpp",
+                                "a".repeat(64),
+                                TestCallTokens.ADMIN,
+                                null))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("JUDGING_UNAVAILABLE");
-                    assertThat(error.getMessage()).doesNotContain("private downstream detail", "jwt");
+                    assertThat(error.getMessage()).doesNotContain("private downstream detail", "Bearer");
                 });
     }
 
@@ -116,7 +136,8 @@ class HttpJudgingClientTests {
         server.start();
         for (String value : List.of("NO_ONLINE_JUDGE_NODE", "JUDGE_NODE_UNREACHABLE", "UNKNOWN")) {
             code.set(value);
-            assertThatThrownBy(() -> client(Duration.ofSeconds(2)).readiness("problem", "cpp", "hash", "jwt", null))
+            assertThatThrownBy(() -> client(Duration.ofSeconds(2))
+                            .readiness("problem", "cpp", "hash", TestCallTokens.ADMIN, null))
                     .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                         assertThat(error.code()).isEqualTo(value.equals("UNKNOWN") ? "JUDGING_UNAVAILABLE" : value);
                         assertThat(error.getMessage()).doesNotContain("private", "token", "path");
@@ -130,7 +151,11 @@ class HttpJudgingClientTests {
                         URI.create("http://127.0.0.1:" + server.getAddress().getPort()),
                         Duration.ofSeconds(1),
                         timeout),
-                JsonMapper.builder().build());
+                JsonMapper.builder().build(),
+                new CallTokenSigner(
+                        ServiceNames.PROBLEM,
+                        ServiceKeys.privateKey("classpath:test-service-identity/problem-service-private.pem"),
+                        Clock.systemUTC()));
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws java.io.IOException {

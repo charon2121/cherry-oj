@@ -1,5 +1,6 @@
 package com.cherryoj.problemservice.application;
 
+import com.cherryoj.identity.token.CallUser;
 import com.cherryoj.problemservice.api.AdminProblemDtos;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrationStatus;
@@ -68,18 +69,14 @@ public class ProblemPublicationService {
     }
 
     public AdminProblemDtos.LanguageCalibration calibrate(
-            String problemId,
-            CalibrateProblemRequest request,
-            String delegatedJwt,
-            String traceparent,
-            String actorUserId) {
+            String problemId, CalibrateProblemRequest request, CallUser admin, String traceparent, String actorUserId) {
         Snapshot local = transactions.execute(status -> snapshot(problemId, false));
         requireActive(local.problem());
         if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
             throw state("题面、样例、语言或测试数据尚未就绪。");
         }
         JudgingDtos.Calibration result =
-                judging.calibrate(calibrationRequest(problemId, request, local), delegatedJwt, traceparent);
+                judging.calibrate(calibrationRequest(problemId, request, local), admin, traceparent);
         CalibrationStatus remoteStatus = calibrationStatus(result.status());
         if (!problemId.equals(result.problemId())
                 || !request.languageId().equals(result.languageId())
@@ -103,7 +100,7 @@ public class ProblemPublicationService {
         return calibration(result);
     }
 
-    public PublishCheck publishCheck(String problemId, String delegatedJwt, String traceparent) {
+    public PublishCheck publishCheck(String problemId, CallUser admin, String traceparent) {
         Snapshot local = transactions.execute(status -> snapshot(problemId, false));
         List<PublishCheckItem> checks = localChecks(local);
         if (local.info() == null) {
@@ -111,7 +108,7 @@ public class ProblemPublicationService {
             return result(checks);
         }
         JudgingDtos.Readiness remote =
-                judging.readiness(problemId, "cpp", local.info().digest(), delegatedJwt, traceparent);
+                judging.readiness(problemId, "cpp", local.info().digest(), admin, traceparent);
         mergeRemoteLanguage(checks, remote);
         // 在线节点的事实要保留到管理工作台：标定按钮据此提示并禁用。
         checks.add(
@@ -183,15 +180,14 @@ public class ProblemPublicationService {
         return null;
     }
 
-    public Problem publish(
-            String problemId, long rowVersion, String delegatedJwt, String traceparent, String actorUserId) {
+    public Problem publish(String problemId, long rowVersion, CallUser admin, String traceparent, String actorUserId) {
         Snapshot before = transactions.execute(status -> snapshot(problemId, false));
         requireActive(before.problem());
         if (before.problem().visibility() == Visibility.PUBLIC) {
             return adminProblems.getProblem(problemId);
         }
         if (before.problem().rowVersion() != rowVersion) throw conflict();
-        if (!publishCheck(problemId, delegatedJwt, traceparent).ready()) {
+        if (!publishCheck(problemId, admin, traceparent).ready()) {
             throw state("公开检查未通过，请先处理所有缺项。");
         }
 
