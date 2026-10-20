@@ -31,21 +31,20 @@
 | # | 协议 | 两端 | 传输与形态 | 真源 |
 |---|---|---|---|---|
 | 1 | Web API | 浏览器 ↔ Gateway | REST；成功用 `ApiSuccess` 信封，失败用 RFC 9457 | [`web-api.openapi.json`](../../contracts/web-api.openapi.json) |
-| 2 | Submission 内部 API | judging-service → submission-service（拉取 JudgeInput 等） | HTTP，服务令牌 | [`submission-internal.openapi.json`](../../contracts/submission-internal.openapi.json) |
-| 3 | 题目快照 | submission-service ← problem-service | HTTP，服务令牌 | [`problem-judge-snapshot.schema.json`](../../contracts/problem-judge-snapshot.schema.json) |
-| 4 | 执行配置 | submission-service ← judging-service | HTTP，服务令牌 | [`execution-profile.schema.json`](../../contracts/execution-profile.schema.json) |
-| 5 | 自定义运行 | submission-service → judging-service | HTTP，服务令牌 | [`custom-run-internal.schema.json`](../../contracts/custom-run-internal.schema.json) |
-| 6 | 测试数据读取 | judging-service ← problem-service | HTTP，服务令牌；只返回地址、指纹、测试点数 | [`problem-test-data.schema.json`](../../contracts/problem-test-data.schema.json) |
+| 2 | Submission 内部 API | judging-service → submission-service（拉取 JudgeInput 等） | HTTP，调用令牌 | [`submission-internal.openapi.json`](../../contracts/submission-internal.openapi.json) |
+| 3 | 题目快照 | submission-service ← problem-service | HTTP，调用令牌 | [`problem-judge-snapshot.schema.json`](../../contracts/problem-judge-snapshot.schema.json) |
+| 4 | 执行配置 | submission-service ← judging-service | HTTP，调用令牌 | [`execution-profile.schema.json`](../../contracts/execution-profile.schema.json) |
+| 5 | 自定义运行 | submission-service → judging-service | HTTP，调用令牌 | [`custom-run-internal.schema.json`](../../contracts/custom-run-internal.schema.json) |
+| 6 | 测试数据读取 | judging-service ← problem-service | HTTP，调用令牌；只返回地址、指纹、测试点数 | [`problem-test-data.schema.json`](../../contracts/problem-test-data.schema.json) |
 | 7 | 判题请求 | judging-service → judge（Go） | `POST /judge`，同步返回；HTTP 状态不表示判题结论 | 字段：[`judge.schema.json`](../../contracts/judge.schema.json)；调用语义：[`judge-api.md`](./judge-api.md) |
 | 8 | 节点控制 | judge → judging-service（注册、心跳） | HTTP，共享控制令牌 | [`judge-node.schema.json`](../../contracts/judge-node.schema.json) |
 | 9 | 判题事件 | submission-service ↔ judging-service | Kafka：`judge.requests.v1`、`judge.lifecycle.v1` | [`judge-events.schema.json`](../../contracts/judge-events.schema.json) |
 | 10 | 测试数据协议 | problem-service 写、judge 读 | 目录 + `testdata.json`，本地路径或 HTTP(S) | [`testdata.md`](./testdata.md) |
 | 11 | 执行器协议 | judge 进程 → sandbox 执行器 | `exec` + box 目录 + NUL 分隔的请求 + 一行 JSON 事实 | [`sandbox-executor.md`](./sandbox-executor.md) |
-| 12 | 身份传递 | Gateway → 各业务服务 | 委派的内部 JWT；user-service 提供 JWKS 与 metadata | [`backend.md`](../backend.md) |
-| 13 | 服务间鉴权 | gateway→user、submission→problem、submission→judging、judging→submission、judging→problem | Bearer 服务令牌：调用方用自己的私钥向 user-service 换取，`aud` 为被调方、`sub` 须在被调端点的允许名单里 | [`apps/server/CONFIGURATION.md`](../../apps/server/CONFIGURATION.md) |
-| 14 | 部署配置格式 | 安装器 ↔ 执行器与 judge | `executor.conf`、`judge-start.json`、`deployment.json`（部署清单）、`plan.json` | [`deploy/sandbox-linux/install/README.md`](../../deploy/sandbox-linux/install/README.md) |
-| 15 | 安装布局 | 安装器、运维 ↔ 执行器与 judge | `/opt/cherry-oj` 的目录结构、属主、权限，以及家目录之外的系统位置 | [`install-layout.md`](./install-layout.md) |
-| 16 | benchmark | 语料 / 运行者 ↔ 被测 judge 与 sandbox | 两个入口（`POST /judge`、直接调用执行器）；语料目录、`expect.json`、运行说明、报告 JSON、退出码 | [`benchmark.md`](./benchmark.md) |
+| 12 | 服务身份与登录会话 | 任意服务之间；gateway ↔ user-service（登录会话） | 调用方用自己的私钥签发调用令牌（`aud` 为被调方，代表用户时带 `user`），被调方按端点策略放行；登录会话由 `sessionId` 标识 | [`service-identity.md`](./service-identity.md) |
+| 13 | 部署配置格式 | 安装器 ↔ 执行器与 judge | `executor.conf`、`judge-start.json`、`deployment.json`（部署清单）、`plan.json` | [`deploy/sandbox-linux/install/README.md`](../../deploy/sandbox-linux/install/README.md) |
+| 14 | 安装布局 | 安装器、运维 ↔ 执行器与 judge | `/opt/cherry-oj` 的目录结构、属主、权限，以及家目录之外的系统位置 | [`install-layout.md`](./install-layout.md) |
+| 15 | benchmark | 语料 / 运行者 ↔ 被测 judge 与 sandbox | 两个入口（`POST /judge`、直接调用执行器）；语料目录、`expect.json`、运行说明、报告 JSON、退出码 | [`benchmark.md`](./benchmark.md) |
 
 `contracts/` 里另有三份**数据模型与词表**，不是有两端的接口，但同样是跨服务的真源：
 [`submission.json`](../../contracts/submission.json)（用户可见的提交读模型）、
@@ -64,6 +63,6 @@
 
 ### 哪些没有机读 schema
 
-接口协议 1–9 有契约文件，测试可以机械地比对；**10–16 是文字约定**，靠文档和测试保证：其中 10（`testdata.json`）在 Go、Java、
+接口协议 1–9 有契约文件，测试可以机械地比对；**10–15 是文字约定**，靠文档和测试保证：其中 10（`testdata.json`）在 Go、Java、
 Python 里各有一份解析/校验实现，靠同一个黄金指纹的测试对齐；11 的请求不是 JSON，是 NUL 分隔的 `key=value` 记录（setuid 程序里少一个解析器就少一块攻击面）；
-12、13 的细节还分散在代码和配置说明里。新增或修改它们时，要同时更新对应的真源文档和所有实现方的测试。
+12 以 [`service-identity.md`](./service-identity.md) 为准。新增或修改它们时，要同时更新对应的真源文档和所有实现方的测试。
