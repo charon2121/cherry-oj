@@ -21,6 +21,7 @@
     <modules>
         <module>logging-support</module>
         <module>service-identity-support</module>
+        <module>identity-token-support</module>
         <module>identity-security-support</module>
         <module>gateway-service</module>
         <module>user-service</module>
