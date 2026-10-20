@@ -67,7 +67,7 @@ JDK 不是 Maven 依赖，不能通过 `pom.xml` 自动安装。若本地 JDK �
 
 这是浏览器入口 Gateway 的响应式网关能力，负责后续的请求匹配、转发和过滤器链。它基于 WebFlux 的非阻塞模型，适合入口层处理大量短连接与转发。
 
-Gateway 的 browser-facing 路由只承载公开业务 API；每条路由都须由所属工作项明确 URI、拥有服务、
+Gateway 的 browser-facing 路由只承载公开业务 API；每条路由都须明确 URI、拥有服务、
 失败语义和权限。统一异常处理将格式错误、校验错误、明确业务错误和未知故障映射为脱敏的 RFC 9457
 `application/problem+json`。8080 的 Actuator 健康检查继续服务运维，页面不直接耦合其响应结构。
 

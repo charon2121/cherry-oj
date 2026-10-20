@@ -6,7 +6,7 @@
 > [architecture.md](./architecture.md)、[data-model.md](./data-model.md) 和
 > [contracts/](../contracts/) 为准。
 
-本文只定义已经确认、会长期约束多个工作项的产品事实：为谁服务、当前 MVP 做什么、哪些行为不能
+本文只定义已经确认、长期有效的产品事实：为谁服务、当前 MVP 做什么、哪些行为不能
 改变，以及未来能力必须沿什么方向演进。
 
 本文不维护功能开发状态、具体页面/API 方案、P1/P2 backlog 或尚未确认的产品选择，也不为它们另建过程文档。
