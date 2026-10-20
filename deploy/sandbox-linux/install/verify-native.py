@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bounded native-install smoke: isolated C++, all-thread credentials, limits, cleanup."""
 import concurrent.futures
+import errno
 import http.client
 import json
 import os
@@ -95,6 +96,9 @@ def main():
                                for _,_,v in rows)
                 if payload and {v['Uid'].split()[0] for _,_,v in rows}=={str(PAYLOAD),str(INIT)} and restricted:break
             except (FileNotFoundError,ProcessLookupError):pass
+            # 编译阶段的执行组在 iterdir 之后、读 cgroup.procs 之前被删时，内核返回 ENODEV 而不是 ENOENT。
+            except OSError as error:
+                if error.errno!=errno.ENODEV:raise
             time.sleep(.01)
         else:raise AssertionError('fully restricted run-phase task not observed')
         for pid,_,values in rows:credentials(values,int(values['Uid'].split()[0]))
