@@ -16,15 +16,18 @@ class PublicKeyDirectoryTests {
     @Test
     void loadsOneKeyPerServiceAndRefusesAnIncompleteDirectory() throws Exception {
         for (String service : ServiceNames.ALL) write(service);
-        var keys = PublicKeyDirectory.load(directory);
+        var keys = PublicKeyDirectory.load(directory.toString());
         for (String service : ServiceNames.ALL) assertThat(keys.key(service)).isNotNull();
         assertThat(keys.key("unknown-service")).isNull();
 
         Files.delete(directory.resolve(ServiceNames.PROBLEM + "-public.pem"));
-        assertThatThrownBy(() -> PublicKeyDirectory.load(directory))
+        assertThatThrownBy(() -> PublicKeyDirectory.load(directory.toString()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(ServiceNames.PROBLEM);
-        assertThatThrownBy(() -> PublicKeyDirectory.load(directory.resolve("missing")))
+        assertThat(PublicKeyDirectory.load("classpath:test-service-identity").key(ServiceNames.JUDGING))
+                .isNotNull();
+        assertThatThrownBy(() ->
+                        PublicKeyDirectory.load(directory.resolve("missing").toString()))
                 .isInstanceOf(IllegalStateException.class);
     }
 

@@ -1,7 +1,5 @@
 package com.cherryoj.identity.token;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.interfaces.RSAPublicKey;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,17 +12,15 @@ public final class PublicKeyDirectory {
         this.keys = Map.copyOf(keys);
     }
 
-    public static PublicKeyDirectory load(Path directory) {
-        if (directory == null || !Files.isDirectory(directory)) {
-            throw new IllegalStateException("service public key directory does not exist: " + directory);
+    /** location 写作目录路径、file:目录或 classpath:目录。 */
+    public static PublicKeyDirectory load(String location) {
+        if (location == null || location.isBlank()) {
+            throw new IllegalStateException("service public key directory is not configured");
         }
+        String base = location.endsWith("/") ? location.substring(0, location.length() - 1) : location;
         Map<String, RSAPublicKey> keys = new HashMap<>();
         for (String service : ServiceNames.ALL) {
-            Path file = directory.resolve(service + "-public.pem");
-            if (!Files.isRegularFile(file)) {
-                throw new IllegalStateException("missing public key for " + service + ": " + file);
-            }
-            keys.put(service, ServiceKeys.publicKey(file.toString()));
+            keys.put(service, ServiceKeys.publicKey(base + "/" + service + "-public.pem"));
         }
         return new PublicKeyDirectory(keys);
     }
