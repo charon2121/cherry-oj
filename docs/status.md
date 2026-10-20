@@ -7,7 +7,8 @@
 [`architecture.md`](./architecture.md)。
 
 **完整 MVP（PRD §3.4 六条基线）2026-10-19 起已交付**，证据见 [`product.md`](./product.md) §3.4；
-尚未部署到现有使用环境，测试服务器节点仍是不支持 CORE 的 2026-10-14 版本。
+测试服务器节点 2026-10-20 已按 `f28be81` 重装（发布 `cherry-home-v3`）：`verify-native` 通过，
+benchmark 判题 58 项与攻击样本 56 项全过（含 CORE 的 `core-add`）。
 
 | 部分 | 状态 |
 |---|---|
