@@ -54,11 +54,9 @@ def raw(url):
 def start(service,extra=None):
  config=dict(env,SERVER_PORT=str(ports[service]),CHERRY_LOG_PATH=str(OUT/'logs'),
  CHERRY_USER_SERVICE_URL=f"http://127.0.0.1:{ports['user']}",CHERRY_PROBLEM_SERVICE_URL=f"http://127.0.0.1:{ports['problem']}",
- CHERRY_JUDGING_BASE_URL=f"http://127.0.0.1:{ports['judging']}",CHERRY_IDENTITY_JWKS_URI=f"http://127.0.0.1:{ports['user']}/.well-known/jwks.json",
- CHERRY_IDENTITY_METADATA_URI=f"http://127.0.0.1:{ports['user']}/internal/identity/metadata",CHERRY_REDIS_PORT=str(ports['redis']),
+ CHERRY_JUDGING_BASE_URL=f"http://127.0.0.1:{ports['judging']}",CHERRY_REDIS_PORT=str(ports['redis']),
  CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),
- CHERRY_JUDGE_NODE_LEASE_DURATION='4s',CHERRY_WEB_ORIGIN=f"http://{NAME}.localhost:{ports['web']}",
- CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:'+str(OUT/'keys/active-private.pem'),CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:'+str(OUT/'keys/active-public.pem'))
+ CHERRY_JUDGE_NODE_LEASE_DURATION='4s',CHERRY_WEB_ORIGIN=f"http://{NAME}.localhost:{ports['web']}")
  for database in ['user','problem','judging','submission']:
   config.update({f'CHERRY_{database.upper()}_DB_URL':f"jdbc:mysql://127.0.0.1:{ports['mysql']}/cherry_{database}?serverTimezone=UTC",f'CHERRY_{database.upper()}_DB_USERNAME':'root',f'CHERRY_{database.upper()}_DB_PASSWORD':env['E2E_DB_PASSWORD']})
  config.update(CHERRY_SUBMISSION_SERVICE_URL=f"http://127.0.0.1:{ports['submission']}",
@@ -103,7 +101,6 @@ try:
  run(compose+['up','-d','mysql','redis','kafka'],env=env)
  wait(lambda:sql('SELECT 1')=='1','MySQL')
  sql('CREATE DATABASE cherry_user; CREATE DATABASE cherry_problem; CREATE DATABASE cherry_judging; CREATE DATABASE cherry_submission;')
- run([str(ROOT/'scripts/identity-keys'),'init',str(OUT/'keys')])
  run([str(ROOT/'scripts/service-identity-keys.sh'),str(OUT/'service-identity')])
  command,config,log=start('user')
  subprocess.run(command+['--cherry.auth.mode=bootstrap','--cherry.auth.bootstrap-username=e2eadmin','--management.endpoint.health.validate-group-membership=false'],env=config,cwd=OUT,input=b'E2e-Initial-Password\n',stdout=log,stderr=log,check=True,timeout=60)

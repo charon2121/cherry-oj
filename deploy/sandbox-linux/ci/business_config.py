@@ -30,15 +30,11 @@ def environment(directory, credentials):
                CHERRY_LOG_PATH=str(directory / 'logs'), CHERRY_WEB_ORIGIN='http://127.0.0.1:4173',
                CHERRY_SESSION_SECURE='false', CHERRY_REDIS_HOST='127.0.0.1', CHERRY_REDIS_PORT='16379',
                CHERRY_REDIS_PASSWORD=credentials['redis'], CHERRY_KAFKA_BOOTSTRAP_SERVERS='127.0.0.1:19092',
-               CHERRY_IDENTITY_JWKS_URI='http://127.0.0.1:8081/.well-known/jwks.json',
-               CHERRY_IDENTITY_METADATA_URI='http://127.0.0.1:8081/internal/identity/metadata',
-               CHERRY_AUTH_PRIVATE_KEY_LOCATION='file:' + str(directory / 'keys/active-private.pem'),
-               CHERRY_AUTH_PUBLIC_KEY_LOCATION='file:' + str(directory / 'keys/active-public.pem'),
                CHERRY_TEST_DATA_ROOT=str(testdata_root(directory)),
                CHERRY_JUDGE_CONTROL_TOKEN=credentials['control'],
                CHERRY_SUBMISSION_ACCEPTING='true', CHERRY_SUBMISSION_MESSAGING_ENABLED='true',
                CHERRY_FORMAL_JUDGING_ENABLED='true', CHERRY_CUSTOM_RUN_ENABLED='true',
-               # 服务间调用身份：各服务按自己的名字在这里找 <name>-private.pem，user-service 读公钥。
+               # 服务间调用身份：各服务按自己的名字在这里找 <name>-private.pem，这个目录同时是公钥目录。
                CHERRY_SERVICE_IDENTITY_DIR=str(directory / 'service-identity'),
                LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE='1MB',
                LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP='8MB',

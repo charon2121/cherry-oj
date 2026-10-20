@@ -18,7 +18,7 @@ class JavaServiceConfigurationDefaultsTests {
               service-identity:
                 name: "${spring.application.name}"
                 private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
-                public-keys-dir: "${CHERRY_SERVICE_PUBLIC_KEYS_DIR:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}}"
+                public-keys-dir: "${CHERRY_SERVICE_PUBLIC_KEYS_DIR:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/public}"
             """;
 
     @Test

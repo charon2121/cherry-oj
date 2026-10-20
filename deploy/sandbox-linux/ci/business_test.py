@@ -198,7 +198,7 @@ class BusinessTests(unittest.TestCase):
 
     def test_failure_diagnostics_only_export_exact_known_classification(self):
         self.assertEqual(failure_kind(json.dumps(dict(code='SERVICE_UNAVAILABLE',
-            detail='身份服务配置不一致，请联系管理员。', secret='must-not-export'))), 'IDENTITY_CONFIGURATION_MISMATCH')
+            detail='身份信任状态暂时不一致，请稍后重试。', secret='must-not-export'))), 'IDENTITY_TRUST_MISMATCH')
         for raw in ('private-password', '{}', '[]', '{"code":"PRIVATE_SECRET"}',
                     '{"code":"SERVICE_UNAVAILABLE","detail":"private-token"}'):
             self.assertEqual(failure_kind(raw), 'UNCLASSIFIED')

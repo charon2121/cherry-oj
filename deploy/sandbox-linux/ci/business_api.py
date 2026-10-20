@@ -37,8 +37,7 @@ def failure_kind(data: bytes | str) -> str:
     detail = value.get('detail')
     if code != 'SERVICE_UNAVAILABLE' or not isinstance(detail, str):
         return 'UNCLASSIFIED'
-    return {'身份服务配置不一致，请联系管理员。': 'IDENTITY_CONFIGURATION_MISMATCH',
-            '身份信任状态暂时不一致，请稍后重试。': 'IDENTITY_TRUST_MISMATCH',
+    return {'身份信任状态暂时不一致，请稍后重试。': 'IDENTITY_TRUST_MISMATCH',
             '服务暂时不可用，请稍后重试。': 'UPSTREAM_UNAVAILABLE'}.get(detail, 'UNCLASSIFIED')
 
 

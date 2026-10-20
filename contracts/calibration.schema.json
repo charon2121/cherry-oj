@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/calibration.schema.json",
   "title": "Calibration internal v1",
-  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要服务身份与 ADMIN 委托身份。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=：响应 Readiness。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。",
+  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=：响应 Readiness。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。",
   "x-contract-version": 1,
   "definitions": {
     "CalibrationRequest": {

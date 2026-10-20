@@ -5,7 +5,3 @@ spring:
     url: "jdbc:mysql://127.0.0.1:3306/cherry_oj_user"
     username: "cherry_oj_user"
     password: ""
-cherry:
-  auth:
-    private-key-location: "file:<server-directory>/data/identity-keys/active-private.pem"
-    public-key-location: "file:<server-directory>/data/identity-keys/active-public.pem"

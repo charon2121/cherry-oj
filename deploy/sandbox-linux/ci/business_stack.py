@@ -47,7 +47,6 @@ class Stack:
                 sock.bind(('127.0.0.1', port))
         self.credentials = create(PRIVATE)
         self.dependencies = Dependencies(PRIVATE, output)
-        run(['bash', ROOT / 'scripts/identity-keys', 'init', PRIVATE / 'keys'], self.output / 'keys.log', 20)
         run(['bash', ROOT / 'scripts/service-identity-keys.sh', PRIVATE / 'service-identity'],
             self.output / 'service-identity-keys.log', 20)
         for path in [PRIVATE, *PRIVATE.rglob('*'), testdata_root(PRIVATE)]:

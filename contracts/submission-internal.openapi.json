@@ -11,7 +11,7 @@
         "x-caller": "submission-service",
         "security": [
           {
-            "serviceToken": []
+            "callToken": []
           }
         ],
         "responses": {
@@ -53,7 +53,7 @@
         "x-caller": "submission-service",
         "security": [
           {
-            "serviceToken": []
+            "callToken": []
           }
         ],
         "responses": {
@@ -95,7 +95,7 @@
         "x-caller": "judging-service",
         "security": [
           {
-            "serviceToken": []
+            "callToken": []
           }
         ],
         "responses": {
@@ -135,10 +135,10 @@
   },
   "components": {
     "securitySchemes": {
-      "serviceToken": {
+      "callToken": {
         "type": "http",
         "scheme": "bearer",
-        "description": "每调用链独立环境凭据；不接受用户 JWT 或节点 control token。"
+        "description": "调用令牌：调用方用自己的私钥签发，aud 为被调方，见 docs/protocols/service-identity.md。不接受节点 control token。"
       }
     },
     "schemas": {

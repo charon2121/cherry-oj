@@ -1,7 +1,6 @@
 # Five backend services; external MySQL/Redis/Kafka and existing judge nodes are prerequisites.
-# 服务身份：每个调用方服务只挂载自己的私钥；user-service 只挂载各调用方的公钥。
-# SERVICE_IDENTITY_DIR 下需要 gateway/submission/judging 三个服务的 <name>-private.pem 与 <name>-public.pem，
-# 可用 scripts/service-identity-keys.sh 生成。
+# 服务身份：每个服务只挂载自己的私钥与公钥目录 public/（五个服务的公钥），见 docs/protocols/service-identity.md。
+# SERVICE_IDENTITY_DIR 用 scripts/service-identity-keys.sh 生成。
 services:
   gateway-service:
     build:
@@ -11,15 +10,13 @@ services:
     image: "cherry-oj-gateway:${BACKEND_TAG:-local}"
     environment:
       SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
-      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
-      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
       CHERRY_LOG_PATH: "/app/logs"
       CHERRY_USER_SERVICE_URL: "http://user-service:8081"
       CHERRY_PROBLEM_SERVICE_URL: "http://problem-service:8082"
       CHERRY_SUBMISSION_SERVICE_URL: "http://submission-service:8083"
       CHERRY_JUDGING_SERVICE_URL: "http://judging-service:8084"
       CHERRY_SERVICE_PRIVATE_KEY_LOCATION: "file:/run/service-identity/private.pem"
-      CHERRY_SERVICE_TOKEN_URI: "http://user-service:8081/internal/service-tokens"
+      CHERRY_SERVICE_PUBLIC_KEYS_DIR: "/run/service-identity/public"
       CHERRY_REDIS_HOST: "${REDIS_HOST:?set Redis host}"
       CHERRY_REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
       CHERRY_REDIS_PORT: "${REDIS_PORT:-6379}"
@@ -32,6 +29,7 @@ services:
       - "gateway-logs:/app/logs"
       - "gateway-data:/app/data"
       - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/gateway-service-private.pem:/run/service-identity/private.pem:ro"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/public:/run/service-identity/public:ro"
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
   user-service:
@@ -42,26 +40,19 @@ services:
     image: "cherry-oj-user:${BACKEND_TAG:-local}"
     environment:
       SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
-      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
-      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
       CHERRY_LOG_PATH: "/app/logs"
       CHERRY_USER_DB_URL: "${USER_DB_URL:?set isolated database URL}"
       CHERRY_USER_DB_USERNAME: "${USER_DB_USERNAME:?set database user}"
       CHERRY_USER_DB_PASSWORD: "${USER_DB_PASSWORD:?set database password}"
-      CHERRY_AUTH_PRIVATE_KEY_LOCATION: "file:/run/identity/active-private.pem"
-      CHERRY_AUTH_PUBLIC_KEY_LOCATION: "file:/run/identity/active-public.pem"
-      CHERRY_SERVICE_PUBLIC_KEY_GATEWAY: "file:/run/service-identity/gateway-service-public.pem"
-      CHERRY_SERVICE_PUBLIC_KEY_SUBMISSION: "file:/run/service-identity/submission-service-public.pem"
-      CHERRY_SERVICE_PUBLIC_KEY_JUDGING: "file:/run/service-identity/judging-service-public.pem"
+      CHERRY_SERVICE_PRIVATE_KEY_LOCATION: "file:/run/service-identity/private.pem"
+      CHERRY_SERVICE_PUBLIC_KEYS_DIR: "/run/service-identity/public"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - "user-logs:/app/logs"
       - "user-data:/app/data"
-      - "${IDENTITY_KEYS_DIR:?set key directory}:/run/identity:ro"
-      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/gateway-service-public.pem:/run/service-identity/gateway-service-public.pem:ro"
-      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/submission-service-public.pem:/run/service-identity/submission-service-public.pem:ro"
-      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/judging-service-public.pem:/run/service-identity/judging-service-public.pem:ro"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/user-service-private.pem:/run/service-identity/private.pem:ro"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/public:/run/service-identity/public:ro"
   problem-service:
     build:
       context: "../../apps/server"
@@ -70,18 +61,20 @@ services:
     image: "cherry-oj-problem:${BACKEND_TAG:-local}"
     environment:
       SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
-      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
-      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
       CHERRY_LOG_PATH: "/app/logs"
       CHERRY_PROBLEM_DB_URL: "${PROBLEM_DB_URL:?set isolated database URL}"
       CHERRY_PROBLEM_DB_USERNAME: "${PROBLEM_DB_USERNAME:?set database user}"
       CHERRY_PROBLEM_DB_PASSWORD: "${PROBLEM_DB_PASSWORD:?set database password}"
       CHERRY_JUDGING_BASE_URL: "http://judging-service:8084"
+      CHERRY_SERVICE_PRIVATE_KEY_LOCATION: "file:/run/service-identity/private.pem"
+      CHERRY_SERVICE_PUBLIC_KEYS_DIR: "/run/service-identity/public"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - "problem-logs:/app/logs"
       - "problem-data:/app/data"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/problem-service-private.pem:/run/service-identity/private.pem:ro"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/public:/run/service-identity/public:ro"
   submission-service:
     build:
       context: "../../apps/server"
@@ -90,15 +83,13 @@ services:
     image: "cherry-oj-submission:${BACKEND_TAG:-local}"
     environment:
       SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
-      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
-      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
       CHERRY_LOG_PATH: "/app/logs"
       CHERRY_SUBMISSION_DB_URL: "${SUBMISSION_DB_URL:?set isolated database URL}"
       CHERRY_SUBMISSION_DB_USERNAME: "${SUBMISSION_DB_USERNAME:?set database user}"
       CHERRY_SUBMISSION_DB_PASSWORD: "${SUBMISSION_DB_PASSWORD:?set database password}"
       CHERRY_KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:?set Kafka address}"
       CHERRY_SERVICE_PRIVATE_KEY_LOCATION: "file:/run/service-identity/private.pem"
-      CHERRY_SERVICE_TOKEN_URI: "http://user-service:8081/internal/service-tokens"
+      CHERRY_SERVICE_PUBLIC_KEYS_DIR: "/run/service-identity/public"
       CHERRY_PROBLEM_SERVICE_URL: "http://problem-service:8082"
       CHERRY_JUDGING_SERVICE_URL: "http://judging-service:8084"
       CHERRY_SUBMISSION_ACCEPTING: "${FORMAL_ENABLED:-false}"
@@ -109,6 +100,7 @@ services:
       - "submission-logs:/app/logs"
       - "submission-data:/app/data"
       - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/submission-service-private.pem:/run/service-identity/private.pem:ro"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/public:/run/service-identity/public:ro"
   judging-service:
     build:
       context: "../../apps/server"
@@ -117,15 +109,13 @@ services:
     image: "cherry-oj-judging:${BACKEND_TAG:-local}"
     environment:
       SPRING_PROFILES_ACTIVE: "${BACKEND_PROFILE:?set dev, test or prod; never local}"
-      CHERRY_IDENTITY_JWKS_URI: "http://user-service:8081/.well-known/jwks.json"
-      CHERRY_IDENTITY_METADATA_URI: "http://user-service:8081/internal/identity/metadata"
       CHERRY_LOG_PATH: "/app/logs"
       CHERRY_JUDGING_DB_URL: "${JUDGING_DB_URL:?set isolated database URL}"
       CHERRY_JUDGING_DB_USERNAME: "${JUDGING_DB_USERNAME:?set database user}"
       CHERRY_JUDGING_DB_PASSWORD: "${JUDGING_DB_PASSWORD:?set database password}"
       CHERRY_KAFKA_BOOTSTRAP_SERVERS: "${KAFKA_BOOTSTRAP_SERVERS:?set Kafka address}"
       CHERRY_SERVICE_PRIVATE_KEY_LOCATION: "file:/run/service-identity/private.pem"
-      CHERRY_SERVICE_TOKEN_URI: "http://user-service:8081/internal/service-tokens"
+      CHERRY_SERVICE_PUBLIC_KEYS_DIR: "/run/service-identity/public"
       CHERRY_SUBMISSION_SERVICE_URL: "http://submission-service:8083"
       CHERRY_PROBLEM_SERVICE_URL: "http://problem-service:8082"
       CHERRY_FORMAL_JUDGING_ENABLED: "${FORMAL_ENABLED:-false}"
@@ -136,6 +126,7 @@ services:
       - "judging-logs:/app/logs"
       - "judging-data:/app/data"
       - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/judging-service-private.pem:/run/service-identity/private.pem:ro"
+      - "${SERVICE_IDENTITY_DIR:?set service identity key directory}/public:/run/service-identity/public:ro"
 volumes:
   gateway-logs: {}
   gateway-data: {}
