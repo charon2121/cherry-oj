@@ -45,8 +45,8 @@ AUTHENTICATION_TESTS = {
     'com.cherryoj.userservice.application.AuthenticationServiceTests': {
         'authenticationIssuesDatabaseRepresentableDeadlineWithoutExtendingLifetime',
         'failedPasswordCommitsBackoffBeforeReturningGenericFailure',
-        'validateIsReadOnlyAndReturnsUnchangedAbsoluteDeadline',
-        'exchangeRecordsUsageButNeverExtendsAbsoluteDeadline'},
+        'validateReturnsTheUserAndTheUnchangedAbsoluteDeadline',
+        'anUnknownSessionIsInvalidForValidateAndRevoke'},
     'com.cherryoj.userservice.persistence.UserPersistenceIntegrationTests': {
         'flywayAndMappersPreserveAccountInvariants',
         'failedLoginBackoffSurvivesTheGenericAuthenticationException',
