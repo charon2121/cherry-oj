@@ -54,8 +54,8 @@ curl -sS http://127.0.0.1:8080/actuator/health
 直接用 `./mvnw` 启动则使用默认端口。`dev-server.sh` 首次运行时还会生成服务之间调用用的身份密钥到
 `.local/service-identity/`，不需要手工配任何服务令牌，见[配置说明](./CONFIGURATION.md#服务之间的调用身份)。
 用 `-pl` 单独启动某个服务前，先把共享模块装进本地 Maven 仓库一次：
-`./mvnw -pl logging-support,service-identity-support,identity-security-support install -DskipTests`，
-否则会报找不到 `identity-security-support`。judge 用 `scripts/dev-judge.sh` 启动，同样读取 `ports.env`。服务之间的地址、网关的跨域来源都由这些端口推出，只改 `ports.env` 一处即可。
+`./mvnw -pl logging-support,identity-token-support,identity-resource-support install -DskipTests`，
+否则会报找不到 `identity-resource-support`。judge 用 `scripts/dev-judge.sh` 启动，同样读取 `ports.env`。服务之间的地址、网关的跨域来源都由这些端口推出，只改 `ports.env` 一处即可。
 
 把命令中的模块名替换为 `user-service`、`problem-service`、`submission-service` 或 `judging-service`，即可分别启动其他服务。需要联调全部服务时，应在五个终端中分别启动，避免后台进程的日志和生命周期无人管理。
 

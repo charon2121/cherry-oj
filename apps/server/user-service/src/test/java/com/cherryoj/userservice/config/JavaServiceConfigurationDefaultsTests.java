@@ -14,10 +14,12 @@ class JavaServiceConfigurationDefaultsTests {
     private static final Pattern CHERRY_PLACEHOLDER = Pattern.compile("\\$\\{(CHERRY_[A-Z0-9_]+)(?::([^}]*))?}");
     private static final Set<String> JAVA_SERVICES =
             Set.of("gateway-service", "user-service", "problem-service", "submission-service", "judging-service");
-    private static final Set<String> RESOURCE_SERVICES =
-            Set.of("problem-service", "submission-service", "judging-service");
-    private static final String LOCAL_JWKS_DEFAULT =
-            "${CHERRY_IDENTITY_JWKS_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/.well-known/jwks.json}";
+    private static final String SERVICE_IDENTITY = """
+              service-identity:
+                name: "${spring.application.name}"
+                private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
+                public-keys-dir: "${CHERRY_SERVICE_PUBLIC_KEYS_DIR:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}}"
+            """;
 
     @Test
     void sharedConfigurationIsCompleteWithoutEmbeddingPrivateCredentials() throws IOException {
@@ -49,17 +51,17 @@ class JavaServiceConfigurationDefaultsTests {
         }
     }
 
+    /** 每个服务都用自己的私钥签发调用令牌，用同一个公钥目录校验（docs/protocols/service-identity.md §2）。 */
     @Test
-    void everyResourceServiceUsesThePublishedLocalJwksEndpoint() throws IOException {
+    void everyServiceSignsWithItsOwnKeyAndVerifiesWithThePublicKeyDirectory() throws IOException {
         Path serverRoot = serverRoot();
-
-        for (String service : RESOURCE_SERVICES) {
+        for (String service : JAVA_SERVICES) {
             String configuration =
                     Files.readString(serverRoot.resolve(service + "/src/main/resources/application.yaml"));
             assertThat(configuration)
-                    .as(service + " local JWKS configuration")
-                    .contains(LOCAL_JWKS_DEFAULT)
-                    .doesNotContain("/internal/.well-known/jwks.json");
+                    .as(service + " service identity")
+                    .contains(SERVICE_IDENTITY)
+                    .doesNotContain("jwks", "token-uri", "service-tokens", "CHERRY_IDENTITY_");
         }
     }
 
