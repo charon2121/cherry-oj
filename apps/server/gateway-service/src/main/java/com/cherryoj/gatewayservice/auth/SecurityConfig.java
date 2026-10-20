@@ -1,8 +1,10 @@
 package com.cherryoj.gatewayservice.auth;
 
+import com.cherryoj.identity.token.CallTokenConfiguration;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -17,6 +19,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 
 @Configuration(proxyBeanMethods = false)
+@Import(CallTokenConfiguration.class)
 @EnableRedisWebSession(redisNamespace = "cherry:gateway:sessions")
 class SecurityConfig {
 

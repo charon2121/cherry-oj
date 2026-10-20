@@ -50,9 +50,9 @@ public class AdminUserController {
             ServerWebExchange exchange) {
         String requestId = ApiRequestContext.requestId(exchange);
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(identity -> userService.listUsers(identity, page, size))
-                .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                .onErrorMap(error -> GatewayAuthenticationService.mapUserCallUpstream(error, requestId))
                 .map(result -> ResponseEntity.ok()
                         .cacheControl(CacheControl.noStore())
                         .body(ApiSuccess.of(
@@ -69,10 +69,10 @@ public class AdminUserController {
             @Valid @RequestBody CreateUserRequest request, ServerWebExchange exchange) {
         String requestId = ApiRequestContext.requestId(exchange);
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(identity -> userService
                         .createUser(identity, request.username())
-                        .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                        .onErrorMap(error -> GatewayAuthenticationService.mapUserCallUpstream(error, requestId))
                         .map(created -> ResponseEntity.created(URI.create(
                                         "/api/admin/users/" + created.user().id()))
                                 .cacheControl(CacheControl.noStore())
@@ -88,10 +88,10 @@ public class AdminUserController {
             ServerWebExchange exchange) {
         String requestId = ApiRequestContext.requestId(exchange);
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(identity -> userService
                         .updateStatus(identity, userId, request.status(), request.rowVersion())
-                        .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                        .onErrorMap(error -> GatewayAuthenticationService.mapUserCallUpstream(error, requestId))
                         .map(user -> ResponseEntity.ok()
                                 .cacheControl(CacheControl.noStore())
                                 .body(ApiSuccess.of(user.publicView(), requestId))));
@@ -104,10 +104,10 @@ public class AdminUserController {
             ServerWebExchange exchange) {
         String requestId = ApiRequestContext.requestId(exchange);
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(identity -> userService
                         .resetPassword(identity, userId, request.rowVersion())
-                        .onErrorMap(error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId))
+                        .onErrorMap(error -> GatewayAuthenticationService.mapUserCallUpstream(error, requestId))
                         .map(created -> ResponseEntity.ok()
                                 .cacheControl(CacheControl.noStore())
                                 .body(ApiSuccess.of(

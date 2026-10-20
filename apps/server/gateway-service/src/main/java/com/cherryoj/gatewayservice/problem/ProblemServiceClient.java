@@ -1,7 +1,9 @@
 package com.cherryoj.gatewayservice.problem;
 
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
-import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
+import com.cherryoj.gatewayservice.auth.ActingUser;
+import com.cherryoj.gatewayservice.auth.InternalRequests;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -23,16 +25,15 @@ final class ProblemServiceClient {
 
     private final WebClient client;
     private final ProblemServiceProperties properties;
-    private final InternalRequestFactory requests;
+    private final InternalRequests requests;
 
-    ProblemServiceClient(
-            WebClient.Builder builder, ProblemServiceProperties properties, InternalRequestFactory requests) {
+    ProblemServiceClient(WebClient.Builder builder, ProblemServiceProperties properties, CallTokenSigner calls) {
         this.client = builder.clone()
                 .baseUrl(properties.baseUrl().toString())
                 .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(properties.maxJsonBytes()))
                 .build();
         this.properties = properties;
-        this.requests = requests;
+        this.requests = new InternalRequests(calls, ServiceNames.PROBLEM);
     }
 
     Mono<ProblemDtos.ProblemList> listPublic(
@@ -70,8 +71,7 @@ final class ProblemServiceClient {
                 ProblemDtos.ProblemDetail.class);
     }
 
-    Mono<ProblemDtos.AdminProblemPage> listAdmin(
-            DelegatedIdentity identity, String q, String status, int page, int size) {
+    Mono<ProblemDtos.AdminProblemPage> listAdmin(ActingUser identity, String q, String status, int page, int size) {
         return json(
                 requests.authenticated(
                         client.get().uri(builder -> {
@@ -86,41 +86,40 @@ final class ProblemServiceClient {
                 ProblemDtos.AdminProblemPage.class);
     }
 
-    Mono<ProblemDtos.AdminProblem> createProblem(DelegatedIdentity identity, Object body) {
+    Mono<ProblemDtos.AdminProblem> createProblem(ActingUser identity, Object body) {
         return json(
                 requests.authenticated(client.post().uri("/internal/admin/problems"), identity)
                         .bodyValue(body),
                 ProblemDtos.AdminProblem.class);
     }
 
-    Mono<ProblemDtos.AdminLanguageSettingListData> listLanguageSettings(DelegatedIdentity identity) {
+    Mono<ProblemDtos.AdminLanguageSettingListData> listLanguageSettings(ActingUser identity) {
         return json(
                 requests.authenticated(client.get().uri("/internal/admin/languages"), identity),
                 ProblemDtos.AdminLanguageSettingListData.class);
     }
 
-    Mono<ProblemDtos.AdminLanguageSetting> updateLanguageSetting(
-            DelegatedIdentity identity, String languageId, Object body) {
+    Mono<ProblemDtos.AdminLanguageSetting> updateLanguageSetting(ActingUser identity, String languageId, Object body) {
         return json(
                 requests.authenticated(client.put().uri("/internal/admin/languages/{languageId}", languageId), identity)
                         .bodyValue(body),
                 ProblemDtos.AdminLanguageSetting.class);
     }
 
-    Mono<ProblemDtos.AdminProblem> getProblem(DelegatedIdentity identity, String problemId) {
+    Mono<ProblemDtos.AdminProblem> getProblem(ActingUser identity, String problemId) {
         return json(
                 requests.authenticated(client.get().uri("/internal/admin/problems/{problemId}", problemId), identity),
                 ProblemDtos.AdminProblem.class);
     }
 
-    Mono<ProblemDtos.AdminProblem> updateProblem(DelegatedIdentity identity, String problemId, Object body) {
+    Mono<ProblemDtos.AdminProblem> updateProblem(ActingUser identity, String problemId, Object body) {
         return json(
                 requests.authenticated(client.patch().uri("/internal/admin/problems/{problemId}", problemId), identity)
                         .bodyValue(body),
                 ProblemDtos.AdminProblem.class);
     }
 
-    Mono<ProblemDtos.AdminProblem> archiveProblem(DelegatedIdentity identity, String problemId, Object body) {
+    Mono<ProblemDtos.AdminProblem> archiveProblem(ActingUser identity, String problemId, Object body) {
         return json(
                 requests.authenticated(
                                 client.post().uri("/internal/admin/problems/{problemId}/archive", problemId), identity)
@@ -128,7 +127,7 @@ final class ProblemServiceClient {
                 ProblemDtos.AdminProblem.class);
     }
 
-    Mono<Void> deleteProblem(DelegatedIdentity identity, String problemId, long rowVersion) {
+    Mono<Void> deleteProblem(ActingUser identity, String problemId, long rowVersion) {
         return noContent(requests.authenticated(
                 client.delete()
                         .uri(builder -> builder.path("/internal/admin/problems/{problemId}")
@@ -137,21 +136,21 @@ final class ProblemServiceClient {
                 identity));
     }
 
-    Mono<ProblemDtos.ProblemDetail> preview(DelegatedIdentity identity, String problemId) {
+    Mono<ProblemDtos.ProblemDetail> preview(ActingUser identity, String problemId) {
         return json(
                 requests.authenticated(
                         client.get().uri("/internal/admin/problems/{problemId}/preview", problemId), identity),
                 ProblemDtos.ProblemDetail.class);
     }
 
-    Mono<ProblemDtos.TestData> getTestData(DelegatedIdentity identity, String problemId) {
+    Mono<ProblemDtos.TestData> getTestData(ActingUser identity, String problemId) {
         return json(
                 requests.authenticated(
                         client.get().uri("/internal/admin/problems/{problemId}/test-data", problemId), identity),
                 ProblemDtos.TestData.class);
     }
 
-    Mono<ProblemDtos.TestData> replaceTestData(DelegatedIdentity identity, String problemId, Flux<DataBuffer> content) {
+    Mono<ProblemDtos.TestData> replaceTestData(ActingUser identity, String problemId, Flux<DataBuffer> content) {
         Flux<PartEvent> parts = FilePartEvent.create("file", "test-data.zip", APPLICATION_ZIP, content)
                 .cast(PartEvent.class);
         return streamingJson(
@@ -162,7 +161,7 @@ final class ProblemServiceClient {
                 ProblemDtos.TestData.class);
     }
 
-    Mono<ProblemDtos.LanguageCalibration> calibrate(DelegatedIdentity identity, String problemId, Object body) {
+    Mono<ProblemDtos.LanguageCalibration> calibrate(ActingUser identity, String problemId, Object body) {
         return streamingJson(
                 requests.authenticated(
                                 client.post().uri("/internal/admin/problems/{problemId}/calibration", problemId),
@@ -171,14 +170,14 @@ final class ProblemServiceClient {
                 ProblemDtos.LanguageCalibration.class);
     }
 
-    Mono<ProblemDtos.PublishCheck> publishCheck(DelegatedIdentity identity, String problemId) {
+    Mono<ProblemDtos.PublishCheck> publishCheck(ActingUser identity, String problemId) {
         return json(
                 requests.authenticated(
                         client.get().uri("/internal/admin/problems/{problemId}/publish-check", problemId), identity),
                 ProblemDtos.PublishCheck.class);
     }
 
-    Mono<ProblemDtos.AdminProblem> publish(DelegatedIdentity identity, String problemId, Object body) {
+    Mono<ProblemDtos.AdminProblem> publish(ActingUser identity, String problemId, Object body) {
         return streamingJson(
                 requests.authenticated(
                                 client.post().uri("/internal/admin/problems/{problemId}/publish", problemId), identity)
@@ -186,7 +185,7 @@ final class ProblemServiceClient {
                 ProblemDtos.AdminProblem.class);
     }
 
-    Mono<ProblemDtos.AdminProblem> unpublish(DelegatedIdentity identity, String problemId, Object body) {
+    Mono<ProblemDtos.AdminProblem> unpublish(ActingUser identity, String problemId, Object body) {
         return json(
                 requests.authenticated(
                                 client.post().uri("/internal/admin/problems/{problemId}/unpublish", problemId),

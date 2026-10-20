@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-/** Resolves a browser session into the short-lived delegated token used by admin clients. */
+/** 浏览器会话 → 代表管理员调用下游的 ActingUser；改密码前与非管理员在 gateway 就拒绝。 */
 @Component
 public final class AdminGatewayAccess {
 
@@ -16,13 +16,13 @@ public final class AdminGatewayAccess {
         this.authentication = authentication;
     }
 
-    public Mono<DelegatedIdentity> delegatedIdentity(ServerWebExchange exchange, String requestId) {
+    public Mono<ActingUser> actingUser(ServerWebExchange exchange, String requestId) {
         return exchange.getSession()
-                .flatMap(session -> authentication.current(session, requestId, true))
+                .flatMap(session -> authentication.current(session, requestId))
                 .map(state -> requireAdmin(state, requestId));
     }
 
-    static DelegatedIdentity requireAdmin(AuthSessionState state, String requestId) {
+    static ActingUser requireAdmin(AuthSessionState state, String requestId) {
         if (state.user().passwordChangeRequired()) {
             throw new ApiProblemException(
                     HttpStatus.FORBIDDEN, "PASSWORD_CHANGE_REQUIRED", "需要修改密码", "完成首次密码修改后才能访问管理功能。");
@@ -30,6 +30,6 @@ public final class AdminGatewayAccess {
         if (!"ADMIN".equals(state.user().role())) {
             throw new ApiProblemException(HttpStatus.FORBIDDEN, "FORBIDDEN", "无权访问", "当前身份无权执行此操作。");
         }
-        return new DelegatedIdentity(state.accessToken(), state.accessTokenExpiresAt(), requestId);
+        return ActingUser.of(state, requestId);
     }
 }

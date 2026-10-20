@@ -2,9 +2,11 @@ package com.cherryoj.gatewayservice.submission;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.cherryoj.gatewayservice.TestCalls;
 import com.cherryoj.gatewayservice.api.ApiProblemException;
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
-import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
+import com.cherryoj.gatewayservice.auth.ActingUser;
+import com.cherryoj.identity.token.ServiceNames;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.time.Instant;
@@ -24,7 +26,11 @@ class SubmissionServiceClientTests {
         var wrongId = new java.util.concurrent.atomic.AtomicBoolean();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api/submissions", exchange -> {
-            assertEquals("Bearer delegated", exchange.getRequestHeaders().getFirst("Authorization"));
+            assertEquals(
+                    TestCallTokens.ADMIN,
+                    TestCalls.verify(exchange.getRequestHeaders().getFirst("Authorization"), ServiceNames.SUBMISSION)
+                            .user()
+                            .orElseThrow());
             assertNull(exchange.getRequestHeaders().getFirst("Cookie"));
             Object result;
             if (exchange.getRequestURI().getPath().endsWith("/source")) {
@@ -46,9 +52,9 @@ class SubmissionServiceClientTests {
         try {
             var client = new SubmissionServiceClient(
                     WebClient.builder(),
-                    new InternalRequestFactory(),
+                    TestCalls.SIGNER,
                     "http://127.0.0.1:" + server.getAddress().getPort());
-            var identity = new DelegatedIdentity("delegated", Instant.now().plusSeconds(60), "req_" + "a".repeat(32));
+            var identity = new ActingUser(TestCallTokens.ADMIN, "req_" + "a".repeat(32));
             assertEquals(source, client.source(identity, id).block().source());
             assertEquals(
                     0, client.history(identity, problem, 1, 20, "AC").block().totalElements());
@@ -94,9 +100,9 @@ class SubmissionServiceClientTests {
         try {
             var client = new SubmissionServiceClient(
                     WebClient.builder(),
-                    new InternalRequestFactory(),
+                    TestCalls.SIGNER,
                     "http://127.0.0.1:" + server.getAddress().getPort());
-            var identity = new DelegatedIdentity("delegated", Instant.now().plusSeconds(60), "req_" + "a".repeat(32));
+            var identity = new ActingUser(TestCallTokens.ADMIN, "req_" + "a".repeat(32));
             assertEquals(
                     100,
                     client.history(identity, problem, 1, 100, null)
@@ -109,7 +115,7 @@ class SubmissionServiceClientTests {
     }
 
     @Test
-    void forwardsOnlyTheDelegatedIdentityAndOriginalKeyWithoutRetryingARejectedWrite() throws Exception {
+    void forwardsOnlyTheActingUserAndOriginalKeyWithoutRetryingARejectedWrite() throws Exception {
         var calls = new AtomicInteger();
         var key = UUID.randomUUID();
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -131,10 +137,9 @@ class SubmissionServiceClientTests {
         try {
             var client = new SubmissionServiceClient(
                     WebClient.builder(),
-                    new InternalRequestFactory(),
+                    TestCalls.SIGNER,
                     "http://127.0.0.1:" + server.getAddress().getPort());
-            var identity = new DelegatedIdentity(
-                    "test-delegated-token", Instant.now().plusSeconds(60), "req_" + "a".repeat(32));
+            var identity = new ActingUser(TestCallTokens.ADMIN, "req_" + "a".repeat(32));
             var error = assertThrows(
                     ApiProblemException.class,
                     () -> client.create(

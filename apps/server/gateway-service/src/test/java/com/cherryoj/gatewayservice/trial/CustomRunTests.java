@@ -3,11 +3,13 @@ package com.cherryoj.gatewayservice.trial;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.cherryoj.gatewayservice.TestCalls;
 import com.cherryoj.gatewayservice.api.ApiProblemException;
 import com.cherryoj.gatewayservice.auth.*;
+import com.cherryoj.identity.token.ServiceNames;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -39,8 +41,7 @@ class CustomRunTests {
         var calls = new AtomicInteger();
         var downstreamStatus = new AtomicInteger(200);
         when(access.identity(any(), any(), any()))
-                .thenReturn(Mono.just(
-                        new DelegatedIdentity("delegated", Instant.now().plusSeconds(300), "req_" + "a".repeat(32))));
+                .thenReturn(Mono.just(new ActingUser(TestCallTokens.ADMIN, "req_" + "a".repeat(32))));
         var problem = UUID.randomUUID();
         var owner = UUID.randomUUID();
         var request = new CustomRunController.Request(problem, "cpp", "int main(){}", "");
@@ -58,7 +59,10 @@ class CustomRunTests {
         byte[] body = new ObjectMapper().writeValueAsBytes(result);
         server.createContext("/api/custom-runs", exchange -> {
             calls.incrementAndGet();
-            assertEquals("Bearer delegated", exchange.getRequestHeaders().getFirst("Authorization"));
+            assertEquals(
+                    ServiceNames.GATEWAY,
+                    TestCalls.verify(exchange.getRequestHeaders().getFirst("Authorization"), ServiceNames.SUBMISSION)
+                            .caller());
             exchange.getRequestBody().readAllBytes();
             exchange.getResponseHeaders().add("Content-Type", "application/json");
             exchange.sendResponseHeaders(downstreamStatus.get(), body.length);
@@ -70,14 +74,14 @@ class CustomRunTests {
         try {
             var one = new CustomRunController(
                     access,
-                    new InternalRequestFactory(),
+                    TestCalls.SIGNER,
                     WebClient.builder(),
                     redis,
                     "http://127.0.0.1:" + server.getAddress().getPort(),
                     true);
             var two = new CustomRunController(
                     access,
-                    new InternalRequestFactory(),
+                    TestCalls.SIGNER,
                     WebClient.builder(),
                     redis,
                     "http://127.0.0.1:" + server.getAddress().getPort(),
@@ -147,7 +151,7 @@ class CustomRunTests {
             var redis = new ReactiveStringRedisTemplate(connection);
             var controller = new CustomRunController(
                     mock(SubmissionGatewayAccess.class),
-                    new InternalRequestFactory(),
+                    TestCalls.SIGNER,
                     WebClient.builder(),
                     redis,
                     "http://unused.invalid",
@@ -223,7 +227,7 @@ class CustomRunTests {
                 .thenReturn(acquired.asMono().flux(), reactor.core.publisher.Flux.just(1L));
         var controller = new CustomRunController(
                 mock(SubmissionGatewayAccess.class),
-                new InternalRequestFactory(),
+                TestCalls.SIGNER,
                 WebClient.builder(),
                 redis,
                 "http://unused.invalid",
@@ -276,8 +280,8 @@ class CustomRunTests {
             downstreamCalls.incrementAndGet();
             return Mono.error(new AssertionError("disabled gateway must not forward"));
         });
-        var controller = new CustomRunController(
-                access, new InternalRequestFactory(), client, redis, "http://submission.invalid", false);
+        var controller =
+                new CustomRunController(access, TestCalls.SIGNER, client, redis, "http://submission.invalid", false);
         var id = UUID.randomUUID();
         var request = new CustomRunController.Request(id, "cpp", "int main(){}", "");
         var error = assertThrows(

@@ -1,18 +1,15 @@
 package com.cherryoj.gatewayservice.problem;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
+import com.cherryoj.gatewayservice.api.DownstreamCallRejection;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.codec.DecodingException;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 final class ProblemApiErrors {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ProblemApiErrors.class);
-
     private static final Set<String> SAFE_CLIENT_CODES = Set.of(
             "VALIDATION_FAILED",
             "MALFORMED_REQUEST",
@@ -66,9 +63,10 @@ final class ProblemApiErrors {
             if (status >= 500) {
                 return status == 504 ? gatewayTimeout() : unavailable();
             }
-            if (status == 401) {
-                logIdentityViolation(requestId, upstream.code());
-                return identityUnavailable();
+            // problem-service 的 401 只可能是调用令牌被拒：gateway 不转发任何需要它自己认证的东西。
+            if (status == 401 || DownstreamCallRejection.isTrustFailure(status, upstream.code())) {
+                DownstreamCallRejection.record("problem-service", requestId, status, upstream.code());
+                return DownstreamCallRejection.unavailable();
             }
             if (status == 403) {
                 return client(HttpStatus.FORBIDDEN, "FORBIDDEN");
@@ -87,15 +85,6 @@ final class ProblemApiErrors {
                     : badGateway();
         }
         return badGateway();
-    }
-
-    private static void logIdentityViolation(String requestId, String upstreamCode) {
-        LOGGER.atWarn()
-                .addKeyValue("event", "identity_trust_violation")
-                .addKeyValue("upstream_service", "problem-service")
-                .addKeyValue("request_id", requestId == null ? "unavailable" : requestId)
-                .addKeyValue("upstream_code", upstreamCode)
-                .log("Resource service rejected a prevalidated delegated identity");
     }
 
     private static ApiProblemException client(HttpStatus status, String code) {
@@ -132,11 +121,6 @@ final class ProblemApiErrors {
     private static ApiProblemException unavailable() {
         return new ApiProblemException(
                 HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", "服务暂不可用", "服务暂时不可用，请稍后重试。");
-    }
-
-    private static ApiProblemException identityUnavailable() {
-        return new ApiProblemException(
-                HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", "服务暂不可用", "身份信任状态暂时不一致，请稍后重试。");
     }
 
     private static ApiProblemException gatewayTimeout() {

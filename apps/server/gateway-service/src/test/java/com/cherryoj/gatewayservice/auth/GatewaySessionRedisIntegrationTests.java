@@ -2,12 +2,13 @@ package com.cherryoj.gatewayservice.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.cherryoj.gatewayservice.TestCalls;
+import com.cherryoj.identity.token.CallUser;
+import com.cherryoj.identity.token.ServiceNames;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -48,12 +49,12 @@ class GatewaySessionRedisIntegrationTests {
 
     private static final Pattern TOKEN_PATTERN = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"");
     private static final AtomicInteger AUTHENTICATE_CALLS = new AtomicInteger();
-    private static final AtomicInteger TOKEN_EXCHANGE_CALLS = new AtomicInteger();
     private static final AtomicInteger ADMIN_USER_CALLS = new AtomicInteger();
     private static final AtomicInteger TEST_DATA_UPLOAD_CALLS = new AtomicInteger();
     private static final AtomicReference<String> TEST_DATA_AUTHORIZATION = new AtomicReference<>();
     private static final AtomicReference<String> AUTH_AUTHORIZATION = new AtomicReference<>();
-    private static volatile LocalDateTime sessionAbsoluteExpiresAt;
+    private static final String SESSION_ID = "session-id-canary-" + "x".repeat(32);
+    private static volatile Instant sessionExpiresAt;
     private static final DisposableServer USER_SERVICE = startUserService();
 
     @Container
@@ -76,20 +77,7 @@ class GatewaySessionRedisIntegrationTests {
         return HttpServer.create()
                 .host("127.0.0.1")
                 .port(0)
-                .route(routes -> routes
-                        // gateway 先用自己的私钥签断言换服务令牌，再带着它调用 /internal/auth/*。
-                        .post(
-                                "/internal/service-tokens",
-                                (request, response) -> request.receive()
-                                        .aggregate()
-                                        .then(response.status(HttpStatus.OK.value())
-                                                .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                                .sendString(Mono.just(
-                                                        "{\"accessToken\":\"gateway-service-token-canary\",\"expiresAt\":\""
-                                                                + java.time.Instant.now()
-                                                                        .plusSeconds(900) + "\"}"))
-                                                .then()))
-                        .post("/internal/auth/authenticate", (request, response) -> {
+                .route(routes -> routes.post("/internal/auth/authenticate", (request, response) -> {
                             AUTHENTICATE_CALLS.incrementAndGet();
                             AUTH_AUTHORIZATION.set(request.requestHeaders().get(HttpHeaders.AUTHORIZATION));
                             return request.receive()
@@ -107,15 +95,6 @@ class GatewaySessionRedisIntegrationTests {
                                                 .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                                                 .sendString(Mono.just(validateJson()))
                                                 .then()))
-                        .post("/internal/auth/token", (request, response) -> {
-                            TOKEN_EXCHANGE_CALLS.incrementAndGet();
-                            return request.receive()
-                                    .aggregate()
-                                    .then(response.status(HttpStatus.OK.value())
-                                            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                            .sendString(Mono.just(tokenExchangeJson()))
-                                            .then());
-                        })
                         .post(
                                 "/internal/auth/revoke",
                                 (request, response) -> request.receive()
@@ -124,16 +103,10 @@ class GatewaySessionRedisIntegrationTests {
                                                 .send()))
                         .get("/internal/admin/users", (request, response) -> {
                             ADMIN_USER_CALLS.incrementAndGet();
-                            String authorization = request.requestHeaders().get(HttpHeaders.AUTHORIZATION);
-                            if ("Bearer fresh-internal-jwt-canary".equals(authorization)) {
-                                return response.status(HttpStatus.OK.value())
-                                        .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                        .sendString(Mono.just(userPageJson()))
-                                        .then();
-                            }
+                            // 模拟 user-service 拒绝了 gateway 的调用令牌（例如公钥目录没有更新）。
                             return response.status(HttpStatus.UNAUTHORIZED.value())
-                                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                                    .sendString(Mono.just("{\"code\":\"INVALID_TOKEN\",\"message\":\"\"}"))
+                                    .header(HttpHeaders.CONTENT_TYPE, "application/problem+json")
+                                    .sendString(Mono.just("{\"code\":\"CALL_UNAUTHENTICATED\",\"status\":401}"))
                                     .then();
                         })
                         .put("/internal/admin/problems/{problemId}/test-data", (request, response) -> {
@@ -159,9 +132,6 @@ class GatewaySessionRedisIntegrationTests {
         registry.add("spring.data.redis.host", REDIS::getHost);
         registry.add("spring.data.redis.port", () -> REDIS.getMappedPort(6379));
         registry.add("cherry.gateway.user-service-base-url", () -> "http://127.0.0.1:" + USER_SERVICE.port());
-        registry.add(
-                "cherry.service-identity.token-uri",
-                () -> "http://127.0.0.1:" + USER_SERVICE.port() + "/internal/service-tokens");
         registry.add("cherry.gateway.problem-service.base-url", () -> "http://127.0.0.1:" + USER_SERVICE.port());
     }
 
@@ -203,9 +173,7 @@ class GatewaySessionRedisIntegrationTests {
         ResponseCookie authenticatedCookie = login.getResponseCookies().getFirst("CHERRY_SESSION");
         assertCookiePolicy(authenticatedCookie);
         assertThat(authenticatedCookie.getValue()).isNotEqualTo(anonymousCookie.getValue());
-        assertThat(new String(login.getResponseBody(), StandardCharsets.UTF_8))
-                .doesNotContain("login-grant-canary")
-                .doesNotContain("internal-jwt-canary");
+        assertThat(new String(login.getResponseBody(), StandardCharsets.UTF_8)).doesNotContain(SESSION_ID);
 
         client.get()
                 .uri("/api/auth/session")
@@ -218,9 +186,7 @@ class GatewaySessionRedisIntegrationTests {
                 .isEqualTo(true)
                 .jsonPath("$.data.user.username")
                 .isEqualTo("admin01")
-                .jsonPath("$.data.accessToken")
-                .doesNotExist()
-                .jsonPath("$.data.loginGrant")
+                .jsonPath("$.data.sessionId")
                 .doesNotExist();
 
         assertThat(redis.keys("cherry:gateway:sessions:*").collectList().block())
@@ -257,15 +223,16 @@ class GatewaySessionRedisIntegrationTests {
                 .jsonPath("$.detail")
                 .isEqualTo("请求缺少有效的 CSRF token。");
         assertThat(AUTHENTICATE_CALLS.get()).isEqualTo(callsBefore);
-        // 登录端点只认 gateway 的服务令牌，不再无鉴权开放。
-        assertThat(AUTH_AUTHORIZATION.get()).isEqualTo("Bearer gateway-service-token-canary");
+        // 登录调用带的是 gateway 自己签发、发给 user-service、不代表用户的调用令牌。
+        var call = TestCalls.verify(AUTH_AUTHORIZATION.get(), ServiceNames.USER);
+        assertThat(call.caller()).isEqualTo(ServiceNames.GATEWAY);
+        assertThat(call.user()).isEmpty();
     }
 
     @Test
-    void rejectedResourceTokenIsNotReplayedAndDoesNotClearTheValidatedSession() {
+    void aRejectedCallTokenBecomes503IsNotReplayedAndKeepsTheSession() {
         WebTestClient client =
                 WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).build();
-        int exchangesBefore = TOKEN_EXCHANGE_CALLS.get();
         int adminCallsBefore = ADMIN_USER_CALLS.get();
         EntityExchangeResult<byte[]> csrf = client.get()
                 .uri("/api/auth/csrf")
@@ -298,7 +265,6 @@ class GatewaySessionRedisIntegrationTests {
                 .jsonPath("$.code")
                 .isEqualTo("SERVICE_UNAVAILABLE");
 
-        assertThat(TOKEN_EXCHANGE_CALLS.get() - exchangesBefore).isZero();
         assertThat(ADMIN_USER_CALLS.get() - adminCallsBefore).isEqualTo(1);
         client.get()
                 .uri("/api/auth/session")
@@ -366,7 +332,8 @@ class GatewaySessionRedisIntegrationTests {
                 .isEqualTo("6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4");
 
         assertThat(TEST_DATA_UPLOAD_CALLS.get() - uploadsBefore).isEqualTo(1);
-        assertThat(TEST_DATA_AUTHORIZATION).hasValue("Bearer internal-jwt-canary");
+        var call = TestCalls.verify(TEST_DATA_AUTHORIZATION.get(), ServiceNames.PROBLEM);
+        assertThat(call.user()).contains(new CallUser("019c8e42-7f70-7000-8000-000000000001", "ADMIN"));
     }
 
     private static String token(EntityExchangeResult<byte[]> response) {
@@ -387,10 +354,10 @@ class GatewaySessionRedisIntegrationTests {
     }
 
     private static String authenticationJson() {
-        Instant started = Instant.now();
-        sessionAbsoluteExpiresAt = LocalDateTime.ofInstant(started.plusSeconds(2_592_000), ZoneOffset.UTC);
+        sessionExpiresAt = Instant.now().plusSeconds(2_592_000);
         return """
 				{
+				  "sessionId": "%s",
 				  "user": {
 				    "id": "019c8e42-7f70-7000-8000-000000000001",
 				    "username": "admin01",
@@ -401,30 +368,14 @@ class GatewaySessionRedisIntegrationTests {
 				    "updatedAt": "2026-08-26T01:00:00",
 				    "rowVersion": 0
 				  },
-				  "loginGrant": "login-grant-canary",
-				  "accessToken": "internal-jwt-canary",
-				  "accessTokenExpiresAt": "%s",
-				  "sessionAbsoluteExpiresAt": "%s",
-				  "sessionAbsoluteTimeoutSeconds": 2592000,
-				  "sessionLifetimePolicy": "fixed-absolute"
+				  "sessionExpiresAt": "%s"
 				}
-				""".formatted(started.plusSeconds(7_200), sessionAbsoluteExpiresAt);
+				""".formatted(SESSION_ID, sessionExpiresAt);
     }
 
     private static String validateJson() {
         return """
 				{
-				  "sessionAbsoluteExpiresAt": "%s",
-				  "sessionAbsoluteTimeoutSeconds": 2592000,
-				  "sessionLifetimePolicy": "fixed-absolute"
-				}
-				""".formatted(sessionAbsoluteExpiresAt);
-    }
-
-    private static String tokenExchangeJson() {
-        Instant exchanged = Instant.now();
-        return """
-				{
 				  "user": {
 				    "id": "019c8e42-7f70-7000-8000-000000000001",
 				    "username": "admin01",
@@ -435,34 +386,9 @@ class GatewaySessionRedisIntegrationTests {
 				    "updatedAt": "2026-08-26T01:00:00",
 				    "rowVersion": 0
 				  },
-				  "accessToken": "fresh-internal-jwt-canary",
-				  "accessTokenExpiresAt": "%s",
-				  "sessionAbsoluteExpiresAt": "%s",
-				  "sessionAbsoluteTimeoutSeconds": 2592000,
-				  "sessionLifetimePolicy": "fixed-absolute"
+				  "sessionExpiresAt": "%s"
 				}
-				""".formatted(exchanged.plusSeconds(7_200), sessionAbsoluteExpiresAt);
-    }
-
-    private static String userPageJson() {
-        return """
-				{
-				  "items": [{
-				    "id": "019c8e42-7f70-7000-8000-000000000001",
-				    "username": "admin01",
-				    "role": "ADMIN",
-				    "status": "ACTIVE",
-				    "passwordChangeRequired": false,
-				    "createdAt": "2026-08-26T01:00:00",
-				    "updatedAt": "2026-08-26T01:00:00",
-				    "rowVersion": 0
-				  }],
-				  "page": 1,
-				  "size": 20,
-				  "totalElements": 1,
-				  "totalPages": 1
-				}
-				""";
+				""".formatted(sessionExpiresAt);
     }
 
     private static byte[] zipBytes() throws IOException {

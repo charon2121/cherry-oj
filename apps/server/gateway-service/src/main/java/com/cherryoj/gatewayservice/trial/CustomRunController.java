@@ -2,6 +2,8 @@ package com.cherryoj.gatewayservice.trial;
 
 import com.cherryoj.gatewayservice.api.*;
 import com.cherryoj.gatewayservice.auth.*;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -22,7 +24,7 @@ public class CustomRunController {
 
     private final SubmissionGatewayAccess access;
 
-    private final InternalRequestFactory requests;
+    private final InternalRequests requests;
 
     private final WebClient client;
 
@@ -41,13 +43,13 @@ public class CustomRunController {
 
     public CustomRunController(
             SubmissionGatewayAccess access,
-            InternalRequestFactory requests,
+            CallTokenSigner calls,
             WebClient.Builder builder,
             ReactiveStringRedisTemplate redis,
             @Value("${cherry.gateway.submission-service-url:http://127.0.0.1:8083}") String url,
             @Value("${cherry.custom-run.enabled:false}") boolean enabled) {
         this.access = access;
-        this.requests = requests;
+        this.requests = new InternalRequests(calls, ServiceNames.SUBMISSION);
         this.redis = redis;
         this.enabled = enabled;
         client = builder.clone()

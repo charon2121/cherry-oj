@@ -7,9 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
 import com.cherryoj.gatewayservice.api.ApiRequestContext;
+import com.cherryoj.gatewayservice.auth.ActingUser;
 import com.cherryoj.gatewayservice.auth.AdminGatewayAccess;
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
-import java.time.Instant;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
@@ -26,11 +26,10 @@ class AdminLanguagesControllerTests {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.put("/api/admin/languages/rust").build());
         String requestId = ApiRequestContext.requestId(exchange);
-        DelegatedIdentity identity =
-                new DelegatedIdentity("delegated-token", Instant.now().plusSeconds(300), requestId);
+        ActingUser identity = new ActingUser(TestCallTokens.ADMIN, requestId);
         var request = new AdminLanguagesController.UpdateLanguageSettingRequest(
                 "use std::io;\n", "2026-10-17T17:22:51.534471");
-        when(adminAccess.delegatedIdentity(exchange, requestId)).thenReturn(Mono.just(identity));
+        when(adminAccess.actingUser(exchange, requestId)).thenReturn(Mono.just(identity));
         var controller = new AdminLanguagesController(adminAccess, problemService);
 
         for (var upstream : new ProblemServiceClientException[] {

@@ -30,9 +30,8 @@ class AdminUserControllerTests {
         UserServiceClient userService = mock(UserServiceClient.class);
         MockServerWebExchange exchange = exchange();
         WebSession session = exchange.getSession().block();
-        when(authentication.current(eq(session), anyString(), eq(true)))
-                .thenReturn(Mono.just(state("delegated-access-token")));
-        when(userService.listUsers(org.mockito.ArgumentMatchers.any(DelegatedIdentity.class), eq(1), eq(20)))
+        when(authentication.current(eq(session), anyString())).thenReturn(Mono.just(state()));
+        when(userService.listUsers(org.mockito.ArgumentMatchers.any(ActingUser.class), eq(1), eq(20)))
                 .thenReturn(Mono.just(userPage()));
 
         var response = new AdminUserController(authentication, userService)
@@ -40,24 +39,25 @@ class AdminUserControllerTests {
                 .block();
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        ArgumentCaptor<DelegatedIdentity> identity = ArgumentCaptor.forClass(DelegatedIdentity.class);
+        ArgumentCaptor<ActingUser> identity = ArgumentCaptor.forClass(ActingUser.class);
         verify(userService).listUsers(identity.capture(), eq(1), eq(20));
-        assertThat(identity.getValue().accessToken()).isEqualTo("delegated-access-token");
+        assertThat(identity.getValue().user().id()).isEqualTo(user().id());
+        assertThat(identity.getValue().user().role()).isEqualTo("ADMIN");
         assertThat(identity.getValue().requestId())
                 .isEqualTo(response.getBody().meta().requestId());
-        verify(authentication, times(1)).current(eq(session), anyString(), eq(true));
+        verify(authentication, times(1)).current(eq(session), anyString());
     }
 
     @Test
-    void resourceTokenRejectionBecomes503WithoutExchangeOrReplay() {
+    void aRejectedCallTokenBecomes503WithoutReplay() {
         GatewayAuthenticationService authentication = mock(GatewayAuthenticationService.class);
         UserServiceClient userService = mock(UserServiceClient.class);
         MockServerWebExchange exchange = exchange();
         WebSession session = exchange.getSession().block();
-        when(authentication.current(eq(session), anyString(), eq(true)))
-                .thenReturn(Mono.just(state("delegated-access-token")));
-        when(userService.listUsers(org.mockito.ArgumentMatchers.any(DelegatedIdentity.class), eq(1), eq(20)))
-                .thenReturn(Mono.error(new UserServiceClientException(HttpStatus.UNAUTHORIZED, "INVALID_TOKEN")));
+        when(authentication.current(eq(session), anyString())).thenReturn(Mono.just(state()));
+        when(userService.listUsers(org.mockito.ArgumentMatchers.any(ActingUser.class), eq(1), eq(20)))
+                .thenReturn(
+                        Mono.error(new UserServiceClientException(HttpStatus.UNAUTHORIZED, "CALL_UNAUTHENTICATED")));
 
         assertThatThrownBy(() -> new AdminUserController(authentication, userService)
                         .list(1, 20, exchange)
@@ -66,9 +66,8 @@ class AdminUserControllerTests {
                     assertThat(error.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
                     assertThat(error.code()).isEqualTo("SERVICE_UNAVAILABLE");
                 });
-        verify(userService, times(1))
-                .listUsers(org.mockito.ArgumentMatchers.any(DelegatedIdentity.class), eq(1), eq(20));
-        verify(authentication, times(1)).current(eq(session), anyString(), eq(true));
+        verify(userService, times(1)).listUsers(org.mockito.ArgumentMatchers.any(ActingUser.class), eq(1), eq(20));
+        verify(authentication, times(1)).current(eq(session), anyString());
     }
 
     private static MockServerWebExchange exchange() {
@@ -76,13 +75,8 @@ class AdminUserControllerTests {
                 MockServerHttpRequest.get("/api/admin/users?page=1&size=20").build());
     }
 
-    private static AuthSessionState state(String accessToken) {
-        return new AuthSessionState(
-                user().publicView(),
-                "grant-value",
-                accessToken,
-                NOW.plusSeconds(7_200),
-                NOW.plus(java.time.Duration.ofDays(30)));
+    private static AuthSessionState state() {
+        return new AuthSessionState(user().publicView(), "s".repeat(43), NOW.plus(java.time.Duration.ofDays(30)), NOW);
     }
 
     private static UserServiceClient.UserPage userPage() {

@@ -33,13 +33,10 @@ server:
         path: /api
 
 cherry:
-  # gateway 的服务身份：调用 user-service 的登录、换令牌、会话校验与吊销端点时使用。
-  # 本地由 scripts/dev-server.sh 生成密钥到 .local/service-identity/；部署时用环境变量指向挂载的私钥。
   service-identity:
     name: "${spring.application.name}"
-    issuer: "${CHERRY_IDENTITY_ISSUER:cherry-oj-user-service}"
     private-key-location: "${CHERRY_SERVICE_PRIVATE_KEY_LOCATION:file:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}/${spring.application.name}-private.pem}"
-    token-uri: "${CHERRY_SERVICE_TOKEN_URI:http://127.0.0.1:${CHERRY_USER_PORT:8081}/internal/service-tokens}"
+    public-keys-dir: "${CHERRY_SERVICE_PUBLIC_KEYS_DIR:${CHERRY_SERVICE_IDENTITY_DIR:./service-identity}}"
   custom-run:
     enabled: ${CHERRY_CUSTOM_RUN_ENABLED:true}
   gateway:
@@ -47,10 +44,7 @@ cherry:
     judging-service-url: "${CHERRY_JUDGING_SERVICE_URL:http://127.0.0.1:${CHERRY_JUDGING_PORT:8084}}"
     user-service-base-url: "${CHERRY_USER_SERVICE_URL:http://127.0.0.1:${CHERRY_USER_PORT:8081}}"
     user-service-timeout: 5s
-    session-lifetime-policy: fixed-absolute
     session-absolute-timeout-seconds: "${CHERRY_AUTH_SESSION_ABSOLUTE_TIMEOUT_SECONDS:2592000}"
-    access-token-ttl: 2h
-    token-refresh-ahead: 5m
     trusted-origins:
       - "${CHERRY_WEB_ORIGIN:http://cherry.localhost:${CHERRY_WEB_PORT:5173}}"
     login-rate-limit-per-minute: 10
@@ -88,7 +82,7 @@ management:
         enabled: true
       group:
         readiness:
-          include: readinessState,gatewayIdentity
+          include: readinessState
 
 logging:
   file:

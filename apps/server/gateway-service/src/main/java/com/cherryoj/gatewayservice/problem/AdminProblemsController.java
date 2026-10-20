@@ -4,8 +4,8 @@ import com.cherryoj.gatewayservice.api.ApiProblemException;
 import com.cherryoj.gatewayservice.api.ApiRequestContext;
 import com.cherryoj.gatewayservice.api.ApiSuccess;
 import com.cherryoj.gatewayservice.api.PagePagination;
+import com.cherryoj.gatewayservice.auth.ActingUser;
 import com.cherryoj.gatewayservice.auth.AdminGatewayAccess;
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -191,10 +191,9 @@ public class AdminProblemsController {
                 .map(problem -> ok(problem, requestId));
     }
 
-    private <T> Mono<T> admin(
-            ServerWebExchange exchange, String requestId, Function<DelegatedIdentity, Mono<T>> action) {
+    private <T> Mono<T> admin(ServerWebExchange exchange, String requestId, Function<ActingUser, Mono<T>> action) {
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(action)
                 .onErrorMap(error -> ProblemApiErrors.map(error, false, requestId));
     }

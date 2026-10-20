@@ -1,8 +1,10 @@
 package com.cherryoj.gatewayservice.judging;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
-import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
+import com.cherryoj.gatewayservice.auth.ActingUser;
+import com.cherryoj.gatewayservice.auth.InternalRequests;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -15,17 +17,17 @@ import reactor.core.publisher.Mono;
 class JudgingServiceClient {
     private static final int MAX_NODES = 1000;
     private final WebClient client;
-    private final InternalRequestFactory requests;
+    private final InternalRequests requests;
 
     JudgingServiceClient(
             WebClient.Builder builder,
-            InternalRequestFactory requests,
+            CallTokenSigner calls,
             @Value("${cherry.gateway.judging-service-url:http://127.0.0.1:8084}") String url) {
         this.client = builder.clone().baseUrl(url).build();
-        this.requests = requests;
+        this.requests = new InternalRequests(calls, ServiceNames.JUDGING);
     }
 
-    Mono<JudgeNodeDtos.JudgeNodeListData> judgeNodes(DelegatedIdentity identity) {
+    Mono<JudgeNodeDtos.JudgeNodeListData> judgeNodes(ActingUser identity) {
         return requests.authenticated(client.get().uri("/internal/admin/judge-nodes"), identity)
                 .exchangeToMono(response -> response.statusCode().value() == 200
                         ? response.bodyToMono(JudgeNodeDtos.JudgeNodeListData.class)

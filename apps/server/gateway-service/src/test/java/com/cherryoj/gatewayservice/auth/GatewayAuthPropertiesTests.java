@@ -14,32 +14,15 @@ import org.springframework.core.io.ClassPathResource;
 class GatewayAuthPropertiesTests {
 
     @Test
-    void usesExplicitFixedAbsolutePolicy() {
-        GatewayAuthProperties properties =
-                properties("fixed-absolute", 2_592_000, Duration.ofHours(2), Duration.ofMinutes(5));
-        assertThat(properties.sessionAbsoluteTimeout()).isEqualTo(Duration.ofDays(30));
-        assertThat(properties.accessTokenTtl()).isEqualTo(Duration.ofHours(2));
-        assertThat(properties.tokenRefreshAhead()).isEqualTo(Duration.ofMinutes(5));
-    }
-
-    @Test
-    void rejectsUnknownPolicyAndOutOfRangeLifetime() {
-        assertThatThrownBy(() -> properties("sliding-idle", 2_592_000, Duration.ofHours(2), Duration.ofMinutes(5)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("fixed-absolute");
-        assertThatThrownBy(() -> properties("fixed-absolute", 86_399, Duration.ofHours(2), Duration.ofMinutes(5)))
+    void convertsTheSessionLifetimeAndRejectsOutOfRangeValues() {
+        assertThat(properties(2_592_000).sessionAbsoluteTimeout()).isEqualTo(Duration.ofDays(30));
+        assertThatThrownBy(() -> properties(86_399))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("[86400, 7776000]");
-        assertThatThrownBy(() -> properties("fixed-absolute", 2_592_000, Duration.ofMinutes(5), Duration.ofMinutes(5)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("token-refresh-ahead");
         assertThatCode(() -> new GatewayAuthProperties(
                         URI.create("http://user-service.internal:8081"),
                         Duration.ofSeconds(5),
-                        "fixed-absolute",
                         2_592_000,
-                        Duration.ofHours(2),
-                        Duration.ofMinutes(5),
                         List.of("https://oj.example"),
                         10))
                 .doesNotThrowAnyException();
@@ -56,15 +39,11 @@ class GatewayAuthPropertiesTests {
         });
     }
 
-    private static GatewayAuthProperties properties(
-            String policy, long absolute, Duration tokenTtl, Duration refreshAhead) {
+    private static GatewayAuthProperties properties(long absolute) {
         return new GatewayAuthProperties(
                 URI.create("http://localhost:8081"),
                 Duration.ofSeconds(5),
-                policy,
                 absolute,
-                tokenTtl,
-                refreshAhead,
                 List.of("http://localhost:5173"),
                 10);
     }

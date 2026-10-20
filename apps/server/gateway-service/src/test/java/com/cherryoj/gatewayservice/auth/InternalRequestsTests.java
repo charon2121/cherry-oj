@@ -2,10 +2,12 @@ package com.cherryoj.gatewayservice.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.cherryoj.gatewayservice.TestCalls;
+import com.cherryoj.identity.token.ServiceNames;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
@@ -15,12 +17,12 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-class InternalRequestFactoryTests {
+class InternalRequestsTests {
 
     private static final String REQUEST_ID = "req_0123456789abcdef0123456789abcdef";
 
     @Test
-    void addsIdentityAndRequestIdWhileLeavingTracePropagationToTheManagedClient() {
+    void signsACallTokenForTheAudienceAndAddsTheRequestId() {
         AtomicReference<ClientRequest> captured = new AtomicReference<>();
         WebClient client = WebClient.builder()
                 .exchangeFunction(request -> {
@@ -29,10 +31,9 @@ class InternalRequestFactoryTests {
                             ClientResponse.create(HttpStatus.NO_CONTENT).build());
                 })
                 .build();
-        DelegatedIdentity identity =
-                new DelegatedIdentity("secret-delegated-token", Instant.now().plusSeconds(300), REQUEST_ID);
+        ActingUser identity = new ActingUser(TestCallTokens.ADMIN, REQUEST_ID);
 
-        new InternalRequestFactory()
+        new InternalRequests(TestCalls.SIGNER, ServiceNames.PROBLEM)
                 .authenticated(
                         client.get()
                                 .uri("http://service.test/internal/resource")
@@ -41,12 +42,12 @@ class InternalRequestFactoryTests {
                 .exchangeToMono(response -> response.releaseBody())
                 .block();
 
-        assertThat(captured.get().headers().getFirst(HttpHeaders.AUTHORIZATION))
-                .isEqualTo("Bearer secret-delegated-token");
+        var call = TestCalls.verify(captured.get().headers().getFirst(HttpHeaders.AUTHORIZATION), ServiceNames.PROBLEM);
+        assertThat(call.caller()).isEqualTo(ServiceNames.GATEWAY);
+        assertThat(call.user()).contains(TestCallTokens.ADMIN);
         assertThat(captured.get().headers().getFirst("X-Request-Id")).isEqualTo(REQUEST_ID);
         assertThat(captured.get().headers().getFirst("traceparent"))
                 .isEqualTo("00-0123456789abcdef0123456789abcdef-0123456789abcdef-01");
-        assertThat(identity.toString()).doesNotContain("secret-delegated-token");
     }
 
     @Test
@@ -64,10 +65,10 @@ class InternalRequestFactoryTests {
         String configuration = Files.readString(Path.of("src/main/resources/application.yaml"));
 
         assertThat(userClient)
-                .contains("InternalRequestFactory requests")
+                .contains("new InternalRequests(calls, ServiceNames.USER)")
                 .doesNotContain("HttpHeaders.AUTHORIZATION", ".setBearerAuth(", "readWithRecovery");
         assertThat(problemClient)
-                .contains("InternalRequestFactory requests")
+                .contains("new InternalRequests(calls, ServiceNames.PROBLEM)")
                 .doesNotContain("HttpHeaders.AUTHORIZATION", ".setBearerAuth(", "readWithRecovery");
         assertThat(adminAccess).doesNotContain("readWithRecovery", "resource_token_rejected");
         assertThat(authentication).doesNotContain("recoverRejectedAccessToken");

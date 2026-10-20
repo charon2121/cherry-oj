@@ -55,7 +55,7 @@ final class AuthController {
                         ApiSuccess.of((Object) Map.of("authenticated", false), ApiRequestContext.requestId(exchange))));
             }
             return authentication
-                    .current(session, ApiRequestContext.requestId(exchange), true)
+                    .current(session, ApiRequestContext.requestId(exchange))
                     .map(current -> noStore(ApiSuccess.of(
                             (Object) new AuthenticatedSessionData(true, current.user()),
                             ApiRequestContext.requestId(exchange))));
@@ -87,15 +87,14 @@ final class AuthController {
         String requestId = ApiRequestContext.requestId(exchange);
         return exchange.getSession()
                 .flatMap(session -> authentication
-                        .current(session, requestId, true)
+                        .current(session, requestId)
                         .flatMap(state -> userService
                                 .changePassword(
-                                        new DelegatedIdentity(
-                                                state.accessToken(), state.accessTokenExpiresAt(), requestId),
+                                        ActingUser.of(state, requestId),
                                         request.currentPassword(),
                                         request.newPassword())
                                 .onErrorMap(
-                                        error -> GatewayAuthenticationService.mapDelegatedUpstream(error, requestId)))
+                                        error -> GatewayAuthenticationService.mapUserCallUpstream(error, requestId)))
                         .then(authentication.invalidate(session))
                         .thenReturn(ResponseEntity.noContent()
                                 .cacheControl(CacheControl.noStore())

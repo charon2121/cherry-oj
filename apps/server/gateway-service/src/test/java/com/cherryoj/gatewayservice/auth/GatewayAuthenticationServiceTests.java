@@ -4,161 +4,148 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
-import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.server.MockWebSession;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 
 class GatewayAuthenticationServiceTests {
-
     private static final Instant NOW = Instant.parse("2026-08-26T12:00:00Z");
-    private static final Instant ABSOLUTE = NOW.plus(Duration.ofDays(30));
+    private static final Instant EXPIRES = NOW.plus(Duration.ofDays(30));
+    private static final String SESSION_ID = "s".repeat(43);
 
     @Test
-    void concurrentRefreshUsesOneExchangeAndKeepsFixedAbsoluteDeadline() {
+    void withinThirtySecondsOfTheLastCheckTheSessionIsUsedAsIs() {
         UserServiceClient client = mock(UserServiceClient.class);
-        MockWebSession session = session(state(NOW.plusSeconds(5), ABSOLUTE));
-        when(client.exchange("grant-value", "req_test")).thenReturn(Mono.just(exchangeResult(ABSOLUTE)));
-        GatewayAuthenticationService service = service(client);
+        AuthSessionState state = state(NOW.minusSeconds(29), "ADMIN");
 
-        List<AuthSessionState> results = Mono.zip(
-                        service.current(session, "req_test", true),
-                        service.current(session, "req_test", true),
-                        List::of)
-                .block();
-
-        assertThat(results).allSatisfy(result -> {
-            assertThat(result.accessToken()).isEqualTo("fresh-access-token");
-            assertThat(result.absoluteExpiresAt()).isEqualTo(ABSOLUTE);
-        });
-        verify(client).exchange("grant-value", "req_test");
+        assertThat(service(client).current(session(state), "req_test").block()).isSameAs(state);
+        verifyNoInteractions(client);
     }
 
     @Test
-    void refreshesAtExactlyFiveMinutesButNotOneSecondBeforeTheWindow() {
+    void afterThirtySecondsTheSessionIsValidatedAndTheUserRefreshed() {
         UserServiceClient client = mock(UserServiceClient.class);
-        when(client.exchange("grant-value", "req_test")).thenReturn(Mono.just(exchangeResult(ABSOLUTE)));
-        when(client.validate("grant-value", "req_test")).thenReturn(Mono.just(validationResult(ABSOLUTE)));
+        MockWebSession session = session(state(NOW.minusSeconds(30), "ADMIN"));
+        when(client.validate(SESSION_ID, "req_test")).thenReturn(Mono.just(validation("USER")));
 
-        service(client)
-                .current(session(state(NOW.plus(Duration.ofMinutes(5)), ABSOLUTE)), "req_test", true)
-                .block();
-        service(client)
-                .current(session(state(NOW.plus(Duration.ofMinutes(5)).plusSeconds(1), ABSOLUTE)), "req_test", true)
-                .block();
+        AuthSessionState current = service(client).current(session, "req_test").block();
 
-        verify(client, times(1)).exchange("grant-value", "req_test");
-        verify(client, times(1)).validate("grant-value", "req_test");
-    }
-
-    @Test
-    void refreshSingleFlightIsIsolatedPerBrowserSession() {
-        UserServiceClient client = mock(UserServiceClient.class);
-        when(client.exchange("grant-value", "req_test")).thenReturn(Mono.just(exchangeResult(ABSOLUTE)));
-        GatewayAuthenticationService service = service(client);
-
-        Mono.zip(
-                        service.current(session(state(NOW.plusSeconds(5), ABSOLUTE)), "req_test", true),
-                        service.current(session(state(NOW.plusSeconds(5), ABSOLUTE)), "req_test", true))
-                .block();
-
-        verify(client, times(2)).exchange("grant-value", "req_test");
-    }
-
-    @Test
-    void ordinaryRequestValidatesGrantWithoutSlidingDeadline() {
-        UserServiceClient client = mock(UserServiceClient.class);
-        MockWebSession session = session(state(NOW.plus(Duration.ofHours(1)), ABSOLUTE));
-        when(client.validate("grant-value", "req_test")).thenReturn(Mono.just(validationResult(ABSOLUTE)));
-
-        AuthSessionState current =
-                service(client).current(session, "req_test", true).block();
-
-        assertThat(current.absoluteExpiresAt()).isEqualTo(ABSOLUTE);
+        assertThat(current.user().role()).as("角色变化在核对后生效").isEqualTo("USER");
+        assertThat(current.validatedAt()).isEqualTo(NOW);
+        assertThat((AuthSessionState) session.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+                .isEqualTo(current);
         assertThat(session.getMaxIdleTime()).isEqualTo(Duration.ofDays(30));
-        verify(client).validate("grant-value", "req_test");
-        verify(client, never()).exchange("grant-value", "req_test");
     }
 
     @Test
-    void oldIdleBoundaryNoLongerInvalidatesButAbsoluteDeadlineDoes() {
+    void concurrentRequestsOfOneSessionShareOneValidation() {
         UserServiceClient client = mock(UserServiceClient.class);
-        MockWebSession validAfterOldIdle = session(state(NOW.plus(Duration.ofHours(1)), ABSOLUTE));
-        when(client.validate("grant-value", "req_test")).thenReturn(Mono.just(validationResult(ABSOLUTE)));
-        assertThat(service(client).current(validAfterOldIdle, "req_test", true).block())
-                .isNotNull();
+        MockWebSession session = session(state(NOW.minusSeconds(60), "ADMIN"));
+        Sinks.One<UserServiceClient.SessionValidationResult> upstream = Sinks.one();
+        when(client.validate(SESSION_ID, "req_test")).thenReturn(upstream.asMono());
+        GatewayAuthenticationService service = service(client);
 
-        MockWebSession expired = session(state(NOW.plus(Duration.ofHours(1)), NOW));
-        assertThatThrownBy(
-                        () -> service(client).current(expired, "req_test", true).block())
-                .isInstanceOfSatisfying(
-                        ApiProblemException.class,
-                        error -> assertThat(error.code()).isEqualTo("UNAUTHENTICATED"));
-        assertThat(expired.getAttributes()).isEmpty();
+        Mono<List<AuthSessionState>> both =
+                Mono.zip(service.current(session, "req_test"), service.current(session, "req_test"), List::of);
+        var result = both.toFuture();
+        upstream.tryEmitValue(validation("ADMIN"));
+
+        assertThat(result.join()).hasSize(2);
+        verify(client).validate(SESSION_ID, "req_test");
     }
 
     @Test
-    void revokedGrantInvalidatesGatewaySession() {
+    void anInvalidSessionLogsTheBrowserOut() {
         UserServiceClient client = mock(UserServiceClient.class);
-        MockWebSession session = session(state(NOW.plus(Duration.ofHours(1)), ABSOLUTE));
-        when(client.validate("grant-value", "req_test"))
-                .thenReturn(
-                        Mono.error(new UserServiceClientException(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED")));
+        MockWebSession session = session(state(NOW.minusSeconds(60), "ADMIN"));
+        when(client.validate(SESSION_ID, "req_test"))
+                .thenReturn(Mono.error(new UserServiceClientException(HttpStatus.UNAUTHORIZED, "SESSION_INVALID")));
 
-        assertThatThrownBy(
-                        () -> service(client).current(session, "req_test", true).block())
-                .isInstanceOfSatisfying(
-                        ApiProblemException.class,
-                        error -> assertThat(error.code()).isEqualTo("UNAUTHENTICATED"));
+        assertUnauthenticated(() -> service(client).current(session, "req_test").block());
         assertThat(session.getAttributes()).isEmpty();
     }
 
     @Test
-    void changedAbsoluteDeadlineFailsClosedWithoutMutatingSession() {
+    void anExpiredSessionIsRejectedWithoutAskingUserService() {
         UserServiceClient client = mock(UserServiceClient.class);
-        AuthSessionState initial = state(NOW.plus(Duration.ofHours(1)), ABSOLUTE);
-        MockWebSession session = session(initial);
-        when(client.validate("grant-value", "req_test"))
-                .thenReturn(Mono.just(new UserServiceClient.SessionValidationResult(
-                        LocalDateTime.ofInstant(ABSOLUTE.plusSeconds(1), ZoneOffset.UTC),
-                        2_592_000,
-                        "fixed-absolute")));
+        MockWebSession session =
+                session(new AuthSessionState(internalUser("ADMIN").publicView(), SESSION_ID, NOW, NOW.minusSeconds(1)));
 
-        assertThatThrownBy(
-                        () -> service(client).current(session, "req_test", true).block())
+        assertUnauthenticated(() -> service(client).current(session, "req_test").block());
+        assertThat(session.getAttributes()).isEmpty();
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    void anUnreachableUserServiceKeepsTheSessionButFailsTheRequest() {
+        UserServiceClient client = mock(UserServiceClient.class);
+        AuthSessionState initial = state(NOW.minusSeconds(60), "ADMIN");
+        MockWebSession session = session(initial);
+        when(client.validate(SESSION_ID, "req_test")).thenReturn(Mono.error(new TimeoutException()));
+
+        assertThatThrownBy(() -> service(client).current(session, "req_test").block())
                 .isInstanceOfSatisfying(
                         ApiProblemException.class,
-                        error -> assertThat(error.status()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE));
+                        error -> assertThat(error.status()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT));
         assertThat((AuthSessionState) session.getAttribute(GatewayAuthenticationService.SESSION_STATE))
                 .isSameAs(initial);
     }
 
-    private static GatewayAuthenticationService service(UserServiceClient client) {
-        return new GatewayAuthenticationService(client, properties(), Clock.fixed(NOW, ZoneOffset.UTC));
+    @Test
+    void loginStoresTheSessionUnderANewBrowserSessionId() {
+        UserServiceClient client = mock(UserServiceClient.class);
+        MockWebSession session = new MockWebSession();
+        String before = session.getId();
+        when(client.authenticate("admin01", "secret", "req_test"))
+                .thenReturn(Mono.just(
+                        new UserServiceClient.AuthenticationResult(SESSION_ID, internalUser("ADMIN"), EXPIRES)));
+
+        AuthSessionState state =
+                service(client).login(session, "admin01", "secret", "req_test").block();
+
+        assertThat(state.sessionId()).isEqualTo(SESSION_ID);
+        assertThat(state.validatedAt()).isEqualTo(NOW);
+        assertThat(session.getId()).isNotEqualTo(before);
+        assertThat((AuthSessionState) session.getAttribute(GatewayAuthenticationService.SESSION_STATE))
+                .isEqualTo(state);
     }
 
-    private static GatewayAuthProperties properties() {
-        return new GatewayAuthProperties(
-                URI.create("http://localhost:8081"),
-                Duration.ofSeconds(5),
-                "fixed-absolute",
-                2_592_000,
-                Duration.ofHours(2),
-                Duration.ofMinutes(5),
-                List.of("http://localhost:5173"),
-                10);
+    @Test
+    void logoutSucceedsEvenWhenUserServiceAlreadyForgotTheSession() {
+        UserServiceClient client = mock(UserServiceClient.class);
+        MockWebSession session = session(state(NOW, "ADMIN"));
+        when(client.revoke(SESSION_ID, "req_test"))
+                .thenReturn(Mono.error(new UserServiceClientException(HttpStatus.UNAUTHORIZED, "SESSION_INVALID")));
+
+        service(client).logout(session, "req_test").block();
+
+        assertThat(session.isExpired()).isTrue();
+        verify(client, never()).validate(SESSION_ID, "req_test");
+    }
+
+    private static void assertUnauthenticated(Runnable call) {
+        assertThatThrownBy(call::run)
+                .isInstanceOfSatisfying(
+                        ApiProblemException.class,
+                        error -> assertThat(error.code()).isEqualTo("UNAUTHENTICATED"));
+    }
+
+    private static GatewayAuthenticationService service(UserServiceClient client) {
+        return new GatewayAuthenticationService(client, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static MockWebSession session(AuthSessionState state) {
@@ -167,32 +154,17 @@ class GatewayAuthenticationServiceTests {
         return session;
     }
 
-    private static AuthSessionState state(Instant tokenExpiry, Instant absolute) {
-        return new AuthSessionState(user(), "grant-value", "old-access-token", tokenExpiry, absolute);
+    private static AuthSessionState state(Instant validatedAt, String role) {
+        return new AuthSessionState(internalUser(role).publicView(), SESSION_ID, EXPIRES, validatedAt);
     }
 
-    private static UserServiceClient.TokenExchangeResult exchangeResult(Instant absolute) {
-        return new UserServiceClient.TokenExchangeResult(
-                internalUser(),
-                "fresh-access-token",
-                NOW.plus(Duration.ofHours(2)),
-                LocalDateTime.ofInstant(absolute, ZoneOffset.UTC),
-                2_592_000,
-                "fixed-absolute");
+    private static UserServiceClient.SessionValidationResult validation(String role) {
+        return new UserServiceClient.SessionValidationResult(internalUser(role), EXPIRES);
     }
 
-    private static UserServiceClient.SessionValidationResult validationResult(Instant absolute) {
-        return new UserServiceClient.SessionValidationResult(
-                LocalDateTime.ofInstant(absolute, ZoneOffset.UTC), 2_592_000, "fixed-absolute");
-    }
-
-    private static UserAccountData user() {
-        return internalUser().publicView();
-    }
-
-    private static UserServiceClient.InternalUser internalUser() {
+    private static UserServiceClient.InternalUser internalUser(String role) {
         LocalDateTime created = LocalDateTime.ofInstant(NOW.minusSeconds(60), ZoneOffset.UTC);
         return new UserServiceClient.InternalUser(
-                "019c8e42-7f70-7000-8000-000000000001", "admin01", "ADMIN", "ACTIVE", false, created, created, 0);
+                "019c8e42-7f70-7000-8000-000000000001", "admin01", role, "ACTIVE", false, created, created, 0);
     }
 }

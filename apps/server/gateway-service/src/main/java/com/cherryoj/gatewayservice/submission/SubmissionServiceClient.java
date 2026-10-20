@@ -1,8 +1,11 @@
 package com.cherryoj.gatewayservice.submission;
 
 import com.cherryoj.gatewayservice.api.ApiProblemException;
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
-import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
+import com.cherryoj.gatewayservice.api.DownstreamCallRejection;
+import com.cherryoj.gatewayservice.auth.ActingUser;
+import com.cherryoj.gatewayservice.auth.InternalRequests;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import java.time.Duration;
 import java.util.Set;
 import java.util.UUID;
@@ -17,22 +20,22 @@ import reactor.core.publisher.Mono;
 @Component
 final class SubmissionServiceClient {
     private final WebClient client;
-    private final InternalRequestFactory requests;
+    private final InternalRequests requests;
 
     SubmissionServiceClient(
             WebClient.Builder builder,
-            InternalRequestFactory requests,
+            CallTokenSigner calls,
             @Value("${cherry.gateway.submission-service-url:http://127.0.0.1:8083}") String url) {
         // A page can contain 100 diagnostics of 8 KiB, up to six JSON bytes per escaped character.
         this.client = builder.clone()
                 .baseUrl(url)
                 .codecs(c -> c.defaultCodecs().maxInMemorySize(8 * 1024 * 1024))
                 .build();
-        this.requests = requests;
+        this.requests = new InternalRequests(calls, ServiceNames.SUBMISSION);
     }
 
     Mono<ResponseEntity<SubmissionController.View>> create(
-            DelegatedIdentity identity, UUID key, SubmissionController.Create body) {
+            ActingUser identity, UUID key, SubmissionController.Create body) {
         return requests.authenticated(
                         client.post().uri("/api/submissions").header("Idempotency-Key", key.toString()), identity)
                 .bodyValue(body)
@@ -49,7 +52,7 @@ final class SubmissionServiceClient {
                 .onErrorMap(SubmissionServiceClient::map);
     }
 
-    Mono<SubmissionController.View> read(DelegatedIdentity identity, String path) {
+    Mono<SubmissionController.View> read(ActingUser identity, String path) {
         return requests.authenticated(client.get().uri(path), identity)
                 .exchangeToMono(response -> {
                     if (response.statusCode().value() != 200) return failure(response);
@@ -61,7 +64,7 @@ final class SubmissionServiceClient {
     }
 
     Mono<SubmissionController.HistoryPage> history(
-            DelegatedIdentity identity, UUID problemId, int page, int size, String verdict) {
+            ActingUser identity, UUID problemId, int page, int size, String verdict) {
         var request = client.get().uri(builder -> {
             builder.path("/api/submissions")
                     .queryParam("problemId", problemId)
@@ -93,7 +96,7 @@ final class SubmissionServiceClient {
                 .onErrorMap(SubmissionServiceClient::map);
     }
 
-    Mono<SubmissionController.Source> source(DelegatedIdentity identity, UUID id) {
+    Mono<SubmissionController.Source> source(ActingUser identity, UUID id) {
         return requests.authenticated(client.get().uri("/api/submissions/{id}/source", id), identity)
                 .exchangeToMono(response -> {
                     if (response.statusCode().value() != 200) return failure(response);
@@ -134,6 +137,10 @@ final class SubmissionServiceClient {
                 .defaultIfEmpty(new ErrorBody("SUBMISSION_UNAVAILABLE"))
                 .flatMap(error -> {
                     String code = error.code();
+                    if (DownstreamCallRejection.isTrustFailure(status, code)) {
+                        DownstreamCallRejection.record("submission-service", null, status, code);
+                        return Mono.error(DownstreamCallRejection.unavailable());
+                    }
                     String detail = switch (code == null ? "" : code) {
                         case "PROBLEM_NOT_AVAILABLE" -> "题目当前不可提交，请返回题库确认公开状态。";
                         case "IDEMPOTENCY_CONFLICT" -> "此请求对应的代码不同，请先恢复原提交结果。";

@@ -28,7 +28,7 @@ public class AdminJudgeNodesController {
     Mono<ResponseEntity<ApiSuccess<JudgeNodeDtos.JudgeNodeListData>>> list(ServerWebExchange exchange) {
         String requestId = ApiRequestContext.requestId(exchange);
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(judging::judgeNodes)
                 .onErrorMap(error -> error instanceof ApiProblemException ? error : JudgingServiceClient.unavailable())
                 .map(data ->

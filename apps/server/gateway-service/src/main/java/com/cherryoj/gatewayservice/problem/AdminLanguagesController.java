@@ -2,8 +2,8 @@ package com.cherryoj.gatewayservice.problem;
 
 import com.cherryoj.gatewayservice.api.ApiRequestContext;
 import com.cherryoj.gatewayservice.api.ApiSuccess;
+import com.cherryoj.gatewayservice.auth.ActingUser;
 import com.cherryoj.gatewayservice.auth.AdminGatewayAccess;
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -54,10 +54,9 @@ public class AdminLanguagesController {
                 .map(result -> ok(result, requestId));
     }
 
-    private <T> Mono<T> admin(
-            ServerWebExchange exchange, String requestId, Function<DelegatedIdentity, Mono<T>> action) {
+    private <T> Mono<T> admin(ServerWebExchange exchange, String requestId, Function<ActingUser, Mono<T>> action) {
         return adminAccess
-                .delegatedIdentity(exchange, requestId)
+                .actingUser(exchange, requestId)
                 .flatMap(action)
                 .onErrorMap(error -> ProblemApiErrors.map(error, false, requestId));
     }

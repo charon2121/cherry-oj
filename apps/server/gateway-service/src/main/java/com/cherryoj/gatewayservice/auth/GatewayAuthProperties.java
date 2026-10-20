@@ -9,10 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record GatewayAuthProperties(
         URI userServiceBaseUrl,
         Duration userServiceTimeout,
-        String sessionLifetimePolicy,
         long sessionAbsoluteTimeoutSeconds,
-        Duration accessTokenTtl,
-        Duration tokenRefreshAhead,
         List<String> trustedOrigins,
         int loginRateLimitPerMinute) {
 
@@ -24,24 +21,9 @@ public record GatewayAuthProperties(
                 || userServiceTimeout.compareTo(Duration.ofSeconds(30)) > 0) {
             throw new IllegalArgumentException("cherry.gateway.user-service-timeout must be within (0, 30s]");
         }
-        if (!"fixed-absolute".equals(sessionLifetimePolicy)) {
-            throw new IllegalArgumentException("cherry.gateway.session-lifetime-policy must be fixed-absolute");
-        }
         if (sessionAbsoluteTimeoutSeconds < 86_400 || sessionAbsoluteTimeoutSeconds > 7_776_000) {
             throw new IllegalArgumentException(
                     "cherry.gateway.session-absolute-timeout-seconds must be within [86400, 7776000]");
-        }
-        if (accessTokenTtl == null
-                || accessTokenTtl.compareTo(Duration.ofMinutes(1)) < 0
-                || accessTokenTtl.compareTo(Duration.ofHours(24)) > 0) {
-            throw new IllegalArgumentException("cherry.gateway.access-token-ttl must be within [1m, 24h]");
-        }
-        if (tokenRefreshAhead == null
-                || tokenRefreshAhead.isNegative()
-                || tokenRefreshAhead.isZero()
-                || tokenRefreshAhead.compareTo(accessTokenTtl) >= 0) {
-            throw new IllegalArgumentException(
-                    "cherry.gateway.token-refresh-ahead must be within (0, access-token-ttl)");
         }
         trustedOrigins = trustedOrigins == null ? List.of() : List.copyOf(trustedOrigins);
         if (trustedOrigins.stream().anyMatch(origin -> origin == null || origin.isBlank() || origin.contains("*"))) {

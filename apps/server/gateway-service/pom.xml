@@ -22,7 +22,7 @@
 		</dependency>
 		<dependency>
 			<groupId>com.cherryoj</groupId>
-			<artifactId>service-identity-support</artifactId>
+			<artifactId>identity-token-support</artifactId>
 			<version>${project.version}</version>
 		</dependency>
 		<dependency>
@@ -52,6 +52,13 @@
 		<dependency>
 			<groupId>org.springframework.session</groupId>
 			<artifactId>spring-session-data-redis</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.cherryoj</groupId>
+			<artifactId>identity-token-support</artifactId>
+			<version>${project.version}</version>
+			<type>test-jar</type>
+			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

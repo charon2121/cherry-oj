@@ -3,8 +3,10 @@ package com.cherryoj.gatewayservice.problem;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.cherryoj.gatewayservice.auth.DelegatedIdentity;
-import com.cherryoj.gatewayservice.auth.InternalRequestFactory;
+import com.cherryoj.gatewayservice.TestCalls;
+import com.cherryoj.gatewayservice.auth.ActingUser;
+import com.cherryoj.identity.token.ServiceNames;
+import com.cherryoj.identity.token.testing.TestCallTokens;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -52,7 +54,7 @@ class ProblemServiceStreamingTests {
                                     .body(testDataJson())
                                     .build());
                 });
-        ProblemServiceClient client = new ProblemServiceClient(webClient, properties(), new InternalRequestFactory());
+        ProblemServiceClient client = new ProblemServiceClient(webClient, properties(), TestCalls.SIGNER);
         byte[] zip = zipBytes();
         Flux<DataBuffer> content = Flux.defer(() -> {
             subscriptions.incrementAndGet();
@@ -62,16 +64,17 @@ class ProblemServiceStreamingTests {
         });
 
         ProblemDtos.TestData result = client.replaceTestData(
-                        identity("delegated-jwt-secret"), "019c8e42-7f70-7000-8000-000000000101", content)
+                        identity(), "019c8e42-7f70-7000-8000-000000000101", content)
                 .block();
 
         assertThat(result).isNotNull();
         assertThat(subscriptions).hasValue(1);
-        assertThat(outgoingRequest.get().headers().getFirst(HttpHeaders.AUTHORIZATION))
-                .isEqualTo("Bearer delegated-jwt-secret");
+        var call = TestCalls.verify(
+                outgoingRequest.get().headers().getFirst(HttpHeaders.AUTHORIZATION), ServiceNames.PROBLEM);
+        assertThat(call.user()).contains(TestCallTokens.ADMIN);
         assertThat(outgoingBody.get())
                 .contains("1.in", "1.out", "name=\"file\"")
-                .doesNotContain("delegated-jwt-secret");
+                .doesNotContain("Bearer");
     }
 
     @Test
@@ -82,9 +85,9 @@ class ProblemServiceStreamingTests {
                         .body("{\"code\":\"INVALID_TEST_DATA_ARCHIVE\","
                                 + "\"detail\":\"每个测试点都必须同时包含同名的 .in 和 .out 文件。\"}")
                         .build()));
-        ProblemServiceClient safe = new ProblemServiceClient(safeUpstream, properties(), new InternalRequestFactory());
+        ProblemServiceClient safe = new ProblemServiceClient(safeUpstream, properties(), TestCalls.SIGNER);
 
-        assertThatThrownBy(() -> safe.getTestData(identity("delegated-jwt"), "019c8e42-7f70-7000-8000-000000000101")
+        assertThatThrownBy(() -> safe.getTestData(identity(), "019c8e42-7f70-7000-8000-000000000101")
                         .block())
                 .isInstanceOfSatisfying(
                         ProblemServiceClientException.class,
@@ -95,10 +98,9 @@ class ProblemServiceStreamingTests {
                         .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_PROBLEM_JSON_VALUE)
                         .body("{\"code\":\"INVALID_TEST_DATA_ARCHIVE\",\"detail\":\"line one\\nline two\"}")
                         .build()));
-        ProblemServiceClient unsafe =
-                new ProblemServiceClient(unsafeUpstream, properties(), new InternalRequestFactory());
+        ProblemServiceClient unsafe = new ProblemServiceClient(unsafeUpstream, properties(), TestCalls.SIGNER);
 
-        assertThatThrownBy(() -> unsafe.getTestData(identity("delegated-jwt"), "019c8e42-7f70-7000-8000-000000000101")
+        assertThatThrownBy(() -> unsafe.getTestData(identity(), "019c8e42-7f70-7000-8000-000000000101")
                         .block())
                 .isInstanceOfSatisfying(
                         ProblemServiceClientException.class,
@@ -110,9 +112,8 @@ class ProblemServiceStreamingTests {
                 URI.create("http://problem-service.test"), Duration.ofSeconds(2), Duration.ofSeconds(3), 1_048_576);
     }
 
-    private static DelegatedIdentity identity(String token) {
-        return new DelegatedIdentity(
-                token, java.time.Instant.now().plusSeconds(300), "req_0123456789abcdef0123456789abcdef");
+    private static ActingUser identity() {
+        return new ActingUser(TestCallTokens.ADMIN, "req_0123456789abcdef0123456789abcdef");
     }
 
     private static byte[] zipBytes() throws IOException {

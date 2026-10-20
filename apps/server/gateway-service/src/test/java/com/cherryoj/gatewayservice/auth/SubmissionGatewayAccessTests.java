@@ -24,9 +24,12 @@ class SubmissionGatewayAccessTests {
         when(user.passwordChangeRequired()).thenReturn(false);
         var userId = java.util.UUID.randomUUID();
         when(user.id()).thenReturn(userId.toString());
-        var state = new AuthSessionState(user, "grant", "delegated", now.plusSeconds(60), now.plusSeconds(3600));
-        when(authentication.current(session, requestId, true)).thenReturn(Mono.just(state));
-        assertEquals("delegated", access.identity(exchange, requestId).block().accessToken());
+        when(user.role()).thenReturn("USER");
+        var state = new AuthSessionState(user, "s".repeat(43), now.plusSeconds(3600), now);
+        when(authentication.current(session, requestId)).thenReturn(Mono.just(state));
+        assertEquals(
+                userId.toString(),
+                access.identity(exchange, requestId).block().user().id());
         assertEquals(
                 "SESSION_CHANGED",
                 assertThrows(
@@ -35,8 +38,8 @@ class SubmissionGatewayAccessTests {
                                         .block())
                         .code());
         assertEquals(
-                "delegated",
-                access.identity(exchange, requestId, userId).block().accessToken());
+                userId.toString(),
+                access.identity(exchange, requestId, userId).block().user().id());
         when(user.passwordChangeRequired()).thenReturn(true);
         assertEquals(
                 "PASSWORD_CHANGE_REQUIRED",

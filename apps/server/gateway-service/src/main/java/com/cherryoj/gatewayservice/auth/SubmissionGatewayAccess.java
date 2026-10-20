@@ -15,14 +15,13 @@ public final class SubmissionGatewayAccess {
         this.authentication = authentication;
     }
 
-    public Mono<DelegatedIdentity> identity(ServerWebExchange exchange, String requestId) {
+    public Mono<ActingUser> identity(ServerWebExchange exchange, String requestId) {
         return identity(exchange, requestId, null);
     }
 
-    public Mono<DelegatedIdentity> identity(
-            ServerWebExchange exchange, String requestId, java.util.UUID expectedUserId) {
+    public Mono<ActingUser> identity(ServerWebExchange exchange, String requestId, java.util.UUID expectedUserId) {
         return exchange.getSession()
-                .flatMap(session -> authentication.current(session, requestId, true))
+                .flatMap(session -> authentication.current(session, requestId))
                 .map(state -> {
                     if (expectedUserId != null
                             && !expectedUserId
@@ -36,7 +35,7 @@ public final class SubmissionGatewayAccess {
                     if (state.user().passwordChangeRequired())
                         throw new ApiProblemException(
                                 HttpStatus.FORBIDDEN, "PASSWORD_CHANGE_REQUIRED", "需要修改密码", "完成密码修改后才能提交和查看结果。");
-                    return new DelegatedIdentity(state.accessToken(), state.accessTokenExpiresAt(), requestId);
+                    return ActingUser.of(state, requestId);
                 });
     }
 }
