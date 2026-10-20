@@ -52,7 +52,7 @@ sh deploy/sandbox-linux/build-release.sh /absolute/path/to/RELEASE_DIR
 
 release-source需要bin/judge、libexec/sandbox（执行器）、rootfs/、manifest.json、packages.lock.json。构建脚本构建二进制（执行器需要gcc与libseccomp-dev）；安装器把执行器单独设为setuid-root，其余文件一律清除setuid位；rootfs按../rootfs/README.md从锁定包解包，源包许可证保留。先验证原始包摘要与manifest一致，不在安装时重新生成摘要接受偏差。
 
-部署清单绑定sandbox与执行器二进制、rootfs manifest、包锁、执行器/sandbox/启动配置、单元与启动脚本摘要。judge注册前自检：root保护、current下实际启动的文件与清单一致、实际cgroup限额与清单一致；缺清单、后端不匹配、文件/限额变化拒绝上线。sandbox启动脚本另外逐文件核对rootfs与manifest，不一致拒绝启动。
+部署清单（`etc/deployment.json`）绑定八项摘要：执行器、rootfs manifest、包锁、执行器受信配置、judge 启动参数、slice、judge 单元与启动脚本；必须声明哪些项由 judge 代码规定（`judge/node/preflight/deployment_spec.go`），不由清单自己决定。judge 注册前自检：清单受 root 保护、`current` 下实际启动的执行器正是清单里那一份、各项摘要一致；缺清单、后端或架构不符、文件变化都拒绝上线。资源限额只加在每次执行上，自检不核对。启动脚本 `judge-start.py` 另外逐文件核对 rootfs 与 manifest，不一致拒绝启动。
 
 ## 安装与启停
 
