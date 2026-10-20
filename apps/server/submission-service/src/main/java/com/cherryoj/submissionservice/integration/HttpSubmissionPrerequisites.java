@@ -1,8 +1,7 @@
 package com.cherryoj.submissionservice.integration;
 
-import com.cherryoj.serviceidentity.ServiceIdentityException;
-import com.cherryoj.serviceidentity.ServiceNames;
-import com.cherryoj.serviceidentity.ServiceTokenClient;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.submissionservice.api.SubmissionDtos.*;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import java.io.ByteArrayOutputStream;
@@ -24,7 +23,7 @@ import tools.jackson.databind.ObjectMapper;
 public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
     private static final Logger LOGGER = LoggerFactory.getLogger(HttpSubmissionPrerequisites.class);
     private final String problemUrl, judgingUrl;
-    private final ServiceTokenClient tokens;
+    private final CallTokenSigner calls;
     private final ObjectMapper json;
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
@@ -35,11 +34,11 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
             ObjectMapper json,
             @Value("${cherry.submission.problem-url}") String problemUrl,
             @Value("${cherry.submission.judging-url}") String judgingUrl,
-            ServiceTokenClient tokens) {
+            CallTokenSigner calls) {
         this.json = json;
         this.problemUrl = problemUrl;
         this.judgingUrl = judgingUrl;
-        this.tokens = tokens;
+        this.calls = calls;
     }
 
     public Snapshot snapshot(String id, String language) {
@@ -63,10 +62,9 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
     private <T> T post(String base, String path, String audience, Object body, Class<T> type) {
         CompletableFuture<HttpResponse<byte[]>> future = null;
         try {
-            String token = tokens.tokenFor(audience);
             var request = HttpRequest.newBuilder(URI.create(base.replaceAll("/$", "") + path))
                     .timeout(Duration.ofSeconds(5))
-                    .header("Authorization", "Bearer " + token)
+                    .header("Authorization", calls.authorization(audience, null))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)))
                     .build();
@@ -76,7 +74,6 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
                 throw new SubmissionException(HttpStatus.NOT_FOUND, "PROBLEM_NOT_AVAILABLE", "题目当前不可提交。");
             if (response.statusCode() == 422)
                 throw new SubmissionException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "当前题目不支持这门语言。");
-            if (response.statusCode() == 401) tokens.invalidate(audience);
             if (response.statusCode() != 200) throw unavailable(path, "status " + response.statusCode());
             return json.readValue(response.body(), type);
         } catch (SubmissionException error) {
@@ -84,8 +81,6 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             throw unavailable(path, "interrupted");
-        } catch (ServiceIdentityException error) {
-            throw unavailable(path, "service identity " + error.reason());
         } catch (Exception error) {
             throw unavailable(path, error.getClass().getSimpleName());
         } finally {

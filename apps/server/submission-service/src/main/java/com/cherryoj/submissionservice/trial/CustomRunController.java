@@ -1,12 +1,10 @@
 package com.cherryoj.submissionservice.trial;
 
-import com.cherryoj.serviceidentity.ServiceIdentityException;
-import com.cherryoj.serviceidentity.ServiceNames;
-import com.cherryoj.serviceidentity.ServiceTokenClient;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import com.cherryoj.submissionservice.application.JudgeSources;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
-import com.cherryoj.submissionservice.security.CurrentIdentity;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.net.URI;
@@ -18,7 +16,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.ObjectMapper;
 
@@ -31,7 +28,7 @@ public class CustomRunController {
 
     private final String url;
 
-    private final ServiceTokenClient tokens;
+    private final CallTokenSigner calls;
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
@@ -42,11 +39,11 @@ public class CustomRunController {
             SubmissionPrerequisites prerequisites,
             ObjectMapper json,
             @Value("${cherry.submission.judging-url}") String url,
-            ServiceTokenClient tokens) {
+            CallTokenSigner calls) {
         this.prerequisites = prerequisites;
         this.json = json;
         this.url = url;
-        this.tokens = tokens;
+        this.calls = calls;
     }
 
     public record Request(
@@ -63,10 +60,8 @@ public class CustomRunController {
     @PostMapping("/api/custom-runs")
     public ResponseEntity<tools.jackson.databind.JsonNode> run(
             @Valid @RequestBody Request r,
-            JwtAuthenticationToken identity,
             @RequestHeader(value = "X-Custom-Run-Deadline", required = false) Long outerDeadline,
             @RequestHeader(value = "traceparent", required = false) String trace) {
-        CurrentIdentity.from(identity);
         long deadline =
                 Math.min(outerDeadline == null ? Long.MAX_VALUE : outerDeadline, System.currentTimeMillis() + 45000);
         if (r.source().getBytes(StandardCharsets.UTF_8).length > 262144
@@ -79,14 +74,6 @@ public class CustomRunController {
                 || !"cpp".equals(s.languageId())) throw unavailable();
         // 与正式提交同一套合并：CORE 送驱动文件 + 用户文件，judging-service 据前缀行数换算报错行号。
         var sources = JudgeSources.of(s, r.source());
-        String token;
-        try {
-            token = tokens.tokenFor(ServiceNames.JUDGING);
-        } catch (ServiceIdentityException error) {
-            org.slf4j.LoggerFactory.getLogger(getClass())
-                    .warn("custom.run.failed stage=service-identity reason={}", error.reason());
-            throw unavailable();
-        }
         var body = new java.util.LinkedHashMap<String, Object>(Map.of(
                 "problemId",
                 s.problemId(),
@@ -107,14 +94,13 @@ public class CustomRunController {
         var builder = HttpRequest.newBuilder(URI.create(url.replaceAll("/$", "") + "/internal/submission/trials"))
                 .timeout(Duration.ofMillis(remaining))
                 .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + token)
+                .header("Authorization", calls.authorization(ServiceNames.JUDGING, null))
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
         if (trace != null && trace.matches("[a-f0-9]{2}-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}"))
             builder.header("traceparent", trace);
         var future = http.sendAsync(builder.build(), ignored -> new LimitedBody(1024 * 1024));
         try {
             var response = future.get(remaining, TimeUnit.MILLISECONDS);
-            if (response.statusCode() == 401) tokens.invalidate(ServiceNames.JUDGING);
             if (response.statusCode() != 200) {
                 org.slf4j.LoggerFactory.getLogger(getClass())
                         .warn("custom.run.failed stage=judging httpStatus={}", response.statusCode());

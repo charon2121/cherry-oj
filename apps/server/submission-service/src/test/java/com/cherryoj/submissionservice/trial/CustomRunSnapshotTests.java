@@ -3,15 +3,24 @@ package com.cherryoj.submissionservice.trial;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.cherryoj.identity.token.CallToken;
+import com.cherryoj.identity.token.CallTokenSigner;
+import com.cherryoj.identity.token.PublicKeyDirectory;
+import com.cherryoj.identity.token.ServiceKeys;
+import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.submissionservice.api.*;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.*;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import tools.jackson.databind.ObjectMapper;
 
 class CustomRunSnapshotTests {
+    private static final CallTokenSigner SIGNER = new CallTokenSigner(
+            ServiceNames.SUBMISSION,
+            ServiceKeys.privateKey("classpath:test-service-identity/submission-service-private.pem"),
+            Clock.systemUTC());
 
     @Test
     void snapshotOfAnotherProblemIsNeverForwarded() {
@@ -20,18 +29,9 @@ class CustomRunSnapshotTests {
         when(prerequisite.snapshot(id.toString(), "cpp"))
                 .thenReturn(
                         new SubmissionDtos.Snapshot(UUID.randomUUID().toString(), "title", "cpp", "ACM", null, null));
-        var controller = new CustomRunController(
-                prerequisite,
-                new ObjectMapper(),
-                "http://127.0.0.1:1",
-                mock(com.cherryoj.serviceidentity.ServiceTokenClient.class));
-        var jwt = Jwt.withTokenValue("test")
-                .header("alg", "none")
-                .subject(UUID.randomUUID().toString())
-                .build();
+        var controller = new CustomRunController(prerequisite, new ObjectMapper(), "http://127.0.0.1:1", SIGNER);
         var request = new CustomRunController.Request(id, "cpp", "int main(){}", "");
-        var error = assertThrows(
-                SubmissionException.class, () -> controller.run(request, new JwtAuthenticationToken(jwt), null, null));
+        var error = assertThrows(SubmissionException.class, () -> controller.run(request, null, null));
         assertEquals("CUSTOM_RUN_UNAVAILABLE", error.code());
         verify(prerequisite, never()).profile(any());
     }
@@ -59,28 +59,24 @@ class CustomRunSnapshotTests {
         });
         server.start();
         try {
-            var token = "submission-service-token-canary";
-            var tokens = mock(com.cherryoj.serviceidentity.ServiceTokenClient.class);
-            when(tokens.tokenFor("judging-service")).thenReturn(token);
             var controller = new CustomRunController(
                     prerequisite,
                     json,
                     "http://127.0.0.1:" + server.getAddress().getPort(),
-                    tokens);
-            var jwt = Jwt.withTokenValue("test")
-                    .header("alg", "none")
-                    .subject(UUID.randomUUID().toString())
-                    .build();
-            var response = controller.run(
-                    new CustomRunController.Request(id, "cpp", "int main(){}", ""),
-                    new JwtAuthenticationToken(jwt),
-                    null,
-                    null);
+                    SIGNER);
+            var response = controller.run(new CustomRunController.Request(id, "cpp", "int main(){}", ""), null, null);
             assertEquals("COMPLETED", response.getBody().path("status").asText());
             assertEquals(id.toString(), response.getBody().path("problemId").asText());
             assertFalse(response.getBody().has("problemVersionId"));
             assertEquals("no-store", response.getHeaders().getFirst("Cache-Control"));
-            assertEquals("Bearer " + token, authorization.get());
+            // 自测不代表用户调用 judging-service：令牌由本服务签发，aud 是 judging-service，不带 user
+            var call = CallToken.verify(
+                    authorization.get().substring("Bearer ".length()),
+                    PublicKeyDirectory.load("classpath:test-service-identity"),
+                    ServiceNames.JUDGING,
+                    Instant.now());
+            assertEquals(ServiceNames.SUBMISSION, call.caller());
+            assertTrue(call.user().isEmpty());
             assertEquals(id.toString(), captured.get().path("problemId").asText());
             assertFalse(captured.get().has("testDataVersionId"));
             assertFalse(captured.get().has("problemVersionId"));
@@ -121,22 +117,12 @@ class CustomRunSnapshotTests {
         });
         server.start();
         try {
-            var tokens = mock(com.cherryoj.serviceidentity.ServiceTokenClient.class);
-            when(tokens.tokenFor("judging-service")).thenReturn("token");
             var controller = new CustomRunController(
                     prerequisite,
                     json,
                     "http://127.0.0.1:" + server.getAddress().getPort(),
-                    tokens);
-            var jwt = Jwt.withTokenValue("test")
-                    .header("alg", "none")
-                    .subject(UUID.randomUUID().toString())
-                    .build();
-            controller.run(
-                    new CustomRunController.Request(id, "cpp", "class Solution {};\n", "1 2\n"),
-                    new JwtAuthenticationToken(jwt),
-                    null,
-                    null);
+                    SIGNER);
+            controller.run(new CustomRunController.Request(id, "cpp", "class Solution {};\n", "1 2\n"), null, null);
             assertEquals(
                     "#include \"solution.cpp\"\nint main(){}\n",
                     captured.get().path("source").asText());
