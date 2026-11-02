@@ -166,7 +166,7 @@ corpus/judge/a-plus-b/
   "unknown_language": { "languageId": "brainfuck", "source": "ac_iostream", "verdict": "SE",
                         "message": { "contains": "unknown language" } },
   "language_not_installed": { "languageId": "python", "sourceText": "print(1)\n", "verdict": "SE",
-                              "body": { "contains": "errno=2" }, "requires": ["noLanguage:python"] }
+                              "body": { "contains": "toolchain python is not installed" }, "requires": ["noLanguage:python"] }
 }
 ```
 

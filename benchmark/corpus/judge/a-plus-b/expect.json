@@ -179,7 +179,7 @@
       "languageId": "python",
       "verdict": "SE",
       "body": {
-        "contains": "errno=2"
+        "contains": "toolchain python is not installed"
       },
       "requires": [
         "noLanguage:python"
