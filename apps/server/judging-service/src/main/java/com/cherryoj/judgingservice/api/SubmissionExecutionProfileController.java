@@ -11,7 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-/** 契约见 contracts/execution-profile.schema.json：按题目×语言解析，测试点数取自题目此刻的测试数据。 */
+/**
+ * 契约见 contracts/execution-profile.schema.json：按题目×语言解析，测试点数与最大 IO 字节数取自题目此刻的测试数据；
+ * 限制的来源与推导依据一起返回，由 submission-service 冻结（docs/protocols/limits.md）。
+ */
 @RestController
 public class SubmissionExecutionProfileController {
     private final JudgingReadinessService service;
@@ -29,7 +32,8 @@ public class SubmissionExecutionProfileController {
     public Profile resolve(
             @Valid @RequestBody Request request, @RequestHeader(value = "traceparent", required = false) String trace) {
         var data = currentTestData(request.problemId(), trace);
-        var readiness = service.readiness(request.problemId(), request.languageId(), data.digest());
+        var readiness =
+                service.readiness(request.problemId(), request.languageId(), data.digest(), data.maxTestcaseIoBytes());
         var profile = readiness.executionProfile();
         if (!readiness.ready() || profile == null) throw unavailable();
         boolean trial = "trial".equals(request.purpose());
@@ -48,6 +52,8 @@ public class SubmissionExecutionProfileController {
                 request.languageId(),
                 profile.calibrationId(),
                 new Limits(profile.cpuNs(), profile.memoryBytes(), profile.clockNs()),
+                profile.limitSource(),
+                profile.limitDerivation(),
                 budget);
     }
 
@@ -85,5 +91,7 @@ public class SubmissionExecutionProfileController {
             String languageId,
             String languageCalibrationId,
             Limits effectiveLimits,
+            String limitSource,
+            JudgingDtos.LimitDerivation limitDerivation,
             long executionBudgetNs) {}
 }

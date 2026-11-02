@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/execution-profile.schema.json",
   "title": "ExecutionProfile v1",
-  "description": "judging-service 为 submission-service 解析的执行配置。只有目标语言有在线节点、题目已有可读取的测试数据、题目×语言的标定 VALID 且标定时的测试数据指纹等于题目当前指纹时返回；失败时禁止生成默认限制。",
+  "description": "judging-service 为 submission-service 解析的执行配置。只有目标语言有在线节点、题目已有可读取的测试数据，并且能按 docs/protocols/limits.md 解析出限制（该语言有对应当前指纹的覆盖标定，或题目有对应当前指纹的基础标定且该语言有限制参数）时返回；失败时禁止生成默认限制。",
   "x-contract-version": 1,
   "type": "object",
   "additionalProperties": false,
@@ -10,7 +10,9 @@
     "problemId",
     "languageId",
     "languageCalibrationId",
-    "effectiveLimits"
+    "effectiveLimits",
+    "limitSource",
+    "limitDerivation"
   ],
   "properties": {
     "problemId": {
@@ -25,10 +27,24 @@
     "languageCalibrationId": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 128
+      "maxLength": 128,
+      "description": "依据的标定编号：BASE、OVERRIDE 为该标定本身，DERIVED 为题目的基础标定"
     },
     "effectiveLimits": {
       "$ref": "judge.schema.json#/definitions/JudgeLimits"
+    },
+    "limitSource": {
+      "$ref": "#/definitions/LimitSource"
+    },
+    "limitDerivation": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/LimitDerivation"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "executionBudgetNs": {
       "type": "integer",
@@ -70,6 +86,130 @@
           "languageId": "cpp"
         }
       ]
+    },
+    "LimitSource": {
+      "type": "string",
+      "enum": [
+        "BASE",
+        "OVERRIDE",
+        "DERIVED"
+      ],
+      "description": "限制来源：BASE=基础标定本身，OVERRIDE=该语言的覆盖标定，DERIVED=由基础标定推导"
+    },
+    "LimitModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "推导时所用的语言限制参数原值（contracts/languages.json 的 limitModel，不含 baseEligible）",
+      "required": [
+        "cpuFactorPermille",
+        "cpuFactorCapPermille",
+        "cpuOverheadNs",
+        "ioPicosPerByte",
+        "memoryFactorPermille",
+        "memoryOverheadBytes"
+      ],
+      "properties": {
+        "cpuFactorPermille": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 100000
+        },
+        "cpuFactorCapPermille": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 100,
+          "maximum": 100000
+        },
+        "cpuOverheadNs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ioPicosPerByte": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "memoryFactorPermille": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 10000
+        },
+        "memoryOverheadBytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "LimitDerivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "DERIVED 的推导依据：冻结参数原值与当时的平台上限，历史提交可独立复算（docs/protocols/limits.md 第 6 节）。refCpuNs、refMemoryBytes 是 C++ 当量向上取整后的值，只供展示；复算以其余原始输入为准。",
+      "required": [
+        "baseLanguageId",
+        "baseCalibrationId",
+        "baseCpuNs",
+        "baseMemoryBytes",
+        "maxTestcaseIoBytes",
+        "refCpuNs",
+        "refMemoryBytes",
+        "platformMaxCpuNs",
+        "platformMaxMemoryBytes",
+        "cpuCapped",
+        "memoryCapped",
+        "baseLimitModel",
+        "languageLimitModel"
+      ],
+      "properties": {
+        "baseLanguageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "baseCalibrationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "baseCpuNs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "baseMemoryBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxTestcaseIoBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refCpuNs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "refMemoryBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "platformMaxCpuNs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "platformMaxMemoryBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cpuCapped": {
+          "type": "boolean"
+        },
+        "memoryCapped": {
+          "type": "boolean"
+        },
+        "baseLimitModel": {
+          "$ref": "#/definitions/LimitModel"
+        },
+        "languageLimitModel": {
+          "$ref": "#/definitions/LimitModel"
+        }
+      }
     }
   },
   "examples": [
@@ -80,6 +220,33 @@
       "effectiveLimits": {
         "cpuNs": 1000000000,
         "memoryBytes": 268435456
+      },
+      "limitSource": "BASE",
+      "limitDerivation": null
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "limitSource": {
+            "const": "DERIVED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "limitDerivation": {
+            "$ref": "#/definitions/LimitDerivation"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "limitDerivation": {
+            "type": "null"
+          }
+        }
       }
     }
   ]

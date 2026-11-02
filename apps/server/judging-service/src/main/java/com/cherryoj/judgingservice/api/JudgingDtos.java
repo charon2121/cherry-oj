@@ -54,10 +54,43 @@ public final class JudgingDtos {
 
     public record ReadinessCheck(String code, boolean passed, String message) {}
 
-    /** 判题不再绑定某个节点：任何在线、声明了该语言的节点都能读到同一份测试数据。 */
-    /** calibratedAt 是这条 VALID 标定的批准时间（UTC），problem-service 据此提示驱动代码或前缀改动后重新标定。 */
+    /**
+     * 该语言解析出的限制（docs/protocols/limits.md）：limitSource 为 DERIVED 时 limitDerivation 必填，否则为 null；
+     * calibrationId 与 calibratedAt 是所依据的那条标定（DERIVED 时是基础标定），problem-service 据此提示重新标定。
+     */
     public record ExecutionProfile(
-            String calibrationId, long cpuNs, long memoryBytes, Long clockNs, java.time.LocalDateTime calibratedAt) {}
+            String calibrationId,
+            long cpuNs,
+            long memoryBytes,
+            Long clockNs,
+            String limitSource,
+            LimitDerivation limitDerivation,
+            java.time.LocalDateTime calibratedAt) {}
+
+    /** 推导时所用的语言限制参数原值，契约见 contracts/execution-profile.schema.json 的 LimitModel。 */
+    public record LimitModel(
+            long cpuFactorPermille,
+            Long cpuFactorCapPermille,
+            long cpuOverheadNs,
+            long ioPicosPerByte,
+            long memoryFactorPermille,
+            long memoryOverheadBytes) {}
+
+    /** DERIVED 的推导依据，随提交冻结；契约见 contracts/execution-profile.schema.json 的 LimitDerivation。 */
+    public record LimitDerivation(
+            String baseLanguageId,
+            String baseCalibrationId,
+            long baseCpuNs,
+            long baseMemoryBytes,
+            long maxTestcaseIoBytes,
+            long refCpuNs,
+            long refMemoryBytes,
+            long platformMaxCpuNs,
+            long platformMaxMemoryBytes,
+            boolean cpuCapped,
+            boolean memoryCapped,
+            LimitModel baseLimitModel,
+            LimitModel languageLimitModel) {}
 
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

@@ -1,5 +1,6 @@
 package com.cherryoj.judgingservice.security;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -53,8 +54,8 @@ class AdminJudgingSecurityIntegrationTests {
     @Test
     void readinessRejectsAnonymousAndUserButAllowsAdminWithoutCaching() throws Exception {
         String path = "/internal/admin/readiness?problemId=019c8e42-7f70-7000-8000-000000000010"
-                + "&languageId=cpp&testDataDigest=" + "0".repeat(64);
-        when(service.readiness(anyString(), anyString(), anyString()))
+                + "&languageId=cpp&testDataDigest=" + "0".repeat(64) + "&maxTestcaseIoBytes=0";
+        when(service.readiness(anyString(), anyString(), anyString(), anyLong()))
                 .thenReturn(new Readiness(false, List.of(), null));
 
         mvc.perform(get(path)).andExpect(status().isUnauthorized());

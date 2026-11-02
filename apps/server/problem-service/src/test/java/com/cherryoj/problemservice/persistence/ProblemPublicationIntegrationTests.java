@@ -594,7 +594,12 @@ class ProblemPublicationIntegrationTests {
 
         @Override
         public JudgingDtos.Readiness readiness(
-                String problemId, String languageId, String testDataDigest, CallUser admin, String trace) {
+                String problemId,
+                String languageId,
+                String testDataDigest,
+                long maxTestcaseIoBytes,
+                CallUser admin,
+                String trace) {
             readinessCalls.incrementAndGet();
             if (TransactionSynchronizationManager.isActualTransactionActive()) transactionObserved.set(true);
             readinessDigest = testDataDigest;
@@ -613,7 +618,8 @@ class ProblemPublicationIntegrationTests {
                             new JudgingDtos.ReadinessCheck(
                                     "CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
                     ready
-                            ? new JudgingDtos.ExecutionProfile(UUID.randomUUID().toString(), 1, 1, null, calibratedAt)
+                            ? new JudgingDtos.ExecutionProfile(
+                                    UUID.randomUUID().toString(), 1, 1, null, "BASE", null, calibratedAt)
                             : null);
             if (afterReadiness != null) afterReadiness.run();
             return result;

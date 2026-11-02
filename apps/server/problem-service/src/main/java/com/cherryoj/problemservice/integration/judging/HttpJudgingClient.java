@@ -49,10 +49,16 @@ public final class HttpJudgingClient implements JudgingClient {
 
     @Override
     public JudgingDtos.Readiness readiness(
-            String problemId, String languageId, String testDataDigest, CallUser admin, String traceparent) {
+            String problemId,
+            String languageId,
+            String testDataDigest,
+            long maxTestcaseIoBytes,
+            CallUser admin,
+            String traceparent) {
         String query = "?problemId=" + encode(problemId)
                 + "&languageId=" + encode(languageId)
-                + "&testDataDigest=" + encode(testDataDigest);
+                + "&testDataDigest=" + encode(testDataDigest)
+                + "&maxTestcaseIoBytes=" + maxTestcaseIoBytes;
         return send(
                 request("/internal/admin/readiness" + query, admin, traceparent)
                         .GET()

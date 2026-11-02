@@ -107,8 +107,8 @@ public class ProblemPublicationService {
             checks.add(item(PublishCheckCode.CALIBRATION, false, "测试数据就绪后才能检查标定。"));
             return result(checks);
         }
-        JudgingDtos.Readiness remote =
-                judging.readiness(problemId, "cpp", local.info().digest(), admin, traceparent);
+        JudgingDtos.Readiness remote = judging.readiness(
+                problemId, "cpp", local.info().digest(), local.info().maxTestcaseIoBytes(), admin, traceparent);
         mergeRemoteLanguage(checks, remote);
         // 在线节点的事实要保留到管理工作台：标定按钮据此提示并禁用。
         checks.add(

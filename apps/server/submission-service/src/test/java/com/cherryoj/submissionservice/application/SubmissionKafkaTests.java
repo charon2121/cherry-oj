@@ -75,6 +75,8 @@ class SubmissionKafkaTests {
                         "cpp",
                         UUID.randomUUID().toString(),
                         new Limits(1000, 2000, 3000L),
+                        "BASE",
+                        null,
                         40000000000L));
         var created =
                 service.create(user, UUID.randomUUID().toString(), new Create(problem, "cpp", "private source marker"));

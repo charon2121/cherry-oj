@@ -44,6 +44,7 @@ public class JudgingReadinessService {
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
     private final PlatformLimits platform;
+    private final LanguageLimitModels models;
 
     public JudgingReadinessService(
             JudgingRepository repository,
@@ -53,9 +54,11 @@ public class JudgingReadinessService {
             ObjectMapper json,
             PlatformTransactionManager transactionManager,
             JudgeNodeRepository nodes,
-            PlatformLimits platform) {
+            PlatformLimits platform,
+            LanguageLimitModels models) {
         this.repository = repository;
         this.platform = platform;
+        this.models = models;
         this.nodes = nodes;
         this.judge = judge;
         this.ids = ids;
@@ -114,10 +117,14 @@ public class JudgingReadinessService {
         return transactions.execute(status -> finishValidCalibration(start, request, summary, actorId, traceId));
     }
 
-    public Readiness readiness(String problemId, String languageId, String testDataDigest) {
+    /**
+     * @param maxTestcaseIoBytes 题目当前测试数据里单个测试点输入加输出的最大字节数，推导限制的 IO 项要用
+     */
+    public Readiness readiness(String problemId, String languageId, String testDataDigest, long maxTestcaseIoBytes) {
+        if (maxTestcaseIoBytes < 0) throw new IllegalArgumentException("maxTestcaseIoBytes must not be negative");
         TransactionTemplate read = new TransactionTemplate(transactions.getTransactionManager());
         read.setReadOnly(true);
-        return read.execute(status -> resolveReadiness(problemId, languageId, testDataDigest));
+        return read.execute(status -> resolveReadiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes));
     }
 
     private CalibrationStart startCalibration(CalibrationRequest request, String actorId, String traceId) {
@@ -233,7 +240,7 @@ public class JudgingReadinessService {
      */
     private void requireAllowedKind(CalibrationRequest request) {
         if ("BASE".equals(request.kind())) {
-            LimitModel model = LanguageLimitModels.of(request.languageId());
+            LimitModel model = models.of(request.languageId());
             if (model == null || !model.baseEligible()) {
                 throw new JudgingApiException(HttpStatus.BAD_REQUEST, "LANGUAGE_NOT_BASE_ELIGIBLE", "该语言不能作为基础语言。");
             }
@@ -261,31 +268,102 @@ public class JudgingReadinessService {
         return rows;
     }
 
-    /** 题目当前的测试数据指纹 = 标定时的指纹，旧标定才算数；数据一换，标定即过期。 */
-    private Readiness resolveReadiness(String problemId, String languageId, String testDataDigest) {
+    /**
+     * 题目当前的测试数据指纹 = 标定时的指纹，旧标定才算数；数据一换，标定即过期。
+     * 限制按 docs/protocols/limits.md 第 2 节取第一个可用的：该语言的覆盖标定 → 基础标定本身 → 由基础标定推导。
+     */
+    private Readiness resolveReadiness(
+            String problemId, String languageId, String testDataDigest, long maxTestcaseIoBytes) {
         ArrayList<ReadinessCheck> checks = new ArrayList<>();
         boolean online = !nodes.online(now()).isEmpty();
         checks.add(check("ONLINE_JUDGE_NODE", online, online ? "在线判题节点可用。" : "当前没有在线判题节点，请启动节点并等待注册。"));
         boolean language = !nodes.online(languageId, now()).isEmpty();
         checks.add(check("LANGUAGE", language, language ? "有在线节点支持该语言。" : "没有在线节点支持该语言。"));
-        CalibrationRow calibration = repository.findValid(problemId, languageId, false);
-        boolean current = calibration != null && testDataDigest.equals(calibration.testDataDigest());
+
+        CalibrationRow own = repository.findValid(problemId, languageId, false);
+        CalibrationRow override =
+                own != null && "OVERRIDE".equals(own.kind()) && testDataDigest.equals(own.testDataDigest())
+                        ? own
+                        : null;
+        CalibrationRow base = repository.findValidBase(problemId, false);
+        boolean baseCurrent = base != null && testDataDigest.equals(base.testDataDigest());
+        boolean calibrated = override != null || baseCurrent;
         checks.add(check(
                 "CALIBRATION",
-                current,
-                current
-                        ? "该语言存在对应当前测试数据的 VALID 校准。"
-                        : calibration == null ? "该语言缺少 VALID 校准。" : "测试数据已更新，该语言的校准已过期，请重新校准。"));
+                calibrated,
+                override != null
+                        ? "该语言有对应当前测试数据的覆盖标定。"
+                        : baseCurrent
+                                ? "题目有对应当前测试数据的基础标定。"
+                                : base == null && own == null ? "题目缺少基础标定。" : "测试数据已更新，标定已过期，请重新标定。"));
+
+        boolean isBaseLanguage = base != null && base.languageId().equals(languageId);
+        LimitModel target = models.of(languageId);
+        LimitModel baseModel = base == null ? null : models.of(base.languageId());
+        boolean modelPassed =
+                override != null || isBaseLanguage || (target != null && (base == null || baseModel != null));
+        checks.add(check(
+                "LIMIT_MODEL",
+                modelPassed,
+                override != null
+                        ? "该语言使用覆盖标定，不需要推导。"
+                        : isBaseLanguage
+                                ? "该语言是基础语言，不需要推导。"
+                                : target == null
+                                        ? "该语言没有限制参数，只能做覆盖标定。"
+                                        : modelPassed ? "该语言有限制参数，可以由基础标定推导。" : "基础语言的限制参数已移除，请重新做基础标定。"));
+
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
-        ExecutionProfile profile = ready
-                ? new ExecutionProfile(
-                        calibration.id(),
-                        calibration.cpuNs(),
-                        calibration.memoryBytes(),
-                        calibration.clockNs(),
-                        calibration.approvedAt())
-                : null;
+        ExecutionProfile profile = !ready
+                ? null
+                : override != null
+                        ? calibrated(override)
+                        : isBaseLanguage ? calibrated(base) : derived(base, baseModel, target, maxTestcaseIoBytes);
         return new Readiness(ready, checks, profile);
+    }
+
+    /** BASE、OVERRIDE：标定里的绝对值原样生效。 */
+    private static ExecutionProfile calibrated(CalibrationRow row) {
+        return new ExecutionProfile(
+                row.id(), row.cpuNs(), row.memoryBytes(), row.clockNs(), row.kind(), null, row.approvedAt());
+    }
+
+    /** DERIVED：不带 clockNs，墙钟由 judge 按 cpuNs 推算；推导依据随提交冻结。 */
+    private ExecutionProfile derived(CalibrationRow base, LimitModel baseModel, LimitModel target, long io) {
+        var result = com.cherryoj.judgingservice.limits.LimitDerivation.derive(
+                baseModel,
+                base.cpuNs(),
+                base.memoryBytes(),
+                target,
+                io,
+                platform.maxCpuNs(),
+                platform.maxMemoryBytes());
+        var derivation = new com.cherryoj.judgingservice.api.JudgingDtos.LimitDerivation(
+                base.languageId(),
+                base.id(),
+                base.cpuNs(),
+                base.memoryBytes(),
+                io,
+                result.refCpuNs(),
+                result.refMemoryBytes(),
+                platform.maxCpuNs(),
+                platform.maxMemoryBytes(),
+                result.cpuCapped(),
+                result.memoryCapped(),
+                snapshot(baseModel),
+                snapshot(target));
+        return new ExecutionProfile(
+                base.id(), result.cpuNs(), result.memoryBytes(), null, "DERIVED", derivation, base.approvedAt());
+    }
+
+    private static com.cherryoj.judgingservice.api.JudgingDtos.LimitModel snapshot(LimitModel model) {
+        return new com.cherryoj.judgingservice.api.JudgingDtos.LimitModel(
+                model.cpuFactorPermille(),
+                model.cpuFactorCapPermille(),
+                model.cpuOverheadNs(),
+                model.ioPicosPerByte(),
+                model.memoryFactorPermille(),
+                model.memoryOverheadBytes());
     }
 
     /** 任何在线且声明了该语言的节点都行：它们按同一个地址读同一份测试数据。 */

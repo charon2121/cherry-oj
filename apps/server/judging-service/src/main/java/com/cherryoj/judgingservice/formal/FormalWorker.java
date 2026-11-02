@@ -153,6 +153,7 @@ public class FormalWorker {
                 || input.effectiveLimits().memoryBytes() <= 0
                 || (input.effectiveLimits().clockNs() != null
                         && input.effectiveLimits().clockNs() <= 0)
+                || !validLimitSource(input)
                 || input.createdAt() == null) throw new FormalFailure("INVALID_JUDGE_INPUT");
         try {
             for (String uuid : List.of(input.problemId(), input.languageCalibrationId())) UUID.fromString(uuid);
@@ -160,6 +161,16 @@ public class FormalWorker {
             throw new FormalFailure("INVALID_JUDGE_INPUT");
         }
     }
+    /** 推导依据只在 DERIVED 时出现（docs/protocols/limits.md 第 6 节）。 */
+    static boolean validLimitSource(FormalInput input) {
+        if (input.limitSource() == null) return false;
+        return switch (input.limitSource()) {
+            case "BASE", "OVERRIDE" -> input.limitDerivation() == null;
+            case "DERIVED" -> input.limitDerivation() != null;
+            default -> false;
+        };
+    }
+
     /** 用户文件、摘要、前缀行数三者同时出现（CORE）或同时缺席（ACM），且用户文件与摘要一致。 */
     static boolean validSolution(FormalInput input) {
         if (input.solutionSource() == null)

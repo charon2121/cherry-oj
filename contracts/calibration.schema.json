@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/calibration.schema.json",
   "title": "Calibration internal v1",
-  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=：响应 Readiness。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。",
+  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=&maxTestcaseIoBytes=：响应 Readiness；maxTestcaseIoBytes 由 problem-service 从当前测试数据读出，推导限制时用。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。",
   "x-contract-version": 1,
   "definitions": {
     "CalibrationRequest": {
@@ -261,7 +261,8 @@
           "enum": [
             "ONLINE_JUDGE_NODE",
             "LANGUAGE",
-            "CALIBRATION"
+            "CALIBRATION",
+            "LIMIT_MODEL"
           ]
         },
         "passed": {
@@ -281,12 +282,15 @@
         "cpuNs",
         "memoryBytes",
         "clockNs",
+        "limitSource",
+        "limitDerivation",
         "calibratedAt"
       ],
       "properties": {
         "calibrationId": {
           "type": "string",
-          "format": "uuid"
+          "format": "uuid",
+          "description": "依据的标定编号：BASE、OVERRIDE 为该标定本身，DERIVED 为题目的基础标定"
         },
         "cpuNs": {
           "type": "integer",
@@ -303,11 +307,49 @@
           ],
           "minimum": 1
         },
+        "limitSource": {
+          "$ref": "execution-profile.schema.json#/definitions/LimitSource"
+        },
+        "limitDerivation": {
+          "anyOf": [
+            {
+              "$ref": "execution-profile.schema.json#/definitions/LimitDerivation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "calibratedAt": {
           "type": "string",
           "description": "这条 VALID 标定的批准时间；problem-service 与驱动代码、前缀的修改时间比较，晚于它时提示重新标定"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "limitSource": {
+                "const": "DERIVED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "limitDerivation": {
+                "$ref": "execution-profile.schema.json#/definitions/LimitDerivation"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "limitDerivation": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "Readiness": {
       "type": "object",
@@ -336,7 +378,7 @@
               "type": "null"
             }
           ],
-          "description": "ready 时为当前 VALID 标定，否则为 null"
+          "description": "ready 时为该语言解析出的限制（覆盖标定、基础标定或推导值），否则为 null"
         }
       }
     }

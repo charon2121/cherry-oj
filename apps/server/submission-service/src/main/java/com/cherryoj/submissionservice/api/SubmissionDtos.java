@@ -61,7 +61,34 @@ public final class SubmissionDtos {
             String languageId,
             String languageCalibrationId,
             Limits effectiveLimits,
+            String limitSource,
+            LimitDerivation limitDerivation,
             long executionBudgetNs) {}
+
+    /** 推导时所用的语言限制参数原值，契约见 contracts/execution-profile.schema.json 的 LimitModel。 */
+    public record LimitModel(
+            long cpuFactorPermille,
+            Long cpuFactorCapPermille,
+            long cpuOverheadNs,
+            long ioPicosPerByte,
+            long memoryFactorPermille,
+            long memoryOverheadBytes) {}
+
+    /** DERIVED 的推导依据（docs/protocols/limits.md 第 6 节），原样冻结进 JudgeInput，供追溯与复算。 */
+    public record LimitDerivation(
+            String baseLanguageId,
+            String baseCalibrationId,
+            long baseCpuNs,
+            long baseMemoryBytes,
+            long maxTestcaseIoBytes,
+            long refCpuNs,
+            long refMemoryBytes,
+            long platformMaxCpuNs,
+            long platformMaxMemoryBytes,
+            boolean cpuCapped,
+            boolean memoryCapped,
+            LimitModel baseLimitModel,
+            LimitModel languageLimitModel) {}
     /**
      * 契约 judge-input：只冻结源码、语言、标定与限制；测试数据地址由 judging-service 判题时取。
      * CORE 时 completeSource 是驱动文件，另冻结用户文件、它的摘要与前缀行数；ACM 时三者为 null，且不能出现在 JSON 里。
@@ -79,6 +106,9 @@ public final class SubmissionDtos {
             Integer solutionPrefixLineCount,
             String languageCalibrationId,
             Limits effectiveLimits,
+            String limitSource,
+            // 契约要求 limitDerivation 始终出现：非 DERIVED 时写 null，不能像 CORE 字段那样省略
+            @JsonInclude(JsonInclude.Include.ALWAYS) LimitDerivation limitDerivation,
             Instant createdAt) {
         @Override
         public String toString() {

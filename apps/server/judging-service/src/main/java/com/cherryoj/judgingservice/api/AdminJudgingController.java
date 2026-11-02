@@ -4,6 +4,7 @@ import com.cherryoj.identity.resource.CurrentCall;
 import com.cherryoj.judgingservice.application.JudgeNodeRegistry;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.http.CacheControl;
@@ -46,8 +47,9 @@ public class AdminJudgingController {
     ResponseEntity<JudgingDtos.Readiness> readiness(
             @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String problemId,
             @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.LANGUAGE_PATTERN) String languageId,
-            @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.SHA_PATTERN) String testDataDigest) {
-        return noStore(service.readiness(problemId, languageId, testDataDigest));
+            @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.SHA_PATTERN) String testDataDigest,
+            @RequestParam @Min(0) long maxTestcaseIoBytes) {
+        return noStore(service.readiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes));
     }
 
     private static <T> ResponseEntity<T> noStore(T body) {

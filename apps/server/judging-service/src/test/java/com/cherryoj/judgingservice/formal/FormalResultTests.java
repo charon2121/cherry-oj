@@ -21,6 +21,8 @@ class FormalResultTests {
             2,
             "c",
             new JudgeGateway.Limits(1, 1, null),
+            "BASE",
+            null,
             java.time.Instant.EPOCH);
 
     @Test
@@ -53,6 +55,8 @@ class FormalResultTests {
                 null,
                 "c",
                 new JudgeGateway.Limits(1, 1, null),
+                "BASE",
+                null,
                 java.time.Instant.EPOCH)));
         assertFalse(FormalWorker.validSolution(new FormalInput(
                 "s",
@@ -66,6 +70,8 @@ class FormalResultTests {
                 2,
                 "c",
                 new JudgeGateway.Limits(1, 1, null),
+                "BASE",
+                null,
                 java.time.Instant.EPOCH)));
         assertFalse(FormalWorker.validSolution(new FormalInput(
                 "s",
@@ -79,6 +85,8 @@ class FormalResultTests {
                 2,
                 "c",
                 new JudgeGateway.Limits(1, 1, null),
+                "BASE",
+                null,
                 java.time.Instant.EPOCH)));
     }
 
@@ -94,6 +102,8 @@ class FormalResultTests {
             null,
             "c",
             new JudgeGateway.Limits(1, 1, null),
+            "BASE",
+            null,
             java.time.Instant.EPOCH);
 
     @Test

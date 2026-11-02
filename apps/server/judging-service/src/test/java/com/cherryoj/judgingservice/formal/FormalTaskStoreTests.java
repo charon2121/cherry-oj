@@ -121,6 +121,8 @@ class FormalTaskStoreTests {
                 null,
                 UUID.randomUUID().toString(),
                 new JudgeGateway.Limits(1000, 2000, 3000L),
+                "BASE",
+                null,
                 clock.instant());
         when(inputs.get(id, null)).thenReturn(input);
         when(testData.current(eq(problem), any()))

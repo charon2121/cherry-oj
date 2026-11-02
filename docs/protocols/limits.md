@@ -98,7 +98,7 @@ M_L = ceilMiB( k_L × M_ref + m_L )
 | 契约 | 改动 |
 |---|---|
 | `contracts/languages.json`（新增） | 每门语言一项，本协议只要求其中的 `limitModel`；语言目录的其余字段在语言解耦时再补 |
-| `calibration.schema.json` | `CalibrationRequest`、`Calibration` 增加必填字段 `kind`：`BASE` 或 `OVERRIDE`。`ReadinessCheck.code` 增加 `LIMIT_MODEL`（这门语言在 `languages.json` 里有 `limitModel`）。新增 `GET /internal/admin/limits?problemId=&testDataDigest=`，响应为每门语言一行 `LanguageLimits`：`languageId`、`limitSource`、`cpuNs`、`memoryBytes`、`clockNs`、`calibrationId`、`cpuCapped`、`memoryCapped`、`unavailableReason` |
+| `calibration.schema.json` | `CalibrationRequest`、`Calibration` 增加必填字段 `kind`：`BASE` 或 `OVERRIDE`。`ReadinessCheck.code` 增加 `LIMIT_MODEL`（这门语言在 `languages.json` 里有 `limitModel`）。就绪查询增加必填参数 `maxTestcaseIoBytes`（problem-service 从当前测试数据读出），`ExecutionProfile` 增加 `limitSource` 与 `limitDerivation`，`calibrationId` 在 DERIVED 时是基础标定的编号。新增 `GET /internal/admin/limits?problemId=&testDataDigest=`，响应为每门语言一行 `LanguageLimits`：`languageId`、`limitSource`、`cpuNs`、`memoryBytes`、`clockNs`、`calibrationId`、`cpuCapped`、`memoryCapped`、`unavailableReason` |
 | `problem-test-data.schema.json` | 响应增加 `maxTestcaseIoBytes`（整数，≥ 0） |
 | `execution-profile.schema.json` | 增加必填字段 `limitSource` 与 `limitDerivation`（见下）；`languageCalibrationId` 的含义改为"依据的标定编号"：DERIVED 时是 BASE 的编号 |
 | `judge-input.schema.json` | 增加必填字段 `limitSource` 与 `limitDerivation`，与 `effectiveLimits` 一起冻结。`contractVersion` 保持 `"2"`：按既定做法不做兼容，已有数据删除 |

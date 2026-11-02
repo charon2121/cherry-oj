@@ -12,6 +12,8 @@ import com.cherryoj.judgingservice.api.JudgingDtos.CalibrationRequest;
 import com.cherryoj.judgingservice.application.JudgeNodeRegistry;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
+import com.cherryoj.judgingservice.limits.LanguageLimitModels;
+import com.cherryoj.judgingservice.limits.LimitModel;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -59,8 +61,16 @@ class JudgingReadinessIntegrationTests {
     @MockitoBean
     JudgeGateway judge;
 
+    /** cpp 用真实参数；python 默认没有参数，个别用例给它一组 Java 那样的参数来走推导。 */
+    @MockitoBean
+    LanguageLimitModels models;
+
+    private static final LimitModel CPP = new LimitModel(1000, null, 0, 0, 1000, 0, true);
+    private static final LimitModel JAVA_LIKE = new LimitModel(3200, null, 170_000_000L, 0, 1250, 40L << 20, false);
+
     @BeforeEach
     void onlineNode() {
+        when(models.of("cpp")).thenReturn(CPP);
         jdbc.update("DELETE FROM judging_audit_event");
         jdbc.update("UPDATE language_calibration SET supersedes_id = NULL");
         jdbc.update("DELETE FROM language_calibration");
@@ -71,7 +81,7 @@ class JudgingReadinessIntegrationTests {
     void acCalibrationMakesReadinessTrueAndAuditHoldsNoSource() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        assertThat(service.readiness(problem, "cpp", DIGEST).ready()).isFalse();
+        assertThat(service.readiness(problem, "cpp", DIGEST, 0).ready()).isFalse();
 
         CalibrationRequest request = calibration(problem, DIGEST, "int main(){return 0;}");
         var calibrated = service.calibrate(request, ACTOR, "trace-1");
@@ -79,7 +89,7 @@ class JudgingReadinessIntegrationTests {
         assertThat(calibrated.testDataDigest()).isEqualTo(DIGEST);
         assertThat(calibrated.benchmarkSummary().verdict()).isEqualTo("AC");
 
-        var readiness = service.readiness(problem, "cpp", DIGEST);
+        var readiness = service.readiness(problem, "cpp", DIGEST, 0);
         assertThat(readiness.ready()).isTrue();
         assertThat(readiness.checks()).allMatch(check -> check.passed());
         assertThat(readiness.executionProfile().cpuNs()).isEqualTo(1_000_000_000L);
@@ -110,7 +120,7 @@ class JudgingReadinessIntegrationTests {
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         var old = service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
 
-        var stale = service.readiness(problem, "cpp", newDigest);
+        var stale = service.readiness(problem, "cpp", newDigest, 0);
         assertThat(stale.ready()).isFalse();
         assertThat(stale.executionProfile()).isNull();
         assertThat(stale.checks())
@@ -120,8 +130,8 @@ class JudgingReadinessIntegrationTests {
 
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(newDigest));
         var fresh = service.calibrate(calibration(problem, newDigest, "// ref"), ACTOR, null);
-        assertThat(service.readiness(problem, "cpp", newDigest).ready()).isTrue();
-        assertThat(service.readiness(problem, "cpp", DIGEST).ready()).isFalse();
+        assertThat(service.readiness(problem, "cpp", newDigest, 0).ready()).isTrue();
+        assertThat(service.readiness(problem, "cpp", DIGEST, 0).ready()).isFalse();
         assertThat(status(old.id())).isEqualTo("SUPERSEDED");
         assertThat(status(fresh.id())).isEqualTo("VALID");
     }
@@ -133,7 +143,7 @@ class JudgingReadinessIntegrationTests {
         var result = service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
         assertThat(result.status()).isEqualTo("FAILED");
         assertThat(result.errorMessage()).isEqualTo("TEST_DATA_CHANGED");
-        assertThat(service.readiness(problem, "cpp", DIGEST).ready()).isFalse();
+        assertThat(service.readiness(problem, "cpp", DIGEST, 0).ready()).isFalse();
         // 判题结果没带指纹同样不能当作成功
         when(judge.judge(anyString(), any(), any())).thenReturn(new JudgeGateway.JudgeResult("AC", 1L, 2L, 100));
         assertThat(service.calibrate(calibration(problem, DIGEST, "// ref2"), ACTOR, null)
@@ -352,6 +362,100 @@ class JudgingReadinessIntegrationTests {
                 FROM language_calibration WHERE problem_id=UUID_TO_BIN(?) AND status='VALID'
                 """, ACTOR, now, now, now, problem))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void otherLanguagesAreDerivedFromTheBaseAndCarryTheirInputs() throws Exception {
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        when(models.of("python")).thenReturn(JAVA_LIKE);
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        var base = service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+
+        var readiness = service.readiness(problem, "python", DIGEST, 2_000_000);
+
+        assertThat(readiness.ready()).isTrue();
+        var profile = readiness.executionProfile();
+        assertThat(profile.limitSource()).isEqualTo("DERIVED");
+        assertThat(profile.calibrationId()).isEqualTo(base.id());
+        // 协议黄金用例：C++ 1s / 256MiB → 3.37s / 360MiB；推导值不带墙钟
+        assertThat(profile.cpuNs()).isEqualTo(3_370_000_000L);
+        assertThat(profile.memoryBytes()).isEqualTo(360L << 20);
+        assertThat(profile.clockNs()).isNull();
+        var derivation = profile.limitDerivation();
+        assertThat(derivation.baseLanguageId()).isEqualTo("cpp");
+        assertThat(derivation.baseCalibrationId()).isEqualTo(base.id());
+        assertThat(derivation.maxTestcaseIoBytes()).isEqualTo(2_000_000);
+        assertThat(derivation.platformMaxCpuNs()).isEqualTo(10_000_000_000L);
+        assertThat(derivation.cpuCapped()).isFalse();
+        assertThat(derivation.languageLimitModel().cpuFactorPermille()).isEqualTo(3200);
+
+        // 基础语言自己就是基础标定，不推导
+        var own = service.readiness(problem, "cpp", DIGEST, 2_000_000).executionProfile();
+        assertThat(own.limitSource()).isEqualTo("BASE");
+        assertThat(own.limitDerivation()).isNull();
+    }
+
+    @Test
+    void derivedValuesAbovePlatformLimitsAreCappedAndTheLanguageStaysReady() throws Exception {
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        when(models.of("python")).thenReturn(JAVA_LIKE);
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        service.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 1L << 30), ACTOR, null);
+
+        var readiness = service.readiness(problem, "python", DIGEST, 0);
+
+        assertThat(readiness.ready()).isTrue();
+        assertThat(readiness.executionProfile().cpuNs()).isEqualTo(10_000_000_000L);
+        assertThat(readiness.executionProfile().memoryBytes()).isEqualTo(1L << 30);
+        assertThat(readiness.executionProfile().limitDerivation().cpuCapped()).isTrue();
+        assertThat(readiness.executionProfile().limitDerivation().memoryCapped())
+                .isTrue();
+    }
+
+    @Test
+    void aLanguageWithoutParametersNeedsAnOverrideWhichThenWins() throws Exception {
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+
+        var missing = service.readiness(problem, "python", DIGEST, 0);
+        assertThat(missing.ready()).isFalse();
+        assertThat(missing.checks()).anySatisfy(check -> {
+            assertThat(check.code()).isEqualTo("LIMIT_MODEL");
+            assertThat(check.passed()).isFalse();
+        });
+
+        var override = service.calibrate(
+                request(problem, "python", "OVERRIDE", DIGEST, 2_000_000_000L, 268_435_456L), ACTOR, null);
+        var profile = service.readiness(problem, "python", DIGEST, 0).executionProfile();
+        assertThat(profile.limitSource()).isEqualTo("OVERRIDE");
+        assertThat(profile.calibrationId()).isEqualTo(override.id());
+        assertThat(profile.cpuNs()).isEqualTo(2_000_000_000L);
+        assertThat(profile.limitDerivation()).isNull();
+    }
+
+    @Test
+    void anOverrideForOldDataFallsBackToDerivation() throws Exception {
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        when(models.of("python")).thenReturn(JAVA_LIKE);
+        String problem = UUID.randomUUID().toString();
+        String newDigest = "b".repeat(64);
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        service.calibrate(request(problem, "python", "OVERRIDE", DIGEST, 2_000_000_000L, 268_435_456L), ACTOR, null);
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(newDigest));
+        service.calibrate(calibration(problem, newDigest, "// base"), ACTOR, null);
+
+        // 覆盖标定对应旧数据，已经过期：按新数据的基础标定推导
+        var profile = service.readiness(problem, "python", newDigest, 0).executionProfile();
+        assertThat(profile.limitSource()).isEqualTo("DERIVED");
+        assertThat(profile.cpuNs()).isEqualTo(3_370_000_000L);
     }
 
     private static CalibrationRequest request(

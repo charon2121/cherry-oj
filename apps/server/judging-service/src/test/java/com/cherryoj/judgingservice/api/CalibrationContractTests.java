@@ -31,6 +31,15 @@ class CalibrationContractTests {
         assertThat(components(JudgingDtos.ReadinessCheck.class)).isEqualTo(properties(definitions, "ReadinessCheck"));
         assertThat(components(JudgingDtos.ExecutionProfile.class))
                 .isEqualTo(properties(definitions, "ExecutionProfile"));
+
+        // 推导依据与参数快照定义在 execution-profile.schema.json，judge-input 与 calibration 都引用它
+        JsonNode profileDefinitions = JsonMapper.builder()
+                .build()
+                .readTree(Files.readString(Path.of("../../../contracts/execution-profile.schema.json")))
+                .get("definitions");
+        assertThat(components(JudgingDtos.LimitDerivation.class))
+                .isEqualTo(properties(profileDefinitions, "LimitDerivation"));
+        assertThat(components(JudgingDtos.LimitModel.class)).isEqualTo(properties(profileDefinitions, "LimitModel"));
     }
 
     private static Set<String> components(Class<? extends Record> type) {

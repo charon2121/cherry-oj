@@ -98,12 +98,13 @@ class HttpJudgingClientTests {
         server.start();
 
         var readiness = client(Duration.ofSeconds(2))
-                .readiness("019c8e42-7f70-7000-8000-000000000010", "cpp", "b".repeat(64), TestCallTokens.ADMIN, null);
+                .readiness(
+                        "019c8e42-7f70-7000-8000-000000000010", "cpp", "b".repeat(64), 10, TestCallTokens.ADMIN, null);
 
         assertThat(readiness.ready()).isFalse();
         assertThat(query.get())
                 .isEqualTo("problemId=019c8e42-7f70-7000-8000-000000000010&languageId=cpp&testDataDigest="
-                        + "b".repeat(64));
+                        + "b".repeat(64) + "&maxTestcaseIoBytes=10");
     }
 
     @Test
@@ -118,6 +119,7 @@ class HttpJudgingClientTests {
                                 "019c8e42-7f70-7000-8000-000000000001",
                                 "cpp",
                                 "a".repeat(64),
+                                0,
                                 TestCallTokens.ADMIN,
                                 null))
                 .isInstanceOfSatisfying(ProblemApiException.class, error -> {
@@ -138,7 +140,7 @@ class HttpJudgingClientTests {
         for (String value : List.of("NO_ONLINE_JUDGE_NODE", "JUDGE_NODE_UNREACHABLE", "UNKNOWN")) {
             code.set(value);
             assertThatThrownBy(() -> client(Duration.ofSeconds(2))
-                            .readiness("problem", "cpp", "hash", TestCallTokens.ADMIN, null))
+                            .readiness("problem", "cpp", "hash", 0, TestCallTokens.ADMIN, null))
                     .isInstanceOfSatisfying(ProblemApiException.class, error -> {
                         assertThat(error.code()).isEqualTo(value.equals("UNKNOWN") ? "JUDGING_UNAVAILABLE" : value);
                         assertThat(error.getMessage()).doesNotContain("private", "token", "path");

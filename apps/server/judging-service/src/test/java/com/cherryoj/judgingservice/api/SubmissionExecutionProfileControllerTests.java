@@ -37,11 +37,14 @@ class SubmissionExecutionProfileControllerTests {
         var controller = new SubmissionExecutionProfileController(service, budgets(), testData);
         var request = new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", null);
         when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 3, 100, 0L));
-        when(service.readiness(PROBLEM, "cpp", DIGEST)).thenReturn(new JudgingDtos.Readiness(false, List.of(), null));
+        when(service.readiness(PROBLEM, "cpp", DIGEST, 0L))
+                .thenReturn(new JudgingDtos.Readiness(false, List.of(), null));
         assertThrows(JudgingApiException.class, () -> controller.resolve(request, null));
-        when(service.readiness(PROBLEM, "cpp", DIGEST))
+        when(service.readiness(PROBLEM, "cpp", DIGEST, 0L))
                 .thenReturn(new JudgingDtos.Readiness(
-                        true, List.of(), new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, null)));
+                        true,
+                        List.of(),
+                        new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, "BASE", null, null)));
         var profile = controller.resolve(request, null);
         assertEquals("cal", profile.languageCalibrationId());
         assertEquals(1000, profile.effectiveLimits().cpuNs());
@@ -56,9 +59,11 @@ class SubmissionExecutionProfileControllerTests {
         var service = mock(JudgingReadinessService.class);
         var testData = mock(ProblemTestDataClient.class);
         var controller = new SubmissionExecutionProfileController(service, budgets(), testData);
-        when(service.readiness(PROBLEM, "cpp", DIGEST))
+        when(service.readiness(PROBLEM, "cpp", DIGEST, 0L))
                 .thenReturn(new JudgingDtos.Readiness(
-                        true, List.of(), new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, null)));
+                        true,
+                        List.of(),
+                        new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, "BASE", null, null)));
         when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 10, 100, 0L));
         long ten = controller
                 .resolve(new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", "formal"), null)

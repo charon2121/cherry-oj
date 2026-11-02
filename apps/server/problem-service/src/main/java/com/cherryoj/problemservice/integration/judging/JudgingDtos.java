@@ -3,6 +3,7 @@ package com.cherryoj.problemservice.integration.judging;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.LocalDateTime;
 import java.util.List;
+import tools.jackson.databind.JsonNode;
 
 public final class JudgingDtos {
     private JudgingDtos() {}
@@ -47,9 +48,18 @@ public final class JudgingDtos {
             long rowVersion) {}
 
     public record ReadinessCheck(String code, boolean passed, String message) {}
-    /** calibratedAt 是这条标定的批准时间（UTC）；驱动代码或前缀晚于它修改时提示重新标定。 */
+    /**
+     * calibratedAt 是所依据那条标定的批准时间（UTC）；驱动代码或前缀晚于它修改时提示重新标定。
+     * limitSource 与 limitDerivation 见 docs/protocols/limits.md；problem-service 不解读推导依据，原样接收。
+     */
     public record ExecutionProfile(
-            String calibrationId, long cpuNs, long memoryBytes, Long clockNs, LocalDateTime calibratedAt) {}
+            String calibrationId,
+            long cpuNs,
+            long memoryBytes,
+            Long clockNs,
+            String limitSource,
+            JsonNode limitDerivation,
+            LocalDateTime calibratedAt) {}
 
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
 }

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/judge-input.schema.json",
   "title": "JudgeInput v2",
-  "description": "submission-service → judging-service 的受保护内部读取模型。它与 Submission 同事务创建且永久不可修改，只冻结源码、语言、标定编号和限制；不含测试数据地址，地址由 judging-service 在判题时向 problem-service 取题目当前的值。源码不进入 Kafka；该响应必须通过服务身份鉴权、限制大小并禁止记录 completeSource。CORE 另冻结用户文件（solutionSource = 该语言前缀 + 用户源码，直接拼接；前缀以换行结尾）与前缀行数（前缀中换行符的个数），judging-service 据此把报错中用户文件的行号换算成编辑器行号。",
+  "description": "submission-service → judging-service 的受保护内部读取模型。它与 Submission 同事务创建且永久不可修改，只冻结源码、语言、标定编号、限制以及限制的来源与推导依据；不含测试数据地址，地址由 judging-service 在判题时向 problem-service 取题目当前的值。源码不进入 Kafka；该响应必须通过服务身份鉴权、限制大小并禁止记录 completeSource。CORE 另冻结用户文件（solutionSource = 该语言前缀 + 用户源码，直接拼接；前缀以换行结尾）与前缀行数（前缀中换行符的个数），judging-service 据此把报错中用户文件的行号换算成编辑器行号。",
   "x-contract-version": 2,
   "type": "object",
   "additionalProperties": false,
@@ -15,6 +15,8 @@
     "sourceSha256",
     "languageCalibrationId",
     "effectiveLimits",
+    "limitSource",
+    "limitDerivation",
     "createdAt"
   ],
   "properties": {
@@ -68,6 +70,19 @@
     "effectiveLimits": {
       "$ref": "judge.schema.json#/definitions/JudgeLimits"
     },
+    "limitSource": {
+      "$ref": "execution-profile.schema.json#/definitions/LimitSource"
+    },
+    "limitDerivation": {
+      "anyOf": [
+        {
+          "$ref": "execution-profile.schema.json#/definitions/LimitDerivation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "createdAt": {
       "type": "string",
       "format": "date-time"
@@ -98,7 +113,9 @@
         "cpuNs": 1000000000,
         "memoryBytes": 268435456
       },
-      "createdAt": "2026-08-20T02:00:00Z"
+      "createdAt": "2026-08-20T02:00:00Z",
+      "limitSource": "BASE",
+      "limitDerivation": null
     },
     {
       "submissionId": "0198cafe-0000-7000-8000-000000000011",
@@ -115,7 +132,34 @@
         "cpuNs": 1000000000,
         "memoryBytes": 268435456
       },
-      "createdAt": "2026-10-17T02:00:00Z"
+      "createdAt": "2026-10-17T02:00:00Z",
+      "limitSource": "BASE",
+      "limitDerivation": null
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "limitSource": {
+            "const": "DERIVED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "limitDerivation": {
+            "$ref": "execution-profile.schema.json#/definitions/LimitDerivation"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "limitDerivation": {
+            "type": "null"
+          }
+        }
+      }
     }
   ]
 }

@@ -85,6 +85,8 @@ class FormalKafkaTests {
                 null,
                 UUID.randomUUID().toString(),
                 new JudgeGateway.Limits(1000, 2000, 3000L),
+                "BASE",
+                null,
                 Instant.now());
         when(inputs.get(eq(id), nullable(String.class))).thenReturn(input);
         when(testData.current(eq(problem), nullable(String.class)))

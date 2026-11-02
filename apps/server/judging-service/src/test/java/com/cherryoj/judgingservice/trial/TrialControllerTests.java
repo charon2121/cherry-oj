@@ -48,6 +48,8 @@ class TrialControllerTests {
                         "cpp",
                         "calibration",
                         new SubmissionExecutionProfileController.Limits(1000000000, 67108864, 2000000000L),
+                        "BASE",
+                        null,
                         3000000000L));
         var node = mock(JudgeNodeRepository.Node.class);
         when(node.endpoint())
@@ -104,6 +106,8 @@ class TrialControllerTests {
                         "cpp",
                         "calibration",
                         new SubmissionExecutionProfileController.Limits(1000000000, 67108864, 2000000000L),
+                        "BASE",
+                        null,
                         3000000000L));
         var node = mock(JudgeNodeRepository.Node.class);
         when(node.endpoint())

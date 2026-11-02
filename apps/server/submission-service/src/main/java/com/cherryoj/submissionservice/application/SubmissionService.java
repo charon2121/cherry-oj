@@ -88,6 +88,8 @@ public class SubmissionService {
                 sources.solutionPrefixLineCount(),
                 profile.languageCalibrationId(),
                 profile.effectiveLimits(),
+                profile.limitSource(),
+                profile.limitDerivation(),
                 now);
         String payload = json.writeValueAsString(Map.of(
                 "eventId",
@@ -186,7 +188,8 @@ public class SubmissionService {
                 || !s.problemId().equals(p.problemId())
                 || !s.languageId().equals(p.languageId())
                 || p.languageCalibrationId() == null
-                || p.effectiveLimits() == null) throw invalidSnapshot();
+                || p.effectiveLimits() == null
+                || !validLimitSource(p)) throw invalidSnapshot();
         var limits = p.effectiveLimits();
         if (p.executionBudgetNs() <= 0
                 || limits.cpuNs() <= 0
@@ -197,6 +200,16 @@ public class SubmissionService {
         } catch (IllegalArgumentException error) {
             throw invalidSnapshot();
         }
+    }
+
+    /** 推导依据只在 DERIVED 时出现（docs/protocols/limits.md 第 6 节）；对不上就不冻结，免得记下无法追溯的限制。 */
+    private static boolean validLimitSource(Profile p) {
+        if (p.limitSource() == null) return false;
+        return switch (p.limitSource()) {
+            case "BASE", "OVERRIDE" -> p.limitDerivation() == null;
+            case "DERIVED" -> p.limitDerivation() != null;
+            default -> false;
+        };
     }
 
     private static SubmissionException invalidSnapshot() {

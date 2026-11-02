@@ -75,6 +75,8 @@ class SubmissionPersistenceTests {
                         "cpp",
                         calibration,
                         new Limits(1000000000L, 268435456L, 3000000000L),
+                        "BASE",
+                        null,
                         40000000000L));
     }
 
@@ -137,6 +139,8 @@ class SubmissionPersistenceTests {
                         "cpp",
                         calibration,
                         new Limits(1000000000L, 268435456L, 3000000000L),
+                        "BASE",
+                        null,
                         40000000000L));
         String source = "class Solution {};\n";
 
@@ -160,6 +164,49 @@ class SubmissionPersistenceTests {
         String payload = jdbc.queryForObject(
                 "SELECT CAST(payload AS CHAR) FROM judge_input WHERE submission_id=?", String.class, acm);
         assertFalse(payload.contains("solution"), payload);
+        // 限制来源随提交冻结；不是推导出来的，推导依据也要显式写成 null，不能省略（MySQL JSON 列会重新排版，先去掉空格再比）
+        String compact = payload.replace(" ", "");
+        assertTrue(compact.contains("\"limitSource\":\"BASE\""), payload);
+        assertTrue(compact.contains("\"limitDerivation\":null"), payload);
+    }
+
+    /** 限制来源与推导依据对不上：记下来也无法追溯，不建提交（docs/protocols/limits.md 第 6 节）。 */
+    @Test
+    void inconsistentLimitSourcesNeverCreateSubmissions() {
+        var snapshot = new Snapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
+        when(prerequisites.snapshot(problem.toString(), "cpp")).thenReturn(snapshot);
+        var model = new LimitModel(1000, null, 0, 0, 1000, 0);
+        var derivation = new LimitDerivation(
+                "cpp",
+                UUID.randomUUID().toString(),
+                1000000000L,
+                268435456L,
+                0,
+                1000000000L,
+                268435456L,
+                10000000000L,
+                1073741824L,
+                false,
+                false,
+                model,
+                model);
+        long before = jdbc.queryForObject("SELECT COUNT(*) FROM submission", Long.class);
+        for (var source : new Object[][] {{"DERIVED", null}, {"BASE", derivation}, {"UNKNOWN", null}, {null, null}}) {
+            when(prerequisites.profile(snapshot))
+                    .thenReturn(new Profile(
+                            problem.toString(),
+                            "cpp",
+                            UUID.randomUUID().toString(),
+                            new Limits(1000000000L, 268435456L, null),
+                            (String) source[0],
+                            (LimitDerivation) source[1],
+                            40000000000L));
+            var error = assertThrows(
+                    SubmissionException.class,
+                    () -> service.create(user, UUID.randomUUID().toString(), request("x")));
+            assertEquals("INVALID_JUDGE_SNAPSHOT", error.code());
+        }
+        assertEquals(before, jdbc.queryForObject("SELECT COUNT(*) FROM submission", Long.class));
     }
     /** 快照的代码模式与它带的 CORE 字段对不上：不建提交，按"暂时无法判题"处理。 */
     @Test
