@@ -7,8 +7,10 @@
 [`architecture.md`](./architecture.md)。
 
 **完整 MVP（PRD §3.4 六条基线）2026-10-19 起已交付**，证据见 [`product.md`](./product.md) §3.4；
-测试服务器节点 2026-11-02 已按 `fd7eba77` 重装（发布 `cherry-home-v5`，声明 C++ 与 C，启动冒烟两门都通过）：
-`verify-native` 通过，benchmark 判题 72 项与攻击样本 56 项全过（含 CORE 的 `core-add`、`core-add-c`）。
+测试服务器节点 2026-11-02 按 `a80fd173` 重装为每门语言独立工具链的新布局（`cherry-home-v6`，C 与 C++ 两套 rootfs，
+启动冒烟两门都通过），随后演练原地升级：升级到 v7、回滚到 v6、再回滚到 v7，每次 judge 停顿约 2.5–8 秒；升级到 rootfs
+被改过的发布时启动脚本拒绝启动、自动切回 v7（健康检查改为单元退出即失败后，停顿约 5.5 秒）；`prune` 只删掉了失败的发布。
+当前运行 `cherry-home-v7`（上一个发布 v6）：`verify-native` 通过，benchmark 判题 72 项与攻击样本 56 项全过。
 
 | 部分 | 状态 |
 |---|---|
