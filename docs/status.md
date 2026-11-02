@@ -7,8 +7,8 @@
 [`architecture.md`](./architecture.md)。
 
 **完整 MVP（PRD §3.4 六条基线）2026-10-19 起已交付**，证据见 [`product.md`](./product.md) §3.4；
-测试服务器节点 2026-10-20 已按 `f4fe44c` 重装（发布 `cherry-home-v4`）：`verify-native` 通过，
-benchmark 判题 58 项与攻击样本 56 项全过（含 CORE 的 `core-add`）。
+测试服务器节点 2026-11-02 已按 `fd7eba77` 重装（发布 `cherry-home-v5`，声明 C++ 与 C，启动冒烟两门都通过）：
+`verify-native` 通过，benchmark 判题 72 项与攻击样本 56 项全过（含 CORE 的 `core-add`、`core-add-c`）。
 
 | 部分 | 状态 |
 |---|---|
