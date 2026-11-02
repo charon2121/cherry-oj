@@ -32,6 +32,20 @@ judge 开放 HTTP 端口前，进程内执行层会通过执行器运行 rootfs 
 
 `layout: "usr-merged"` 显式要求构建器为存在的 usr/bin、usr/sbin、usr/lib、usr/lib64 建立根目录固定相对别名。已有冲突或未知布局拒绝构建；省略 layout 不创建别名。布局计入锁与清单摘要。
 
+## 生成包锁
+
+```sh
+python3 deploy/sandbox-linux/rootfs/lock.py --language c --root gcc --root libc6-dev --root coreutils \
+  --output deploy/sandbox-linux/rootfs/locks/c.lock.json [--address-failover] [--index-dir <预先下载的索引目录>]
+```
+
+`lock.py` 从与 `download.py` 相同的快照读 noble、noble-updates 的 `Packages` 索引（默认 main），沿 Depends 与
+Pre-Depends 解析根包的闭包：同名包取最高版本（dpkg 版本比较），一组「A | B」已有可满足的就不加、否则取第一个，
+虚包取按名排序的第一个提供者；这些选择都打印出来供审阅，版本约束满足不了直接报错。快照不稳定时可以先用 curl 把
+`<套件>-<组件>-Packages.xz` 下载到一个目录，用 `--index-dir` 离线解析，同一份索引可重复得到同一份包锁。
+
+对照：以 `g++`、`coreutils` 为根，只用 noble 索引解析出的包集合与现有手工挑选的 56 个包完全一致（2026-11-02）。
+
 ## 取得锁定包
 
 ```sh
