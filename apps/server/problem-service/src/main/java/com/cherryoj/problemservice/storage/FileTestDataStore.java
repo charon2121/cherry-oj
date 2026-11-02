@@ -332,7 +332,11 @@ public final class FileTestDataStore implements TestDataStore {
 
     private static Info info(TestDataMetadata.Document document) {
         List<ManifestFile> files = new ArrayList<>();
+        long maxTestcaseIoBytes = 0;
         for (TestDataMetadata.TestcaseEntry entry : document.testcases()) {
+            maxTestcaseIoBytes = Math.max(
+                    maxTestcaseIoBytes,
+                    entry.input().sizeBytes() + entry.output().sizeBytes());
             files.add(new ManifestFile(
                     entry.name() + ".in",
                     entry.input().sizeBytes(),
@@ -346,6 +350,7 @@ public final class FileTestDataStore implements TestDataStore {
                 document.digest(),
                 document.testcaseCount(),
                 document.totalBytes(),
+                maxTestcaseIoBytes,
                 new Manifest(document.testcaseCount(), document.totalBytes(), List.copyOf(files)));
     }
 

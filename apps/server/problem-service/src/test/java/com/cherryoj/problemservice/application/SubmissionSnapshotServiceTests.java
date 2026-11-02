@@ -49,7 +49,7 @@ class SubmissionSnapshotServiceTests {
         assertThrows(ProblemApiException.class, () -> service.resolve("p", "cpp"));
 
         // 再配具体的桩时不能在 when(...) 里调用已经被模糊桩住的方法，改用 doReturn
-        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, null))
+        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, 4L, null))
                 .when(data)
                 .describe("/srv/problem/p");
         var snapshot = service.resolve("p", "cpp");
@@ -120,7 +120,7 @@ class SubmissionSnapshotServiceTests {
         when(problem.codeMode()).thenReturn(codeMode);
         when(problem.testDataLocation()).thenReturn("/srv/problem/p");
         when(problems.findProblem("p")).thenReturn(problem);
-        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, null))
+        doReturn(new TestDataStore.Info("a".repeat(64), 3, 10L, 4L, null))
                 .when(data)
                 .describe("/srv/problem/p");
         return problem;

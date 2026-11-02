@@ -53,7 +53,9 @@ public class HttpProblemTestDataClient implements ProblemTestDataClient {
                     || data.digest() == null
                     || !data.digest().matches("[a-f0-9]{64}")
                     || data.testcaseCount() < 1
-                    || data.testcaseCount() > 1000) {
+                    || data.testcaseCount() > 1000
+                    || data.maxTestcaseIoBytes() == null
+                    || data.maxTestcaseIoBytes() < 0) {
                 throw new ProblemTestDataException("TEST_DATA_INVALID");
             }
             return data;

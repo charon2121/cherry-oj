@@ -131,7 +131,11 @@ public class TestDataService {
         ProblemRow problem = requireProblem(problemId, false);
         Info info = describe(problem);
         return new TestDataDtos.ProblemTestData(
-                problem.testDataLocation(), info.digest(), info.testcaseCount(), info.totalBytes());
+                problem.testDataLocation(),
+                info.digest(),
+                info.testcaseCount(),
+                info.totalBytes(),
+                info.maxTestcaseIoBytes());
     }
 
     private Info describe(ProblemRow problem) {

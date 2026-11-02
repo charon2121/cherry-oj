@@ -117,6 +117,8 @@ class TestDataPersistenceIntegrationTests {
         assertThat(forJudging.digest()).isEqualTo(GOLDEN_DIGEST);
         assertThat(forJudging.testcaseCount()).isEqualTo(2);
         assertThat(forJudging.totalBytes()).isEqualTo(16);
+        // 测试点 1 是 4 + 2 字节，测试点 2 是 7 + 3 字节：取单个测试点输入加输出的最大值
+        assertThat(forJudging.maxTestcaseIoBytes()).isEqualTo(10);
 
         // 管理端读到同样的数据；上传不改乐观锁计数，免得让正在编辑题面的人白白冲突
         var reloaded = admin.getProblem(problem.id());

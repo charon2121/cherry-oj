@@ -36,7 +36,7 @@ class SubmissionExecutionProfileControllerTests {
         var testData = mock(ProblemTestDataClient.class);
         var controller = new SubmissionExecutionProfileController(service, budgets(), testData);
         var request = new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", null);
-        when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 3, 100));
+        when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 3, 100, 0L));
         when(service.readiness(PROBLEM, "cpp", DIGEST)).thenReturn(new JudgingDtos.Readiness(false, List.of(), null));
         assertThrows(JudgingApiException.class, () -> controller.resolve(request, null));
         when(service.readiness(PROBLEM, "cpp", DIGEST))
@@ -59,11 +59,11 @@ class SubmissionExecutionProfileControllerTests {
         when(service.readiness(PROBLEM, "cpp", DIGEST))
                 .thenReturn(new JudgingDtos.Readiness(
                         true, List.of(), new JudgingDtos.ExecutionProfile("cal", 1000, 2000, 3000L, null)));
-        when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 10, 100));
+        when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 10, 100, 0L));
         long ten = controller
                 .resolve(new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", "formal"), null)
                 .executionBudgetNs();
-        when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 20, 100));
+        when(testData.current(eq(PROBLEM), any())).thenReturn(new ProblemTestData("/data/p", DIGEST, 20, 100, 0L));
         long twenty = controller
                 .resolve(new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", "formal"), null)
                 .executionBudgetNs();

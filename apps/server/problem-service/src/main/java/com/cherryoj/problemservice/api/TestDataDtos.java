@@ -19,5 +19,6 @@ public final class TestDataDtos {
             String digest, int testcaseCount, long totalBytes, LocalDateTime updatedAt, Manifest manifest) {}
 
     /** problem-service 到 judging-service 的内部读取模型，契约见 contracts/problem-test-data.schema.json。 */
-    public record ProblemTestData(String location, String digest, int testcaseCount, long totalBytes) {}
+    public record ProblemTestData(
+            String location, String digest, int testcaseCount, long totalBytes, long maxTestcaseIoBytes) {}
 }

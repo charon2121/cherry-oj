@@ -10,7 +10,8 @@
     "location",
     "digest",
     "testcaseCount",
-    "totalBytes"
+    "totalBytes",
+    "maxTestcaseIoBytes"
   ],
   "properties": {
     "location": {
@@ -32,6 +33,11 @@
     "totalBytes": {
       "type": "integer",
       "minimum": 0
+    },
+    "maxTestcaseIoBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "各测试点 .in 与 .out 字节数之和的最大值；运行限制推导的 IO 项（docs/protocols/limits.md）"
     }
   },
   "examples": [
@@ -39,7 +45,8 @@
       "location": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000002",
       "digest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
       "testcaseCount": 2,
-      "totalBytes": 16
+      "totalBytes": 16,
+      "maxTestcaseIoBytes": 9
     }
   ]
 }

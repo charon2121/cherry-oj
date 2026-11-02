@@ -123,7 +123,8 @@ class FormalTaskStoreTests {
                 new JudgeGateway.Limits(1000, 2000, 3000L),
                 clock.instant());
         when(inputs.get(id, null)).thenReturn(input);
-        when(testData.current(eq(problem), any())).thenReturn(new ProblemTestData("/data/p", "a".repeat(64), 1, 10));
+        when(testData.current(eq(problem), any()))
+                .thenReturn(new ProblemTestData("/data/p", "a".repeat(64), 1, 10, 0L));
         try {
             var worker = new FormalWorker(store, inputs, nodes, judge, testData, properties, clock);
             for (int attempt = 1; attempt <= 3; attempt++) {

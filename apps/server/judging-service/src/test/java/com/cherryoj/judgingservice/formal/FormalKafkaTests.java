@@ -88,7 +88,8 @@ class FormalKafkaTests {
                 Instant.now());
         when(inputs.get(eq(id), nullable(String.class))).thenReturn(input);
         when(testData.current(eq(problem), nullable(String.class)))
-                .thenReturn(new com.cherryoj.judgingservice.problem.ProblemTestData("/data/p", "a".repeat(64), 1, 10));
+                .thenReturn(
+                        new com.cherryoj.judgingservice.problem.ProblemTestData("/data/p", "a".repeat(64), 1, 10, 0L));
         when(nodes.online(eq("cpp"), any()))
                 .thenReturn(List.of(new JudgeNodeRepository.Node(
                         "node",

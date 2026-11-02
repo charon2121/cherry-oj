@@ -26,8 +26,8 @@ class HttpProblemTestDataClientTests {
     private final AtomicReference<String> authorization = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
     private int status = 200;
-    private String body =
-            "{\"location\":\"/data/problems/p\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":2,\"totalBytes\":16}";
+    private String body = "{\"location\":\"/data/problems/p\",\"digest\":\"" + DIGEST
+            + "\",\"testcaseCount\":2,\"totalBytes\":16,\"maxTestcaseIoBytes\":10}";
 
     @BeforeEach
     void start() throws Exception {
@@ -68,6 +68,7 @@ class HttpProblemTestDataClientTests {
         assertThat(data.location()).isEqualTo("/data/problems/p");
         assertThat(data.digest()).isEqualTo(DIGEST);
         assertThat(data.testcaseCount()).isEqualTo(2);
+        assertThat(data.maxTestcaseIoBytes()).isEqualTo(10);
         assertThat(path.get()).isEqualTo("/internal/judging/problems/" + PROBLEM + "/test-data");
         var call = CallToken.verify(
                 authorization.get().substring("Bearer ".length()),
@@ -89,6 +90,9 @@ class HttpProblemTestDataClientTests {
         body = "{\"location\":\"/x\",\"digest\":\"bad\",\"testcaseCount\":2,\"totalBytes\":1}";
         assertThatThrownBy(() -> client().current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
         body = "{\"location\":\"/x\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":0,\"totalBytes\":1}";
+        assertThatThrownBy(() -> client().current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
+        // 缺 maxTestcaseIoBytes 不能当成 0：那会让推导出的限制悄悄少算 IO 项
+        body = "{\"location\":\"/x\",\"digest\":\"" + DIGEST + "\",\"testcaseCount\":2,\"totalBytes\":1}";
         assertThatThrownBy(() -> client().current(PROBLEM, null)).hasMessage("TEST_DATA_INVALID");
         body = "not json";
         assertThatThrownBy(() -> client().current(PROBLEM, null)).hasMessage("TEST_DATA_UNAVAILABLE");
