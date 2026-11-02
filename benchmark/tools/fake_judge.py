@@ -48,7 +48,7 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
         if "solutionSource" in request and language not in ("c", "cpp"):
             return 200, {"verdict": "SE", "message": f'language "{language}" does not accept a solution file'}
         if language == "python":
-            return 200, {"verdict": "SE", "message": "run: init failed: phase=6 errno=2"}
+            return 200, {"verdict": "SE", "message": "sandbox executor refused the request: sandbox: toolchain python is not installed as a root-owned directory"}
         if language not in ("c", "cpp"):
             return 200, {"verdict": "SE", "message": f'unknown language: "{language}"'}
         if request["mode"] == "trial":
