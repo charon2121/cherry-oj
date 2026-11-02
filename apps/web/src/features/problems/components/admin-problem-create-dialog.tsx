@@ -27,9 +27,19 @@ type CreateValues = {
   title: string;
   difficulty: ProblemDifficulty;
   codeMode: ProblemCodeMode;
+  languageId: string;
 };
 
-const defaults: CreateValues = { slug: '', title: '', difficulty: 'UNRATED', codeMode: 'ACM' };
+type LanguageOption = { id: string; displayName: string };
+
+// 语言不给默认值：建题后改不了，按编号取第一项会落到 C，写死 C++ 又回到前端维护语言名单的老路。
+const defaults: CreateValues = {
+  slug: '',
+  title: '',
+  difficulty: 'UNRATED',
+  codeMode: 'ACM',
+  languageId: '',
+};
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function createErrorMessage(error: unknown) {
@@ -48,9 +58,12 @@ function slugErrorMessage(error: unknown) {
 
 export function AdminProblemCreateDialog({
   creating,
+  languages,
   onCreate,
 }: {
   creating: boolean;
+  /** 平台语言表（管理端语言接口）；还在加载或加载失败时为 undefined。 */
+  languages: readonly LanguageOption[] | undefined;
   onCreate: (values: CreateValues) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
@@ -73,6 +86,7 @@ export function AdminProblemCreateDialog({
       else if (slug.length < 3 || slug.length > 80 || !slugPattern.test(slug)) {
         nextErrors.slug = '请使用 3～80 位小写字母、数字和连字符。';
       }
+      if (!value.languageId) nextErrors.form = '请选择题目语言。';
       if (Object.keys(nextErrors).length > 0) {
         setErrors(nextErrors);
         return;
@@ -185,11 +199,31 @@ export function AdminProblemCreateDialog({
               />
             )}
           </form.Field>
+          <form.Field name="languageId">
+            {(field) => (
+              <SelectField
+                label="语言"
+                placeholder={languages ? '选择语言' : '正在加载语言…'}
+                disabled={!languages}
+                value={field.state.value}
+                onValueChange={(value) => {
+                  field.handleChange(value);
+                  setErrors((current) =>
+                    Object.fromEntries(Object.entries(current).filter(([key]) => key !== 'form')),
+                  );
+                }}
+                items={(languages ?? []).map((language) => ({
+                  value: language.id,
+                  label: language.displayName,
+                }))}
+              />
+            )}
+          </form.Field>
           <form.Field name="codeMode">
             {(field) => (
               <SelectField
                 label="代码模式"
-                description="创建后不可修改。"
+                description="语言与代码模式创建后不可修改。"
                 value={field.state.value}
                 onValueChange={(value) => field.handleChange(value as ProblemCodeMode)}
                 items={[

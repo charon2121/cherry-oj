@@ -13,6 +13,22 @@ async function success(route: Route, data: object, meta: object = {}) {
   });
 }
 
+// 建题对话框的语言选项来自管理端语言接口；有两门语言，才能测出"必须明确选择、不默认取第一项"。
+const platformLanguages = [
+  {
+    id: 'c',
+    displayName: 'C',
+    solutionPrefix: '#include <stdio.h>\n',
+    updatedAt: '2026-11-02T00:00:00Z',
+  },
+  {
+    id: 'cpp',
+    displayName: 'C++',
+    solutionPrefix: '#include <bits/stdc++.h>\nusing namespace std;\n',
+    updatedAt: '2026-11-02T00:00:00Z',
+  },
+];
+
 async function anonymous(page: Page) {
   await page.route('**/api/auth/session', (route) => success(route, { authenticated: false }));
 }
@@ -224,6 +240,9 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
     }),
   );
 
+  await page.route('**/api/admin/languages', (route) =>
+    success(route, { items: platformLanguages }),
+  );
   await page.goto('/admin/problems?page=1&q=&status=ALL');
   await expect(page.getByRole('heading', { name: '题目管理' })).toBeVisible();
   await expect.poll(() => adminListRequestUrl).toBeTruthy();
@@ -238,9 +257,21 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   await page.getByLabel('题目标识').fill('two-sum');
   await page.getByRole('combobox', { name: '初始难度' }).click();
   await page.getByRole('option', { name: '简单' }).click();
+  let createdLanguageId: string | undefined;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/admin/problems') {
+      createdLanguageId = (request.postDataJSON() as { languageId?: string }).languageId;
+    }
+  });
+  // 语言建题后改不了，不给默认值：没选就提交会被拦下。
+  await page.getByRole('button', { name: '创建题目' }).click();
+  await expect(page.getByRole('alert')).toHaveText('请选择题目语言。');
+  await page.getByRole('combobox', { name: '语言' }).click();
+  await page.getByRole('option', { name: 'C++', exact: true }).click();
   await page.getByRole('button', { name: '创建题目' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/admin/problems/${problemId}(?:\\?.*)?$`));
+  expect(createdLanguageId).toBe('cpp');
   // 一页到底：标题、题面、样例、起始代码都在同一页，没有步骤切换。
   await expect(page.getByRole('textbox', { name: '题目正文' })).toBeVisible();
   await expect(page.getByRole('region', { name: '样例' })).toBeVisible();
@@ -413,10 +444,15 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
     }),
   );
 
+  await page.route('**/api/admin/languages', (route) =>
+    success(route, { items: platformLanguages }),
+  );
   await page.goto('/admin/problems?page=1&q=&status=ALL');
   await page.getByRole('button', { name: '新建题目' }).click();
   await page.getByLabel('题目标题').fill('两数相加');
   await page.getByLabel('题目标识').fill('core-add');
+  await page.getByRole('combobox', { name: '语言' }).click();
+  await page.getByRole('option', { name: 'C++', exact: true }).click();
   await page.getByRole('combobox', { name: '代码模式' }).click();
   await page.getByRole('option', { name: '核心代码' }).click();
   await page.getByRole('button', { name: '创建题目' }).click();

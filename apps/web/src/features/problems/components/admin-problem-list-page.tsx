@@ -46,6 +46,11 @@ export function AdminProblemListPage({
   search: AdminProblemSearch;
 }) {
   const queryClient = useQueryClient();
+  // 建题对话框的语言选项：与"语言"页同一份查询。
+  const languages = useQuery({
+    queryKey: adminLanguageKeys.all,
+    queryFn: ({ signal }) => listLanguageSettings(signal),
+  });
   const routeNavigate = useNavigate();
   const [keyword, setKeyword] = useState(search.q);
   const problems = useQuery({
@@ -100,16 +105,9 @@ export function AdminProblemListPage({
       actions={
         <AdminProblemCreateDialog
           creating={create.isPending}
+          languages={languages.data}
           onCreate={async (value) => {
-            // 平台目前只有一门语言，对话框不让选：取平台语言表的第一项（按编号排序）。
-            // 第二门语言上线时，再按设计流程给对话框加上语言选择。
-            const languages = await queryClient.fetchQuery({
-              queryKey: adminLanguageKeys.all,
-              queryFn: ({ signal }) => listLanguageSettings(signal),
-            });
-            const languageId = languages[0]?.id;
-            if (!languageId) throw new Error('平台还没有可用的语言。');
-            await create.mutateAsync({ ...value, languageId });
+            await create.mutateAsync(value);
           }}
         />
       }
