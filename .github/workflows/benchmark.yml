@@ -104,6 +104,33 @@ jobs:
           sudo python3 -B /opt/cherry-oj/operations/manage.py start
           sudo install -d -m 0755 -o "$(id -un)" "$PUBLISHED_ROOT"
 
+      # 同一份构建换两个新发布名：升级、回滚、再升级，最后清理到只剩当前与上一个发布。每次切换都停机、改 current、
+      # 写那个发布的配置，原来在运行就重新启动并做健康检查；之后的 benchmark 跑在切换过的发布上。
+      - name: 升级、回滚与清理发布
+        run: |
+          set -eu
+          toolchains=$(python3 deploy/sandbox-linux/rootfs/toolchains.py digests --release "$RUNNER_TEMP/release" | sed 's/^/--toolchain=/')
+          for name in ci-benchmark-next ci-benchmark-next2; do
+            python3 -B deploy/sandbox-linux/install/render.py --output "$RUNNER_TEMP/review-$name" \
+              --release "$name" --node-id ci-benchmark \
+              --control-url http://127.0.0.1:18084 --advertise-url "$JUDGE_URL" $toolchains --parallelism 2
+          done
+          manage() { sudo python3 -B deploy/sandbox-linux/install/manage.py "$@"; }
+          expect() {
+            test "$(sudo readlink /opt/cherry-oj/current)" = "releases/$1"
+            sudo python3 -c 'import json, sys
+          receipt = json.load(open("/opt/cherry-oj/installation.json"))
+          assert (receipt["release"], receipt["status"]) == (sys.argv[1], "running"), receipt["release"]' "$1"
+          }
+          manage upgrade --review "$RUNNER_TEMP/review-ci-benchmark-next" --release-source "$RUNNER_TEMP/release"
+          expect ci-benchmark-next
+          manage rollback
+          expect ci-benchmark
+          manage upgrade --review "$RUNNER_TEMP/review-ci-benchmark-next2" --release-source "$RUNNER_TEMP/release"
+          expect ci-benchmark-next2
+          manage prune
+          test "$(sudo ls /opt/cherry-oj/releases | tr '\n' ' ')" = 'ci-benchmark ci-benchmark-next2 '
+
       - name: 等 judge 就绪
         run: |
           for _ in $(seq 1 60); do

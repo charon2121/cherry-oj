@@ -72,11 +72,26 @@ python3 install/manage.py start
 python3 install/manage.py stop
 ```
 
-安装器将管理工具持久保存到`/opt/cherry-oj/operations`，摘要绑定installation.json；当前节点可直接用`python3 /opt/cherry-oj/operations/manage.py status|start|stop|uninstall|restore`。恢复测试工具verify-native.py、verify-lifecycle.py也保存在该目录。后者会短暂停止本项目服务并恢复原文件，只能在节点尚未承担正式业务或完成排空后运行；每次选择一个case，不能并发执行。
+安装器将管理工具持久保存到`/opt/cherry-oj/operations`，摘要绑定installation.json；当前节点可直接用`python3 /opt/cherry-oj/operations/manage.py status|start|stop|rollback|prune|uninstall|restore`。每个发布的审核材料另存在`operations/reviews/<发布>/`，回滚靠它恢复那个发布的配置。恢复测试工具verify-native.py、verify-lifecycle.py也保存在该目录。后者会短暂停止本项目服务并恢复原文件，只能在节点尚未承担正式业务或完成排空后运行；每次选择一个case，不能并发执行。
 
 安装后先检查systemd-analyze verify，再实际验证执行器最小能力、非特权服务、cgroup 身份、注册回执、缺配置/策略/rootfs拒绝、服务崩溃恢复。`start`失败停止本次服务；`stop`等待服务组消失。当前不自动enable；机器重启后的恢复尚未验证。
 
-初始版本无可回退的已硬化版本，回退为`stop`。未来版本切换需要新发布清单、身份与校准，当前安装器拒绝覆盖已有安装。
+## 升级、回滚与清理
+
+```sh
+python3 install/manage.py upgrade --review REVIEW_DIR --release-source RELEASE_DIR   # 用新版本仓库里的 manage.py
+python3 /opt/cherry-oj/operations/manage.py rollback
+python3 /opt/cherry-oj/operations/manage.py prune
+```
+
+`upgrade` 换程序、工具链与 `etc/` 配置：审核计划的发布名必须是新的，账号（并发数）与两个 systemd 单元必须与已装的相同，
+否则拒绝（改这些要卸载重装）；控制面令牌沿用已装的 `judge.json`，不需要令牌文件。新发布在服务运行时复制进
+`releases/<发布>/`，随后停机、写入新配置、原子地改 `current`；原来在运行就重新启动并做健康检查，失败则自动切回原发布并报错，
+新发布留着供检查。停机时间就是一次 judge 重启（逐门核对 rootfs 与冒烟），节点会以新会话重新注册。
+
+`rollback` 切回上一个发布（再执行一次就切回来）。`prune` 删除当前与上一个发布以外、回执里记录的发布及其审核材料。
+切换中途失败时回执停在 `switching`，之后的操作都会拒绝，需要人检查 `current`、`etc/` 与回执后再处理。
+Benchmark 工作流每次在真实节点上执行一遍升级、回滚、再升级与清理，之后的判题跑在切换过的发布上。
 
 ```sh
 python3 install/manage.py uninstall
