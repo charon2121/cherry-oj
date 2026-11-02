@@ -314,14 +314,20 @@ class ContractsTest(unittest.TestCase):
             self.assertEqual(response["headers"]["Cache-Control"]["schema"]["const"], "no-store")
 
 
-    def test_core_language_files_are_plain_names(self) -> None:
+    def test_language_files_are_plain_names(self) -> None:
         # judge 按这里的名字写文件，judging-service 按它识别报错里的用户文件：名字必须是不含路径的普通文件名。
-        files = load("judge.schema.json")["x-language-files"]
-        self.assertEqual(files["cpp"], {"driverFile": "Main.cpp", "solutionFile": "solution.cpp"})
-        for language, names in files.items():
+        languages = load("languages.json")["languages"]
+        self.assertEqual(languages["cpp"]["files"], {"driverFile": "Main.cpp", "solutionFile": "solution.cpp"})
+        for language, entry in languages.items():
+            self.assertEqual(set(entry), {"files", "limitModel"}, language)
+            names = entry["files"]
+            self.assertEqual(set(names), {"driverFile", "solutionFile"}, language)
             self.assertNotEqual(names["driverFile"], names["solutionFile"], language)
             for name in names.values():
+                if name is None:
+                    continue  # solutionFile 为 null：该语言不支持核心代码模式
                 self.assertRegex(name, r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$", language)
+            self.assertIsNotNone(names["driverFile"], language)
 
     def test_core_solution_fields_travel_together(self) -> None:
         # 用户文件与前缀行数缺一个，报错行号就无法换算：契约必须要求它们同时出现或同时缺席。

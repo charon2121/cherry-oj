@@ -1,7 +1,7 @@
 # core-add：核心代码模式
 
 读两个整数，输出和；但提交的不是完整程序，而是**用户文件**。题目目录里的 `driver.cpp` 是驱动文件：judge 把它写成 `Main.cpp`、
-把提交写成 `solution.cpp`，一起编译（文件名见 `contracts/judge.schema.json` 的 `x-language-files`）。每个提交开头的两行
+把提交写成 `solution.cpp`，一起编译（文件名见 `contracts/languages.json` 的 `files`）。每个提交开头的两行
 `#include <bits/stdc++.h>` 与 `using namespace std;` 是平台给 C++ 加的前缀——正式链路里由 Java 服务合并，这里直接写进提交，
 因为 benchmark 检验的是 judge 收到什么、怎么判。
 

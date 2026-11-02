@@ -123,7 +123,7 @@ function toFormValues(version: AdminProblem): WorkbenchValues {
   };
 }
 
-// 驱动文件按固定文件名包含用户文件（contracts/judge.schema.json 的 x-language-files），用户文件开头已经有 C++ 前缀。
+// 驱动文件按固定文件名包含用户文件（contracts/languages.json 的 files），用户文件开头已经有 C++ 前缀。
 const CPP_DRIVER_SKELETON = `#include "solution.cpp"
 
 int main() {

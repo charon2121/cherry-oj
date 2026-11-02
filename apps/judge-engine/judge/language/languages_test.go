@@ -207,39 +207,46 @@ func TestNeedsCompile(t *testing.T) {
 	}
 }
 
-// CORE 的两个文件名以 contracts/judge.schema.json 的 x-language-files 为准：judge 按它写文件，
-// judging-service 按它认报错里的用户文件。两边任何一处改了名而另一处没改，行号就换算不了。
-func TestSolutionFilesMatchContract(t *testing.T) {
-	path := filepath.Join("..", "..", "..", "..", "contracts", "judge.schema.json")
+// 文件名以 contracts/languages.json 的 files 为准：judge 按它写文件，judging-service 按它认报错里的用户文件。
+// 两边任何一处改了名而另一处没改，行号就换算不了。目录里的语言必须都在注册表里；
+// 注册表里支持 CORE 的语言也必须登记在目录里（python、java 只供功能测试，不在目录里）。
+func TestLanguageFilesMatchCatalog(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "..", "contracts", "languages.json")
 	body, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("读取 %s: %v", path, err)
 	}
-	var schema struct {
-		Files map[string]struct {
-			DriverFile   string `json:"driverFile"`
-			SolutionFile string `json:"solutionFile"`
-		} `json:"x-language-files"`
+	var catalog struct {
+		Languages map[string]struct {
+			Files struct {
+				DriverFile   string  `json:"driverFile"`
+				SolutionFile *string `json:"solutionFile"`
+			} `json:"files"`
+		} `json:"languages"`
 	}
-	if err := json.Unmarshal(body, &schema); err != nil {
+	if err := json.Unmarshal(body, &catalog); err != nil {
 		t.Fatalf("解析 %s: %v", path, err)
 	}
-	if len(schema.Files) == 0 {
-		t.Fatal("契约里没有 x-language-files")
+	if len(catalog.Languages) == 0 {
+		t.Fatal("语言目录是空的")
 	}
-	for name, files := range schema.Files {
+	for name, entry := range catalog.Languages {
 		lang, ok := registry[name]
 		if !ok {
-			t.Errorf("契约里的 %q 不在语言表里", name)
+			t.Errorf("目录里的 %q 不在语言表里", name)
 			continue
 		}
-		if lang.SourceName != files.DriverFile || lang.SolutionName != files.SolutionFile {
-			t.Errorf("%s: 语言表 %q/%q，契约 %q/%q", name, lang.SourceName, lang.SolutionName, files.DriverFile, files.SolutionFile)
+		solution := ""
+		if entry.Files.SolutionFile != nil {
+			solution = *entry.Files.SolutionFile
+		}
+		if lang.SourceName != entry.Files.DriverFile || lang.SolutionName != solution {
+			t.Errorf("%s: 语言表 %q/%q，目录 %q/%q", name, lang.SourceName, lang.SolutionName, entry.Files.DriverFile, solution)
 		}
 	}
 	for name, lang := range registry {
-		if _, ok := schema.Files[name]; lang.SupportsSolution() && !ok {
-			t.Errorf("%s 支持 CORE，但契约的 x-language-files 里没有它", name)
+		if _, ok := catalog.Languages[name]; lang.SupportsSolution() && !ok {
+			t.Errorf("%s 支持 CORE，但语言目录里没有它", name)
 		}
 	}
 }

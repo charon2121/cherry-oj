@@ -100,7 +100,7 @@ corpus/judge/a-plus-b/
 不允许出现其他字段。
 
 有 `driver` 的题是 CORE 题：判题请求的 `source` 是驱动文件全文，每个提交作为 `solutionSource`（judge 收到的用户文件，
-已含平台前缀）；请求级用例与试运行同样如此。judge 按 `contracts/judge.schema.json` 的 `x-language-files` 给两个文件命名，
+已含平台前缀）；请求级用例与试运行同样如此。judge 按 `contracts/languages.json` 的 `files` 给两个文件命名，
 报错位置保持编译器的原始输出。CORE 题的提交不能写 `sandbox` 运行说明：sandbox 入口只编译单个文件。
 
 ### 2.2 一道题只检验一个容易出错的点

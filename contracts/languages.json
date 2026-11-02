@@ -1,10 +1,14 @@
 {
   "$id": "https://cherry-oj.dev/schema/languages.json",
   "title": "Language catalog v1",
-  "description": "平台支持的语言目录，每门语言一项。目前只有运行限制推导用到的 limitModel（docs/protocols/limits.md）；语言的其余事实在语言解耦时补进来。只登记平台真正能判的语言。倍数用千分比整数表示，避免浮点误差；cpp 的 limitModel 是“C++ 当量”的定义，必须是恒等值。参数取值的变化不算协议变化，字段的增删与语义改变才算。",
+  "description": "平台支持的语言目录，每门语言一项，只登记平台真正能判的语言；语言 id 与 judge 的语言注册表、problem-service 的语言表对应。files：driverFile 是 judge 写入沙箱的程序文件名（ACM 为完整程序，CORE 为驱动文件），solutionFile 是 CORE 的用户文件名，驱动文件按这个名字引用它，为 null 表示该语言不支持核心代码模式；两个都必须是不含路径的普通文件名且互不相同，judging-service 按 solutionFile 在报错里认出用户文件并换算行号。limitModel：运行限制推导的语言参数（docs/protocols/limits.md），倍数用千分比整数表示以避免浮点误差；cpp 的 limitModel 是“C++ 当量”的定义，必须是恒等值。显示名不在这里，它是平台可编辑的产品事实，在 problem-service 的语言表。参数取值的变化不算协议变化，字段的增删与语义改变才算。",
   "x-contract-version": 1,
   "languages": {
     "cpp": {
+      "files": {
+        "driverFile": "Main.cpp",
+        "solutionFile": "solution.cpp"
+      },
       "limitModel": {
         "cpuFactorPermille": 1000,
         "cpuFactorCapPermille": null,

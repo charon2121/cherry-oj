@@ -16,7 +16,7 @@ benchmark 判题 58 项与攻击样本 56 项全过（含 CORE 的 `core-add`）
 | 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ `testcase` 按请求里的 `testDataLocation` 读[协议](./protocols/testdata.md)目录（本地路径与 HTTP 都实测过） |
-| judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内；可带 CORE 的用户文件（`solutionSource`），文件名按契约 `x-language-files`；benchmark 的 `core-add` 在本机 judge 镜像（devhost）上 7 项全过（2026-10-17） |
+| judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内；可带 CORE 的用户文件（`solutionSource`），文件名按 `contracts/languages.json` 的 `files`；benchmark 的 `core-add` 在本机 judge 镜像（devhost）上 7 项全过（2026-10-17） |
 | Docker 部署 | ✅ 单 judge 容器 Compose（开发与 MVP，devhost 后端） |
 | `apps/server`（五个 Java 服务） | ✅ 业务链路已实现；2026-10-07 起题目无版本、测试数据写成协议目录；2026-10-18 起支持 C++ 核心代码模式（驱动文件 + 语言前缀 + judging-service 换算报错行号）；`./mvnw clean verify` 312 项测试通过 |
 | 五服务 + judge 全链路 | ✅ `scripts/e2e.py` 在隔离栈（MySQL/Redis/Kafka + 真实 judge 容器）通过：上传→校准→公开→AC/WA/CE/TLE、Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题原地修改与取消公开（2026-10-07）；C++ 核心代码 A+B：公开检查拦住没有驱动代码的题、标定、公开、AC/WA、用户文件编译错误报在编辑器行号 `solution.cpp:4`、签名错误报在 `Main.cpp:6`、自测运行错误的 stderr 同样换算、冻结输入含驱动文件与前缀 + 用户代码、驱动代码不出现在公开接口/Kafka/服务日志、改驱动代码后提示重新标定（2026-10-18，提交 `5c8562c`）；测试服务器上的原生节点已按新发布重装并实测（真实 systemd 单元与 setuid 执行器下按地址判题、篡改得 SE、崩溃恢复，2026-10-07）；**Linux 业务闭环**（一次性 GitHub VM 上正式安装原生节点 + Kafka + 五服务 + 真实页面 `e2e-live`）15 项全过，手动触发 `.github/workflows/business.yml`（2026-10-19，run 39196126198，提交 `946ba8f`）；原生节点上的 CORE 由 Benchmark 工作流验证（`core-add` 7 项，2026-10-17） |

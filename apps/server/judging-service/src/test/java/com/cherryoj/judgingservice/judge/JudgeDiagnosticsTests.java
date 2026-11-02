@@ -121,19 +121,29 @@ class JudgeDiagnosticsTests {
                         + "  a / b and 2/3 stay; [Main.csproj] and main.go:5 lose their directories\n");
     }
 
-    /** 文件名以 contracts/judge.schema.json 的 x-language-files 为准；judge 那边也有同样的对齐测试。 */
+    /** 文件名以 contracts/languages.json 的 files 为准，只登记支持 CORE 的语言；judge 那边也有同样的对齐测试。 */
     @Test
     void languageFilesMatchTheContract() throws IOException {
-        JsonNode files = JsonMapper.builder()
+        JsonNode languages = JsonMapper.builder()
                 .build()
-                .readTree(Files.readString(Path.of("../../../contracts/judge.schema.json")))
-                .get("x-language-files");
-        Map<String, LanguageFiles> contract = files.propertyNames().stream()
+                .readTree(Files.readString(Path.of("../../../contracts/languages.json")))
+                .get("languages");
+        Map<String, LanguageFiles> contract = languages.propertyNames().stream()
+                .filter(name ->
+                        !languages.get(name).get("files").get("solutionFile").isNull())
                 .collect(Collectors.toMap(
                         name -> name,
                         name -> new LanguageFiles(
-                                files.get(name).get("driverFile").asString(),
-                                files.get(name).get("solutionFile").asString())));
+                                languages
+                                        .get(name)
+                                        .get("files")
+                                        .get("driverFile")
+                                        .asString(),
+                                languages
+                                        .get(name)
+                                        .get("files")
+                                        .get("solutionFile")
+                                        .asString())));
 
         assertThat(LanguageFiles.all()).isEqualTo(contract);
     }

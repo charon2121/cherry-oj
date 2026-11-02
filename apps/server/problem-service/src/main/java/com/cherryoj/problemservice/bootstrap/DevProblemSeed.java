@@ -22,7 +22,7 @@ public class DevProblemSeed implements ApplicationRunner {
     private static final String SAMPLE_ID = "019c8e42-7f70-7000-8000-000000000104";
     private static final String CORE_PROBLEM_ID = "019c8e42-7f70-7000-8000-000000000201";
     private static final String CORE_SAMPLE_ID = "019c8e42-7f70-7000-8000-000000000204";
-    /** 用户文件是 C++ 前缀 + 用户代码，驱动文件按固定文件名包含它（contracts/judge.schema.json 的 x-language-files）。 */
+    /** 用户文件是 C++ 前缀 + 用户代码，驱动文件按固定文件名包含它（contracts/languages.json 的 files）。 */
     private static final String CORE_STARTER = """
             class Solution {
             public:
