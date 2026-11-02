@@ -7,7 +7,6 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/config"
-	"cherry-oj/judge-engine/judge/language"
 )
 
 const (
@@ -30,12 +29,14 @@ func (i Identity) Registration() contract.NodeRegistration {
 }
 
 // New 计算本次进程的身份：每次调用都生成新的 sessionId。
-func New(s config.Settings) (Identity, error) {
-	session, err := sessionID()
-	if err != nil {
-		return Identity{}, err
+//
+// languages 是启动时确定并逐门实测通过的语言（见 preflight.Languages 与 judge 的启动冒烟），
+// 这里只负责把它们写进身份；控制面按声明把判题路由给节点，所以不能声明没有实测过的语言。
+func New(s config.Settings, languages []string) (Identity, error) {
+	if len(languages) == 0 {
+		return Identity{}, fmt.Errorf("node identity needs at least one language")
 	}
-	languages, err := declaredLanguages()
+	session, err := sessionID()
 	if err != nil {
 		return Identity{}, err
 	}
@@ -43,23 +44,8 @@ func New(s config.Settings) (Identity, error) {
 		NodeID:    s.Node.ID,
 		SessionID: session,
 		Endpoint:  strings.TrimRight(s.Node.AdvertiseURL, "/"),
-		Languages: languages,
+		Languages: append([]string(nil), languages...),
 	}}, nil
-}
-
-// declaredLanguages 只声明 cpp，**这不是遗漏**。
-//
-// 语言注册表里还有 python 和 java，但整条业务链路目前只支持 cpp：judging-service 的
-// TrialController、SubmissionExecutionProfileController 与 FormalWorker 都把 languageId
-// 限死为 cpp，也只有 cpp 的标定流程。控制面按声明把判题路由给节点，多声明一种走不通的语言
-// 只会让节点看起来能判它。要真正支持 python/java，必须先在 judging-service 放开语言约束
-// 并提供对应的标定，那是一次跨服务的产品变更，不能从判题机这一侧单方面声明。
-func declaredLanguages() ([]string, error) {
-	cpp, ok := language.Get("cpp")
-	if !ok {
-		return nil, fmt.Errorf("language registry is missing cpp")
-	}
-	return []string{cpp.Name}, nil
 }
 
 func sessionID() (string, error) {

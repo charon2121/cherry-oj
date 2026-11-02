@@ -19,20 +19,25 @@ func Preflight(ctx context.Context, s config.Settings, sandbox Sandbox) error {
 	return preflight.Check(ctx, s, sandbox)
 }
 
+// Languages 返回本节点要声明的语言：原生部署取发布包锁，开发环境取配置；在 Preflight 之后调用。
+func Languages(s config.Settings) ([]string, error) {
+	return preflight.Languages(s)
+}
+
 type Node struct {
 	identity identity.Identity
 	registry *registry.Registry
 }
 
-// New 由配置生成本次进程的身份，并准备好注册心跳。
-func New(j config.Settings, logger *slog.Logger) (*Node, error) {
+// New 由配置与实测通过的语言生成本次进程的身份，并准备好注册心跳。
+func New(j config.Settings, languages []string, logger *slog.Logger) (*Node, error) {
 	if err := j.Node.Validate(); err != nil {
 		return nil, err
 	}
 	if logger == nil {
 		logger = slog.Default()
 	}
-	id, err := identity.New(j)
+	id, err := identity.New(j, languages)
 	if err != nil {
 		return nil, err
 	}

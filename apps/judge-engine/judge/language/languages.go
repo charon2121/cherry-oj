@@ -9,7 +9,13 @@ type Language struct {
 	Compile          []string // 编译命令
 	CompiledArtifact string   // 编译后产物文件名
 	Run              []string // 运行命令
+	// Smoke 是节点启动时实测这门语言用的程序：从标准输入读 SmokeInput，算对了正常退出、算错了非零退出。
+	// 一次就验证编译器（或解释器）、标准输入与运行时都能用；不比对输出，免得冒烟依赖判题规则。
+	Smoke string
 }
+
+// SmokeInput 是冒烟程序读到的标准输入，各语言的 Smoke 都按它写。
+const SmokeInput = "1 2\n"
 
 var registry = map[string]Language{
 	"cpp": {
@@ -19,6 +25,7 @@ var registry = map[string]Language{
 		Compile:          []string{"g++", "Main.cpp", "-o", "Main", "-O2", "-std=c++17"},
 		CompiledArtifact: "Main",
 		Run:              []string{"Main"}, // 不带 "./"
+		Smoke:            "#include <cstdio>\nint main(){int a,b;return std::scanf(\"%d %d\",&a,&b)==2&&a+b==3?0:1;}\n",
 	},
 	"python": {
 		Name:       "python",
@@ -26,7 +33,8 @@ var registry = map[string]Language{
 		// 写 python3 而不是 /usr/bin/python3：解释器/编译器一律走 PATH。
 		// 硬编码绝对路径会绕过部署环境的选择——macOS 上 /usr/bin/python3 是
 		// 系统自带的 3.9，而机器上装的可能是 3.12，判出来的结果和用户本地不一致。
-		Run: []string{"python3", "Main.py"}, // 没有 Compile
+		Run:   []string{"python3", "Main.py"}, // 没有 Compile
+		Smoke: "import sys\na, b = map(int, sys.stdin.read().split())\nsys.exit(0 if a + b == 3 else 1)\n",
 	},
 	"java": {
 		Name:       "java",
@@ -39,6 +47,8 @@ var registry = map[string]Language{
 		Compile:          []string{"sh", "-c", "javac Main.java && jar cf Main.jar *.class"},
 		CompiledArtifact: "Main.jar",
 		Run:              []string{"java", "-cp", "Main.jar", "Main"},
+		Smoke: "import java.util.Scanner;\npublic class Main {\n  public static void main(String[] args) {\n" +
+			"    Scanner in = new Scanner(System.in);\n    System.exit(in.nextInt() + in.nextInt() == 3 ? 0 : 1);\n  }\n}\n",
 	},
 }
 

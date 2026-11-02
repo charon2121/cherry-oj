@@ -268,3 +268,12 @@ func TestSolutionNamesArePlainFiles(t *testing.T) {
 		})
 	}
 }
+
+// 节点启动时逐门实测声明的语言，没有冒烟程序的语言无法上线。
+func TestEveryLanguageHasASmokeProgram(t *testing.T) {
+	for name, lang := range registry {
+		if strings.TrimSpace(lang.Smoke) == "" {
+			t.Errorf("%s 没有冒烟程序", name)
+		}
+	}
+}

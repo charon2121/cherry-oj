@@ -64,6 +64,22 @@ func setScalar(fv reflect.Value, raw string) error {
 	}
 
 	switch fv.Kind() {
+	case reflect.Slice:
+		// 只支持字符串列表，写法是逗号分隔（例如 "cpp,c"）。空项一律拒绝：
+		// "cpp,," 多半是拼写错误，悄悄丢掉会让配置和意图对不上。
+		if fv.Type().Elem().Kind() != reflect.String {
+			return fmt.Errorf("unsupported list element type %s", fv.Type().Elem().Kind())
+		}
+		parts := strings.Split(raw, ",")
+		list := reflect.MakeSlice(fv.Type(), 0, len(parts))
+		for _, part := range parts {
+			item := strings.TrimSpace(part)
+			if item == "" {
+				return fmt.Errorf("should be a comma-separated list without empty items")
+			}
+			list = reflect.Append(list, reflect.ValueOf(item).Convert(fv.Type().Elem()))
+		}
+		fv.Set(list)
 	case reflect.String:
 		fv.SetString(raw)
 	case reflect.Bool:

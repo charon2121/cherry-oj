@@ -16,14 +16,17 @@ var nodeIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 type Node struct {
 	// DeploymentManifest 是 root 管理的原生 Linux 部署清单，启动自检据此核对发布文件；
 	// 不由任何判题请求提供。
-	DeploymentManifest string            `yaml:"deploymentManifest"`
-	Enabled            bool              `yaml:"enabled"`
-	ID                 string            `yaml:"id"`
-	ControlPlaneURL    string            `yaml:"controlPlaneURL"`
-	AdvertiseURL       string            `yaml:"advertiseURL"`
-	ControlToken       string            `yaml:"controlToken"`
-	HeartbeatInterval  platform.Duration `yaml:"heartbeatInterval"`
-	RequestTimeout     platform.Duration `yaml:"requestTimeout"`
+	DeploymentManifest string `yaml:"deploymentManifest"`
+	// Languages 只用于没有部署清单的开发环境（devhost）：节点声明并实测这些语言。
+	// 原生部署不能配置它，语言只从发布里的包锁读，免得一台节点有两个语言来源。
+	Languages         []string          `yaml:"languages"`
+	Enabled           bool              `yaml:"enabled"`
+	ID                string            `yaml:"id"`
+	ControlPlaneURL   string            `yaml:"controlPlaneURL"`
+	AdvertiseURL      string            `yaml:"advertiseURL"`
+	ControlToken      string            `yaml:"controlToken"`
+	HeartbeatInterval platform.Duration `yaml:"heartbeatInterval"`
+	RequestTimeout    platform.Duration `yaml:"requestTimeout"`
 }
 
 func defaultNode() Node {
@@ -45,6 +48,12 @@ func (n Node) Validate() error {
 	}
 	if n.HeartbeatInterval <= 0 || n.HeartbeatInterval.Std() > time.Minute || n.RequestTimeout <= 0 {
 		return fmt.Errorf("invalid node intervals")
+	}
+	if n.DeploymentManifest != "" && len(n.Languages) > 0 {
+		return fmt.Errorf("node.languages must not be set for a native deployment; languages come from the release's package lock")
+	}
+	if n.DeploymentManifest == "" && len(n.Languages) == 0 {
+		return fmt.Errorf("node.languages is required without a deployment manifest")
 	}
 	return nil
 }

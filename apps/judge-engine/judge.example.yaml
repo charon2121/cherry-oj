@@ -86,6 +86,9 @@ judge:
   # 节点模式由 Compose 启用；生产必须提供共享 token；实际环境元数据由 sandbox 探测。
   node:
     enabled: false
+    # 节点声明的语言：只用于没有部署清单的开发环境（devhost），启动时逐门编译运行冒烟程序，
+    # 任何一门失败就拒绝上线。原生部署不能设置，语言取自发布里的包锁（packages.lock.json 的 languages）。
+    languages: [cpp]
     id: judge-local-1
     controlPlaneURL: http://127.0.0.1:8084
     advertiseURL: http://127.0.0.1:5051

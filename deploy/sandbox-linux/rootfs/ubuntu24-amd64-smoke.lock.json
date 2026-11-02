@@ -3,6 +3,9 @@
   "architecture": "amd64",
   "layout": "usr-merged",
   "source": "Ubuntu noble/noble-updates via http://mirrors.tencentyun.com/ubuntu; authenticated apt indexes; selected versions and SHA256 fixed in this lock",
+  "languages": [
+    "cpp"
+  ],
   "packages": [
     {
       "file": "binutils-common_2.42-4ubuntu2.10_amd64.deb",

@@ -15,6 +15,7 @@ import (
 	"cherry-oj/judge-engine/judge/api"
 	judgeconfig "cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/flow"
+	"cherry-oj/judge-engine/judge/language"
 	"cherry-oj/judge-engine/judge/node"
 	"cherry-oj/judge-engine/judge/testcase"
 )
@@ -24,6 +25,13 @@ const (
 	httpReadHeaderTimeout = 5 * time.Second
 	httpIdleTimeout       = 30 * time.Second
 	httpMaxHeaderBytes    = 16 << 10
+)
+
+// 启动冒烟的运行限制：冒烟程序很小，给足余量是为了不把 JVM 一类的启动开销误判成失败。
+const (
+	smokeTimeout     = 2 * time.Minute
+	smokeCPUNs       = int64(5 * time.Second)
+	smokeMemoryBytes = int64(512 << 20)
 )
 
 // judgeService 把 HTTP API 的单次判题入口接到判题编排。
@@ -94,7 +102,19 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	handler := api.New(service).Handler()
 	var judgeNode *node.Node
 	if cfg.Judge.Node.Enabled {
-		judgeNode, err = node.New(cfg.Judge, logger)
+		languages, err := node.Languages(cfg.Judge)
+		if err != nil {
+			logger.Error("judge.node.languages.failed", "error", err)
+			return err
+		}
+		smokeCtx, cancel := context.WithTimeout(ctx, smokeTimeout)
+		err = smokeLanguages(smokeCtx, engine, cfg.Judge, languages, logger)
+		cancel()
+		if err != nil {
+			logger.Error("judge.node.language.smoke.failed", "error", err)
+			return err
+		}
+		judgeNode, err = node.New(cfg.Judge, languages, logger)
 		if err != nil {
 			logger.Error("judge.node.init.failed", "error", err)
 			return err
@@ -124,6 +144,31 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	logger.Info("process.started", "event", "process.started", "http_addr", cfg.Judge.HTTPAddr,
 		"isolation", cfg.Execution.Backend)
 	return serve(ctx, srv, listener, runNode, engine.Stopped(), logger)
+}
+
+// smokeLanguages 用每门声明语言的冒烟程序走一遍真实的判题流程（编译加运行），任何一门没跑通就拒绝上线。
+// 悄悄少声明一门看起来更"可用"，但那门语言的标定与提交会一直找不到节点，比起不来更难发现。
+func smokeLanguages(ctx context.Context, sandbox flow.Sandbox, settings judgeconfig.Settings, languages []string, logger *slog.Logger) error {
+	for _, id := range languages {
+		lang, ok := language.Get(id)
+		if !ok {
+			return fmt.Errorf("language %s is not registered", id)
+		}
+		result := flow.Judge(ctx, sandbox, settings, contract.JudgeRequest{
+			SubmissionID: "preflight-smoke-" + id,
+			ProblemID:    "preflight-smoke",
+			LanguageID:   id,
+			Source:       lang.Smoke,
+			Mode:         contract.ModeTrial,
+			Testcases:    []contract.TestcaseSpec{{Input: language.SmokeInput}},
+			Limits:       contract.JudgeLimits{CPUNs: smokeCPUNs, MemoryBytes: smokeMemoryBytes},
+		}, logger)
+		if result.Verdict != contract.VerdictRAN {
+			return fmt.Errorf("language %s smoke failed: %s %s", id, result.Verdict, systemErrorReason(result))
+		}
+		logger.Info("judge.node.language.smoke.passed", "language", id)
+	}
+	return nil
 }
 
 // 服务异常退出与外部取消都必须结束心跳；等待之前先取消本服务拥有的生命周期。

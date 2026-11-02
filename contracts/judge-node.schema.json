@@ -46,7 +46,7 @@
           "minItems": 1,
           "maxItems": 32,
           "uniqueItems": true,
-          "description": "节点能判的语言；控制面只把该语言的判题路由给声明了它的节点。",
+          "description": "节点能判的语言；控制面只把该语言的判题路由给声明了它的节点。原生部署取发布包锁的 languages，开发环境取配置 node.languages，judge 启动时逐门冒烟实测通过才声明（deploy/sandbox-linux/rootfs/README.md）。",
           "items": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{0,31}$"

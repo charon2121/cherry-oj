@@ -5,8 +5,13 @@
 包锁文件由实际选定的 Ubuntu/Debian 快照产生，必须包含以下字段（示意值不能用于构建）：
 
 ```json
-{"version":1,"architecture":"amd64","layout":"usr-merged","source":"发行版快照的可追溯 URL/日期","packages":[{"file":"实际文件.deb","package":"实际包名","version":"完整版本","architecture":"amd64","sha256":"实际包 SHA-256"}]}
+{"version":1,"architecture":"amd64","layout":"usr-merged","source":"发行版快照的可追溯 URL/日期","languages":["cpp"],"packages":[{"file":"实际文件.deb","package":"实际包名","version":"完整版本","architecture":"amd64","sha256":"实际包 SHA-256"}]}
 ```
+
+`languages` 列出这份 rootfs 装了工具链的语言，非空、不重复，每门都必须在 judge 的语言注册表里
+（`apps/judge-engine/judge/language`），judge 的测试会核对仓库里的包锁。judge 启动时从部署清单登记的包锁读取它，
+逐门编译运行冒烟程序，全部通过才以这些语言注册；任何一门失败就拒绝上线。包锁的摘要由部署清单绑定，
+改 `languages` 等于换一份 rootfs，要重新构建并重装节点。
 
 准备 C++ 编译器、binutils、运行库、动态加载器、提供 `/usr/bin/true` 的 coreutils 及其完整依赖，同时保留包内 `usr/share/doc/*/copyright`。不得删除来源许可证。当前 [ubuntu24-amd64-smoke.lock.json](./ubuntu24-amd64-smoke.lock.json) 的56包集合已通过 Ubuntu 24.04 / Linux 6.8 / amd64 有界 C++ 编译运行冒烟；尚未通过完整安全验收，不能作为正式节点版本承诺。
 
