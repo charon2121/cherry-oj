@@ -1,5 +1,6 @@
 package com.cherryoj.judgingservice.security;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -66,6 +67,25 @@ class AdminJudgingSecurityIntegrationTests {
         mvc.perform(get(path).header("Authorization", problemService(TestCallTokens.ADMIN)))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void limitsAllowOnlyProblemServiceForAnAdminAndRejectDuplicateLanguages() throws Exception {
+        String path = "/internal/admin/limits?problemId=019c8e42-7f70-7000-8000-000000000010" + "&testDataDigest="
+                + "0".repeat(64) + "&maxTestcaseIoBytes=0&languageIds=cpp";
+        when(service.limits(anyString(), any(), anyString(), anyLong()))
+                .thenReturn(new com.cherryoj.judgingservice.api.JudgingDtos.LanguageLimitsList(List.of()));
+
+        mvc.perform(get(path)).andExpect(status().isUnauthorized());
+        mvc.perform(get(path).header("Authorization", gateway(TestCallTokens.ADMIN)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(path).header("Authorization", problemService(TestCallTokens.USER)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(path).header("Authorization", problemService(TestCallTokens.ADMIN)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"));
+        mvc.perform(get(path + "&languageIds=cpp").header("Authorization", problemService(TestCallTokens.ADMIN)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

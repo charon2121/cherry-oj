@@ -93,4 +93,21 @@ public final class JudgingDtos {
             LimitModel languageLimitModel) {}
 
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
+
+    /**
+     * 一门语言在这道题上的限制及其来源，管理端标定页用（docs/protocols/limits.md）。解析不出限制时来源与各限制为 null，
+     * unavailableReason 给出原因：NO_CALIBRATION、NO_LIMIT_MODEL 或 BASE_LIMIT_MODEL_REMOVED。
+     */
+    public record LanguageLimits(
+            String languageId,
+            String limitSource,
+            Long cpuNs,
+            Long memoryBytes,
+            Long clockNs,
+            String calibrationId,
+            boolean cpuCapped,
+            boolean memoryCapped,
+            String unavailableReason) {}
+
+    public record LanguageLimitsList(List<LanguageLimits> languages) {}
 }

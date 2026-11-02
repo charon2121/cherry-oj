@@ -458,6 +458,42 @@ class JudgingReadinessIntegrationTests {
         assertThat(profile.cpuNs()).isEqualTo(3_370_000_000L);
     }
 
+    @Test
+    void limitsListEveryRequestedLanguageWithItsSourceInRequestOrder() throws Exception {
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        when(models.of("python")).thenReturn(JAVA_LIKE);
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        var base = service.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 256L << 20), ACTOR, null);
+
+        // ruby 既没有参数也没有覆盖标定，也没有在线节点：限制页照样列出它，并说明原因
+        var rows = service.limits(problem, List.of("python", "ruby", "cpp"), DIGEST, 0)
+                .languages();
+
+        assertThat(rows).extracting(row -> row.languageId()).containsExactly("python", "ruby", "cpp");
+        var python = rows.get(0);
+        assertThat(python.limitSource()).isEqualTo("DERIVED");
+        assertThat(python.calibrationId()).isEqualTo(base.id());
+        assertThat(python.cpuNs()).isEqualTo(10_000_000_000L);
+        assertThat(python.cpuCapped()).isTrue();
+        assertThat(python.memoryCapped()).isFalse();
+        assertThat(python.unavailableReason()).isNull();
+        var ruby = rows.get(1);
+        assertThat(ruby.limitSource()).isNull();
+        assertThat(ruby.cpuNs()).isNull();
+        assertThat(ruby.unavailableReason()).isEqualTo("NO_LIMIT_MODEL");
+        assertThat(rows.get(2).limitSource()).isEqualTo("BASE");
+        assertThat(rows.get(2).cpuNs()).isEqualTo(8_000_000_000L);
+
+        // 数据换了，旧标定一律过期
+        assertThat(service.limits(problem, List.of("cpp"), "b".repeat(64), 0)
+                        .languages()
+                        .getFirst()
+                        .unavailableReason())
+                .isEqualTo("NO_CALIBRATION");
+    }
+
     private static CalibrationRequest request(
             String problem, String language, String kind, String digest, long cpuNs, long memoryBytes) {
         return new CalibrationRequest(

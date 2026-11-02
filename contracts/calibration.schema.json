@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/calibration.schema.json",
   "title": "Calibration internal v1",
-  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=&maxTestcaseIoBytes=：响应 Readiness；maxTestcaseIoBytes 由 problem-service 从当前测试数据读出，推导限制时用。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。",
+  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=&maxTestcaseIoBytes=：响应 Readiness；maxTestcaseIoBytes 由 problem-service 从当前测试数据读出，推导限制时用。GET /internal/admin/limits?problemId=&testDataDigest=&maxTestcaseIoBytes=&languageIds=cpp&languageIds=...：响应 LanguageLimitsList；languageIds 由 problem-service 给出题目开放的语言（judging-service 不知道题目开放了哪些语言），1–32 个且不重复，否则 400。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。",
   "x-contract-version": 1,
   "definitions": {
     "CalibrationRequest": {
@@ -379,6 +379,103 @@
             }
           ],
           "description": "ready 时为该语言解析出的限制（覆盖标定、基础标定或推导值），否则为 null"
+        }
+      }
+    },
+    "LanguageLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "一门语言在这道题上的限制及其来源（docs/protocols/limits.md），管理端标定页用。不要求有在线节点：这里只回答“限制是多少、从哪来”。解析不出限制时 limitSource 与各限制为 null，unavailableReason 给出原因。",
+      "required": [
+        "languageId",
+        "limitSource",
+        "cpuNs",
+        "memoryBytes",
+        "clockNs",
+        "calibrationId",
+        "cpuCapped",
+        "memoryCapped",
+        "unavailableReason"
+      ],
+      "properties": {
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "limitSource": {
+          "anyOf": [
+            {
+              "$ref": "execution-profile.schema.json#/definitions/LimitSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cpuNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "memoryBytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "clockNs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "calibrationId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid",
+          "description": "依据的标定编号：DERIVED 时是基础标定"
+        },
+        "cpuCapped": {
+          "type": "boolean",
+          "description": "推导值超过平台上限、已截断；非推导时为 false"
+        },
+        "memoryCapped": {
+          "type": "boolean"
+        },
+        "unavailableReason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "NO_CALIBRATION",
+            "NO_LIMIT_MODEL",
+            "BASE_LIMIT_MODEL_REMOVED",
+            null
+          ],
+          "description": "NO_CALIBRATION=既没有对应当前数据的覆盖标定，也没有对应当前数据的基础标定；NO_LIMIT_MODEL=需要推导但该语言没有限制参数，只能做覆盖标定；BASE_LIMIT_MODEL_REMOVED=基础语言的参数已从语言目录移除，要重新做基础标定"
+        }
+      }
+    },
+    "LanguageLimitsList": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languages"
+      ],
+      "properties": {
+        "languages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LanguageLimits"
+          },
+          "description": "顺序与请求里的 languageIds 一致"
         }
       }
     }

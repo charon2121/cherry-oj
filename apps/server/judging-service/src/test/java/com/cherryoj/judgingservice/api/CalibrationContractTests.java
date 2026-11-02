@@ -31,6 +31,9 @@ class CalibrationContractTests {
         assertThat(components(JudgingDtos.ReadinessCheck.class)).isEqualTo(properties(definitions, "ReadinessCheck"));
         assertThat(components(JudgingDtos.ExecutionProfile.class))
                 .isEqualTo(properties(definitions, "ExecutionProfile"));
+        assertThat(components(JudgingDtos.LanguageLimits.class)).isEqualTo(properties(definitions, "LanguageLimits"));
+        assertThat(components(JudgingDtos.LanguageLimitsList.class))
+                .isEqualTo(properties(definitions, "LanguageLimitsList"));
 
         // 推导依据与参数快照定义在 execution-profile.schema.json，judge-input 与 calibration 都引用它
         JsonNode profileDefinitions = JsonMapper.builder()

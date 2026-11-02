@@ -5,6 +5,8 @@ import com.cherryoj.judgingservice.api.JudgingDtos.BenchmarkSummary;
 import com.cherryoj.judgingservice.api.JudgingDtos.Calibration;
 import com.cherryoj.judgingservice.api.JudgingDtos.CalibrationRequest;
 import com.cherryoj.judgingservice.api.JudgingDtos.ExecutionProfile;
+import com.cherryoj.judgingservice.api.JudgingDtos.LanguageLimits;
+import com.cherryoj.judgingservice.api.JudgingDtos.LanguageLimitsList;
 import com.cherryoj.judgingservice.api.JudgingDtos.Readiness;
 import com.cherryoj.judgingservice.api.JudgingDtos.ReadinessCheck;
 import com.cherryoj.judgingservice.domain.UuidV7;
@@ -26,6 +28,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -280,6 +283,66 @@ public class JudgingReadinessService {
         boolean language = !nodes.online(languageId, now()).isEmpty();
         checks.add(check("LANGUAGE", language, language ? "有在线节点支持该语言。" : "没有在线节点支持该语言。"));
 
+        Resolution r = inspect(problemId, languageId, testDataDigest);
+        checks.add(check(
+                "CALIBRATION",
+                r.calibrated(),
+                r.override() != null
+                        ? "该语言有对应当前测试数据的覆盖标定。"
+                        : r.baseCurrent()
+                                ? "题目有对应当前测试数据的基础标定。"
+                                : r.base() == null && r.own() == null ? "题目缺少基础标定。" : "测试数据已更新，标定已过期，请重新标定。"));
+        checks.add(check(
+                "LIMIT_MODEL",
+                r.modelPassed(),
+                r.override() != null
+                        ? "该语言使用覆盖标定，不需要推导。"
+                        : r.isBaseLanguage()
+                                ? "该语言是基础语言，不需要推导。"
+                                : r.target() == null
+                                        ? "该语言没有限制参数，只能做覆盖标定。"
+                                        : r.modelPassed() ? "该语言有限制参数，可以由基础标定推导。" : "基础语言的限制参数已移除，请重新做基础标定。"));
+
+        boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
+        return new Readiness(ready, checks, ready ? profile(r, maxTestcaseIoBytes) : null);
+    }
+
+    /**
+     * 管理端标定页用：每门语言的限制及其来源，顺序与 languageIds 一致。不看在线节点，只回答"限制是多少、从哪来"，
+     * 规则与就绪判定共用 {@link #inspect}。languageIds 是 problem-service 给出的题目开放语言。
+     */
+    public LanguageLimitsList limits(
+            String problemId, List<String> languageIds, String testDataDigest, long maxTestcaseIoBytes) {
+        if (maxTestcaseIoBytes < 0) throw new IllegalArgumentException("maxTestcaseIoBytes must not be negative");
+        TransactionTemplate read = new TransactionTemplate(transactions.getTransactionManager());
+        read.setReadOnly(true);
+        return read.execute(status -> new LanguageLimitsList(languageIds.stream()
+                .map(languageId ->
+                        languageLimits(languageId, inspect(problemId, languageId, testDataDigest), maxTestcaseIoBytes))
+                .toList()));
+    }
+
+    private LanguageLimits languageLimits(String languageId, Resolution r, long io) {
+        String reason = !r.calibrated()
+                ? "NO_CALIBRATION"
+                : r.modelPassed() ? null : r.target() == null ? "NO_LIMIT_MODEL" : "BASE_LIMIT_MODEL_REMOVED";
+        if (reason != null) return new LanguageLimits(languageId, null, null, null, null, null, false, false, reason);
+        ExecutionProfile profile = profile(r, io);
+        var derivation = profile.limitDerivation();
+        return new LanguageLimits(
+                languageId,
+                profile.limitSource(),
+                profile.cpuNs(),
+                profile.memoryBytes(),
+                profile.clockNs(),
+                profile.calibrationId(),
+                derivation != null && derivation.cpuCapped(),
+                derivation != null && derivation.memoryCapped(),
+                null);
+    }
+
+    /** 解析一门语言的限制所需的全部事实；对应旧数据的标定一律按过期处理。 */
+    private Resolution inspect(String problemId, String languageId, String testDataDigest) {
         CalibrationRow own = repository.findValid(problemId, languageId, false);
         CalibrationRow override =
                 own != null && "OVERRIDE".equals(own.kind()) && testDataDigest.equals(own.testDataDigest())
@@ -287,39 +350,36 @@ public class JudgingReadinessService {
                         : null;
         CalibrationRow base = repository.findValidBase(problemId, false);
         boolean baseCurrent = base != null && testDataDigest.equals(base.testDataDigest());
-        boolean calibrated = override != null || baseCurrent;
-        checks.add(check(
-                "CALIBRATION",
-                calibrated,
-                override != null
-                        ? "该语言有对应当前测试数据的覆盖标定。"
-                        : baseCurrent
-                                ? "题目有对应当前测试数据的基础标定。"
-                                : base == null && own == null ? "题目缺少基础标定。" : "测试数据已更新，标定已过期，请重新标定。"));
-
-        boolean isBaseLanguage = base != null && base.languageId().equals(languageId);
-        LimitModel target = models.of(languageId);
         LimitModel baseModel = base == null ? null : models.of(base.languageId());
-        boolean modelPassed =
-                override != null || isBaseLanguage || (target != null && (base == null || baseModel != null));
-        checks.add(check(
-                "LIMIT_MODEL",
-                modelPassed,
-                override != null
-                        ? "该语言使用覆盖标定，不需要推导。"
-                        : isBaseLanguage
-                                ? "该语言是基础语言，不需要推导。"
-                                : target == null
-                                        ? "该语言没有限制参数，只能做覆盖标定。"
-                                        : modelPassed ? "该语言有限制参数，可以由基础标定推导。" : "基础语言的限制参数已移除，请重新做基础标定。"));
+        return new Resolution(own, override, base, baseCurrent, languageId, models.of(languageId), baseModel);
+    }
 
-        boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
-        ExecutionProfile profile = !ready
-                ? null
-                : override != null
-                        ? calibrated(override)
-                        : isBaseLanguage ? calibrated(base) : derived(base, baseModel, target, maxTestcaseIoBytes);
-        return new Readiness(ready, checks, profile);
+    /** 调用前要求 calibrated() 与 modelPassed() 都成立。 */
+    private ExecutionProfile profile(Resolution r, long io) {
+        if (r.override() != null) return calibrated(r.override());
+        if (r.isBaseLanguage()) return calibrated(r.base());
+        return derived(r.base(), r.baseModel(), r.target(), io);
+    }
+
+    private record Resolution(
+            CalibrationRow own,
+            CalibrationRow override,
+            CalibrationRow base,
+            boolean baseCurrent,
+            String languageId,
+            LimitModel target,
+            LimitModel baseModel) {
+        boolean calibrated() {
+            return override != null || baseCurrent;
+        }
+
+        boolean isBaseLanguage() {
+            return base != null && base.languageId().equals(languageId);
+        }
+
+        boolean modelPassed() {
+            return override != null || isBaseLanguage() || (target != null && (base == null || baseModel != null));
+        }
     }
 
     /** BASE、OVERRIDE：标定里的绝对值原样生效。 */

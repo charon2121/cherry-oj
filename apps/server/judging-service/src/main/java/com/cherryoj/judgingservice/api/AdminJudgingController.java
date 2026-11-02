@@ -7,7 +7,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import java.util.HashSet;
+import java.util.List;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,6 +54,20 @@ public class AdminJudgingController {
             @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.SHA_PATTERN) String testDataDigest,
             @RequestParam @Min(0) long maxTestcaseIoBytes) {
         return noStore(service.readiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes));
+    }
+
+    /** languageIds 是 problem-service 给出的题目开放语言：judging-service 不知道题目开放了哪些语言。 */
+    @GetMapping("/limits")
+    ResponseEntity<JudgingDtos.LanguageLimitsList> limits(
+            @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN) String problemId,
+            @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.SHA_PATTERN) String testDataDigest,
+            @RequestParam @Min(0) long maxTestcaseIoBytes,
+            @RequestParam @Size(min = 1, max = 32)
+                    List<@NotBlank @Pattern(regexp = JudgingDtos.LANGUAGE_PATTERN) String> languageIds) {
+        if (new HashSet<>(languageIds).size() != languageIds.size()) {
+            throw new JudgingApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_LANGUAGE", "语言列表里有重复项。");
+        }
+        return noStore(service.limits(problemId, languageIds, testDataDigest, maxTestcaseIoBytes));
     }
 
     private static <T> ResponseEntity<T> noStore(T body) {

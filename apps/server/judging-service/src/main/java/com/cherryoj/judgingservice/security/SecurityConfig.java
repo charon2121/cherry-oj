@@ -24,7 +24,7 @@ class SecurityConfig {
                 .endpoint(HttpMethod.POST, "/internal/admin/calibrations")
                 .callers(ServiceNames.PROBLEM)
                 .admin()
-                .endpoint(HttpMethod.GET, "/internal/admin/readiness")
+                .endpoint(HttpMethod.GET, "/internal/admin/readiness", "/internal/admin/limits")
                 .callers(ServiceNames.PROBLEM)
                 .admin()
                 .build();
