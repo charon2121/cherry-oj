@@ -81,7 +81,7 @@ M_L = ceilMiB( k_L × M_ref + m_L )
 - 计算用整数和有理数完成，最后一步向上取整：时间取到 10ms，内存取到 1MiB。实现必须和本文的黄金用例（见第 8 节）逐位一致。
 - 墙钟上限：推导值不带 `clockNs`，由 judge 现有的运行策略按 `cpuNs` 推算；BASE 和 OVERRIDE 仍然可以显式给出。
 - **超出平台上限就截断：** 推导出的 `cpuNs` 或 `memoryBytes` 超过 judging-service 配置的平台硬上限（`PLATFORM_MAX_CPU_NS`、`PLATFORM_MAX_MEMORY_BYTES`）时，取平台上限，**这门语言照样可用**；需要更多资源的程序会得到 TLE 或 MLE。截断要写进推导记录（`cpuCapped`、`memoryCapped`），管理端标定页要标出被截断的语言，便于管理员决定是否为它做覆盖标定。
-- **平台上限的配置：** `cherry.judging.limits.max-cpu-ns` 与 `cherry.judging.limits.max-memory-bytes`，**必填、没有默认值**，缺失或不大于 0 时 judging-service 拒绝启动。`max-cpu-ns` 还要保证 judge 按它推算的墙钟不超过 judge 的墙钟硬界（120s），否则同样拒绝启动。本文示例按 20s / 1GiB 计，不是默认值。
+- **平台上限的配置：** `cherry.judging.limits.max-cpu-ns` 与 `cherry.judging.limits.max-memory-bytes`，**必填、没有默认值**，缺失或不大于 0 时 judging-service 拒绝启动。`max-cpu-ns` 还要保证 judge 按它推算的墙钟不超过 judge 的墙钟硬界（120s），否则同样拒绝启动。本文示例按 20s / 1GiB 计，不是默认值；按 judging-service 现在的 `wall-ratio` 10，`max-cpu-ns` 最多只能到 12s。
 
 ## 5. 失效规则
 

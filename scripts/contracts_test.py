@@ -53,6 +53,7 @@ class ContractsTest(unittest.TestCase):
             "execution-profile.schema.json",
             "judge-input.schema.json",
             "judge-events.schema.json",
+            "languages.json",
             "verdict.json",
             "web-api.openapi.json",
             "submission-internal.openapi.json",
@@ -337,6 +338,31 @@ class ContractsTest(unittest.TestCase):
         snapshot = load("problem-judge-snapshot.schema.json")["allOf"][0]
         self.assertEqual(snapshot["if"]["properties"]["codeMode"]["const"], "CORE")
         self.assertEqual(set(snapshot["then"]["required"]), {"judgeTemplate", "solutionPrefix"})
+
+    def test_language_limit_models_follow_the_protocol(self) -> None:
+        # docs/protocols/limits.md 第 3 节：字段齐全、单位与取值范围；cpp 是“C++ 当量”的定义，必须恒等。
+        languages = load("languages.json")["languages"]
+        self.assertIn("cpp", languages)
+        fields = {
+            "cpuFactorPermille", "cpuFactorCapPermille", "cpuOverheadNs", "ioPicosPerByte",
+            "memoryFactorPermille", "memoryOverheadBytes", "baseEligible",
+        }
+        for language, entry in languages.items():
+            self.assertRegex(language, r"^[a-z][a-z0-9-]{0,31}$")
+            model = entry["limitModel"]
+            self.assertEqual(set(model), fields, language)
+            self.assertTrue(100 <= model["cpuFactorPermille"] <= 100000, language)
+            cap = model["cpuFactorCapPermille"]
+            self.assertTrue(cap is None or 100 <= cap <= 100000, language)
+            for name in ("cpuOverheadNs", "ioPicosPerByte", "memoryOverheadBytes"):
+                self.assertIsInstance(model[name], int, (language, name))
+                self.assertGreaterEqual(model[name], 0, (language, name))
+            self.assertTrue(1000 <= model["memoryFactorPermille"] <= 10000, language)
+            self.assertIsInstance(model["baseEligible"], bool, language)
+        self.assertEqual(languages["cpp"]["limitModel"], {
+            "cpuFactorPermille": 1000, "cpuFactorCapPermille": None, "cpuOverheadNs": 0, "ioPicosPerByte": 0,
+            "memoryFactorPermille": 1000, "memoryOverheadBytes": 0, "baseEligible": True,
+        })
 
 
 if __name__ == "__main__":

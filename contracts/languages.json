@@ -1,0 +1,19 @@
+{
+  "$id": "https://cherry-oj.dev/schema/languages.json",
+  "title": "Language catalog v1",
+  "description": "平台支持的语言目录，每门语言一项。目前只有运行限制推导用到的 limitModel（docs/protocols/limits.md）；语言的其余事实在语言解耦时补进来。只登记平台真正能判的语言。倍数用千分比整数表示，避免浮点误差；cpp 的 limitModel 是“C++ 当量”的定义，必须是恒等值。参数取值的变化不算协议变化，字段的增删与语义改变才算。",
+  "x-contract-version": 1,
+  "languages": {
+    "cpp": {
+      "limitModel": {
+        "cpuFactorPermille": 1000,
+        "cpuFactorCapPermille": null,
+        "cpuOverheadNs": 0,
+        "ioPicosPerByte": 0,
+        "memoryFactorPermille": 1000,
+        "memoryOverheadBytes": 0,
+        "baseEligible": true
+      }
+    }
+  }
+}

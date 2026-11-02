@@ -54,6 +54,11 @@ cherry:
     problem:
       url: "${CHERRY_PROBLEM_SERVICE_URL:http://127.0.0.1:${CHERRY_PROBLEM_PORT:8082}}"
     judge-timeout: "${CHERRY_JUDGE_TIMEOUT:10m}"
+    # 每个测试点的平台硬上限（docs/protocols/limits.md）：必填，代码里没有默认值。
+    # max-cpu-ns × cherry.formal.wall-ratio 不能超过 judge 的墙钟硬界 120s，按现在的 wall-ratio 10，最多 12s。
+    limits:
+      max-cpu-ns: 10000000000
+      max-memory-bytes: 1073741824
 
 server:
   port: "${CHERRY_JUDGING_PORT:8084}"
