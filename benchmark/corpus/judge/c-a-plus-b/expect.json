@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_scanf": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ],
+      "sandbox": [
+        {
+          "testcase": "1",
+          "facts": {
+            "exitCode": 0,
+            "signal": 0,
+            "reason": "",
+            "error": ""
+          },
+          "stdout": {
+            "equals": "8\n"
+          }
+        }
+      ]
+    },
+    "ac_math": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "ac_gnu_typeof": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "ce_syntax": {
+      "verdict": "CE",
+      "testcases": []
+    },
+    "re_segv": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    },
+    "tle_loop": {
+      "verdict": "TLE",
+      "testcases": [
+        "TLE",
+        "TLE",
+        "TLE"
+      ]
+    }
+  },
+  "requests": {}
+}

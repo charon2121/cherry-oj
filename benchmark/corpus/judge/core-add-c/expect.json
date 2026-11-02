@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ac_func": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "ce_solution": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "solution.c:5:"
+      }
+    },
+    "ce_signature": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "Main.c:8:"
+      }
+    },
+    "re_abort": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    }
+  },
+  "requests": {},
+  "trials": {
+    "trial_ac": {
+      "source": "ac_func",
+      "verdict": "AC",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "AC"
+        }
+      ]
+    }
+  }
+}

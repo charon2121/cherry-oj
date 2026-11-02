@@ -29,7 +29,11 @@ DEFAULT_PROCESSES, DEFAULT_OUTPUT = 64, 1 << 20
 # 编译限制与官方安装的 judge 一致（协议 §6）。
 COMPILE_LIMITS = {"cpuNs": 10_000_000_000, "clockNs": 20_000_000_000, "memoryBytes": 256 << 20, "maxProcesses": 64,
                   "stdoutMaxBytes": 1 << 20, "stderrMaxBytes": 1 << 20}
-COMPILE_COMMANDS = {"cpp": (["g++", "Main.cpp", "-o", "Main", "-O2", "-std=c++17"], "Main.cpp")}
+# 与 judge 语言注册表的编译命令一致（apps/judge-engine/judge/language）。
+COMPILE_COMMANDS = {
+    "c": (["gcc", "Main.c", "-o", "Main", "-O2", "-std=gnu17", "-lm"], "Main.c"),
+    "cpp": (["g++", "Main.cpp", "-o", "Main", "-O2", "-std=c++17"], "Main.cpp"),
+}
 KEYS = {"cpuNs": "cpu_ns", "clockNs": "clock_ns", "memoryBytes": "memory_bytes", "maxProcesses": "max_processes",
         "stdoutMaxBytes": "stdout_max_bytes", "stderrMaxBytes": "stderr_max_bytes"}
 

@@ -11,7 +11,7 @@
 
 ```sh
 python3 benchmark/run.py --judge-url http://127.0.0.1:5051 --published-root /srv/cherry-benchmark \
-        --declare backend=linux languages=cpp
+        --declare backend=linux languages=cpp,c
 ```
 
 **两个入口：** `judge`（`POST /judge`，看 verdict）和 `sandbox`（直接调用执行器，看事实 JSON）。`--entries judge,sandbox` 在同一次运行里依次进行两个入口。
@@ -20,7 +20,7 @@ python3 benchmark/run.py --judge-url http://127.0.0.1:5051 --published-root /srv
 
 ```sh
 sudo python3 benchmark/run.py --entries judge,sandbox --judge-url http://127.0.0.1:5051 \
-        --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false languages=cpp
+        --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false languages=cpp,c
 ```
 
 - `--published-root`：测试数据的发布位置，必须是绝对路径，**judge 的运行身份要能一路进得去**（目录 0755）。脚本发布后会检查并给出警告。

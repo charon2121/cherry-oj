@@ -10,7 +10,7 @@
     sleep      运行前睡多少秒
     exit       执行器自己的退出码（2 表示回收未确认）
     leftover   在 out/ 里多留一个协议没有规定的文件
-编译（命令 g++）把输入 0 原样当产物；源码含 COMPILE_ERROR 则编译失败。
+编译（命令 g++ 或 gcc）把输入 0 原样当产物；源码含 COMPILE_ERROR 则编译失败。
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ facts = {"version": 1, "exitCode": 0, "signal": 0, "cpuNs": 1000000, "memoryByte
          "outputExceeded": False, "stdoutBytes": 0, "stderrBytes": 0, "outputs": [], "error": ""}
 stdout = stderr = ""
 code = 0
-if spec["arg"][0] == "g++":
+if spec["arg"][0] in ("g++", "gcc"):
     source = (box / "in" / "0").read_text()
     if "COMPILE_ERROR" in source:
         facts["exitCode"], stderr = 1, "Main.cpp: error: COMPILE_ERROR"

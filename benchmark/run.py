@@ -2,7 +2,7 @@
 """benchmark 的入口脚本：对一个已经在运行的 judge 节点跑语料，与预期逐项比对，输出报告。
 
     python3 benchmark/run.py --entries judge --judge-url http://127.0.0.1:5051 \\
-            --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false languages=cpp
+            --published-root /srv/cherry-benchmark --declare backend=linux strictWhitespace=false languages=cpp,c
     sudo python3 benchmark/run.py --entries judge,sandbox ...      # 再加上直接调用执行器的 sandbox 入口
 
 脚本**不安装也不启动**被测节点：运行它的机器上必须已有在运行的 judge 服务和执行器二进制。

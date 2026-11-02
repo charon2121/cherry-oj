@@ -18,6 +18,16 @@ type Language struct {
 const SmokeInput = "1 2\n"
 
 var registry = map[string]Language{
+	"c": {
+		Name:         "c",
+		SourceName:   "Main.c",
+		SolutionName: "solution.c", // 驱动文件 #include "solution.c"，编译命令只编 Main.c
+		// -lm 放在源文件之后：链接器按顺序解析，用了 sqrt、pow 的程序才链得上数学库。
+		Compile:          []string{"gcc", "Main.c", "-o", "Main", "-O2", "-std=gnu17", "-lm"},
+		CompiledArtifact: "Main",
+		Run:              []string{"Main"},
+		Smoke:            "#include <stdio.h>\nint main(void){int a,b;return scanf(\"%d %d\",&a,&b)==2&&a+b==3?0:1;}\n",
+	},
 	"cpp": {
 		Name:             "cpp",
 		SourceName:       "Main.cpp",

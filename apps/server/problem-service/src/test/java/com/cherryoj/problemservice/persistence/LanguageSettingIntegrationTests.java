@@ -55,8 +55,7 @@ class LanguageSettingIntegrationTests {
     /** 前缀改了立即生效：CORE 题拿到新前缀、修改时间前进；没变就不动时间；拿旧时间保存的另一个窗口被拒绝。 */
     @Test
     void aPrefixChangeTakesEffectAndAStaleWindowIsRejected() {
-        LanguageSetting cpp = languages.list().items().getFirst();
-        assertThat(cpp.id()).isEqualTo("cpp");
+        LanguageSetting cpp = cpp();
         assertThat(cpp.solutionPrefix()).isEqualTo("#include <bits/stdc++.h>\nusing namespace std;\n");
 
         assertThat(languages.update(
@@ -89,7 +88,7 @@ class LanguageSettingIntegrationTests {
 
     @Test
     void aPrefixMustEndWithAPlainNewlineAndTheLanguageMustExist() {
-        LanguageSetting cpp = languages.list().items().getFirst();
+        LanguageSetting cpp = cpp();
         for (String invalid : new String[] {"#include <vector>", "#include <vector>\r\n", "a\0b\n"}) {
             assertThatThrownBy(() ->
                             languages.update("cpp", new UpdateLanguageSettingRequest(invalid, cpp.updatedAt()), ACTOR))
@@ -102,6 +101,14 @@ class LanguageSettingIntegrationTests {
                 .isInstanceOfSatisfying(
                         ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("LANGUAGE_NOT_FOUND"));
-        assertThat(languages.list().items().getFirst()).isEqualTo(cpp);
+        assertThat(cpp()).isEqualTo(cpp);
+    }
+
+    /** 平台语言表按编号排序（c 在 cpp 前面），按编号取，不靠位置。 */
+    private LanguageSetting cpp() {
+        return languages.list().items().stream()
+                .filter(item -> item.id().equals("cpp"))
+                .findFirst()
+                .orElseThrow();
     }
 }

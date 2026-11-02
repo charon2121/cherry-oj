@@ -111,7 +111,7 @@ public class Main {
 // 节点启动时用 Smoke 实测每门声明的语言：这里先在本机工具链上确认冒烟程序本身是对的，
 // 算对了退出码 0（runLang 遇到非零退出会直接失败）。缺哪个工具链就跳过哪个。
 func TestSmokeProgramsExitZeroOnTheirInput(t *testing.T) {
-	for _, name := range []string{"cpp", "python", "java"} {
+	for _, name := range []string{"c", "cpp", "python", "java"} {
 		t.Run(name, func(t *testing.T) {
 			lang, ok := language.Get(name)
 			if !ok {

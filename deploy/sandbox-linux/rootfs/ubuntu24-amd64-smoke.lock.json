@@ -4,7 +4,8 @@
   "layout": "usr-merged",
   "source": "Ubuntu noble/noble-updates via http://mirrors.tencentyun.com/ubuntu; authenticated apt indexes; selected versions and SHA256 fixed in this lock",
   "languages": [
-    "cpp"
+    "cpp",
+    "c"
   ],
   "packages": [
     {

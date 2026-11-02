@@ -114,7 +114,7 @@ jobs:
       - name: benchmark（strictWhitespace=false，judge 与 sandbox 两个入口，全部题目与攻击样本）
         run: >-
           sudo python3 benchmark/run.py --entries judge,sandbox --judge-url "$JUDGE_URL"
-          --published-root "$PUBLISHED_ROOT" --declare backend=linux strictWhitespace=false languages=cpp
+          --published-root "$PUBLISHED_ROOT" --declare backend=linux strictWhitespace=false languages=cpp,c
           --report benchmark/reports/loose.json
 
       # whitespace 的结论取决于节点配置：_strict 那一半要把 judge 切到 strictWhitespace=true 才会运行。
@@ -140,7 +140,7 @@ jobs:
       - name: benchmark（strictWhitespace=true，whitespace）
         run: >-
           sudo python3 benchmark/run.py --entries judge --judge-url "$JUDGE_URL" --published-root "$PUBLISHED_ROOT"
-          --declare backend=linux strictWhitespace=true languages=cpp --select whitespace
+          --declare backend=linux strictWhitespace=true languages=cpp,c --select whitespace
           --report benchmark/reports/strict.json
 
       - name: 保存报告

@@ -45,11 +45,11 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
         language = request["languageId"]
         # CORE 题的 source 都是同一份驱动文件，提交要按用户文件认。
         submitted = request.get("solutionSource", request["source"])
-        if "solutionSource" in request and language != "cpp":
+        if "solutionSource" in request and language not in ("c", "cpp"):
             return 200, {"verdict": "SE", "message": f'language "{language}" does not accept a solution file'}
         if language == "python":
             return 200, {"verdict": "SE", "message": "run: init failed: phase=6 errno=2"}
-        if language != "cpp":
+        if language not in ("c", "cpp"):
             return 200, {"verdict": "SE", "message": f'unknown language: "{language}"'}
         if request["mode"] == "trial":
             case = trials[(submitted, tuple((t["input"], t.get("expected")) for t in request["testcases"]))]

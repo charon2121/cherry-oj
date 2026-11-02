@@ -102,7 +102,9 @@ CREATE TABLE language (
 ) ENGINE = InnoDB;
 
 INSERT INTO language (language_id, display_name, solution_prefix, updated_at)
-VALUES ('cpp', 'C++', CONCAT('#include <bits/stdc++.h>', CHAR(10), 'using namespace std;', CHAR(10)), UTC_TIMESTAMP(6));
+VALUES ('cpp', 'C++', CONCAT('#include <bits/stdc++.h>', CHAR(10), 'using namespace std;', CHAR(10)), UTC_TIMESTAMP(6)),
+       ('c', 'C', CONCAT('#include <stdio.h>', CHAR(10), '#include <stdlib.h>', CHAR(10),
+                         '#include <string.h>', CHAR(10), '#include <math.h>', CHAR(10)), UTC_TIMESTAMP(6));
 
 -- 题目只能开放平台语言表里有的语言：显示名、前缀都从这里取，没有这一行就没有显示名可用。
 ALTER TABLE problem_language

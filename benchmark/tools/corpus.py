@@ -26,12 +26,12 @@ from specs import RunSpec, parse_run_specs
 
 PROBLEM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ITEM_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}")
-DRIVER_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}\.cpp")
+DRIVER_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}\.(?:cpp|c)")
 VERDICTS = ("AC", "WA", "PE", "CE", "RE", "TLE", "MLE", "OLE", "SE")
 TRIAL_VERDICTS = VERDICTS + ("RAN",)
 # 从最严重到最轻（协议 §3.1）；RAN 只出现在试运行里。
 SEVERITY = ("SE", "CE", "RE", "MLE", "OLE", "TLE", "WA", "PE", "RAN", "AC")
-LANGUAGES = {".cpp": "cpp"}
+LANGUAGES = {".c": "c", ".cpp": "cpp"}
 
 
 def worst(verdicts: list[str]) -> str:

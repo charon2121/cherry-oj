@@ -9,9 +9,10 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class LanguageLimitModels {
-    /** cpp 是“C++ 当量”的定义，必须恒等。 */
-    private static final Map<String, LimitModel> MODELS =
-            Map.of("cpp", new LimitModel(1000, null, 0, 0, 1000, 0, true));
+    /** cpp 是“C++ 当量”的定义，必须恒等；c 按 CodeNet 拟合与 C++ 同级，先取恒等，上线后在自有节点上重拟合。 */
+    private static final Map<String, LimitModel> MODELS = Map.of(
+            "c", new LimitModel(1000, null, 0, 0, 1000, 0, true),
+            "cpp", new LimitModel(1000, null, 0, 0, 1000, 0, true));
 
     /** 没有参数的语言返回 null：它只能靠覆盖标定开放，不能推导。 */
     public LimitModel of(String languageId) {

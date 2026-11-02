@@ -9,8 +9,11 @@ export const languageIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
 /** 编辑器语法：认得的语言给高亮，其余退回纯文本，新语言不改前端也能用。 */
 export type EditorSyntax = 'cpp' | 'plain';
 
+/** C 借用 C++ 的语法高亮：关键字、注释、字符串规则一致，多出来的 C++ 关键字在 C 代码里不会出现。 */
+const syntaxByLanguage: Record<string, EditorSyntax> = { c: 'cpp', cpp: 'cpp' };
+
 export function editorSyntax(languageId: string | undefined): EditorSyntax {
-  return languageId === 'cpp' ? 'cpp' : 'plain';
+  return (languageId && syntaxByLanguage[languageId]) || 'plain';
 }
 
 type LanguageOption = { id: string; displayName: string };

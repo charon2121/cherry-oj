@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "c-a-plus-b",
+  "title": "C 语言：编译选项（gnu17、-lm）与基线链路",
+  "seed": 1,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": []
+}

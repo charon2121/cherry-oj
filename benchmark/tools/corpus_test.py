@@ -30,7 +30,7 @@ class RealCorpusTest(unittest.TestCase):
         problem = corpus.problems["a-plus-b"]
         self.assertEqual(problem.testcase_names, ("1", "2", "3"))
         self.assertEqual(len(problem.submissions), 10)
-        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 47)
+        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 59)
 
     def test_core_problem_sends_driver_and_solution(self):
         problem = lib.load_corpus(REAL).problems["core-add"]
@@ -125,7 +125,8 @@ class RejectsBadCorpusTest(unittest.TestCase):
         self.assertRejected("一一对应")
 
     def test_unsupported_extension(self):
-        (self.problem / "submissions" / "ac_c.c").write_text("int main(){}", encoding="utf-8")
+        # .c 已经是支持的语言（C）；用一个 judge 不认得的扩展名当反例。
+        (self.problem / "submissions" / "ac_rust.rs").write_text("fn main(){}", encoding="utf-8")
         self.assertRejected("扩展名")
 
     def test_ce_has_no_testcase_results(self):

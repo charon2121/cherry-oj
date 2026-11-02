@@ -151,12 +151,12 @@ class RunTest(unittest.TestCase):
         return self.report()["summary"]["judge"]
 
     def test_whole_corpus_runs_the_half_of_whitespace_the_declaration_selects(self):
-        # 57 项 = 47 个提交 + 6 个请求级 + 4 个试运行；whitespace 的 8 个 _loose/_strict 只有一半会运行，探测项另计。
-        self.assertEqual(self.run_everything(), dict(ran=48, passed=48, failed=0, unstable=0, skipped=8, probes=1))
+        # 70 项 = 59 个提交 + 6 个请求级 + 5 个试运行；whitespace 的 8 个 _loose/_strict 只有一半会运行，探测项另计。
+        self.assertEqual(self.run_everything(), dict(ran=61, passed=61, failed=0, unstable=0, skipped=8, probes=1))
         self.assertEqual(self.run_everything("strictWhitespace=false"),
-                         dict(ran=52, passed=52, failed=0, unstable=0, skipped=4, probes=1))
+                         dict(ran=65, passed=65, failed=0, unstable=0, skipped=4, probes=1))
         self.assertEqual(self.run_everything("strictWhitespace=true"),
-                         dict(ran=52, passed=52, failed=0, unstable=0, skipped=4, probes=1))
+                         dict(ran=65, passed=65, failed=0, unstable=0, skipped=4, probes=1))
         self.assertEqual(self.statuses("whitespace")["ws_crlf_strict"], "pass")
 
     def test_linux_only_problems_are_skipped_without_the_declaration(self):
