@@ -1,4 +1,7 @@
+import contextlib
+import io
 import json
+import unittest.mock
 import tempfile
 import unittest
 from pathlib import Path
@@ -52,6 +55,29 @@ class ToolchainsTest(unittest.TestCase):
                 (packages / name).write_bytes(b'x')
             toolchains.prune(union, packages)
             self.assertEqual(sorted(p.name for p in packages.iterdir()), ['gcc_1_amd64.deb', 'notes.txt'])
+
+    def test_build_creates_a_fresh_work_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            locks = root / 'locks'
+            locks.mkdir()
+            self.write(locks, 'c', lock('c', []))
+            (root / 'release').mkdir()
+            built = []
+
+            def fake_build(lock_path, packages, output):
+                output.mkdir()  # build.py 不建父目录
+                (output / 'rootfs').mkdir()
+                (output / 'manifest.json').write_text('{}')
+                built.append(output.name)
+            with unittest.mock.patch.object(toolchains.builder, 'build', fake_build), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                toolchains.build_release(root / 'release', root / 'packages', root / 'work', locks)
+            self.assertEqual(built, ['c'])
+            self.assertTrue((root / 'release/toolchains/c/rootfs').is_dir())
+            (root / 'release2').mkdir()
+            with self.assertRaises(FileExistsError):
+                toolchains.build_release(root / 'release2', root / 'packages', root / 'work', locks)
 
     def test_repository_locks_union_into_one_consistent_set(self):
         found = toolchains.locks()

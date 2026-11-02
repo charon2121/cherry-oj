@@ -63,6 +63,8 @@ def digest(path):
 def build_release(release, packages, work, directory=LOCKS):
     toolchains = release / 'toolchains'
     toolchains.mkdir(mode=0o755)
+    # 与 build.py 一样不复用已有目录：每门语言的中间产物放在新建的 work/<语言>/ 下，失败时留着检查。
+    work.mkdir(mode=0o755)
     for language, lock in locks(directory).items():
         target = toolchains / language
         target.mkdir(mode=0o755)
