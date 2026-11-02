@@ -32,6 +32,25 @@ class ReadinessTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     health.main()
 
+    def test_exited_service_fails_without_waiting_for_the_deadline(self):
+        state = MagicMock(stdout='failed\n')
+        with patch.object(health.sys, 'argv', ['health.py', 'judge']), \
+                patch.object(health, 'ready', return_value=False), \
+                patch.object(health.subprocess, 'run', return_value=state), \
+                patch.object(health.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RuntimeError, 'exited'):
+                health.main()
+        sleep.assert_not_called()
+
+    def test_starting_service_keeps_waiting(self):
+        state = MagicMock(stdout='active\n')
+        answers = iter([False, False, True])
+        with patch.object(health.sys, 'argv', ['health.py', 'judge']), \
+                patch.object(health, 'ready', side_effect=lambda mode: next(answers)), \
+                patch.object(health.subprocess, 'run', return_value=state), \
+                patch.object(health.time, 'sleep'):
+            health.main()
+
     def test_ready_rejects_other_targets(self):
         with self.assertRaises(ValueError):
             health.ready('sandbox')

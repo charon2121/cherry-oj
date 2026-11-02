@@ -2,8 +2,11 @@
 """Bounded readiness check; never logs credentials or execution output."""
 import http.client
 import json
+import subprocess
 import sys
 import time
+
+UNIT = 'cherry-sandbox-judge.service'
 
 
 def ready(mode='judge'):
@@ -25,6 +28,13 @@ def ready(mode='judge'):
         connection.close()
 
 
+def exited():
+    """单元 Restart=no：启动脚本或 judge 一退出，单元就是 failed/inactive，不会再就绪，不必等到超时。"""
+    state = subprocess.run(['systemctl', 'show', UNIT, '-p', 'ActiveState', '--value'],
+                           capture_output=True, text=True, timeout=5).stdout.strip()
+    return state in ('failed', 'inactive')
+
+
 def main():
     mode = sys.argv[1]
     if mode != 'judge':
@@ -34,6 +44,8 @@ def main():
     while time.monotonic() < deadline:
         if ready(mode):
             return
+        if exited():
+            raise RuntimeError(mode + ' exited before becoming ready')
         time.sleep(.1)
     raise RuntimeError(mode + ' readiness timeout')
 
