@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/calibration.schema.json",
   "title": "Calibration internal v1",
-  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=：响应 Readiness。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。",
+  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=：响应 Readiness。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。",
   "x-contract-version": 1,
   "definitions": {
     "CalibrationRequest": {
@@ -12,6 +12,7 @@
       "required": [
         "problemId",
         "languageId",
+        "kind",
         "testDataLocation",
         "testDataDigest",
         "cpuNs",
@@ -27,6 +28,9 @@
         "languageId": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "kind": {
+          "$ref": "#/definitions/CalibrationKind"
         },
         "testDataLocation": {
           "type": "string",
@@ -81,6 +85,7 @@
         {
           "problemId": "0198cafe-0000-7000-8000-000000000012",
           "languageId": "cpp",
+          "kind": "BASE",
           "testDataLocation": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000012",
           "testDataDigest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
           "cpuNs": 1000000000,
@@ -91,6 +96,14 @@
           "solutionPrefixLineCount": 2
         }
       ]
+    },
+    "CalibrationKind": {
+      "type": "string",
+      "enum": [
+        "BASE",
+        "OVERRIDE"
+      ],
+      "description": "BASE=基础标定：每题每个测试数据指纹最多一条 VALID，语言必须可作基础（contracts/languages.json 的 baseEligible）；OVERRIDE=覆盖标定：取代该语言的推导值，不能用于当前基础语言。见 docs/protocols/limits.md"
     },
     "CalibrationStatus": {
       "type": "string",
@@ -148,6 +161,7 @@
         "id",
         "problemId",
         "languageId",
+        "kind",
         "status",
         "cpuNs",
         "memoryBytes",
@@ -171,6 +185,9 @@
         "languageId": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "kind": {
+          "$ref": "#/definitions/CalibrationKind"
         },
         "status": {
           "$ref": "#/definitions/CalibrationStatus"

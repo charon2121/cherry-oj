@@ -47,7 +47,7 @@ class HttpJudgingClientTests {
             requestBody.set(exchange.getRequestBody().readAllBytes());
             respond(exchange, 200, """
                     {"id":"019c8e42-7f70-7000-8000-000000000011","problemId":"019c8e42-7f70-7000-8000-000000000010",
-                     "languageId":"cpp","status":"VALID","cpuNs":1000000000,"memoryBytes":268435456,"clockNs":null,
+                     "languageId":"cpp","kind":"BASE","status":"VALID","cpuNs":1000000000,"memoryBytes":268435456,"clockNs":null,
                      "testDataDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                      "benchmarkSummary":null,"errorMessage":null,"createdAt":null,"updatedAt":null,"rowVersion":1}
                     """);
@@ -57,6 +57,7 @@ class HttpJudgingClientTests {
         var request = new JudgingDtos.CalibrationRequest(
                 "019c8e42-7f70-7000-8000-000000000010",
                 "cpp",
+                "BASE",
                 "/srv/problem/p",
                 "a".repeat(64),
                 1_000_000_000L,

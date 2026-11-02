@@ -11,6 +11,9 @@ import com.cherryoj.judgingservice.domain.UuidV7;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeCallException;
 import com.cherryoj.judgingservice.judge.LanguageFiles;
+import com.cherryoj.judgingservice.limits.LanguageLimitModels;
+import com.cherryoj.judgingservice.limits.LimitModel;
+import com.cherryoj.judgingservice.limits.PlatformLimits;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.CalibrationRow;
@@ -40,6 +43,7 @@ public class JudgingReadinessService {
     private final Clock clock;
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
+    private final PlatformLimits platform;
 
     public JudgingReadinessService(
             JudgingRepository repository,
@@ -48,8 +52,10 @@ public class JudgingReadinessService {
             Clock clock,
             ObjectMapper json,
             PlatformTransactionManager transactionManager,
-            JudgeNodeRepository nodes) {
+            JudgeNodeRepository nodes,
+            PlatformLimits platform) {
         this.repository = repository;
+        this.platform = platform;
         this.nodes = nodes;
         this.judge = judge;
         this.ids = ids;
@@ -69,6 +75,7 @@ public class JudgingReadinessService {
                     "INVALID_CALIBRATION_REQUEST",
                     "参考用户文件与前缀行数必须同时给出，且只用于支持核心代码模式的语言。");
         }
+        requireAllowedKind(request);
         CalibrationStart start = transactions.execute(status -> startCalibration(request, actorId, traceId));
         String sourceSha = sha256(request.referenceSource().getBytes(StandardCharsets.UTF_8));
         JudgeGateway.JudgeResult result;
@@ -120,6 +127,7 @@ public class JudgingReadinessService {
                 id,
                 request.problemId(),
                 request.languageId(),
+                request.kind(),
                 request.testDataDigest(),
                 request.cpuNs(),
                 request.memoryBytes(),
@@ -142,6 +150,8 @@ public class JudgingReadinessService {
                         node.nodeId(),
                         "languageId",
                         request.languageId(),
+                        "kind",
+                        request.kind(),
                         "cpuNs",
                         request.cpuNs(),
                         "memoryBytes",
@@ -156,11 +166,19 @@ public class JudgingReadinessService {
             String actorId,
             String traceId) {
         requireOnlineNode(request.languageId());
-        CalibrationRow previous = repository.findValid(request.problemId(), request.languageId(), true);
-        if (previous != null && repository.supersede(previous.id(), now(), previous.rowVersion()) != 1) {
-            throw conflict("CALIBRATION_STATE_CONFLICT", "有效校准已经改变，请重试。");
+        // 同一题目 × 语言只留一条 VALID；新的基础标定还要替掉旧的基础标定（可能是另一门语言）。
+        CalibrationRow sameLanguage = repository.findValid(request.problemId(), request.languageId(), true);
+        CalibrationRow previousBase = repository.findValidBase(request.problemId(), true);
+        if ("OVERRIDE".equals(request.kind()) && isCurrentBase(previousBase, request)) {
+            throw conflict("OVERRIDE_ON_BASE_LANGUAGE", "该语言是题目的基础语言，请改做基础标定。");
         }
-        String previousId = previous == null ? null : previous.id();
+        if (!"BASE".equals(request.kind())) previousBase = null;
+        for (CalibrationRow previous : distinct(sameLanguage, previousBase)) {
+            if (repository.supersede(previous.id(), now(), previous.rowVersion()) != 1) {
+                throw conflict("CALIBRATION_STATE_CONFLICT", "有效校准已经改变，请重试。");
+            }
+        }
+        String previousId = previousBase != null ? previousBase.id() : sameLanguage == null ? null : sameLanguage.id();
         if (repository.markCalibrationValid(start.calibrationId(), actorId, previousId, writeJson(summary), now())
                 != 1) {
             throw conflict("CALIBRATION_STATE_CONFLICT", "校准状态已经改变，请重试。");
@@ -207,6 +225,40 @@ public class JudgingReadinessService {
                             "failureCode",
                             safe(error)));
         });
+    }
+
+    /**
+     * docs/protocols/limits.md 第 7 节：基础语言必须可作基础；手填的限制受平台上限约束，和推导值一样；
+     * 覆盖标定不能用于当前基础语言。完成时还会在锁内再核对一次最后这条。
+     */
+    private void requireAllowedKind(CalibrationRequest request) {
+        if ("BASE".equals(request.kind())) {
+            LimitModel model = LanguageLimitModels.of(request.languageId());
+            if (model == null || !model.baseEligible()) {
+                throw new JudgingApiException(HttpStatus.BAD_REQUEST, "LANGUAGE_NOT_BASE_ELIGIBLE", "该语言不能作为基础语言。");
+            }
+        }
+        if (request.cpuNs() > platform.maxCpuNs() || request.memoryBytes() > platform.maxMemoryBytes()) {
+            throw new JudgingApiException(HttpStatus.BAD_REQUEST, "LIMIT_ABOVE_PLATFORM", "限制超过平台上限。");
+        }
+        if ("OVERRIDE".equals(request.kind())
+                && isCurrentBase(repository.findValidBase(request.problemId(), false), request)) {
+            throw conflict("OVERRIDE_ON_BASE_LANGUAGE", "该语言是题目的基础语言，请改做基础标定。");
+        }
+    }
+
+    /** 对应当前这份测试数据、且是同一门语言的基础标定；对应旧数据的基础标定已经过期，不挡覆盖标定。 */
+    private static boolean isCurrentBase(CalibrationRow base, CalibrationRequest request) {
+        return base != null
+                && base.languageId().equals(request.languageId())
+                && base.testDataDigest().equals(request.testDataDigest());
+    }
+
+    private static java.util.List<CalibrationRow> distinct(CalibrationRow first, CalibrationRow second) {
+        ArrayList<CalibrationRow> rows = new ArrayList<>();
+        if (first != null) rows.add(first);
+        if (second != null && (first == null || !first.id().equals(second.id()))) rows.add(second);
+        return rows;
     }
 
     /** 题目当前的测试数据指纹 = 标定时的指纹，旧标定才算数；数据一换，标定即过期。 */
@@ -274,6 +326,7 @@ public class JudgingReadinessService {
                 row.id(),
                 row.problemId(),
                 row.languageId(),
+                row.kind(),
                 row.status(),
                 row.cpuNs(),
                 row.memoryBytes(),

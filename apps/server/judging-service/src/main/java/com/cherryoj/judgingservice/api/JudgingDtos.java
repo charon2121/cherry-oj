@@ -13,15 +13,17 @@ public final class JudgingDtos {
     public static final String UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
     public static final String SHA_PATTERN = "^[a-f0-9]{64}$";
     public static final String LANGUAGE_PATTERN = "^[a-z][a-z0-9-]{0,31}$";
+    public static final String KIND_PATTERN = "^(BASE|OVERRIDE)$";
 
     /**
      * testDataLocation 与 testDataDigest 是 problem-service 此刻给出的；判题结果里的指纹必须与之一致。
      * CORE：referenceSource 是驱动文件，referenceSolutionSource 是前缀 + 参考核心代码，两个 CORE 字段同时出现或同时缺席。
-     * 契约见 contracts/calibration.schema.json。
+     * kind 区分基础标定与覆盖标定（docs/protocols/limits.md）。契约见 contracts/calibration.schema.json。
      */
     public record CalibrationRequest(
             @NotBlank @Pattern(regexp = UUID_PATTERN) String problemId,
             @NotBlank @Pattern(regexp = LANGUAGE_PATTERN) String languageId,
+            @NotBlank @Pattern(regexp = KIND_PATTERN) String kind,
             @NotBlank @Size(max = 2048) String testDataLocation,
             @NotBlank @Pattern(regexp = SHA_PATTERN) String testDataDigest,
             @Min(1) long cpuNs,
@@ -38,6 +40,7 @@ public final class JudgingDtos {
             String id,
             String problemId,
             String languageId,
+            String kind,
             String status,
             Long cpuNs,
             Long memoryBytes,

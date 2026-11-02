@@ -168,6 +168,7 @@ class JudgingReadinessIntegrationTests {
                         new CalibrationRequest(
                                 problem,
                                 "python",
+                                "OVERRIDE",
                                 LOCATION,
                                 DIGEST,
                                 1_000_000_000L,
@@ -190,9 +191,9 @@ class JudgingReadinessIntegrationTests {
         LocalDateTime now = LocalDateTime.now();
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO language_calibration
-                  (id,problem_id,language_id,test_data_digest,status,source_type,cpu_ns,
+                  (id,problem_id,language_id,kind,test_data_digest,status,source_type,cpu_ns,
                    memory_bytes,approved_by,approved_at,created_at,updated_at,row_version)
-                SELECT UUID_TO_BIN(UUID()),problem_id,language_id,test_data_digest,'VALID','MANUAL',1,1,
+                SELECT UUID_TO_BIN(UUID()),problem_id,language_id,'OVERRIDE',test_data_digest,'VALID','MANUAL',1,1,
                        UUID_TO_BIN(?),?,?,?,0
                 FROM language_calibration WHERE problem_id=UUID_TO_BIN(?) AND status='VALID'
                 """, ACTOR, now, now, now, problem))
@@ -224,6 +225,7 @@ class JudgingReadinessIntegrationTests {
                 new CalibrationRequest(
                         problem,
                         "cpp",
+                        "BASE",
                         LOCATION,
                         DIGEST,
                         1_000_000_000L,
@@ -249,6 +251,7 @@ class JudgingReadinessIntegrationTests {
                         new CalibrationRequest(
                                 problem,
                                 "cpp",
+                                "BASE",
                                 LOCATION,
                                 DIGEST,
                                 1_000_000_000L,
@@ -268,8 +271,97 @@ class JudgingReadinessIntegrationTests {
                 .isZero();
     }
 
+    @Test
+    void onlyBaseEligibleLanguagesCanBeTheBase() {
+        // python 没有限制参数，只能靠覆盖标定开放，不能做基础语言
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        String problem = UUID.randomUUID().toString();
+        assertThatThrownBy(() -> service.calibrate(
+                        request(problem, "python", "BASE", DIGEST, 1_000_000_000L, 268_435_456L), ACTOR, null))
+                .isInstanceOfSatisfying(JudgingApiException.class, error -> {
+                    assertThat(error.code()).isEqualTo("LANGUAGE_NOT_BASE_ELIGIBLE");
+                    assertThat(error.status().value()).isEqualTo(400);
+                });
+    }
+
+    @Test
+    void handWrittenLimitsAreBoundByThePlatformLimits() {
+        // application.yaml 里平台上限是 10s / 1GiB：手填的限制和推导值受同一组上限约束
+        String problem = UUID.randomUUID().toString();
+        for (var limits : new long[][] {{10_000_000_001L, 268_435_456L}, {1_000_000_000L, (1L << 30) + 1}}) {
+            assertThatThrownBy(() -> service.calibrate(
+                            request(problem, "cpp", "BASE", DIGEST, limits[0], limits[1]), ACTOR, null))
+                    .isInstanceOfSatisfying(JudgingApiException.class, error -> {
+                        assertThat(error.code()).isEqualTo("LIMIT_ABOVE_PLATFORM");
+                        assertThat(error.status().value()).isEqualTo(400);
+                    });
+        }
+        assertThat(jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM language_calibration WHERE problem_id = UUID_TO_BIN(?)",
+                        Integer.class,
+                        problem))
+                .isZero();
+    }
+
+    @Test
+    void theCurrentBaseLanguageCannotBeOverridden() throws Exception {
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        assertThatThrownBy(() -> service.calibrate(
+                        request(problem, "cpp", "OVERRIDE", DIGEST, 1_000_000_000L, 268_435_456L), ACTOR, null))
+                .isInstanceOfSatisfying(JudgingApiException.class, error -> {
+                    assertThat(error.code()).isEqualTo("OVERRIDE_ON_BASE_LANGUAGE");
+                    assertThat(error.status().value()).isEqualTo(409);
+                });
+    }
+
+    @Test
+    void aNewBaseReplacesTheOverrideOfItsOwnLanguageButKeepsOtherOverrides() throws Exception {
+        registry.register(
+                new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        var python = service.calibrate(
+                request(problem, "python", "OVERRIDE", DIGEST, 3_000_000_000L, 268_435_456L), ACTOR, null);
+        var cppOverride = service.calibrate(
+                request(problem, "cpp", "OVERRIDE", DIGEST, 1_000_000_000L, 268_435_456L), ACTOR, null);
+        assertThat(cppOverride.kind()).isEqualTo("OVERRIDE");
+
+        var base = service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+
+        assertThat(base.kind()).isEqualTo("BASE");
+        assertThat(status(base.id())).isEqualTo("VALID");
+        assertThat(status(cppOverride.id())).isEqualTo("SUPERSEDED");
+        assertThat(status(python.id())).isEqualTo("VALID");
+    }
+
+    @Test
+    void databaseAllowsOnlyOneValidBasePerProblem() throws Exception {
+        String problem = UUID.randomUUID().toString();
+        when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
+        service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        LocalDateTime now = LocalDateTime.now();
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO language_calibration
+                  (id,problem_id,language_id,kind,test_data_digest,status,source_type,cpu_ns,
+                   memory_bytes,approved_by,approved_at,created_at,updated_at,row_version)
+                SELECT UUID_TO_BIN(UUID()),problem_id,'other','BASE',test_data_digest,'VALID','MANUAL',1,1,
+                       UUID_TO_BIN(?),?,?,?,0
+                FROM language_calibration WHERE problem_id=UUID_TO_BIN(?) AND status='VALID'
+                """, ACTOR, now, now, now, problem))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private static CalibrationRequest request(
+            String problem, String language, String kind, String digest, long cpuNs, long memoryBytes) {
+        return new CalibrationRequest(
+                problem, language, kind, LOCATION, digest, cpuNs, memoryBytes, null, "// source", null, null);
+    }
+
     private static CalibrationRequest calibration(String problem, String digest, String source) {
         return new CalibrationRequest(
-                problem, "cpp", LOCATION, digest, 1_000_000_000L, 268_435_456L, null, source, null, null);
+                problem, "cpp", "BASE", LOCATION, digest, 1_000_000_000L, 268_435_456L, null, source, null, null);
     }
 }

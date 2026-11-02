@@ -132,6 +132,7 @@ public class ProblemPublicationService {
             return new JudgingDtos.CalibrationRequest(
                     problemId,
                     request.languageId(),
+                    BASE_CALIBRATION,
                     location,
                     digest,
                     request.cpuNs(),
@@ -145,6 +146,7 @@ public class ProblemPublicationService {
         return new JudgingDtos.CalibrationRequest(
                 problemId,
                 request.languageId(),
+                BASE_CALIBRATION,
                 location,
                 digest,
                 request.cpuNs(),
@@ -154,6 +156,12 @@ public class ProblemPublicationService {
                 prefix + request.referenceSource(),
                 lineCount(prefix));
     }
+
+    /**
+     * 平台目前只有 C++，管理端标定的就是题目的基础语言（docs/protocols/limits.md）。第二门语言上线时，
+     * 再把种类开放到管理接口，让管理员为别的语言做覆盖标定。
+     */
+    private static final String BASE_CALIBRATION = "BASE";
 
     private static int lineCount(String prefix) {
         return (int) prefix.chars().filter(character -> character == '\n').count();

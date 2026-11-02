@@ -19,6 +19,7 @@ public class JudgingRepository {
             String id,
             String problemId,
             String languageId,
+            String kind,
             String testDataDigest,
             long cpuNs,
             long memoryBytes,
@@ -26,12 +27,12 @@ public class JudgingRepository {
             LocalDateTime now) {
         jdbc.update("""
                 INSERT INTO language_calibration
-                  (id, problem_id, language_id, test_data_digest, status, source_type,
+                  (id, problem_id, language_id, kind, test_data_digest, status, source_type,
                    cpu_ns, memory_bytes, clock_ns, benchmark_summary_json, approved_by, approved_at,
                    supersedes_id, error_message, created_at, updated_at, row_version)
-                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), ?, ?, 'RUNNING', 'BENCHMARK',
+                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), ?, ?, ?, 'RUNNING', 'BENCHMARK',
                         ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, ?, 0)
-                """, id, problemId, languageId, testDataDigest, cpuNs, memoryBytes, clockNs, now, now);
+                """, id, problemId, languageId, kind, testDataDigest, cpuNs, memoryBytes, clockNs, now, now);
     }
 
     public CalibrationRow findCalibration(String id) {
@@ -48,6 +49,15 @@ public class JudgingRepository {
                 JudgingRepository::calibration,
                 problemId,
                 languageId);
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
+    /** 题目当前有效的基础标定（不管对应哪份测试数据），没有则为 null。 */
+    public CalibrationRow findValidBase(String problemId, boolean lock) {
+        List<CalibrationRow> rows = jdbc.query(
+                calibrationSelect() + """
+                 WHERE problem_id = UUID_TO_BIN(?) AND kind = 'BASE' AND status = 'VALID'
+                """ + (lock ? " FOR UPDATE" : ""), JudgingRepository::calibration, problemId);
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
@@ -95,7 +105,7 @@ public class JudgingRepository {
     private static String calibrationSelect() {
         return """
                 SELECT BIN_TO_UUID(id) id, BIN_TO_UUID(problem_id) problem_id,
-                       language_id, test_data_digest, status,
+                       language_id, kind, test_data_digest, status,
                        cpu_ns, memory_bytes, clock_ns, CAST(benchmark_summary_json AS CHAR) benchmark_summary_json,
                        error_message, created_at, updated_at, row_version, approved_at
                 FROM language_calibration
@@ -108,6 +118,7 @@ public class JudgingRepository {
                 rs.getString("id"),
                 rs.getString("problem_id"),
                 rs.getString("language_id"),
+                rs.getString("kind"),
                 rs.getString("test_data_digest"),
                 rs.getString("status"),
                 rs.getObject("cpu_ns", Long.class),
@@ -125,6 +136,7 @@ public class JudgingRepository {
             String id,
             String problemId,
             String languageId,
+            String kind,
             String testDataDigest,
             String status,
             Long cpuNs,

@@ -579,6 +579,7 @@ class ProblemPublicationIntegrationTests {
                     UUID.randomUUID().toString(),
                     request.problemId(),
                     request.languageId(),
+                    request.kind(),
                     calibrationStatus,
                     request.cpuNs(),
                     request.memoryBytes(),

@@ -32,13 +32,17 @@ CREATE TABLE judge_node_session (
 -- 标定按「题目 × 语言」记录，并带着标定时的测试数据指纹：
 -- 题目的测试数据换了（指纹变了），旧标定就不再对应它，需要重新标定。
 -- 同一题目 × 语言最多一条 VALID，新的 VALID 批准后旧的转为 SUPERSEDED。
+-- kind（docs/protocols/limits.md）：BASE 是题目的基础标定，每题最多一条 VALID，其余语言据它推导；
+-- OVERRIDE 是某门语言的覆盖标定，取代推导值。
 CREATE TABLE language_calibration (
     id BINARY(16) NOT NULL,
     problem_id BINARY(16) NOT NULL,
     language_id VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     test_data_digest CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     status VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    kind VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     valid_slot TINYINT GENERATED ALWAYS AS (CASE WHEN status = 'VALID' THEN 1 ELSE NULL END) STORED,
+    base_valid_slot TINYINT GENERATED ALWAYS AS (CASE WHEN status = 'VALID' AND kind = 'BASE' THEN 1 ELSE NULL END) STORED,
     source_type VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
     cpu_ns BIGINT NULL,
     memory_bytes BIGINT NULL,
@@ -53,12 +57,14 @@ CREATE TABLE language_calibration (
     row_version BIGINT NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     CONSTRAINT uq_calibration_one_valid UNIQUE (problem_id, language_id, valid_slot),
+    CONSTRAINT uq_calibration_one_valid_base UNIQUE (problem_id, base_valid_slot),
     KEY idx_calibration_resolve (problem_id, language_id, status),
     KEY idx_calibration_supersedes (supersedes_id),
     CONSTRAINT fk_calibration_supersedes FOREIGN KEY (supersedes_id) REFERENCES language_calibration (id) ON DELETE RESTRICT ON UPDATE RESTRICT,
     CONSTRAINT ck_calibration_language CHECK (REGEXP_LIKE(language_id, '^[a-z][a-z0-9-]{0,31}$', 'c')),
     CONSTRAINT ck_calibration_digest CHECK (REGEXP_LIKE(test_data_digest, '^[a-f0-9]{64}$', 'c')),
     CONSTRAINT ck_calibration_status CHECK (status IN ('DRAFT', 'RUNNING', 'VALID', 'FAILED', 'SUPERSEDED')),
+    CONSTRAINT ck_calibration_kind CHECK (kind IN ('BASE', 'OVERRIDE')),
     CONSTRAINT ck_calibration_source CHECK (source_type IN ('MANUAL', 'BENCHMARK')),
     CONSTRAINT ck_calibration_limits CHECK ((cpu_ns IS NULL OR cpu_ns > 0) AND (memory_bytes IS NULL OR memory_bytes > 0) AND (clock_ns IS NULL OR clock_ns > 0)),
     CONSTRAINT ck_calibration_valid CHECK (status <> 'VALID' OR (cpu_ns IS NOT NULL AND memory_bytes IS NOT NULL AND approved_by IS NOT NULL AND approved_at IS NOT NULL AND error_message IS NULL)),

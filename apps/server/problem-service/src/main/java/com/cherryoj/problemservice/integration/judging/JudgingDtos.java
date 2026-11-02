@@ -11,12 +11,13 @@ public final class JudgingDtos {
      * 标定请求带着题目当前的测试数据地址与指纹：judging-service 用这个地址跑参考解，
      * 并要求判题结果里的数据指纹与 testDataDigest 一致，否则说明标定中途数据被替换，标定作废。
      * CORE：referenceSource 是驱动文件，referenceSolutionSource 是前缀 + 参考核心代码；ACM 两者都不带。
-     * 契约见 contracts/calibration.schema.json。
+     * kind 区分基础标定与覆盖标定（docs/protocols/limits.md）。契约见 contracts/calibration.schema.json。
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record CalibrationRequest(
             String problemId,
             String languageId,
+            String kind,
             String testDataLocation,
             String testDataDigest,
             long cpuNs,
@@ -33,6 +34,7 @@ public final class JudgingDtos {
             String id,
             String problemId,
             String languageId,
+            String kind,
             String status,
             Long cpuNs,
             Long memoryBytes,
