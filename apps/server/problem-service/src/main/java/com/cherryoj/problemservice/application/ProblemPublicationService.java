@@ -75,6 +75,9 @@ public class ProblemPublicationService {
         if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
             throw state("题面、样例、语言或测试数据尚未就绪。");
         }
+        if (!request.languageId().equals(local.languages().getFirst().languageId())) {
+            throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "当前题目不支持这门语言。");
+        }
         JudgingDtos.Calibration result =
                 judging.calibrate(calibrationRequest(problemId, request, local), admin, traceparent);
         CalibrationStatus remoteStatus = calibrationStatus(result.status());
@@ -108,7 +111,12 @@ public class ProblemPublicationService {
             return result(checks);
         }
         JudgingDtos.Readiness remote = judging.readiness(
-                problemId, "cpp", local.info().digest(), local.info().maxTestcaseIoBytes(), admin, traceparent);
+                problemId,
+                local.languages().getFirst().languageId(),
+                local.info().digest(),
+                local.info().maxTestcaseIoBytes(),
+                admin,
+                traceparent);
         mergeRemoteLanguage(checks, remote);
         // 在线节点的事实要保留到管理工作台：标定按钮据此提示并禁用。
         checks.add(
@@ -283,9 +291,9 @@ public class ProblemPublicationService {
 
     /** 语言配置不能公开的原因；可以公开时返回 null。 */
     private static String languageProblem(Snapshot local) {
-        if (local.languages().size() != 1
-                || !"cpp".equals(local.languages().getFirst().languageId())) {
-            return "目前只支持单一 C++ 语言配置。";
+        // 多语言题的公开规则（每门都就绪，还是至少一门）还没定，暂时保持每道题只开放一门语言。
+        if (local.languages().size() != 1) {
+            return "目前每道题只开放一门语言。";
         }
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
             return null;
@@ -324,7 +332,7 @@ public class ProblemPublicationService {
     private static void mergeRemoteLanguage(List<PublishCheckItem> checks, JudgingDtos.Readiness readiness) {
         PublishCheckItem local = checks.get(2);
         if (!local.passed()) return;
-        PublishCheckItem language = remoteCheck(readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持 C++。");
+        PublishCheckItem language = remoteCheck(readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持该语言。");
         if (!language.passed()) checks.set(2, language);
     }
 

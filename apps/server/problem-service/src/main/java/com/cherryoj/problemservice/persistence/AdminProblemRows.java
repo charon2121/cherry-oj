@@ -36,6 +36,7 @@ public final class AdminProblemRows {
     /** judgeTemplate 是 CORE 的驱动代码，ACM 或尚未填写时为 null；judgeTemplateUpdatedAt 与它同时为 null。 */
     public record LanguageRow(
             String languageId,
+            String displayName,
             int displayOrder,
             String starterCode,
             String judgeTemplate,

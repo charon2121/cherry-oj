@@ -76,13 +76,13 @@
     </select>
 
     <select id="findLanguages" resultType="com.cherryoj.problemservice.persistence.PublicProblemRows$LanguageRow">
-        SELECT BIN_TO_UUID(problem_id) AS problem_id,
-               language_id, display_order, starter_code
-        FROM problem_language
-        WHERE problem_id IN
+        SELECT BIN_TO_UUID(pl.problem_id) AS problem_id,
+               pl.language_id, l.display_name, pl.display_order, pl.starter_code
+        FROM problem_language pl JOIN language l ON l.language_id = pl.language_id
+        WHERE pl.problem_id IN
         <foreach collection="problemIds" item="problemId" open="(" separator="," close=")">
             UUID_TO_BIN(#{problemId})
         </foreach>
-        ORDER BY problem_id, display_order ASC
+        ORDER BY pl.problem_id, pl.display_order ASC
     </select>
 </mapper>

@@ -139,6 +139,33 @@ class AdminProblemPersistenceIntegrationTests {
         assertThat(details).doesNotContain("int main", "1 2", "statement");
     }
 
+    /** 语言只认平台语言表：没有这一行就不能建题；显示名也从语言表取，改了表就跟着变，代码里不写死任何语言。 */
+    @Test
+    void problemsUseOnlyPlatformLanguagesAndTheirTableDisplayNames() {
+        String slug = "lang-" + UUID.randomUUID().toString().substring(0, 8);
+        assertThatThrownBy(() -> admin.create(
+                        new CreateProblemRequest(slug, "Unknown", Difficulty.EASY, CodeMode.ACM, "python"), ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("VALIDATION_FAILED"));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM problem WHERE slug = ?", Integer.class, slug))
+                .isZero();
+
+        var created =
+                admin.create(new CreateProblemRequest(slug, "Known", Difficulty.EASY, CodeMode.ACM, "cpp"), ACTOR);
+        assertThat(created.allowedLanguages().getFirst().displayName()).isEqualTo("C++");
+        jdbc.update("UPDATE language SET display_name = 'C++17' WHERE language_id = 'cpp'");
+        try {
+            assertThat(admin.getProblem(created.id())
+                            .allowedLanguages()
+                            .getFirst()
+                            .displayName())
+                    .isEqualTo("C++17");
+        } finally {
+            jdbc.update("UPDATE language SET display_name = 'C++' WHERE language_id = 'cpp'");
+        }
+    }
+
     /** 驱动代码原地保存：省略或原样提交都不动它的修改时间，只有内容真的变了才更新时间并留下只含指纹的审计。 */
     @Test
     void aCoreDriverKeepsItsTimeUntilItReallyChanges() {

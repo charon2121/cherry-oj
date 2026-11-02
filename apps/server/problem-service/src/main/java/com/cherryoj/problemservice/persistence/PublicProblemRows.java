@@ -23,5 +23,6 @@ public final class PublicProblemRows {
     public record SampleRow(
             String problemId, int ordinal, String inputText, String expectedOutputText, String explanationMarkdown) {}
 
-    public record LanguageRow(String problemId, String languageId, int displayOrder, String starterCode) {}
+    public record LanguageRow(
+            String problemId, String languageId, String displayName, int displayOrder, String starterCode) {}
 }

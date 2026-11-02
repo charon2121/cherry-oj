@@ -57,7 +57,10 @@ public class TrialController {
      */
     public record Request(
             @NotNull UUID problemId,
-            @Pattern(regexp = "cpp") @NotNull String languageId,
+
+            @Pattern(regexp = JudgingDtos.LANGUAGE_PATTERN) @NotNull
+            String languageId,
+
             @NotBlank @Size(max = 1048576) String source,
             @Size(min = 1, max = 327680) String solutionSource,
             @Min(0) Integer solutionPrefixLineCount,
@@ -150,15 +153,16 @@ public class TrialController {
 
     private Result execute(Request r, String trace, long deadline) {
         var profile = profiles.resolve(
-                new SubmissionExecutionProfileController.Request(r.problemId().toString(), "cpp", "trial"), trace);
+                new SubmissionExecutionProfileController.Request(r.problemId().toString(), r.languageId(), "trial"),
+                trace);
         var limits = profile.effectiveLimits();
         long clock =
                 limits.clockNs() != null ? limits.clockNs() : Math.multiplyExact(limits.cpuNs(), budgets.wallRatio());
         var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
         if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline)))
             throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
-        // 自测只用请求里的输入，不读测试数据：任何在线、声明了 cpp 的节点都行。
-        var online = nodes.online("cpp", LocalDateTime.now(ZoneOffset.UTC));
+        // 自测只用请求里的输入，不读测试数据：任何在线、声明了该语言的节点都行。
+        var online = nodes.online(r.languageId(), LocalDateTime.now(ZoneOffset.UTC));
         if (online.isEmpty()) throw unavailable();
         var node = online.getFirst();
         Map<String, Object> body = new java.util.LinkedHashMap<>(Map.of(
@@ -167,7 +171,7 @@ public class TrialController {
                 "problemId",
                 r.problemId(),
                 "languageId",
-                "cpp",
+                r.languageId(),
                 "source",
                 r.source(),
                 "limits",
@@ -178,8 +182,7 @@ public class TrialController {
                 List.of(Map.of("input", r.inputText()))));
         if (r.solutionSource() != null) body.put("solutionSource", r.solutionSource());
         // CORE：报错里用户文件的行号按前缀行数换算；ACM 时两者为 null，只清理路径。
-        String solutionFile =
-                r.solutionSource() == null ? null : LanguageFiles.of("cpp").solutionFile();
+        String solutionFile = r.solutionSource() == null ? null : solutionFile(r.languageId());
         Integer prefixLines = r.solutionPrefixLineCount();
         var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
                 .timeout(Duration.ofMillis(remaining(deadline)))
@@ -288,6 +291,13 @@ public class TrialController {
         long ms = deadline - System.currentTimeMillis();
         if (ms <= 0) throw timeout();
         return ms;
+    }
+
+    /** CORE 自测要用该语言的用户文件名；不支持核心代码模式的语言没有这个名字，直接拒绝而不是送出一个编不过的程序。 */
+    private static String solutionFile(String languageId) {
+        LanguageFiles files = LanguageFiles.of(languageId);
+        if (files == null) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "该语言不支持核心代码模式。");
+        return files.solutionFile();
     }
 
     static JudgingApiException error(HttpStatus status, String code, String detail) {

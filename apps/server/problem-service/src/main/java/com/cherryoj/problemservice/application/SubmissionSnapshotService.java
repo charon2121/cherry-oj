@@ -25,8 +25,6 @@ public class SubmissionSnapshotService {
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Snapshot resolve(String problemId, String languageId) {
-        if (!"cpp".equals(languageId))
-            throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "当前只支持 C++ 正式提交。");
         var problem = problems.findProblem(problemId);
         if (problem == null || problem.visibility() != Visibility.PUBLIC || problem.status() != ProblemStatus.ACTIVE) {
             throw unavailable();

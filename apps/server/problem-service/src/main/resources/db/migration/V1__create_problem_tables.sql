@@ -104,6 +104,11 @@ CREATE TABLE language (
 INSERT INTO language (language_id, display_name, solution_prefix, updated_at)
 VALUES ('cpp', 'C++', CONCAT('#include <bits/stdc++.h>', CHAR(10), 'using namespace std;', CHAR(10)), UTC_TIMESTAMP(6));
 
+-- 题目只能开放平台语言表里有的语言：显示名、前缀都从这里取，没有这一行就没有显示名可用。
+ALTER TABLE problem_language
+    ADD CONSTRAINT fk_problem_language_language FOREIGN KEY (language_id)
+        REFERENCES language (language_id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+
 CREATE TABLE problem_audit_event (
     id                      BINARY(16) NOT NULL,
     problem_id              BINARY(16) NOT NULL,

@@ -32,7 +32,7 @@ class PublicProblemServiceTests {
         when(mapper.findLanguages(any()))
                 .thenAnswer(invocation -> ((List<String>) invocation.getArgument(0))
                         .stream()
-                                .map(id -> new LanguageRow(id, "cpp", 1, "int main() {}"))
+                                .map(id -> new LanguageRow(id, "cpp", "C++", 1, "int main() {}"))
                                 .toList());
     }
 

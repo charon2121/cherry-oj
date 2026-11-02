@@ -35,6 +35,7 @@
     <resultMap id="languageRow" type="com.cherryoj.problemservice.persistence.AdminProblemRows$LanguageRow">
         <constructor>
             <arg column="language_id" javaType="java.lang.String"/>
+            <arg column="display_name" javaType="java.lang.String"/>
             <arg column="display_order" javaType="_int"/>
             <arg column="starter_code" javaType="java.lang.String"/>
             <arg column="judge_template" javaType="java.lang.String"/>
@@ -84,8 +85,10 @@
         WHERE problem_id = UUID_TO_BIN(#{problemId}) ORDER BY ordinal
     </select>
     <select id="findLanguages" resultMap="languageRow">
-        SELECT language_id, display_order, starter_code, judge_template, judge_template_updated_at FROM problem_language
-        WHERE problem_id = UUID_TO_BIN(#{problemId}) ORDER BY display_order
+        SELECT pl.language_id, l.display_name, pl.display_order, pl.starter_code, pl.judge_template,
+               pl.judge_template_updated_at
+        FROM problem_language pl JOIN language l ON l.language_id = pl.language_id
+        WHERE pl.problem_id = UUID_TO_BIN(#{problemId}) ORDER BY pl.display_order
     </select>
     <select id="findLanguagePrefix" resultMap="languagePrefixRow">
         SELECT language_id, display_name, solution_prefix, updated_at FROM language WHERE language_id = #{languageId}

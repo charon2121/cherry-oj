@@ -80,7 +80,9 @@ public class SubmissionExecutionProfileController {
             @NotBlank @Pattern(regexp = JudgingDtos.UUID_PATTERN)
             String problemId,
 
-            @NotBlank @Pattern(regexp = "cpp") String languageId,
+            @NotBlank @Pattern(regexp = JudgingDtos.LANGUAGE_PATTERN)
+            String languageId,
+
             @Pattern(regexp = "formal|trial") String purpose) {}
 
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)

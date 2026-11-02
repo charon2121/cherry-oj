@@ -94,8 +94,9 @@ public class AdminProblemService {
     /** 代码模式在创建时选定，之后不可修改：更新接口不接收它。 */
     @Transactional
     public Problem create(CreateProblemRequest request, String actorUserId) {
-        if (!"cpp".equals(request.languageId())) {
-            throw validation("目前只支持 C++ 题目。");
+        // 语言必须在平台语言表里（problem_language 对它有外键）；先查一遍，给出可读的错误而不是外键冲突。
+        if (mapper.findLanguagePrefix(request.languageId()) == null) {
+            throw validation("平台没有这门语言。");
         }
         LocalDateTime now = now();
         String problemId = ids.next().toString();
@@ -121,7 +122,7 @@ public class AdminProblemService {
                 0);
         try {
             mapper.insertProblem(row, actorUserId);
-            mapper.insertLanguage(problemId, "cpp", 1, "");
+            mapper.insertLanguage(problemId, request.languageId(), 1, "");
             audit(problemId, actorUserId, "PROBLEM_CREATED", Map.of());
         } catch (DuplicateKeyException error) {
             throw slugConflict();
@@ -281,7 +282,7 @@ public class AdminProblemService {
         List<AdminProblemDtos.Language> languages = mapper.findLanguages(row.id()).stream()
                 .map((LanguageRow language) -> new AdminProblemDtos.Language(
                         language.languageId(),
-                        displayName(language.languageId()),
+                        language.displayName(),
                         language.starterCode(),
                         language.judgeTemplate(),
                         row.codeMode() == CodeMode.CORE ? prefix(language.languageId()) : null))
@@ -425,10 +426,6 @@ public class AdminProblemService {
             throw validation("查询关键词不能超过 100 个字符。");
         }
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    private static String displayName(String languageId) {
-        return "cpp".equals(languageId) ? "C++" : languageId;
     }
 
     private static ProblemApiException validation(String message) {

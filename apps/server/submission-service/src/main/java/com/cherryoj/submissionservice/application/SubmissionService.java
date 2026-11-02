@@ -43,8 +43,9 @@ public class SubmissionService {
 
     public Created create(String user, String key, Create request) {
         UUID.fromString(key);
-        if (!"cpp".equals(request.languageId()))
-            throw problem(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "当前只支持 C++。");
+        // 这里只认语言编号的格式；题目支不支持这门语言由 problem-service 在快照里回答。
+        if (request.languageId() == null || !request.languageId().matches("^[a-z][a-z0-9-]{0,31}$"))
+            throw problem(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "语言编号无效。");
         if (request.source() == null || request.source().isBlank())
             throw problem(HttpStatus.BAD_REQUEST, "INVALID_SOURCE", "请输入完整代码。");
         if (request.source().getBytes(StandardCharsets.UTF_8).length > 262144)
@@ -178,7 +179,7 @@ public class SubmissionService {
     private static void validateSnapshot(Snapshot s, Create r) {
         if (s == null
                 || !r.problemId().toString().equals(s.problemId())
-                || !"cpp".equals(s.languageId())
+                || !r.languageId().equals(s.languageId())
                 || !JudgeSources.consistent(s)
                 || s.problemTitle() == null) throw invalidSnapshot();
     }

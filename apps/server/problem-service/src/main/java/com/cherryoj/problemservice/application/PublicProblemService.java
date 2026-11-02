@@ -109,7 +109,7 @@ public class PublicProblemService {
                 .toList();
         List<ProblemLanguage> languages = mapper.findLanguages(List.of(row.problemId())).stream()
                 .map(languageRow -> new ProblemLanguage(
-                        languageRow.languageId(), displayName(languageRow.languageId()), languageRow.starterCode()))
+                        languageRow.languageId(), languageRow.displayName(), languageRow.starterCode()))
                 .toList();
         return new ProblemDetail(
                 row.problemId(),
@@ -151,7 +151,7 @@ public class PublicProblemService {
                 tags(row),
                 row.codeMode(),
                 languages.stream()
-                        .map(language -> new LanguageSummary(language.languageId(), displayName(language.languageId())))
+                        .map(language -> new LanguageSummary(language.languageId(), language.displayName()))
                         .toList());
     }
 
@@ -219,10 +219,6 @@ public class PublicProblemService {
         return value == null
                 ? null
                 : value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    private static String displayName(String languageId) {
-        return "cpp".equals(languageId) ? "C++" : languageId.toUpperCase(Locale.ROOT);
     }
 
     private static String name(Enum<?> value) {

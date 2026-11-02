@@ -48,7 +48,10 @@ public class CustomRunController {
 
     public record Request(
             @NotNull UUID problemId,
-            @NotNull @Pattern(regexp = "cpp") String languageId,
+
+            @NotNull @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId,
+
             @NotBlank @Size(max = 262144) String source,
             @NotNull @Size(max = 65536) String inputText) {
         @Override
@@ -71,14 +74,14 @@ public class CustomRunController {
         if (s == null
                 || !r.problemId().toString().equals(s.problemId())
                 || !JudgeSources.consistent(s)
-                || !"cpp".equals(s.languageId())) throw unavailable();
+                || !r.languageId().equals(s.languageId())) throw unavailable();
         // 与正式提交同一套合并：CORE 送驱动文件 + 用户文件，judging-service 据前缀行数换算报错行号。
         var sources = JudgeSources.of(s, r.source());
         var body = new java.util.LinkedHashMap<String, Object>(Map.of(
                 "problemId",
                 s.problemId(),
                 "languageId",
-                "cpp",
+                r.languageId(),
                 "source",
                 sources.source(),
                 "inputText",
@@ -126,7 +129,7 @@ public class CustomRunController {
                     "status", "cpuNs", "memoryBytes", "stdout", "stderr", "compileDiagnostic", "effectiveLimits"))
                 if (result.has(field)) output.set(field, result.get(field));
             output.put("problemId", s.problemId());
-            output.put("languageId", "cpp");
+            output.put("languageId", r.languageId());
             return ResponseEntity.ok().header("Cache-Control", "no-store").body(output);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

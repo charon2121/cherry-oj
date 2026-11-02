@@ -21,5 +21,7 @@ public class SubmissionSnapshotController {
 
     public record Request(
             @NotBlank @Pattern(regexp = "[0-9a-fA-F-]{36}") String problemId,
-            @NotBlank @Pattern(regexp = "cpp") String languageId) {}
+
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId) {}
 }

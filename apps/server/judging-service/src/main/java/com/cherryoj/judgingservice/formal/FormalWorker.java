@@ -142,7 +142,8 @@ public class FormalWorker {
         if (input == null
                 || !id.equals(input.submissionId())
                 || !"2".equals(input.contractVersion())
-                || !"cpp".equals(input.languageId())
+                || input.languageId() == null
+                || !input.languageId().matches(com.cherryoj.judgingservice.api.JudgingDtos.LANGUAGE_PATTERN)
                 || input.completeSource() == null
                 || input.completeSource().getBytes(StandardCharsets.UTF_8).length > 1_048_576
                 || input.sourceSha256() == null
