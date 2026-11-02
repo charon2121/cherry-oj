@@ -23,6 +23,9 @@ type Limits struct {
 }
 
 type RunSpec struct {
+	// Toolchain 选用哪门语言的工具链（隔离环境的只读根）：linux 后端必填，只能是语言编号，不是路径；
+	// 执行器在受信配置的 toolchains 目录下找同名目录（docs/protocols/sandbox-executor.md）。devhost 后端忽略它。
+	Toolchain string                `json:"toolchain,omitempty"`
 	Command   []string              `json:"command"`
 	Env       []string              `json:"env,omitempty"`
 	Stdin     *FileSource           `json:"stdin,omitempty"`

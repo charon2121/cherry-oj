@@ -64,22 +64,25 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/packages
-          key: rootfs-packages-${{ hashFiles('deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json') }}
+          key: rootfs-packages-${{ hashFiles('deploy/sandbox-linux/rootfs/locks/*.lock.json') }}
+          # 锁变了也先用最近的缓存，下载时只补缺的包；锁里没有的旧包随后删掉。
+          restore-keys: rootfs-packages-
       - name: 下载锁定软件包
         if: steps.packages.outputs.cache-hit != 'true'
-        run: >-
-          python3 deploy/sandbox-linux/rootfs/download.py
-          --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json
-          --output "$RUNNER_TEMP/packages" --address-failover
+        run: |
+          set -eu
+          python3 deploy/sandbox-linux/rootfs/toolchains.py union --output "$RUNNER_TEMP/packages.lock.json"
+          python3 deploy/sandbox-linux/rootfs/download.py --lock "$RUNNER_TEMP/packages.lock.json" \
+            --output "$RUNNER_TEMP/packages" --address-failover --resume
+          python3 deploy/sandbox-linux/rootfs/toolchains.py prune --lock "$RUNNER_TEMP/packages.lock.json" \
+            --packages "$RUNNER_TEMP/packages"
 
-      - name: 构建 judge、执行器与 rootfs
+      - name: 构建 judge、执行器与各语言工具链
         run: |
           set -eu
           sh deploy/sandbox-linux/build-release.sh "$RUNNER_TEMP/release"
-          python3 deploy/sandbox-linux/rootfs/build.py --lock "$RUNNER_TEMP/release/packages.lock.json" \
-            --packages "$RUNNER_TEMP/packages" --output "$RUNNER_TEMP/cpp-rootfs"
-          cp -a "$RUNNER_TEMP/cpp-rootfs/rootfs" "$RUNNER_TEMP/release/rootfs"
-          cp "$RUNNER_TEMP/cpp-rootfs/manifest.json" "$RUNNER_TEMP/release/manifest.json"
+          python3 deploy/sandbox-linux/rootfs/toolchains.py build --release "$RUNNER_TEMP/release" \
+            --packages "$RUNNER_TEMP/packages" --work "$RUNNER_TEMP/toolchain-work"
 
       - name: 安装并启动节点（正式安装器，并发数 2）
         run: |
@@ -94,7 +97,8 @@ jobs:
           python3 -B deploy/sandbox-linux/install/render.py --output "$RUNNER_TEMP/review" \
             --release ci-benchmark --node-id ci-benchmark \
             --control-url http://127.0.0.1:18084 --advertise-url "$JUDGE_URL" \
-            --manifest-sha256 "$(sha256sum "$RUNNER_TEMP/release/manifest.json" | cut -d' ' -f1)" --parallelism 2
+            $(python3 deploy/sandbox-linux/rootfs/toolchains.py digests --release "$RUNNER_TEMP/release" | sed 's/^/--toolchain=/') \
+            --parallelism 2
           sudo python3 -B deploy/sandbox-linux/install/manage.py install \
             --review "$RUNNER_TEMP/review" --release-source "$RUNNER_TEMP/release" --token-file "$RUNNER_TEMP/token"
           sudo python3 -B /opt/cherry-oj/operations/manage.py start

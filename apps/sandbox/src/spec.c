@@ -57,6 +57,17 @@ static int parse_limit(const char *v, int64_t max, int64_t *out) {
     return 0;
 }
 
+// 语言编号：小写字母开头，其后小写字母、数字或连字符，最长 32 个字符。
+static bool valid_toolchain(const char *v) {
+    size_t n = strlen(v);
+    if (n == 0 || n > MAX_TOOLCHAIN || v[0] < 'a' || v[0] > 'z')
+        return false;
+    for (size_t i = 1; i < n; i++)
+        if (!((v[i] >= 'a' && v[i] <= 'z') || (v[i] >= '0' && v[i] <= '9') || v[i] == '-'))
+            return false;
+    return true;
+}
+
 int spec_parse(char *data, size_t len, struct spec *s, char *err, size_t errlen) {
     memset(s, 0, sizeof *s);
     s->buffer = data;
@@ -120,6 +131,13 @@ int spec_parse(char *data, size_t len, struct spec *s, char *err, size_t errlen)
             struct input *in = &s->inputs[s->ninputs++];
             in->executable = v[0] == '1';
             strcpy(in->path, v + 2);
+        } else if (!strcmp(k, "toolchain")) {
+            // 只接受语言编号（与平台的语言编号同格式），不是路径；由受信配置决定它对应哪个目录。
+            if (s->toolchain[0] || !valid_toolchain(v)) {
+                set_error(err, errlen, "invalid or repeated toolchain");
+                return -1;
+            }
+            strcpy(s->toolchain, v);
         } else if (!strcmp(k, "output")) {
             if (s->noutputs == MAX_OUTPUTS)
                 goto too_many;
@@ -145,6 +163,10 @@ int spec_parse(char *data, size_t len, struct spec *s, char *err, size_t errlen)
             }
             limits[i].seen = true;
         }
+    }
+    if (!s->toolchain[0]) {
+        set_error(err, errlen, "missing toolchain");
+        return -1;
     }
     for (size_t i = 0; i < sizeof limits / sizeof limits[0]; i++)
         if (!limits[i].seen) {

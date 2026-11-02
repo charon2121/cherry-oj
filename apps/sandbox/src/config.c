@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -74,8 +75,8 @@ static bool overlaps(long long a, long long b, int n) { return a < b + n && b < 
 static bool inside(long long x, long long base, int n) { return x >= base && x < base + n; }
 
 static int validate(const struct config *c, char *err, size_t errlen) {
-    if (!c->rootfs[0] || !c->boxes[0] || !c->cgroup[0]) {
-        set_error(err, errlen, "config: rootfs, boxes and cgroup are required");
+    if (!c->toolchains[0] || !c->boxes[0] || !c->cgroup[0]) {
+        set_error(err, errlen, "config: toolchains, boxes and cgroup are required");
         return -1;
     }
     if (c->box_count < 1 || c->box_count > MAX_BOX_COUNT) {
@@ -133,8 +134,8 @@ int config_load(const char *path, struct config *c, char *err, size_t errlen) {
         const char *k = line, *v = eq + 1;
         long long n = 0;
         int rc;
-        if (!strcmp(k, "rootfs"))
-            rc = set_path(c->rootfs, sizeof c->rootfs, v);
+        if (!strcmp(k, "toolchains"))
+            rc = set_path(c->toolchains, sizeof c->toolchains, v);
         else if (!strcmp(k, "boxes"))
             rc = set_path(c->boxes, sizeof c->boxes, v);
         else if (!strcmp(k, "cgroup"))
@@ -161,4 +162,26 @@ int config_load(const char *path, struct config *c, char *err, size_t errlen) {
         }
     }
     return validate(c, err, errlen);
+}
+
+// 工具链的根目录来自受信配置，请求只能选其中一个名字（spec 已按语言编号的格式核过）。
+// 名字与 rootfs 两级都必须是真实目录（lstat：不跟随链接）、属于 root、组和其他用户不可写，
+// 否则一个可写或被换成链接的目录就能决定用户程序看到的整个文件系统。
+int toolchain_rootfs(const struct config *c, const char *toolchain, char *out, size_t cap, char *err, size_t errlen) {
+    char dir[PATH_MAX];
+    int n = snprintf(dir, sizeof dir, "%s/%s", c->toolchains, toolchain);
+    int m = n < 0 || (size_t)n >= sizeof dir ? -1 : snprintf(out, cap, "%s/rootfs", dir);
+    if (m < 0 || (size_t)m >= cap) {
+        set_error(err, errlen, "toolchain path is too long");
+        return -1;
+    }
+    const char *paths[] = {dir, out};
+    for (size_t i = 0; i < sizeof paths / sizeof paths[0]; i++) {
+        struct stat st;
+        if (lstat(paths[i], &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != 0 || (st.st_mode & 022)) {
+            set_error(err, errlen, "toolchain %s is not installed as a root-owned directory", toolchain);
+            return -1;
+        }
+    }
+    return 0;
 }

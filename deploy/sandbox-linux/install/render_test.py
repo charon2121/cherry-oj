@@ -9,12 +9,16 @@ import manage
 from render import render
 
 
+# 每门语言一棵独立的 rootfs：语言编号 → 该语言 rootfs 清单的 SHA256。
+TOOLCHAINS = {'cpp': 'a'*64, 'c': 'b'*64}
+
+
 class DeploymentTests(unittest.TestCase):
     def test_review_plan_has_no_embedded_token_and_separate_identities(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'review'
             render(root,'test-release','cherry-linux-1','http://127.0.0.1:18084',
-                   'http://127.0.0.1:15051','a'*64)
+                   'http://127.0.0.1:15051',TOOLCHAINS)
             plan=json.loads((root/'plan.json').read_text())
             self.assertEqual(len(set(plan['accounts'].values())),3)
             self.assertFalse(plan['startAutomatically'])
@@ -29,12 +33,24 @@ class DeploymentTests(unittest.TestCase):
             self.assertEqual(len({executor['service_uid'],executor['payload_uid'],executor['init_uid']}),3)
             start=json.loads((root/'judge-start.json').read_text())
             # 资源限制只加在每次执行的组上，judge 的启动配置不带总量上限。
-            self.assertEqual(set(start),{'group','rootfs','manifest','manifestSha256','command'})
+            self.assertEqual(set(start),{'group','toolchains','command'})
+            # 启动脚本逐门核对 rootfs：每门语言的路径都在这个发布的 toolchains/<语言>/ 下，摘要来自审核计划。
+            self.assertEqual([t['language'] for t in start['toolchains']],['c','cpp'])
+            for t in start['toolchains']:
+                self.assertEqual(t['manifestSha256'],TOOLCHAINS[t['language']])
+                self.assertTrue(t['rootfs'].endswith('/releases/test-release/toolchains/'+t['language']+'/rootfs'))
+            self.assertEqual(plan['toolchains'],{'c':'b'*64,'cpp':'a'*64})
+            # 执行器的受信配置经过 current：切换发布不用改它；探针用排序后的第一门语言。
+            self.assertEqual(executor['toolchains'],str(manage.STATE/'current'/'toolchains'))
+            self.assertNotIn('rootfs',executor)
+            self.assertEqual(judge['execution']['probeToolchain'],'c')
             self.assertEqual(start['group']+'/jobs',executor['cgroup'])
             self.assertEqual(start['command'][-1],str(manage.ETC/'judge.json'))
             manifest=json.loads((root/'deployment.template.json').read_text())
             self.assertNotIn('limits',manifest)
-            self.assertEqual(len(manifest['files']),8)
+            # 固定 6 项（执行器、受信配置、启动参数、启动脚本、两个单元）+ 每门语言的清单与包锁。
+            self.assertEqual(len(manifest['files']),6+2*len(TOOLCHAINS))
+            self.assertIn('toolchain.cpp.lock',manifest['files'])
             self.assertNotIn('judgeConfig',manifest['files'])
             unit=(root/'cherry-sandbox-judge.service').read_text()
             self.assertIn('User=cherry-judge',unit)
@@ -52,10 +68,13 @@ class DeploymentTests(unittest.TestCase):
                                 ('v1','http://example.com:8084')]:
                 with self.assertRaises(ValueError):
                     render(Path(temp)/'review',release,'node-1',url,
-                           'http://127.0.0.1:15051','a'*64)
+                           'http://127.0.0.1:15051',TOOLCHAINS)
+            for bad in ({}, {'Cpp':'a'*64}, {'cpp':'short'}):
+                with self.assertRaises(ValueError):
+                    render(Path(temp)/'review-bad','v1','node-1','http://127.0.0.1:18084','http://127.0.0.1:15051',bad)
             with self.assertRaises(FileExistsError):
                 render(Path(temp),'v1','node-1','http://127.0.0.1:18084',
-                       'http://127.0.0.1:15051','a'*64)
+                       'http://127.0.0.1:15051',TOOLCHAINS)
 
     def test_operations_refuse_modified_installation_before_systemctl(self):
         with patch.object(manage,'owned',side_effect=ValueError('modified installation')), \
@@ -92,7 +111,7 @@ class DeploymentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'review'
             render(root,'test-release','cherry-linux-1','http://127.0.0.1:18084',
-                   'http://127.0.0.1:15051','a'*64,parallelism=3)
+                   'http://127.0.0.1:15051',TOOLCHAINS,parallelism=3)
             plan=json.loads((root/'plan.json').read_text())
             executor=dict(line.split('=',1) for line in (root/'executor.conf').read_text().splitlines())
             judge=json.loads((root/'judge.json').read_text())
@@ -107,7 +126,7 @@ class DeploymentTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as temp:
                 with self.assertRaises(ValueError):
                     render(Path(temp)/'review','test-release','cherry-linux-1','http://127.0.0.1:18084',
-                           'http://127.0.0.1:15051','a'*64,parallelism=bad)
+                           'http://127.0.0.1:15051',TOOLCHAINS,parallelism=bad)
 
     def test_max_parallelism_keeps_identity_ranges_apart(self):
         from layout import INIT_UID, JUDGE_UID, MAX_PARALLELISM, PAYLOAD_UID, accounts

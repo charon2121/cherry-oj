@@ -3,7 +3,7 @@
 
 以 judge 的服务身份在自己的 systemd 单元里运行（Delegate=cpu memory pids）：
 
-1. rootfs 必须与固定摘要的清单逐文件一致——多一个、少一个、内容或权限不同都拒绝启动。
+1. 每门语言的 rootfs 都必须与固定摘要的清单逐文件一致——多一个、少一个、内容或权限不同都拒绝启动。
    执行器每次把这棵树只读挂进隔离环境，被篡改的 rootfs 等于被篡改的编译器与运行时。
 2. 把本进程移进 supervisor 叶子，让委派根不含进程，再建 jobs 并启用控制器；
    judge 进程内的执行层调用执行器，执行器在 jobs 下为每次执行建组。资源限制只加在每次执行的组上
@@ -112,7 +112,12 @@ def main():
     config_path = Path(sys.argv[1])
     protected(config_path)
     config = json.loads(config_path.read_text())
-    verify_rootfs(Path(config['rootfs']), read_manifest(Path(config['manifest']), config['manifestSha256']))
+    # 每门语言一棵独立的 rootfs，逐门核对；任何一门对不上都拒绝启动，不带着被改过的工具链上线。
+    toolchains = config['toolchains']
+    if not isinstance(toolchains, list) or not toolchains:
+        raise ValueError('start config lists no toolchains')
+    for toolchain in toolchains:
+        verify_rootfs(Path(toolchain['rootfs']), read_manifest(Path(toolchain['manifest']), toolchain['manifestSha256']))
     prepare_groups(Path(config['group']))
     command = config['command']
     os.execv(command[0], command)

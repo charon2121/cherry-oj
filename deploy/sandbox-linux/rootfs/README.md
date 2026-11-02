@@ -2,18 +2,32 @@
 
 `build.py` 在有 `dpkg-deb` 的 Linux 构建机离线解包固定包集合，不运行安装脚本，不安装到宿主，不连接服务器。构建失败保留独立输出目录供检查，不覆盖已有目录。
 
-包锁文件由实际选定的 Ubuntu/Debian 快照产生，必须包含以下字段（示意值不能用于构建）：
+**每门语言一份包锁、一棵独立的 rootfs**：[locks/](./locks/)`<语言>.lock.json`，文件名就是语言编号，必须与锁里的
+`language` 一致，且在 judge 的语言注册表里（`apps/judge-engine/judge/language`；judge 与本目录的测试都会核对）。
+包锁由 `lock.py` 从实际选定的快照解析产生，字段如下（示意值不能用于构建）：
 
 ```json
-{"version":1,"architecture":"amd64","layout":"usr-merged","source":"发行版快照的可追溯 URL/日期","languages":["cpp"],"packages":[{"file":"实际文件.deb","package":"实际包名","version":"完整版本","architecture":"amd64","sha256":"实际包 SHA-256"}]}
+{"version":1,"architecture":"amd64","layout":"usr-merged","source":"发行版快照的可追溯 URL/日期","language":"c","roots":["gcc","libc6-dev","coreutils"],"packages":[{"file":"实际文件.deb","package":"实际包名","version":"完整版本","architecture":"amd64","sha256":"实际包 SHA-256"}]}
 ```
 
-`languages` 列出这份 rootfs 装了工具链的语言，非空、不重复，每门都必须在 judge 的语言注册表里
-（`apps/judge-engine/judge/language`），judge 的测试会核对仓库里的包锁。judge 启动时从部署清单登记的包锁读取它，
-逐门编译运行冒烟程序，全部通过才以这些语言注册；任何一门失败就拒绝上线。包锁的摘要由部署清单绑定，
-改 `languages` 等于换一份 rootfs，要重新构建并重装节点。
+发布里每门语言装在 `toolchains/<语言>/{rootfs,manifest.json,packages.lock.json}`；节点能判哪些语言就是装了哪些工具链。
+judge 启动时逐门编译运行冒烟程序，全部通过才以这些语言注册，任何一门失败就拒绝上线。每门的 manifest 与包锁摘要
+都由部署清单绑定；加一门语言、换一门的工具链，都是出一个新发布。
 
-准备 C++ 编译器、binutils、运行库、动态加载器、提供 `/usr/bin/true` 的 coreutils 及其完整依赖，同时保留包内 `usr/share/doc/*/copyright`。不得删除来源许可证。当前 [ubuntu24-amd64-smoke.lock.json](./ubuntu24-amd64-smoke.lock.json) 的56包集合已通过 Ubuntu 24.04 / Linux 6.8 / amd64 有界 C++ 编译运行冒烟；尚未通过完整安全验收，不能作为正式节点版本承诺。
+每门 rootfs 只装这门语言要的编译器或解释器、运行库、动态加载器、提供 `/usr/bin/true` 的 coreutils 及其完整依赖，
+同时保留包内 `usr/share/doc/*/copyright`，不得删除来源许可证。当前 `cpp`（56 包）与 `c`（51 包）已通过 Ubuntu 24.04 /
+Linux 6.8 / amd64 编译运行冒烟与 Benchmark；尚未通过完整安全验收，不能作为正式节点版本承诺。
+
+组装发布里的全部工具链（下载与缓存只需要所有锁的并集，同一个包在不同锁里摘要必须相同）：
+
+```sh
+python3 deploy/sandbox-linux/rootfs/toolchains.py union --output UNION.lock.json
+python3 deploy/sandbox-linux/rootfs/download.py --lock UNION.lock.json --output PACKAGES_DIR
+python3 deploy/sandbox-linux/rootfs/toolchains.py build --release RELEASE_DIR --packages PACKAGES_DIR --work WORK_DIR
+python3 deploy/sandbox-linux/rootfs/toolchains.py digests --release RELEASE_DIR    # 交给 render.py --toolchain
+```
+
+单独构建一棵 rootfs：
 
 ```sh
 python3 deploy/sandbox-linux/rootfs/build.py \
@@ -24,11 +38,11 @@ python3 deploy/sandbox-linux/rootfs/build.py \
 
 输出含 `rootfs/`、`manifest.json`、原始锁文件。构建器清除 setuid/setgid 和组/其他用户写权限，将硬链接转换为独立 inode，拒绝特殊文件；预建执行器要用的挂载点（`work`、`tmp`、`proc`、`dev`、`.oldroot`）。manifest 覆盖全部条目、模式、链接目标和文件摘要，单独打印其 SHA-256。时间戳不参与身份，包内容与权限参与。
 
-运行时将整个版本目录安装为 root 所有、非 root 不可写，sandbox 的启动配置固定 rootfs、manifest 路径与 manifest 摘要。sandbox 启动脚本（install/sandbox-start.py）逐项校验，额外文件、缺失文件、摘要或权限不符均拒绝启动；不通过重新生成摘要来掩盖部署偏差。执行器每次把这棵树只读挂进隔离环境，payload 的请求不能选择挂载来源。
+运行时将整个版本目录安装为 root 所有、非 root 不可写，judge 的启动配置固定每门语言的 rootfs、manifest 路径与 manifest 摘要。启动脚本（install/judge-start.py）逐门逐项校验，额外文件、缺失文件、摘要或权限不符均拒绝启动；不通过重新生成摘要来掩盖部署偏差。执行器每次把请求语言的那棵树只读挂进隔离环境；请求只能给语言编号，挂载来源由受信配置的 `toolchains` 决定。
 
 测试：`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s deploy/sandbox-linux/rootfs -p '*_test.py'`。这些测试只验证清单和文件处理，实际 g++ 编译/链接及隔离运行由 Benchmark 工作流在真实节点上验证。
 
-judge 开放 HTTP 端口前，进程内执行层会通过执行器运行 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 judge 当作只读探测。
+judge 开放 HTTP 端口前，进程内执行层会通过执行器运行 `execution.probeToolchain` 那门语言 rootfs 中的 `true`，要求正常退出、真实资源计量和完整清理成功。此冒烟会实际使用 namespace/cgroup；部署时需先授权并准备独立节点资源，不能把启动 judge 当作只读探测。
 
 `layout: "usr-merged"` 显式要求构建器为存在的 usr/bin、usr/sbin、usr/lib、usr/lib64 建立根目录固定相对别名。已有冲突或未知布局拒绝构建；省略 layout 不创建别名。布局计入锁与清单摘要。
 
@@ -49,7 +63,7 @@ Pre-Depends 解析根包的闭包：同名包取最高版本（dpkg 版本比较
 ## 取得锁定包
 
 ```sh
-python3 deploy/sandbox-linux/rootfs/download.py --lock <锁文件> --output <新目录>
+python3 deploy/sandbox-linux/rootfs/download.py --lock <锁文件> --output <新目录> [--resume]
 ```
 
 下载器按包锁从 Ubuntu 快照 `https://snapshot.ubuntu.com/ubuntu/20260910T000000Z/`（生成包锁时的时间点）
@@ -57,7 +71,7 @@ python3 deploy/sandbox-linux/rootfs/download.py --lock <锁文件> --output <新
 版本，锁定版本被更新替换后就从 pool 删除（2026-10 实测 glibc、OpenSSL、linux-libc-dev 共 5 个包已 404）。
 快照地址写在 `download.py` 的 `SNAPSHOT` 常量里，更换包锁时一起更换。
 
-索引仅用于定位 pool 目录，授权内容仍是锁文件摘要；`--resume` 只复用哈希一致的已有文件。apt 本地文件名
+索引仅用于定位 pool 目录，授权内容仍是锁文件摘要；`--resume` 只复用哈希一致的已有文件，锁里的包都已在目录里时不访问快照。apt 本地文件名
 中的 epoch 与 pool 文件名不同，下载器明确处理这一规则。
 
 长期留存暂不处理：Ubuntu 说明快照预期至少保留两年但不承诺永久，快照取不到时构建会失败，届时再定方案。

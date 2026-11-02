@@ -75,7 +75,7 @@ static int check_mount_point(const char *root, const char *path) {
 }
 
 static void prepare_root(const struct child_plan *plan) {
-    const char *root = plan->config->rootfs;
+    const char *root = plan->spec->rootfs;
     char p[PATH_MAX];
     TRY(PHASE_ROOTFS, mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL));
     TRY(PHASE_ROOTFS, sethostname("cherry-sandbox", 14));

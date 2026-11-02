@@ -83,14 +83,16 @@ class SandboxRunner:
         if len(group) > self.executor.config.box_count:
             raise ExecutorError(f"并发组有 {len(group)} 个成员，超过执行器配置的 box_count={self.executor.config.box_count}")
         if len(group) == 1:
-            return [self.executor.run_binary(binary, 0, self._limits(item, group[0]), self._stdin(item, group[0]))]
+            return [self.executor.run_binary(binary, 0, self._limits(item, group[0]), self._stdin(item, group[0]),
+                                             toolchain=item.language)]
         barrier = threading.Barrier(len(group))
         calls: list[Call | BaseException] = [ExecutorError("没有运行")] * len(group)
 
         def worker(position: int) -> None:
             try:
                 calls[position] = self.executor.run_binary(
-                    binary, position, self._limits(item, group[position]), self._stdin(item, group[position]), barrier)
+                    binary, position, self._limits(item, group[position]), self._stdin(item, group[position]), barrier,
+                    toolchain=item.language)
             except BaseException as error:  # noqa: BLE001  交给调用方统一处理
                 calls[position] = error
                 barrier.abort()
@@ -134,7 +136,7 @@ class SandboxRunner:
             self._probe_binary = binary
         limits = {"cpuNs": 1_000_000_000, "memoryBytes": 256 << 20, "clockNs": 3_000_000_000,
                   "maxProcesses": DEFAULT_PROCESSES, "stdoutMaxBytes": DEFAULT_OUTPUT, "stderrMaxBytes": DEFAULT_OUTPUT}
-        call = self.executor.run_binary(self._probe_binary, 0, limits, b"")
+        call = self.executor.run_binary(self._probe_binary, 0, limits, b"", toolchain="cpp")
         observed, problems = self._observe(call)
         if observed is None:
             return problems

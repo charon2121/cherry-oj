@@ -20,6 +20,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
+TOOLCHAIN = 'test'  # 测试用的工具链名；真实部署里是语言编号
 LIMITS = dict(cpu_ns=2_000_000_000, clock_ns=5_000_000_000, memory_bytes=256 << 20, max_processes=32,
               stdout_max_bytes=1 << 20, stderr_max_bytes=64 << 10)
 SERVICE_NAME = 'cherry-sbx-test'
@@ -53,10 +54,12 @@ def setup(args):
     service = service_identity(args.service_uid)
     root = Path(args.root)
     env.service, env.jobs = service, prepare_jobs(args.jobs)
-    env.rootfs, env.boxes = root / 'rootfs', root / 'boxes'
+    # 工具链布局：<toolchains>/<语言>/rootfs，请求用 toolchain=<语言> 选择（docs/protocols/sandbox-executor.md）。
+    env.toolchains, env.boxes = root / 'toolchains', root / 'boxes'
+    env.rootfs = env.toolchains / TOOLCHAIN / 'rootfs'
     env.payload_uid, env.init_uid = args.payload_uid, args.init_uid
     env.binary = Path(args.install)
-    for path in (env.rootfs, env.boxes):
+    for path in (env.toolchains, env.boxes, root / 'rootfs'):
         shutil.rmtree(path, ignore_errors=True)
     for d in ['work', 'tmp', 'proc', 'dev', '.oldroot', 'usr/bin', 'bin', 'etc']:
         (env.rootfs / d).mkdir(parents=True, exist_ok=True)
@@ -73,7 +76,11 @@ def setup(args):
             os.chown(d, service.pw_uid, service.pw_gid)
     config = Path(args.config)
     config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(f'rootfs={env.rootfs}\nboxes={env.boxes}\ncgroup={env.jobs}\nbox_count=2\n'
+    # 一个不属于 root 的工具链与一个指向别处的链接：执行器都必须拒绝选用。
+    (env.toolchains / 'foreign' / 'rootfs').mkdir(parents=True)
+    os.chown(env.toolchains / 'foreign', service.pw_uid, service.pw_gid)
+    (env.toolchains / 'linked').symlink_to(env.toolchains / TOOLCHAIN)
+    config.write_text(f'toolchains={env.toolchains}\nboxes={env.boxes}\ncgroup={env.jobs}\nbox_count=2\n'
                       f'service_uid={service.pw_uid}\nservice_gid={service.pw_gid}\n'
                       f'payload_uid={env.payload_uid}\npayload_gid={env.payload_uid}\n'
                       f'init_uid={env.init_uid}\ninit_gid={env.init_uid}\n')
@@ -90,11 +97,12 @@ class Box:
     def __init__(self, service, index=0):
         self.service, self.index, self.dir = service, index, env.boxes / str(index)
 
-    def prepare(self, args, inputs=(), stdin=b'', outputs=(), env=(), **limits):
+    def prepare(self, args, inputs=(), stdin=b'', outputs=(), env=(), toolchain=TOOLCHAIN, **limits):
         for sub in ['in', 'out']:
             for f in (self.dir / sub).iterdir():
                 shutil.rmtree(f) if f.is_dir() else f.unlink()
-        records = [f'arg={a}' for a in args] + [f'env={e}' for e in env]
+        records = [] if toolchain is None else [f'toolchain={toolchain}']
+        records += [f'arg={a}' for a in args] + [f'env={e}' for e in env]
         for i, (path, data, executable) in enumerate(inputs):
             records.append(f'input={int(executable)}:{path}')
             self.write(f'in/{i}', data)
@@ -186,7 +194,9 @@ class ExecutorTest(unittest.TestCase):
 
     def test_invalid_requests_are_refused(self):
         for args, kwargs in [(['/usr/bin/probe'], {}), (['probe'], {'inputs': [('../x', b'', False)]}),
-                             (['probe'], {'cpu_ns': 0})]:
+                             (['probe'], {'cpu_ns': 0}), (['probe'], {'toolchain': None}),
+                             (['probe'], {'toolchain': 'missing'}), (['probe'], {'toolchain': '../test'}),
+                             (['probe'], {'toolchain': 'foreign'}), (['probe'], {'toolchain': 'linked'})]:
             code, _, err = self.box.run(args, **kwargs)
             self.assertEqual(code, 1, err)
 

@@ -47,7 +47,7 @@ func printFacts(line string) string {
 }
 
 func testJob() Job {
-	return Job{Command: []string{"probe", "echo"}, Env: []string{"A=b"}, Outputs: []string{"a.out"},
+	return Job{Toolchain: "cpp", Command: []string{"probe", "echo"}, Env: []string{"A=b"}, Outputs: []string{"a.out"},
 		Inputs: []NamedSource{{Name: "src/main.cpp", Source: Source{Reader: strings.NewReader("int main(){}")}}},
 		Stdin:  &Source{Reader: strings.NewReader("hello")},
 		Limits: contract.Limits{CPUNs: 1, ClockNs: 2, MemoryBytes: 3, MaxProcesses: 4, StdoutMaxBytes: 1024, StderrMaxBytes: 1024}}
@@ -84,7 +84,7 @@ printf '{"version":1,"exitCode":0,"signal":0,"cpuNs":5,"memoryBytes":6,"clockNs"
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, record := range []string{"arg=probe", "arg=echo", "env=A=b", "input=0:src/main.cpp", "output=a.out",
+	for _, record := range []string{"toolchain=cpp", "arg=probe", "arg=echo", "env=A=b", "input=0:src/main.cpp", "output=a.out",
 		"cpu_ns=1", "clock_ns=2", "memory_bytes=3", "max_processes=4", "stdout_max_bytes=1024", "stderr_max_bytes=1024"} {
 		if !bytes.Contains(spec, []byte(record+"\x00")) {
 			t.Errorf("spec is missing %q: %q", record, spec)
@@ -199,5 +199,16 @@ func TestExecutorBinaryMustBeSetuidRoot(t *testing.T) {
 	}
 	if _, err := NewExecutor("sandbox", filepath.Join(t.TempDir(), "boxes"), 1); err == nil {
 		t.Fatal("a relative executor path was accepted")
+	}
+}
+
+// 工具链只能是语言编号：空的或带路径的在写请求前就拒绝，不交给执行器。
+func TestExecutorRejectsInvalidToolchains(t *testing.T) {
+	dir := t.TempDir()
+	for _, toolchain := range []string{"", "../cpp", "/opt/x", "Cpp"} {
+		job := Job{Toolchain: toolchain, Command: []string{"true"}}
+		if err := writeRequest(dir, job); err == nil {
+			t.Errorf("toolchain %q should be rejected", toolchain)
+		}
 	}
 }

@@ -8,9 +8,12 @@ def verify_build(build: Path):
     data = read_json(build / 'build.json')
     if data['sourceSha'] != git_sha() or data['harnessSha'] != harness_sha() or data['architecture'] != 'x86_64':
         raise ValueError('build provenance mismatch')
-    paths = {'packageLock': build / 'release/packages.lock.json', 'rootfsManifest': build / 'cpp-rootfs/manifest.json'}
-    if any(digest(path) != data[key] for key, path in paths.items()):
+    if digest(build / 'packages.lock.json') != data['packageLock']:
         raise ValueError('build artifact digest mismatch')
+    root = build / 'release/toolchains'
+    present = {path.name: digest(path / 'manifest.json') for path in sorted(root.iterdir())}
+    if not present or present != data['toolchains']:
+        raise ValueError('toolchain manifest digest mismatch')
     for name, path in (('judge', 'bin/judge'), ('executor', 'libexec/sandbox')):
         if digest(build / 'release' / path) != data['binaries'][name]:
             raise ValueError('binary digest mismatch')

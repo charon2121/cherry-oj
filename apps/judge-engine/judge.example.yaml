@@ -87,7 +87,7 @@ judge:
   node:
     enabled: false
     # 节点声明的语言：只用于没有部署清单的开发环境（devhost），启动时逐门编译运行冒烟程序，
-    # 任何一门失败就拒绝上线。原生部署不能设置，语言取自发布里的包锁（packages.lock.json 的 languages）。
+    # 任何一门失败就拒绝上线。原生部署不能设置，语言取自部署清单登记的工具链（发布里的 toolchains/<语言>/）。
     languages: [cpp]
     id: judge-local-1
     controlPlaneURL: http://127.0.0.1:8084
@@ -113,6 +113,8 @@ execution:
   executorPath: /opt/cherry-oj/current/libexec/sandbox
   # 交给执行器的 box 目录根：本进程独占、0700，须与执行器受信配置中的 boxes 一致。
   boxesRoot: ./data/sandbox-boxes
+  # 启动时探测执行器用哪门语言的工具链（请求的 toolchain=）；linux 后端必填，必须是节点装了的语言。
+  probeToolchain: cpp
   # 源码、编译产物等在多次执行之间传递的临时文件。
   store:
     root: ./data/sandbox-blobs

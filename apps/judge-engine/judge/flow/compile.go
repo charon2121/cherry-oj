@@ -16,6 +16,7 @@ func (j *judgment) compile(ctx context.Context) (ref string, early *contract.Jud
 	}
 
 	run, err := sb.Run(ctx, contract.RunSpec{
+		Toolchain: lang.Name,
 		Command:   lang.Compile,
 		Inputs:    sourceInputs(lang, j.sourceRef, j.solutionRef),
 		Artifacts: []string{lang.CompiledArtifact},

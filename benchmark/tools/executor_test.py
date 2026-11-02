@@ -38,16 +38,16 @@ class FactsTest(unittest.TestCase):
 class SpecTest(unittest.TestCase):
     def test_records_are_nul_terminated_key_values(self):
         limits = {"cpuNs": 1, "memoryBytes": 2, "clockNs": 3, "maxProcesses": 4, "stdoutMaxBytes": 5, "stderrMaxBytes": 6}
-        data = executor.spec_bytes(["g++", "Main.cpp"], limits, [("Main.cpp", False), ("Main", True)], ["Main"])
+        data = executor.spec_bytes("cpp", ["g++", "Main.cpp"], limits, [("Main.cpp", False), ("Main", True)], ["Main"])
         self.assertTrue(data.endswith(b"\0"))
         self.assertEqual(data[:-1].split(b"\0"), [
-            b"arg=g++", b"arg=Main.cpp", b"input=0:Main.cpp", b"input=1:Main", b"output=Main", b"cpu_ns=1",
+            b"toolchain=cpp", b"arg=g++", b"arg=Main.cpp", b"input=0:Main.cpp", b"input=1:Main", b"output=Main", b"cpu_ns=1",
             b"clock_ns=3", b"memory_bytes=2", b"max_processes=4", b"stdout_max_bytes=5", b"stderr_max_bytes=6"])
 
     def test_nul_in_a_record_is_refused(self):
         limits = {name: 1 for name in executor.KEYS}
         with self.assertRaises(executor.ExecutorError):
-            executor.spec_bytes(["a\0b"], limits, [], [])
+            executor.spec_bytes("cpp", ["a\0b"], limits, [], [])
 
 
 class ConfigTest(unittest.TestCase):
@@ -81,7 +81,7 @@ class CallTest(unittest.TestCase):
     def test_compile_then_run_follows_the_protocol(self):
         binary, compiled = self.executor.compile(fake_executor.program(stdout="hi\n", stderr="note\n"), "cpp")
         self.assertIsNotNone(binary)
-        ran = self.executor.run_binary(binary, 0, self.limits, b"stdin-text")
+        ran = self.executor.run_binary(binary, 0, self.limits, b"stdin-text", toolchain="cpp")
         self.assertEqual((ran.exit_code, ran.stdout, ran.stderr), (0, b"hi\n", b"note\n"))
         calls = fake_executor.calls(self.dir)
         self.assertEqual(calls[0]["arg"], ["g++", "Main.cpp", "-o", "Main", "-O2", "-std=c++17"])
@@ -99,14 +99,14 @@ class CallTest(unittest.TestCase):
 
     def test_unexpected_files_are_reported_as_leftovers(self):
         binary, _ = self.executor.compile(fake_executor.program(leftover=True), "cpp")
-        self.assertEqual(self.executor.run_binary(binary, 0, self.limits, b"").leftovers, ["out/unexpected"])
+        self.assertEqual(self.executor.run_binary(binary, 0, self.limits, b"", toolchain="cpp").leftovers, ["out/unexpected"])
 
     def test_refusal_and_unreclaimed_exit_codes(self):
         binary, _ = self.executor.compile(fake_executor.program(exit=1), "cpp")
-        refused = self.executor.run_binary(binary, 0, self.limits, b"")
+        refused = self.executor.run_binary(binary, 0, self.limits, b"", toolchain="cpp")
         self.assertEqual((refused.exit_code, refused.facts), (1, None))
         binary, _ = self.executor.compile(fake_executor.program(exit=2), "cpp")
-        self.assertEqual(self.executor.run_binary(binary, 0, self.limits, b"").exit_code, 2)
+        self.assertEqual(self.executor.run_binary(binary, 0, self.limits, b"", toolchain="cpp").exit_code, 2)
 
     def test_box_out_of_range(self):
         with self.assertRaises(executor.ExecutorError):
@@ -114,7 +114,7 @@ class CallTest(unittest.TestCase):
 
     def test_clear_leaves_empty_in_and_out(self):
         binary, _ = self.executor.compile(fake_executor.program(stdout="x"), "cpp")
-        self.executor.run_binary(binary, 0, self.limits, b"")
+        self.executor.run_binary(binary, 0, self.limits, b"", toolchain="cpp")
         self.executor.clear(0)
         box = self.executor.box(0)
         self.assertEqual(sorted(p.name for p in box.iterdir()), ["in", "out"])

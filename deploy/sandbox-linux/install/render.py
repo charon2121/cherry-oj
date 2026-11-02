@@ -28,13 +28,21 @@ def origin(value):
     return value
 
 
-def render(output, release, node_id, control_url, advertise_url, manifest_hash, parallelism=1):
+LANGUAGE = re.compile(r'[a-z][a-z0-9-]{0,31}')
+
+
+def render(output, release, node_id, control_url, advertise_url, toolchains, parallelism=1):
+    """toolchains：语言编号 → 该语言 rootfs 清单（manifest.json）的 SHA256，每门语言一棵独立的 rootfs。"""
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}', release):
         raise ValueError('invalid release')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}', node_id):
         raise ValueError('invalid node id')
-    if not re.fullmatch('[0-9a-f]{64}', manifest_hash):
-        raise ValueError('rootfs manifest SHA256 required')
+    if not toolchains:
+        raise ValueError('at least one toolchain required')
+    for language, manifest_hash in toolchains.items():
+        if not LANGUAGE.fullmatch(language) or not re.fullmatch('[0-9a-f]{64}', manifest_hash):
+            raise ValueError('toolchain needs a language id and its rootfs manifest SHA256: ' + language)
+    languages = sorted(toolchains)
     control_url, advertise_url = origin(control_url), origin(advertise_url)
     node_accounts = accounts(parallelism)
     output.mkdir(mode=0o700)
@@ -45,14 +53,18 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash, 
         shutil.copyfile(source / name, output / name)
     root = STATE / 'releases' / release
     # 每次执行占用一个 box；执行层的并发数与执行器的 box 数从 parallelism 这一个值渲染，不能各写各的。
+    # toolchains 经过 current：切换发布只改 current，执行器的受信配置不用跟着改（docs/protocols/install-layout.md）。
     executor = '\n'.join([
-        'rootfs=' + str(root / 'rootfs'), 'boxes=' + str(BOXES_ROOT), 'cgroup=' + JUDGE_GROUP + '/jobs',
+        'toolchains=' + str(STATE / 'current' / 'toolchains'), 'boxes=' + str(BOXES_ROOT), 'cgroup=' + JUDGE_GROUP + '/jobs',
         'box_count=' + str(parallelism), f'service_uid={JUDGE_UID}', f'service_gid={JUDGE_UID}',
         f'payload_uid={PAYLOAD_UID}', f'payload_gid={PAYLOAD_UID}', f'init_uid={INIT_UID}', f'init_gid={INIT_UID}']) + '\n'
     (output / 'executor.conf').write_text(executor)
     (output / 'executor.conf').chmod(0o644)
-    start = dict(group=JUDGE_GROUP, rootfs=str(root / 'rootfs'), manifest=str(root / 'manifest.json'),
-                 manifestSha256=manifest_hash,
+    # 启动脚本逐门核对 rootfs 与清单；路径是这个发布的真实目录，摘要绑定审核过的清单。
+    start = dict(group=JUDGE_GROUP, toolchains=[
+        dict(language=language, rootfs=str(root / 'toolchains' / language / 'rootfs'),
+             manifest=str(root / 'toolchains' / language / 'manifest.json'), manifestSha256=toolchains[language])
+        for language in languages],
                  command=[str(STATE / 'current/bin/judge'), '-config', str(ETC / 'judge.json')])
     judge = dict(logging=dict(path=str(JUDGE_DATA / 'logs')), judge=dict(
         httpAddr='127.0.0.1:15051', testdata=dict(workRoot=str(JUDGE_DATA / 'testdata')),
@@ -61,20 +73,22 @@ def render(output, release, node_id, control_url, advertise_url, manifest_hash, 
                   advertiseURL=advertise_url, deploymentManifest=str(ETC/'deployment.json'),
                   controlToken='REPLACE_FROM_PRIVATE_TOKEN_FILE')),
         execution=dict(backend='linux', executorPath=str(EXECUTOR), boxesRoot=str(BOXES_ROOT),
-                       parallelism=parallelism, queueSize=4,
+                       probeToolchain=languages[0], parallelism=parallelism, queueSize=4,
                        store=dict(root=str(BLOBS_ROOT), maxBlobBytes=64 << 20, maxTotalBytes=256 << 20,
                                   maxEntries=128, retention='1h')))
     write_json(output/'judge-start.json', start)
     write_json(output/'judge.json', judge, 0o600)
     write_json(output/'plan.json', dict(version=1, release=release, nodeID=node_id, parallelism=parallelism,
-        accounts=node_accounts, units=list(UNITS), rootfsSHA256=manifest_hash,
+        accounts=node_accounts, units=list(UNITS), toolchains={language: toolchains[language] for language in languages},
         directories=[str(STATE)],
         controlURL=control_url, advertiseURL=advertise_url,
         startAutomatically=False, deleteUserData=False, reboot=False))
     files = {'executor': root/'libexec/sandbox',
-             'rootfsManifest': root/'manifest.json', 'toolchainLock': root/'packages.lock.json',
              'executorConfig': ETC/'executor.conf', 'startConfig': ETC/'judge-start.json',
              'bootstrap': ETC/'judge-start.py'}
+    for language in languages:
+        files[f'toolchain.{language}.manifest'] = root/'toolchains'/language/'manifest.json'
+        files[f'toolchain.{language}.lock'] = root/'toolchains'/language/'packages.lock.json'
     for key, name in zip(('slice','judgeUnit'),UNITS):
         files[key] = Path('/etc/systemd/system')/name
     # Release hashes are filled from the supplied immutable release by the installer.
@@ -89,10 +103,17 @@ def main():
     parser.add_argument('--node-id', required=True)
     parser.add_argument('--control-url', required=True)
     parser.add_argument('--advertise-url', required=True)
-    parser.add_argument('--manifest-sha256', required=True)
+    parser.add_argument('--toolchain', action='append', required=True, metavar='LANGUAGE=SHA256',
+                        help='每门语言一项：语言编号与它的 rootfs 清单（toolchains/<语言>/manifest.json）SHA256；可重复')
     parser.add_argument('--parallelism', type=int, default=1, help='同时执行的数量，1 到 256')
     args=parser.parse_args()
-    render(args.output,args.release,args.node_id,args.control_url,args.advertise_url,args.manifest_sha256,args.parallelism)
+    toolchains={}
+    for item in args.toolchain:
+        language, separator, manifest_hash = item.partition('=')
+        if not separator or language in toolchains:
+            parser.error('--toolchain must be LANGUAGE=SHA256, each language once')
+        toolchains[language]=manifest_hash
+    render(args.output,args.release,args.node_id,args.control_url,args.advertise_url,toolchains,args.parallelism)
     print('Rendered reviewable plan; no accounts, system files or services changed.')
 
 

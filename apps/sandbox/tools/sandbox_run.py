@@ -30,6 +30,8 @@ DEFAULT_CONFIG = Path("/opt/cherry-oj/etc/executor.conf")
 PATH_SEGMENT = r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}"
 WORKSPACE_PATH = re.compile(rf"{PATH_SEGMENT}(/{PATH_SEGMENT}){{0,7}}")
 COMMAND_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,127}")
+# 工具链是语言编号，执行器在受信配置的 toolchains 目录下找同名目录作为只读根。
+TOOLCHAIN_NAME = re.compile(r"[a-z][a-z0-9-]{0,31}")
 ENV_ASSIGNMENT = re.compile(r"[^=\0]+=[^\0]*")
 
 MAX_BOX_INDEX = 255  # 与执行器的 box_count 上限（256）一致
@@ -132,15 +134,19 @@ def load_config(path: Path) -> Config:
         raise UsageError(f"执行器配置 {path} 缺少或写错了 boxes/service_uid/service_gid/box_count") from error
 
 
-def build_spec(command: Sequence[str], env: Sequence[str], puts: Sequence[Put], gets: Sequence[Get], limits: Limits) -> bytes:
+def build_spec(toolchain: str, command: Sequence[str], env: Sequence[str], puts: Sequence[Put], gets: Sequence[Get],
+               limits: Limits) -> bytes:
     """请求格式：以 NUL 结尾的 key=value 记录（见 docs/protocols/sandbox-executor.md）。"""
+    if not TOOLCHAIN_NAME.fullmatch(toolchain):
+        raise UsageError(f"--toolchain 必须是语言编号（如 cpp、c）：{toolchain!r}")
     if not command or not COMMAND_NAME.fullmatch(command[0]):
         raise UsageError(f"命令必须是裸名称（不带目录）：{command[0] if command else ''!r}。"
                          "要运行自己的程序，先用 --put 放进工作区，再用名字调用")
     for assignment in env:
         if not ENV_ASSIGNMENT.fullmatch(assignment):
             raise UsageError(f"--env 写法不对：{assignment!r}，应像 KEY=VALUE")
-    records = [f"arg={argument}" for argument in command]
+    records = [f"toolchain={toolchain}"]
+    records += [f"arg={argument}" for argument in command]
     records += [f"env={assignment}" for assignment in env]
     records += [f"input={int(put.executable)}:{put.dest}" for put in puts]
     records += [f"output={get.path}" for get in gets]
@@ -276,6 +282,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--procs", type=int, default=32, help="进程数上限（默认 32，最大 256）")
     parser.add_argument("--out", default="1m", help="标准输出保留上限（默认 1m，最大 1m）")
     parser.add_argument("--err", default="64k", help="标准错误保留上限（默认 64k，最大 1m）")
+    parser.add_argument("--toolchain", default="cpp", help="用哪门语言的工具链作为只读根（默认 cpp）")
     parser.add_argument("--box", type=int, default=0, help="使用第几个 box（默认 0）；同一个 box 不能同时用两次")
     parser.add_argument("--sandbox", type=Path, default=DEFAULT_SANDBOX, help=f"执行器路径（默认 {DEFAULT_SANDBOX}）")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help=f"执行器配置（默认 {DEFAULT_CONFIG}）")
@@ -298,7 +305,7 @@ def run(arguments: Sequence[str]) -> int:
     )
     puts = [parse_put(text) for text in options.put]
     gets = [parse_get(text) for text in options.get]
-    spec = build_spec(command, options.env, puts, gets, limits)
+    spec = build_spec(options.toolchain, command, options.env, puts, gets, limits)
     stdin = read_source(options.stdin) if options.stdin else b""
     config = load_config(options.config)
     box = prepare_box(config, options.box, spec, stdin, puts)

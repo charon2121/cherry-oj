@@ -38,17 +38,21 @@ def main():
     run(['go', 'test', '-race', '-count=1', '-json'] + linux_packages(),
         logs / 'go-linux.log', 180, cwd=go)
     linux_units(logs / 'go-linux.log')
-    lock = output / 'release/packages.lock.json'
+    # 所有语言的包合成一份锁，下载、缓存与校验只做一次；每门语言再按自己的锁各建一棵 rootfs。
+    lock = output / 'packages.lock.json'
+    run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/toolchains.py', 'union', '--output', lock],
+        logs / 'union.log', 30)
     if args.packages is not None:
         run(['python3', ROOT / 'deploy/sandbox-linux/ci/packages.py', '--lock', lock,
              '--source', args.packages, '--output', output / 'packages'], logs / 'packages.log', 600)
     else:
         run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/download.py', '--lock', lock,
              '--output', output / 'packages', '--address-failover'], logs / 'download.log', 600)
-    run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/build.py', '--lock', lock,
-         '--packages', output / 'packages', '--output', output / 'cpp-rootfs'], logs / 'rootfs.log', 120)
+    run(['python3', ROOT / 'deploy/sandbox-linux/rootfs/toolchains.py', 'build', '--release', output / 'release',
+         '--packages', output / 'packages', '--work', output / 'toolchain-work'], logs / 'rootfs.log', 300)
+    toolchains = {path.name: digest(path / 'manifest.json') for path in sorted((output / 'release/toolchains').iterdir())}
     metadata = dict(sourceSha=git_sha(), harnessSha=harness_sha(), architecture=platform.machine(),
-                    packageLock=digest(lock), rootfsManifest=digest(output / 'cpp-rootfs/manifest.json'),
+                    packageLock=digest(lock), toolchains=toolchains,
                     binaries=dict(judge=digest(output / 'release/bin/judge'),
                                   executor=digest(output / 'release/libexec/sandbox')))
     (output / 'build.json').write_text(json.dumps(metadata, indent=2) + '\n')

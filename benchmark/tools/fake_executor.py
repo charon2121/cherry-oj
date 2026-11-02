@@ -60,8 +60,10 @@ for record in data[:-1].split(b"\0"):
 for key in ("cpu_ns", "clock_ns", "memory_bytes", "max_processes", "stdout_max_bytes", "stderr_max_bytes"):
     if len(spec.get(key, [])) != 1 or int(spec[key][0]) <= 0:
         refuse("missing limit " + key)
+if len(spec.get("toolchain", [])) != 1:
+    refuse("missing toolchain")
 with open(SETTINGS["calls"], "a") as stream:
-    stream.write(json.dumps({"box": index, "arg": spec["arg"], "input": spec.get("input", []),
+    stream.write(json.dumps({"box": index, "toolchain": spec["toolchain"][0], "arg": spec["arg"], "input": spec.get("input", []),
                              "limits": {k: int(v[0]) for k, v in spec.items() if k.endswith(("_ns", "_bytes", "_processes"))},
                              "stdin": (box / "stdin").read_text(errors="replace")}) + "\n")
 
@@ -111,7 +113,7 @@ def install(directory: Path, boxes: Path, box_count: int = 2) -> tuple[Path, Pat
     uid = os.getuid()
     config = directory / "executor.conf"
     config.write_text("\n".join([
-        f"rootfs={directory / 'rootfs'}", f"boxes={boxes}", f"cgroup={directory / 'jobs'}", f"box_count={box_count}",
+        f"toolchains={directory / 'toolchains'}", f"boxes={boxes}", f"cgroup={directory / 'jobs'}", f"box_count={box_count}",
         f"service_uid={uid}", f"service_gid={os.getgid()}", "payload_uid=61100", "payload_gid=61100",
         "init_uid=61400", "init_gid=61400"]) + "\n")
     (directory / "jobs").mkdir(exist_ok=True)

@@ -21,7 +21,9 @@ def main():
     manifest_path=manage.ETC/'deployment.json'
     identity=manage.digest(manifest_path)
     manifest=json.loads(manifest_path.read_text())
-    key={'executor-config':'executorConfig','rootfs-manifest':'rootfsManifest','executor-binary':'executor'}[args.case]
+    # 每门语言各有一份 rootfs 清单，缺任何一份都必须拒绝启动；这里取排序后的第一门作代表。
+    rootfs=sorted(k for k in manifest['files'] if k.startswith('toolchain.') and k.endswith('.manifest'))[0]
+    key={'executor-config':'executorConfig','rootfs-manifest':rootfs,'executor-binary':'executor'}[args.case]
     path=Path(manifest['files'][key]['path'])
     assert manage.digest(path)==manifest['files'][key]['sha256']
     saved=path.with_name(path.name+'.missing-test')

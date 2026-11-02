@@ -39,10 +39,10 @@ class ParseTest(unittest.TestCase):
 
 class SpecTest(unittest.TestCase):
     def test_spec_records_are_nul_terminated_in_order(self) -> None:
-        spec = tool.build_spec(["g++", "m.cpp"], ["A=1"], [tool.Put(Path("m.cpp"), "m.cpp", False)],
+        spec = tool.build_spec("cpp", ["g++", "m.cpp"], ["A=1"], [tool.Put(Path("m.cpp"), "m.cpp", False)],
                                [tool.Get("Main", Path("Main"))], LIMITS)
         self.assertEqual(spec.split(b"\0")[:-1], [
-            b"arg=g++", b"arg=m.cpp", b"env=A=1", b"input=0:m.cpp", b"output=Main",
+            b"toolchain=cpp", b"arg=g++", b"arg=m.cpp", b"env=A=1", b"input=0:m.cpp", b"output=Main",
             b"cpu_ns=1", b"clock_ns=2", b"memory_bytes=3", b"max_processes=4",
             b"stdout_max_bytes=5", b"stderr_max_bytes=6"])
         self.assertTrue(spec.endswith(b"\0"))
@@ -50,7 +50,10 @@ class SpecTest(unittest.TestCase):
     def test_rejects_path_command_and_bad_env(self) -> None:
         for command, env in ((["/bin/cat"], []), ([], []), (["cat"], ["noequals"])):
             with self.assertRaises(tool.UsageError):
-                tool.build_spec(command, env, [], [], LIMITS)
+                tool.build_spec("cpp", command, env, [], [], LIMITS)
+        for toolchain in ("", "../cpp", "Cpp"):
+            with self.assertRaises(tool.UsageError):
+                tool.build_spec(toolchain, ["cat"], [], [], [], LIMITS)
 
 
 class ClassifyTest(unittest.TestCase):

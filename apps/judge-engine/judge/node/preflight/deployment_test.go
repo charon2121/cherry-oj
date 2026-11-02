@@ -12,14 +12,16 @@ import (
 
 func deploymentFixture() deploymentManifest {
 	m := deploymentManifest{Version: 1, Backend: "linux", Architecture: "amd64", Files: map[string]deploymentFile{}}
-	for _, key := range []string{"executor", "rootfsManifest", "toolchainLock", "executorConfig", "startConfig", "slice", "judgeUnit", "bootstrap"} {
+	for _, key := range []string{"executor", "executorConfig", "startConfig", "slice", "judgeUnit", "bootstrap",
+		"toolchain.c.manifest", "toolchain.c.lock", "toolchain.cpp.manifest", "toolchain.cpp.lock"} {
 		m.Files[key] = deploymentFile{Path: "/release/" + key, SHA256: strings.Repeat("a", 64)}
 	}
 	return m
 }
 
 func TestDeploymentRejectsChangedFiles(t *testing.T) {
-	for _, kind := range []string{"valid", "missing-file", "changed-file", "read-error", "unknown-field"} {
+	for _, kind := range []string{"valid", "missing-file", "changed-file", "read-error", "unknown-field",
+		"half-toolchain", "no-toolchain", "bad-toolchain-name"} {
 		t.Run(kind, func(t *testing.T) {
 			m := deploymentFixture()
 			hash := func(string) (string, error) { return strings.Repeat("a", 64), nil }
@@ -32,6 +34,16 @@ func TestDeploymentRejectsChangedFiles(t *testing.T) {
 				hash = func(string) (string, error) { return "", errors.New("unreadable") }
 			case "unknown-field":
 				m.Files["extra"] = deploymentFile{}
+			case "half-toolchain":
+				delete(m.Files, "toolchain.c.lock")
+			case "no-toolchain":
+				for key := range m.Files {
+					if strings.HasPrefix(key, "toolchain.") {
+						delete(m.Files, key)
+					}
+				}
+			case "bad-toolchain-name":
+				m.Files["toolchain.../.manifest"] = deploymentFile{Path: "/x", SHA256: strings.Repeat("a", 64)}
 			}
 			err := verifyManifest(context.Background(), m, hash)
 			if (err == nil) != (kind == "valid") {
@@ -39,8 +51,9 @@ func TestDeploymentRejectsChangedFiles(t *testing.T) {
 			}
 			// 报错必须指出是哪一项，否则出问题时只知道「部署不合格」，不知道去看哪里。
 			named := map[string]string{
-				"unknown-field": "extra",
-				"missing-file":  "executor",
+				"unknown-field":  "extra",
+				"missing-file":   "executor",
+				"half-toolchain": "toolchain.c.lock",
 			}
 			if want, ok := named[kind]; ok && !strings.Contains(err.Error(), want) {
 				t.Fatalf("错误信息 %q 中没有指出是哪一项（期望含 %q）", err, want)

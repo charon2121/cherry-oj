@@ -52,13 +52,18 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/packages
-          key: rootfs-packages-${{ hashFiles('deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json') }}
+          key: rootfs-packages-${{ hashFiles('deploy/sandbox-linux/rootfs/locks/*.lock.json') }}
+          # 锁变了也先用最近的缓存，下载时只补缺的包；锁里没有的旧包随后删掉。
+          restore-keys: rootfs-packages-
       - name: 下载锁定软件包
         if: steps.packages.outputs.cache-hit != 'true'
-        run: >-
-          python3 deploy/sandbox-linux/rootfs/download.py
-          --lock deploy/sandbox-linux/rootfs/ubuntu24-amd64-smoke.lock.json
-          --output "$RUNNER_TEMP/packages" --address-failover
+        run: |
+          set -eu
+          python3 deploy/sandbox-linux/rootfs/toolchains.py union --output "$RUNNER_TEMP/packages.lock.json"
+          python3 deploy/sandbox-linux/rootfs/download.py --lock "$RUNNER_TEMP/packages.lock.json" \
+            --output "$RUNNER_TEMP/packages" --address-failover --resume
+          python3 deploy/sandbox-linux/rootfs/toolchains.py prune --lock "$RUNNER_TEMP/packages.lock.json" \
+            --packages "$RUNNER_TEMP/packages"
 
       - name: 构建当前提交的 Linux 二进制与 rootfs
         run: python3 deploy/sandbox-linux/ci/prepare.py --output "$RUNNER_TEMP/sandbox-build" --packages "$RUNNER_TEMP/packages"

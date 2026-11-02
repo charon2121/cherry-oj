@@ -49,9 +49,18 @@ func verifyDeployment(ctx context.Context, path string) error {
 	}
 	// 服务实际启动的是 current 下的路径；它解析到的文件必须就是清单声明的那一个，
 	// 否则校验的是清单里那份、跑的是另一份。
+	active := map[string]string{}
 	for key, relative := range releaseFiles {
-		active, err := filepath.EvalSymlinks(filepath.Join(releaseDir, relative))
-		if err != nil || active != manifest.Files[key].Path {
+		active[key] = relative
+	}
+	for key := range manifest.Files {
+		if m := toolchainKey.FindStringSubmatch(key); m != nil {
+			active[key] = toolchainReleaseFile(m[1], m[2])
+		}
+	}
+	for key, relative := range active {
+		resolved, err := filepath.EvalSymlinks(filepath.Join(releaseDir, relative))
+		if err != nil || resolved != manifest.Files[key].Path {
 			return fmt.Errorf("active release differs from deployment file %s", key)
 		}
 	}
@@ -64,12 +73,28 @@ func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest
 	}
 	// 双向覆盖：要求的每一项都必须在清单里，清单里的每一项也都必须是要求的。
 	// 只比数量的话，多一项少一项会互相抵消，而报错也说不出是哪一项。
+	checked := append([]string(nil), requiredFiles...)
 	for key := range manifest.Files {
-		if !slices.Contains(requiredFiles, key) {
+		if slices.Contains(requiredFiles, key) {
+			continue
+		}
+		if !toolchainKey.MatchString(key) {
 			return fmt.Errorf("deployment declares unknown file %s", key)
 		}
+		checked = append(checked, key)
 	}
-	for _, key := range requiredFiles {
+	languages := toolchainLanguages(manifest)
+	if len(languages) == 0 {
+		return fmt.Errorf("deployment declares no toolchain")
+	}
+	for _, language := range languages {
+		for _, kind := range []string{"manifest", "lock"} {
+			if _, ok := manifest.Files["toolchain."+language+"."+kind]; !ok {
+				return fmt.Errorf("deployment file toolchain.%s.%s missing", language, kind)
+			}
+		}
+	}
+	for _, key := range checked {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -86,6 +111,22 @@ func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest
 		}
 	}
 	return nil
+}
+
+// toolchainLanguages 返回部署清单登记了工具链的语言，按编号排序。
+func toolchainLanguages(manifest deploymentManifest) []string {
+	seen := map[string]bool{}
+	for key := range manifest.Files {
+		if m := toolchainKey.FindStringSubmatch(key); m != nil {
+			seen[m[1]] = true
+		}
+	}
+	languages := make([]string, 0, len(seen))
+	for language := range seen {
+		languages = append(languages, language)
+	}
+	slices.Sort(languages)
+	return languages
 }
 
 func protectedDigest(path string) (string, error) {

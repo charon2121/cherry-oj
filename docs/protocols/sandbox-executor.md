@@ -16,6 +16,7 @@ sudo python3 apps/sandbox/tools/sandbox_run.py --put main.cpp --get Main --cpu 2
 sudo python3 apps/sandbox/tools/sandbox_run.py --put Main:Main:x --stdin in.txt --cpu 1s -- Main
 ```
 
+工具默认用 `cpp` 的工具链，`--toolchain c` 换成别的语言。
 工具退出码：`0` 正常结束，`1` 没有正常结束，`2` 请求被拒或环境有问题。它占用 box 0，judge 运行时不要同时用。
 自己写调用方，按下面的协议做。
 
@@ -57,7 +58,7 @@ sandbox --box N
 
 | 键 | 含义 |
 |---|---|
-| `rootfs` | 只读根文件系统目录；须预建 `work`、`tmp`、`proc`、`dev`、`.oldroot`，且不是符号链接 |
+| `toolchains` | 各语言工具链的根目录：语言 `L` 的只读根文件系统是 `<toolchains>/L/rootfs`，由请求的 `toolchain` 选择（§5）；每个 rootfs 须预建 `work`、`tmp`、`proc`、`dev`、`.oldroot` |
 | `boxes` | box 根目录，属于服务身份 |
 | `cgroup` | 委派给服务的 cgroup v2 子树，已启用 `cpu memory pids` |
 | `box_count` | 同时执行的数量，1–256，由配置决定；每个 box 对应一个编号 N，同一时刻最多 `box_count` 个执行 |
@@ -70,6 +71,7 @@ sandbox --box N
 - 路径以 `/` 开头，不含 `//`、`/./`、`/../`。
 - 文件和账号的安装位置、属主和权限见[安装布局协议](./install-layout.md)。
 - 命令按**裸名称**在 `/work`、`/usr/bin`、`/bin` 中依次解析，请求里的 `PATH` 不参与。
+- `<toolchains>/L` 与 `<toolchains>/L/rootfs` 必须是属于 root、不被组或其他用户写入的目录，本身不是符号链接，否则拒绝这次请求（退出码 1）。`toolchains` 自身可以经过 root 所有的符号链接（安装布局里是 `current`），切换发布不用改受信配置。
 - 执行器不核对 rootfs 的内容；rootfs 的真实性由部署层在启动前按清单核对。
 
 执行器所在服务单元的要求：
@@ -112,6 +114,7 @@ sandbox --box N
 
 | 键 | 数量 | 值 |
 |---|---|---|
+| `toolchain` | 恰好 1 | 语言编号（`[a-z][a-z0-9-]{0,31}`），选用 `<toolchains>/<编号>/rootfs` 作为只读根；编译与运行同一份代码用同一门语言 |
 | `arg` | 1–256 | argv 的一项，按出现顺序；第一条是命令名，必须是裸名称 |
 | `env` | 0–128 | `KEY=VALUE`，追加在固定环境变量之后；`KEY` 非空 |
 | `input` | 0–128 | `<0\|1>:<工作区相对路径>`；`1` 为可执行（0755），`0` 为 0644；内容来自 `in/<序号>`，序号即这条 `input` 的出现顺序（从 0 起） |
@@ -137,13 +140,13 @@ sandbox --box N
 最小例子（`\0` 代表 NUL 字节）：
 
 ```text
-arg=cat\0cpu_ns=1000000000\0clock_ns=5000000000\0memory_bytes=268435456\0max_processes=32\0stdout_max_bytes=1048576\0stderr_max_bytes=65536\0
+toolchain=cpp\0arg=cat\0cpu_ns=1000000000\0clock_ns=5000000000\0memory_bytes=268435456\0max_processes=32\0stdout_max_bytes=1048576\0stderr_max_bytes=65536\0
 ```
 
 编译并取回产物：
 
 ```text
-arg=g++\0arg=Main.cpp\0arg=-o\0arg=Main\0arg=-O2\0arg=-std=c++17\0input=0:Main.cpp\0output=Main\0
+toolchain=cpp\0arg=g++\0arg=Main.cpp\0arg=-o\0arg=Main\0arg=-O2\0arg=-std=c++17\0input=0:Main.cpp\0output=Main\0
 cpu_ns=20000000000\0clock_ns=60000000000\0memory_bytes=805306368\0max_processes=64\0stdout_max_bytes=1048576\0stderr_max_bytes=1048576\0
 ```
 

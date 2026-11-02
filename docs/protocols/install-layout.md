@@ -28,9 +28,11 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 │   └── <发布名>/                    root:root  0755
 │       ├── bin/judge                root:root  0755   judge 服务
 │       ├── libexec/sandbox          root:cherry-judge  4754   沙箱执行器（setuid-root）
-│       ├── rootfs/                  root:root  只读   用户程序看到的根文件系统
-│       ├── manifest.json            root:root  0644   rootfs 逐文件清单
-│       └── packages.lock.json       root:root  0644   rootfs 的软件包锁
+│       └── toolchains/              root:root  0755   每门语言一套工具链，目录名是语言编号（cpp、c…）
+│           └── <语言>/              root:root  0755
+│               ├── rootfs/          root:root  只读   这门语言的程序看到的根文件系统
+│               ├── manifest.json    root:root  0644   rootfs 逐文件清单
+│               └── packages.lock.json  root:root  0644   rootfs 的软件包锁
 ├── current -> releases/<发布名>     符号链接（相对路径），指向当前使用的发布
 ├── judge/                           cherry-judge:cherry-judge  0700   judge 的运行数据，唯一的可写区
 │   ├── boxes/                       0700   交给执行器的 box 目录根（协议见 sandbox-executor.md）
@@ -67,6 +69,7 @@ cat /opt/cherry-oj/etc/executor.conf                                     # 执�
 ## 3. 规则
 
 1. **家目录及其所有祖先目录必须归 root，且不被组或其他用户写入。** 执行器据此信任 `etc/executor.conf`，不满足则拒绝执行。
+   执行器的 `toolchains` 指向 `current/toolchains`，请求的语言编号选其中一门；节点能判哪些语言就是发布里装了哪些工具链。
 2. **程序与配置只读，运行数据只在 `judge/`。** `releases/`、`etc/`、`operations/` 在安装后不再被服务写入；服务能写的只有 `judge/`。
 3. **一个发布装好后不再改动。** 要换版本就新增一个发布目录并改 `current`；不原地修改已有发布。
 4. **`current` 是唯一的版本选择点。** 单元、judge 配置和部署核对都通过 `current` 访问程序，不写发布名。

@@ -26,9 +26,10 @@ func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCas
 	}
 
 	run, runErr := sb.Run(ctx, contract.RunSpec{
-		Command: lang.Run,
-		Inputs:  runInputs(lang, sourceInputs(lang, j.sourceRef, j.solutionRef), executableRef),
-		Stdin:   stdin,
+		Toolchain: lang.Name,
+		Command:   lang.Run,
+		Inputs:    runInputs(lang, sourceInputs(lang, j.sourceRef, j.solutionRef), executableRef),
+		Stdin:     stdin,
 		Limits: contract.Limits{
 			CPUNs:          limits.CPUNs,
 			ClockNs:        clockNs,

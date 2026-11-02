@@ -100,12 +100,28 @@ def preflight(plan, source):
             header=f.read(20)
         if header[:6] != b'\x7fELF\x02\x01' or header[18:20] != b'\x3e\x00':
             raise ValueError('release binary is not Linux amd64 ELF: ' + name)
-    for name in ('manifest.json','packages.lock.json'):
-        regular(source/name)
-    if digest(source/'manifest.json') != plan['rootfsSHA256']:
-        raise ValueError('release rootfs manifest differs from reviewed plan')
-    if not (source/'rootfs').is_dir() or (source/'rootfs').is_symlink():
-        raise ValueError('release rootfs directory missing')
+    check_toolchains(plan, source)
+
+
+def check_toolchains(plan, source):
+    """发布里的工具链必须正是审核计划列出的那几门语言，每门的 rootfs 清单摘要与计划一致。"""
+    reviewed = plan.get('toolchains')
+    if not isinstance(reviewed, dict) or not reviewed:
+        raise ValueError('review plan lists no toolchains')
+    root = source/'toolchains'
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError('release toolchains directory missing')
+    present = sorted(p.name for p in root.iterdir())
+    if present != sorted(reviewed):
+        raise ValueError('release toolchains differ from reviewed plan: ' + ', '.join(present))
+    for language, manifest_hash in reviewed.items():
+        directory = root/language
+        for name in ('manifest.json','packages.lock.json'):
+            regular(directory/name)
+        if digest(directory/'manifest.json') != manifest_hash:
+            raise ValueError('release rootfs manifest differs from reviewed plan: ' + language)
+        if not (directory/'rootfs').is_dir() or (directory/'rootfs').is_symlink():
+            raise ValueError('release rootfs directory missing: ' + language)
 
 
 def install(review, source, token_file):

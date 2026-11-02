@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"regexp"
 	"runtime"
 	"time"
 
@@ -35,6 +36,9 @@ type EngineSettings struct {
 	// 本进程独占，权限 0700。两者都只在 linux 后端使用，且须与执行器受信配置中的 boxes 一致。
 	ExecutorPath string `yaml:"executorPath"`
 	BoxesRoot    string `yaml:"boxesRoot"`
+	// ProbeToolchain：linux 后端启动探针（运行 true）用哪门语言的工具链。引擎打开时还不知道节点声明哪些语言，
+	// 所以由安装器写明（取发布里的第一门语言）；devhost 后端没有工具链，不用它。
+	ProbeToolchain string `yaml:"probeToolchain"`
 	// AllowUnsafeBackend：显式承认使用零隔离后端。默认关闭，缺省即拒绝启动——
 	// devhost 不提供任何隔离，误用它跑用户提交等于没有沙箱，这一步必须是一次自觉的配置。
 	AllowUnsafeBackend bool  `yaml:"allowUnsafeBackend"`
@@ -59,6 +63,8 @@ func DefaultEngineSettings() EngineSettings {
 		Backend:      backend.NameLinux,
 		ExecutorPath: "/opt/cherry-oj/current/libexec/sandbox",
 		BoxesRoot:    "./data/sandbox-boxes",
+		// 原生部署由安装器显式写入（发布里的第一门语言）；这里的默认值只让本地按 linux 后端试跑时可用。
+		ProbeToolchain: "cpp",
 		Store: Store{
 			Root:          "./data/sandbox-blobs",
 			MaxBlobBytes:  64 << 20,
@@ -71,6 +77,8 @@ func DefaultEngineSettings() EngineSettings {
 
 // Validate 把「配错了」挡在启动时：宁可起不来，也别悄悄跑错。prefix 是这段配置在装配方
 // 配置里的路径，只用于让错误信息指向用户实际要改的键。
+var probeToolchainPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
 func (s EngineSettings) Validate(prefix string) error {
 	if s.Parallelism <= 0 || s.Parallelism > 256 {
 		return fmt.Errorf("%s.parallelism must be 1 to 256, got %d", prefix, s.Parallelism)
@@ -86,6 +94,9 @@ func (s EngineSettings) Validate(prefix string) error {
 	}
 	if s.Backend == backend.NameLinux && (s.ExecutorPath == "" || s.BoxesRoot == "" || s.Store.Root == "") {
 		return fmt.Errorf("the linux backend requires %s.executorPath, boxesRoot and store.root", prefix)
+	}
+	if s.Backend == backend.NameLinux && !probeToolchainPattern.MatchString(s.ProbeToolchain) {
+		return fmt.Errorf("the linux backend requires %s.probeToolchain to be a language id, got %q", prefix, s.ProbeToolchain)
 	}
 	// 每次执行占用一个 box，执行器最多支持 4 个。
 	if s.Backend == backend.NameLinux && s.Parallelism > 4 {
@@ -135,7 +146,7 @@ func Open(s EngineSettings, logger *slog.Logger) (e *Engine, err error) {
 	if e.pool, err = pool.New(runner.New(b, e.store), pool.Options{Parallelism: s.Parallelism, QueueSize: s.QueueSize, Logger: logger}); err != nil {
 		return e, err
 	}
-	if err = probeBackend(e.pool, s.Backend, logger); err != nil {
+	if err = probeBackend(e.pool, s.Backend, s.ProbeToolchain, logger); err != nil {
 		return e, err
 	}
 	e.stopSweeper = startSweeper(e.store, logger)
@@ -205,11 +216,11 @@ type managedStore interface {
 }
 
 // probeBackend 用一次真实执行（命令 true）验证 linux 后端整条链可用。
-func probeBackend(p *pool.Pool, name string, logger *slog.Logger) error {
+func probeBackend(p *pool.Pool, name, toolchain string, logger *slog.Logger) error {
 	if name != backend.NameLinux {
 		return nil
 	}
-	probe, probeErr := p.Run(context.Background(), contract.RunSpec{Command: []string{"true"}})
+	probe, probeErr := p.Run(context.Background(), contract.RunSpec{Toolchain: toolchain, Command: []string{"true"}})
 	if probeErr != nil || probe.Status != contract.StatusOK {
 		logger.Error("process.backend.probe.failed", "error", probeErr, "result", probe)
 		return errors.Join(fmt.Errorf("isolated backend startup probe failed: status=%s", probe.Status), probeErr)

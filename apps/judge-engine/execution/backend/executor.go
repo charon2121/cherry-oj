@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -213,6 +214,9 @@ func (e *Executor) run(ctx context.Context, box int) (executorOutput, int, error
 }
 
 // writeRequest 按执行器的请求格式写 box：NUL 结尾的 key=value 记录，输入按序号放进 in/。
+// toolchainPattern 与执行器、语言编号的格式一致。
+var toolchainPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
 func writeRequest(dir string, j Job) error {
 	var spec bytes.Buffer
 	record := func(k, v string) error {
@@ -221,6 +225,13 @@ func writeRequest(dir string, j Job) error {
 		}
 		spec.WriteString(k + "=" + v + "\x00")
 		return nil
+	}
+	// 工具链只给语言编号，由执行器在受信目录下解析；格式不对就别交给执行器。
+	if !toolchainPattern.MatchString(j.Toolchain) {
+		return fmt.Errorf("invalid toolchain: %q", j.Toolchain)
+	}
+	if err := record("toolchain", j.Toolchain); err != nil {
+		return err
 	}
 	for _, a := range j.Command {
 		if err := record("arg", a); err != nil {

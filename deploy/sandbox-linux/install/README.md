@@ -14,7 +14,7 @@
 | 资源限制 | 只加在每次执行的组上（由执行器按请求设置）；slice、judge 服务、supervisor 和 jobs 不设总量上限，也不核对 |
 | 隔离执行器 | releases/<版本>/libexec/sandbox，root:cherry-judge 4754（setuid-root，仅 judge 组可执行；其他人可读，供部署清单核对摘要） |
 | 监听地址 | judge 127.0.0.1:15051 |
-| rootfs manifest | 由 `../rootfs/build.py` 按锁定包生成；其 SHA-256 经 `render.py --manifest-sha256` 写进部署清单 |
+| 工具链 | 每门语言一套：`releases/<版本>/toolchains/<语言>/{rootfs,manifest.json,packages.lock.json}`，由 `../rootfs/toolchains.py build` 按 `../rootfs/locks/<语言>.lock.json` 生成；每门的 manifest SHA-256 经 `render.py --toolchain <语言>=<SHA256>` 写进审核计划与部署清单。节点声明的语言就是装了工具链的语言 |
 
 安装器检查root/amd64/systemd>=255、路径/服务/账号与整个身份范围冲突，任何冲突拒绝首次安装。不安装宿主包、不修改全局LSM、防火墙、sysctl或SSH配置；保留云代理。首次安装只写文件与账号，不自动启动、enable或重启机器。中途失败保留installation.json及部分资源供核查，不递归回滚删除数据。
 
@@ -46,13 +46,20 @@ ssh -N -T -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCo
 python3 deploy/sandbox-linux/install/render.py \
   --output REVIEW_DIR --release RELEASE_NAME --node-id NODE_ID \
   --control-url http://127.0.0.1:18084 --advertise-url http://127.0.0.1:15051 \
-  --manifest-sha256 MANIFEST_SHA256 --parallelism 2
-sh deploy/sandbox-linux/build-release.sh /absolute/path/to/RELEASE_DIR
+  $(python3 deploy/sandbox-linux/rootfs/toolchains.py digests --release RELEASE_DIR | sed 's/^/--toolchain=/') \
+  --parallelism 2
 ```
 
-release-source需要bin/judge、libexec/sandbox（执行器）、rootfs/、manifest.json、packages.lock.json。构建脚本构建二进制（执行器需要gcc与libseccomp-dev）；安装器把执行器单独设为setuid-root，其余文件一律清除setuid位；rootfs按../rootfs/README.md从锁定包解包，源包许可证保留。先验证原始包摘要与manifest一致，不在安装时重新生成摘要接受偏差。
+先构建发布，再生成审核材料（审核计划要绑定每门语言的 manifest 摘要）：
 
-部署清单（`etc/deployment.json`）绑定八项摘要：执行器、rootfs manifest、包锁、执行器受信配置、judge 启动参数、slice、judge 单元与启动脚本；必须声明哪些项由 judge 代码规定（`judge/node/preflight/deployment_spec.go`），不由清单自己决定。judge 注册前自检：清单受 root 保护、`current` 下实际启动的执行器正是清单里那一份、各项摘要一致；缺清单、后端或架构不符、文件变化都拒绝上线。资源限额只加在每次执行上，自检不核对。启动脚本 `judge-start.py` 另外逐文件核对 rootfs 与 manifest，不一致拒绝启动。
+```sh
+sh deploy/sandbox-linux/build-release.sh /absolute/path/to/RELEASE_DIR
+python3 deploy/sandbox-linux/rootfs/toolchains.py build --release RELEASE_DIR --packages PACKAGES_DIR --work WORK_DIR
+```
+
+release-source需要bin/judge、libexec/sandbox（执行器）与 toolchains/<语言>/（rootfs/、manifest.json、packages.lock.json），toolchains/ 下的语言必须正是审核计划列出的那几门。构建脚本构建二进制（执行器需要gcc与libseccomp-dev）；安装器把执行器单独设为setuid-root，其余文件一律清除setuid位；rootfs按../rootfs/README.md从锁定包解包，源包许可证保留。先验证原始包摘要与manifest一致，不在安装时重新生成摘要接受偏差。
+
+部署清单（`etc/deployment.json`）绑定固定六项摘要——执行器、执行器受信配置、judge 启动参数、slice、judge 单元与启动脚本——外加每门语言两项：`toolchain.<语言>.manifest` 与 `toolchain.<语言>.lock`；必须声明哪些项由 judge 代码规定（`judge/node/preflight/deployment_spec.go`），不由清单自己决定。judge 注册前自检：清单受 root 保护、`current` 下实际启动的执行器正是清单里那一份、各项摘要一致；缺清单、后端或架构不符、文件变化都拒绝上线。资源限额只加在每次执行上，自检不核对。启动脚本 `judge-start.py` 另外逐门逐文件核对 rootfs 与 manifest，任何一门不一致都拒绝启动；judge 随后对每门语言做一次编译运行冒烟。
 
 ## 安装与启停
 

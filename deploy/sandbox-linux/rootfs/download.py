@@ -63,10 +63,13 @@ def download(lock, output, resume=False, address_failover=False, base=BASE):
         open_url = source_urlopen(base)
     packages = json.loads(lock.read_text())['packages']
     diagnostics = Diagnostics(address_failover)
-    paths = locations(open_url, diagnostics, base)
     output.mkdir(mode=0o755, exist_ok=resume)
     if output.is_symlink():
         raise ValueError("output must not be a symlink")
+    # 索引只用来定位缺的包：--resume 时已有的文件按摘要核对即可，全都在就不访问快照站点
+    # （快照偶尔整片不可用，命中缓存的构建不该因此失败）。
+    missing = [p for p in packages if not (output / p['file']).exists()]
+    paths = locations(open_url, diagnostics, base) if missing else {}
 
     def fetch(item):
         number, package = item
@@ -74,10 +77,6 @@ def download(lock, output, resume=False, address_failover=False, base=BASE):
             filename = package['file']
             if PurePosixPath(filename).name != filename:
                 raise ValueError('unsafe package name')
-            path = archive_path(package, paths[package['package']])
-            if path.parts[0] != 'pool' or '..' in path.parts:
-                raise ValueError('unsafe archive location')
-            url = base + urllib.parse.quote(str(path))
             target = output / filename
             if target.exists() or target.is_symlink():
                 if not resume or target.is_symlink() or not target.is_file():
@@ -87,6 +86,11 @@ def download(lock, output, resume=False, address_failover=False, base=BASE):
                         raise ValueError('existing package differs: '+filename)
                 observation.phase('verified_existing')
                 return filename
+            # 只有真要下载时才需要索引里的位置。
+            path = archive_path(package, paths[package['package']])
+            if path.parts[0] != 'pool' or '..' in path.parts:
+                raise ValueError('unsafe archive location')
+            url = base + urllib.parse.quote(str(path))
             h = hashlib.sha256()
             total = 0
             with observation.open(open_url, url) as response, target.open('xb') as file:

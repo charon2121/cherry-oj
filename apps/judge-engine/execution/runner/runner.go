@@ -42,7 +42,7 @@ func (r *Runner) Run(ctx context.Context, spec contract.RunSpec) (contract.RunRe
 	overflow := func() bool { return stdout.overflow || stderr.overflow }
 	collect := newCollector(st, spec, limits, overflow, ctx.Err)
 	facts, execErr := b.Execute(runCtx, backend.Job{
-		Command: spec.Command, Env: spec.Env, Stdin: src.stdin, Inputs: src.inputs,
+		Toolchain: spec.Toolchain, Command: spec.Command, Env: spec.Env, Stdin: src.stdin, Inputs: src.inputs,
 		Outputs: outputNames(spec), Limits: limits, Stdout: stdout, Stderr: stderr,
 	}, collect.accept)
 

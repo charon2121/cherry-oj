@@ -1,6 +1,7 @@
 package preflight
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,38 +26,39 @@ func TestDeclaredLanguagesAreValidated(t *testing.T) {
 	}
 }
 
-func TestLockLanguagesIgnoreTheRestOfTheLock(t *testing.T) {
-	got, err := decodeLockLanguages(strings.NewReader(
-		`{"version":1,"architecture":"amd64","languages":["cpp"],"packages":[{"file":"x.deb"}]}`))
-	if err != nil || len(got) != 1 || got[0] != "cpp" {
-		t.Fatalf("decode = %q, %v", got, err)
-	}
-	if got, err := decodeLockLanguages(strings.NewReader(`{"version":1}`)); err != nil || got != nil {
-		t.Fatalf("lock without languages = %q, %v; Languages then rejects the empty list", got, err)
-	}
-	if _, err := decodeLockLanguages(strings.NewReader(strings.Repeat(" ", maxLockBytes+1))); err == nil {
-		t.Fatal("oversized lock should be rejected")
+func TestManifestLanguagesComeFromToolchainEntries(t *testing.T) {
+	m := deploymentFixture()
+	if got := toolchainLanguages(m); len(got) != 2 || got[0] != "c" || got[1] != "cpp" {
+		t.Fatalf("languages = %q", got)
 	}
 }
 
-// 仓库里的包锁就是原生节点会读到的那份：它声明的语言必须都在注册表里，否则装上的节点起不来。
-func TestRepositoryLocksDeclareRegisteredLanguages(t *testing.T) {
-	locks, err := filepath.Glob(filepath.Join("..", "..", "..", "..", "..", "deploy", "sandbox-linux", "rootfs", "*.lock.json"))
+// 仓库里每门语言一份包锁 locks/<语言>.lock.json：文件名与 language 字段一致，且都在注册表里，
+// 否则按它构建的工具链装上节点后启动冒烟就会失败。
+func TestRepositoryLocksAreRegisteredLanguages(t *testing.T) {
+	locks, err := filepath.Glob(filepath.Join("..", "..", "..", "..", "..", "deploy", "sandbox-linux", "rootfs", "locks", "*.lock.json"))
 	if err != nil || len(locks) == 0 {
 		t.Fatalf("no package locks found: %v", err)
 	}
+	var declared []string
 	for _, path := range locks {
-		file, err := os.Open(path)
+		body, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		declared, err := decodeLockLanguages(file)
-		file.Close()
-		if err != nil {
+		var lock struct {
+			Language string `json:"language"`
+		}
+		if err := json.Unmarshal(body, &lock); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if _, err := validLanguages(declared); err != nil {
-			t.Errorf("%s: %v", path, err)
+		name := strings.TrimSuffix(filepath.Base(path), ".lock.json")
+		if lock.Language != name {
+			t.Errorf("%s declares language %q", path, lock.Language)
 		}
+		declared = append(declared, name)
+	}
+	if _, err := validLanguages(declared); err != nil {
+		t.Error(err)
 	}
 }

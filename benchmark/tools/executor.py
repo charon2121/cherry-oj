@@ -18,7 +18,7 @@ from typing import Any
 
 from corpus_base import CorpusError  # noqa: F401  （方便调用方统一捕获语料类错误）
 
-CONFIG_KEYS = frozenset({"rootfs", "boxes", "cgroup", "box_count", "service_uid", "service_gid", "payload_uid",
+CONFIG_KEYS = frozenset({"toolchains", "boxes", "cgroup", "box_count", "service_uid", "service_gid", "payload_uid",
                          "payload_gid", "init_uid", "init_gid"})
 FACT_TYPES: dict[str, type] = {
     "version": int, "exitCode": int, "signal": int, "cpuNs": int, "memoryBytes": int, "clockNs": int,
@@ -44,7 +44,7 @@ class ExecutorError(Exception):
 
 @dataclass(frozen=True)
 class ExecutorConfig:
-    rootfs: Path
+    toolchains: Path  # 各语言工具链的根：<toolchains>/<语言>/rootfs，请求用 toolchain=<语言> 选择
     boxes: Path
     cgroup: Path
     box_count: int
@@ -71,8 +71,8 @@ def load_config(path: Path) -> ExecutorConfig:
         raise ExecutorError(f"执行器配置 {path} 缺少 {', '.join(missing)}")
     try:
         return ExecutorConfig(
-            rootfs=Path(values["rootfs"]), boxes=Path(values["boxes"]), cgroup=Path(values["cgroup"]),
-            **{key: int(values[key]) for key in CONFIG_KEYS - {"rootfs", "boxes", "cgroup"}})
+            toolchains=Path(values["toolchains"]), boxes=Path(values["boxes"]), cgroup=Path(values["cgroup"]),
+            **{key: int(values[key]) for key in CONFIG_KEYS - {"toolchains", "boxes", "cgroup"}})
     except ValueError as error:
         raise ExecutorError(f"执行器配置 {path} 里的数值不对：{error}") from error
 
@@ -96,9 +96,11 @@ class Call:
         return (self.ended - self.started) * 1000
 
 
-def spec_bytes(argv: list[str], limits: dict[str, int], inputs: list[tuple[str, bool]], outputs: list[str]) -> bytes:
-    """请求：以 NUL 结尾的 key=value 记录（协议 §5）。"""
-    records = [f"arg={argument}" for argument in argv]
+def spec_bytes(toolchain: str, argv: list[str], limits: dict[str, int], inputs: list[tuple[str, bool]],
+               outputs: list[str]) -> bytes:
+    """请求：以 NUL 结尾的 key=value 记录（协议 §5）；toolchain 是语言编号，执行器据此选用该语言的 rootfs。"""
+    records = [f"toolchain={toolchain}"]
+    records += [f"arg={argument}" for argument in argv]
     records += [f"input={int(executable)}:{destination}" for destination, executable in inputs]
     records += [f"output={path}" for path in outputs]
     records += [f"{KEYS[name]}={limits[name]}" for name in KEYS]
@@ -178,7 +180,7 @@ class Executor:
 
     # ----- 调用 -----
 
-    def call(self, index: int, argv: list[str], limits: dict[str, int], stdin: bytes = b"",
+    def call(self, index: int, toolchain: str, argv: list[str], limits: dict[str, int], stdin: bytes = b"",
              inputs: list[tuple[str, bytes, bool]] | None = None, outputs: list[str] | None = None,
              barrier: threading.Barrier | None = None) -> Call:
         """在 box 里运行一条命令。`barrier` 用于并发组：所有成员准备好之后同时启动。"""
@@ -187,7 +189,7 @@ class Executor:
         box = self.box(index)
         for position, (_, data, _) in enumerate(inputs):
             self._write(box / "in" / str(position), data)
-        self._write(box / "spec", spec_bytes(argv, limits, [(d, x) for d, _, x in inputs], outputs))
+        self._write(box / "spec", spec_bytes(toolchain, argv, limits, [(d, x) for d, _, x in inputs], outputs))
         self._write(box / "stdin", stdin)
         if barrier is not None:
             barrier.wait(timeout=60)
@@ -242,10 +244,11 @@ class Executor:
     def compile(self, source: str, language: str, box: int = 0) -> tuple[bytes | None, Call]:
         """用与 judge 相同的命令编译，返回 (可执行文件, 这次调用)；编译失败时可执行文件为 None。"""
         argv, name = COMPILE_COMMANDS[language]
-        done = self.call(box, argv, COMPILE_LIMITS, inputs=[(name, source.encode(), False)], outputs=["Main"])
+        done = self.call(box, language, argv, COMPILE_LIMITS, inputs=[(name, source.encode(), False)], outputs=["Main"])
         binary = done.artifacts.get("Main") if done.facts and done.facts["exitCode"] == 0 and not done.facts["error"] else None
         return binary, done
 
     def run_binary(self, binary: bytes, box: int, limits: dict[str, int], stdin: bytes,
-                   barrier: threading.Barrier | None = None) -> Call:
-        return self.call(box, ["Main"], limits, stdin=stdin, inputs=[("Main", binary, True)], barrier=barrier)
+                   barrier: threading.Barrier | None = None, *, toolchain: str) -> Call:
+        """运行编译产物；toolchain 与编译时一致，运行环境和编译环境是同一门语言的 rootfs。"""
+        return self.call(box, toolchain, ["Main"], limits, stdin=stdin, inputs=[("Main", binary, True)], barrier=barrier)

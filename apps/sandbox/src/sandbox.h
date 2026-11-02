@@ -5,6 +5,7 @@
 #ifndef CHERRY_SANDBOX_H
 #define CHERRY_SANDBOX_H
 
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -51,7 +52,8 @@ enum { EXIT_FACTS = 0, EXIT_REFUSED = 1, EXIT_UNRECLAIMED = 2 };
 
 // ---- 受信配置：root 管理的本机文件，调用方不能选择路径或身份 ----
 struct config {
-    char rootfs[256];
+    // 各语言工具链的根目录：<toolchains>/<语言>/rootfs 是该语言的只读根；请求只能给语言编号。
+    char toolchains[256];
     char boxes[256];
     char cgroup[256];
     uid_t service_uid;
@@ -65,6 +67,9 @@ struct config {
 // box_count 的上限；与 judge 的 execution.parallelism 上限一致。
 #define MAX_BOX_COUNT 256
 int config_load(const char *path, struct config *c, char *err, size_t errlen);
+// 把请求里的工具链（语言编号）解析成 rootfs 路径，并确认它与上一级都是 root 管理、不可被他人写的真实目录。
+int toolchain_rootfs(const struct config *c, const char *toolchain, char *out, size_t cap, char *err, size_t errlen);
+#define MAX_TOOLCHAIN 32
 
 // ---- 请求 ----
 struct input {
@@ -84,6 +89,8 @@ struct spec {
     char *outputs[MAX_OUTPUTS];
     int noutputs;
     struct limits limits;
+    char toolchain[MAX_TOOLCHAIN + 1]; // 请求给出的语言编号
+    char rootfs[PATH_MAX];             // 由受信配置解析出的只读根，见 toolchain_rootfs
     char *buffer; // 所有字符串都指向它
 };
 int spec_parse(char *data, size_t len, struct spec *s, char *err, size_t errlen);

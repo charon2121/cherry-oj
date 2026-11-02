@@ -85,12 +85,12 @@ class Native:
     def prepare(self, port):
         source = BASE / 'release'
         shutil.copytree(self.build / 'release', source, symlinks=True)
-        shutil.copytree(self.build / 'cpp-rootfs/rootfs', source / 'rootfs', symlinks=True)
-        shutil.copy2(self.build / 'cpp-rootfs/manifest.json', source / 'manifest.json')
         review = BASE / 'review'
+        toolchains = [f'--toolchain={path.name}={digest(path / "manifest.json")}'
+                      for path in sorted((source / 'toolchains').iterdir())]
         run(['python3', '-B', INSTALL / 'render.py', '--output', review, '--release', self.node,
              '--node-id', self.node, '--control-url', 'http://127.0.0.1:' + str(port),
-             '--advertise-url', 'http://127.0.0.1:15051', '--manifest-sha256', digest(source / 'manifest.json')],
+             '--advertise-url', 'http://127.0.0.1:15051', *toolchains],
             self.report.output / 'render.log', 10)
         Installation(self.report.output, review)
         return source, review

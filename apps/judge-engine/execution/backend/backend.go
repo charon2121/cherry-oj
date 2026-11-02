@@ -22,10 +22,12 @@ type NamedSource struct {
 
 // Job 一次性声明整次执行需要的全部信息。
 type Job struct {
-	Command []string
-	Env     []string
-	Stdin   *Source
-	Inputs  []NamedSource
+	// Toolchain 是隔离环境用的工具链（语言编号），见 contract.RunSpec.Toolchain。
+	Toolchain string
+	Command   []string
+	Env       []string
+	Stdin     *Source
+	Inputs    []NamedSource
 	// Outputs 声明执行结束后要取回哪些文件，限制后端可交付的范围。
 	Outputs []string
 	Limits  contract.Limits

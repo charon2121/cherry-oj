@@ -163,7 +163,8 @@ int main(int argc, char **argv) {
     struct spec spec;
     if (box_open(&config, index, &box, err, sizeof err) != 0 ||
         box_read_spec(&box, &config, &data, &len, err, sizeof err) != 0 ||
-        spec_parse(data, len, &spec, err, sizeof err) != 0)
+        spec_parse(data, len, &spec, err, sizeof err) != 0 ||
+        toolchain_rootfs(&config, spec.toolchain, spec.rootfs, sizeof spec.rootfs, err, sizeof err) != 0)
         refuse(EXIT_REFUSED, err);
 
     struct jobgroup group;

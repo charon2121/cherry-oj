@@ -11,12 +11,13 @@ import uuid
 
 MAX_BODY = 64 << 10
 MAX_EVENTS = 128
-# 节点声明的语言取自发布里的包锁（judge 启动时逐门冒烟），所以期望值也从同一份包锁读，加语言不用改这里。
-PACKAGE_LOCK = Path(__file__).resolve().parents[1] / 'rootfs' / 'ubuntu24-amd64-smoke.lock.json'
+# 节点声明的语言是发布里装了工具链的语言（按编号排序，judge 启动时逐门冒烟）；CI 的发布按 locks/ 下
+# 每门语言一份的包锁构建，所以期望值就是这些锁的文件名，加语言不用改这里。
+LOCKS = Path(__file__).resolve().parents[1] / 'rootfs' / 'locks'
 
 
 def expected_languages():
-    return json.loads(PACKAGE_LOCK.read_text(encoding='utf-8'))['languages']
+    return sorted(path.name[:-len('.lock.json')] for path in LOCKS.glob('*.lock.json'))
 
 
 def validate_registration(value, node):
