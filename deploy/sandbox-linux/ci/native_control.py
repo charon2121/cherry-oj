@@ -11,6 +11,12 @@ import uuid
 
 MAX_BODY = 64 << 10
 MAX_EVENTS = 128
+# 节点声明的语言取自发布里的包锁（judge 启动时逐门冒烟），所以期望值也从同一份包锁读，加语言不用改这里。
+PACKAGE_LOCK = Path(__file__).resolve().parents[1] / 'rootfs' / 'ubuntu24-amd64-smoke.lock.json'
+
+
+def expected_languages():
+    return json.loads(PACKAGE_LOCK.read_text(encoding='utf-8'))['languages']
 
 
 def validate_registration(value, node):
@@ -20,8 +26,8 @@ def validate_registration(value, node):
     if value['nodeId'] != node or value['endpoint'] != 'http://127.0.0.1:15051':
         raise ValueError('registration does not belong to this native node')
     uuid.UUID(value['sessionId'])
-    if value['languages'] != ['cpp']:
-        raise ValueError('expected exactly the C++ language')
+    if value['languages'] != expected_languages():
+        raise ValueError('registration languages differ from the package lock')
     return value
 
 

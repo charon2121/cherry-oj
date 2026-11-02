@@ -80,9 +80,14 @@ class NativeEvidenceTest(unittest.TestCase):
 
     def test_registration_requires_fresh_node_and_real_identity_fields(self):
         value = dict(nodeId='ci-test', sessionId='00000000-0000-4000-8000-000000000001',
-                     endpoint='http://127.0.0.1:15051', languages=['cpp'])
+                     endpoint='http://127.0.0.1:15051', languages=control.expected_languages())
+        self.assertIn('cpp', value['languages'])
         control.validate_registration(value, 'ci-test')
+        if len(value['languages']) > 1:  # 顺序也要一致：判题机按包锁的顺序声明
+            with self.assertRaises(ValueError):
+                control.validate_registration(dict(value, languages=list(reversed(value['languages']))), 'ci-test')
         for changed in ({'nodeId': 'old'}, {'endpoint': 'http://127.0.0.1:1'}, {'sessionId': 'x'}, {'languages': []},
+                        {'languages': value['languages'] + ['brainfuck']},
                         {'environmentFingerprint': 'a'*64}):
             with self.assertRaises(ValueError):
                 control.validate_registration(dict(value, **changed), 'ci-test')
