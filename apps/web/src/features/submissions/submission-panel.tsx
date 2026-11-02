@@ -4,6 +4,7 @@ import { Play, Upload } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { problemLanguage } from '@/features/languages/language';
 import type { ProblemDetail, SubmissionData } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { modKey, useModEnter } from '@/lib/use-mod-enter';
@@ -159,7 +160,8 @@ export function SubmissionPanel({
   const busy = submit.isPending || (shown !== undefined && shown.status !== 'DONE');
   const invalidSource = !source.trim() || new TextEncoder().encode(source).length > 262144;
   function send(original?: SubmissionRecovery) {
-    if (locked.current || disabled) return;
+    const language = problemLanguage(problem);
+    if (locked.current || disabled || !language) return;
     if (!original && notAccepted && recovery) {
       if (recovery.body.source === source) {
         send(recovery);
@@ -176,7 +178,7 @@ export function SubmissionPanel({
       key: newSubmissionKey(),
       body: {
         problemId: problem.problemId,
-        languageId: 'cpp' as const,
+        languageId: language.id,
         source,
       },
     };
@@ -213,7 +215,7 @@ export function SubmissionPanel({
         aria-live="polite"
       >
         {disabled ? <p>登录状态暂时无法确认，提交与查询已暂停。</p> : null}
-        {invalidSource ? <p>请输入非空 C++ 源码，最多 256 KiB。</p> : null}
+        {invalidSource ? <p>请输入非空源码，最多 256 KiB。</p> : null}
         {notice ? <p className="break-words">{notice}</p> : null}
         {queryError && !submit.isPending ? <p className="break-words">{queryError}</p> : null}
         {!shown && (id || requestKey) && result.isFetching ? <p>正在确认提交结果…</p> : null}

@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import { authKeys } from '@/features/auth/api/session-query';
+import { languageIdSchema } from '@/features/languages/language';
 import type { AuthSessionData, SubmissionSourceData } from '@/generated/api';
 import { ApiError, requestJson } from '@/lib/api/api-client';
 
@@ -22,7 +23,7 @@ export const historyKeys = {
 export const sourceSchema = z.object({
   submissionId: z.string().uuid(),
   problemId: z.string().uuid(),
-  languageId: z.literal('cpp'),
+  languageId: languageIdSchema,
   source: z
     .string()
     .max(262144)

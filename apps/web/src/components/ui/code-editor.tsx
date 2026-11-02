@@ -7,6 +7,8 @@ import { Button } from './button';
 import { loadCodeEditor } from './code-editor-loader';
 import type { CodeEditorHandle } from './code-editor-runtime';
 
+type CodeEditorSyntax = 'cpp' | 'plain';
+
 export type CodeEditorProps = Readonly<{
   value: string;
   onChange: (value: string) => void;
@@ -14,6 +16,8 @@ export type CodeEditorProps = Readonly<{
   className?: string;
   'aria-label'?: string;
   onLoadError?: () => void;
+  /** 语法高亮；不认得的语言传 plain（见 features/languages/language.ts 的 editorSyntax）。 */
+  syntax?: CodeEditorSyntax;
 }>;
 
 /** The caller owns source/draft identity; this adapter owns only the local editor view. */
@@ -22,19 +26,20 @@ export function CodeEditor({
   onChange,
   readOnly = false,
   className,
-  'aria-label': ariaLabel = 'C++ 代码编辑器',
+  'aria-label': ariaLabel = '代码编辑器',
   onLoadError,
+  syntax = 'plain',
 }: CodeEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<CodeEditorHandle | null>(null);
   const { colorScheme, themeId } = useTheme();
-  const latest = useRef({ value, onChange, onLoadError, colorScheme, readOnly, ariaLabel });
+  const latest = useRef({ value, onChange, onLoadError, colorScheme, readOnly, ariaLabel, syntax });
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
-    latest.current = { value, onChange, onLoadError, colorScheme, readOnly, ariaLabel };
-  }, [ariaLabel, colorScheme, onChange, onLoadError, readOnly, value]);
+    latest.current = { value, onChange, onLoadError, colorScheme, readOnly, ariaLabel, syntax };
+  }, [ariaLabel, colorScheme, onChange, onLoadError, readOnly, syntax, value]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -80,8 +85,8 @@ export function CodeEditor({
   }, [value]);
 
   useEffect(() => {
-    viewRef.current?.updateSettings({ colorScheme, readOnly, ariaLabel });
-  }, [ariaLabel, colorScheme, readOnly, themeId]);
+    viewRef.current?.updateSettings({ colorScheme, readOnly, ariaLabel, syntax });
+  }, [ariaLabel, colorScheme, readOnly, syntax, themeId]);
 
   return (
     <div

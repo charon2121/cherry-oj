@@ -24,7 +24,13 @@ type CodeEditorSettings = Readonly<{
   colorScheme: ThemeSnapshot['colorScheme'];
   readOnly: boolean;
   ariaLabel: string;
+  /** 只认得 cpp 的语法；其余语言按纯文本显示，新语言不改前端也能用。 */
+  syntax: 'cpp' | 'plain';
 }>;
+
+function modelLanguage(syntax: CodeEditorSettings['syntax']): string {
+  return syntax === 'cpp' ? 'cpp' : 'plaintext';
+}
 
 export type CodeEditorHandle = Readonly<{
   setValue: (value: string) => void;
@@ -57,7 +63,7 @@ export async function createCodeEditor(
   const initialTheme = readCodeEditorTheme(host, settings.colorScheme);
   const themeName = 'cherry-semantic-code';
   monaco.editor.defineTheme(themeName, initialTheme.theme);
-  const model = monaco.editor.createModel(value, 'cpp');
+  const model = monaco.editor.createModel(value, modelLanguage(settings.syntax));
   model.updateOptions({ insertSpaces: true, tabSize: 4 });
   let view: monaco.editor.IStandaloneCodeEditor;
   try {
@@ -151,6 +157,9 @@ export async function createCodeEditor(
       }
     },
     updateSettings(nextSettings) {
+      if (nextSettings.syntax !== currentSettings.syntax) {
+        monaco.editor.setModelLanguage(model, modelLanguage(nextSettings.syntax));
+      }
       currentSettings = nextSettings;
       refreshTheme();
     },

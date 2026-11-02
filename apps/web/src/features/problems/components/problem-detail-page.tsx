@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { CustomRunWorkbench } from '@/features/custom-runs/custom-run-workbench';
+import { problemLanguage } from '@/features/languages/language';
 import { SubmissionHistoryPanel } from '@/features/submissions/submission-history-panel';
 import type { ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
@@ -356,10 +357,10 @@ function ProblemCode({
   wide: boolean;
 }) {
   const session = useQuery({ ...sessionQueryOptions(), refetchInterval: 15_000 });
-  const language =
-    data.allowedLanguages.find((item) => item.id === 'cpp') ?? data.allowedLanguages[0];
+  const language = problemLanguage(data);
   // ACM 与核心代码都可以作答：核心代码的前缀与驱动代码在服务端合并，编辑器里只有用户自己的代码。
-  const supported = language?.id === 'cpp';
+  // 题目开放了语言就能作答；平台能不能判由服务端在提交时回答，前端不维护语言名单。
+  const supported = language !== undefined;
   const user = session.data?.authenticated ? session.data.user : undefined;
   const editableIdentity =
     user && user.status === 'ACTIVE' && !user.passwordChangeRequired && supported;
@@ -374,7 +375,7 @@ function ProblemCode({
           : !user
             ? '登录后可编写代码，并在此浏览器保存草稿。'
             : !supported
-              ? '当前页面暂不支持此题目的语言。'
+              ? '此题目还没有开放任何语言。'
               : null;
   const header = (
     <>
@@ -418,7 +419,13 @@ function ProblemCode({
       <>
         <PaneHeader start={header} />
         {noticeBar}
-        <SourceEditor value={language?.starterCode ?? ''} onChange={() => undefined} readOnly />
+        <SourceEditor
+          value={language?.starterCode ?? ''}
+          onChange={() => undefined}
+          languageId={language?.id ?? ''}
+          languageName={language?.displayName ?? ''}
+          readOnly
+        />
       </>
     );
     return wide ? <Pane label="代码">{readOnlyCode}</Pane> : readOnlyCode;
@@ -430,6 +437,7 @@ function ProblemCode({
       userId={user.id}
       problemId={data.problemId}
       languageId={language.id}
+      languageName={language.displayName}
       starterCode={language.starterCode}
       readOnly={session.isError || unavailable}
       historyRef={historyRef}

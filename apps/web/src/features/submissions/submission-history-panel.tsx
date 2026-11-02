@@ -8,6 +8,7 @@ import { SelectField } from '@/components/ui/select';
 import { TextEditor } from '@/components/ui/text-editor';
 import { Toolbar } from '@/components/ui/toolbar';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
+import { editorSyntax, languageName } from '@/features/languages/language';
 import { SourceCopyButton } from '@/features/problems/components/source-copy-button';
 import type { ProblemDetail, SubmissionSourceData } from '@/generated/api';
 
@@ -202,7 +203,8 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
                         : '等待判题'}
                   </span>
                   <span className="text-fg-meta block font-mono text-xs whitespace-normal">
-                    {row.id.slice(-8)} · C++ · {new Date(row.createdAt).toLocaleString()}
+                    {row.id.slice(-8)} · {languageName(props.problem, row.languageId)} ·{' '}
+                    {new Date(row.createdAt).toLocaleString()}
                   </span>
                 </button>
               ),
@@ -283,7 +285,8 @@ function HistoryDetail({
         <>
           <p className="text-foreground break-words">{result.data.problemTitle}</p>
           <p className="text-fg-meta text-xs">
-            {new Date(result.data.createdAt).toLocaleString()} · C++
+            {new Date(result.data.createdAt).toLocaleString()} ·{' '}
+            {languageName(problem, result.data.languageId)}
           </p>
           <SubmissionResult value={result.data} />
         </>
@@ -331,7 +334,7 @@ function HistoryDetail({
             value={code.source}
             onChange={() => undefined}
             readOnly
-            language="cpp"
+            language={editorSyntax(code.languageId)}
             size="code"
             aria-label="历史提交代码"
           />

@@ -7,7 +7,7 @@ export type ClientOptions = {
 export type SubmissionSourceData = {
     submissionId: string;
     problemId: string;
-    languageId: 'cpp';
+    languageId: string;
     /**
      * 本人提交时的原始代码，UTF-8 不超过 256 KiB；不含内部送判数据。
      */
@@ -28,7 +28,7 @@ export type SubmissionListSuccess = {
 
 export type CreateSubmissionRequest = {
     problemId: string;
-    languageId: 'cpp';
+    languageId: string;
     /**
      * 完整 ACM 程序；服务端另校验 UTF-8 字节上限。
      */
@@ -39,7 +39,7 @@ export type SubmissionData = {
     id: string;
     problemId: string;
     problemTitle: string;
-    languageId: 'cpp';
+    languageId: string;
     status: 'PENDING' | 'JUDGING' | 'DONE';
     createdAt: string;
     verdict?: 'AC' | 'WA' | 'PE' | 'TLE' | 'MLE' | 'OLE' | 'RE' | 'CE' | 'SE';
@@ -54,7 +54,7 @@ export type SubmissionData = {
 
 export type CustomRunRequest = {
     problemId: string;
-    languageId: 'cpp';
+    languageId: string;
     /**
      * 非空，UTF-8最多256KiB
      */
@@ -79,7 +79,7 @@ export type CustomRunLimits = {
 
 export type CustomRunData = {
     problemId: string;
-    languageId: 'cpp';
+    languageId: string;
     status: 'COMPLETED' | 'COMPILE_ERROR' | 'RUNTIME_ERROR' | 'TIME_LIMIT_EXCEEDED' | 'MEMORY_LIMIT_EXCEEDED' | 'OUTPUT_LIMIT_EXCEEDED';
     cpuNs?: number;
     memoryBytes?: number;
@@ -380,7 +380,7 @@ export type CreateProblemRequest = {
      * 创建后不可修改
      */
     codeMode: ProblemCodeMode;
-    languageId: 'cpp';
+    languageId: string;
 };
 
 export type UpdateProblemRequest = {
@@ -407,8 +407,8 @@ export type RowVersionRequest = {
 };
 
 export type AdminProblemLanguage = {
-    id: 'cpp';
-    displayName: 'C++';
+    id: string;
+    displayName: string;
     starterCode: string;
     /**
      * CORE 的驱动代码，尚未填写时为 null；ACM 为 null。只在管理端返回
@@ -440,7 +440,7 @@ export type UploadTestDataRequest = {
 };
 
 export type CalibrateProblemRequest = {
-    languageId: 'cpp';
+    languageId: string;
     cpuNs: number;
     memoryBytes: number;
     clockNs: number | null;
@@ -630,7 +630,7 @@ export type ResetUserPasswordSuccessWritable = {
 };
 
 export type CalibrateProblemRequestWritable = {
-    languageId: 'cpp';
+    languageId: string;
     cpuNs: number;
     memoryBytes: number;
     clockNs: number | null;

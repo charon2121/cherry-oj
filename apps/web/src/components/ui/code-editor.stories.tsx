@@ -44,7 +44,13 @@ function ControlledEditor({ readOnly = false }: Readonly<{ readOnly?: boolean }>
   return (
     <>
       <h2 className="text-foreground text-sm">C++ 代码</h2>
-      <CodeEditor value={value} onChange={setValue} readOnly={readOnly} className="h-96" />
+      <CodeEditor
+        value={value}
+        onChange={setValue}
+        readOnly={readOnly}
+        syntax="cpp"
+        className="h-96"
+      />
       <Button variant="secondary" onClick={() => setValue(sample)}>
         恢复示例代码
       </Button>

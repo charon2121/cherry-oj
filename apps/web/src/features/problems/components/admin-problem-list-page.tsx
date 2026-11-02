@@ -11,6 +11,10 @@ import { ListPageTemplate } from '@/components/ui/page-templates';
 import { SearchInput } from '@/components/ui/search-input';
 import { Toolbar, ToolbarFilterGroup } from '@/components/ui/toolbar';
 import { Text } from '@/components/ui/typography';
+import {
+  adminLanguageKeys,
+  listLanguageSettings,
+} from '@/features/admin-languages/api/admin-languages-api';
 import type { AdminProblemSummary } from '@/generated/api';
 
 import { createProblem, listAdminProblems, problemKeys } from '../api/problems-api';
@@ -97,7 +101,15 @@ export function AdminProblemListPage({
         <AdminProblemCreateDialog
           creating={create.isPending}
           onCreate={async (value) => {
-            await create.mutateAsync({ ...value, languageId: 'cpp' });
+            // 平台目前只有一门语言，对话框不让选：取平台语言表的第一项（按编号排序）。
+            // 第二门语言上线时，再按设计流程给对话框加上语言选择。
+            const languages = await queryClient.fetchQuery({
+              queryKey: adminLanguageKeys.all,
+              queryFn: ({ signal }) => listLanguageSettings(signal),
+            });
+            const languageId = languages[0]?.id;
+            if (!languageId) throw new Error('平台还没有可用的语言。');
+            await create.mutateAsync({ ...value, languageId });
           }}
         />
       }

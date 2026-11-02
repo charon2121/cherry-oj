@@ -60,7 +60,10 @@ public class CustomRunController {
 
     public record Request(
             @NotNull UUID problemId,
-            @NotNull @Pattern(regexp = "cpp") String languageId,
+
+            @NotNull @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId,
+
             @NotBlank @Size(max = 262144) String source,
             @NotNull @Size(max = 65536) String inputText) {
         @Override
@@ -199,7 +202,7 @@ public class CustomRunController {
     static Result validate(Result v, Request r) {
         if (v == null
                 || !r.problemId().equals(v.problemId())
-                || !"cpp".equals(v.languageId())
+                || !r.languageId().equals(v.languageId())
                 || v.status() == null
                 || !Set.of(
                                 "COMPLETED",

@@ -112,7 +112,10 @@ public final class SubmissionController {
 
     public record Create(
             @NotNull UUID problemId,
-            @NotBlank @Pattern(regexp = "cpp") String languageId,
+
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId,
+
             @NotBlank @Size(max = 262144) String source) {
         @Override
         public String toString() {

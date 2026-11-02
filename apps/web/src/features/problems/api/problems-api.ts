@@ -1,6 +1,7 @@
 import { queryOptions } from '@tanstack/react-query';
 import { z } from 'zod';
 
+import { languageIdSchema } from '@/features/languages/language';
 import type {
   AdminProblem,
   AdminProblemSummary,
@@ -108,8 +109,8 @@ const adminProblemSchema = z
     allowedLanguages: z.tuple([
       z
         .object({
-          id: z.literal('cpp'),
-          displayName: z.literal('C++'),
+          id: languageIdSchema,
+          displayName: z.string().min(1),
           starterCode: z.string(),
           // CORE 的驱动代码，只在管理端返回；ACM 或尚未填写时为 null。
           judgeTemplate: z

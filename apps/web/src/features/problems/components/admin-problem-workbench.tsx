@@ -42,6 +42,7 @@ import { IconButton } from '@/components/ui/icon-button';
 import { Container, Section } from '@/components/ui/layout';
 import { RichMarkdownEditor } from '@/components/ui/rich-markdown-editor';
 import { Text } from '@/components/ui/typography';
+import { editorSyntax } from '@/features/languages/language';
 import type { AdminProblem, ProblemDifficulty, ProblemSample } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
@@ -264,8 +265,11 @@ function WorkbenchEditor({
   const [confirming, setConfirming] = useState<'archive' | 'delete'>();
   const isCore = problem.codeMode === 'CORE';
   // 改了驱动代码不会让标定失效（只提示）：本次会话里保存过改动后的驱动代码，就提示重新标定，标定成功后收起。
-  const savedDriver = useRef(problem.allowedLanguages[0].judgeTemplate ?? '');
-  const solutionPrefix = problem.allowedLanguages[0].solutionPrefix;
+  // 每道题目前只开放一门语言（多语言题的公开规则还没定）：编辑器语法、文案与标定都针对它。
+  const language = problem.allowedLanguages[0];
+  const syntax = editorSyntax(language.id);
+  const savedDriver = useRef(language.judgeTemplate ?? '');
+  const solutionPrefix = language.solutionPrefix;
   // 前缀以换行结尾，行数 = 换行个数（与服务端换算报错行号的规则一致）。
   const prefixLines = solutionPrefix ? solutionPrefix.split('\n').length - 1 : 0;
   const [driverChanged, setDriverChanged] = useState(false);
@@ -405,7 +409,7 @@ function WorkbenchEditor({
       const clockNs = secondsToNanoseconds(limits.clockSeconds, true);
       if (cpuNs === null) throw new Error('请填写 CPU 时间限制。');
       return calibrate(problem.id, {
-        languageId: 'cpp',
+        languageId: language.id,
         cpuNs,
         memoryBytes: mebibytesToBytes(limits.memoryMib),
         clockNs,
@@ -697,15 +701,15 @@ function WorkbenchEditor({
             <EditorSection
               id={`${ids}-starter-code`}
               title="起始代码"
-              description="C++，留空时答题者会得到空白编辑器。"
+              description={`${language.displayName}，留空时答题者会得到空白编辑器。`}
             >
               <form.Field name="starterCode">
                 {(field) => (
                   <CodeBlockEditor
-                    language="cpp"
+                    language={syntax}
                     value={field.state.value}
                     readOnly={!editable}
-                    aria-label="C++ 起始代码"
+                    aria-label={`${language.displayName} 起始代码`}
                     onChange={(value) => {
                       field.handleChange(value);
                       markChanged();
@@ -719,13 +723,13 @@ function WorkbenchEditor({
               <EditorSection
                 id={`${ids}-solution-prefix`}
                 title="前缀代码"
-                description={`C++ 所有核心代码题共用，在"语言"页修改。用户文件 solution.cpp = 这 ${prefixLines} 行 + 用户代码。`}
+                description={`${language.displayName} 所有核心代码题共用，在"语言"页修改。用户文件 = 这 ${prefixLines} 行 + 用户代码。`}
               >
                 <CodeBlockEditor
-                  language="cpp"
+                  language={syntax}
                   value={solutionPrefix}
                   readOnly
-                  aria-label="C++ 前缀代码"
+                  aria-label={`${language.displayName} 前缀代码`}
                   onChange={() => undefined}
                 />
               </EditorSection>
@@ -767,10 +771,10 @@ function WorkbenchEditor({
                     }
                   >
                     <CodeBlockEditor
-                      language="cpp"
+                      language={syntax}
                       value={field.state.value}
                       readOnly={!editable}
-                      aria-label="C++ 驱动代码"
+                      aria-label={`${language.displayName} 驱动代码`}
                       onChange={(value) => {
                         field.handleChange(value);
                         markChanged();
@@ -834,7 +838,7 @@ function WorkbenchEditor({
                 {isPublic ? '已公开' : '私有'}
               </PropertyButton>
               <PropertyButton icon={<Cpu aria-hidden="true" />} disabled>
-                {codeModeLabels[problem.codeMode]} · C++
+                {codeModeLabels[problem.codeMode]} · {language.displayName}
               </PropertyButton>
             </PropertyGroup>
 
@@ -930,6 +934,8 @@ function WorkbenchEditor({
         limits={limits}
         onLimitsChange={setLimits}
         referenceLabel={isCore ? '参考核心代码' : '参考程序'}
+        languageId={language.id}
+        languageName={language.displayName}
         referenceSource={referenceSource}
         onReferenceSourceChange={setReferenceSource}
         editable={editable}

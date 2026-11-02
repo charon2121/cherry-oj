@@ -104,7 +104,7 @@ final class SubmissionServiceClient {
                             .map(source -> {
                                 if (!id.equals(source.submissionId())
                                         || source.problemId() == null
-                                        || !"cpp".equals(source.languageId())
+                                        || !validLanguage(source.languageId())
                                         || source.source() == null
                                         || source.source().getBytes(java.nio.charset.StandardCharsets.UTF_8).length
                                                 > 262144) throw unavailable();
@@ -116,12 +116,17 @@ final class SubmissionServiceClient {
                 .onErrorMap(SubmissionServiceClient::map);
     }
 
+    /** 下游回来的语言只核对格式：支持哪些语言由 problem-service 决定，gateway 不维护语言名单。 */
+    private static boolean validLanguage(String languageId) {
+        return languageId != null && languageId.matches("^[a-z][a-z0-9-]{0,31}$");
+    }
+
     private static SubmissionController.View validate(SubmissionController.View view) {
         if (view.id() == null
                 || view.problemId() == null
                 || view.problemTitle() == null
                 || view.createdAt() == null
-                || !"cpp".equals(view.languageId())
+                || !validLanguage(view.languageId())
                 || view.status() == null
                 || !Set.of("PENDING", "JUDGING", "DONE").contains(view.status())
                 || ("DONE".equals(view.status())

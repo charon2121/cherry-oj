@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { languageIdSchema } from '@/features/languages/language';
 import type { CreateSubmissionRequest, SubmissionData } from '@/generated/api';
 import { requestJson } from '@/lib/api/api-client';
 import { withCsrf } from '@/lib/api/csrf';
@@ -9,7 +10,7 @@ export const submissionSchema = z
     id: z.string().uuid(),
     problemId: z.string().uuid(),
     problemTitle: z.string(),
-    languageId: z.literal('cpp'),
+    languageId: languageIdSchema,
     status: z.enum(['PENDING', 'JUDGING', 'DONE']),
     createdAt: z.string().datetime(),
     verdict: z.enum(['AC', 'WA', 'PE', 'CE', 'RE', 'TLE', 'MLE', 'OLE', 'SE']).optional(),

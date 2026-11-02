@@ -16,6 +16,7 @@ import { Pill } from '@/components/ui/pill';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TextEditor } from '@/components/ui/text-editor';
 import { authKeys } from '@/features/auth/api/session-query';
+import { problemLanguage } from '@/features/languages/language';
 import { CopyIconButton } from '@/features/problems/components/source-copy-button';
 import { labels, SubmissionPanel } from '@/features/submissions/submission-panel';
 import { loadRecovery, recoveryKey } from '@/features/submissions/submission-recovery';
@@ -35,7 +36,14 @@ const caseLabels: Record<CaseVerdict, string> = {
 };
 type RunCase = { key: string; name: string; input: string; expected?: string };
 type Outcome = { value: CustomRunData; verdict: CaseVerdict };
-type Attempt = { source: string; custom: string; cases: RunCase[]; started: string };
+type Attempt = {
+  source: string;
+  custom: string;
+  cases: RunCase[];
+  started: string;
+  /** 运行时用的语言显示名，结果头部照它标出。 */
+  languageName: string;
+};
 const CUSTOM = 'custom';
 
 function failed(verdict: CaseVerdict) {
@@ -123,12 +131,20 @@ export function CustomRunWorkbench({
     return custom !== '' || samples.length === 0 ? [...samples, own] : samples;
   }
   async function run() {
-    if (active.current || disabled || inputLarge || invalidSource || !sameUser()) return;
+    const language = problemLanguage(problem);
+    if (!language || active.current || disabled || inputLarge || invalidSource || !sameUser())
+      return;
     const controller = new AbortController();
     active.current = controller;
     const current = ++sequence.current;
     const cases = runCases();
-    setAttempt({ source, custom, cases, started: new Date().toLocaleTimeString() });
+    setAttempt({
+      source,
+      custom,
+      cases,
+      started: new Date().toLocaleTimeString(),
+      languageName: language.displayName,
+    });
     setOutcomes({});
     setResultKey(cases[0]?.key ?? CUSTOM);
     setError('');
@@ -139,7 +155,7 @@ export function CustomRunWorkbench({
       // 服务端每个账号同时只受理一次运行，所以逐个发。
       for (const item of cases) {
         const value = await createCustomRun(
-          { problemId: problem.problemId, languageId: 'cpp', source, inputText: item.input },
+          { problemId: problem.problemId, languageId: language.id, source, inputText: item.input },
           userId,
           AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]),
         );
@@ -246,7 +262,7 @@ export function CustomRunWorkbench({
               {disabled
                 ? '当前题目或登录状态尚不可运行。'
                 : invalidSource
-                  ? '请输入非空 C++ 代码，最多 256 KiB。'
+                  ? '请输入非空代码，最多 256 KiB。'
                   : inputLarge
                     ? '自定义输入超过 64 KiB，请缩减后运行。'
                     : '运行会用当前代码跑全部样例并比对预期输出，自定义输入有内容时一起运行；不计入提交记录。'}
@@ -426,7 +442,9 @@ function RunReport({
             {summary}
           </p>
         ) : null}
-        <span className="text-fg-meta text-xs">{attempt.started} · C++</span>
+        <span className="text-fg-meta text-xs">
+          {attempt.started} · {attempt.languageName}
+        </span>
       </div>
       {error ? (
         <p role="alert" className="text-fg-2">

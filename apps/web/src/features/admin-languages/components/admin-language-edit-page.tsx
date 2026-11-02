@@ -18,6 +18,7 @@ import { usePageCrumb } from '@/components/ui/header-slot';
 import { Cluster } from '@/components/ui/layout';
 import { DetailPageTemplate } from '@/components/ui/page-templates';
 import { Text } from '@/components/ui/typography';
+import { editorSyntax } from '@/features/languages/language';
 import { apiErrorMessage } from '@/features/problems/components/problem-workbench-dialogs';
 import type { AdminLanguageSetting } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
@@ -92,7 +93,7 @@ function PrefixEditor({ language }: { language: AdminLanguageSetting }) {
         </Text>
       </div>
       <CodeBlockEditor
-        language={language.id === 'cpp' ? 'cpp' : 'plain'}
+        language={editorSyntax(language.id)}
         value={draft}
         readOnly={save.isPending}
         aria-label={`${language.displayName} 前缀代码`}

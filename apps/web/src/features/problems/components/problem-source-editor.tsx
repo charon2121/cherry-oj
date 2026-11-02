@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { IconButton } from '@/components/ui/icon-button';
 import { TextEditor } from '@/components/ui/text-editor';
+import { editorSyntax } from '@/features/languages/language';
 import type { HistoryLoad } from '@/features/submissions/submission-history-panel';
 import { cn } from '@/lib/utils';
 
@@ -24,13 +25,20 @@ import { CopyIconButton, SourceCopyButton } from './source-copy-button';
 export function SourceEditor({
   value,
   onChange,
+  languageId,
+  languageName,
   readOnly = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  /** 题目的语言：决定语法高亮（认不得时按纯文本）与读屏标签。 */
+  languageId: string;
+  languageName: string;
   readOnly?: boolean;
 }) {
   const touch = useWorkbenchMedia('(pointer: coarse)');
+  const syntax = editorSyntax(languageId);
+  const label = `${languageName} 代码编辑器`;
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col [@media(max-height:36rem)]:h-64 [@media(max-height:36rem)]:flex-none">
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -39,9 +47,9 @@ export function SourceEditor({
             value={value}
             onChange={onChange}
             readOnly={readOnly}
-            language="cpp"
+            language={syntax}
             size="fill"
-            aria-label="C++ 代码编辑器"
+            aria-label={label}
             className="h-full rounded-none border-0"
           />
         ) : (
@@ -49,7 +57,8 @@ export function SourceEditor({
             value={value}
             onChange={onChange}
             readOnly={readOnly}
-            aria-label="C++ 代码编辑器"
+            syntax={syntax}
+            aria-label={label}
             className="h-full"
           />
         )}
@@ -96,6 +105,8 @@ type DraftEditorProps = {
   userId: string;
   problemId: string;
   languageId: string;
+  /** 语言的显示名，只用于编辑器标签；草稿的身份仍是 userId + problemId + languageId。 */
+  languageName: string;
   starterCode: string;
   readOnly: boolean;
   onUnsavedChange?: (unsaved: boolean) => void;
@@ -112,6 +123,7 @@ export function DraftEditor({
   renderSubmission,
   historyRef,
   toolbarStart,
+  languageName,
   layout = (editor, submission) => (
     <>
       {editor}
@@ -204,7 +216,13 @@ export function DraftEditor({
               <RotateCcw className="size-3.5" aria-hidden="true" />
             </IconButton>
           </PaneHeader>
-          <SourceEditor value={draft.value} onChange={draft.setValue} readOnly={readOnly} />
+          <SourceEditor
+            value={draft.value}
+            onChange={draft.setValue}
+            languageId={identity.languageId}
+            languageName={languageName}
+            readOnly={readOnly}
+          />
         </>,
         renderSubmission?.(draft.value),
       )}

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { languageIdSchema } from '@/features/languages/language';
 import type { CustomRunData, CustomRunRequest } from '@/generated/api';
 import { ApiError, requestJson } from '@/lib/api/api-client';
 
@@ -15,7 +16,7 @@ const output = z
 export const runSchema = z
   .object({
     problemId: z.string().uuid(),
-    languageId: z.literal('cpp'),
+    languageId: languageIdSchema,
     status: z.enum([
       'COMPLETED',
       'COMPILE_ERROR',

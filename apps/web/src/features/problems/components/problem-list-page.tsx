@@ -35,6 +35,16 @@ export function ProblemListPage({ search, navigate }: Props) {
   const filtered = Boolean(
     search.q || search.difficulty || search.codeMode || search.language || search.tag?.length,
   );
+  // 公开接口没有平台语言列表：筛选项取本批题目开放的语言，再补上当前选中的那项，前端不写死语言名单。
+  const languageOptions = new Map<string, string>();
+  for (const problem of result.data?.items ?? []) {
+    for (const language of problem.allowedLanguages) {
+      languageOptions.set(language.id, language.displayName);
+    }
+  }
+  if (search.language && !languageOptions.has(search.language)) {
+    languageOptions.set(search.language, search.language);
+  }
 
   const applyText = () => {
     navigate({
@@ -162,7 +172,7 @@ export function ProblemListPage({ search, navigate }: Props) {
             }
             items={[
               { value: '', label: '全部语言' },
-              { value: 'cpp', label: 'C++' },
+              ...[...languageOptions].map(([value, label]) => ({ value, label })),
             ]}
           />
           <SelectField

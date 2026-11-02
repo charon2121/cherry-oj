@@ -1,11 +1,13 @@
 import { z } from 'zod';
 
+import { languageIdSchema } from '@/features/languages/language';
+
 const source = z.string().refine((value) => new TextEncoder().encode(value).length <= 262144);
 export const recoverySchema = z.object({
   key: z.string().uuid(),
   body: z.object({
     problemId: z.string().uuid(),
-    languageId: z.literal('cpp'),
+    languageId: languageIdSchema,
     source,
   }),
   submissionId: z.string().uuid().optional(),

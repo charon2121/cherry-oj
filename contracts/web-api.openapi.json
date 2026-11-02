@@ -1976,7 +1976,7 @@
           },
           "languageId": {
             "type": "string",
-            "const": "cpp"
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "source": {
             "type": "string",
@@ -2051,7 +2051,7 @@
           },
           "languageId": {
             "type": "string",
-            "const": "cpp"
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "source": {
             "type": "string",
@@ -2087,7 +2087,7 @@
           },
           "languageId": {
             "type": "string",
-            "const": "cpp"
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "status": {
             "type": "string",
@@ -2164,7 +2164,7 @@
           },
           "languageId": {
             "type": "string",
-            "const": "cpp"
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "source": {
             "type": "string",
@@ -2240,7 +2240,7 @@
           },
           "languageId": {
             "type": "string",
-            "const": "cpp"
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "status": {
             "type": "string",
@@ -3467,8 +3467,8 @@
             "description": "创建后不可修改"
           },
           "languageId": {
-            "const": "cpp",
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           }
         }
       },
@@ -3581,12 +3581,12 @@
         ],
         "properties": {
           "id": {
-            "const": "cpp",
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "displayName": {
-            "const": "C++",
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           },
           "starterCode": {
             "type": "string",
@@ -3687,8 +3687,8 @@
         ],
         "properties": {
           "languageId": {
-            "const": "cpp",
-            "type": "string"
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
           },
           "cpuNs": {
             "type": "integer",

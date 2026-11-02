@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { TextEditor } from '@/components/ui/text-editor';
 import { Text } from '@/components/ui/typography';
+import { editorSyntax } from '@/features/languages/language';
 import type { AdminProblem, PublishCheck } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
@@ -195,6 +196,8 @@ export function CalibrationDialog({
   limits,
   onLimitsChange,
   referenceLabel,
+  languageId,
+  languageName,
   referenceSource,
   onReferenceSourceChange,
   editable,
@@ -210,6 +213,9 @@ export function CalibrationDialog({
   onLimitsChange: (limits: CalibrationLimits) => void;
   /** ACM 为"参考程序"；CORE 为"参考核心代码"，服务端会加上前缀并配合驱动代码运行。 */
   referenceLabel: string;
+  /** 题目的语言：参考源码按它高亮，标签里写它的显示名。 */
+  languageId: string;
+  languageName: string;
   referenceSource: string;
   onReferenceSourceChange: (value: string) => void;
   editable: boolean;
@@ -254,12 +260,12 @@ export function CalibrationDialog({
           />
         </div>
         <TextEditor
-          language="cpp"
+          language={editorSyntax(languageId)}
           size="compact"
           value={referenceSource}
           readOnly={!editable}
-          placeholder={`粘贴 C++ ${referenceLabel}`}
-          aria-label={`C++ ${referenceLabel}编辑器`}
+          placeholder={`粘贴 ${languageName} ${referenceLabel}`}
+          aria-label={`${languageName} ${referenceLabel}编辑器`}
           onChange={onReferenceSourceChange}
         />
         {blockedReason ? <BlockedReason>{blockedReason}</BlockedReason> : null}
