@@ -12,6 +12,7 @@ import type {
   ProblemStatus,
   ProblemSummary,
   PublishCheck,
+  ReplaceProblemLanguagesRequest,
   TestData,
   UpdateProblemRequest,
 } from '@/generated/api';
@@ -106,25 +107,28 @@ const adminProblemSchema = z
     difficulty,
     tags: z.array(z.string()),
     samples: z.array(sampleSchema),
-    allowedLanguages: z.tuple([
-      z
-        .object({
-          id: languageIdSchema,
-          displayName: z.string().min(1),
-          starterCode: z.string(),
-          // CORE 的驱动代码，只在管理端返回；ACM 或尚未填写时为 null。
-          judgeTemplate: z
-            .string()
-            .nullish()
-            .transform((value) => value ?? null),
-          // 该语言所有 CORE 题共用的前缀，只读；ACM 为 null。
-          solutionPrefix: z
-            .string()
-            .nullish()
-            .transform((value) => value ?? null),
-        })
-        .loose(),
-    ]),
+    allowedLanguages: z
+      .array(
+        z
+          .object({
+            id: languageIdSchema,
+            displayName: z.string().min(1),
+            starterCode: z.string(),
+            // CORE 的驱动代码，只在管理端返回；ACM 或尚未填写时为 null。
+            judgeTemplate: z
+              .string()
+              .nullish()
+              .transform((value) => value ?? null),
+            // 该语言所有 CORE 题共用的前缀，只读；ACM 为 null。
+            solutionPrefix: z
+              .string()
+              .nullish()
+              .transform((value) => value ?? null),
+          })
+          .loose(),
+      )
+      .min(1)
+      .max(32),
     testData: testDataSchema.nullable(),
     createdAt: date,
     updatedAt: date,
@@ -137,6 +141,7 @@ const calibrationSchema = z
     id,
     problemId: id,
     languageId: z.string(),
+    kind: z.enum(['BASE', 'OVERRIDE']),
     status: z.enum(['DRAFT', 'RUNNING', 'VALID', 'FAILED', 'SUPERSEDED']),
     cpuNs: z.number().int().nullable(),
     memoryBytes: z.number().int().nullable(),
@@ -161,6 +166,19 @@ const calibrationSchema = z
 const publishCheckSchema = z
   .object({
     ready: z.boolean(),
+    languages: z
+      .array(
+        z
+          .object({
+            languageId: languageIdSchema,
+            ready: z.boolean(),
+            checks: z.array(
+              z.object({ code: z.string(), passed: z.boolean(), message: z.string() }).strip(),
+            ),
+          })
+          .strip(),
+      )
+      .optional(),
     checks: z.array(
       z.object({ code: z.string(), passed: z.boolean(), message: z.string() }).loose(),
     ),
@@ -181,6 +199,8 @@ export type ProblemSearch = {
 export const problemKeys = {
   all: ['problems'] as const,
   publicList: (search: ProblemSearch) => [...problemKeys.all, 'public-list', search] as const,
+  readyLanguages: (slug: string) => [...problemKeys.all, 'ready-languages', slug] as const,
+  limits: (id: string) => [...problemKeys.admin, id, 'limits'] as const,
   detail: (slug: string) => [...problemKeys.all, 'detail', slug] as const,
   admin: ['admin-problems'] as const,
   adminList: (q: string, status: ProblemStatus | 'ALL', page: number) =>
@@ -341,4 +361,62 @@ export async function deleteProblem(problemId: string, rowVersion: number) {
       csrfToken,
     }),
   );
+}
+
+export function readyLanguagesQuery(slug: string) {
+  return queryOptions({
+    queryKey: problemKeys.readyLanguages(slug),
+    queryFn: async ({ signal }) =>
+      (
+        await requestJson(
+          `/api/problems/${slug}/languages`,
+          z.object({
+            items: z
+              .array(languageSummarySchema.extend({ starterCode: z.string() }).strip())
+              .max(32),
+          }),
+          { signal },
+        )
+      ).data.items,
+    refetchInterval: 10_000,
+    staleTime: 0,
+  });
+}
+
+export function replaceProblemLanguages(
+  problemId: string,
+  request: ReplaceProblemLanguagesRequest,
+) {
+  return problemRequest(problemId, '/languages', adminProblemSchema, 'PUT', request);
+}
+
+const languageLimitsSchema = z
+  .object({
+    languageId: languageIdSchema,
+    limitSource: z.enum(['BASE', 'OVERRIDE', 'DERIVED']).nullable(),
+    cpuNs: z.number().int().positive().nullable(),
+    memoryBytes: z.number().int().positive().nullable(),
+    clockNs: z.number().int().positive().nullable(),
+    calibrationId: id.nullable(),
+    cpuCapped: z.boolean(),
+    memoryCapped: z.boolean(),
+    unavailableReason: z
+      .enum(['NO_CALIBRATION', 'NO_LIMIT_MODEL', 'BASE_LIMIT_MODEL_REMOVED'])
+      .nullable(),
+  })
+  .strip();
+
+export function languageLimitsQuery(problemId: string, enabled: boolean) {
+  return queryOptions({
+    queryKey: problemKeys.limits(problemId),
+    enabled,
+    queryFn: async ({ signal }) =>
+      (
+        await requestJson(
+          `/api/admin/problems/${problemId}/limits`,
+          z.object({ languages: z.array(languageLimitsSchema).min(1).max(32) }).strip(),
+          { signal },
+        )
+      ).data.languages,
+  });
 }

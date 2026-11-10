@@ -300,6 +300,9 @@ export type ProblemSummary = {
     difficulty: ProblemDifficulty;
     tags: Array<ProblemTag>;
     codeMode: ProblemCodeMode;
+    /**
+     * 题目配置的语言，按配置顺序排列；是否此刻可提交由就绪语言接口查询。
+     */
     allowedLanguages: Array<PublicLanguageSummary>;
 };
 
@@ -325,6 +328,9 @@ export type ProblemDetail = {
     constraintsMarkdown: string | null;
     hintMarkdown: string | null;
     samples: Array<ProblemSample>;
+    /**
+     * 题目配置的语言，按配置顺序排列；是否此刻可提交由就绪语言接口查询。
+     */
     allowedLanguages: Array<PublicProblemLanguage>;
 };
 
@@ -348,9 +354,7 @@ export type AdminProblem = {
     difficulty: ProblemDifficulty;
     tags: Array<ProblemTag>;
     samples: Array<ProblemSample>;
-    allowedLanguages: [
-        AdminProblemLanguage
-    ];
+    allowedLanguages: Array<AdminProblemLanguage>;
     testData: TestData | null;
     createdAt: string;
     updatedAt: string;
@@ -444,6 +448,10 @@ export type CalibrateProblemRequest = {
     cpuNs: number;
     memoryBytes: number;
     clockNs: number | null;
+    /**
+     * 省略时明确按 BASE 处理，以兼容旧客户端；null 或未知值返回 422。BASE/OVERRIDE 的资格及替换规则见 docs/protocols/limits.md。
+     */
+    kind?: CalibrationKind;
 };
 
 export type BenchmarkSummary = {
@@ -471,6 +479,7 @@ export type LanguageCalibration = {
      * 标定时所用测试数据的指纹；与题目当前指纹不同即已过期。
      */
     testDataDigest: string;
+    kind: CalibrationKind;
 };
 
 export type LanguageCalibrationSuccess = {
@@ -484,6 +493,9 @@ export type PublishCheckItem = {
     message: string;
 };
 
+/**
+ * ready = 题面、样例、测试数据均通过，且至少一门语言配置、在线节点与限制同时就绪。不能把不同语言分别通过的检查拼成一门可用语言。
+ */
 export type PublishCheck = {
     ready: boolean;
     checks: [
@@ -494,6 +506,10 @@ export type PublishCheck = {
         PublishCheckItem,
         PublishCheckItem
     ];
+    /**
+     * 新服务总是返回，旧服务可省略。按本题配置顺序列出每门语言的检查。总览六项保持不变：语言、节点、标定三项取第一门已就绪语言；没有就绪语言则取配置顺序第一门。
+     */
+    languages?: Array<PublishLanguageCheck>;
 };
 
 export type PublishCheckSuccess = {
@@ -600,6 +616,80 @@ export type UpdateLanguageSettingRequest = {
     expectedUpdatedAt: string;
 };
 
+export type ProblemLanguageInput = {
+    id: LanguageId;
+    starterCode: string;
+    /**
+     * CORE 驱动代码；尚未准备时为 null。ACM 必须为 null。
+     */
+    judgeTemplate: string | null;
+};
+
+/**
+ * 整体替换语言配置，数组顺序即展示顺序，id 不得重复且必须已在平台登记。至少保留一门语言；不接受 displayName 或 solutionPrefix。移除配置只关闭该语言的新作答入口，不删除标定或改写历史提交；已有基础标定仍可作为其它语言的推导依据。
+ */
+export type ReplaceProblemLanguagesRequest = {
+    rowVersion: number;
+    allowedLanguages: Array<ProblemLanguageInput>;
+};
+
+export type CalibrationKind = 'BASE' | 'OVERRIDE';
+
+/**
+ * 一门语言在这道题上的限制及其来源（docs/protocols/limits.md），管理端标定页用。不要求有在线节点：这里只回答“限制是多少、从哪来”。解析不出限制时 limitSource 与各限制为 null，unavailableReason 给出原因。
+ */
+export type ProblemLanguageLimits = {
+    languageId: LanguageId;
+    limitSource: 'BASE' | 'OVERRIDE' | 'DERIVED' | null;
+    cpuNs: number | null;
+    memoryBytes: number | null;
+    clockNs: number | null;
+    /**
+     * 依据的标定编号：DERIVED 时是基础标定
+     */
+    calibrationId: string | null;
+    /**
+     * 推导值超过平台上限、已截断；非推导时为 false
+     */
+    cpuCapped: boolean;
+    memoryCapped: boolean;
+    /**
+     * NO_CALIBRATION=既没有对应当前数据的覆盖标定，也没有对应当前数据的基础标定；NO_LIMIT_MODEL=需要推导但该语言没有限制参数，只能做覆盖标定；BASE_LIMIT_MODEL_REMOVED=基础语言的参数已从语言目录移除，要重新做基础标定
+     */
+    unavailableReason: 'NO_CALIBRATION' | 'NO_LIMIT_MODEL' | 'BASE_LIMIT_MODEL_REMOVED' | null;
+};
+
+export type ProblemLanguageLimitsList = {
+    languages: Array<ProblemLanguageLimits>;
+};
+
+export type ProblemLanguageLimitsSuccess = {
+    data: ProblemLanguageLimitsList;
+    meta: ApiMeta;
+};
+
+export type PublicProblemLanguages = {
+    items: Array<PublicProblemLanguage>;
+};
+
+export type PublicProblemLanguagesSuccess = {
+    data: PublicProblemLanguages;
+    meta: ApiMeta;
+};
+
+/**
+ * 每门语言恰好三项：LANGUAGE=本地配置完整且有节点支持，ONLINE_JUDGE_NODE=在线节点，CALIBRATION=按 BASE/OVERRIDE/DERIVED 规则有可用限制；ready 为三项同时通过。
+ */
+export type PublishLanguageCheck = {
+    languageId: LanguageId;
+    ready: boolean;
+    checks: [
+        PublishCheckItem,
+        PublishCheckItem,
+        PublishCheckItem
+    ];
+};
+
 export type LoginRequestWritable = {
     username: Username;
     password: string;
@@ -638,6 +728,10 @@ export type CalibrateProblemRequestWritable = {
      * ACM 为完整参考程序；CORE 为参考核心代码，服务端与该语言前缀合并后连同驱动代码一起标定
      */
     referenceSource: string;
+    /**
+     * 省略时明确按 BASE 处理，以兼容旧客户端；null 或未知值返回 422。BASE/OVERRIDE 的资格及替换规则见 docs/protocols/limits.md。
+     */
+    kind?: CalibrationKind;
 };
 
 export type CsrfToken = string;
@@ -882,7 +976,7 @@ export type ListProblemsError = ListProblemsErrors[keyof ListProblemsErrors];
 
 export type ListProblemsResponses = {
     /**
-     * 公开题目列表；只包含当前公开版本
+     * 公开题目列表；只包含当前公开题目
      */
     200: ProblemListSuccess;
 };
@@ -1101,7 +1195,7 @@ export type CreateProblemError = CreateProblemErrors[keyof CreateProblemErrors];
 
 export type CreateProblemResponses = {
     /**
-     * 题目及 v1 草稿已创建
+     * 题目已创建，初始为私有
      */
     201: AdminProblemSuccess;
 };
@@ -1484,7 +1578,7 @@ export type CheckProblemPublicationError = CheckProblemPublicationErrors[keyof C
 
 export type CheckProblemPublicationResponses = {
     /**
-     * 六项检查：内容、样例、语言、测试数据、校准、在线判题节点
+     * 保留六项总览并附每门语言的检查；至少一门语言完整就绪即可公开。
      */
     200: PublishCheckSuccess;
 };
@@ -1630,3 +1724,87 @@ export type UpdateLanguageSettingResponses = {
 };
 
 export type UpdateLanguageSettingResponse = UpdateLanguageSettingResponses[keyof UpdateLanguageSettingResponses];
+
+export type ReplaceProblemLanguagesData = {
+    body: ReplaceProblemLanguagesRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/languages';
+};
+
+export type ReplaceProblemLanguagesErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type ReplaceProblemLanguagesError = ReplaceProblemLanguagesErrors[keyof ReplaceProblemLanguagesErrors];
+
+export type ReplaceProblemLanguagesResponses = {
+    /**
+     * 保存题目的多语言配置
+     */
+    200: AdminProblemSuccess;
+};
+
+export type ReplaceProblemLanguagesResponse = ReplaceProblemLanguagesResponses[keyof ReplaceProblemLanguagesResponses];
+
+export type GetProblemLanguageLimitsData = {
+    body?: never;
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/limits';
+};
+
+export type GetProblemLanguageLimitsErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetProblemLanguageLimitsError = GetProblemLanguageLimitsErrors[keyof GetProblemLanguageLimitsErrors];
+
+export type GetProblemLanguageLimitsResponses = {
+    /**
+     * 读取本题各语言的限制及来源
+     */
+    200: ProblemLanguageLimitsSuccess;
+};
+
+export type GetProblemLanguageLimitsResponse = GetProblemLanguageLimitsResponses[keyof GetProblemLanguageLimitsResponses];
+
+export type GetReadyProblemLanguagesData = {
+    body?: never;
+    path: {
+        slug: ProblemSlug;
+    };
+    query?: never;
+    url: '/api/problems/{slug}/languages';
+};
+
+export type GetReadyProblemLanguagesErrors = {
+    /**
+     * 符合 RFC 9457 且经过 Gateway 脱敏的错误响应。实际 HTTP status 与 body.status 相同。
+     */
+    default: ApiProblem;
+};
+
+export type GetReadyProblemLanguagesError = GetReadyProblemLanguagesErrors[keyof GetReadyProblemLanguagesErrors];
+
+export type GetReadyProblemLanguagesResponses = {
+    /**
+     * 读取当前可作答的语言
+     */
+    200: PublicProblemLanguagesSuccess;
+};
+
+export type GetReadyProblemLanguagesResponse = GetReadyProblemLanguagesResponses[keyof GetReadyProblemLanguagesResponses];

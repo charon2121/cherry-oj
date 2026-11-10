@@ -53,6 +53,42 @@ class AdminJudgingSecurityIntegrationTests {
     }
 
     @Test
+    void publicLanguageReadinessAcceptsOnlyProblemServiceAndNeedsNoUser() throws Exception {
+        when(service.readiness(anyString(), anyString(), anyString(), anyLong()))
+                .thenReturn(new Readiness(false, List.of(), null));
+        String body = "{\"problemId\":\"019c8e42-7f70-7000-8000-000000000010\",\"testDataDigest\":\"" + "0".repeat(64)
+                + "\",\"maxTestcaseIoBytes\":0,\"languageIds\":[\"cpp\",\"c\"]}";
+        mvc.perform(post("/internal/problems/readiness")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/internal/problems/readiness")
+                        .header("Authorization", gateway(TestCallTokens.ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/internal/problems/readiness")
+                        .header("Authorization", problemService(null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                                "$.languages[1].languageId")
+                        .value("c"));
+        mvc.perform(post("/internal/problems/readiness")
+                        .header("Authorization", problemService(null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body.replace("\"cpp\",\"c\"", "\"c\",\"c\"")))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/internal/problems/readiness")
+                        .header("Authorization", problemService(null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body.replace("\"maxTestcaseIoBytes\":0,", "")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void readinessRejectsAnonymousAndUserButAllowsAdminWithoutCaching() throws Exception {
         String path = "/internal/admin/readiness?problemId=019c8e42-7f70-7000-8000-000000000010"
                 + "&languageId=cpp&testDataDigest=" + "0".repeat(64) + "&maxTestcaseIoBytes=0";

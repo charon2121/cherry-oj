@@ -10,6 +10,21 @@ final class ProblemDtos {
 
     record ProblemLanguage(String id, String displayName, String starterCode) {}
 
+    record PublicProblemLanguages(List<ProblemLanguage> items) {}
+
+    record ProblemLanguageLimits(
+            String languageId,
+            String limitSource,
+            Long cpuNs,
+            Long memoryBytes,
+            Long clockNs,
+            String calibrationId,
+            boolean cpuCapped,
+            boolean memoryCapped,
+            String unavailableReason) {}
+
+    record ProblemLanguageLimitsList(List<ProblemLanguageLimits> languages) {}
+
     record ProblemSample(int ordinal, String input, String output, String explanationMarkdown) {}
 
     record ProblemSummary(
@@ -100,6 +115,7 @@ final class ProblemDtos {
             String id,
             String problemId,
             String languageId,
+            String kind,
             String status,
             Long cpuNs,
             Long memoryBytes,
@@ -113,5 +129,7 @@ final class ProblemDtos {
 
     record PublishCheckItem(String code, boolean passed, String message) {}
 
-    record PublishCheck(boolean ready, List<PublishCheckItem> checks) {}
+    record PublishLanguageCheck(String languageId, boolean ready, List<PublishCheckItem> checks) {}
+
+    record PublishCheck(boolean ready, List<PublishCheckItem> checks, List<PublishLanguageCheck> languages) {}
 }

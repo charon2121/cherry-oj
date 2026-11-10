@@ -68,7 +68,8 @@ export function CustomRunWorkbench({
   const search = useSearch({ from: '/_site/problems/$slug' });
   const [tab, setTab] = useState(() => {
     try {
-      return search.submissionId || loadRecovery(recoveryKey(userId, problem.problemId))
+      return search.submissionId ||
+        loadRecovery(recoveryKey(userId, problem.problemId, problemLanguage(problem)?.id ?? ''))
         ? 'submission'
         : 'input';
     } catch {

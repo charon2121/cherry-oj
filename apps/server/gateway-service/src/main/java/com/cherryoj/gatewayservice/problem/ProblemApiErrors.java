@@ -23,6 +23,8 @@ final class ProblemApiErrors {
             "SLUG_CONFLICT",
             "PAYLOAD_TOO_LARGE",
             "UNSUPPORTED_MEDIA_TYPE",
+            "DUPLICATE_LANGUAGE",
+            "UNSUPPORTED_LANGUAGE",
             "TEST_DATA_EMPTY",
             "INVALID_TEST_DATA_ARCHIVE",
             "JUDGING_STATE_CONFLICT",

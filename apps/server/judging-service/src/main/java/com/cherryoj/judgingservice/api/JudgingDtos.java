@@ -8,6 +8,18 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public final class JudgingDtos {
+    public record ProblemReadinessRequest(
+            @NotBlank @Pattern(regexp = UUID_PATTERN) String problemId,
+            @NotBlank @Pattern(regexp = SHA_PATTERN) String testDataDigest,
+            @jakarta.validation.constraints.NotNull @Min(0) Long maxTestcaseIoBytes,
+
+            @jakarta.validation.constraints.NotNull @Size(min = 1, max = 32)
+            List<@NotBlank @Pattern(regexp = LANGUAGE_PATTERN) String> languageIds) {}
+
+    public record ProblemLanguageReadiness(String languageId, boolean ready, List<ReadinessCheck> checks) {}
+
+    public record ProblemReadiness(List<ProblemLanguageReadiness> languages) {}
+
     private JudgingDtos() {}
 
     public static final String UUID_PATTERN = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";

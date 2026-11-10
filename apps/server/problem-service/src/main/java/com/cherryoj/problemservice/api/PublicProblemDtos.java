@@ -3,6 +3,7 @@ package com.cherryoj.problemservice.api;
 import java.util.List;
 
 public final class PublicProblemDtos {
+    public record ProblemLanguages(List<ProblemLanguage> items) {}
 
     private PublicProblemDtos() {}
 

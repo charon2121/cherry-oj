@@ -92,6 +92,9 @@ class ProblemPublicationIntegrationTests {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    com.cherryoj.problemservice.application.ProblemLanguagesService languageAvailability;
+
     @BeforeEach
     void resetFake() {
         judging.reset();
@@ -350,6 +353,180 @@ class ProblemPublicationIntegrationTests {
     }
 
     @Test
+    void cAcmCalibrationCanPublishAndStillRejectsAnUnconfiguredLanguage() throws Exception {
+        Fixture fixture = fixture("c-calibrate", "c");
+        String reference =
+                "#include <stdio.h>\nint main(void) { int a,b; scanf(\"%d%d\", &a, &b); printf(\"%d\", a+b); }\n";
+
+        var result = publication.calibrate(
+                fixture.problemId(),
+                new CalibrateProblemRequest("c", 1_000_000L, 64_000_000L, null, reference),
+                TestCallTokens.ADMIN,
+                null,
+                ACTOR);
+
+        assertThat(result.languageId()).isEqualTo("c");
+        assertThat(judging.calibration.kind()).isEqualTo("BASE");
+        assertThat(judging.calibration.referenceSource()).isEqualTo(reference);
+        assertThat(judging.calibration.referenceSolutionSource()).isNull();
+        assertThatThrownBy(() -> publication.calibrate(
+                        fixture.problemId(),
+                        new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, reference),
+                        TestCallTokens.ADMIN,
+                        null,
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("UNSUPPORTED_LANGUAGE"));
+        assertThat(judging.calibrateCalls.get()).isEqualTo(1);
+        assertThat(publication
+                        .publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null)
+                        .checks())
+                .noneMatch(check -> check.message().contains("C++"));
+        assertThat(publication
+                        .publish(fixture.problemId(), fixture.rowVersion(), TestCallTokens.ADMIN, null, ACTOR)
+                        .visibility())
+                .isEqualTo(Visibility.PUBLIC);
+    }
+
+    @Test
+    void cCoreCalibrationUsesTheCDriverAndPrefix() throws Exception {
+        String driver = "#include \"solution.c\"\nint main(void) { printf(\"%d\", add(1, 2)); }\n";
+        String reference = "int add(int a, int b) { return a + b; }\n";
+        Fixture fixture = coreFixture("core-c-calibrate", driver, "c", reference);
+        String prefix =
+                jdbc.queryForObject("SELECT solution_prefix FROM language WHERE language_id = 'c'", String.class);
+
+        publication.calibrate(
+                fixture.problemId(),
+                new CalibrateProblemRequest("c", 1_000_000L, 64_000_000L, null, reference),
+                TestCallTokens.ADMIN,
+                null,
+                ACTOR);
+
+        assertThat(judging.calibration.languageId()).isEqualTo("c");
+        assertThat(judging.calibration.referenceSource()).isEqualTo(driver);
+        assertThat(judging.calibration.referenceSolutionSource()).isEqualTo(prefix + reference);
+        assertThat(judging.calibration.referenceSolutionSource()).doesNotContain("bits/stdc++.h", "namespace std");
+        assertThat(judging.calibration.solutionPrefixLineCount()).isEqualTo((int)
+                prefix.chars().filter(character -> character == '\n').count());
+    }
+
+    @Test
+    void oneReadyLanguagePublishesAndThePublicSelectorExcludesTheOtherLanguage() throws Exception {
+        Fixture fixture = fixture("multi-ready");
+        var saved = admin.replaceLanguages(
+                fixture.problemId(),
+                new AdminProblemDtos.ReplaceProblemLanguagesRequest(
+                        fixture.rowVersion(),
+                        List.of(
+                                new AdminProblemDtos.ProblemLanguageInput("cpp", "cpp starter", null),
+                                new AdminProblemDtos.ProblemLanguageInput("c", "c starter", null))),
+                ACTOR);
+        judging.perLanguage.put("cpp", readiness(false, false, true));
+        judging.perLanguage.put("c", readiness(true, true, false));
+        assertThat(publication
+                        .publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null)
+                        .ready())
+                .isFalse();
+        judging.perLanguage.put("c", readiness(true, true, true));
+        var check = publication.publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null);
+        assertThat(check.ready()).isTrue();
+        assertThat(check.languages())
+                .extracting(AdminProblemDtos.PublishLanguageCheck::ready)
+                .containsExactly(false, true);
+        publication.publish(fixture.problemId(), saved.rowVersion(), TestCallTokens.ADMIN, null, ACTOR);
+        assertThat(languageAvailability.ready(saved.slug(), null).items())
+                .extracting(com.cherryoj.problemservice.api.PublicProblemDtos.ProblemLanguage::id)
+                .containsExactly("c");
+        var override = publication.calibrate(
+                fixture.problemId(),
+                new CalibrateProblemRequest("c", 1_000_000L, 64_000_000L, null, "reference", "OVERRIDE"),
+                TestCallTokens.ADMIN,
+                null,
+                ACTOR);
+        assertThat(override.kind()).isEqualTo("OVERRIDE");
+        assertThat(judging.calibration.kind()).isEqualTo("OVERRIDE");
+        judging.perLanguage.put("c", readiness(false, false, true));
+        assertThat(languageAvailability.ready(saved.slug(), null).items()).isEmpty();
+        assertThat(admin.getProblem(fixture.problemId()).visibility()).isEqualTo(Visibility.PUBLIC);
+    }
+
+    @Test
+    void languageReplacementIsAtomicAndRejectsDuplicatesUnknownIdsAndStaleVersions() throws Exception {
+        Fixture fixture = coreFixture("multi-config", DRIVER);
+        var initial = admin.getProblem(fixture.problemId());
+        LocalDateTime templateAt = jdbc.queryForObject(
+                "SELECT judge_template_updated_at FROM problem_language WHERE problem_id=UUID_TO_BIN(?) AND language_id='cpp'",
+                LocalDateTime.class,
+                fixture.problemId());
+        var input = new AdminProblemDtos.ProblemLanguageInput("cpp", "starter", DRIVER);
+        assertThatThrownBy(() -> admin.replaceLanguages(
+                        fixture.problemId(),
+                        new AdminProblemDtos.ReplaceProblemLanguagesRequest(
+                                initial.rowVersion(), List.of(input, input)),
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("DUPLICATE_LANGUAGE"));
+        assertThat(admin.getProblem(fixture.problemId()).rowVersion()).isEqualTo(initial.rowVersion());
+        assertThatThrownBy(() -> admin.replaceLanguages(
+                        fixture.problemId(),
+                        new AdminProblemDtos.ReplaceProblemLanguagesRequest(
+                                initial.rowVersion(),
+                                List.of(new AdminProblemDtos.ProblemLanguageInput("unknown", "", null))),
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("UNSUPPORTED_LANGUAGE"));
+        var changed = admin.replaceLanguages(
+                fixture.problemId(),
+                new AdminProblemDtos.ReplaceProblemLanguagesRequest(
+                        initial.rowVersion(),
+                        List.of(input, new AdminProblemDtos.ProblemLanguageInput("c", "int add(int a,int b);", null))),
+                ACTOR);
+        assertThat(changed.allowedLanguages())
+                .extracting(AdminProblemDtos.Language::id)
+                .containsExactly("cpp", "c");
+        assertThat(jdbc.queryForObject(
+                        "SELECT judge_template_updated_at FROM problem_language WHERE problem_id=UUID_TO_BIN(?) AND language_id='cpp'",
+                        LocalDateTime.class,
+                        fixture.problemId()))
+                .isEqualTo(templateAt);
+        assertThat(publication
+                        .publishCheck(fixture.problemId(), TestCallTokens.ADMIN, null)
+                        .ready())
+                .isTrue();
+        assertThatThrownBy(() -> admin.replaceLanguages(
+                        fixture.problemId(),
+                        new AdminProblemDtos.ReplaceProblemLanguagesRequest(initial.rowVersion(), List.of(input)),
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("ROW_VERSION_CONFLICT"));
+        assertThatThrownBy(() -> publication.calibrate(
+                        fixture.problemId(),
+                        new CalibrateProblemRequest("c", 1, 1, null, "reference", "OVERRIDE"),
+                        TestCallTokens.ADMIN,
+                        null,
+                        ACTOR))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("RESOURCE_STATE_CONFLICT"));
+    }
+
+    private static JudgingDtos.Readiness readiness(boolean online, boolean supported, boolean calibrated) {
+        return new JudgingDtos.Readiness(
+                online && supported && calibrated,
+                List.of(
+                        new JudgingDtos.ReadinessCheck("ONLINE_JUDGE_NODE", online, "node"),
+                        new JudgingDtos.ReadinessCheck("LANGUAGE", supported, "language"),
+                        new JudgingDtos.ReadinessCheck("CALIBRATION", calibrated, "calibration"),
+                        new JudgingDtos.ReadinessCheck("LIMIT_MODEL", true, "model")),
+                null);
+    }
+
+    @Test
     void aCoreProblemNeedsADriverBeforeItCanBePublished() throws Exception {
         Fixture fixture = coreFixture("core-no-driver", null);
 
@@ -421,13 +598,17 @@ class ProblemPublicationIntegrationTests {
 
     /** driver 为 null 时只建题不写驱动代码。 */
     private Fixture coreFixture(String prefix, String driver) throws Exception {
+        return coreFixture(prefix, driver, "cpp", "class Solution {};");
+    }
+
+    private Fixture coreFixture(String prefix, String driver, String languageId, String starterCode) throws Exception {
         var problem = admin.create(
                 new CreateProblemRequest(
                         prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
                         "Core problem",
                         Difficulty.EASY,
                         CodeMode.CORE,
-                        "cpp"),
+                        languageId),
                 ACTOR);
         var saved = admin.update(
                 problem.id(),
@@ -442,7 +623,7 @@ class ProblemPublicationIntegrationTests {
                         Difficulty.EASY,
                         List.of(),
                         List.of(new SampleInput(1, "1 2\n", "3\n", null)),
-                        "class Solution {};",
+                        starterCode,
                         driver,
                         0),
                 ACTOR);
@@ -462,13 +643,17 @@ class ProblemPublicationIntegrationTests {
     }
 
     private Fixture fixture(String prefix) throws Exception {
+        return fixture(prefix, "cpp");
+    }
+
+    private Fixture fixture(String prefix, String languageId) throws Exception {
         var problem = admin.create(
                 new CreateProblemRequest(
                         prefix + "-" + UUID.randomUUID().toString().substring(0, 8),
                         "Complete problem",
                         Difficulty.EASY,
                         CodeMode.ACM,
-                        "cpp"),
+                        languageId),
                 ACTOR);
         var saved = admin.update(
                 problem.id(),
@@ -535,6 +720,47 @@ class ProblemPublicationIntegrationTests {
     }
 
     static final class FakeJudgingClient implements JudgingClient {
+        final Map<String, JudgingDtos.Readiness> perLanguage = new java.util.HashMap<>();
+
+        @Override
+        public JudgingDtos.LanguageLimitsList limits(
+                String problemId,
+                List<String> languageIds,
+                String digest,
+                long io,
+                CallUser admin,
+                String traceparent) {
+            return new JudgingDtos.LanguageLimitsList(languageIds.stream()
+                    .map(languageId -> new JudgingDtos.LanguageLimits(
+                            languageId,
+                            "cpp".equals(languageId) ? "BASE" : "DERIVED",
+                            1_000_000L,
+                            64_000_000L,
+                            null,
+                            "019c8e42-7f70-7000-8000-000000000010",
+                            false,
+                            false,
+                            null))
+                    .toList());
+        }
+
+        @Override
+        public JudgingDtos.ProblemReadiness problemReadiness(
+                JudgingDtos.ProblemReadinessRequest request, String traceparent) {
+            return new JudgingDtos.ProblemReadiness(request.languageIds().stream()
+                    .map(languageId -> {
+                        var value = readiness(
+                                request.problemId(),
+                                languageId,
+                                request.testDataDigest(),
+                                request.maxTestcaseIoBytes(),
+                                null,
+                                traceparent);
+                        return new JudgingDtos.ProblemLanguageReadiness(languageId, value.ready(), value.checks());
+                    })
+                    .toList());
+        }
+
         volatile CallUser admin;
         volatile String traceparent;
         volatile JudgingDtos.CalibrationRequest calibration;
@@ -550,6 +776,7 @@ class ProblemPublicationIntegrationTests {
         final AtomicInteger readinessCalls = new AtomicInteger();
 
         void reset() {
+            perLanguage.clear();
             admin = null;
             traceparent = null;
             calibration = null;
@@ -603,6 +830,7 @@ class ProblemPublicationIntegrationTests {
             readinessCalls.incrementAndGet();
             if (TransactionSynchronizationManager.isActualTransactionActive()) transactionObserved.set(true);
             readinessDigest = testDataDigest;
+            if (perLanguage.containsKey(languageId)) return perLanguage.get(languageId);
             if (readinessBarrier != null) {
                 try {
                     readinessBarrier.await(10, TimeUnit.SECONDS);
@@ -615,6 +843,7 @@ class ProblemPublicationIntegrationTests {
                     List.of(
                             new JudgingDtos.ReadinessCheck("ONLINE_JUDGE_NODE", true, "Node online."),
                             new JudgingDtos.ReadinessCheck("LANGUAGE", true, "Language ready."),
+                            new JudgingDtos.ReadinessCheck("LIMIT_MODEL", true, "Language limits ready."),
                             new JudgingDtos.ReadinessCheck(
                                     "CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
                     ready

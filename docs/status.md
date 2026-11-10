@@ -14,6 +14,7 @@
 
 | 部分 | 状态 |
 |---|---|
+| 同题多语言与限制标定 | ✅ 2026-11-10：C/C++ 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。Java 相关服务 verify 与本机隔离全栈 `scripts/e2e.py` 通过；实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录)。测试服务器部署记录仍以上方 2026-11-02 为准 |
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
 | 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
 | `internal/config` | ✅ YAML + 环境变量 |

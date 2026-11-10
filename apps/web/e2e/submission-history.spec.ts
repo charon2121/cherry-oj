@@ -52,6 +52,9 @@ async function setup(page: Page) {
         : { authenticated: false },
     ),
   );
+  await page.route('**/api/problems/history-sum/languages', (route) =>
+    success(route, { items: [{ id: 'cpp', displayName: 'C++', starterCode: starter }] }),
+  );
   await page.route('**/api/problems/history-sum', (route) =>
     success(route, {
       problemId,

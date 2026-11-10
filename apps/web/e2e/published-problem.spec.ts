@@ -69,6 +69,33 @@ async function mockBackend(
           rowVersion: 0,
         },
       });
+    if (path === '/api/admin/languages')
+      return success(route, {
+        items: [
+          {
+            id: 'cpp',
+            displayName: 'C++',
+            solutionPrefix: '#include <bits/stdc++.h>\nusing namespace std;\n',
+            updatedAt: time,
+          },
+        ],
+      });
+    if (path === `/api/admin/problems/${problemId}/limits`)
+      return success(route, {
+        languages: [
+          {
+            languageId: 'cpp',
+            limitSource: 'BASE',
+            cpuNs: 1000000000,
+            memoryBytes: 268435456,
+            clockNs: null,
+            calibrationId: problemId,
+            cpuCapped: false,
+            memoryCapped: false,
+            unavailableReason: null,
+          },
+        ],
+      });
     if (path === '/api/auth/csrf')
       return success(route, {
         token: 'csrf-token-that-is-long-enough',
@@ -135,7 +162,7 @@ test('a public problem is edited in place and the change is saved without any dr
     rowVersion: 4,
   });
   expect(patch?.body).not.toHaveProperty('changeSummary');
-  await expect(page.getByText(/已保存/)).toBeVisible();
+  await expect(page.getByText(/^已保存/)).toBeVisible();
 });
 
 test('an admin can take a public problem back to private', async ({ page }) => {

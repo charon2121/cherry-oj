@@ -21,7 +21,9 @@ public final class AdminProblemDtos {
             @NotBlank @Size(max = 512) String title,
             @NotNull Difficulty difficulty,
             @NotNull CodeMode codeMode,
-            @NotBlank String languageId) {}
+
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId) {}
 
     /** 题目没有版本，改了就是改了：一次请求改写 slug、题面、样例和起始代码，可见性与测试数据另有接口。 */
     public record UpdateProblemRequest(
@@ -44,12 +46,51 @@ public final class AdminProblemDtos {
 
     public record RowVersionRequest(@Min(0) long rowVersion) {}
 
+    public record ProblemLanguageInput(
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String id,
+
+            @NotNull @Size(max = 1_048_576) String starterCode,
+
+            @com.fasterxml.jackson.annotation.JsonProperty(required = true) @Size(min = 1, max = 1_048_576)
+            String judgeTemplate) {}
+
+    public record ReplaceProblemLanguagesRequest(
+            @NotNull @Min(0) Long rowVersion,
+            @NotNull @Size(min = 1, max = 32) List<@NotNull @Valid ProblemLanguageInput> allowedLanguages) {}
+
     public record CalibrateProblemRequest(
-            @NotBlank @Pattern(regexp = "^cpp$") String languageId,
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId,
+
             @Min(1) long cpuNs,
             @Min(1) long memoryBytes,
             @Min(1) Long clockNs,
-            @NotBlank @Size(max = 1_048_576) String referenceSource) {}
+            @NotBlank @Size(max = 1_048_576) String referenceSource,
+
+            @Pattern(regexp = "^(BASE|OVERRIDE)$") String kind) {
+        @com.fasterxml.jackson.annotation.JsonCreator
+        public static CalibrateProblemRequest fromJson(
+                @com.fasterxml.jackson.annotation.JsonProperty("languageId") String languageId,
+                @com.fasterxml.jackson.annotation.JsonProperty("cpuNs") long cpuNs,
+                @com.fasterxml.jackson.annotation.JsonProperty("memoryBytes") long memoryBytes,
+                @com.fasterxml.jackson.annotation.JsonProperty("clockNs") Long clockNs,
+                @com.fasterxml.jackson.annotation.JsonProperty("referenceSource") String referenceSource,
+                @com.fasterxml.jackson.annotation.JsonProperty("kind") tools.jackson.databind.JsonNode kind) {
+            // JsonNode distinguishes omitted kind from an explicit JSON null; only omission defaults to BASE.
+            String value = kind == null ? "BASE" : kind.isString() ? kind.asString() : "";
+            return new CalibrateProblemRequest(languageId, cpuNs, memoryBytes, clockNs, referenceSource, value);
+        }
+
+        public CalibrateProblemRequest {
+            if (kind == null) kind = "BASE";
+        }
+
+        public CalibrateProblemRequest(
+                String languageId, long cpuNs, long memoryBytes, Long clockNs, String referenceSource) {
+            this(languageId, cpuNs, memoryBytes, clockNs, referenceSource, "BASE");
+        }
+    }
 
     public record SampleInput(
             @Min(1) @Max(100) int ordinal,
@@ -107,6 +148,7 @@ public final class AdminProblemDtos {
             String id,
             String problemId,
             String languageId,
+            String kind,
             CalibrationStatus status,
             Long cpuNs,
             Long memoryBytes,
@@ -120,7 +162,13 @@ public final class AdminProblemDtos {
 
     public record PublishCheckItem(PublishCheckCode code, boolean passed, String message) {}
 
-    public record PublishCheck(boolean ready, List<PublishCheckItem> checks) {}
+    public record PublishLanguageCheck(String languageId, boolean ready, List<PublishCheckItem> checks) {}
+
+    public record PublishCheck(boolean ready, List<PublishCheckItem> checks, List<PublishLanguageCheck> languages) {
+        public PublishCheck(boolean ready, List<PublishCheckItem> checks) {
+            this(ready, checks, List.of());
+        }
+    }
 
     public enum Visibility {
         PRIVATE,

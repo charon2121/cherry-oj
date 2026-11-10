@@ -91,6 +91,11 @@ public interface AdminProblemMapper {
 
     int deleteLanguages(@Param("problemId") String problemId);
 
+    int touchProblem(
+            @Param("id") String id,
+            @Param("updatedAt") LocalDateTime updatedAt,
+            @Param("expectedRowVersion") long expectedRowVersion);
+
     int deleteAudits(@Param("problemId") String problemId);
 
     /** 只删从未公开过的题目：它不可能有提交。 */

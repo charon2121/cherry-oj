@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://cherry-oj.dev/schema/calibration.schema.json",
   "title": "Calibration internal v1",
-  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=&maxTestcaseIoBytes=：响应 Readiness；maxTestcaseIoBytes 由 problem-service 从当前测试数据读出，推导限制时用。GET /internal/admin/limits?problemId=&testDataDigest=&maxTestcaseIoBytes=&languageIds=cpp&languageIds=...：响应 LanguageLimitsList；languageIds 由 problem-service 给出题目开放的语言（judging-service 不知道题目开放了哪些语言），1–32 个且不重复，否则 400。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。",
+  "description": "problem-service → judging-service 的标定与就绪检查内部接口，需要 problem-service 的调用令牌，并带 ADMIN 用户（docs/protocols/service-identity.md）。POST /internal/admin/calibrations：请求体 CalibrationRequest，响应 Calibration；GET /internal/admin/readiness?problemId=&languageId=&testDataDigest=&maxTestcaseIoBytes=：响应 Readiness；maxTestcaseIoBytes 由 problem-service 从当前测试数据读出，推导限制时用。GET /internal/admin/limits?problemId=&testDataDigest=&maxTestcaseIoBytes=&languageIds=cpp&languageIds=...：响应 LanguageLimitsList；languageIds 由 problem-service 给出题目开放的语言（judging-service 不知道题目开放了哪些语言），1–32 个且不重复，否则 400。时间均为 UTC，序列化为不带时区后缀的 ISO-8601 本地时间（微秒精度）。参考源码只用于本次标定，不得写入日志。cpuNs、memoryBytes 超过 judging-service 的平台上限时返回 400（docs/protocols/limits.md）。 新增 POST /internal/problems/readiness：请求 ProblemReadinessRequest，响应 ProblemReadiness。仅允许 problem-service 的服务身份，不要求用户；供公开作答页查询就绪语言，不能伪造 ADMIN 用户。缺失或非法字段、重复语言返回 400；无在线节点或无可用标定不是接口故障，仍为 200、对应 ready=false。它是只读查询，不运行程序、不创建标定，所有响应 no-store。现有 /internal/admin/** 的 ADMIN 要求不变。",
   "x-contract-version": 1,
   "definitions": {
     "CalibrationRequest": {
@@ -478,6 +478,84 @@
           "description": "顺序与请求里的 languageIds 一致"
         }
       }
+    },
+    "ProblemReadinessRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "problemId",
+        "testDataDigest",
+        "maxTestcaseIoBytes",
+        "languageIds"
+      ],
+      "properties": {
+        "problemId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "testDataDigest": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "maxTestcaseIoBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "languageIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,31}$"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "ProblemLanguageReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languageId",
+        "ready",
+        "checks"
+      ],
+      "properties": {
+        "languageId": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,31}$"
+        },
+        "ready": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/definitions/ReadinessCheck"
+          }
+        }
+      }
+    },
+    "ProblemReadiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languages"
+      ],
+      "properties": {
+        "languages": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/definitions/ProblemLanguageReadiness"
+          }
+        }
+      },
+      "description": "每个请求 languageId 恰好一行，顺序与请求一致；计算规则与现有管理员 readiness 完全相同。只返回就绪事实，不返回 ExecutionProfile、参考源码或数据地址。"
     }
   }
 }

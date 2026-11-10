@@ -22,7 +22,6 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button } from '@/components/ui/button';
-import { CodeBlockEditor } from '@/components/ui/code-block-editor';
 import {
   Dialog,
   DialogContent,
@@ -41,8 +40,8 @@ import { HeaderActions, usePageCrumb } from '@/components/ui/header-slot';
 import { IconButton } from '@/components/ui/icon-button';
 import { Container, Section } from '@/components/ui/layout';
 import { RichMarkdownEditor } from '@/components/ui/rich-markdown-editor';
+import { SelectField } from '@/components/ui/select';
 import { Text } from '@/components/ui/typography';
-import { editorSyntax } from '@/features/languages/language';
 import type { AdminProblem, ProblemDifficulty, ProblemSample } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
@@ -61,6 +60,7 @@ import {
 } from '../api/problems-api';
 import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
+import { ProblemLanguagesEditor, type ProblemLanguagesHandle } from './problem-languages-editor';
 import { type EditableProblemSample, ProblemSampleList } from './problem-sample-list';
 import { ProblemTagProperty } from './problem-tag-property';
 import {
@@ -105,6 +105,8 @@ const difficulties: ReadonlyArray<ProblemDifficulty> = ['UNRATED', 'EASY', 'MEDI
 const AUTOSAVE_DELAY_MS = 800;
 
 function toFormValues(version: AdminProblem): WorkbenchValues {
+  const language = version.allowedLanguages[0];
+  if (!language) throw new Error('题目语言配置为空。');
   return {
     title: version.title,
     statementMarkdown: version.statementMarkdown,
@@ -119,18 +121,10 @@ function toFormValues(version: AdminProblem): WorkbenchValues {
       output: sample.output,
       explanationMarkdown: sample.explanationMarkdown ?? '',
     })),
-    starterCode: version.allowedLanguages[0].starterCode,
-    judgeTemplate: version.allowedLanguages[0].judgeTemplate ?? '',
+    starterCode: language.starterCode,
+    judgeTemplate: language.judgeTemplate ?? '',
   };
 }
-
-// 驱动文件按固定文件名包含用户文件（contracts/languages.json 的 files），用户文件开头已经有 C++ 前缀。
-const CPP_DRIVER_SKELETON = `#include "solution.cpp"
-
-int main() {
-    // 读入数据，调用 Solution 的方法，输出结果
-}
-`;
 
 function toProblemSamples(samples: EditableProblemSample[]): ProblemSample[] {
   return samples.map((sample, index) => ({
@@ -255,7 +249,12 @@ function WorkbenchEditor({
   const statementId = `${ids}-statement`;
   const uploadController = useRef<AbortController | undefined>(undefined);
   const [lastSavedAt, setLastSavedAt] = useState<Date>();
-  const [referenceSource, setReferenceSource] = useState('');
+  const [references, setReferences] = useState<Record<string, string>>({});
+  const [calibrationLanguageId, setCalibrationLanguageId] = useState('');
+  const [calibrationKind, setCalibrationKind] = useState<'BASE' | 'OVERRIDE'>('BASE');
+  const [languagesDirty, setLanguagesDirty] = useState(false);
+  const [languageSaving, setLanguageSaving] = useState(false);
+  const languageEditor = useRef<ProblemLanguagesHandle>(null);
   const [uploadState, setUploadState] = useState<string>();
   const [limits, setLimits] = useState<CalibrationLimits>({
     cpuSeconds: '1',
@@ -264,15 +263,13 @@ function WorkbenchEditor({
   });
   const [confirming, setConfirming] = useState<'archive' | 'delete'>();
   const isCore = problem.codeMode === 'CORE';
-  // 改了驱动代码不会让标定失效（只提示）：本次会话里保存过改动后的驱动代码，就提示重新标定，标定成功后收起。
-  // 每道题目前只开放一门语言（多语言题的公开规则还没定）：编辑器语法、文案与标定都针对它。
-  const language = problem.allowedLanguages[0];
-  const syntax = editorSyntax(language.id);
-  const savedDriver = useRef(language.judgeTemplate ?? '');
-  const solutionPrefix = language.solutionPrefix;
-  // 前缀以换行结尾，行数 = 换行个数（与服务端换算报错行号的规则一致）。
-  const prefixLines = solutionPrefix ? solutionPrefix.split('\n').length - 1 : 0;
-  const [driverChanged, setDriverChanged] = useState(false);
+  const language =
+    problem.allowedLanguages.find((item) => item.id === calibrationLanguageId) ??
+    problem.allowedLanguages[0];
+  if (!language) throw new Error('题目语言配置为空。');
+  const referenceSource = references[language.id] ?? '';
+  const setReferenceSource = (value: string) =>
+    setReferences((previous) => ({ ...previous, [language.id]: value }));
   // 题目没有草稿：除归档外都可直接编辑，公开题目的修改立即对学生生效。
   const editable = problem.status === 'ACTIVE';
   const isPublic = problem.visibility === 'PUBLIC';
@@ -302,8 +299,16 @@ function WorkbenchEditor({
     defaultValues: initialValues,
     onSubmit: async ({ value }) => {
       // 标题为空时不保存；提示就在标题下方，不打断输入。
-      if (!value.title.trim()) return;
-      await save.mutateAsync({ values: cloneWorkbenchValues(value) });
+      if (!value.title.trim() || languageSaving) return;
+      let rowVersion = problem.rowVersion;
+      if (isDirty) {
+        const saved = await save.mutateAsync({ values: cloneWorkbenchValues(value) });
+        rowVersion = saved.rowVersion;
+      }
+      if (languagesDirty && languageEditor.current) {
+        await languageEditor.current.save(rowVersion);
+        setLastSavedAt(new Date());
+      }
     },
   });
 
@@ -320,16 +325,13 @@ function WorkbenchEditor({
         difficulty: value.difficulty,
         tags: [...new Set(value.tags.map((tag) => tag.trim()).filter(Boolean))],
         samples: toProblemSamples(value.samples),
-        starterCode: value.starterCode,
+        starterCode: problem.allowedLanguages[0]?.starterCode ?? '',
         // 驱动代码省略表示不改；ACM 题目不能带它。
-        ...(isCore && value.judgeTemplate.trim() ? { judgeTemplate: value.judgeTemplate } : {}),
+
         rowVersion: problem.rowVersion,
       }),
     onSuccess: async (saved, submitted) => {
       queryClient.setQueryData(problemKeys.adminProblem(problem.id), saved);
-      const driver = submitted.values.judgeTemplate;
-      if (isCore && driver.trim() && driver !== savedDriver.current) setDriverChanged(true);
-      savedDriver.current = driver;
       // 记下发出去的内容，不改编辑区；保存期间又改过的部分自然仍算未保存，会接着保存。
       setSavedValues(submitted.values);
       setLastSavedAt(new Date());
@@ -352,12 +354,23 @@ function WorkbenchEditor({
   // 自动保存：停止修改一会儿后提交；保存进行中再改，等这次完成后接着存最新内容。
   // 保存失败时停下，等管理员处理（再次修改会清掉错误并恢复自动保存）。
   useEffect(() => {
-    if (!autosave || !isDirty || titleMissing || save.isPending || save.isError) return undefined;
+    if (!autosave || !isDirty || titleMissing || save.isPending || save.isError || languageSaving)
+      return undefined;
     const timer = window.setTimeout(() => void form.handleSubmit(), AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [autosave, form, formValues, isDirty, save.isError, save.isPending, titleMissing]);
+  }, [
+    autosave,
+    form,
+    formValues,
+    isDirty,
+    save.isError,
+    save.isPending,
+    titleMissing,
+    languageSaving,
+  ]);
 
-  const hasUnsavedContent = isDirty || referenceSource.trim().length > 0;
+  const hasUnsavedContent =
+    isDirty || languagesDirty || Object.values(references).some((value) => value.trim().length > 0);
   const blocker = useBlocker({
     shouldBlockFn: ({ current, next }) => current.pathname !== next.pathname && hasUnsavedContent,
     enableBeforeUnload: hasUnsavedContent,
@@ -368,8 +381,9 @@ function WorkbenchEditor({
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         editable &&
-        isDirty &&
+        (isDirty || languagesDirty) &&
         !save.isPending &&
+        !languageSaving &&
         (event.metaKey || event.ctrlKey) &&
         event.key.toLowerCase() === 's' &&
         !event.isComposing
@@ -380,7 +394,7 @@ function WorkbenchEditor({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [editable, form, isDirty, save.isPending]);
+  }, [editable, form, isDirty, languagesDirty, save.isPending, languageSaving]);
 
   const upload = useMutation({
     mutationFn: ({ file, signal }: { file: File; signal: AbortSignal }) =>
@@ -410,6 +424,7 @@ function WorkbenchEditor({
       if (cpuNs === null) throw new Error('请填写 CPU 时间限制。');
       return calibrate(problem.id, {
         languageId: language.id,
+        kind: calibrationKind,
         cpuNs,
         memoryBytes: mebibytesToBytes(limits.memoryMib),
         clockNs,
@@ -425,9 +440,10 @@ function WorkbenchEditor({
         memoryMib: memoryMib ?? current.memoryMib,
         clockSeconds: clockSeconds ?? '',
       }));
-      setReferenceSource('');
-      if (result.status === 'VALID') setDriverChanged(false);
+      setReferences((previous) => ({ ...previous, [result.languageId]: '' }));
       await refresh();
+      await queryClient.invalidateQueries({ queryKey: problemKeys.limits(problem.id) });
+      await queryClient.invalidateQueries({ queryKey: problemKeys.readyLanguages(problem.slug) });
     },
   });
 
@@ -470,15 +486,21 @@ function WorkbenchEditor({
   // 测试数据、校准和公开都以服务端已保存的内容为准，本地还有没存的修改时先等它存好。
   let unsavedReason: string | undefined;
   if (!editable) unsavedReason = '题目已归档，不能再修改。';
-  else if (isDirty) {
+  else if (isDirty || languagesDirty) {
     unsavedReason = autosave ? '正在保存修改，完成后即可继续。' : '先保存题目修改。';
   }
   let calibrationBlocked = unsavedReason;
   if (calibrationBlocked === undefined && !problem.testData)
     calibrationBlocked = '先上传测试数据。';
-  if (calibrationBlocked === undefined && nodeUnavailable) {
-    calibrationBlocked = nodeUnavailable.message;
-  }
+  const selectedChecks =
+    check.data?.languages?.find((item) => item.languageId === language.id)?.checks ??
+    check.data?.checks;
+  const unavailable = selectedChecks?.find(
+    (item) => (item.code === 'ONLINE_JUDGE_NODE' || item.code === 'LANGUAGE') && !item.passed,
+  );
+  if (calibrationBlocked === undefined && unavailable) calibrationBlocked = unavailable.message;
+  if (calibrationBlocked === undefined && isCore && !language.judgeTemplate?.trim())
+    calibrationBlocked = '先保存这门语言的驱动代码。';
 
   const conflict =
     save.error instanceof ApiError &&
@@ -537,8 +559,8 @@ function WorkbenchEditor({
       <HeaderActions>
         <SaveStatus
           autosave={autosave}
-          isDirty={isDirty}
-          isSaving={save.isPending}
+          isDirty={isDirty || languagesDirty}
+          isSaving={save.isPending || languageSaving}
           isError={save.isError}
           titleMissing={titleMissing}
           lastSavedAt={lastSavedAt}
@@ -546,8 +568,8 @@ function WorkbenchEditor({
         {autosave || !editable ? null : (
           <Button
             size="sm"
-            disabled={!isDirty || titleMissing}
-            loading={save.isPending}
+            disabled={(!isDirty && !languagesDirty) || titleMissing || languageSaving}
+            loading={save.isPending || languageSaving}
             onClick={() => void form.handleSubmit()}
           >
             <Save aria-hidden="true" />
@@ -698,92 +720,18 @@ function WorkbenchEditor({
               </form.Field>
             </EditorSection>
 
-            <EditorSection
-              id={`${ids}-starter-code`}
-              title="起始代码"
-              description={`${language.displayName}，留空时答题者会得到空白编辑器。`}
-            >
-              <form.Field name="starterCode">
-                {(field) => (
-                  <CodeBlockEditor
-                    language={syntax}
-                    value={field.state.value}
-                    readOnly={!editable}
-                    aria-label={`${language.displayName} 起始代码`}
-                    onChange={(value) => {
-                      field.handleChange(value);
-                      markChanged();
-                    }}
-                  />
-                )}
-              </form.Field>
-            </EditorSection>
-
-            {isCore && solutionPrefix ? (
-              <EditorSection
-                id={`${ids}-solution-prefix`}
-                title="前缀代码"
-                description={`${language.displayName} 所有核心代码题共用，在"语言"页修改。用户文件 = 这 ${prefixLines} 行 + 用户代码。`}
-              >
-                <CodeBlockEditor
-                  language={syntax}
-                  value={solutionPrefix}
-                  readOnly
-                  aria-label={`${language.displayName} 前缀代码`}
-                  onChange={() => undefined}
-                />
-              </EditorSection>
-            ) : null}
-
-            {isCore ? (
-              <form.Field name="judgeTemplate">
-                {(field) => (
-                  <EditorSection
-                    id={`${ids}-judge-template`}
-                    title="驱动代码"
-                    description="引用 solution.cpp（前缀代码 + 用户代码）；报错里会显示它，不要写答案。"
-                    actions={
-                      editable && !field.state.value.trim() ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            field.handleChange(CPP_DRIVER_SKELETON);
-                            markChanged();
-                          }}
-                        >
-                          填入骨架
-                        </Button>
-                      ) : driverChanged ? (
-                        <span className="flex items-center gap-2">
-                          <Text as="span" size="sm" className="text-warning" role="status">
-                            已修改，建议重新标定
-                          </Text>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => onPanelChange('calibration')}
-                          >
-                            重新标定
-                          </Button>
-                        </span>
-                      ) : null
-                    }
-                  >
-                    <CodeBlockEditor
-                      language={syntax}
-                      value={field.state.value}
-                      readOnly={!editable}
-                      aria-label={`${language.displayName} 驱动代码`}
-                      onChange={(value) => {
-                        field.handleChange(value);
-                        markChanged();
-                      }}
-                    />
-                  </EditorSection>
-                )}
-              </form.Field>
-            ) : null}
+            <ProblemLanguagesEditor
+              problem={problem}
+              blocked={isDirty || save.isPending}
+              onDirtyChange={setLanguagesDirty}
+              saveRef={languageEditor}
+              onSavingChange={setLanguageSaving}
+              onCalibrate={(id) => {
+                setCalibrationLanguageId(id);
+                onPanelChange('calibration');
+              }}
+              calibration={calibration.data}
+            />
           </div>
         </form>
 
@@ -838,7 +786,8 @@ function WorkbenchEditor({
                 {isPublic ? '已公开' : '私有'}
               </PropertyButton>
               <PropertyButton icon={<Cpu aria-hidden="true" />} disabled>
-                {codeModeLabels[problem.codeMode]} · {language.displayName}
+                {codeModeLabels[problem.codeMode]} ·{' '}
+                {problem.allowedLanguages.map((item) => item.displayName).join(' / ')}
               </PropertyButton>
             </PropertyGroup>
 
@@ -931,6 +880,35 @@ function WorkbenchEditor({
       <CalibrationDialog
         open={panel === 'calibration'}
         onOpenChange={(open) => onPanelChange(open ? 'calibration' : undefined)}
+        configuration={
+          <div className="flex flex-wrap gap-3">
+            <SelectField
+              label="标定语言"
+              value={language.id}
+              disabled={calibration.isPending}
+              items={problem.allowedLanguages.map((item) => ({
+                value: item.id,
+                label: item.displayName,
+              }))}
+              onValueChange={(id) => {
+                setCalibrationLanguageId(id);
+                calibration.reset();
+              }}
+            />
+            <SelectField
+              label="标定方式"
+              value={calibrationKind}
+              disabled={calibration.isPending}
+              items={[
+                { value: 'BASE', label: '基础标定' },
+                { value: 'OVERRIDE', label: '覆盖标定' },
+              ]}
+              onValueChange={(kind) => {
+                if (kind === 'BASE' || kind === 'OVERRIDE') setCalibrationKind(kind);
+              }}
+            />
+          </div>
+        }
         limits={limits}
         onLimitsChange={setLimits}
         referenceLabel={isCore ? '参考核心代码' : '参考程序'}

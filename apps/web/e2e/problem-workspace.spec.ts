@@ -51,6 +51,9 @@ function problem(source = starterCode) {
 }
 
 async function mockProblem(target: Page | BrowserContext) {
+  await target.route('**/api/problems/workspace-sum/languages', (route) =>
+    success(route, { items: problem().allowedLanguages }),
+  );
   await target.route('**/api/problems/workspace-sum', (route) => success(route, problem()));
 }
 
@@ -298,6 +301,9 @@ test('a core-mode problem is answered in the same editor, starting from its star
   page,
 }) => {
   const coreStarter = 'class Solution {\npublic:\n    int add(int a, int b) {\n    }\n};';
+  await page.route('**/api/problems/workspace-sum/languages', (route) =>
+    success(route, { items: problem(coreStarter).allowedLanguages }),
+  );
   await page.route('**/api/problems/workspace-sum', (route) =>
     success(route, { ...problem(coreStarter), codeMode: 'CORE' }),
   );
@@ -314,6 +320,9 @@ test('a core-mode problem is answered in the same editor, starting from its star
 
 test('an administrator edit to the problem never replaces an open buffer', async ({ page }) => {
   let currentProblem = problem();
+  await page.route('**/api/problems/workspace-sum/languages', (route) =>
+    success(route, { items: currentProblem.allowedLanguages }),
+  );
   await page.route('**/api/problems/workspace-sum', (route) => success(route, currentProblem));
   await page.route('**/api/auth/session', (route) => success(route, session()));
   await page.goto('/problems/workspace-sum');

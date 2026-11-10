@@ -1,9 +1,20 @@
 package com.cherryoj.problemservice.integration.judging;
 
 import com.cherryoj.identity.token.CallUser;
+import java.util.List;
 
 /** 代表管理员调用 judging-service：admin 原样转发到调用令牌的 user。 */
 public interface JudgingClient {
+
+    JudgingDtos.ProblemReadiness problemReadiness(JudgingDtos.ProblemReadinessRequest request, String traceparent);
+
+    JudgingDtos.LanguageLimitsList limits(
+            String problemId,
+            List<String> languageIds,
+            String testDataDigest,
+            long maxTestcaseIoBytes,
+            CallUser admin,
+            String traceparent);
 
     JudgingDtos.Calibration calibrate(JudgingDtos.CalibrationRequest request, CallUser admin, String traceparent);
 

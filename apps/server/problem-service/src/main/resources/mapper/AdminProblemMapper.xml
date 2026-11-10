@@ -156,6 +156,10 @@
     </update>
     <delete id="deleteSamples">DELETE FROM problem_sample WHERE problem_id = UUID_TO_BIN(#{problemId})</delete>
     <delete id="deleteLanguages">DELETE FROM problem_language WHERE problem_id = UUID_TO_BIN(#{problemId})</delete>
+    <update id="touchProblem">
+        UPDATE problem SET updated_at = #{updatedAt}, row_version = row_version + 1
+        WHERE id = UUID_TO_BIN(#{id}) AND status = 'ACTIVE' AND row_version = #{expectedRowVersion}
+    </update>
     <delete id="deleteAudits">DELETE FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(#{problemId})</delete>
     <delete id="deleteNeverPublished">
         DELETE FROM problem WHERE id = UUID_TO_BIN(#{id}) AND published_at IS NULL AND row_version = #{expectedRowVersion}

@@ -71,6 +71,27 @@ final class ProblemServiceClient {
                 ProblemDtos.ProblemDetail.class);
     }
 
+    Mono<ProblemDtos.PublicProblemLanguages> readyLanguages(String slug, String requestId) {
+        return json(
+                requests.request(client.get().uri("/internal/public/problems/{slug}/languages", slug), requestId),
+                ProblemDtos.PublicProblemLanguages.class);
+    }
+
+    Mono<ProblemDtos.AdminProblem> replaceLanguages(ActingUser identity, String problemId, Object body) {
+        return json(
+                requests.authenticated(
+                                client.put().uri("/internal/admin/problems/{problemId}/languages", problemId), identity)
+                        .bodyValue(body),
+                ProblemDtos.AdminProblem.class);
+    }
+
+    Mono<ProblemDtos.ProblemLanguageLimitsList> limits(ActingUser identity, String problemId) {
+        return json(
+                requests.authenticated(
+                        client.get().uri("/internal/admin/problems/{problemId}/limits", problemId), identity),
+                ProblemDtos.ProblemLanguageLimitsList.class);
+    }
+
     Mono<ProblemDtos.AdminProblemPage> listAdmin(ActingUser identity, String q, String status, int page, int size) {
         return json(
                 requests.authenticated(

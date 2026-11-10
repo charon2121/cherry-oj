@@ -15,6 +15,9 @@ class SecurityConfig {
     @Bean
     EndpointPolicies endpointPolicies() {
         return EndpointPolicies.builder()
+                .endpoint(HttpMethod.POST, "/internal/problems/readiness")
+                .callers(ServiceNames.PROBLEM)
+                .withoutUser()
                 .endpoint(HttpMethod.POST, "/internal/submission/execution-profile", "/internal/submission/trials")
                 .callers(ServiceNames.SUBMISSION)
                 .withoutUser()

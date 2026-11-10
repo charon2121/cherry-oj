@@ -215,6 +215,49 @@ public class AdminProblemService {
     }
 
     @Transactional
+    public Problem replaceLanguages(
+            String problemId, AdminProblemDtos.ReplaceProblemLanguagesRequest request, String actorUserId) {
+        ProblemRow current = requireProblem(problemId, true);
+        requireRowVersion(current.rowVersion(), request.rowVersion());
+        if (current.status() != ProblemStatus.ACTIVE) throw state("归档题目不可修改。");
+        var inputs = request.allowedLanguages();
+        if (inputs == null || inputs.isEmpty() || inputs.size() > 32) throw validation("题目需要配置 1–32 门语言。");
+        var seen = new LinkedHashSet<String>();
+        for (var input : inputs) {
+            if (!seen.add(input.id()))
+                throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "DUPLICATE_LANGUAGE", "语言配置不能重复。");
+            if (mapper.findLanguagePrefix(input.id()) == null)
+                throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "平台没有这门语言。");
+            validateJudgeTemplate(current.codeMode(), input.judgeTemplate());
+        }
+        var previous = mapper.findLanguages(problemId).stream()
+                .collect(java.util.stream.Collectors.toMap(LanguageRow::languageId, value -> value));
+        LocalDateTime now = now();
+        if (mapper.touchProblem(problemId, now, request.rowVersion()) != 1) throw conflict();
+        mapper.deleteLanguages(problemId);
+        int order = 0;
+        for (var input : inputs) {
+            LanguageRow old = previous.get(input.id());
+            LocalDateTime templateAt = input.judgeTemplate() == null
+                    ? null
+                    : old != null && java.util.Objects.equals(input.judgeTemplate(), old.judgeTemplate())
+                            ? old.judgeTemplateUpdatedAt()
+                            : now;
+            mapper.insertLanguage(problemId, input.id(), ++order, input.starterCode());
+            mapper.updateLanguage(problemId, input.id(), input.starterCode(), input.judgeTemplate(), templateAt);
+            if (!java.util.Objects.equals(input.judgeTemplate(), old == null ? null : old.judgeTemplate())) {
+                Map<String, Object> detail = new java.util.LinkedHashMap<>();
+                detail.put("languageId", input.id());
+                if (input.judgeTemplate() == null) detail.put("judgeTemplateRemoved", true);
+                else detail.put("judgeTemplateSha256", sha256(input.judgeTemplate()));
+                audit(problemId, actorUserId, "PROBLEM_JUDGE_TEMPLATE_CHANGED", detail);
+            }
+        }
+        audit(problemId, actorUserId, "PROBLEM_LANGUAGES_CHANGED", Map.of("languageIds", List.copyOf(seen)));
+        return getProblem(problemId);
+    }
+
+    @Transactional
     public Problem archive(String problemId, long rowVersion, String actorUserId) {
         ProblemRow current = requireProblem(problemId, true);
         requireRowVersion(current.rowVersion(), rowVersion);

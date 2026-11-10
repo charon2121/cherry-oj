@@ -45,7 +45,7 @@
 | 13 | 部署配置格式 | 安装器 ↔ 执行器与 judge | `executor.conf`、`judge-start.json`、`deployment.json`（部署清单）、`plan.json` | [`deploy/sandbox-linux/install/README.md`](../../deploy/sandbox-linux/install/README.md) |
 | 14 | 安装布局 | 安装器、运维 ↔ 执行器与 judge | `/opt/cherry-oj` 的目录结构、属主、权限，以及家目录之外的系统位置 | [`install-layout.md`](./install-layout.md) |
 | 15 | benchmark | 语料 / 运行者 ↔ 被测 judge 与 sandbox | 两个入口（`POST /judge`、直接调用执行器）；语料目录、`expect.json`、运行说明、报告 JSON、退出码 | [`benchmark.md`](./benchmark.md) |
-| 16 | 运行限制推导 | judging-service 推导；problem-service、submission-service 消费 | 基础标定 + `contracts/languages.json` 的 `limitModel` 推导各语言绝对限制，随 JudgeInput 冻结（已定，尚未实施） | [`limits.md`](./limits.md) |
+| 16 | 运行限制推导 | judging-service 推导；problem-service、submission-service 消费 | 基础标定 + `contracts/languages.json` 的 `limitModel` 推导各语言绝对限制，随 JudgeInput 冻结；同题多语言配置、标定管理与就绪语言查询 | [`limits.md`](./limits.md) |
 
 `contracts/` 里另有三份**数据模型与词表**，不是有两端的接口，但同样是跨服务的真源：
 [`submission.json`](../../contracts/submission.json)（用户可见的提交读模型）、

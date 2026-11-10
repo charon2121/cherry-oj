@@ -15,6 +15,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -36,6 +37,35 @@ public final class HttpJudgingClient implements JudgingClient {
         this.http = HttpClient.newBuilder()
                 .connectTimeout(properties.connectTimeout())
                 .build();
+    }
+
+    @Override
+    public JudgingDtos.ProblemReadiness problemReadiness(
+            JudgingDtos.ProblemReadinessRequest value, String traceparent) {
+        return send(
+                request("/internal/problems/readiness", null, traceparent)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofByteArray(writeJson(value)))
+                        .build(),
+                JudgingDtos.ProblemReadiness.class);
+    }
+
+    @Override
+    public JudgingDtos.LanguageLimitsList limits(
+            String problemId,
+            List<String> languageIds,
+            String testDataDigest,
+            long maxTestcaseIoBytes,
+            CallUser admin,
+            String traceparent) {
+        String query = "?problemId=" + encode(problemId) + "&testDataDigest=" + encode(testDataDigest)
+                + "&maxTestcaseIoBytes=" + maxTestcaseIoBytes;
+        for (String languageId : languageIds) query += "&languageIds=" + encode(languageId);
+        return send(
+                request("/internal/admin/limits" + query, admin, traceparent)
+                        .GET()
+                        .build(),
+                JudgingDtos.LanguageLimitsList.class);
     }
 
     @Override

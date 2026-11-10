@@ -32,7 +32,7 @@ type CreateValues = {
 
 type LanguageOption = { id: string; displayName: string };
 
-// 语言不给默认值：建题后改不了，按编号取第一项会落到 C，写死 C++ 又回到前端维护语言名单的老路。
+// 初始语言由管理员明确选择：按编号取第一项会落到 C，写死 C++ 又回到前端维护语言名单的老路。
 const defaults: CreateValues = {
   slug: '',
   title: '',

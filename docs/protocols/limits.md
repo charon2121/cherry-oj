@@ -1,6 +1,6 @@
 # 运行限制推导协议
 
-> **状态：** 2026-11-02 审核通过，尚未实施。第 6 节的契约改动与实现在同一次改动里落地（先契约、再类型、再实现）。
+> **状态：** 2026-11-02 确认推导模型；2026-11-10 确认第 12 节的同题多语言接口。推导、冻结及管理端接入已实现。
 
 规定一道题在每门语言下的运行限制（每个测试点的 CPU 时间、内存）从哪里来：题目只做一次**基础标定**，
 其余语言由**语言限制参数**按公式推导，题目还可以为个别语言做**覆盖标定**。推导只在 judging-service 里发生，
@@ -97,7 +97,7 @@ M_L = ceilMiB( k_L × M_ref + m_L )
 
 | 契约 | 改动 |
 |---|---|
-| `contracts/languages.json`（新增） | 每门语言一项，本协议只要求其中的 `limitModel`；语言目录的其余字段在语言解耦时再补 |
+| `contracts/languages.json` | 每门语言一项，`limitModel` 定义限制参数，`files` 定义驱动与用户文件名 |
 | `calibration.schema.json` | `CalibrationRequest`、`Calibration` 增加必填字段 `kind`：`BASE` 或 `OVERRIDE`。`ReadinessCheck.code` 增加 `LIMIT_MODEL`（这门语言在 `languages.json` 里有 `limitModel`）。就绪查询增加必填参数 `maxTestcaseIoBytes`（problem-service 从当前测试数据读出），`ExecutionProfile` 增加 `limitSource` 与 `limitDerivation`，`calibrationId` 在 DERIVED 时是基础标定的编号。新增 `GET /internal/admin/limits?problemId=&testDataDigest=&maxTestcaseIoBytes=&languageIds=...`，`languageIds` 由 problem-service 给出题目开放的语言（judging-service 不知道题目开放了哪些语言），1–32 个且不重复；响应为每门语言一行 `LanguageLimits`，顺序与请求一致，不要求有在线节点：`languageId`、`limitSource`、`cpuNs`、`memoryBytes`、`clockNs`、`calibrationId`、`cpuCapped`、`memoryCapped`、`unavailableReason` |
 | `problem-test-data.schema.json` | 响应增加 `maxTestcaseIoBytes`（整数，≥ 0） |
 | `execution-profile.schema.json` | 增加必填字段 `limitSource` 与 `limitDerivation`（见下）；`languageCalibrationId` 的含义改为"依据的标定编号"：DERIVED 时是 BASE 的编号 |
@@ -167,12 +167,61 @@ CPython 与 Ruby 的补偿上限 5.0（2026-11-02 定）：按 CodeNet 估算，
 
 - `contracts/languages.json` 带 `x-contract-version`。参数取值的变化不算协议变化；字段的增删和语义改变才算。
 - 本协议落地时直接改各服务的 V1 schema，不写迁移；已有的标定和提交数据删除（沿用去版本化时定下的原则）。
-- 消费者：judging-service（推导、就绪检查）、problem-service（`maxTestcaseIoBytes`、管理端标定页）、submission-service（冻结）、Web 管理端（标定页展示来源）。
+- 消费者：judging-service（推导、就绪检查）、problem-service（语言配置、数据指纹与 IO 规模）、submission-service（冻结）、Gateway（浏览器接口与权限）、Web（标定管理与作答语言选择）。
 
 ## 10. 真源
 
-以本文为准；字段以落地后的 `contracts/` 为准。
+行为以本文为准；字段以 `contracts/` 为准。
 
 ## 11. 实测记录
 
-尚无。参数初始值的依据见第 8 节；落地后在测试服务器上验证黄金用例与真实判题，再补记录。
+2026-11-10，本机 macOS + Docker Desktop 隔离栈（MySQL、Redis、Kafka、五个 Java 服务与当前 Go judge，
+可信开发后端 devhost）：`scripts/e2e.py` 验证 C/C++ 同题 ACM 与 CORE、推导限制、C 的覆盖标定、
+切换基础语言到 C、关闭基础语言入口后继续推导，以及已冻结输入不随标定变化而改变；真实编译运行得到 AC。
+CORE 的 C 编译错误仍按用户编辑器行号显示。Java 集成测试另覆盖不能跨语言拼接公开条件与版本冲突。
+语言参数仍是第 8 节的初始值，本次功能回归不代替自有原生节点上的参数重拟合。
+
+
+## 12. 同题多语言与管理端接入
+
+本节规定同题多语言配置、标定管理与作答选择。字段真源为
+`contracts/web-api.openapi.json` 与 `contracts/calibration.schema.json`。
+
+### 12.1 管理员配置与标定
+
+- 建题仍选一门初始语言。新增 `PUT /api/admin/problems/{problemId}/languages`，请求
+  `{rowVersion, allowedLanguages: [{id, starterCode, judgeTemplate}]}`，按顺序原子替换 1–32 门语言；
+  不重复，且必须已在平台登记。CORE 未准备好的驱动可为 null，ACM 必须为 null；不接受客户端传入前缀。
+- `rowVersion` 沿用题目乐观锁，过期返回 `409 ROW_VERSION_CONFLICT`；归档题只读。
+  公开题修改仍立即生效，不自动取消公开。移除语言只关闭新的作答入口，不删除标定或历史输入；
+  原有基础标定仍是题目事实，可继续推导其余语言的限制。
+- 旧 `PATCH /api/admin/problems/{problemId}` 保持兼容：`starterCode` 与 `judgeTemplate`
+  继续只修改配置顺序第一门语言，不增删或重排语言。新工作台通过专用接口修改语言配置。
+- 标定请求新增可选 `kind`，`BASE | OVERRIDE`；省略按 BASE 处理，null 或未知值拒绝。
+  响应增加 `kind`。请求语言必须已配置，CORE 按这门语言自己的驱动和前缀合并参考代码；
+  资格、有效性、替换与资源上限沿用第 2–7 节。
+- 新增 `GET /api/admin/problems/{problemId}/limits`：problem-service 读取当前数据指纹与 IO 规模，
+  将题目配置的 languageIds 传给既有内部 limits 接口，按配置顺序返回来源、绝对限制、截断与不可用原因。
+  没有测试数据返回 `404 TEST_DATA_NOT_FOUND`；离线不影响读取限制。做题页是否展示限制不在本片变更中。
+
+### 12.2 公开检查与作答语言
+
+- 公开检查返回每门语言的配置、在线节点、有效限制检查。`ready` 要求题面、样例、测试数据通过，
+  且至少一门语言同时满足三项；不能跨语言拼接条件。保留旧的六项总览，后三项取第一门已就绪语言，
+  没有就绪语言时取配置顺序第一门；新增 `languages` 数组供管理端逐门解释。
+- 新增匿名只读 `GET /api/problems/{slug}/languages`，响应 `{data: {items: [...]}, meta}`；
+  items 仅包含就绪语言的 id、displayName、starterCode，按题目配置排序，响应 no-store。
+  题库和详情原有 allowedLanguages 仍表示配置的语言，作答选择器改用本接口，避免静态列表承诺在线状态。
+- 私有、归档或不存在的题目统一为 `404 PROBLEM_NOT_FOUND`。当前没有可判题数据或没有就绪语言时
+  返回 200 和空列表，页面仍可阅读题面并提示暂不可提交；判题服务故障返回 503，不能伪装为空列表。
+  自测和正式提交仍在后端重新解析快照与执行配置，前端列表不是授权凭据。
+- 新增 `POST /internal/problems/readiness`：problem-service 以自己的服务身份传入
+  `{problemId, testDataDigest, maxTestcaseIoBytes, languageIds}`，1–32 门且不重复；
+  judging-service 按既有 readiness 规则返回逐语言 ready 与检查，顺序和数量与请求一致。
+  不需要用户，不允许借此伪造管理员；现有管理端接口继续要求 ADMIN。查询不执行程序、不产生标定。
+
+### 12.3 兼容与冻结
+
+新增端点，放宽管理详情的语言数量，并给响应增加字段；旧客户端的单语言请求仍可用，不改 judge、
+sandbox、Kafka 或 JudgeInput 格式。客户端切换语言时按 userId、problemId、languageId 分别保存草稿，
+自测和提交必须使用当前所选语言。已经冻结的提交不随后续语言配置、标定或参数变化而改变。

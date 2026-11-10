@@ -171,6 +171,24 @@ public class AdminProblemsController {
                 .map(check -> ok(check, requestId));
     }
 
+    @PutMapping("/{problemId}/languages")
+    Mono<ResponseEntity<ApiSuccess<ProblemDtos.AdminProblem>>> languages(
+            @PathVariable @Pattern(regexp = UUID) String problemId,
+            @Valid @RequestBody ReplaceProblemLanguagesRequest request,
+            ServerWebExchange exchange) {
+        String requestId = requestId(exchange);
+        return admin(exchange, requestId, identity -> problemService.replaceLanguages(identity, problemId, request))
+                .map(value -> ok(value, requestId));
+    }
+
+    @GetMapping("/{problemId}/limits")
+    Mono<ResponseEntity<ApiSuccess<ProblemDtos.ProblemLanguageLimitsList>>> limits(
+            @PathVariable @Pattern(regexp = UUID) String problemId, ServerWebExchange exchange) {
+        String requestId = requestId(exchange);
+        return admin(exchange, requestId, identity -> problemService.limits(identity, problemId))
+                .map(value -> ok(value, requestId));
+    }
+
     @PostMapping("/{problemId}/publish")
     Mono<ResponseEntity<ApiSuccess<ProblemDtos.AdminProblem>>> publish(
             @PathVariable @Pattern(regexp = UUID) String problemId,
@@ -249,7 +267,9 @@ public class AdminProblemsController {
             String difficulty,
 
             @NotBlank @Pattern(regexp = "^(ACM|CORE)$") String codeMode,
-            @NotBlank @Pattern(regexp = "^cpp$") String languageId) {}
+
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId) {}
 
     /** 题目没有版本：一次请求保存题目的全部可编辑内容。 */
     // judgeTemplate 只有 CORE 题目才带；为空时不转发，ACM 题目的请求体保持原样
@@ -276,6 +296,19 @@ public class AdminProblemsController {
 
     record RowVersionRequest(@Min(0) long rowVersion) {}
 
+    record ProblemLanguageInput(
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String id,
+
+            @NotNull @Size(max = 1_048_576) String starterCode,
+
+            @com.fasterxml.jackson.annotation.JsonProperty(required = true) @Size(min = 1, max = 1_048_576)
+            String judgeTemplate) {}
+
+    record ReplaceProblemLanguagesRequest(
+            @NotNull @Min(0) Long rowVersion,
+            @NotNull @Size(min = 1, max = 32) List<@NotNull @Valid ProblemLanguageInput> allowedLanguages) {}
+
     record SampleInput(
             @Min(1) @Max(100) int ordinal,
             @NotNull @Size(max = 1_048_576) String input,
@@ -283,9 +316,35 @@ public class AdminProblemsController {
             @Size(max = 1_048_576) String explanationMarkdown) {}
 
     record CalibrateProblemRequest(
-            @NotBlank @Pattern(regexp = "^cpp$") String languageId,
+            @NotBlank @Pattern(regexp = "^[a-z][a-z0-9-]{0,31}$")
+            String languageId,
+
             @Min(1) long cpuNs,
             @Min(1) long memoryBytes,
             @Min(1) Long clockNs,
-            @NotBlank @Size(max = 1_048_576) String referenceSource) {}
+            @NotBlank @Size(max = 1_048_576) String referenceSource,
+
+            @Pattern(regexp = "^(BASE|OVERRIDE)$") String kind) {
+        @com.fasterxml.jackson.annotation.JsonCreator
+        public static CalibrateProblemRequest fromJson(
+                @com.fasterxml.jackson.annotation.JsonProperty("languageId") String languageId,
+                @com.fasterxml.jackson.annotation.JsonProperty("cpuNs") long cpuNs,
+                @com.fasterxml.jackson.annotation.JsonProperty("memoryBytes") long memoryBytes,
+                @com.fasterxml.jackson.annotation.JsonProperty("clockNs") Long clockNs,
+                @com.fasterxml.jackson.annotation.JsonProperty("referenceSource") String referenceSource,
+                @com.fasterxml.jackson.annotation.JsonProperty("kind") tools.jackson.databind.JsonNode kind) {
+            // JsonNode distinguishes omitted kind from an explicit JSON null; only omission defaults to BASE.
+            String value = kind == null ? "BASE" : kind.isString() ? kind.asString() : "";
+            return new CalibrateProblemRequest(languageId, cpuNs, memoryBytes, clockNs, referenceSource, value);
+        }
+
+        public CalibrateProblemRequest {
+            if (kind == null) kind = "BASE";
+        }
+
+        public CalibrateProblemRequest(
+                String languageId, long cpuNs, long memoryBytes, Long clockNs, String referenceSource) {
+            this(languageId, cpuNs, memoryBytes, clockNs, referenceSource, "BASE");
+        }
+    }
 }

@@ -54,7 +54,9 @@ export function SubmissionPanel({
   const queryClient = useQueryClient();
   const navigate = useNavigate({ from: '/problems/$slug' });
   const search = useSearch({ from: '/_site/problems/$slug' });
-  const storageKey = recoveryKey(userId, problem.problemId);
+  const selectedLanguage = problemLanguage(problem);
+  if (!selectedLanguage) throw new Error('提交需要选择语言。');
+  const storageKey = recoveryKey(userId, problem.problemId, selectedLanguage.id);
   const [initial] = useState(() => {
     try {
       return { recovery: loadRecovery(storageKey), error: '' };

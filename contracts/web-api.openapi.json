@@ -2,8 +2,8 @@
   "openapi": "3.1.2",
   "info": {
     "title": "Cherry OJ Web API",
-    "version": "0.2.0",
-    "description": "浏览器与 Gateway 之间的公开 REST 契约。请求使用 endpoint DTO，普通 JSON 成功响应使用 ApiSuccess，失败响应使用 RFC 9457 Problem Details。 管理部署接口的 503 可返回固定节点错误：NO_ONLINE_JUDGE_NODE, JUDGE_NODE_UNREACHABLE, JUDGE_NODE_DATA_REJECTED, JUDGE_NODE_RECEIPT_MISMATCH。详情由固定文案生成，不透传节点正文；readiness checks 的 ONLINE_JUDGE_NODE 表示 ACTIVE 环境存在在线节点，DEPLOYMENT 仅在该在线节点持有匹配摘要回执时通过。"
+    "version": "0.3.0",
+    "description": "浏览器与 Gateway 之间的公开 REST 契约。请求使用 endpoint DTO，普通 JSON 成功响应使用 ApiSuccess，失败响应使用 RFC 9457 Problem Details。 题目公开要求至少一门配置语言同时具备有效配置、在线节点与当前测试数据的有效限制；就绪语言通过独立只读接口查询。"
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "paths": {
@@ -471,7 +471,7 @@
         ],
         "responses": {
           "200": {
-            "description": "公开题目列表；只包含当前公开版本",
+            "description": "公开题目列表；只包含当前公开题目",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/XRequestId"
@@ -769,7 +769,7 @@
     "/api/admin/problems": {
       "get": {
         "operationId": "listAdminProblems",
-        "summary": "分页读取题目与版本状态",
+        "summary": "分页读取题目状态",
         "security": [
           {
             "cookieAuth": []
@@ -842,7 +842,7 @@
       },
       "post": {
         "operationId": "createProblem",
-        "summary": "创建 C++ ACM 题目及初始草稿",
+        "summary": "创建题目及首门语言配置",
         "security": [
           {
             "cookieAuth": []
@@ -865,7 +865,7 @@
         },
         "responses": {
           "201": {
-            "description": "题目及 v1 草稿已创建",
+            "description": "题目已创建，初始为私有",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/XRequestId"
@@ -945,7 +945,7 @@
       "patch": {
         "operationId": "updateProblem",
         "summary": "保存题目",
-        "description": "改了就是改了，没有草稿或版本。公开题目的修改立即对学生生效，因此不允许把公开题目改成空题面或没有样例；旧 rowVersion 返回 409 ROW_VERSION_CONFLICT。可见性与测试数据由专门的接口改变。",
+        "description": "改了就是改了，没有草稿或版本。公开题目的修改立即对学生生效，因此不允许把公开题目改成空题面或没有样例；旧 rowVersion 返回 409 ROW_VERSION_CONFLICT。可见性与测试数据由专门的接口改变。 多语言题中，旧 starterCode 与 judgeTemplate 字段继续仅修改配置顺序第一门语言；不增删或重排语言。新管理端通过专用 languages 接口保存各语言配置。",
         "security": [
           {
             "cookieAuth": []
@@ -1466,8 +1466,8 @@
     "/api/admin/problems/{problemId}/calibration": {
       "post": {
         "operationId": "calibrateProblem",
-        "summary": "以临时 C++ 参考程序验证绝对限制",
-        "description": "参考源码仅用于本次同步验证，不进入响应、业务表、日志或审计正文。只有当前测试数据全 AC 才产生 VALID 校准；校准记录它所用测试数据的指纹，数据更新后即过期。",
+        "summary": "用指定语言的参考解做基础或覆盖标定",
+        "description": "参考源码仅用于本次同步验证，不进入响应、业务表、日志或审计正文。只有当前测试数据全 AC 才产生 VALID 校准；校准记录它所用测试数据的指纹，数据更新后即过期。 languageId 必须是本题已配置语言；kind 省略为 BASE。CORE 使用请求语言自己的驱动代码与平台前缀。基础语言资格、上限与覆盖冲突由 judging-service 按运行限制协议检查；配置不完整返回 409 RESOURCE_STATE_CONFLICT，语言未配置返回 422 UNSUPPORTED_LANGUAGE。",
         "security": [
           {
             "cookieAuth": []
@@ -1536,7 +1536,7 @@
         ],
         "responses": {
           "200": {
-            "description": "六项检查：内容、样例、语言、测试数据、校准、在线判题节点",
+            "description": "保留六项总览并附每门语言的检查；至少一门语言完整就绪即可公开。",
             "headers": {
               "X-Request-Id": {
                 "$ref": "#/components/headers/XRequestId"
@@ -1567,7 +1567,7 @@
       "post": {
         "operationId": "publishProblem",
         "summary": "公开题目",
-        "description": "检查全部通过才公开；检查之后测试数据被替换则拒绝。重试读取并返回相同发布事实，并发冲突返回 409。",
+        "description": "题面、样例、测试数据通过，且至少一门语言完整就绪才公开。检查之后题目 rowVersion 或测试数据指纹改变则拒绝，不采用旧的检查结果。重复公开返回同一公开事实；并发冲突返回 409。",
         "security": [
           {
             "cookieAuth": []
@@ -1808,6 +1808,147 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminLanguageSettingSuccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiProblemResponse"
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/languages": {
+      "put": {
+        "operationId": "replaceProblemLanguages",
+        "summary": "保存题目的多语言配置",
+        "description": "管理员按 rowVersion 原子替换本题语言、起始代码和驱动代码。旧 rowVersion 返回 409 ROW_VERSION_CONFLICT；归档题返回 409 RESOURCE_STATE_CONFLICT；重复编号返回 422 DUPLICATE_LANGUAGE，未登记语言返回 422 UNSUPPORTED_LANGUAGE，ACM 携带非 null 驱动代码返回 422 VALIDATION_FAILED。公开题的修改立即生效。",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProblemId"
+          },
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "保存题目的多语言配置",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProblemSuccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiProblemResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceProblemLanguagesRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/limits": {
+      "get": {
+        "operationId": "getProblemLanguageLimits",
+        "summary": "读取本题各语言的限制及来源",
+        "description": "problem-service 提供本题当前指纹、IO 规模与配置的 languageIds，按配置顺序返回。不要求在线节点；没有测试数据返回 404 TEST_DATA_NOT_FOUND；某门语言不能解析限制仍返回 200，以该行 unavailableReason 说明原因。推导超上限只截断并标出 cpuCapped/memoryCapped，不关闭语言。",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProblemId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "读取本题各语言的限制及来源",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemLanguageLimitsSuccess"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ApiProblemResponse"
+          }
+        }
+      }
+    },
+    "/api/problems/{slug}/languages": {
+      "get": {
+        "operationId": "getReadyProblemLanguages",
+        "summary": "读取当前可作答的语言",
+        "description": "匿名可读，仅 ACTIVE/PUBLIC 题目；私有、归档或不存在均返回 404 PROBLEM_NOT_FOUND。仅返回本题配置完整且通过当前数据、限制和在线节点检查的语言，顺序与配置一致。没有测试数据、数据不可读或没有就绪语言时返回 200 和空 items；judging-service 故障返回 503，不能伪装为空列表。不返回驱动代码、前缀、标定或限制。响应 no-store；这是读取时的快照，自测与正式提交仍重新解析并校验。",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProblemSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "读取当前可作答的语言",
+            "headers": {
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestId"
+              },
+              "Cache-Control": {
+                "required": true,
+                "schema": {
+                  "const": "no-store",
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProblemLanguagesSuccess"
                 }
               }
             }
@@ -3103,10 +3244,11 @@
           "allowedLanguages": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 20,
+            "maxItems": 32,
             "items": {
               "$ref": "#/components/schemas/PublicLanguageSummary"
-            }
+            },
+            "description": "题目配置的语言，按配置顺序排列；是否此刻可提交由就绪语言接口查询。"
           }
         }
       },
@@ -3231,10 +3373,11 @@
           "allowedLanguages": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 20,
+            "maxItems": 32,
             "items": {
               "$ref": "#/components/schemas/PublicProblemLanguage"
-            }
+            },
+            "description": "题目配置的语言，按配置顺序排列；是否此刻可提交由就绪语言接口查询。"
           }
         }
       },
@@ -3348,7 +3491,7 @@
           "allowedLanguages": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 1,
+            "maxItems": 32,
             "items": {
               "$ref": "#/components/schemas/AdminProblemLanguage"
             }
@@ -3711,6 +3854,11 @@
             "maxLength": 1048576,
             "writeOnly": true,
             "description": "ACM 为完整参考程序；CORE 为参考核心代码，服务端与该语言前缀合并后连同驱动代码一起标定"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalibrationKind",
+            "default": "BASE",
+            "description": "省略时明确按 BASE 处理，以兼容旧客户端；null 或未知值返回 422。BASE/OVERRIDE 的资格及替换规则见 docs/protocols/limits.md。"
           }
         }
       },
@@ -3771,7 +3919,8 @@
           "createdAt",
           "updatedAt",
           "rowVersion",
-          "testDataDigest"
+          "testDataDigest",
+          "kind"
         ],
         "properties": {
           "id": {
@@ -3842,6 +3991,9 @@
             "type": "string",
             "pattern": "^[a-f0-9]{64}$",
             "description": "标定时所用测试数据的指纹；与题目当前指纹不同即已过期。"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CalibrationKind"
           }
         }
       },
@@ -3910,8 +4062,18 @@
             "items": {
               "$ref": "#/components/schemas/PublishCheckItem"
             }
+          },
+          "languages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/PublishLanguageCheck"
+            },
+            "description": "新服务总是返回，旧服务可省略。按本题配置顺序列出每门语言的检查。总览六项保持不变：语言、节点、标定三项取第一门已就绪语言；没有就绪语言则取配置顺序第一门。"
           }
-        }
+        },
+        "description": "ready = 题面、样例、测试数据均通过，且至少一门语言配置、在线节点与限制同时就绪。不能把不同语言分别通过的检查拼成一门可用语言。"
       },
       "PublishCheckSuccess": {
         "type": "object",
@@ -4214,6 +4376,237 @@
             "description": "读到的 updatedAt；与当前值不同返回 409 ROW_VERSION_CONFLICT"
           }
         }
+      },
+      "ProblemLanguageInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "starterCode",
+          "judgeTemplate"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/LanguageId"
+          },
+          "starterCode": {
+            "type": "string",
+            "maxLength": 1048576
+          },
+          "judgeTemplate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 1048576,
+            "description": "CORE 驱动代码；尚未准备时为 null。ACM 必须为 null。"
+          }
+        }
+      },
+      "ReplaceProblemLanguagesRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rowVersion",
+          "allowedLanguages"
+        ],
+        "properties": {
+          "rowVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "allowedLanguages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/ProblemLanguageInput"
+            }
+          }
+        },
+        "description": "整体替换语言配置，数组顺序即展示顺序，id 不得重复且必须已在平台登记。至少保留一门语言；不接受 displayName 或 solutionPrefix。移除配置只关闭该语言的新作答入口，不删除标定或改写历史提交；已有基础标定仍可作为其它语言的推导依据。"
+      },
+      "CalibrationKind": {
+        "type": "string",
+        "enum": [
+          "BASE",
+          "OVERRIDE"
+        ]
+      },
+      "ProblemLanguageLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "一门语言在这道题上的限制及其来源（docs/protocols/limits.md），管理端标定页用。不要求有在线节点：这里只回答“限制是多少、从哪来”。解析不出限制时 limitSource 与各限制为 null，unavailableReason 给出原因。",
+        "required": [
+          "languageId",
+          "limitSource",
+          "cpuNs",
+          "memoryBytes",
+          "clockNs",
+          "calibrationId",
+          "cpuCapped",
+          "memoryCapped",
+          "unavailableReason"
+        ],
+        "properties": {
+          "languageId": {
+            "$ref": "#/components/schemas/LanguageId"
+          },
+          "limitSource": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "BASE",
+              "OVERRIDE",
+              "DERIVED",
+              null
+            ]
+          },
+          "cpuNs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "memoryBytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "clockNs": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "calibrationId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "依据的标定编号：DERIVED 时是基础标定"
+          },
+          "cpuCapped": {
+            "type": "boolean",
+            "description": "推导值超过平台上限、已截断；非推导时为 false"
+          },
+          "memoryCapped": {
+            "type": "boolean"
+          },
+          "unavailableReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "NO_CALIBRATION",
+              "NO_LIMIT_MODEL",
+              "BASE_LIMIT_MODEL_REMOVED",
+              null
+            ],
+            "description": "NO_CALIBRATION=既没有对应当前数据的覆盖标定，也没有对应当前数据的基础标定；NO_LIMIT_MODEL=需要推导但该语言没有限制参数，只能做覆盖标定；BASE_LIMIT_MODEL_REMOVED=基础语言的参数已从语言目录移除，要重新做基础标定"
+          }
+        }
+      },
+      "ProblemLanguageLimitsList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "languages"
+        ],
+        "properties": {
+          "languages": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/ProblemLanguageLimits"
+            }
+          }
+        }
+      },
+      "ProblemLanguageLimitsSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProblemLanguageLimitsList"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "PublicProblemLanguages": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/PublicProblemLanguage"
+            }
+          }
+        }
+      },
+      "PublicProblemLanguagesSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/PublicProblemLanguages"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "PublishLanguageCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "languageId",
+          "ready",
+          "checks"
+        ],
+        "properties": {
+          "languageId": {
+            "$ref": "#/components/schemas/LanguageId"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "checks": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/components/schemas/PublishCheckItem"
+            }
+          }
+        },
+        "description": "每门语言恰好三项：LANGUAGE=本地配置完整且有节点支持，ONLINE_JUDGE_NODE=在线节点，CALIBRATION=按 BASE/OVERRIDE/DERIVED 规则有可用限制；ready 为三项同时通过。"
       }
     }
   }

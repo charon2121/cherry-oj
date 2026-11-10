@@ -29,6 +29,15 @@ const platformLanguages = [
   },
 ];
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/problems/*/languages', (route) =>
+    success(route, { items: [{ id: 'cpp', displayName: 'C++', starterCode: 'int main() {}' }] }),
+  );
+  await page.route('**/api/admin/languages', (route) =>
+    success(route, { items: platformLanguages }),
+  );
+});
+
 async function anonymous(page: Page) {
   await page.route('**/api/auth/session', (route) => success(route, { authenticated: false }));
 }
@@ -285,7 +294,7 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   releaseFirstSave();
   await expect(page.getByLabel('题目标题')).toHaveValue('两数之和（保存期间继续编辑）');
   await expect.poll(() => savedTitle).toBe('两数之和（保存期间继续编辑）');
-  await expect(page.getByText(/已保存/)).toBeVisible();
+  await expect(page.getByText(/^已保存/)).toBeVisible();
 
   // 题面是所见即所得的 Markdown：输入 ## 即成标题，保存的仍是 Markdown 原文。
   const statementEditor = page.getByRole('textbox', { name: '题目正文' });
@@ -306,7 +315,7 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   await page.keyboard.press('Enter');
   const savesBeforePause = saveRequestCount;
   await expect.poll(() => saveRequestCount).toBeGreaterThan(savesBeforePause);
-  await expect(page.getByText(/已保存/)).toBeVisible();
+  await expect(page.getByText(/^已保存/)).toBeVisible();
   await page.keyboard.type('第二行');
   await expect(page.getByRole('textbox', { name: '提示' }).locator('p')).toHaveText([
     '第一行',
@@ -428,6 +437,20 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
         rowVersion: problem.rowVersion + 1,
       };
     }
+    await success(route, problem);
+  });
+  await page.route(`**/api/admin/problems/${problemId}/languages`, async (route) => {
+    const body = route.request().postDataJSON() as {
+      allowedLanguages: { id: string; starterCode: string; judgeTemplate: string | null }[];
+    };
+    const input = body.allowedLanguages[0];
+    if (!input) throw new Error('missing language input');
+    savedDriver = input.judgeTemplate ?? undefined;
+    problem = {
+      ...problem,
+      allowedLanguages: [{ ...problem.allowedLanguages[0]!, ...input }],
+      rowVersion: problem.rowVersion + 1,
+    };
     await success(route, problem);
   });
   await page.route(`**/api/admin/problems/${problemId}/publish-check`, (route) =>

@@ -19,8 +19,8 @@ export function editorSyntax(languageId: string | undefined): EditorSyntax {
 type LanguageOption = { id: string; displayName: string };
 
 /**
- * 题目作答用的语言。每道题目前只开放一门语言（多语言题的公开规则还没定），取第一项；
- * 以后开放多门时，在这里改成按用户的选择取。
+ * 题目作答用的语言。调用方将作答范围限定为用户所选的语言，
+ * 自测与正式提交共享这份范围，避免各自维护选择状态。
  */
 export function problemLanguage<T extends LanguageOption>(problem: {
   allowedLanguages: readonly T[];
@@ -34,4 +34,14 @@ export function languageName(
   languageId: string,
 ): string {
   return problem.allowedLanguages.find((item) => item.id === languageId)?.displayName ?? languageId;
+}
+
+// 编辑辅助只给已知语言提供骨架；它不决定平台支持哪些语言。
+const driverSkeletons: Record<string, string> = {
+  cpp: '#include "solution.cpp"\n\nint main() {\n    // 读入数据，调用 Solution 的方法，输出结果\n}\n',
+  c: '#include "solution.c"\n\nint main(void) {\n    // 读入数据，调用用户函数，输出结果\n}\n',
+};
+
+export function driverSkeleton(languageId: string): string | undefined {
+  return driverSkeletons[languageId];
 }

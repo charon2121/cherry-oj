@@ -15,7 +15,11 @@ class SecurityConfig {
     @Bean
     EndpointPolicies endpointPolicies() {
         return EndpointPolicies.builder()
-                .endpoint(HttpMethod.GET, "/internal/public/problems", "/internal/public/problems/*")
+                .endpoint(
+                        HttpMethod.GET,
+                        "/internal/public/problems",
+                        "/internal/public/problems/*",
+                        "/internal/public/problems/*/languages")
                 .callers(ServiceNames.GATEWAY)
                 .withoutUser()
                 .endpoint("/internal/admin/problems", "/internal/admin/problems/**")

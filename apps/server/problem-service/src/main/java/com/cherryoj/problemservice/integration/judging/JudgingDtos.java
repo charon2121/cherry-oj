@@ -62,4 +62,24 @@ public final class JudgingDtos {
             LocalDateTime calibratedAt) {}
 
     public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
+
+    public record ProblemReadinessRequest(
+            String problemId, String testDataDigest, long maxTestcaseIoBytes, List<String> languageIds) {}
+
+    public record ProblemLanguageReadiness(String languageId, boolean ready, List<ReadinessCheck> checks) {}
+
+    public record ProblemReadiness(List<ProblemLanguageReadiness> languages) {}
+
+    public record LanguageLimits(
+            String languageId,
+            String limitSource,
+            Long cpuNs,
+            Long memoryBytes,
+            Long clockNs,
+            String calibrationId,
+            boolean cpuCapped,
+            boolean memoryCapped,
+            String unavailableReason) {}
+
+    public record LanguageLimitsList(List<LanguageLimits> languages) {}
 }

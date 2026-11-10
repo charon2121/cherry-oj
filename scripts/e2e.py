@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """End-to-end: isolated MySQL/Redis + five real Java services + production Compose Judge.
 Test data follows docs/protocols/testdata.md: problem-service writes a directory under <output>/problem-testdata, the judge
-container reads the same absolute path (read-only bind mount), and only the address crosses services.
+container reads the same absolute path (on macOS the fixture mirrors data into an owned Linux volume), and only the address crosses services.
 Run after Maven package and the local Judge image build (the sandbox executor is built into the judge image). Never uses the user's databases/volumes.
 --keep leaves the test stack alive until <output>/stop exists, for browser verification.
 """
-import argparse, secrets, stat, hashlib, http.cookiejar, io, json, os, pathlib, socket, subprocess, tempfile, time, urllib.error, urllib.request, uuid, zipfile
+import argparse, secrets, stat, hashlib, http.cookiejar, io, json, os, pathlib, socket, subprocess, tempfile, tarfile, time, urllib.error, urllib.request, uuid, zipfile
 parser=argparse.ArgumentParser(description='Run the end-to-end suite on owned temporary databases/ports/volumes. Maven package and local Judge images required. Cleanup only removes this run; --keep waits for its output/stop file.')
 parser.add_argument('--keep',action='store_true')
 parser.add_argument('--preflight',action='store_true',help='Check tools, jars and images without starting services')
@@ -29,11 +29,30 @@ print('E2E output:',OUT,flush=True)
 env={key:os.environ[key] for key in ['PATH','HOME','TMPDIR','JAVA_HOME','LANG','LC_ALL',
  'DOCKER_HOST','DOCKER_CONTEXT','DOCKER_CONFIG','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH'] if key in os.environ}
 env.update(JUDGE_BIND_ADDRESS='127.0.0.1',CHERRY_JUDGE_CONTROL_TOKEN='e2e-isolated-control',JUDGE_NODE_ID=NAME,
- JUDGE_TESTDATA_VOLUME=NAME+'-testdata',CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
+ JUDGE_TESTDATA_VOLUME=NAME+'-testdata',JUDGE_NODE_LANGUAGES='cpp,c',CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
  JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s')
 env.update(E2E_DB_PASSWORD=secrets.token_urlsafe(24),E2E_MYSQL_PORT=str(ports['mysql']),
  E2E_REDIS_PORT=str(ports['redis']),E2E_KAFKA_PORT=str(ports['kafka']))
-compose=['docker','compose','-f',str(ROOT/'compose.e2e-test.yaml'),'-p',NAME]
+# Docker Desktop 的共享目录在原子替换 symlink 后可能返回 EINVAL；测试节点改读 Linux 卷里的协议目录。
+# Java 仍在本机写入并校验原件，上传完成后同步原件；生产安装不使用这条测试路径。
+MAC_ASSETS=os.uname().sysname=='Darwin'
+ASSET_VOLUME=NAME+'-assets'
+compose_file=ROOT/'compose.e2e-test.yaml'
+if MAC_ASSETS:
+ override=OUT/'linux-assets.json'
+ override.write_text(json.dumps({'services':{'judge':{'volumes':[{'type':'volume','source':'assets','target':str(TESTDATA_ROOT),'read_only':True}]}},
+                                 'volumes':{'assets':{'name':ASSET_VOLUME}}}))
+ compose_file=OUT/'compose.e2e-test.yaml'
+ compose_file.write_text((ROOT/'compose.e2e-test.yaml').read_text().replace('path: compose.yaml',
+      'path: '+json.dumps([str(ROOT/'compose.yaml'),str(override)])))
+compose=['docker','compose','-f',str(compose_file),'-p',NAME]
+def sync_assets() -> None:
+ if not MAC_ASSETS:return
+ run(compose+['create','judge'],env=env)
+ archive=io.BytesIO()
+ with tarfile.open(fileobj=archive,mode='w',dereference=False) as output:output.add(TESTDATA_ROOT,arcname='.')
+ run(['docker','run','--rm','--network','none','--user','0','--entrypoint','tar','-i','-v',ASSET_VOLUME+':/assets',
+      'cherry-oj-judge:local','--no-same-owner','-xf','-','-C','/assets'],input=archive.getvalue())
 def docker(*cmd):return run(['docker',*cmd])
 def sql(statement):
  try:return run(compose+['exec','-T','mysql','sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -N -B'],env=env,input=statement.encode()).stdout.decode().strip()
@@ -136,7 +155,9 @@ try:
  def put_test_data(pid,cases):
   boundary='e2e-'+uuid.uuid4().hex
   upload=(f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="finder.zip"\r\nContent-Type: application/zip\r\n\r\n'.encode()+zip_of(cases)+f'\r\n--{boundary}--\r\n'.encode())
-  return request(f'/api/admin/problems/{pid}/test-data','PUT',upload,f'multipart/form-data; boundary={boundary}',200)
+  result=request(f'/api/admin/problems/{pid}/test-data','PUT',upload,f'multipart/form-data; boundary={boundary}',200)
+  sync_assets()
+  return result
  problem=request('/api/admin/problems','POST',{'slug':'e2e-plus','title':'E2E 加法校验','difficulty':'EASY','codeMode':'ACM','languageId':'cpp'},expect=201)
  pid=problem['id'];problem_path=f'/api/admin/problems/{pid}'
  assert 'versions' not in problem and problem['testData'] is None and problem['visibility']=='PRIVATE',problem
@@ -303,6 +324,52 @@ try:
  print('CORE: driver + prefixed solution file, editor line numbers in CE and runtime stderr, driver never exposed, recalibration hint: PASS.',flush=True)
 
 
+ # 同题多语言：真实 C 编译、公式推导与覆盖标定都走正式提交链，不借用 C++ 的语言编号。
+ current=request(problem_path)
+ cpp_language=current['allowedLanguages'][0]
+ language_inputs=[{'id':'cpp','starterCode':cpp_language['starterCode'],'judgeTemplate':None},
+                  {'id':'c','starterCode':'int main(void) { return 0; }','judgeTemplate':None}]
+ current=request(problem_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':language_inputs})
+ assert [item['languageId'] for item in request(problem_path+'/limits')['languages']]==['cpp','c']
+ assert request(problem_path+'/limits')['languages'][1]['limitSource']=='DERIVED'
+ assert [item['id'] for item in request('/api/problems/e2e-plus/languages')['items']]==['cpp','c']
+ c_source='#include <stdio.h>\nint main(void){long long a,b;scanf("%lld%lld",&a,&b);printf("%lld\\n",a+b);}'
+ def c_submit(problem_id: str, code: str) -> dict[str, object]:
+  return request('/api/submissions','POST',{'problemId':problem_id,'languageId':'c','source':code},expect=201,
+                 extra_headers={'Idempotency-Key':str(uuid.uuid4()),'X-Expected-User-Id':owner})
+ c_derived=c_submit(pid,c_source);finished(c_derived['id'],'AC')
+ c_frozen=sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+c_derived['id']+"'")
+ assert json.loads(bytes.fromhex(c_frozen).decode())['limitSource']=='DERIVED'
+ c_override=request(problem_path+'/calibration','POST',{'languageId':'c','kind':'OVERRIDE','cpuNs':2000000000,
+                   'memoryBytes':134217728,'clockNs':None,'referenceSource':c_source})
+ assert c_override['status']=='VALID' and c_override['kind']=='OVERRIDE',c_override
+ assert request(problem_path+'/limits')['languages'][1]['limitSource']=='OVERRIDE'
+ finished(c_submit(pid,c_source)['id'],'AC')
+ assert c_frozen==sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+c_derived['id']+"'")
+ # 也允许改用 C 作基础：原 C 覆盖被替换，C++ 改为推导，历史快照不变。
+ c_base=request(problem_path+'/calibration','POST',{'languageId':'c','kind':'BASE','cpuNs':2000000000,
+                'memoryBytes':134217728,'clockNs':None,'referenceSource':c_source})
+ assert c_base['status']=='VALID' and c_base['kind']=='BASE',c_base
+ assert [item['limitSource'] for item in request(problem_path+'/limits')['languages']]==['DERIVED','BASE']
+ current_calibration=c_base
+ assert c_frozen==sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+c_derived['id']+"'")
+ # CORE 逐语言选驱动和前缀，且关闭基础语言入口不删除基础标定。
+ c_driver='#include "solution.c"\nint main(void){long long a,b;scanf("%lld%lld",&a,&b);printf("%lld\\n",add(a,b));}\n'
+ c_reference='long long add(long long a,long long b){ return a + b; }\n'
+ current=request(core_path);cpp_core=current['allowedLanguages'][0]
+ core_languages=[{'id':'cpp','starterCode':cpp_core['starterCode'],'judgeTemplate':cpp_core['judgeTemplate']},
+                 {'id':'c','starterCode':'long long add(long long a,long long b);','judgeTemplate':c_driver}]
+ current=request(core_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':core_languages})
+ finished(c_submit(cid,c_reference)['id'],'AC')
+ c_error=finished(c_submit(cid,c_reference.replace('a + b','missingCName'))['id'],'CE')
+ assert 'solution.c:1:' in c_error['message'],c_error
+ current=request(core_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':[core_languages[1]]})
+ assert request(core_path+'/limits')['languages'][0]['limitSource']=='DERIVED'
+ assert [item['id'] for item in request('/api/problems/e2e-core/languages')['items']]==['c']
+ finished(c_submit(cid,c_reference)['id'],'AC')
+ request(core_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':core_languages})
+ print('C/C++ same-problem ACM + CORE, derived limits, override, closed base-language entry and frozen history: PASS.',flush=True)
+
  # Stop new admission while retaining reads and the original key's replay fact.
  submission_process=processes[3];submission_process.terminate();submission_process.wait(timeout=15)
  command,config,log=start('submission',{'CHERRY_SUBMISSION_ACCEPTING':'false'})
@@ -388,6 +455,8 @@ finally:
   try:process.wait(timeout=10)
   except subprocess.TimeoutExpired:process.kill();process.wait()
  if not args.preflight:
+  try:(OUT/'judge.log').write_bytes(run(compose+['logs','--no-color','judge'],env=env).stdout)
+  except subprocess.CalledProcessError:pass
   try:run(compose+['down','-v'],env=env)
   except Exception:print('Cleanup failed; use the recorded project name to inspect owned resources.',flush=True)
  for volume in extra_volumes:

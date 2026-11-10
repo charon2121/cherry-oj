@@ -75,14 +75,18 @@ public class ProblemPublicationService {
         if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
             throw state("题面、样例、语言或测试数据尚未就绪。");
         }
-        if (!request.languageId().equals(local.languages().getFirst().languageId())) {
+        if (local.languages().stream()
+                .noneMatch(language -> request.languageId().equals(language.languageId()))) {
             throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "当前题目不支持这门语言。");
         }
+        LanguageRow selected = selected(local, request.languageId());
+        if (languageProblem(local, selected) != null) throw state(languageProblem(local, selected));
         JudgingDtos.Calibration result =
                 judging.calibrate(calibrationRequest(problemId, request, local), admin, traceparent);
         CalibrationStatus remoteStatus = calibrationStatus(result.status());
         if (!problemId.equals(result.problemId())
                 || !request.languageId().equals(result.languageId())
+                || !request.kind().equals(result.kind())
                 || (remoteStatus != CalibrationStatus.VALID && remoteStatus != CalibrationStatus.FAILED)) {
             throw invalidResponse();
         }
@@ -90,6 +94,7 @@ public class ProblemPublicationService {
         detail.put("calibrationId", result.id());
         detail.put("status", remoteStatus.name());
         detail.put("languageId", request.languageId());
+        detail.put("kind", request.kind());
         detail.put("testDataDigest", local.info().digest());
         if (result.benchmarkSummary() != null) {
             detail.put("sourceSha256", result.benchmarkSummary().sourceSha256());
@@ -103,29 +108,77 @@ public class ProblemPublicationService {
         return calibration(result);
     }
 
+    public JudgingDtos.LanguageLimitsList limits(String problemId, CallUser admin, String traceparent) {
+        Snapshot local = transactions.execute(status -> snapshot(problemId, false));
+        if (local.info() == null)
+            throw new ProblemApiException(HttpStatus.NOT_FOUND, "TEST_DATA_NOT_FOUND", local.dataProblem());
+        var ids = local.languages().stream().map(LanguageRow::languageId).toList();
+        var response = judging.limits(
+                problemId, ids, local.info().digest(), local.info().maxTestcaseIoBytes(), admin, traceparent);
+        if (response == null
+                || response.languages() == null
+                || !response.languages().stream()
+                        .map(JudgingDtos.LanguageLimits::languageId)
+                        .toList()
+                        .equals(ids)) throw invalidResponse();
+        return response;
+    }
+
     public PublishCheck publishCheck(String problemId, CallUser admin, String traceparent) {
         Snapshot local = transactions.execute(status -> snapshot(problemId, false));
         List<PublishCheckItem> checks = localChecks(local);
-        if (local.info() == null) {
-            checks.add(item(PublishCheckCode.CALIBRATION, false, "测试数据就绪后才能检查标定。"));
-            return result(checks);
+        var languages = new ArrayList<AdminProblemDtos.PublishLanguageCheck>();
+        for (LanguageRow language : local.languages()) {
+            String problem = languageProblem(local, language);
+            var languageChecks = new ArrayList<PublishCheckItem>();
+            JudgingDtos.Readiness remote = local.info() == null
+                    ? null
+                    : judging.readiness(
+                            problemId,
+                            language.languageId(),
+                            local.info().digest(),
+                            local.info().maxTestcaseIoBytes(),
+                            admin,
+                            traceparent);
+            var support = remote == null
+                    ? item(PublishCheckCode.LANGUAGE, false, "测试数据就绪后才能检查语言。")
+                    : remoteCheck(remote, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持该语言。");
+            languageChecks.add(problem == null ? support : item(PublishCheckCode.LANGUAGE, false, problem));
+            languageChecks.add(
+                    remote == null
+                            ? item(PublishCheckCode.ONLINE_JUDGE_NODE, false, "测试数据就绪后才能检查节点。")
+                            : remoteCheck(
+                                    remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE, "当前没有在线判题节点。"));
+            var calibration = remote == null
+                    ? item(PublishCheckCode.CALIBRATION, false, "测试数据就绪后才能检查标定。")
+                    : remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION, "没有有效标定。");
+            if (remote != null && calibration.passed()) {
+                var model = remoteCheck(remote, "LIMIT_MODEL", PublishCheckCode.CALIBRATION, "缺少可用的语言限制参数。");
+                if (!model.passed()) calibration = model;
+                String hint =
+                        calibration.passed() ? recalibrationHint(local, language, remote.executionProfile()) : null;
+                if (hint != null) calibration = item(PublishCheckCode.CALIBRATION, true, calibration.message() + hint);
+            }
+            languageChecks.add(calibration);
+            languages.add(new AdminProblemDtos.PublishLanguageCheck(
+                    language.languageId(),
+                    languageChecks.stream().allMatch(PublishCheckItem::passed),
+                    List.copyOf(languageChecks)));
         }
-        JudgingDtos.Readiness remote = judging.readiness(
-                problemId,
-                local.languages().getFirst().languageId(),
-                local.info().digest(),
-                local.info().maxTestcaseIoBytes(),
-                admin,
-                traceparent);
-        mergeRemoteLanguage(checks, remote);
-        // 在线节点的事实要保留到管理工作台：标定按钮据此提示并禁用。
-        checks.add(
-                remoteCheck(remote, "ONLINE_JUDGE_NODE", PublishCheckCode.ONLINE_JUDGE_NODE, "当前没有在线判题节点，请启动节点并等待注册。"));
-        PublishCheckItem calibration =
-                remoteCheck(remote, "CALIBRATION", PublishCheckCode.CALIBRATION, "该语言缺少与当前测试数据匹配的有效标定，请重新标定。");
-        String hint = calibration.passed() ? recalibrationHint(local, remote.executionProfile()) : null;
-        checks.add(hint == null ? calibration : item(PublishCheckCode.CALIBRATION, true, calibration.message() + hint));
-        return result(checks);
+        if (languages.isEmpty()) {
+            checks.add(item(PublishCheckCode.ONLINE_JUDGE_NODE, false, "请先配置语言。"));
+            checks.add(item(PublishCheckCode.CALIBRATION, false, "请先配置语言。"));
+        } else {
+            var candidate = languages.stream()
+                    .filter(AdminProblemDtos.PublishLanguageCheck::ready)
+                    .findFirst()
+                    .orElse(languages.getFirst());
+            checks.set(2, candidate.checks().get(0));
+            checks.add(candidate.checks().get(1));
+            checks.add(candidate.checks().get(2));
+        }
+        return new PublishCheck(
+                checks.stream().allMatch(PublishCheckItem::passed), List.copyOf(checks), List.copyOf(languages));
     }
 
     /**
@@ -140,7 +193,7 @@ public class ProblemPublicationService {
             return new JudgingDtos.CalibrationRequest(
                     problemId,
                     request.languageId(),
-                    BASE_CALIBRATION,
+                    request.kind(),
                     location,
                     digest,
                     request.cpuNs(),
@@ -150,26 +203,20 @@ public class ProblemPublicationService {
                     null,
                     null);
         }
-        String prefix = local.prefix().solutionPrefix();
+        String prefix = local.prefixes().get(request.languageId()).solutionPrefix();
         return new JudgingDtos.CalibrationRequest(
                 problemId,
                 request.languageId(),
-                BASE_CALIBRATION,
+                request.kind(),
                 location,
                 digest,
                 request.cpuNs(),
                 request.memoryBytes(),
                 request.clockNs(),
-                local.languages().getFirst().judgeTemplate(),
+                selected(local, request.languageId()).judgeTemplate(),
                 prefix + request.referenceSource(),
                 lineCount(prefix));
     }
-
-    /**
-     * 平台目前只有 C++，管理端标定的就是题目的基础语言（docs/protocols/limits.md）。第二门语言上线时，
-     * 再把种类开放到管理接口，让管理员为别的语言做覆盖标定。
-     */
-    private static final String BASE_CALIBRATION = "BASE";
 
     private static int lineCount(String prefix) {
         return (int) prefix.chars().filter(character -> character == '\n').count();
@@ -179,18 +226,20 @@ public class ProblemPublicationService {
      * 修改驱动代码或前缀不会让标定自动失效（2026-10-17 决定先只做提示）：两者晚于这条标定修改时，在 CALIBRATION 项后附一句提示。
      * 只比较时间，不比较内容；judging-service 没给出标定时间时不提示。
      */
-    private static String recalibrationHint(Snapshot local, JudgingDtos.ExecutionProfile profile) {
+    private static String recalibrationHint(
+            Snapshot local, LanguageRow language, JudgingDtos.ExecutionProfile profile) {
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE
                 || profile == null
                 || profile.calibratedAt() == null) {
             return null;
         }
         LocalDateTime calibratedAt = profile.calibratedAt();
-        LocalDateTime templateAt = local.languages().getFirst().judgeTemplateUpdatedAt();
+        LocalDateTime templateAt = language.judgeTemplateUpdatedAt();
         if (templateAt != null && templateAt.isAfter(calibratedAt)) {
             return "驱动代码在最近一次标定后修改过，建议重新标定。";
         }
-        if (local.prefix() != null && local.prefix().updatedAt().isAfter(calibratedAt)) {
+        if (local.prefixes().get(language.languageId()) != null
+                && local.prefixes().get(language.languageId()).updatedAt().isAfter(calibratedAt)) {
             return "该语言的前缀代码在最近一次标定后修改过，建议重新标定。";
         }
         return null;
@@ -253,10 +302,12 @@ public class ProblemPublicationService {
             }
         }
         List<LanguageRow> languages = problems.findLanguages(problemId);
-        LanguagePrefixRow prefix = languages.isEmpty()
-                ? null
-                : problems.findLanguagePrefix(languages.getFirst().languageId());
-        return new Snapshot(problem, problems.findSamples(problemId), languages, prefix, info, dataProblem);
+        Map<String, LanguagePrefixRow> prefixes = new LinkedHashMap<>();
+        for (var language : languages) {
+            var prefix = problems.findLanguagePrefix(language.languageId());
+            if (prefix != null) prefixes.put(language.languageId(), prefix);
+        }
+        return new Snapshot(problem, problems.findSamples(problemId), languages, prefixes, info, dataProblem);
     }
 
     private static void requireActive(ProblemRow problem) {
@@ -280,7 +331,7 @@ public class ProblemPublicationService {
                 PublishCheckCode.LANGUAGE,
                 language,
                 language
-                        ? (problem.codeMode() == AdminProblemDtos.CodeMode.CORE ? "C++ 核心代码配置有效。" : "C++ ACM 语言配置有效。")
+                        ? (problem.codeMode() == AdminProblemDtos.CodeMode.CORE ? "核心代码语言配置有效。" : "ACM 语言配置有效。")
                         : languageProblem));
         checks.add(item(
                 PublishCheckCode.TEST_DATA,
@@ -291,20 +342,24 @@ public class ProblemPublicationService {
 
     /** 语言配置不能公开的原因；可以公开时返回 null。 */
     private static String languageProblem(Snapshot local) {
-        // 多语言题的公开规则（每门都就绪，还是至少一门）还没定，暂时保持每道题只开放一门语言。
-        if (local.languages().size() != 1) {
-            return "目前每道题只开放一门语言。";
-        }
-        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
-            return null;
-        }
-        if (!nonBlank(local.languages().getFirst().judgeTemplate())) {
-            return "核心代码题需要填写驱动代码。";
-        }
-        if (local.prefix() == null) {
-            return "缺少 C++ 的前缀代码配置。";
-        }
+        if (local.languages().isEmpty()) return "请先配置语言。";
+        return local.languages().stream().anyMatch(language -> languageProblem(local, language) == null)
+                ? null
+                : languageProblem(local, local.languages().getFirst());
+    }
+
+    private static String languageProblem(Snapshot local, LanguageRow language) {
+        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) return null;
+        if (!nonBlank(language.judgeTemplate())) return "核心代码题需要填写驱动代码。";
+        if (!local.prefixes().containsKey(language.languageId())) return "缺少该语言的前缀代码配置。";
         return null;
+    }
+
+    private static LanguageRow selected(Snapshot local, String languageId) {
+        return local.languages().stream()
+                .filter(language -> language.languageId().equals(languageId))
+                .findFirst()
+                .orElseThrow();
     }
 
     private static boolean continuous(List<SampleRow> samples) {
@@ -329,13 +384,6 @@ public class ProblemPublicationService {
         return item(publicCode, false, fallback);
     }
 
-    private static void mergeRemoteLanguage(List<PublishCheckItem> checks, JudgingDtos.Readiness readiness) {
-        PublishCheckItem local = checks.get(2);
-        if (!local.passed()) return;
-        PublishCheckItem language = remoteCheck(readiness, "LANGUAGE", PublishCheckCode.LANGUAGE, "没有在线节点支持该语言。");
-        if (!language.passed()) checks.set(2, language);
-    }
-
     private static String safeMessage(String message, String fallback) {
         if (message == null || message.isBlank()) return fallback;
         return message.length() <= 1024 ? message : message.substring(0, 1024);
@@ -343,15 +391,6 @@ public class ProblemPublicationService {
 
     private static PublishCheckItem item(PublishCheckCode code, boolean passed, String message) {
         return new PublishCheckItem(code, passed, message);
-    }
-
-    private static PublishCheck result(List<PublishCheckItem> checks) {
-        var codes = checks.stream().map(PublishCheckItem::code).collect(java.util.stream.Collectors.toSet());
-        var required = java.util.EnumSet.allOf(PublishCheckCode.class);
-        required.remove(PublishCheckCode.ONLINE_JUDGE_NODE);
-        if (codes.size() != checks.size() || !codes.containsAll(required))
-            throw new IllegalStateException("Publish check must contain each base check exactly once");
-        return new PublishCheck(checks.stream().allMatch(PublishCheckItem::passed), List.copyOf(checks));
     }
 
     private static AdminProblemDtos.LanguageCalibration calibration(JudgingDtos.Calibration value) {
@@ -368,6 +407,7 @@ public class ProblemPublicationService {
                     value.id(),
                     value.problemId(),
                     value.languageId(),
+                    value.kind(),
                     calibrationStatus(value.status()),
                     value.cpuNs(),
                     value.memoryBytes(),
@@ -421,12 +461,12 @@ public class ProblemPublicationService {
         return new ProblemApiException(HttpStatus.CONFLICT, "ROW_VERSION_CONFLICT", "资源已被其他窗口修改，请重新加载。");
     }
 
-    /** info 为 null 表示测试数据缺失或读不到，原因在 dataProblem 里；prefix 是该语言的前缀，语言表里没有时为 null。 */
+    /** info 为 null 表示测试数据缺失或读不到，原因在 dataProblem 里；prefixes 按语言保存当前平台前缀。 */
     private record Snapshot(
             ProblemRow problem,
             List<SampleRow> samples,
             List<LanguageRow> languages,
-            LanguagePrefixRow prefix,
+            Map<String, LanguagePrefixRow> prefixes,
             TestDataStore.Info info,
             String dataProblem) {}
 }

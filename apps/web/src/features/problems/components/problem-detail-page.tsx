@@ -7,18 +7,24 @@ import { AsyncState } from '@/components/ui/async-state';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Container, Section } from '@/components/ui/layout';
 import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { SplitPane } from '@/components/ui/split-pane';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { CustomRunWorkbench } from '@/features/custom-runs/custom-run-workbench';
-import { problemLanguage } from '@/features/languages/language';
 import { SubmissionHistoryPanel } from '@/features/submissions/submission-history-panel';
 import type { ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
 
-import { problemQuery } from '../api/problems-api';
+import { problemQuery, readyLanguagesQuery } from '../api/problems-api';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
 import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
@@ -88,6 +94,7 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
 function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavailable: boolean }) {
   // 题目没有版本：管理员改了题面，学生刷新后看到的就是新题面；本机草稿按题目保存，不受影响。
   const [pane, setPane] = useState('statement');
+  const [selectedLanguageId, setSelectedLanguageId] = useState<string>();
   const wide = useWorkbenchMedia('(min-width: 1024px)');
   const historyEditor = useRef<HistoryEditorHandle>(null);
   const historySearch = useSearch({ from: '/_site/problems/$slug' });
@@ -162,6 +169,8 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       historyRef={historyEditor}
       unavailable={unavailable}
       wide={wide}
+      selectedLanguageId={selectedLanguageId}
+      onSelectLanguage={setSelectedLanguageId}
     />
   );
 
@@ -350,14 +359,21 @@ function ProblemCode({
   historyRef,
   unavailable,
   wide,
+  selectedLanguageId,
+  onSelectLanguage,
 }: {
   data: ProblemDetail;
   historyRef: Ref<HistoryEditorHandle>;
   unavailable: boolean;
   wide: boolean;
+  selectedLanguageId: string | undefined;
+  onSelectLanguage: (languageId: string) => void;
 }) {
   const session = useQuery({ ...sessionQueryOptions(), refetchInterval: 15_000 });
-  const language = problemLanguage(data);
+  const languages = useQuery(readyLanguagesQuery(data.slug));
+  const language = languages.isError
+    ? undefined
+    : (languages.data?.find((item) => item.id === selectedLanguageId) ?? languages.data?.[0]);
   // ACM 与核心代码都可以作答：核心代码的前缀与驱动代码在服务端合并，编辑器里只有用户自己的代码。
   // 题目开放了语言就能作答；平台能不能判由服务端在提交时回答，前端不维护语言名单。
   const supported = language !== undefined;
@@ -375,16 +391,40 @@ function ProblemCode({
           : !user
             ? '登录后可编写代码，并在此浏览器保存草稿。'
             : !supported
-              ? '此题目还没有开放任何语言。'
+              ? languages.isPending
+                ? '正在检查可用语言…'
+                : languages.isError
+                  ? '可用语言暂时无法确认，请重试。'
+                  : '此题目暂时没有就绪的作答语言。'
               : null;
   const header = (
     <>
       <span className="text-fg-2 font-body inline-flex items-center gap-1.5 text-sm">
         <Code2 className="size-3.5" aria-hidden="true" />
-        代码
+        <span className="max-sm:sr-only">代码</span>
       </span>
       <span className="text-fg-disabled">·</span>
-      <span>{language?.displayName ?? '无可用语言'}</span>
+      {language ? (
+        <Select
+          value={language.id}
+          onValueChange={(value) => {
+            if (value) onSelectLanguage(value);
+          }}
+        >
+          <SelectTrigger size="sm" className="w-auto" aria-label="作答语言">
+            <SelectValue>{language.displayName}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {languages.data?.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.displayName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <span>无可用语言</span>
+      )}
       <span>{codeModeLabels[data.codeMode]}</span>
     </>
   );
@@ -394,6 +434,11 @@ function ProblemCode({
       role="status"
     >
       <span>{notice}</span>
+      {languages.isError ? (
+        <Button size="sm" variant="secondary" onClick={() => void languages.refetch()}>
+          重试可用语言
+        </Button>
+      ) : null}
       {session.isError ? (
         <Button size="sm" variant="secondary" onClick={() => void session.refetch()}>
           重试登录状态
@@ -445,7 +490,7 @@ function ProblemCode({
       renderSubmission={(source) => (
         <CustomRunWorkbench
           userId={user.id}
-          problem={data}
+          problem={{ ...data, allowedLanguages: [language] }}
           source={source}
           disabled={session.isError || unavailable}
           wide={wide}

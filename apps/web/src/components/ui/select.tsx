@@ -205,7 +205,7 @@ function SelectField({
   return (
     // 紧凑形态下 Field 不能占满一行：它是 flex 列容器，子元素默认拉伸，
     // 四个下拉会各占一整行，比带标签的表单更糟。
-    <Field className={cn(compact && 'w-auto gap-0', className)}>
+    <Field className={cn(compact && 'relative w-auto gap-0', className)}>
       <FieldLabel htmlFor={triggerId} className={compact ? 'sr-only' : undefined}>
         {label}
       </FieldLabel>

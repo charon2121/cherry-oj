@@ -95,6 +95,20 @@ public class AdminProblemController {
         return noStore(publication.calibrate(problemId, request, CurrentCall.requireUser(), traceparent, actor()));
     }
 
+    @org.springframework.web.bind.annotation.PutMapping("/{problemId}/languages")
+    ResponseEntity<AdminProblemDtos.Problem> languages(
+            @PathVariable @Pattern(regexp = ID) String problemId,
+            @Valid @RequestBody AdminProblemDtos.ReplaceProblemLanguagesRequest request) {
+        return noStore(problems.replaceLanguages(problemId, request, actor()));
+    }
+
+    @GetMapping("/{problemId}/limits")
+    ResponseEntity<com.cherryoj.problemservice.integration.judging.JudgingDtos.LanguageLimitsList> limits(
+            @PathVariable @Pattern(regexp = ID) String problemId,
+            @RequestHeader(name = "traceparent", required = false) String traceparent) {
+        return noStore(publication.limits(problemId, CurrentCall.requireUser(), traceparent));
+    }
+
     @GetMapping("/{problemId}/publish-check")
     ResponseEntity<AdminProblemDtos.PublishCheck> publishCheck(
             @PathVariable @Pattern(regexp = ID) String problemId,

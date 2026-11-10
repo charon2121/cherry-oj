@@ -60,6 +60,9 @@ async function setup(page: Page) {
   await page.route('**/api/auth/csrf', (route) =>
     success(route, { token: 'test-csrf-token-0123456789', headerName: 'X-CSRF-Token' }),
   );
+  await page.route('**/api/problems/workspace-sum/languages', (route) =>
+    success(route, { items: problem().allowedLanguages }),
+  );
   await page.route('**/api/problems/workspace-sum', (route) => success(route, problem()));
   await page.goto('/problems/workspace-sum');
   await expect(page.getByRole('button', { name: '运行', exact: true })).toBeEnabled();

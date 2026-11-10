@@ -141,7 +141,7 @@ JudgeInput 只能通过受服务身份保护的内部接口提供给 judging-ser
 唯一写入：
 
 - JudgeNode：节点身份、租约、声明的语言（没有逐节点的数据安装记录）。
-- LanguageCalibration：按「题目 × 语言」的绝对限制，并记录标定时的测试数据指纹。（已定的新模型：一条基础标定 + 按语言参数推导 + 可选覆盖，见[运行限制推导协议](./protocols/limits.md)，尚未实施。）
+- LanguageCalibration：题目的一条基础标定与各语言可选的覆盖标定，绑定测试数据指纹；其它语言由参数推导，见[运行限制推导协议](./protocols/limits.md)。
 - JudgeTask、JudgeAttempt、租约和重试状态。
 - Outbox / Inbox 与执行侧审计。
 
@@ -244,7 +244,7 @@ ResolveExecutionProfile(problemId, languageId, purpose?)
 
 - 有在线节点声明了目标语言。
 - 题目有可读的测试数据（judging-service 向 problem-service 取到当前指纹）。
-- `problemId + languageId` 存在 VALID 标定，且标定时的数据指纹等于当前指纹（数据换了就过期，需重新标定）。（已定的新模型：一条基础标定 + 按语言参数推导 + 可选覆盖，见[运行限制推导协议](./protocols/limits.md)，尚未实施。）
+- 对当前测试数据存在有效的覆盖标定、基础标定或可推导限制，选择顺序与截断规则见[运行限制推导协议](./protocols/limits.md)。
 
 失败时不创建 Submission，不用默认限制降级。
 
@@ -438,7 +438,7 @@ problemId + languageId
 标定不绑定机器，但绑定数据：题目的测试数据换了，旧标定过期，新提交被挡住，直到按新数据重新标定。重新标定产生
 新的 VALID 记录并替换旧记录；已经冻结进 JudgeInput 的限制不受影响。
 
-已定的新模型：一条基础标定 + 按语言参数推导 + 可选覆盖，见[运行限制推导协议](./protocols/limits.md)，尚未实施。
+题目保留一条基础标定，其余语言按参数推导，也可用覆盖标定替代；规则见[运行限制推导协议](./protocols/limits.md)。
 
 ---
 

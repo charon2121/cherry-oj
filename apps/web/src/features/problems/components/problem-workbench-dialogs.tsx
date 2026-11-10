@@ -196,6 +196,7 @@ export function CalibrationDialog({
   limits,
   onLimitsChange,
   referenceLabel,
+  configuration,
   languageId,
   languageName,
   referenceSource,
@@ -213,6 +214,7 @@ export function CalibrationDialog({
   onLimitsChange: (limits: CalibrationLimits) => void;
   /** ACM 为"参考程序"；CORE 为"参考核心代码"，服务端会加上前缀并配合驱动代码运行。 */
   referenceLabel: string;
+  configuration?: ReactNode;
   /** 题目的语言：参考源码按它高亮，标签里写它的显示名。 */
   languageId: string;
   languageName: string;
@@ -235,6 +237,7 @@ export function CalibrationDialog({
             只在当前页面内存里，校准成功或离开工作台后清空。
           </DialogDescription>
         </DialogHeader>
+        {configuration}
         <div className="grid gap-2 sm:grid-cols-3">
           <LimitInput
             label="CPU 时间"
@@ -370,6 +373,20 @@ export function PublishDialog({
             </div>
           ))}
         </div>
+        {check?.languages?.map((language) => (
+          <div key={language.languageId} className="text-fg-2 mt-3 grid gap-1 text-xs">
+            <span>
+              {language.languageId} · {language.ready ? '可作答' : '尚未就绪'}
+            </span>
+            {language.checks
+              .filter((item) => !item.passed)
+              .map((item) => (
+                <span key={item.code} className="text-fg-meta">
+                  {item.message}
+                </span>
+              ))}
+          </div>
+        ))}
         {checkError ? (
           <Text className="text-danger" size="sm" role="alert">
             {checkError}

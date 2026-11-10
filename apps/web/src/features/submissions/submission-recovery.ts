@@ -13,8 +13,8 @@ export const recoverySchema = z.object({
   submissionId: z.string().uuid().optional(),
 });
 export type SubmissionRecovery = z.infer<typeof recoverySchema>;
-export function recoveryKey(userId: string, problemId: string) {
-  return `cherry-oj.submission.v2:${userId}:${problemId}:cpp`;
+export function recoveryKey(userId: string, problemId: string, languageId: string) {
+  return `cherry-oj.submission.v2:${userId}:${problemId}:${languageIdSchema.parse(languageId)}`;
 }
 export function loadRecovery(key: string): SubmissionRecovery | undefined {
   const value = localStorage.getItem(key);

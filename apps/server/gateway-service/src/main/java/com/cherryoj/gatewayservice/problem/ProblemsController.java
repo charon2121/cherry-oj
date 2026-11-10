@@ -84,6 +84,29 @@ public class ProblemsController {
         return result;
     }
 
+    @GetMapping("/{slug}/languages")
+    Mono<ResponseEntity<ApiSuccess<ProblemDtos.PublicProblemLanguages>>> languages(
+            @PathVariable @Pattern(regexp = "^[a-z0-9]+(?:-[a-z0-9]+)*$") @Size(max = 128) String slug,
+            ServerWebExchange exchange) {
+        String requestId = ApiRequestContext.requestId(exchange);
+        return problemService
+                .readyLanguages(slug, requestId)
+                .map(value -> {
+                    if (value.items() == null
+                            || value.items().size() > 32
+                            || value.items().stream()
+                                    .anyMatch(language -> language.id() == null
+                                            || language.displayName() == null
+                                            || language.starterCode() == null))
+                        throw new IllegalStateException("invalid ready language contract");
+                    return value;
+                })
+                .onErrorMap(error -> ProblemApiErrors.map(error, true))
+                .map(value -> ResponseEntity.ok()
+                        .cacheControl(org.springframework.http.CacheControl.noStore())
+                        .body(ApiSuccess.of(value, requestId)));
+    }
+
     private static ProblemDtos.ProblemDetail validateDetail(ProblemDtos.ProblemDetail detail) {
         if (detail == null
                 || detail.problemId() == null
