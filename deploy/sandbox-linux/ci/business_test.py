@@ -511,6 +511,30 @@ class BusinessTests(unittest.TestCase):
             self.assertEqual(result['thrown'], ['java.lang.IllegalStateException'])
             self.assertNotIn('frames', result)
 
+    def test_current_logger_field_preserves_structured_error_facts_without_private_text(self):
+        logger = 'com.cherryoj.gatewayservice.api.UnhandledApiErrorObserver'
+        frame = 'com.cherryoj.gatewayservice.auth.SubmissionGatewayAccess.identity'
+        entry = dict(level='ERROR', logger=logger, event='api.unexpected_error',
+                     request_id='req_' + 'c' * 32, error_type='java.lang.IllegalStateException',
+                     exception_types=['io.lettuce.core.RedisCommandTimeoutException'],
+                     application_frames=[frame], message='private-password', stack_trace='private-cookie')
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'gateway.log'
+            path.write_text(json.dumps(entry) + '\n')
+            result = service_facts(path)['facts'][0]
+        self.assertEqual(result['logger'], logger)
+        self.assertEqual(result['thrown'], ['java.lang.IllegalStateException',
+                                          'io.lettuce.core.RedisCommandTimeoutException'])
+        self.assertEqual(result['frames'], [frame])
+        self.assertNotIn('private', json.dumps(result))
+        # A present current field is authoritative; an invalid value must not revive a legacy logger.
+        for value in (None, [], 'private logger'):
+            with self.subTest(value=value):
+                result = fact(entry | dict(logger=value, logger_name=logger))
+                self.assertNotIn('logger', result)
+                self.assertNotIn('thrown', result)
+                self.assertNotIn('frames', result)
+
     def test_message_yields_nothing_unless_a_fixed_key_introduces_a_class_name(self):
         # Only `errorType=`-style keys are read back, and only when what follows is class-name
         # shaped. Everything else in a message stays unexported, including text that merely

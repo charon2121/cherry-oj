@@ -44,6 +44,11 @@ def _text(value: Any, pattern: re.Pattern[str]) -> str | None:
     return value if isinstance(value, str) and pattern.fullmatch(value) else None
 
 
+def _logger(entry: dict[str, Any]) -> str | None:
+    # Current Java logs rename logger_name to logger; retain support for archived logs.
+    return _text(entry.get('logger', entry.get('logger_name')), CLASS)
+
+
 def _number(value: Any, low: int, high: int) -> int | None:
     # bool is an int in Python; a boolean status would be a corrupt log, not a number.
     return value if isinstance(value, int) and not isinstance(value, bool) and low <= value <= high else None
@@ -78,7 +83,8 @@ def _safe_items(value: Any, pattern: re.Pattern[str], limit: int, max_length: in
 
 
 def _unexpected(entry: dict[str, Any], result: dict[str, Any]) -> tuple[list[str], list[str]]:
-    if entry.get('level') != 'ERROR' or entry.get('logger_name') not in ERROR_HANDLERS:
+    logger = _logger(entry)
+    if entry.get('level') != 'ERROR' or logger not in ERROR_HANDLERS:
         return [], []
     # A malformed new-format event must not resurrect different facts from an old message.
     if any(key in entry for key in ERROR_FIELDS):
@@ -90,7 +96,7 @@ def _unexpected(entry: dict[str, Any], result: dict[str, Any]) -> tuple[list[str
         return (root + _safe_items(entry.get('exception_types'), JAVA_CLASS, MAX_EXCEPTIONS, 200),
                 _safe_items(entry.get('application_frames'), APP_FRAME, MAX_FRAMES, 294))
     message = entry.get('message')
-    if entry.get('logger_name') == GATEWAY_HANDLER and isinstance(message, str) and len(message) <= 512:
+    if logger == GATEWAY_HANDLER and isinstance(message, str) and len(message) <= 512:
         match = LEGACY_ERROR.fullmatch(message)
         if match and len(match[2]) <= 200:
             result['requestId'] = match[1]
@@ -100,7 +106,10 @@ def _unexpected(entry: dict[str, Any], result: dict[str, Any]) -> tuple[list[str
 
 def fact(entry: dict[str, Any]) -> dict[str, Any]:
     result = {}
-    for key, name, pattern in (('level', 'level', IDENT), ('logger_name', 'logger', CLASS),
+    logger = _logger(entry)
+    if logger is not None:
+        result['logger'] = logger
+    for key, name, pattern in (('level', 'level', IDENT),
                                ('event', 'event', ROUTE), ('http_method', 'method', IDENT),
                                ('http_route', 'route', ROUTE), ('request_id', 'requestId', IDENT),
                                ('trace_id', 'traceId', HEX), ('span_id', 'spanId', HEX)):
