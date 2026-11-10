@@ -78,7 +78,6 @@ python3 deploy/sandbox-linux/rootfs/download.py --lock <锁文件> --output <新
 包锁不定期轮换，满足任一条件才升级：安全通告波及沙箱内会被用户代码或编译直接利用的组件；需要换编译器或增加
 语言运行时；距上次升级约半年（快照日期接近两年保留期时必须升级）。步骤：选新快照重新生成包锁并同步
 `download.py` 的 `SNAPSHOT` → 构建 rootfs 并记下 manifest 摘要 → 在测试服务器上走正式安装与判题回归（含 benchmark）
-→ 编译器或运行库有变化时重新标定 → 逐个节点切换。前置条件：安装器目前拒绝覆盖已有安装，第一次升级前要先给它加
-版本切换与回退。
+→ 编译器或运行库有变化时重新标定 → 用安装器的 `upgrade` 逐个节点切换，失败时回退；命令与限制见[安装器说明](../install/README.md#升级回滚与清理)。
 
 **构建输出必须在原生Linux文件系统。** macOS共享目录即使由Linux容器写入，也可能改变symlink模式或合并大小写不同的文件。本轮直接写macOS bind mount所得manifest与已验证版本不同；改在有界Linux tmpfs组装后，manifest恢复为上述固定摘要。导出tar归档后直接在目标Linux解包，不先在macOS展开rootfs再复制。跨架构解包不算执行验证。
