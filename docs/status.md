@@ -12,9 +12,17 @@
 被改过的发布时启动脚本拒绝启动、自动切回 v7（健康检查改为单元退出即失败后，停顿约 5.5 秒）；`prune` 只删掉了失败的发布。
 当前运行 `cherry-home-v7`（上一个发布 v6）：`verify-native` 通过，benchmark 判题 72 项与攻击样本 56 项全过。
 
+2026-11-11，测试服务器补齐五个 Java 服务与 Web，应用发布为 `129d200c`（`/opt/cherry-app/current`），
+复用上述原生判题节点；MySQL 8.4、Redis 7.4、Kafka Native 3.8.0 使用独立持久数据，应用服务由
+`cherry-app-*.service` 管理并启用自启。Web 只监听 `127.0.0.1:18080`，通过 SSH 转发访问；业务服务与依赖也仅监听回环。
+真实接口验证通过 C/C++ 同题 ACM 与 CORE、自测与正式提交、基础/推导/覆盖标定、切换和关闭基础语言入口后继续推导、
+历史输入冻结及 C 的编辑器行号换算；真实浏览器 3 项通过，覆盖管理页、普通用户两门语言的草稿/自测/提交、CORE C 和 320px。
+五服务健康、依赖无 OOM 与原生隔离冒烟均通过。另确认既有自测的 45 秒总预算保护：超预算返回
+`422 RUN_LIMIT_UNSUPPORTED`，正式提交仍可执行；浏览器正向验证使用预算内标定。
+
 | 部分 | 状态 |
 |---|---|
-| 同题多语言与限制标定 | ✅ 2026-11-10：C/C++ 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。Java 相关服务 verify 与本机隔离全栈 `scripts/e2e.py` 通过；实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录)。测试服务器部署记录仍以上方 2026-11-02 为准 |
+| 同题多语言与限制标定 | ✅ C/C++ 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。Java 相关服务 verify 与本机隔离全栈 `scripts/e2e.py` 通过；2026-11-11 已部署到测试服务器并通过上述原生节点与真实浏览器验证。模型及本机实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
 | 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
 | `internal/config` | ✅ YAML + 环境变量 |
