@@ -5,6 +5,8 @@ container reads the same absolute path (on macOS the fixture mirrors data into a
 Run after Maven package and the local Judge image build (the sandbox executor is built into the judge image). Never uses the user's databases/volumes.
 --keep leaves the test stack alive until <output>/stop exists, for browser verification.
 """
+from __future__ import annotations
+
 import argparse, secrets, stat, hashlib, http.cookiejar, io, json, os, pathlib, socket, subprocess, tempfile, tarfile, time, urllib.error, urllib.request, uuid, zipfile
 parser=argparse.ArgumentParser(description='Run the end-to-end suite on owned temporary databases/ports/volumes. Maven package and local Judge images required. Cleanup only removes this run; --keep waits for its output/stop file.')
 parser.add_argument('--keep',action='store_true')
@@ -17,7 +19,25 @@ OUT=pathlib.Path(tempfile.mkdtemp(prefix='cherry-e2e-')).resolve()
 TESTDATA_ROOT=OUT/'problem-testdata';TESTDATA_ROOT.mkdir(mode=0o755)
 TESTDATA_ROOT.chmod(0o755)
 NAME='cherry-e2e-'+uuid.uuid4().hex[:8]
+APPLICATIONS=OUT/'applications'
 processes=[];containers=[];logs=[];extra_volumes=[]
+def freeze_jars() -> None:
+ # 故障用例会重启服务，不能在第二次启动时读取可能已被 Maven 重写的同名 JAR。
+ APPLICATIONS.mkdir(mode=0o700)
+ digests={}
+ for service in ('user','judging','problem','submission','gateway'):
+  source=ROOT/f'apps/server/{service}-service/target/{service}-service-0.0.1-SNAPSHOT.jar'
+  value=hashlib.sha256()
+  with source.open('rb') as incoming,(APPLICATIONS/f'{service}.jar').open('xb') as output:
+   for chunk in iter(lambda:incoming.read(1048576),b''):
+    value.update(chunk);output.write(chunk)
+  # 如果构建正好覆盖了输入，拒绝混合产物；正常运行只依赖此次拷贝。
+  current=hashlib.sha256()
+  with source.open('rb') as incoming:
+   for chunk in iter(lambda:incoming.read(1048576),b''):current.update(chunk)
+  if value.digest()!=current.digest():raise RuntimeError('build artifact changed while freezing: '+service)
+  digests[service]=value.hexdigest()
+ (OUT/'application-digests.json').write_text(json.dumps(digests,indent=2)+'\n')
 def run(cmd,**kw):
  kw.setdefault('env',env)
  return subprocess.run(cmd,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,**kw)
@@ -56,7 +76,8 @@ def sync_assets() -> None:
       'cherry-oj-judge:local','--no-same-owner','-xf','-','-C','/assets'],input=archive.getvalue())
 def docker(*cmd):return run(['docker',*cmd])
 def sql(statement):
- try:return run(compose+['exec','-T','mysql','sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -N -B'],env=env,input=statement.encode()).stdout.decode().strip()
+ # TCP 只在最终数据库进程就绪后开放，避免把初始化用的临时 Unix socket 当成就绪。
+ try:return run(compose+['exec','-T','mysql','sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql --protocol=TCP -h127.0.0.1 -uroot -N -B'],env=env,input=statement.encode()).stdout.decode().strip()
  except subprocess.CalledProcessError as error:
   with open(OUT/'sql-errors.log','ab') as log:log.write(error.stderr)
   raise
@@ -87,7 +108,7 @@ def start(service,extra=None):
  CHERRY_SERVICE_IDENTITY_DIR=str(OUT/'service-identity'),
  CHERRY_SERVICE_TOKEN_URI=f"http://127.0.0.1:{ports['user']}/internal/service-tokens")
  if extra:config.update(extra)
- jar=ROOT/f'apps/server/{service}-service/target/{service}-service-0.0.1-SNAPSHOT.jar'
+ jar=APPLICATIONS/f'{service}.jar'
  log=open(OUT/f'{service}.log','ab');logs.append(log)
  command=['java','-Xmx256m','-jar',str(jar)]
  return command,config,log
@@ -119,6 +140,7 @@ try:
  if args.preflight:
   print('Preflight PASS; no services started.',flush=True)
   raise SystemExit(0)
+ freeze_jars()
  run(compose+['up','-d','mysql','redis','kafka'],env=env)
  wait(lambda:sql('SELECT 1')=='1','MySQL')
  sql('CREATE DATABASE cherry_user; CREATE DATABASE cherry_problem; CREATE DATABASE cherry_judging; CREATE DATABASE cherry_submission;')
