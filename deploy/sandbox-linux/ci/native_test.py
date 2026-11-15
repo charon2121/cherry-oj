@@ -1,4 +1,6 @@
 """Negative controls for native evidence and ownership; never starts system services."""
+from __future__ import annotations
+
 import json
 import importlib.util
 from pathlib import Path
@@ -77,6 +79,28 @@ class NativeEvidenceTest(unittest.TestCase):
         for changed in ({'taskThreads': 0}, {'runMemoryBytes': 0}, {'capabilities': 1}):
             with self.assertRaises(ValueError):
                 check(dict(row, **changed))
+
+    def test_probe_accepts_configured_slots_but_rejects_mixed_or_foreign_identities(self) -> None:
+        path = resources.ROOT / 'deploy/sandbox-linux/install/verify-native.py'
+        spec = importlib.util.spec_from_file_location('native_probe_fixture', path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        cases = (
+            ((PAYLOAD_UID, INIT_UID), 2, 0),
+            ((PAYLOAD_UID + 1, INIT_UID + 1, PAYLOAD_UID + 1), 2, 1),
+            ((PAYLOAD_UID, INIT_UID + 1), 2, None),
+            ((PAYLOAD_UID + 1, INIT_UID + 1), 1, None),
+            ((PAYLOAD_UID, INIT_UID, 0), 2, None),
+            ((PAYLOAD_UID,), 2, None),
+            ((), 2, None),
+        )
+        for ids, count, expected in cases:
+            rows = [('1', '/work/Main', dict(Uid=' '.join([str(uid)] * 4))) for uid in ids]
+            with self.subTest(ids=ids, count=count):
+                self.assertEqual(module.task_slot(rows, count), expected)
+        for count in (0, module.layout.MAX_PARALLELISM + 1):
+            with self.assertRaises(ValueError):
+                module.task_slot([], count)
 
     def test_registration_requires_fresh_node_and_real_identity_fields(self):
         value = dict(nodeId='ci-test', sessionId='00000000-0000-4000-8000-000000000001',

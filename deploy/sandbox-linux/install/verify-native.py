@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Bounded native-install smoke: isolated C++, all-thread credentials, limits, cleanup."""
+from __future__ import annotations
+
 import concurrent.futures
 import errno
 import http.client
@@ -58,6 +60,17 @@ def box_count():
     return int(config['box_count'])
 
 
+def task_slot(rows: list[tuple[str, str, dict[str, str]]], count: int) -> int | None:
+    """执行器为每个 box 分配一对身份，探针不能假设本次一定使用 box 0。"""
+    if not 1 <= count <= layout.MAX_PARALLELISM:
+        raise ValueError('invalid configured box count')
+    uids = {int(values['Uid'].split()[0]) for _, _, values in rows}
+    for slot in range(count):
+        if uids == {PAYLOAD + slot, INIT + slot}:
+            return slot
+    return None
+
+
 def clean():
     assert not [p for p in JOBS.iterdir() if p.is_dir()]
     # 每次交付之后 box 只剩空的 in/ 与 out/。
@@ -81,6 +94,7 @@ def main():
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         # 编译与运行都在隔离环境里；观察运行阶段（程序睡 2 秒）的全部任务线程。
         future=pool.submit(trial,source,'native isolation OK\n')
+        count=box_count()
         deadline=time.monotonic()+30
         while time.monotonic()<deadline:
             groups=[p for p in JOBS.iterdir() if p.is_dir()]
@@ -94,7 +108,8 @@ def main():
                 # init 先降权、再装 seccomp：只有全部线程都已完全受限（能力为零、NNP、seccomp 过滤）才算观察到。
                 restricted=all(all(int(v[k],16)==0 for k in CAPS) and v['NoNewPrivs'].strip()=='1' and v['Seccomp'].strip()=='2'
                                for _,_,v in rows)
-                if payload and {v['Uid'].split()[0] for _,_,v in rows}=={str(PAYLOAD),str(INIT)} and restricted:break
+                slot=task_slot(rows,count)
+                if payload and slot is not None and restricted:break
             except (FileNotFoundError,ProcessLookupError):pass
             # 编译阶段的执行组在 iterdir 之后、读 cgroup.procs 之前被删时，内核返回 ENODEV 而不是 ENOENT。
             except OSError as error:
@@ -113,7 +128,7 @@ def main():
         result=future.result(timeout=40)
         assert result['verdict']=='AC',result
     print(json.dumps(dict(result='PASS',serviceThreads=counts,taskThreads=len(rows),
-         taskUIDs=[PAYLOAD,INIT],capabilities=0,noNewPrivileges=1,namespaces=6,
+         taskUIDs=[PAYLOAD+slot,INIT+slot],capabilities=0,noNewPrivileges=1,namespaces=6,
          readOnlyMounts=3,
          runCpuNs=result['cpuNs'],runMemoryBytes=result['memoryBytes'])))
     clean()
