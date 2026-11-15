@@ -319,7 +319,8 @@ class ContractsTest(unittest.TestCase):
         languages = load("languages.json")["languages"]
         self.assertEqual(languages["cpp"]["files"], {"driverFile": "Main.cpp", "solutionFile": "solution.cpp"})
         for language, entry in languages.items():
-            self.assertEqual(set(entry), {"files", "limitModel", "requiresCompilation"}, language)
+            self.assertTrue({"files", "requiresCompilation"} <= set(entry), language)
+            self.assertTrue(set(entry) <= {"files", "limitModel", "requiresCompilation"}, language)
             self.assertIsInstance(entry["requiresCompilation"], bool, language)
             names = entry["files"]
             self.assertEqual(set(names), {"driverFile", "solutionFile"}, language)
@@ -356,7 +357,9 @@ class ContractsTest(unittest.TestCase):
         }
         for language, entry in languages.items():
             self.assertRegex(language, r"^[a-z][a-z0-9-]{0,31}$")
-            model = entry["limitModel"]
+            model = entry.get("limitModel")
+            if model is None:
+                continue  # 没有拟合参数的语言只能通过覆盖标定开放。
             self.assertEqual(set(model), fields, language)
             self.assertTrue(100 <= model["cpuFactorPermille"] <= 100000, language)
             cap = model["cpuFactorCapPermille"]

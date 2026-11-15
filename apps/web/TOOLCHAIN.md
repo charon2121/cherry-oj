@@ -54,20 +54,24 @@ Vite 整合 Router、React、Tailwind 并生成 dist/
 
 ### `codemirror`、`@codemirror/*` 与 `@lezer/highlight`
 
-为后台的 C/C++ 起始代码、参考程序和用户端的自测输入提供搜索、撤销、行号、语法高亮与可访问的编辑区域。
+为后台的 C/C++、Python 起始代码与参考程序和用户端的自测输入提供搜索、撤销、行号、语法高亮与可访问的编辑区域。
 项目直接使用 CodeMirror 6 官方模块，并维护一层很薄的 React 受控适配和语义 token 主题；不 fork
 编辑器内核，也不依赖第三方 React wrapper 或运行时 CDN。参考源码不得写入 Query、URL 或 storage。
 
 `@codemirror/state` 管编辑状态与可重配置扩展，`@codemirror/view` 管浏览器视图，`language`、
-`lang-markdown`、`lang-cpp` 和 `@lezer/highlight` 只提供当前实际使用的语言能力。手机触控端的题目编码区
+`lang-markdown`、`lang-cpp`、`lang-python` 和 `@lezer/highlight` 只提供当前实际使用的语言能力。
+Python 语法使用官方 CodeMirror 模块，为管理端与触控编辑器提供高亮和四空格缩进，随本地构建分发，不提供运行环境。
+手机触控端的题目编码区
 也复用 `TextEditor size="fill"`；后台不加载 Monaco。
 
 ### `monaco-editor`
 
 做题页编码区在用户明确要求后引入精确锁定的 0.56.0，为用户端题目工作台提供 C++ 高亮、行号、查找、
-缩进和撤销。`components/ui/code-editor*` 薄适配使用本地 ESM 子入口、C++ grammar 与 Vite worker，
+缩进和撤销。`components/ui/code-editor*` 薄适配使用本地 ESM 子入口、C++/Python grammar 与 Vite worker，
 运行时异步加载，不使用 CDN、全语言入口或语言服务器；主题数值由语义 token 解析。
 业务组件持有代码与草稿身份，适配负责释放 editor/model/观察器。Tab 默认移出，手机改用 CodeMirror。
+源码下载文件名在构建时直接读取仓库 `contracts/languages.json`：ACM 使用程序文件名，CORE 使用用户文件名，
+前端不再复制文件名表；未知语言仍可编辑和导出纯文本。这是与 API 类型生成一样的契约依赖，不读取设计说明目录。
 新增依赖会产生独立 runtime、CSS、字体与 worker 资源，只在做题页异步加载。
 
 ### `@tiptap/*`（`react`、`pm`、`core`、`starter-kit`、`markdown`、`extensions`、`extension-table`）

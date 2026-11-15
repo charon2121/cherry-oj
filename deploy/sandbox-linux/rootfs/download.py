@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Download locked Ubuntu packages; indexes locate files, the reviewed SHA256 authorizes bytes."""
+from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
-import json
 import lzma
 from pathlib import Path, PurePosixPath
+from typing import Any
+import tempfile
 import urllib.parse
 import urllib.request
 
 from diagnostics import Diagnostics
+from artifacts import Archive, read_lock
 
 BASE = 'https://archive.ubuntu.com/ubuntu/'
 # The live archive keeps only current versions; locked packages vanish after updates.
@@ -56,12 +59,43 @@ def archive_path(package, location):
     return path
 
 
-def download(lock, output, resume=False, address_failover=False, base=BASE):
+class HTTPSRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: urllib.request.Request, fp: Any, code: int, msg: str,
+                         headers: Any, newurl: str) -> urllib.request.Request | None:
+        if urllib.parse.urlsplit(newurl).scheme != 'https':
+            raise ValueError('归档跳转必须继续使用 HTTPS')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def download_archive(archive: Archive, output: Path, resume: bool) -> str:
+    target = output / archive.file
+    if target.exists() or target.is_symlink():
+        if not resume:
+            raise ValueError('拒绝已有归档: ' + archive.file)
+        archive.verify(target)
+        return archive.file
+    opener = urllib.request.build_opener(HTTPSRedirect())
+    with tempfile.TemporaryDirectory(prefix='.archive-', dir=output) as scratch:
+        staged = Path(scratch) / archive.file
+        total = 0
+        with opener.open(archive.url, timeout=30) as response, staged.open('xb') as stream:
+            while chunk := response.read(65536):
+                total += len(chunk)
+                if total > archive.size_bytes:
+                    raise ValueError('归档下载超过锁定大小: ' + archive.file)
+                stream.write(chunk)
+        archive.verify(staged)
+        staged.rename(target)
+    return archive.file
+
+
+def download(lock: Path, output: Path, resume: bool = False, address_failover: bool = False, base: str = BASE) -> None:
     open_url = urllib.request.urlopen
     if address_failover:
         from transport import source_urlopen
         open_url = source_urlopen(base)
-    packages = json.loads(lock.read_text())['packages']
+    document = read_lock(lock)
+    packages = document['packages']
     diagnostics = Diagnostics(address_failover)
     output.mkdir(mode=0o755, exist_ok=resume)
     if output.is_symlink():
@@ -113,6 +147,8 @@ def download(lock, output, resume=False, address_failover=False, base=BASE):
             # Keep legacy lines from splitting concurrent JSON observations.
             with diagnostics.lock:
                 print('verified ' + filename, flush=True)
+    for value in document['archives']:
+        print('verified ' + download_archive(Archive.parse(value), output, resume), flush=True)
 
 
 if __name__ == '__main__':

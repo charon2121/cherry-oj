@@ -1,3 +1,4 @@
+import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,6 +26,25 @@ function renderEditor(onChange = vi.fn()) {
 }
 
 describe('TextEditor', () => {
+  it('parses Python blocks and indents a new body by four spaces', () => {
+    render(
+      <ThemeProvider>
+        <TextEditor
+          value="class Solution:"
+          onChange={() => undefined}
+          language="python"
+          aria-label="Python 参考程序"
+        />
+      </ThemeProvider>,
+    );
+    const editor = screen.getByRole('textbox', { name: 'Python 参考程序' });
+    const view = EditorView.findFromDOM(editor);
+    if (!view) throw new Error('CodeMirror view was not mounted');
+    expect(syntaxTree(view.state).topNode.firstChild?.name).toBe('ClassDefinition');
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
+    fireEvent.keyDown(editor, { key: 'Enter', code: 'Enter', keyCode: 13 });
+    expect(view.state.doc.toString()).toBe('class Solution:\n    ');
+  });
   it('holds IME candidates and publishes only the committed source', async () => {
     const onChange = renderEditor();
     const editor = screen.getByRole('textbox', { name: '题目正文 Markdown' });

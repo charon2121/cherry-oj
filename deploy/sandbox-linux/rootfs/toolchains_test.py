@@ -10,8 +10,8 @@ import toolchains
 
 
 def lock(language, packages):
-    return {'version': 1, 'architecture': 'amd64', 'layout': 'usr-merged', 'source': 'test', 'language': language,
-            'roots': [], 'packages': [{'file': f, 'package': f.split('_')[0], 'version': '1', 'architecture': 'amd64',
+    return {'version': 2, 'archives': [], 'architecture': 'amd64', 'layout': 'usr-merged', 'source': 'test', 'language': language,
+            'roots': ['coreutils'], 'packages': [{'file': f, 'package': f.split('_')[0], 'version': '1', 'architecture': 'amd64',
                                        'sha256': sha} for f, sha in packages]}
 
 
@@ -61,7 +61,7 @@ class ToolchainsTest(unittest.TestCase):
             root = Path(temp)
             locks = root / 'locks'
             locks.mkdir()
-            self.write(locks, 'c', lock('c', []))
+            self.write(locks, 'c', lock('c', [('gcc_1_amd64.deb', 'a' * 64)]))
             (root / 'release').mkdir()
             built = []
 

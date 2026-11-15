@@ -35,6 +35,22 @@
         "baseEligible": true
       },
       "requiresCompilation": true
+    },
+    "pypy": {
+      "files": {
+        "driverFile": "Main.py",
+        "solutionFile": "solution.py"
+      },
+      "requiresCompilation": false,
+      "limitModel": {
+        "cpuFactorPermille": 4500,
+        "cpuFactorCapPermille": null,
+        "cpuOverheadNs": 150000000,
+        "ioPicosPerByte": 0,
+        "memoryFactorPermille": 1100,
+        "memoryOverheadBytes": 67108864,
+        "baseEligible": true
+      }
     }
   }
 }

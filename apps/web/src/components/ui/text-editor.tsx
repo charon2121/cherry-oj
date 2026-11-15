@@ -1,6 +1,12 @@
 import { cpp } from '@codemirror/lang-cpp';
 import { markdown } from '@codemirror/lang-markdown';
-import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { python } from '@codemirror/lang-python';
+import {
+  defaultHighlightStyle,
+  HighlightStyle,
+  indentUnit,
+  syntaxHighlighting,
+} from '@codemirror/language';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, placeholder as placeholderExtension } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
@@ -10,7 +16,7 @@ import { type AriaAttributes, useEffect, useId, useRef } from 'react';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
-type TextEditorLanguage = 'plain' | 'markdown' | 'cpp';
+type TextEditorLanguage = 'plain' | 'markdown' | 'cpp' | 'python';
 type TextEditorSize = 'compact' | 'default' | 'code' | 'fill' | 'auto';
 type TextEditorAppearance = 'boxed' | 'bare';
 
@@ -37,6 +43,7 @@ const syntaxTheme = syntaxHighlighting(
 function languageExtension(language: TextEditorLanguage): Extension {
   if (language === 'markdown') return markdown();
   if (language === 'cpp') return cpp();
+  if (language === 'python') return [python(), indentUnit.of('    '), EditorState.tabSize.of(4)];
   return [];
 }
 

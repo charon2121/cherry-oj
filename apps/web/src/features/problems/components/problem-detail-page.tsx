@@ -412,7 +412,9 @@ function ProblemCode({
           }}
         >
           <SelectTrigger size="sm" className="w-auto" aria-label="作答语言">
-            <SelectValue>{language.displayName}</SelectValue>
+            <SelectValue className="truncate" title={language.displayName}>
+              {language.displayName}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {languages.data?.map((item) => (
@@ -483,6 +485,7 @@ function ProblemCode({
       problemId={data.problemId}
       languageId={language.id}
       languageName={language.displayName}
+      codeMode={data.codeMode}
       starterCode={language.starterCode}
       readOnly={session.isError || unavailable}
       historyRef={historyRef}

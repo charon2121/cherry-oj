@@ -93,6 +93,13 @@ func TestEndToEndPython(t *testing.T) {
 	}
 }
 
+func TestEndToEndPyPy(t *testing.T) {
+	src := "a,b=map(int,input().split())\nprint(a+b)\n"
+	if got := runLang(t, "pypy", src, "1 2\n"); got != "3\n" {
+		t.Errorf("got %q want %q", got, "3\n")
+	}
+}
+
 // ★ 带内部类：只收 Main.class 的话这里会 NoClassDefFoundError
 func TestEndToEndJavaWithInnerClass(t *testing.T) {
 	src := `import java.util.*;
@@ -111,7 +118,7 @@ public class Main {
 // 节点启动时用 Smoke 实测每门声明的语言：这里先在本机工具链上确认冒烟程序本身是对的，
 // 算对了退出码 0（runLang 遇到非零退出会直接失败）。缺哪个工具链就跳过哪个。
 func TestSmokeProgramsExitZeroOnTheirInput(t *testing.T) {
-	for _, name := range []string{"c", "cpp", "python", "java"} {
+	for _, name := range []string{"c", "cpp", "pypy", "python", "java"} {
 		t.Run(name, func(t *testing.T) {
 			lang, ok := language.Get(name)
 			if !ok {

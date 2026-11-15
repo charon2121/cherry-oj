@@ -11,6 +11,7 @@ from business_api import API, FIXTURES
 from business_config import private
 from business_evidence import Evidence
 from business_languages import run as run_languages
+from pypy_runtime import run as run_pypy_runtime
 from business_observer import JOBS, Observer, counters, verify_observations
 from business_resources import Dependencies, RECORD as BUSINESS_RECORD
 from business_results import LIVE_CASES, browser_diagnostic, verify_build as verify_business_build, verify_live
@@ -158,10 +159,12 @@ class Business:
         self.report.record(['business.history'], 'PASS', ['live.json'])
         self.active = 'business.languages'
         before = parent_events()
+        runtime = run_pypy_runtime('http://127.0.0.1:15051')
+        save(self.report.output, 'pypy-runtime.json', runtime)
         multilingual = run_languages(api, self.owned.identity, evidence.frozen)
         save(self.report.output, 'languages.json', multilingual)
         save(self.report.output, 'languages-memory-events.json', dict(before=before, after=verify_parent_events(before)))
-        self.report.record([self.active], 'PASS', ['languages.json', 'languages-memory-events.json'])
+        self.report.record([self.active], 'PASS', ['languages.json', 'pypy-runtime.json', 'languages-memory-events.json'])
         self.active = 'business.cleanup'
         # Recheck online session and test data; a restart must not hide OLE/empty leakage.
         if evidence.identity(self.native.node)['sessionId'] != context['sessionId']:

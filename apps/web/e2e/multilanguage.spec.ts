@@ -21,6 +21,13 @@ const c = {
   judgeTemplate: null,
   solutionPrefix: null,
 };
+const pypy = {
+  id: 'pypy',
+  displayName: 'Python 3 (PyPy)',
+  starterCode: 'a, b = map(int, input().split())\nprint(a + b)\n',
+  judgeTemplate: null,
+  solutionPrefix: null,
+};
 
 async function success(route: Route, data: unknown) {
   await route.fulfill({
@@ -105,7 +112,7 @@ async function backend(page: Page, role: 'ADMIN' | 'USER') {
       });
     if (path === '/api/admin/languages')
       return success(route, {
-        items: [c, cpp].map((language) => ({
+        items: [c, cpp, pypy].map((language) => ({
           id: language.id,
           displayName: language.displayName,
           solutionPrefix: '#include <stdio.h>\n',
@@ -123,7 +130,8 @@ async function backend(page: Page, role: 'ADMIN' | 'USER') {
         rowVersion: body.rowVersion + 1,
         allowedLanguages: body.allowedLanguages.map((input) => ({
           ...input,
-          displayName: input.id === 'c' ? 'C' : 'C++',
+          displayName:
+            [c, cpp, pypy].find((language) => language.id === input.id)?.displayName ?? input.id,
           solutionPrefix: null,
         })),
       };
@@ -239,6 +247,8 @@ async function backend(page: Page, role: 'ADMIN' | 'USER') {
         problemId,
         languageId: body.languageId,
         status: 'COMPLETED',
+        cpuNs: 1_000_000,
+        memoryBytes: 28 << 20,
         stdout: { text: '3', capturedBytes: 1, truncated: false },
         stderr: { text: '', capturedBytes: 0, truncated: false },
         effectiveLimits: { cpuNs: 1000000000, memoryBytes: 268435456, clockNs: 10000000000 },
@@ -263,11 +273,22 @@ async function choose(page: Page, label: string, name: string) {
 
 async function replaceCode(page: Page, name: string, source: string) {
   const editor = page.getByRole('textbox', {
-    name: new RegExp(`^${name.replaceAll('+', '\\+')} 代码编辑器`),
+    name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} 代码编辑器`),
   });
   await editor.focus();
   await editor.press('Control+a');
-  await page.keyboard.insertText(source);
+  if (source.includes('\n')) {
+    // 多行按粘贴处理；Input.insertText 会被当成逐行键入，额外触发自动缩进。
+    await editor.evaluate((target, text) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData('text/plain', text);
+      target.dispatchEvent(
+        new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData }),
+      );
+    }, source);
+  } else {
+    await page.keyboard.insertText(source);
+  }
 }
 
 test('admin adds C, overrides its derived limits and publishes with one ready language', async ({
@@ -310,9 +331,9 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
     .toBe(updatedStarter);
 
   await page.getByRole('region', { name: '题目语言配置', exact: true }).scrollIntoViewIfNeeded();
-  await page.screenshot({ path: '/private/tmp/cherry-multilang-admin-dark.png' });
+  await page.screenshot({ path: '/tmp/cherry-multilang-admin-dark.png' });
   await page.getByRole('button', { name: /^切换到/ }).click();
-  await page.screenshot({ path: '/private/tmp/cherry-multilang-admin-light.png' });
+  await page.screenshot({ path: '/tmp/cherry-multilang-admin-light.png' });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.getByRole('region', { name: '题目语言配置', exact: true }).scrollIntoViewIfNeeded();
   await expect
@@ -324,7 +345,7 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
   await page.keyboard.press('Escape');
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await expect(page.getByRole('button', { name: '保存语言', exact: true })).toBeVisible();
-  await page.screenshot({ path: '/private/tmp/cherry-multilang-admin-320-forced.png' });
+  await page.screenshot({ path: '/tmp/cherry-multilang-admin-320-forced.png' });
 });
 
 test('language switching restores separate drafts and sends the selected language to run and submit', async ({
@@ -363,7 +384,7 @@ test('language switching restores separate drafts and sends the selected languag
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);
-  await page.screenshot({ path: '/private/tmp/cherry-multilang-student-320.png' });
+  await page.screenshot({ path: '/tmp/cherry-multilang-student-320.png' });
 });
 
 test('no ready language remains readable and a readiness outage is distinguishable and retryable', async ({
@@ -381,4 +402,105 @@ test('no ready language remains readable and a readiness outage is distinguishab
   state.ready = ['cpp'];
   await page.getByRole('button', { name: '重试可用语言' }).click();
   await expect(page.getByRole('button', { name: '提交', exact: true })).toBeEnabled();
+});
+
+test('PyPy has Python syntax, independent drafts and selected-language run and submission', async ({
+  page,
+}) => {
+  const state = await backend(page, 'USER');
+  state.problem = { ...state.problem, visibility: 'PUBLIC', allowedLanguages: [cpp, c, pypy] };
+  state.ready = ['cpp', 'c', 'pypy'];
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/problems/multi-sum');
+  await choose(page, '作答语言', pypy.displayName);
+  await expect(page.locator('[data-slot="code-editor-host"][data-mode-id="python"]')).toBeVisible();
+  const source = 'class Solution:\n    def add(self, a, b):\n        return a + b\n';
+  await replaceCode(page, pypy.displayName, source);
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('class');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: '下载代码', exact: true }).click();
+  expect((await download).suggestedFilename()).toBe('Main.py');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect.poll(() => state.runs[0]).toMatchObject({ languageId: 'pypy', source });
+  await expect(page.getByText('样例全部通过', { exact: true })).toBeVisible();
+  await choose(page, '作答语言', 'C++');
+  await expect(page.locator('[data-slot="code-editor-host"][data-mode-id="cpp"]')).toBeVisible();
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText(cpp.starterCode);
+  await choose(page, '作答语言', pypy.displayName);
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('class');
+  await page.getByRole('button', { name: '提交', exact: true }).click();
+  await expect.poll(() => state.submissions[0]).toMatchObject({ languageId: 'pypy', source });
+  const keyword = page
+    .locator('.monaco-editor .view-line')
+    .first()
+    .locator('span')
+    .filter({ hasText: /^class$/ });
+  await expect(keyword).toBeVisible();
+  await page.screenshot({ path: '/tmp/cherry-pypy-student-dark.png' });
+  await page.getByRole('button', { name: /^切换到/ }).click();
+  await expect
+    .poll(() =>
+      keyword.evaluate((element) => {
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--ds-brand-foreground)';
+        document.body.append(probe);
+        const expected = getComputedStyle(probe).color;
+        probe.remove();
+        return getComputedStyle(element).color === expected;
+      }),
+    )
+    .toBe(true);
+  await page.screenshot({ path: '/tmp/cherry-pypy-student-light.png' });
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.getByRole('tab', { name: '代码', exact: true }).click();
+  await expect(page.getByRole('combobox', { name: '作答语言' })).toContainText(pypy.displayName);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+    .toBeLessThanOrEqual(1);
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  const languageBox = await page.getByRole('combobox', { name: '作答语言' }).boundingBox();
+  const codeBox = await page.locator('[data-slot="code-editor-host"]').boundingBox();
+  if (!languageBox || !codeBox) throw new Error('Language selector or editor is not visible.');
+  expect(languageBox.y + languageBox.height).toBeLessThanOrEqual(codeBox.y);
+  await page.screenshot({ path: '/tmp/cherry-pypy-student-320-forced.png' });
+});
+
+test('PyPy remains editable with Python indentation on a touch screen', async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 320, height: 720 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    const state = await backend(page, 'USER');
+    state.problem = { ...state.problem, visibility: 'PUBLIC', allowedLanguages: [cpp, pypy] };
+    state.ready = ['cpp', 'pypy'];
+    await page.goto('/problems/multi-sum');
+    await page.getByRole('tab', { name: '代码', exact: true }).click();
+    await choose(page, '作答语言', pypy.displayName);
+    const editor = page.getByRole('textbox', {
+      name: `${pypy.displayName} 代码编辑器`,
+      exact: true,
+    });
+    await expect(page.locator('.cm-editor').filter({ has: editor })).toBeVisible();
+    await expect(page.locator('.monaco-editor')).toHaveCount(0);
+    await editor.fill('class Solution:');
+    await editor.press('Enter');
+    await page.keyboard.insertText('pass');
+    await page.getByRole('button', { name: '运行', exact: true }).click();
+    await expect
+      .poll(() => state.runs[0])
+      .toMatchObject({ languageId: 'pypy', source: 'class Solution:\n    pass' });
+    await expect(page.getByText('样例全部通过', { exact: true })).toBeVisible();
+    await editor.focus();
+    await editor.press('Tab');
+    await expect(editor).not.toBeFocused();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+      .toBeLessThanOrEqual(1);
+    await page.screenshot({ path: '/tmp/cherry-pypy-touch-320.png' });
+  } finally {
+    await context.close();
+  }
 });

@@ -90,7 +90,8 @@ class ResolveTest(unittest.TestCase):
         chosen, _ = lock.resolve(index, ['cpp'])
         document = lock.lock_document('cpp', ['cpp'], chosen, 'https://snapshot.example/', ('main',))
         self.assertEqual(document['packages'][0]['file'], 'cpp_4%3a13.2.0-7ubuntu1_amd64.deb')
-        self.assertEqual((document['version'], document['architecture'], document['layout']), (1, 'amd64', 'usr-merged'))
+        self.assertEqual((document['version'], document['architecture'], document['layout']), (2, 'amd64', 'usr-merged'))
+        self.assertEqual(document['archives'], [])
         self.assertEqual(document['language'], 'cpp')
 
 

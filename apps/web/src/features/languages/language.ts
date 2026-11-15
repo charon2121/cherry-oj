@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import languageCatalog from '../../../../../contracts/languages.json';
+
 /**
  * 语言编号只核对格式：平台支持哪些语言、显示成什么名字都由服务端决定
  * （contracts/languages.json 与 problem-service 的语言表），前端不维护语言名单。
@@ -7,13 +9,25 @@ import { z } from 'zod';
 export const languageIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
 
 /** 编辑器语法：认得的语言给高亮，其余退回纯文本，新语言不改前端也能用。 */
-export type EditorSyntax = 'cpp' | 'plain';
+export type EditorSyntax = 'cpp' | 'python' | 'plain';
 
 /** C 借用 C++ 的语法高亮：关键字、注释、字符串规则一致，多出来的 C++ 关键字在 C 代码里不会出现。 */
-const syntaxByLanguage: Record<string, EditorSyntax> = { c: 'cpp', cpp: 'cpp' };
+const syntaxByLanguage: Record<string, EditorSyntax> = { c: 'cpp', cpp: 'cpp', pypy: 'python' };
 
 export function editorSyntax(languageId: string | undefined): EditorSyntax {
   return (languageId && syntaxByLanguage[languageId]) || 'plain';
+}
+
+const filesByLanguage: Record<
+  string,
+  { files: { driverFile: string; solutionFile: string | null } }
+> = languageCatalog.languages;
+
+/** 文件名沿用跨语言契约；未知语言导出纯文本，不据此限制服务端的可用语言。 */
+export function sourceFileName(languageId: string, codeMode: 'ACM' | 'CORE'): string {
+  const files = filesByLanguage[languageId]?.files;
+  if (!files) return 'solution.txt';
+  return codeMode === 'CORE' ? (files.solutionFile ?? 'solution.txt') : files.driverFile;
 }
 
 type LanguageOption = { id: string; displayName: string };
@@ -40,6 +54,7 @@ export function languageName(
 const driverSkeletons: Record<string, string> = {
   cpp: '#include "solution.cpp"\n\nint main() {\n    // 读入数据，调用 Solution 的方法，输出结果\n}\n',
   c: '#include "solution.c"\n\nint main(void) {\n    // 读入数据，调用用户函数，输出结果\n}\n',
+  pypy: 'from solution import Solution\n\n# 读入数据，调用 Solution 的方法，输出结果\n',
 };
 
 export function driverSkeleton(languageId: string): string | undefined {

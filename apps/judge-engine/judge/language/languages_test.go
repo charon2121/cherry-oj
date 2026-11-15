@@ -96,6 +96,22 @@ func TestGetReturnsIndependentCopy(t *testing.T) {
 	}
 }
 
+func TestRuntimeEnvironmentIsFixedAndCopied(t *testing.T) {
+	first, _ := Get("pypy")
+	if !slices.Equal(first.RunEnv, []string{"PYPY_GC_NURSERY=4MB"}) {
+		t.Fatalf("unexpected PyPy environment: %v", first.RunEnv)
+	}
+	first.RunEnv[0] = "PYPY_GC_NURSERY=1MB"
+	second, _ := Get("pypy")
+	if second.RunEnv[0] != "PYPY_GC_NURSERY=4MB" {
+		t.Fatal("caller changed the registered runtime environment")
+	}
+	cpp, _ := Get("cpp")
+	if len(cpp.RunEnv) != 0 {
+		t.Fatal("C++ inherited another runtime's environment")
+	}
+}
+
 // registry 里每一条都要自洽。遍历而不是硬编码，这样新加一门语言时也会被检查到。
 func TestRegistryConsistency(t *testing.T) {
 	for key, lang := range registry {

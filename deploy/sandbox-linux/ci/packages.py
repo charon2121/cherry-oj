@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """CI-only package acquisition. Cached bytes are inputs, never evidence of a passed test."""
+from __future__ import annotations
+
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 import hashlib
 import json
@@ -18,12 +21,14 @@ import tempfile
 import threading
 import time
 import urllib.parse
+from typing import Any
 
 from report import ROOT, digest, git_sha, read_json
 
 # Reuse archive naming and index parsing; the deployment CLI keeps its transport.
 sys.path.insert(0, str(ROOT / 'deploy/sandbox-linux/rootfs'))
 from download import BASE as ARCHIVE_BASE, archive_path, locations
+from artifacts import read_lock
 
 BASE = 'https://snapshot.ubuntu.com/ubuntu/'
 ACQUISITION = Path(__file__).with_name('acquisition.json')
@@ -35,14 +40,13 @@ ATTEMPT_SECONDS = 120
 RETRY_CODES = {18, 28, 56}
 SCRIPT_PATHS = ('deploy/sandbox-linux/ci/packages.py', 'deploy/sandbox-linux/ci/report.py',
                 'deploy/sandbox-linux/rootfs/download.py', 'deploy/sandbox-linux/rootfs/diagnostics.py',
+                'deploy/sandbox-linux/rootfs/artifacts.py',
                 'deploy/sandbox-linux/ci/acquisition.json')
 
 
-def records(lock):
-    data = read_json(lock)
-    items = data.get('packages')
-    if data.get('version') != 1 or data.get('architecture') != 'amd64' or not isinstance(items, list) or not 0 < len(items) <= 256:
-        raise ValueError('invalid package lock')
+def records(lock: Path) -> list[dict[str, Any]]:
+    data = read_lock(lock)
+    items = data['packages']
     seen = set()
     for item in items:
         name = item.get('file', '')
@@ -55,7 +59,7 @@ def records(lock):
         if not re.fullmatch(r'[A-Za-z0-9.+:~%-]+', item.get('version', '')):
             raise ValueError('invalid package version')
         seen.add(name)
-    return items
+    return items + data['archives']
 
 
 def script_digest():
@@ -107,7 +111,7 @@ def identity(info):
             info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
-def copy_verified(lock, source, output, check=lambda: None):
+def copy_verified(lock: Path, source: Path, output: Path, check: Callable[[], None] = lambda: None) -> dict[str, int | str]:
     """Hash the bytes actually copied to an owned directory; publish only a complete set."""
     check()
     items = records(lock)
@@ -124,17 +128,18 @@ def copy_verified(lock, source, output, check=lambda: None):
         for item in items:
             check()
             name = item['file']
+            limit = item.get('sizeBytes', PACKAGE_LIMIT)
             fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
             with os.fdopen(fd, 'rb') as stream, (stage / name).open('xb') as target:
                 before = os.fstat(stream.fileno())
-                if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > PACKAGE_LIMIT:
+                if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > limit:
                     raise ValueError('non-regular, hardlinked or oversized package')
                 value = hashlib.sha256()
                 size = 0
                 while chunk := stream.read(65536):
                     check()
                     size += len(chunk)
-                    if size > PACKAGE_LIMIT:
+                    if size > limit:
                         raise ValueError('package exceeds limit')
                     value.update(chunk)
                     target.write(chunk)
@@ -144,6 +149,8 @@ def copy_verified(lock, source, output, check=lambda: None):
                     raise ValueError('package changed during validation')
                 if value.hexdigest() != item['sha256']:
                     raise ValueError('package SHA256 mismatch: ' + name)
+                if 'sizeBytes' in item and size != item['sizeBytes']:
+                    raise ValueError('archive size mismatch: ' + name)
                 total += size
             (stage / name).chmod(0o400)
         if set(os.listdir(directory)) != names:
@@ -171,8 +178,10 @@ class Events:
 
 class Curl:
     """curl owns HTTP/TLS; this class bounds attempts, output and child lifetimes."""
-    def __init__(self, deadline, stopped, events):
+    def __init__(self, deadline: float, stopped: threading.Event, events: Events,
+                 archive_urls: Sequence[str] = ()) -> None:
         self.deadline, self.stopped, self.events = deadline, stopped, events
+        self.archive_urls = frozenset(archive_urls)
         self.binary = shutil.which('curl')
         if not self.binary:
             raise RuntimeError('curl is required')
@@ -241,10 +250,11 @@ class Curl:
                 process.stdout.close()
                 process.stderr.close()
 
-    def fetch(self, url, target, limit, expected=None):
+    def fetch(self, url: str, target: Path, limit: int, expected: str | None = None) -> None:
         parsed = urllib.parse.urlsplit(url)
         origin = urllib.parse.urlsplit(BASE)
-        if parsed.scheme != 'https' or parsed.netloc != origin.netloc or parsed.query or parsed.fragment:
+        if (parsed.scheme != 'https' or (parsed.netloc != origin.netloc and url not in self.archive_urls)
+                or parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment):
             raise ValueError('download must use reviewed HTTPS origin')
         for number in range(1, 4):
             self.check()
@@ -274,12 +284,12 @@ class Curl:
         raise RuntimeError('unreachable download state')
 
 
-def acquire(lock, output, events, stopped):
+def acquire(lock: Path, output: Path, events: Events, stopped: threading.Event) -> dict[str, int | str]:
     items = records(lock)
     base, config = snapshot_config(lock)
     events.emit('origin', source='snapshot', snapshot=config['snapshot'], acquisitionSha=digest(ACQUISITION))
     deadline = time.monotonic() + TOTAL_SECONDS
-    client = Curl(deadline, stopped, events)
+    client = Curl(deadline, stopped, events, [item['url'] for item in items if 'url' in item])
     client.version()
     with tempfile.TemporaryDirectory(prefix='.download-', dir=output.parent) as scratch:
         root = Path(scratch)
@@ -304,8 +314,11 @@ def acquire(lock, output, events, stopped):
 
         def fetch(item):
             client.check()
-            path = archive_path(item, paths[item['package']])
-            client.fetch(base + urllib.parse.quote(str(path)), raw / item['file'], PACKAGE_LIMIT, item['sha256'])
+            if 'url' in item:
+                client.fetch(item['url'], raw / item['file'], item['sizeBytes'], item['sha256'])
+            else:
+                path = archive_path(item, paths[item['package']])
+                client.fetch(base + urllib.parse.quote(str(path)), raw / item['file'], PACKAGE_LIMIT, item['sha256'])
 
         pool = ThreadPoolExecutor(max_workers=4)
         try:

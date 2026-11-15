@@ -31,7 +31,7 @@ class PackageTests(unittest.TestCase):
         self.content = b'locked package'
         (self.source / self.name).write_bytes(self.content)
         self.lock = self.root / 'lock.json'
-        self.data = dict(version=1, architecture='amd64', packages=[dict(package='cpp', version='1',
+        self.data = dict(version=2, architecture='amd64', source='test', archives=[], packages=[dict(package='cpp', version='1',
                         architecture='amd64', file=self.name, sha256=hashlib.sha256(self.content).hexdigest())])
         self.descriptor = self.root / 'acquisition.json'
         descriptor_patch = patch.object(packages, 'ACQUISITION', self.descriptor)
@@ -53,6 +53,22 @@ class PackageTests(unittest.TestCase):
         self.assertNotEqual((self.source / self.name).stat().st_ino, (self.output / self.name).stat().st_ino)
         (self.source / self.name).write_bytes(b'changed after copy')
         self.assertEqual((self.output / self.name).read_bytes(), self.content)
+
+    def test_runtime_archives_are_copied_with_exact_size_and_digest(self):
+        runtime = b'locked runtime'
+        self.data['archives'] = [dict(file='runtime.tar.gz', url='https://runtime.example/v1/runtime.tar.gz',
+            sha256=hashlib.sha256(runtime).hexdigest(), sizeBytes=len(runtime), stripPrefix='runtime',
+            target='usr/lib/runtime', bin={'runtime': 'bin/runtime'})]
+        self.save()
+        (self.source / 'runtime.tar.gz').write_bytes(runtime)
+        result = packages.copy_verified(self.lock, self.source, self.output)
+        self.assertEqual(result['packages'], 2)
+        self.assertEqual((self.output / 'runtime.tar.gz').read_bytes(), runtime)
+        self.data['archives'][0]['sizeBytes'] += 1
+        self.save()
+        with self.assertRaises(ValueError):
+            packages.copy_verified(self.lock, self.source, self.root / 'wrong-size')
+        self.assertFalse((self.root / 'wrong-size').exists())
 
     def test_invalid_sets_and_digest_fail_without_publishing(self):
         for mutation in ('missing', 'extra', 'digest'):

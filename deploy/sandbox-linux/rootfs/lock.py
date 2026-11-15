@@ -13,6 +13,8 @@ rootfs 不是一台完整的系统，只装判题要用的包：给出几个根�
 
 快照地址与 download.py 的 SNAPSHOT 是同一个；换快照要两处一起换。
 """
+from __future__ import annotations
+
 import argparse
 import io
 import json
@@ -23,6 +25,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any, Sequence
 
 from download import SNAPSHOT
 
@@ -229,20 +232,22 @@ def local_filename(stanza):
     return f"{stanza['Package']}_{version}_{stanza['Architecture']}.deb"
 
 
-def lock_document(language, roots, chosen, base, components):
+def lock_document(language: str, roots: Sequence[str], chosen: dict[str, dict[str, str]],
+                  base: str, components: Sequence[str]) -> dict[str, Any]:
     packages = [
         {'file': local_filename(s), 'package': s['Package'], 'version': s['Version'],
          'architecture': s['Architecture'], 'sha256': s['SHA256']}
         for s in sorted(chosen.values(), key=lambda s: s['Package'])
     ]
     return {
-        'version': 1,
+        'version': 2,
         'architecture': 'amd64',
         'layout': 'usr-merged',
         'source': f"Ubuntu {'/'.join(SUITES)} ({'/'.join(components)}) via {base}; resolved by rootfs/lock.py",
         'language': language,
         'roots': list(roots),
         'packages': packages,
+        'archives': [],
     }
 
 

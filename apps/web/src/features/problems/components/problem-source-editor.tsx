@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { IconButton } from '@/components/ui/icon-button';
 import { TextEditor } from '@/components/ui/text-editor';
-import { editorSyntax } from '@/features/languages/language';
+import { editorSyntax, sourceFileName } from '@/features/languages/language';
 import type { HistoryLoad } from '@/features/submissions/submission-history-panel';
 import { cn } from '@/lib/utils';
 
@@ -107,6 +107,7 @@ type DraftEditorProps = {
   languageId: string;
   /** 语言的显示名，只用于编辑器标签；草稿的身份仍是 userId + problemId + languageId。 */
   languageName: string;
+  codeMode: 'ACM' | 'CORE';
   starterCode: string;
   readOnly: boolean;
   onUnsavedChange?: (unsaved: boolean) => void;
@@ -124,6 +125,7 @@ export function DraftEditor({
   historyRef,
   toolbarStart,
   languageName,
+  codeMode,
   layout = (editor, submission) => (
     <>
       {editor}
@@ -166,7 +168,7 @@ export function DraftEditor({
     const url = URL.createObjectURL(new Blob([draft.value], { type: 'text/plain;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'solution.cpp';
+    link.download = sourceFileName(identity.languageId, codeMode);
     link.click();
     URL.revokeObjectURL(url);
   };

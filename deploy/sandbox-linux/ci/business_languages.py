@@ -18,6 +18,9 @@ CPP_SOLUTION = 'class Solution { public: long long add(long long a,long long b){
 C_SOLUTION = 'long long add(long long a,long long b){return a+b;}\n'
 CPP_DRIVER = '#include <cstdio>\n#include "solution.cpp"\nint main(){long long a,b;scanf("%lld%lld",&a,&b);printf("%lld\\n",Solution().add(a,b));}\n'
 C_DRIVER = '#include <stdio.h>\n#include "solution.c"\nint main(void){long long a,b;scanf("%lld%lld",&a,&b);printf("%lld\\n",add(a,b));}\n'
+PYPY_PROGRAM = 'a, b = map(int, input().split())\nprint(a + b)\n'
+PYPY_SOLUTION = 'class Solution:\n    def add(self, a, b):\n        return a + b\n'
+PYPY_DRIVER = 'from solution import Solution\na, b = map(int, input().split())\nprint(Solution().add(a, b))\n'
 
 
 def require(condition: bool, message: str) -> None:
@@ -138,10 +141,45 @@ def run(api: API, identity: str, frozen: Callable[[str], dict[str, Any]]) -> dic
         if mode == 'CORE':
             error = submit(api, problem_id, 'c', sources['c'].replace('a+b', 'missingCName'), 'CE')
             require('solution.c:1:' in error['message'], 'C CORE 编译错误没有映射到编辑器行号')
+        languages(api, base, settings + [dict(id='pypy', starterCode='',
+                                             judgeTemplate=PYPY_DRIVER if mode == 'CORE' else None)])
+        pypy_source = PYPY_SOLUTION if mode == 'CORE' else PYPY_PROGRAM
+        pypy_derived = limits(api, base)['pypy']
+        require(pypy_derived['limitSource'] == 'DERIVED' and pypy_derived['calibrationId'] == c_base,
+                'PyPy 未从 C 基础标定推导')
+        trial(api, problem_id, 'pypy', pypy_source, 4_650_000_000, 205 << 20)
+        derived_pypy = submit(api, problem_id, 'pypy', pypy_source)
+        frozen_pypy = frozen(derived_pypy['id'])
+        require(frozen_pypy['limitSource'] == 'DERIVED', 'PyPy 推导依据没有冻结')
+        pypy_calibration = calibrate(api, base, 'pypy', pypy_source, 'OVERRIDE', 1_000_000_000, 256 << 20)
+        pypy_limits = limits(api, base)['pypy']
+        require(pypy_limits['limitSource'] == 'OVERRIDE'
+                and pypy_limits['calibrationId'] == pypy_calibration, 'PyPy 覆盖限制未生效')
+        ready = api.request('GET', '/api/problems/' + slug + '/languages')['items']
+        require([row['id'] for row in ready] == ['cpp', 'c', 'pypy'], '三门语言没有同时就绪')
+        trial(api, problem_id, 'pypy', pypy_source, 1_000_000_000, 256 << 20)
+        pypy_submission = submit(api, problem_id, 'pypy', pypy_source)
+        require(frozen(pypy_submission['id'])['limitSource'] == 'OVERRIDE', 'PyPy 标定没有冻结')
+        syntax = 'def broken(:\n'
+        failed_trial = api.request('POST', '/api/custom-runs', dict(problemId=problem_id, languageId='pypy',
+                                   source=syntax, inputText='1 2\n'), headers={'X-Expected-User-Id': api.user_id})
+        require(failed_trial['status'] == 'RUNTIME_ERROR' and 'SyntaxError' in failed_trial['stderr']['text'],
+                'PyPy 语法错误未按运行错误返回')
+        if mode == 'CORE':
+            require('solution.py", line 1' in failed_trial['stderr']['text'], 'Python 用户文件行号未映射到编辑器')
+        syntax_result = submit(api, problem_id, 'pypy', syntax, 'RE')
+        require(not syntax_result.get('message'), '正式提交公开了隐藏测试的运行错误')
+        pypy_base = calibrate(api, base, 'pypy', pypy_source, 'BASE', 5_000_000_000, 256 << 20)
+        current_limits = limits(api, base)
+        require(current_limits['pypy']['limitSource'] == 'BASE'
+                and current_limits['cpp']['limitSource'] == 'DERIVED'
+                and current_limits['cpp']['calibrationId'] == pypy_base, 'PyPy 基础标定未反推 C++ 限制')
+        trial(api, problem_id, 'cpp', sources['cpp'], 1_080_000_000, 175 << 20)
+        require(frozen(derived_pypy['id']) == frozen_pypy, 'PyPy 标定变化改写了冻结输入')
         # 成功后取消公开，永久测试环境不积累公开回归题；失败现场保留给调用者诊断。
         current = api.request('GET', base)
         api.request('POST', base + '/unpublish', dict(rowVersion=current['rowVersion']))
         result[mode] = dict(problemId=problem_id, derivedSubmissionId=submission['id'],
                             overrideSubmissionId=overridden['id'], baseCalibrationId=c_base,
-                            frozenSha256=derived['sha256'])
+                            frozenSha256=derived['sha256'], pypySubmissionId=pypy_submission['id'])
     return result

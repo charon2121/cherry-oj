@@ -11,9 +11,34 @@ import urllib.error
 from unittest.mock import ANY, Mock, patch
 import download as module
 from download import archive_path
+from artifacts import Archive
 
 
 class ArchiveLocationTests(unittest.TestCase):
+    def test_runtime_archive_requires_exact_size_digest_and_https_redirects(self):
+        content = b'locked-runtime'
+        for kind in ('valid', 'short', 'long', 'hash'):
+            with self.subTest(kind=kind), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                archive = Archive.parse(dict(file='runtime.tar.gz', url='https://runtime.example/runtime.tar.gz',
+                    sha256=hashlib.sha256(content).hexdigest(), sizeBytes=len(content),
+                    stripPrefix='runtime', target='usr/lib/runtime', bin={}))
+                body = {'valid': content, 'short': content[:-1], 'long': content + b'x',
+                        'hash': b'x' * len(content)}[kind]
+                opener = Mock()
+                opener.open.return_value = io.BytesIO(body)
+                with patch.object(module.urllib.request, 'build_opener', return_value=opener):
+                    if kind == 'valid':
+                        module.download_archive(archive, root, False)
+                        self.assertEqual((root / archive.file).read_bytes(), content)
+                        module.download_archive(archive, root, True)
+                        opener.open.assert_called_once_with(archive.url, timeout=30)
+                    else:
+                        with self.assertRaises(ValueError): module.download_archive(archive, root, False)
+                        self.assertEqual(list(root.iterdir()), [])
+        with self.assertRaises(ValueError):
+            module.HTTPSRedirect().redirect_request(None, None, 302, '', {}, 'http://runtime.example/runtime.tar.gz')
+
     def test_epoch_in_local_apt_name_is_not_in_pool_filename(self):
         package=dict(package='cpp', version='4:13.2.0-7ubuntu1', architecture='amd64')
         path=archive_path(package,'pool/main/g/gcc-defaults/cpp_13.2.0-7ubuntu1_amd64.deb')
@@ -29,7 +54,7 @@ class ArchiveLocationTests(unittest.TestCase):
         lock = root / 'lock.json'
         package = dict(package='cpp', version='1', architecture='amd64', file='cpp_1_amd64.deb',
                        sha256=hashlib.sha256(content).hexdigest())
-        lock.write_text(json.dumps(dict(packages=[package])))
+        lock.write_text(json.dumps(dict(version=2, architecture='amd64', source='test', archives=[], packages=[package])))
         return lock, package
 
     def test_default_download_keeps_urlopen_and_opt_in_keeps_identical_bytes(self):
@@ -108,7 +133,7 @@ class ArchiveLocationTests(unittest.TestCase):
                 elif kind == 'hash': target.write_bytes(b'wrong')
                 else:
                     package['file'] = '../outside'
-                    lock.write_text(json.dumps(dict(packages=[package])))
+                    lock.write_text(json.dumps(dict(version=2, architecture='amd64', source='test', archives=[], packages=[package])))
                 explicit = Mock()
                 with patch.object(module, 'locations', return_value={'cpp': 'pool/main/c/cpp/current.deb'}), patch(
                         'transport.source_urlopen', return_value=explicit):
@@ -149,7 +174,7 @@ class ArchiveLocationTests(unittest.TestCase):
             root = Path(tmp)
             lock, package = self.fixture(root)
             packages = [dict(package, package='pkg' + str(i), file='pkg' + str(i) + '_1_amd64.deb') for i in range(8)]
-            lock.write_text(json.dumps(dict(packages=packages)))
+            lock.write_text(json.dumps(dict(version=2, architecture='amd64', source='test', archives=[], packages=packages)))
             paths = {p['package']: 'pool/main/p/pkg/current.deb' for p in packages}
             with patch.object(module, 'locations', return_value=paths), patch('transport.source_urlopen', return_value=Mock(
                     side_effect=lambda *_a, **_k: io.BytesIO(b'locked-package'))), redirect_stdout(YieldingOutput()) as log:

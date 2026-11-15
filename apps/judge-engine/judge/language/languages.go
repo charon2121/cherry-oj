@@ -9,6 +9,7 @@ type Language struct {
 	Compile          []string // 编译命令
 	CompiledArtifact string   // 编译后产物文件名
 	Run              []string // 运行命令
+	RunEnv           []string // 该运行时固定的环境变量，不按题目限制调整
 	// Smoke 是节点启动时实测这门语言用的程序：从标准输入读 SmokeInput，算对了正常退出、算错了非零退出。
 	// 一次就验证编译器（或解释器）、标准输入与运行时都能用；不比对输出，免得冒烟依赖判题规则。
 	Smoke string
@@ -46,6 +47,15 @@ var registry = map[string]Language{
 		Run:   []string{"python3", "Main.py"}, // 没有 Compile
 		Smoke: "import sys\na, b = map(int, sys.stdin.read().split())\nsys.exit(0 if a + b == 3 else 1)\n",
 	},
+	"pypy": {
+		Name:         "pypy",
+		SourceName:   "Main.py",
+		SolutionName: "solution.py",
+		// 保留脚本目录以便驱动 import solution；禁用用户 site、环境配置和字节码写入。
+		Run:    []string{"pypy3", "-E", "-s", "-B", "Main.py"},
+		RunEnv: []string{"PYPY_GC_NURSERY=4MB"},
+		Smoke:  "import sys\na, b = map(int, sys.stdin.read().split())\nsys.exit(0 if a + b == 3 else 1)\n",
+	},
 	"java": {
 		Name:       "java",
 		SourceName: "Main.java",
@@ -65,7 +75,7 @@ var registry = map[string]Language{
 // Get 按名字取语言配置。
 //
 // 返回的是**独立副本**：Language 虽然按值返回，但 Compile / Run 是切片，
-// 切片头是值、底层数组却和 registry 共享。调用方改一下（或 append 到一个
+// RunEnv 同样是切片；切片头是值、底层数组却和 registry 共享。调用方改一下（或 append 到一个
 // cap 有富余的切片上），改的就是全局 registry——污染发生在一次判题里，
 // 症状出现在之后所有判题上，进程重启才恢复。
 func Get(name string) (Language, bool) {
@@ -75,6 +85,7 @@ func Get(name string) (Language, bool) {
 	}
 	lang.Compile = slices.Clone(lang.Compile)
 	lang.Run = slices.Clone(lang.Run)
+	lang.RunEnv = slices.Clone(lang.RunEnv)
 	return lang, true
 }
 

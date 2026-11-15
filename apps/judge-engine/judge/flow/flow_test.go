@@ -109,6 +109,23 @@ func runOK(stdout string) runReply {
 	return runReply{result: contract.RunResult{Status: contract.StatusOK, Stdout: stdout}}
 }
 
+func TestInterpretedCoreRunsBothSourcesWithItsRuntimeEnvironment(t *testing.T) {
+	req := oneTestcaseRequest("pypy")
+	req.SolutionSource = "user source"
+	fake := &fakeSandbox{runs: []runReply{runOK("answer\n")}}
+	result := flow.Judge(context.Background(), fake, judgeConfig(), req, nil)
+	if result.Verdict != contract.VerdictAC || len(fake.calls) != 1 {
+		t.Fatalf("interpreted request unexpectedly compiled or failed: %+v, calls=%d", result, len(fake.calls))
+	}
+	spec := fake.calls[0]
+	if spec.Toolchain != "pypy" || !slices.Equal(spec.Env, []string{"PYPY_GC_NURSERY=4MB"}) {
+		t.Fatalf("runtime configuration lost: %+v", spec)
+	}
+	if len(spec.Inputs) != 2 || spec.Inputs["Main.py"].Ref == "" || spec.Inputs["solution.py"].Ref == "" {
+		t.Fatalf("interpreted CORE must carry both source files: %+v", spec.Inputs)
+	}
+}
+
 func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 	cfg := judgeConfig()
 	req := trialRequest("cpp",

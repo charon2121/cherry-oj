@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""离线组装 rootfs；只解包已锁定的 deb，不运行包维护脚本，不安装宿主软件。"""
+"""离线组装 rootfs；只解包已锁定的来源，不运行安装脚本，不安装宿主软件。"""
+from __future__ import annotations
 import argparse
 import hashlib
 import json
@@ -8,6 +9,8 @@ from pathlib import Path
 import shutil
 import stat
 import subprocess
+
+from artifacts import Archive, read_lock, unpack
 
 
 def digest(path):
@@ -73,10 +76,8 @@ def apply_layout(root, layout):
             alias.symlink_to('usr/' + name)
 
 
-def build(lock_path, packages, output):
-    lock = json.loads(lock_path.read_text())
-    if lock.get('version') != 1 or lock.get('architecture') != 'amd64' or not lock.get('source'):
-        raise ValueError('锁文件必须声明 version=1、amd64、快照来源')
+def build(lock_path: Path, packages: Path, output: Path) -> None:
+    lock = read_lock(lock_path, for_build=True)
     records = lock.get('packages', [])
     if not records or len(records) > 256:
         raise ValueError('包数量无效')
@@ -93,12 +94,17 @@ def build(lock_path, packages, output):
             if actual != record[key] or key == 'architecture' and actual not in ('amd64', 'all'):
                 raise ValueError(f'包元数据不符: {name}/{field}')
         checked.append(path)
+    archives = [Archive.parse(value) for value in lock['archives']]
+    for archive in archives:
+        archive.verify(packages / archive.file)
     # 不复用、覆盖或递归删除用户目录；失败留下可检查的独立构建目录。
     output.mkdir(mode=0o755, parents=False, exist_ok=False)
     root = output / 'rootfs'
     root.mkdir()
     for package in checked:
         subprocess.run(['dpkg-deb', '-x', str(package), str(root)], check=True)
+    for archive in archives:
+        unpack(archive, packages / archive.file, root)
     apply_layout(root, lock.get('layout'))
     manifest = seal(root, lock['source'] + '; lock-sha256=' + digest(lock_path))
     target = output / 'manifest.json'

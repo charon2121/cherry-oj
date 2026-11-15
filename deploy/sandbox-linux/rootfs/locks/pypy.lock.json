@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "architecture": "amd64",
+  "layout": "usr-merged",
+  "source": "Ubuntu noble/noble-updates; dependency closure resolved from the reviewed C/C++ deb metadata; unchanged versions and SHA256; official PyPy archive https://downloads.python.org/pypy/pypy3.11-v8.0.1-linux64.tar.gz",
+  "language": "pypy",
+  "roots": [
+    "coreutils"
+  ],
+  "packages": [
+    {
+      "file": "coreutils_9.4-3ubuntu6.3_amd64.deb",
+      "package": "coreutils",
+      "version": "9.4-3ubuntu6.3",
+      "architecture": "amd64",
+      "sha256": "e1e9a17892be0cc83b7cea747edf331ffeb6d6c010b4db296e60d888e8e9274c"
+    },
+    {
+      "file": "gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+      "package": "gcc-14-base",
+      "version": "14.2.0-4ubuntu2~24.04.1",
+      "architecture": "amd64",
+      "sha256": "b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f"
+    },
+    {
+      "file": "libacl1_2.3.2-1build1.1_amd64.deb",
+      "package": "libacl1",
+      "version": "2.3.2-1build1.1",
+      "architecture": "amd64",
+      "sha256": "f2bfd3f8f00413d5f1f04fc723063803c56ac0f1e0efae3bc41f2d7276972ec3"
+    },
+    {
+      "file": "libattr1_1%3a2.5.2-1ubuntu0.1_amd64.deb",
+      "package": "libattr1",
+      "version": "1:2.5.2-1ubuntu0.1",
+      "architecture": "amd64",
+      "sha256": "a99e2e2dfcefbc0e9c99fdc0b284c8b35eaa58744163aaed476de1c93d3c4ef4"
+    },
+    {
+      "file": "libc6_2.39-0ubuntu8.8_amd64.deb",
+      "package": "libc6",
+      "version": "2.39-0ubuntu8.8",
+      "architecture": "amd64",
+      "sha256": "3b8d5391b6b484a4c81fd000b6064885ad967ec3cb966bc57603f3fb3ebf0ed5"
+    },
+    {
+      "file": "libgcc-s1_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+      "package": "libgcc-s1",
+      "version": "14.2.0-4ubuntu2~24.04.1",
+      "architecture": "amd64",
+      "sha256": "aa7fadbe33b78bcf99885318040601c550c208929565b179891d9a3cc2aa68cd"
+    },
+    {
+      "file": "libgmp10_2%3a6.3.0+dfsg-2ubuntu6.1_amd64.deb",
+      "package": "libgmp10",
+      "version": "2:6.3.0+dfsg-2ubuntu6.1",
+      "architecture": "amd64",
+      "sha256": "285f8a505dfa8e1b33f357a9d8d3477ad35bf18c0b34771a6df4c25923f3ae0d"
+    },
+    {
+      "file": "libpcre2-8-0_10.42-4ubuntu2.1_amd64.deb",
+      "package": "libpcre2-8-0",
+      "version": "10.42-4ubuntu2.1",
+      "architecture": "amd64",
+      "sha256": "110a797a57673d3ee497a141cf988199258058c57525799c63194d81822529a0"
+    },
+    {
+      "file": "libselinux1_3.5-2ubuntu2.1_amd64.deb",
+      "package": "libselinux1",
+      "version": "3.5-2ubuntu2.1",
+      "architecture": "amd64",
+      "sha256": "6abaa6c26f46ef17764c4a753e0e84de1cdadde5634fd2987621fdc617988d19"
+    },
+    {
+      "file": "libssl3t64_3.0.13-0ubuntu3.15_amd64.deb",
+      "package": "libssl3t64",
+      "version": "3.0.13-0ubuntu3.15",
+      "architecture": "amd64",
+      "sha256": "3d0955bc049bbcca0f4c3e78a3a8b994593d96db7d84f4320217224433844534"
+    }
+  ],
+  "archives": [
+    {
+      "file": "pypy3.11-v8.0.1-linux64.tar.gz",
+      "url": "https://downloads.python.org/pypy/pypy3.11-v8.0.1-linux64.tar.gz",
+      "sha256": "706965bcf372752ba69dafd59d860e51bc2fadbb0f8a47cec3426125d7058ceb",
+      "sizeBytes": 37254555,
+      "stripPrefix": "pypy3.11-v8.0.1-linux64",
+      "target": "usr/lib/pypy3",
+      "bin": {
+        "pypy3": "bin/pypy3"
+      }
+    }
+  ]
+}

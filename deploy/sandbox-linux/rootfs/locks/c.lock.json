@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "architecture": "amd64",
   "layout": "usr-merged",
   "source": "Ubuntu noble/noble-updates via http://mirrors.tencentyun.com/ubuntu; authenticated apt indexes; selected versions and SHA256 fixed in this lock; package set resolved by rootfs/lock.py from roots gcc, libc6-dev, coreutils, versions and SHA256 from the reviewed lock",
@@ -367,5 +367,6 @@
       "architecture": "amd64",
       "sha256": "84b9cf5752b29c9f92c27cd4c4ba9bbcc70b5ccf9b1b515421a28ae23212e273"
     }
-  ]
+  ],
+  "archives": []
 }

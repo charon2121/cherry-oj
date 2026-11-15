@@ -47,7 +47,7 @@ curl -sS --noproxy '*' -X POST http://127.0.0.1:5051/judge -H 'Content-Type: app
 | `mode` | `submit`（默认）：按 `testDataLocation` 读取正式测试点；`trial`：用请求里的 `testcases` |
 | `testDataLocation` | `mode=submit` 时必填，规则见[测试数据协议](./testdata.md)；`trial` 时不需要 |
 | `testcases` | `trial` 用；每项 `input` 必填，`expected`、`name` 可选。没有 `expected` 的测试点只运行，结论是 `RAN` |
-| `languageId` | 必填。judge 已登记 `cpp`、`python`、`java`；节点实际能跑哪些，取决于它的 rootfs。官方 rootfs 只有 C/C++ 工具链 |
+| `languageId` | 必填。平台目录见 [`languages.json`](../../contracts/languages.json)，运行语义见[语言运行约定](./languages.md)；节点实际可用的语言以其已安装并通过冒烟的工具链为准，开发注册不等于平台支持 |
 | `source` | 必填，完整源码 |
 | `limits.cpuNs`、`limits.memoryBytes` | 必填，**每个测试点**的上限 |
 | `limits.clockNs` | 可选，墙钟上限。缺省为 `cpuNs` × 配置的 `clockRatio`（默认 10）；超过执行层硬界（120 s）则这次判题 SE |

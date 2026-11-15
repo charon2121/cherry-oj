@@ -28,6 +28,7 @@ func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCas
 	run, runErr := sb.Run(ctx, contract.RunSpec{
 		Toolchain: lang.Name,
 		Command:   lang.Run,
+		Env:       lang.RunEnv,
 		Inputs:    runInputs(lang, sourceInputs(lang, j.sourceRef, j.solutionRef), executableRef),
 		Stdin:     stdin,
 		Limits: contract.Limits{

@@ -15,6 +15,10 @@ import {
   conf as cppConfiguration,
   language as cppLanguage,
 } from 'monaco-editor/languages/definitions/cpp/cpp';
+import {
+  conf as pythonConfiguration,
+  language as pythonLanguage,
+} from 'monaco-editor/languages/definitions/python/python';
 
 import type { ThemeSnapshot } from '@/lib/theme/theme-runtime';
 
@@ -24,12 +28,12 @@ type CodeEditorSettings = Readonly<{
   colorScheme: ThemeSnapshot['colorScheme'];
   readOnly: boolean;
   ariaLabel: string;
-  /** 只认得 cpp 的语法；其余语言按纯文本显示，新语言不改前端也能用。 */
-  syntax: 'cpp' | 'plain';
+  /** 未登记语法的语言按纯文本显示，不阻止新增平台语言。 */
+  syntax: 'cpp' | 'python' | 'plain';
 }>;
 
 function modelLanguage(syntax: CodeEditorSettings['syntax']): string {
-  return syntax === 'cpp' ? 'cpp' : 'plaintext';
+  return syntax === 'plain' ? 'plaintext' : syntax;
 }
 
 export type CodeEditorHandle = Readonly<{
@@ -51,6 +55,9 @@ monaco.languages.register({
 });
 monaco.languages.setLanguageConfiguration('cpp', cppConfiguration);
 monaco.languages.setMonarchTokensProvider('cpp', cppLanguage);
+monaco.languages.register({ id: 'python', extensions: ['.py'], aliases: ['Python', 'python'] });
+monaco.languages.setLanguageConfiguration('python', pythonConfiguration);
+monaco.languages.setMonarchTokensProvider('python', pythonLanguage);
 
 export async function createCodeEditor(
   host: HTMLElement,
@@ -59,7 +66,7 @@ export async function createCodeEditor(
   settings: CodeEditorSettings,
 ): Promise<CodeEditorHandle> {
   // Initialize the locally registered tokenizer before reporting a usable editor.
-  await monaco.editor.colorize('', 'cpp', {});
+  await monaco.editor.colorize('', modelLanguage(settings.syntax), {});
   const initialTheme = readCodeEditorTheme(host, settings.colorScheme);
   const themeName = 'cherry-semantic-code';
   monaco.editor.defineTheme(themeName, initialTheme.theme);
