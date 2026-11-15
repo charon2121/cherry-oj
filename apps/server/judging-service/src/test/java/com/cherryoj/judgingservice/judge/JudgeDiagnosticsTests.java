@@ -5,9 +5,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -16,8 +13,6 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 class JudgeDiagnosticsTests {
 
@@ -119,33 +114,6 @@ class JudgeDiagnosticsTests {
         assertThat(rewritten)
                 .isEqualTo("Main.cpp:3:1: error in stl_vector.h:1125\n"
                         + "  a / b and 2/3 stay; [Main.csproj] and main.go:5 lose their directories\n");
-    }
-
-    /** 文件名以 contracts/languages.json 的 files 为准，只登记支持 CORE 的语言；judge 那边也有同样的对齐测试。 */
-    @Test
-    void languageFilesMatchTheContract() throws IOException {
-        JsonNode languages = JsonMapper.builder()
-                .build()
-                .readTree(Files.readString(Path.of("../../../contracts/languages.json")))
-                .get("languages");
-        Map<String, LanguageFiles> contract = languages.propertyNames().stream()
-                .filter(name ->
-                        !languages.get(name).get("files").get("solutionFile").isNull())
-                .collect(Collectors.toMap(
-                        name -> name,
-                        name -> new LanguageFiles(
-                                languages
-                                        .get(name)
-                                        .get("files")
-                                        .get("driverFile")
-                                        .asString(),
-                                languages
-                                        .get(name)
-                                        .get("files")
-                                        .get("solutionFile")
-                                        .asString())));
-
-        assertThat(LanguageFiles.all()).isEqualTo(contract);
     }
 
     private static Set<Long> userFileLines(String text, String solutionFile) {

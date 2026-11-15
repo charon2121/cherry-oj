@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.cherryoj.judgingservice.api.*;
 import com.cherryoj.judgingservice.formal.FormalProperties;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
@@ -55,8 +56,13 @@ class TrialControllerTests {
         when(node.endpoint())
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
-        var controller =
-                new TrialController(profiles, nodes, mock(FormalProperties.class), json, HttpClient.newHttpClient());
+        var controller = new TrialController(
+                profiles,
+                nodes,
+                mock(FormalProperties.class),
+                json,
+                HttpClient.newHttpClient(),
+                new LanguageCatalog(json));
         var request = new TrialController.Request(
                 problem, "cpp", "int main(){}", null, null, "", System.currentTimeMillis() + 45000);
         try {
@@ -113,8 +119,13 @@ class TrialControllerTests {
         when(node.endpoint())
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
-        var controller =
-                new TrialController(profiles, nodes, mock(FormalProperties.class), json, HttpClient.newHttpClient());
+        var controller = new TrialController(
+                profiles,
+                nodes,
+                mock(FormalProperties.class),
+                json,
+                HttpClient.newHttpClient(),
+                new LanguageCatalog(json));
         var request = new TrialController.Request(
                 problem,
                 "cpp",
@@ -179,7 +190,8 @@ class TrialControllerTests {
                 })
                 .when(http)
                 .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
-        var controller = new TrialController(profiles, nodes, budgets, new ObjectMapper(), http);
+        var controller = new TrialController(
+                profiles, nodes, budgets, new ObjectMapper(), http, new LanguageCatalog(new ObjectMapper()));
         try {
             assertEquals(
                     "COMPILE_ERROR", controller.run(request, null).getBody().status());

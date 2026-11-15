@@ -4,6 +4,7 @@ import com.cherryoj.judgingservice.api.*;
 import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.http.LimitedHttpBody;
 import com.cherryoj.judgingservice.judge.JudgeDiagnostics;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.judge.LanguageFiles;
 import com.cherryoj.judgingservice.persistence.*;
 import jakarta.annotation.PreDestroy;
@@ -34,6 +35,8 @@ public class TrialController {
 
     private final HttpClient http;
 
+    private final LanguageCatalog languages;
+
     private final Semaphore slots = new Semaphore(1);
 
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -43,12 +46,14 @@ public class TrialController {
             JudgeNodeRepository nodes,
             FormalProperties budgets,
             ObjectMapper json,
-            HttpClient http) {
+            HttpClient http,
+            LanguageCatalog languages) {
         this.profiles = profiles;
         this.nodes = nodes;
         this.budgets = budgets;
         this.json = json;
         this.http = http;
+        this.languages = languages;
     }
 
     /**
@@ -297,8 +302,8 @@ public class TrialController {
     }
 
     /** CORE 自测要用该语言的用户文件名；不支持核心代码模式的语言没有这个名字，直接拒绝而不是送出一个编不过的程序。 */
-    private static String solutionFile(String languageId) {
-        LanguageFiles files = LanguageFiles.of(languageId);
+    private String solutionFile(String languageId) {
+        LanguageFiles files = languages.coreFiles(languageId);
         if (files == null) throw error(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "该语言不支持核心代码模式。");
         return files.solutionFile();
     }

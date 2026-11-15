@@ -3,11 +3,14 @@ package com.cherryoj.judgingservice.formal;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.cherryoj.judgingservice.judge.JudgeGateway;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 class FormalResultTests {
+    private static final LanguageCatalog LANGUAGES = new LanguageCatalog(new ObjectMapper());
     private static final String SOLUTION = "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {};\n";
     private static final FormalInput CORE = new FormalInput(
             "s",
@@ -36,58 +39,64 @@ class FormalResultTests {
                 null);
         assertEquals(
                 "In file included from Main.cpp:1:\nsolution.cpp:3:20: error: 'x' was not declared\n",
-                FormalWorker.safe(ce, 1, CORE).get("message"));
+                FormalWorker.safe(ce, 1, CORE, LANGUAGES).get("message"));
     }
 
     @Test
     void coreInputsMustCarryTheSolutionItsHashAndThePrefixLineCountTogether() {
-        assertTrue(FormalWorker.validSolution(CORE));
-        assertTrue(FormalWorker.validSolution(ACM));
-        assertFalse(FormalWorker.validSolution(new FormalInput(
-                "s",
-                "2",
-                "p",
-                "cpp",
-                "d",
-                "x",
-                SOLUTION,
-                FormalWorker.hash(SOLUTION),
-                null,
-                "c",
-                new JudgeGateway.Limits(1, 1, null),
-                "BASE",
-                null,
-                java.time.Instant.EPOCH)));
-        assertFalse(FormalWorker.validSolution(new FormalInput(
-                "s",
-                "2",
-                "p",
-                "cpp",
-                "d",
-                "x",
-                SOLUTION,
-                "0".repeat(64),
-                2,
-                "c",
-                new JudgeGateway.Limits(1, 1, null),
-                "BASE",
-                null,
-                java.time.Instant.EPOCH)));
-        assertFalse(FormalWorker.validSolution(new FormalInput(
-                "s",
-                "2",
-                "p",
-                "cpp",
-                "d",
-                "x",
-                null,
-                null,
-                2,
-                "c",
-                new JudgeGateway.Limits(1, 1, null),
-                "BASE",
-                null,
-                java.time.Instant.EPOCH)));
+        assertTrue(FormalWorker.validSolution(CORE, LANGUAGES));
+        assertTrue(FormalWorker.validSolution(ACM, LANGUAGES));
+        assertFalse(FormalWorker.validSolution(
+                new FormalInput(
+                        "s",
+                        "2",
+                        "p",
+                        "cpp",
+                        "d",
+                        "x",
+                        SOLUTION,
+                        FormalWorker.hash(SOLUTION),
+                        null,
+                        "c",
+                        new JudgeGateway.Limits(1, 1, null),
+                        "BASE",
+                        null,
+                        java.time.Instant.EPOCH),
+                LANGUAGES));
+        assertFalse(FormalWorker.validSolution(
+                new FormalInput(
+                        "s",
+                        "2",
+                        "p",
+                        "cpp",
+                        "d",
+                        "x",
+                        SOLUTION,
+                        "0".repeat(64),
+                        2,
+                        "c",
+                        new JudgeGateway.Limits(1, 1, null),
+                        "BASE",
+                        null,
+                        java.time.Instant.EPOCH),
+                LANGUAGES));
+        assertFalse(FormalWorker.validSolution(
+                new FormalInput(
+                        "s",
+                        "2",
+                        "p",
+                        "cpp",
+                        "d",
+                        "x",
+                        null,
+                        null,
+                        2,
+                        "c",
+                        new JudgeGateway.Limits(1, 1, null),
+                        "BASE",
+                        null,
+                        java.time.Instant.EPOCH),
+                LANGUAGES));
     }
 
     private static final FormalInput ACM = new FormalInput(
@@ -115,7 +124,7 @@ class FormalResultTests {
                 {"verdict":"WA","message":"hidden input printed here",
                  "testcaseResults":[{"idx":1,"verdict":"WA","name":"secret name","output":{"stdout":"hidden input"},"diff":{"expected":"secret answer"}}]}
                 """, JudgeGateway.JudgeResult.class);
-        var safe = FormalWorker.safe(result, 3, ACM);
+        var safe = FormalWorker.safe(result, 3, ACM, LANGUAGES);
         assertEquals(1, safe.get("executedTestcaseCount"));
         assertEquals(0, safe.get("passedTestcaseCount"));
         assertEquals(3, safe.get("testcaseCount"));
@@ -131,7 +140,8 @@ class FormalResultTests {
                 new JudgeGateway.JudgeResult(
                         "PE", 1L, 1L, null, null, List.of(new JudgeGateway.TestcaseResult(1, "PE", 1L, 1L))),
                 1,
-                ACM);
+                ACM,
+                LANGUAGES);
         assertEquals("PE", safe.get("verdict"));
         assertEquals(0, safe.get("passedTestcaseCount"));
     }
@@ -145,13 +155,13 @@ class FormalResultTests {
                 null,
                 "/private/compiler/Main.cpp:3: error\u001b[31m\u0000\n" + "x".repeat(9000),
                 null);
-        String message = (String) FormalWorker.safe(ce, 1, ACM).get("message");
+        String message = (String) FormalWorker.safe(ce, 1, ACM, LANGUAGES).get("message");
         assertTrue(message.length() <= 8192);
         assertFalse(message.contains("/private"));
         assertFalse(message.contains("\u001b"));
         assertThrows(
                 FormalFailure.class,
-                () -> FormalWorker.safe(new JudgeGateway.JudgeResult("UNKNOWN", null, null, null), 1, ACM));
+                () -> FormalWorker.safe(new JudgeGateway.JudgeResult("UNKNOWN", null, null, null), 1, ACM, LANGUAGES));
         assertThrows(
                 FormalFailure.class,
                 () -> FormalWorker.safe(
@@ -163,6 +173,7 @@ class FormalResultTests {
                                 null,
                                 List.of(new JudgeGateway.TestcaseResult(2, "AC", null, null))),
                         1,
-                        ACM));
+                        ACM,
+                        LANGUAGES));
     }
 }

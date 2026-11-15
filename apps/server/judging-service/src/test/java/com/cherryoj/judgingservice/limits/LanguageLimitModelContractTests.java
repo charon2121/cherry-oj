@@ -2,6 +2,7 @@ package com.cherryoj.judgingservice.limits;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,8 +13,8 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/** 语言限制参数以 contracts/languages.json 为准：语言集合、字段名和取值都必须一致。 */
-class LanguageLimitModelsContractTests {
+/** 语言限制参数以 contracts/languages.json 为准：字段名和取值都必须一致。 */
+class LanguageLimitModelContractTests {
 
     @Test
     void modelsMatchTheLanguageCatalog() throws Exception {
@@ -22,13 +23,16 @@ class LanguageLimitModelsContractTests {
                 .readTree(Files.readString(Path.of("../../../contracts/languages.json")))
                 .get("languages");
 
-        assertThat(LanguageLimitModels.all().keySet())
-                .isEqualTo(languages.propertyNames().stream().collect(Collectors.toSet()));
-        for (var entry : LanguageLimitModels.all().entrySet()) {
-            JsonNode contract = languages.get(entry.getKey()).get("limitModel");
+        var catalog = new LanguageCatalog(JsonMapper.builder().build());
+        for (String languageId : languages.propertyNames()) {
+            JsonNode contract = languages.get(languageId).get("limitModel");
+            LimitModel model = catalog.limitModel(languageId);
+            if (contract == null || contract.isNull()) {
+                assertThat(model).isNull();
+                continue;
+            }
             assertThat(contract.propertyNames().stream().collect(Collectors.toSet()))
                     .isEqualTo(components());
-            LimitModel model = entry.getValue();
             assertThat(contract.get("cpuFactorPermille").asLong()).isEqualTo(model.cpuFactorPermille());
             assertThat(
                             contract.get("cpuFactorCapPermille").isNull()

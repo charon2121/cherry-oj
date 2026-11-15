@@ -12,7 +12,7 @@ import com.cherryoj.judgingservice.api.JudgingDtos.CalibrationRequest;
 import com.cherryoj.judgingservice.application.JudgeNodeRegistry;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
-import com.cherryoj.judgingservice.limits.LanguageLimitModels;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.limits.LimitModel;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,6 +26,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -62,15 +63,13 @@ class JudgingReadinessIntegrationTests {
     JudgeGateway judge;
 
     /** cpp 用真实参数；python 默认没有参数，个别用例给它一组 Java 那样的参数来走推导。 */
-    @MockitoBean
-    LanguageLimitModels models;
+    @MockitoSpyBean
+    LanguageCatalog languages;
 
-    private static final LimitModel CPP = new LimitModel(1000, null, 0, 0, 1000, 0, true);
     private static final LimitModel JAVA_LIKE = new LimitModel(3200, null, 170_000_000L, 0, 1250, 40L << 20, false);
 
     @BeforeEach
     void onlineNode() {
-        when(models.of("cpp")).thenReturn(CPP);
         jdbc.update("DELETE FROM judging_audit_event");
         jdbc.update("UPDATE language_calibration SET supersedes_id = NULL");
         jdbc.update("DELETE FROM language_calibration");
@@ -368,7 +367,7 @@ class JudgingReadinessIntegrationTests {
     void otherLanguagesAreDerivedFromTheBaseAndCarryTheirInputs() throws Exception {
         registry.register(
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
-        when(models.of("python")).thenReturn(JAVA_LIKE);
+        when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         var base = service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
@@ -401,7 +400,7 @@ class JudgingReadinessIntegrationTests {
     void derivedValuesAbovePlatformLimitsAreCappedAndTheLanguageStaysReady() throws Exception {
         registry.register(
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
-        when(models.of("python")).thenReturn(JAVA_LIKE);
+        when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         service.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 1L << 30), ACTOR, null);
@@ -444,7 +443,7 @@ class JudgingReadinessIntegrationTests {
     void anOverrideForOldDataFallsBackToDerivation() throws Exception {
         registry.register(
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
-        when(models.of("python")).thenReturn(JAVA_LIKE);
+        when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         String newDigest = "b".repeat(64);
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
@@ -462,7 +461,7 @@ class JudgingReadinessIntegrationTests {
     void limitsListEveryRequestedLanguageWithItsSourceInRequestOrder() throws Exception {
         registry.register(
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
-        when(models.of("python")).thenReturn(JAVA_LIKE);
+        when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         var base = service.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 256L << 20), ACTOR, null);

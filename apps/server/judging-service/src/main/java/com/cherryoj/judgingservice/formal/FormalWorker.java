@@ -125,7 +125,8 @@ public class FormalWorker {
                     task.traceParent(),
                     budget);
             if ("SE".equals(result.verdict())) throw new FormalFailure("JUDGE_SYSTEM_ERROR");
-            store.finish(task, safe(result, data.testcaseCount(), input), result.testDataDigest(), null, null);
+            store.finish(
+                    task, safe(result, data.testcaseCount(), input, languages), result.testDataDigest(), null, null);
         } catch (Exception error) {
             String code = error instanceof FormalFailure ? error.getMessage() : "JUDGE_EXECUTION_FAILED";
             boolean retry = task.attemptNo() < properties.maxAttempts()
@@ -144,7 +145,7 @@ public class FormalWorker {
         }
     }
 
-    private static void validate(FormalInput input, String id) {
+    private void validate(FormalInput input, String id) {
         // CORE 的 completeSource 是驱动文件，上限与题目的驱动代码一致（1 MiB）；用户代码的上限在提交入口检查。
         if (input == null
                 || !id.equals(input.submissionId())
@@ -155,7 +156,7 @@ public class FormalWorker {
                 || input.completeSource().getBytes(StandardCharsets.UTF_8).length > 1_048_576
                 || input.sourceSha256() == null
                 || !hash(input.completeSource()).equals(input.sourceSha256())
-                || !validSolution(input)
+                || !validSolution(input, languages)
                 || input.effectiveLimits() == null
                 || input.effectiveLimits().cpuNs() <= 0
                 || input.effectiveLimits().memoryBytes() <= 0
@@ -180,18 +181,19 @@ public class FormalWorker {
     }
 
     /** 用户文件、摘要、前缀行数三者同时出现（CORE）或同时缺席（ACM），且用户文件与摘要一致。 */
-    static boolean validSolution(FormalInput input) {
+    static boolean validSolution(FormalInput input, LanguageCatalog languages) {
         if (input.solutionSource() == null)
             return input.solutionSha256() == null && input.solutionPrefixLineCount() == null;
         return input.solutionSha256() != null
                 && hash(input.solutionSource()).equals(input.solutionSha256())
                 && input.solutionPrefixLineCount() != null
                 && input.solutionPrefixLineCount() >= 0
-                && LanguageFiles.of(input.languageId()) != null
+                && languages.coreFiles(input.languageId()) != null
                 && input.solutionSource().getBytes(StandardCharsets.UTF_8).length <= 327_680;
     }
 
-    static Map<String, Object> safe(JudgeGateway.JudgeResult result, int testcaseCount, FormalInput input) {
+    static Map<String, Object> safe(
+            JudgeGateway.JudgeResult result, int testcaseCount, FormalInput input, LanguageCatalog languages) {
         Set<String> verdicts = Set.of("AC", "WA", "PE", "TLE", "MLE", "OLE", "RE", "CE");
         if (result == null || result.verdict() == null || !verdicts.contains(result.verdict()))
             throw new FormalFailure("INVALID_JUDGE_RESULT");
@@ -221,7 +223,7 @@ public class FormalWorker {
                 && result.message() != null
                 && !result.message().isBlank()) {
             // CORE：用户文件的行号按冻结的前缀行数换算成编辑器行号；路径只留文件名。
-            LanguageFiles files = input.solutionSource() == null ? null : LanguageFiles.of(input.languageId());
+            LanguageFiles files = input.solutionSource() == null ? null : languages.coreFiles(input.languageId());
             String diagnostic = JudgeDiagnostics.forUser(
                     result.message(),
                     files == null ? null : files.solutionFile(),

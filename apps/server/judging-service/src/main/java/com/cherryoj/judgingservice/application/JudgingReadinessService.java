@@ -12,8 +12,7 @@ import com.cherryoj.judgingservice.api.JudgingDtos.ReadinessCheck;
 import com.cherryoj.judgingservice.domain.UuidV7;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
 import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeCallException;
-import com.cherryoj.judgingservice.judge.LanguageFiles;
-import com.cherryoj.judgingservice.limits.LanguageLimitModels;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.limits.LimitModel;
 import com.cherryoj.judgingservice.limits.PlatformLimits;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
@@ -47,7 +46,7 @@ public class JudgingReadinessService {
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
     private final PlatformLimits platform;
-    private final LanguageLimitModels models;
+    private final LanguageCatalog languages;
 
     public JudgingReadinessService(
             JudgingRepository repository,
@@ -58,10 +57,10 @@ public class JudgingReadinessService {
             PlatformTransactionManager transactionManager,
             JudgeNodeRepository nodes,
             PlatformLimits platform,
-            LanguageLimitModels models) {
+            LanguageCatalog languages) {
         this.repository = repository;
         this.platform = platform;
-        this.models = models;
+        this.languages = languages;
         this.nodes = nodes;
         this.judge = judge;
         this.ids = ids;
@@ -75,7 +74,7 @@ public class JudgingReadinessService {
             throw new JudgingApiException(HttpStatus.PAYLOAD_TOO_LARGE, "REFERENCE_SOURCE_TOO_LARGE", "参考源码超过安全限额。");
         }
         if ((request.referenceSolutionSource() == null) != (request.solutionPrefixLineCount() == null)
-                || (request.referenceSolutionSource() != null && LanguageFiles.of(request.languageId()) == null)) {
+                || (request.referenceSolutionSource() != null && languages.coreFiles(request.languageId()) == null)) {
             throw new JudgingApiException(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "INVALID_CALIBRATION_REQUEST",
@@ -243,7 +242,7 @@ public class JudgingReadinessService {
      */
     private void requireAllowedKind(CalibrationRequest request) {
         if ("BASE".equals(request.kind())) {
-            LimitModel model = models.of(request.languageId());
+            LimitModel model = languages.limitModel(request.languageId());
             if (model == null || !model.baseEligible()) {
                 throw new JudgingApiException(HttpStatus.BAD_REQUEST, "LANGUAGE_NOT_BASE_ELIGIBLE", "该语言不能作为基础语言。");
             }
@@ -350,8 +349,9 @@ public class JudgingReadinessService {
                         : null;
         CalibrationRow base = repository.findValidBase(problemId, false);
         boolean baseCurrent = base != null && testDataDigest.equals(base.testDataDigest());
-        LimitModel baseModel = base == null ? null : models.of(base.languageId());
-        return new Resolution(own, override, base, baseCurrent, languageId, models.of(languageId), baseModel);
+        LimitModel baseModel = base == null ? null : languages.limitModel(base.languageId());
+        return new Resolution(
+                own, override, base, baseCurrent, languageId, languages.limitModel(languageId), baseModel);
     }
 
     /** 调用前要求 calibrated() 与 modelPassed() 都成立。 */
