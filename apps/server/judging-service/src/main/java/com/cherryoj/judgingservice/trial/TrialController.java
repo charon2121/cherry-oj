@@ -104,7 +104,9 @@ public class TrialController {
             throw error(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "代码或输入过大。");
         if ((request.solutionSource() == null) != (request.solutionPrefixLineCount() == null))
             throw error(HttpStatus.BAD_REQUEST, "INVALID_RUN_REQUEST", "用户文件与前缀行数必须同时给出。");
-        long deadline = Math.min(request.deadlineEpochMs(), System.currentTimeMillis() + 45000);
+        long deadline =
+                Math.min(request.deadlineEpochMs(), System.currentTimeMillis() + TrialProperties.DEADLINE.toMillis());
+        remaining(deadline);
         if (!slots.tryAcquire()) throw error(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
         // 0=未开始，1=工作线程持有槽位，2=启动前取消；取消与启动竞态只能释放一次。
         var started = new java.util.concurrent.atomic.AtomicInteger();
@@ -159,8 +161,7 @@ public class TrialController {
         long clock =
                 limits.clockNs() != null ? limits.clockNs() : Math.multiplyExact(limits.cpuNs(), budgets.wallRatio());
         var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
-        if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline)))
-            throw error(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
+        if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline))) throw timeout();
         // 自测只用请求里的输入，不读测试数据：任何在线、声明了该语言的节点都行。
         var online = nodes.online(r.languageId(), LocalDateTime.now(ZoneOffset.UTC));
         if (online.isEmpty()) throw unavailable();
@@ -184,15 +185,17 @@ public class TrialController {
         // CORE：报错里用户文件的行号按前缀行数换算；ACM 时两者为 null，只清理路径。
         String solutionFile = r.solutionSource() == null ? null : solutionFile(r.languageId());
         Integer prefixLines = r.solutionPrefixLineCount();
+        Duration wait = Duration.ofNanos(
+                Math.min(profile.executionBudgetNs(), TimeUnit.MILLISECONDS.toNanos(remaining(deadline))));
         var builder = HttpRequest.newBuilder(URI.create(node.endpoint().replaceAll("/$", "") + "/judge"))
-                .timeout(Duration.ofMillis(remaining(deadline)))
+                .timeout(wait)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(json.writeValueAsBytes(body)));
         if (trace != null && trace.matches("[a-f0-9]{2}-[a-f0-9]{32}-[a-f0-9]{16}-[a-f0-9]{2}"))
             builder.header("traceparent", trace);
         var response = http.sendAsync(builder.build(), ignored -> new LimitedHttpBody(2 * 1024 * 1024));
         try {
-            var received = response.get(remaining(deadline), TimeUnit.MILLISECONDS);
+            var received = response.get(wait.toNanos(), TimeUnit.NANOSECONDS);
             if (received.statusCode() != 200) {
                 org.slf4j.LoggerFactory.getLogger(getClass())
                         .warn("custom.run.failed stage=judge httpStatus={}", received.statusCode());

@@ -2,6 +2,7 @@ package com.cherryoj.judgingservice.formal;
 
 import com.cherryoj.judgingservice.judge.JudgeDiagnostics;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.judge.LanguageFiles;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
@@ -26,6 +27,7 @@ public class FormalWorker {
     private final ProblemTestDataClient testData;
     private final FormalProperties properties;
     private final Clock clock;
+    private final LanguageCatalog languages;
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private final ConcurrentMap<String, FormalTaskStore.Task> active = new ConcurrentHashMap<>();
     private final Semaphore slots;
@@ -37,7 +39,8 @@ public class FormalWorker {
             JudgeGateway judge,
             ProblemTestDataClient testData,
             FormalProperties properties,
-            Clock clock) {
+            Clock clock,
+            LanguageCatalog languages) {
         this.store = store;
         this.inputs = inputs;
         this.nodes = nodes;
@@ -45,6 +48,7 @@ public class FormalWorker {
         this.testData = testData;
         this.properties = properties;
         this.clock = clock;
+        this.languages = languages;
         slots = new Semaphore(properties.parallelism());
     }
 
@@ -93,7 +97,10 @@ public class FormalWorker {
             Duration budget;
             try {
                 budget = properties.executionBudget(
-                        input.effectiveLimits().cpuNs(), input.effectiveLimits().clockNs(), data.testcaseCount());
+                        languages.requiresCompilation(input.languageId()),
+                        input.effectiveLimits().cpuNs(),
+                        input.effectiveLimits().clockNs(),
+                        data.testcaseCount());
             } catch (ArithmeticException | IllegalArgumentException error) {
                 throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE");
             }

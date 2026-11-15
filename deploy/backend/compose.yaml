@@ -119,6 +119,7 @@ services:
       CHERRY_SUBMISSION_SERVICE_URL: "http://submission-service:8083"
       CHERRY_PROBLEM_SERVICE_URL: "http://problem-service:8082"
       CHERRY_FORMAL_JUDGING_ENABLED: "${FORMAL_ENABLED:-false}"
+      CHERRY_CUSTOM_RUN_MAX_EXECUTION_BUDGET: "${CHERRY_CUSTOM_RUN_MAX_EXECUTION_BUDGET:-180s}"
       CHERRY_JUDGE_CONTROL_TOKEN: "${JUDGE_CONTROL_TOKEN:?set engine control token}"
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -2,8 +2,10 @@ package com.cherryoj.judgingservice.api;
 
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.formal.FormalProperties;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
 import com.cherryoj.judgingservice.problem.ProblemTestDataException;
+import com.cherryoj.judgingservice.trial.TrialProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -20,12 +22,20 @@ public class SubmissionExecutionProfileController {
     private final JudgingReadinessService service;
     private final FormalProperties budgets;
     private final ProblemTestDataClient testData;
+    private final LanguageCatalog languages;
+    private final TrialProperties trials;
 
     public SubmissionExecutionProfileController(
-            JudgingReadinessService service, FormalProperties budgets, ProblemTestDataClient testData) {
+            JudgingReadinessService service,
+            FormalProperties budgets,
+            ProblemTestDataClient testData,
+            LanguageCatalog languages,
+            TrialProperties trials) {
         this.service = service;
         this.budgets = budgets;
         this.testData = testData;
+        this.languages = languages;
+        this.trials = trials;
     }
 
     @PostMapping("/internal/submission/execution-profile")
@@ -39,12 +49,16 @@ public class SubmissionExecutionProfileController {
         boolean trial = "trial".equals(request.purpose());
         long budget;
         try {
-            budget = budgets.executionBudget(profile.cpuNs(), profile.clockNs(), trial ? 1 : data.testcaseCount())
+            budget = budgets.executionBudget(
+                            languages.requiresCompilation(request.languageId()),
+                            profile.cpuNs(),
+                            profile.clockNs(),
+                            trial ? 1 : data.testcaseCount())
                     .toNanos();
-        } catch (ArithmeticException invalid) {
+        } catch (ArithmeticException | IllegalArgumentException invalid) {
             throw unavailable();
         }
-        if (trial && budget > java.time.Duration.ofSeconds(45).toNanos())
+        if (trial && budget > trials.maxExecutionBudget().toNanos())
             throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
         if (!trial && budget >= budgets.deadline().toNanos()) throw unavailable();
         return new Profile(

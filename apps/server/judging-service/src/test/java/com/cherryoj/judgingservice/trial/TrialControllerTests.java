@@ -144,6 +144,70 @@ class TrialControllerTests {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void nodeWaitUsesTheExecutionBudgetAndTimeoutCancelsWorkWithoutLeakingTheSlot() {
+        var profiles = mock(SubmissionExecutionProfileController.class);
+        var nodes = mock(JudgeNodeRepository.class);
+        var http = mock(HttpClient.class);
+        var problem = UUID.randomUUID();
+        var node = mock(JudgeNodeRepository.Node.class);
+        when(node.endpoint()).thenReturn("http://unused.invalid");
+        when(nodes.online(eq("c"), any())).thenReturn(List.of(node));
+        var budgets = mock(FormalProperties.class);
+        when(budgets.wallRatio()).thenReturn(10L);
+        var request = new TrialController.Request(
+                problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 180_000);
+        var accepted = new SubmissionExecutionProfileController.Profile(
+                problem.toString(),
+                "c",
+                "cal",
+                new SubmissionExecutionProfileController.Limits(2_000_000_000L, 128L << 20, null),
+                "BASE",
+                null,
+                51_000_000_000L);
+        when(profiles.resolve(any(), any())).thenReturn(accepted);
+        var response = mock(java.net.http.HttpResponse.class);
+        when(response.statusCode()).thenReturn(200);
+        when(response.body()).thenReturn("{\"verdict\":\"CE\",\"message\":\"invalid user code\"}".getBytes());
+        var captured = new AtomicReference<java.net.http.HttpRequest>();
+        var pending = new AtomicReference<java.util.concurrent.CompletableFuture<java.net.http.HttpResponse<byte[]>>>();
+        doAnswer(call -> {
+                    captured.set(call.getArgument(0));
+                    return pending.get() != null
+                            ? pending.get()
+                            : java.util.concurrent.CompletableFuture.completedFuture(response);
+                })
+                .when(http)
+                .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
+        var controller = new TrialController(profiles, nodes, budgets, new ObjectMapper(), http);
+        try {
+            assertEquals(
+                    "COMPILE_ERROR", controller.run(request, null).getBody().status());
+            assertEquals(
+                    java.time.Duration.ofSeconds(51), captured.get().timeout().orElseThrow());
+            var tooLate = new TrialController.Request(
+                    problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 1000);
+            var late = assertThrows(JudgingApiException.class, () -> controller.run(tooLate, null));
+            assertEquals(504, late.status().value()); // 期限不足不是题目预算超过上限。
+            verify(http, times(1))
+                    .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
+            when(profiles.resolve(any(), any()))
+                    .thenReturn(new SubmissionExecutionProfileController.Profile(
+                            problem.toString(), "c", "cal", accepted.effectiveLimits(), "BASE", null, 20_000_000L));
+            var future = new java.util.concurrent.CompletableFuture<java.net.http.HttpResponse<byte[]>>();
+            pending.set(future);
+            var expired = assertThrows(JudgingApiException.class, () -> controller.run(request, null));
+            assertEquals(504, expired.status().value());
+            assertTrue(future.isCancelled());
+            pending.set(null);
+            assertEquals(
+                    "COMPILE_ERROR", controller.run(request, null).getBody().status());
+        } finally {
+            controller.close();
+        }
+    }
+
+    @Test
     void utf8ClippingNeverSplitsCharacters() {
         assertEquals("中", TrialController.clip("中文", 4));
     }

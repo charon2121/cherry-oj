@@ -47,6 +47,8 @@ cherry:
     compile-budget: 30s
     wall-ratio: 10
     testcase-overhead: 1s
+  custom-run:
+    max-execution-budget: "${CHERRY_CUSTOM_RUN_MAX_EXECUTION_BUDGET:180s}"
   judging:
     node:
       control-token: "${CHERRY_JUDGE_CONTROL_TOKEN:}"

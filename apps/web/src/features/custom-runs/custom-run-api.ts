@@ -4,6 +4,9 @@ import { languageIdSchema } from '@/features/languages/language';
 import type { CustomRunData, CustomRunRequest } from '@/generated/api';
 import { ApiError, requestJson } from '@/lib/api/api-client';
 
+// docs/protocols/custom-run.md：外层等待覆盖 Gateway 的总调用与错误返回余量。
+const CUSTOM_RUN_TIMEOUT_NS = 210_000_000_000;
+
 const bytes = (limit: number) =>
   z.string().refine((value) => new TextEncoder().encode(value).length <= limit);
 const output = z
@@ -56,7 +59,15 @@ export const runSchema = z
       ) as CustomRunData,
   );
 
-export async function createCustomRun(body: CustomRunRequest, userId: string, signal: AbortSignal) {
+export async function createCustomRun(
+  body: CustomRunRequest,
+  userId: string,
+  callerSignal: AbortSignal,
+) {
+  const signal = AbortSignal.any([
+    callerSignal,
+    AbortSignal.timeout(CUSTOM_RUN_TIMEOUT_NS / 1_000_000),
+  ]);
   // Obtain CSRF before POST. An uncertain execution must never be retried automatically.
   const csrf = await requestJson(
     '/api/auth/csrf',

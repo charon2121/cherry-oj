@@ -59,6 +59,9 @@ class CustomRunTests {
         byte[] body = new ObjectMapper().writeValueAsBytes(result);
         server.createContext("/api/custom-runs", exchange -> {
             calls.incrementAndGet();
+            long deadline = Long.parseLong(exchange.getRequestHeaders().getFirst("X-Custom-Run-Deadline"));
+            assertTrue(deadline > System.currentTimeMillis() + 190000);
+            assertTrue(deadline <= System.currentTimeMillis() + 195000);
             assertEquals(
                     ServiceNames.GATEWAY,
                     TestCalls.verify(exchange.getRequestHeaders().getFirst("Authorization"), ServiceNames.SUBMISSION)
@@ -183,6 +186,8 @@ class CustomRunTests {
                     .subscribe();
             try {
                 assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                long leaseSeconds = redis.getExpire(keys.get(0)).block().toSeconds();
+                assertTrue(leaseSeconds > 210 && leaseSeconds <= 215);
                 var busy = assertThrows(
                         ApiProblemException.class,
                         () -> controller

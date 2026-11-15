@@ -65,7 +65,8 @@
               }
             }
           }
-        }
+        },
+        "description": "单次同步自测；使用与正式提交相同的当前语言运行限制。预算与各层期限见 docs/protocols/custom-run.md。执行预算超过部署配置上限时返回 422 RUN_LIMIT_UNSUPPORTED；期限耗尽返回 504 CUSTOM_RUN_TIMEOUT，表示结果未确认。程序 TLE、MLE、CE 等仍为 HTTP 200；请求不自动重试。"
       }
     },
     "/api/submissions": {

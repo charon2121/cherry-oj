@@ -97,6 +97,8 @@ Apache Commons Compress 只在 problem-service 内处理私有测试数据 ZIP�
 ## judging-service 的标定与判题调度
 
 judging-service 独立引入 Spring JDBC、Flyway、MySQL Connector/J 与测试阶段的 Testcontainers MySQL。
+构建时从仓库 `contracts/` 打包语言目录到 classpath，预算计算直接读取每门语言的编译阶段声明，
+不在 Java 中复制编译语言名单；Go 的契约测试校验该声明与实际编译命令一致。
 它只连接 `cherry_oj_judging`，保存节点与租约、按「题目 × 语言」的标定（带标定时的测试数据指纹）、
 判题任务（含每次尝试实际读取的数据指纹）和审计；不读取 problem-service 数据库。
 

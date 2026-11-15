@@ -11,6 +11,7 @@ parser.add_argument('--keep',action='store_true')
 parser.add_argument('--preflight',action='store_true',help='Check tools, jars and images without starting services')
 args=parser.parse_args()
 ROOT=pathlib.Path(__file__).resolve().parents[1]
+CUSTOM_RUN_TIMEOUT_NS=210_000_000_000
 OUT=pathlib.Path(tempfile.mkdtemp(prefix='cherry-e2e-')).resolve()
 # 测试数据根目录：problem-service 写，judge 容器按同一个绝对路径只读挂载（见 compose.yaml）。
 TESTDATA_ROOT=OUT/'problem-testdata';TESTDATA_ROOT.mkdir(mode=0o755)
@@ -101,7 +102,8 @@ def request(path,method='GET',body=None,content_type='application/json',expect=2
  if extra_headers:headers.update(extra_headers)
  payload=body if isinstance(body,bytes) else None if body is None else json.dumps(body).encode()
  try:
-  with opener.open(urllib.request.Request(base+path,payload,headers,method=method),timeout=120) as response:
+  with opener.open(urllib.request.Request(base+path,payload,headers,method=method),
+                   timeout=CUSTOM_RUN_TIMEOUT_NS/1000000000 if path=='/api/custom-runs' else 120) as response:
    status=response.status;content=response.read();rid=response.headers.get('X-Request-Id')
  except urllib.error.HTTPError as error:status=error.code;content=error.read();rid=error.headers.get('X-Request-Id')
  result=json.loads(content) if content else None
@@ -344,6 +346,11 @@ try:
                    'memoryBytes':134217728,'clockNs':None,'referenceSource':c_source})
  assert c_override['status']=='VALID' and c_override['kind']=='OVERRIDE',c_override
  assert request(problem_path+'/limits')['languages'][1]['limitSource']=='OVERRIDE'
+ # 2 秒 CPU 的编译语言需要 51 秒调用预算，不能再被旧 45 秒保护误拒绝。
+ c_trial=request('/api/custom-runs','POST',{'problemId':pid,'languageId':'c','source':c_source,'inputText':'17 -9\n'},
+                 extra_headers={'X-Expected-User-Id':owner})
+ assert c_trial['status']=='COMPLETED' and c_trial['stdout']['text'].strip()=='8',c_trial
+ assert c_trial['effectiveLimits']['cpuNs']==2000000000,c_trial
  finished(c_submit(pid,c_source)['id'],'AC')
  assert c_frozen==sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+c_derived['id']+"'")
  # 也允许改用 C 作基础：原 C 覆盖被替换，C++ 改为推导，历史快照不变。
@@ -427,7 +434,7 @@ try:
     body=self.rfile.read(length) if length else None
     headers={k:v for k,v in self.headers.items() if k.lower() not in ['host','connection','content-length']}
     req=urllib.request.Request(base+self.path,body,headers,method=self.command)
-    try:response=urllib.request.urlopen(req,timeout=30)
+    try:response=urllib.request.urlopen(req,timeout=CUSTOM_RUN_TIMEOUT_NS/1000000000 if self.path=='/api/custom-runs' else 30)
     except urllib.error.HTTPError as error:response=error
     with response:
      content=response.read();self.send_response(response.status)

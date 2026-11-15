@@ -88,6 +88,11 @@ prod/production 保留既有严格秘密检查与 Secure Cookie 行为；通过 
 
 ## 测试、打包和迁移
 
+自测预算上限由 judging-service 的 `CHERRY_CUSTOM_RUN_MAX_EXECUTION_BUDGET` 配置，默认 `180s`，
+可调低但必须大于 0、且不能超过 `180s`；非法值阻止启动。它只控制单次自测准入，不改变题目的运行限制或正式提交。
+编译阶段取自构建时打包的 `contracts/languages.json`。各层期限见
+[自定义运行协议](../../docs/protocols/custom-run.md)，反向代理读取超时须至少 `210s`，发布时先更新外层等待窗口。
+
 Spring 集成测试显式选择非 local Profile，测试资源也将默认 Profile 设为 test；
 测试库由 Testcontainers 或测试注入提供，服务身份密钥来自 identity-token-support 的测试密钥，不加载 application-local.yaml。
 Maven jar 插件在打包前排除所有 application-local.*，Boot repackage 复用该无私有配置的 JAR。

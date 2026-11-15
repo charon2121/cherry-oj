@@ -319,7 +319,8 @@ class ContractsTest(unittest.TestCase):
         languages = load("languages.json")["languages"]
         self.assertEqual(languages["cpp"]["files"], {"driverFile": "Main.cpp", "solutionFile": "solution.cpp"})
         for language, entry in languages.items():
-            self.assertEqual(set(entry), {"files", "limitModel"}, language)
+            self.assertEqual(set(entry), {"files", "limitModel", "requiresCompilation"}, language)
+            self.assertIsInstance(entry["requiresCompilation"], bool, language)
             names = entry["files"]
             self.assertEqual(set(names), {"driverFile", "solutionFile"}, language)
             self.assertNotEqual(names["driverFile"], names["solutionFile"], language)

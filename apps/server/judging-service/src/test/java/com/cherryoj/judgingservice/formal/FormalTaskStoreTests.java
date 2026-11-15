@@ -128,7 +128,15 @@ class FormalTaskStoreTests {
         when(testData.current(eq(problem), any()))
                 .thenReturn(new ProblemTestData("/data/p", "a".repeat(64), 1, 10, 0L));
         try {
-            var worker = new FormalWorker(store, inputs, nodes, judge, testData, properties, clock);
+            var worker = new FormalWorker(
+                    store,
+                    inputs,
+                    nodes,
+                    judge,
+                    testData,
+                    properties,
+                    clock,
+                    new com.cherryoj.judgingservice.judge.LanguageCatalog(new tools.jackson.databind.ObjectMapper()));
             for (int attempt = 1; attempt <= 3; attempt++) {
                 worker.execute(store.claim(Duration.ofSeconds(30)));
                 clock.advance(6);

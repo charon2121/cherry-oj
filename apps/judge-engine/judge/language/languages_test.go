@@ -217,8 +217,10 @@ func TestLanguageFilesMatchCatalog(t *testing.T) {
 		t.Fatalf("读取 %s: %v", path, err)
 	}
 	var catalog struct {
+		Version   int `json:"x-contract-version"`
 		Languages map[string]struct {
-			Files struct {
+			RequiresCompilation *bool `json:"requiresCompilation"`
+			Files               struct {
 				DriverFile   string  `json:"driverFile"`
 				SolutionFile *string `json:"solutionFile"`
 			} `json:"files"`
@@ -230,11 +232,17 @@ func TestLanguageFilesMatchCatalog(t *testing.T) {
 	if len(catalog.Languages) == 0 {
 		t.Fatal("语言目录是空的")
 	}
+	if catalog.Version != 2 {
+		t.Fatalf("未知语言目录版本 %d", catalog.Version)
+	}
 	for name, entry := range catalog.Languages {
 		lang, ok := registry[name]
 		if !ok {
 			t.Errorf("目录里的 %q 不在语言表里", name)
 			continue
+		}
+		if entry.RequiresCompilation == nil || *entry.RequiresCompilation != lang.NeedsCompile() {
+			t.Errorf("%s 的 requiresCompilation 与实际编译阶段不一致", name)
 		}
 		solution := ""
 		if entry.Files.SolutionFile != nil {

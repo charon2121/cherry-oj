@@ -158,7 +158,7 @@ export function CustomRunWorkbench({
         const value = await createCustomRun(
           { problemId: problem.problemId, languageId: language.id, source, inputText: item.input },
           userId,
-          AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]),
+          controller.signal,
         );
         if (current !== sequence.current || !sameUser()) return;
         const verdict = caseVerdict(value, item.expected);

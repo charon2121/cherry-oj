@@ -34,7 +34,7 @@
 | 2 | Submission 内部 API | judging-service → submission-service（拉取 JudgeInput 等） | HTTP，调用令牌 | [`submission-internal.openapi.json`](../../contracts/submission-internal.openapi.json) |
 | 3 | 题目快照 | submission-service ← problem-service | HTTP，调用令牌 | [`problem-judge-snapshot.schema.json`](../../contracts/problem-judge-snapshot.schema.json) |
 | 4 | 执行配置 | submission-service ← judging-service | HTTP，调用令牌 | [`execution-profile.schema.json`](../../contracts/execution-profile.schema.json) |
-| 5 | 自定义运行 | submission-service → judging-service | HTTP，调用令牌 | [`custom-run-internal.schema.json`](../../contracts/custom-run-internal.schema.json) |
+| 5 | 自定义运行 | submission-service → judging-service | HTTP，调用令牌 | 字段：[`custom-run-internal.schema.json`](../../contracts/custom-run-internal.schema.json)；预算与期限：[`custom-run.md`](./custom-run.md) |
 | 6 | 测试数据读取 | judging-service ← problem-service | HTTP，调用令牌；只返回地址、指纹、测试点数 | [`problem-test-data.schema.json`](../../contracts/problem-test-data.schema.json) |
 | 7 | 判题请求 | judging-service → judge（Go） | `POST /judge`，同步返回；HTTP 状态不表示判题结论 | 字段：[`judge.schema.json`](../../contracts/judge.schema.json)；调用语义：[`judge-api.md`](./judge-api.md) |
 | 8 | 节点控制 | judge → judging-service（注册、心跳） | HTTP，共享控制令牌 | [`judge-node.schema.json`](../../contracts/judge-node.schema.json) |

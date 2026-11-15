@@ -21,6 +21,7 @@ import tools.jackson.databind.ObjectMapper;
 
 @RestController
 public class CustomRunController {
+    private static final Duration DEADLINE = Duration.ofSeconds(195);
 
     private final SubmissionPrerequisites prerequisites;
 
@@ -65,8 +66,10 @@ public class CustomRunController {
             @Valid @RequestBody Request r,
             @RequestHeader(value = "X-Custom-Run-Deadline", required = false) Long outerDeadline,
             @RequestHeader(value = "traceparent", required = false) String trace) {
-        long deadline =
-                Math.min(outerDeadline == null ? Long.MAX_VALUE : outerDeadline, System.currentTimeMillis() + 45000);
+        long deadline = Math.min(
+                outerDeadline == null ? Long.MAX_VALUE : outerDeadline,
+                System.currentTimeMillis() + DEADLINE.toMillis());
+        if (deadline <= System.currentTimeMillis()) throw timeout();
         if (r.source().getBytes(StandardCharsets.UTF_8).length > 262144
                 || r.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
             throw failure(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入超过大小限制。");

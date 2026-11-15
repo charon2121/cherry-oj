@@ -21,6 +21,9 @@ import reactor.core.publisher.Mono;
 
 @RestController
 public class CustomRunController {
+    private static final Duration DEADLINE = Duration.ofSeconds(195);
+    private static final Duration RESPONSE_TIMEOUT = Duration.ofSeconds(200);
+    private static final Duration LEASE_DURATION = Duration.ofSeconds(215);
 
     private final SubmissionGatewayAccess access;
 
@@ -34,7 +37,7 @@ public class CustomRunController {
 
     // 只保护实际在途请求；TTL 是进程崩溃兜底，不是两次运行之间的冷却。
     private static final RedisScript<Long> ACQUIRE = RedisScript.of("""
-			if redis.call('SET',KEYS[1],ARGV[1],'NX','PX',65000) then return 0 end
+			if redis.call('SET',KEYS[1],ARGV[1],'NX','PX',ARGV[2]) then return 0 end
 			return 1
 			""", Long.class);
 
@@ -123,7 +126,7 @@ public class CustomRunController {
                                             .uri("/api/custom-runs")
                                             .header(
                                                     "X-Custom-Run-Deadline",
-                                                    Long.toString(System.currentTimeMillis() + 45000)),
+                                                    Long.toString(System.currentTimeMillis() + DEADLINE.toMillis())),
                                     identity)
                             .bodyValue(body)
                             .exchangeToMono(response -> {
@@ -159,7 +162,7 @@ public class CustomRunController {
                                 }));
                             })
                             .switchIfEmpty(Mono.error(unavailable()))
-                            .timeout(Duration.ofSeconds(55))
+                            .timeout(RESPONSE_TIMEOUT)
                             .onErrorMap(e -> e instanceof ApiProblemException
                                     ? e
                                     : e instanceof java.util.concurrent.TimeoutException ? timeout() : unavailable());
@@ -170,8 +173,9 @@ public class CustomRunController {
     // usingWhen 在响应交付前完成清理，也覆盖异常和断连；繁忙请求不能释放别人的租约。
     <T> Mono<T> withLease(List<String> keys, String owner, java.util.function.Supplier<Mono<T>> action) {
         return Mono.defer(() -> {
-            Mono<Long> acquired =
-                    redis.execute(ACQUIRE, keys, List.of(owner)).single().cache();
+            Mono<Long> acquired = redis.execute(ACQUIRE, keys, List.of(owner, Long.toString(LEASE_DURATION.toMillis())))
+                    .single()
+                    .cache();
             java.util.function.Function<String, Mono<Void>> cleanup =
                     ignored -> acquired.flatMap(result -> result == 0 ? release(keys, owner) : Mono.<Void>empty())
                             .then()

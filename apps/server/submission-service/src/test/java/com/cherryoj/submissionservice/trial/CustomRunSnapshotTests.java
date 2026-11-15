@@ -64,7 +64,13 @@ class CustomRunSnapshotTests {
                     json,
                     "http://127.0.0.1:" + server.getAddress().getPort(),
                     SIGNER);
+            long before = System.currentTimeMillis();
             var response = controller.run(new CustomRunController.Request(id, "cpp", "int main(){}", ""), null, null);
+            long deadline = captured.get().path("deadlineEpochMs").asLong();
+            assertTrue(deadline >= before + 194000 && deadline <= System.currentTimeMillis() + 195000);
+            long outer = System.currentTimeMillis() + 60000;
+            controller.run(new CustomRunController.Request(id, "cpp", "int main(){}", ""), outer, null);
+            assertEquals(outer, captured.get().path("deadlineEpochMs").asLong());
             assertEquals("COMPLETED", response.getBody().path("status").asText());
             assertEquals(id.toString(), response.getBody().path("problemId").asText());
             assertFalse(response.getBody().has("problemVersionId"));

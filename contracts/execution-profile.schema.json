@@ -49,7 +49,7 @@
     "executionBudgetNs": {
       "type": "integer",
       "minimum": 1,
-      "description": "完整调用的传输预算 ns；由配置与测试点数计算，不能改变判题限制。"
+      "description": "完整 judge 调用预算 ns，公式见 docs/protocols/custom-run.md：按语言是否编译计入编译预算，再加每个测试点的墙钟与开销；trial 只计一个测试点。只控制传输等待，不改变题目限制；超过自测预算上限返回 422 RUN_LIMIT_UNSUPPORTED，正式提交不受此上限影响。"
     }
   },
   "definitions": {
@@ -77,7 +77,7 @@
             "trial"
           ],
           "default": "formal",
-          "description": "trial 使用单 case 预算，不改变有效运行限制。"
+          "description": "trial 使用单测试点预算和自测预算上限，不改变有效运行限制。缺省 formal，按当前测试点数计算。"
         }
       },
       "examples": [

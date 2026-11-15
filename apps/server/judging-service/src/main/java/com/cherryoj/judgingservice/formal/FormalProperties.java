@@ -35,10 +35,12 @@ public record FormalProperties(
                 || testcaseOverhead.isZero()) throw new IllegalArgumentException("invalid formal judging budgets");
     }
 
-    public Duration executionBudget(long cpuNs, Long clockNs, int testcaseCount) {
+    public Duration executionBudget(boolean requiresCompilation, long cpuNs, Long clockNs, int testcaseCount) {
         if (testcaseCount < 1 || testcaseCount > 1000) throw new IllegalArgumentException("invalid case count");
+        if (cpuNs <= 0 || (clockNs != null && clockNs <= 0))
+            throw new IllegalArgumentException("invalid run time limit");
         long clock = clockNs != null ? clockNs : Math.multiplyExact(cpuNs, wallRatio);
-        return compileBudget.plusNanos(
-                Math.multiplyExact(Math.addExact(clock, testcaseOverhead.toNanos()), testcaseCount));
+        return (requiresCompilation ? compileBudget : Duration.ZERO)
+                .plusNanos(Math.multiplyExact(Math.addExact(clock, testcaseOverhead.toNanos()), testcaseCount));
     }
 }
