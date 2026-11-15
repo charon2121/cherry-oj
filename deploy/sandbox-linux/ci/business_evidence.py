@@ -72,6 +72,18 @@ class Evidence:
             raise ValueError('calibration did not execute this reference source')
         return row
 
+    def frozen(self, submission_id: str) -> dict:
+        """只输出冻结字段和整份输入的摘要，驱动与用户源码不进入报告。"""
+        sid = uuid(submission_id)
+        rows = self.rows('submission', "SELECT JSON_OBJECT('sha256',LOWER(SHA2(CAST(payload AS CHAR),256)),"
+            "'limitSource',JSON_EXTRACT(payload,'$.limitSource'),"
+            "'languageCalibrationId',JSON_EXTRACT(payload,'$.languageCalibrationId'),"
+            "'effectiveLimits',JSON_EXTRACT(payload,'$.effectiveLimits')) "
+            f"FROM judge_input WHERE submission_id='{sid}' LIMIT 2")
+        if len(rows) != 1:
+            raise ValueError('expected exactly one frozen JudgeInput')
+        return rows[0]
+
     def formal(self, context, submission_id, source):
         sid = uuid(submission_id)
         rows = self.rows('submission', "SELECT JSON_OBJECT('input',JSON_REMOVE(i.payload,'$.completeSource'),"

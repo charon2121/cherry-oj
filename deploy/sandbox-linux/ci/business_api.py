@@ -5,10 +5,12 @@ import hashlib
 import http.cookiejar
 import io
 import json
+from pathlib import Path
 import re
 import secrets
 import stat
 import time
+from typing import Any
 import urllib.error
 import urllib.request
 import zipfile
@@ -17,6 +19,7 @@ from report import ROOT
 
 FIXTURES = ROOT / 'deploy/sandbox-linux/tests/acceptance'
 MAX_BODY = 1 << 20
+CUSTOM_RUN_TIMEOUT_NS = 210_000_000_000
 
 
 def failure_kind(data: bytes | str) -> str:
@@ -55,18 +58,23 @@ def fixture_zip():
 
 
 class API:
-    def __init__(self, output=None):
+    def __init__(self, output: Path | None = None, *, base_url: str = 'http://127.0.0.1:8080',
+                 origin: str = 'http://127.0.0.1:4173') -> None:
         self.cookies = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
                                                  urllib.request.HTTPCookieProcessor(self.cookies))
         self.csrf = None
         self.events = []
         self.output = output
+        self.base_url = base_url.rstrip('/')
+        self.origin = origin
+        self.user_id = None
 
-    def request(self, method, path, body=None, *, expected=200, content_type='application/json'):
+    def request(self, method: str, path: str, body: Any = None, *, expected: int = 200,
+                content_type: str = 'application/json', headers: dict[str, str] | None = None) -> Any:
         if not re.fullmatch(r'/api/[a-zA-Z0-9_/?=&.-]+', path):
             raise ValueError('invalid API path')
-        headers = {'Origin': 'http://127.0.0.1:4173'}
+        headers = dict(headers or {}, Origin=self.origin)
         if method != 'GET':
             if self.csrf is None:
                 self.csrf = self.request('GET', '/api/auth/csrf')
@@ -75,10 +83,11 @@ class API:
         encoded = body if isinstance(body, bytes) else (json.dumps(body).encode() if body is not None else None)
         if encoded and len(encoded) > MAX_BODY:
             raise ValueError('API request exceeds byte limit')
-        request = urllib.request.Request('http://127.0.0.1:8080' + path, data=encoded, method=method, headers=headers)
+        request = urllib.request.Request(self.base_url + path, data=encoded, method=method, headers=headers)
         started = time.monotonic_ns()
         try:
-            response = self.opener.open(request, timeout=120)
+            response = self.opener.open(request, timeout=CUSTOM_RUN_TIMEOUT_NS / 1_000_000_000
+                                        if path == '/api/custom-runs' else 120)
         except urllib.error.HTTPError as error:
             response = error
         with response:
@@ -104,7 +113,11 @@ class API:
                      newPassword=credentials['password']), expected=204)
         self.cookies.clear()
         self.csrf = None
-        self.request('POST', '/api/auth/login', dict(username=credentials['username'], password=credentials['password']))
+        self.sign_in(credentials['username'], credentials['password'])
+
+    def sign_in(self, username: str, password: str) -> None:
+        result = self.request('POST', '/api/auth/login', dict(username=username, password=password))
+        self.user_id = result['user']['id']
         self.csrf = None
 
     def prepare(self, identity):

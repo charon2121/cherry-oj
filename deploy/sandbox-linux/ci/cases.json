@@ -361,6 +361,17 @@
       ]
     },
     {
+      "id": "business.languages",
+      "suite": "business",
+      "execution": "live",
+      "assertion": "原生节点 C/C++ 同题 ACM/CORE、自测与正式提交、覆盖和基础标定切换、关闭入口保留历史",
+      "sources": [
+        {
+          "path": "deploy/sandbox-linux/ci/business_languages.py"
+        }
+      ]
+    },
+    {
       "id": "business.cleanup",
       "suite": "business",
       "execution": "live",
