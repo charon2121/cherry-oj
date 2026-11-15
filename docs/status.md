@@ -10,7 +10,7 @@
 测试服务器节点 2026-11-02 按 `a80fd173` 重装为每门语言独立工具链的新布局（`cherry-home-v6`，C 与 C++ 两套 rootfs，
 启动冒烟两门都通过），随后演练原地升级：升级到 v7、回滚到 v6、再回滚到 v7，每次 judge 停顿约 2.5–8 秒；升级到 rootfs
 被改过的发布时启动脚本拒绝启动、自动切回 v7（健康检查改为单元退出即失败后，停顿约 5.5 秒）；`prune` 只删掉了失败的发布。
-当前运行 `cherry-home-v7`（上一个发布 v6）：`verify-native` 通过，benchmark 判题 72 项与攻击样本 56 项全过。
+当时运行 `cherry-home-v7`（上一个发布 v6）：`verify-native` 通过，benchmark 判题 72 项与攻击样本 56 项全过。
 
 2026-11-11，测试服务器补齐五个 Java 服务与 Web，应用发布为 `129d200c`（`/opt/cherry-app/current`），
 复用上述原生判题节点；MySQL 8.4、Redis 7.4、Kafka Native 3.8.0 使用独立持久数据，应用服务由
@@ -34,9 +34,22 @@
 [Business](https://github.com/charon2121/cherry-oj/actions/runs/43694294933) 共 16 项通过，
 包括新增的原生 C/C++ 同题 ACM/CORE、2 秒 CPU 自测、标定切换与历史冻结，资源清理通过。
 
+2026-11-15，测试环境新增 PyPy 8.0.1 / Python 3.11.17；当前应用发布为
+`pypy-20261115-b1b5d1691dd0`，原生节点发布为 `cherry-home-pypy-gc-20261115`，安装了 C、C++、PyPy
+三棵独立 rootfs。Java 的语言文件名、编译阶段声明与限制参数统一读取打包的 `contracts/languages.json`；
+Web 源码下载也读取该契约，ACM 下载驱动文件名，CORE 下载用户文件名。PyPy 的运行命令、固定 GC 环境与错误语义
+见[语言运行约定](./protocols/languages.md)；时间模型为 4.5 倍加 150ms、内存为 1.1 倍加 64MiB，
+22 个原生样本点、132 次 C++/PyPy 对照运行支持保留这一保守参数，适用范围见[限制协议](./protocols/limits.md#11-实测记录)。
+PyPy 原生运行时 9 项、既有判题 72 项、攻击样本 56 项及隔离、资源回收探针通过；节点回滚到上一发布再切回后，
+运行时与隔离检查仍通过。真实接口覆盖三门语言的 ACM/CORE、基础/推导/覆盖标定、语法错误与历史冻结；
+普通用户的 12 次自测/提交通过，真实浏览器另验证 PyPy 两种题型的自测、AC 提交、下载文件名和 CORE 编辑器行号。
+五服务健康，回归题已恢复私有，临时转发已关闭。前一应用发布、节点发布与部署前数据库快照均保留。
+本机 Java verify 共 342 项（默认跳过的原生客户端测试已另行连接节点补跑），Go 竞态测试与 vet、
+rootfs 52 项、CI 工具 120 项、Web 181 项、浏览器多语言 5 项与缩放回归 1 项通过。
+
 | 部分 | 状态 |
 |---|---|
-| 同题多语言与限制标定 | ✅ C/C++ 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。Java 相关服务 verify 与本机隔离全栈 `scripts/e2e.py` 通过；2026-11-11 已部署到测试服务器并通过上述原生节点与真实浏览器验证。模型及本机实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
+| 同题多语言与限制标定 | ✅ C/C++/PyPy 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。2026-11-15 测试服务器三门语言真实接口及 PyPy 真实浏览器验证通过，范围见上文。模型及实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
 | 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
 | `internal/config` | ✅ YAML + 环境变量 |
