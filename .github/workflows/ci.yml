@@ -24,6 +24,8 @@ jobs:
           persist-credentials: false
       - name: 契约与文档校验器测试
         run: python3 -m unittest discover -s scripts -p '*_test.py'
+      - name: 应用发布工具测试
+        run: python3 -m unittest discover -s deploy/app -p '*_test.py'
       - name: 文档链接
         run: python3 scripts/docs_test.py
 
