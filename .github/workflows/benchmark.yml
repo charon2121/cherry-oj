@@ -142,11 +142,45 @@ jobs:
           exit 1
 
       # sandbox 入口直接调用执行器，要 root；两个入口依次进行，judge 在运行但空闲。
+      - name: 记录回收诊断环境
+        run: |
+          uname -r
+          cat /proc/sys/kernel/core_pattern /proc/sys/kernel/core_pipe_limit /proc/sys/fs/suid_dumpable
+
       - name: benchmark（strictWhitespace=false，judge 与 sandbox 两个入口，全部题目与攻击样本）
         run: >-
           sudo python3 benchmark/run.py --entries judge,sandbox --judge-url "$JUDGE_URL"
           --published-root "$PUBLISHED_ROOT" --declare backend=linux strictWhitespace=false languages=cpp,c
           --report benchmark/reports/loose.json
+
+      - name: 定向重复内存超限与挂载拒绝后的回收检查
+        run: |
+          sudo python3 -B - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path('benchmark/tools').resolve()))
+          from attack import load_sample
+          from executor import Executor, load_config
+          from judge_entry import Declared
+          from node import DEFAULT_EXECUTOR, DEFAULT_EXECUTOR_CONFIG, NodeInspector
+          from sandbox_entry import SandboxRunner, from_sample
+          root = Path('benchmark/corpus').resolve()
+          config = load_config(DEFAULT_EXECUTOR_CONFIG)
+          inspector = NodeInspector(config)
+          assert inspector.residue().clean(), 'node must be idle before reproduction'
+          runner = SandboxRunner(Executor(DEFAULT_EXECUTOR, config), inspector,
+              Declared(backend='linux', languages=('cpp',), entries=('sandbox',)),
+              (root / 'attack-common/probe.cpp').read_text())
+          samples = [from_sample(load_sample(root / 'attack' / name, root))
+                     for name in ('memory_hog', 'mount_tmpfs')]
+          for repeat in range(500):
+              for sample in samples:
+                  result = runner.run_item(sample)
+                  if result.status != 'pass':
+                      raise SystemExit(f'round={repeat} sample={sample.name}: {result.diffs}')
+              if repeat % 10 == 0:
+                  print(f'reclaim reproduction: {repeat + 1}/500 rounds passed', flush=True)
+          PY
 
       # whitespace 的结论取决于节点配置：_strict 那一半要把 judge 切到 strictWhitespace=true 才会运行。
       - name: 切换到 strictWhitespace=true 并重启 judge

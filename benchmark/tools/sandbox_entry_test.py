@@ -1,6 +1,9 @@
+import json
 import tempfile
 import time
 import unittest
+from contextlib import redirect_stderr
+from io import StringIO
 from pathlib import Path
 
 import corpus as lib
@@ -99,6 +102,37 @@ class RunItemTest(Base):
 
 
 class ResidueTest(Base):
+    def test_process_diagnostics_preserve_the_observed_uid_and_state_without_reading_private_data(self):
+        process = self.proc / "4242"
+        process.mkdir()
+        (process / "status").write_text("Name:\tMain\nState:\tZ (zombie)\nPPid:\t17\n"
+                                      "Uid:\t61100\t61100\t61100\t61100\nNSpid:\t4242\t2\n")
+        (process / "cgroup").write_text("0::/sandbox/jobs/box-0\n")
+        (process / "exe").symlink_to("/work/Main")
+        (process / "environ").write_text("private-environment")
+        (process / "cmdline").write_text("private-source-argument")
+        output = StringIO()
+        with redirect_stderr(output):
+            self.assertEqual(self.inspector.processes(), 1)
+        detail = json.loads(output.getvalue().split("：", 1)[1])["processes"][0]
+        self.assertEqual((detail["pid"], detail["State"], detail["PPid"], detail["NSpid"]),
+                         (4242, "Z (zombie)", "17", "4242\t2"))
+        self.assertEqual((detail["cgroup"], detail["exe"]), ("0::/sandbox/jobs/box-0", "/work/Main"))
+        self.assertIsNone(detail["pidNamespace"])
+        self.assertNotIn("private-", output.getvalue())
+
+    def test_disappearing_process_metadata_does_not_clear_the_observed_residue(self):
+        process = self.proc / "7"
+        process.mkdir()
+        (process / "status").write_text("Uid:\t61401\t61401\t61401\t61401\n")
+        output = StringIO()
+        with redirect_stderr(output):
+            self.assertEqual(self.inspector.processes(), 1)
+        report = json.loads(output.getvalue().split("：", 1)[1])
+        self.assertEqual(report["count"], 1)
+        self.assertIsNone(report["processes"][0]["exe"])
+        self.assertIsNone(report["processes"][0]["cgroup"])
+
     def test_leftover_processes_cgroups_and_files_fail_the_item(self):
         # 假 /proc：一个 payload 身份的进程；假 cgroup：一个遗留的 box-0 组。
         (self.proc / "4242").mkdir()

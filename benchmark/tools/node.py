@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -41,19 +44,41 @@ class NodeInspector:
 
     def processes(self) -> int:
         """真实 uid 落在 payload 或 init 身份范围内的进程个数。"""
-        ranges, count = self._task_ids(), 0
+        ranges, count, details = self._task_ids(), 0, []
         for entry in self.proc.iterdir():
             if not entry.name.isdigit():
                 continue
             try:
-                for line in (entry / "status").read_text().splitlines():
+                lines = (entry / "status").read_text().splitlines()
+                for line in lines:
                     if line.startswith("Uid:"):
                         uid = int(line.split()[1])
-                        count += any(uid in r for r in ranges)
+                        if any(uid in r for r in ranges):
+                            count += 1
+                            if len(details) < 16:
+                                details.append(self._process_detail(entry, lines))
                         break
             except (OSError, ValueError):
                 continue  # 进程在读取期间退出
+        if count:
+            print("回收扫描进程明细：" + json.dumps({"count": count, "processes": details}, ensure_ascii=True),
+                  file=sys.stderr)
         return count
+
+    @staticmethod
+    def _process_detail(entry: Path, lines: list[str]) -> dict[str, Any]:
+        """与计数共用同一次 status 快照；不读取源码、参数或环境，不按明细是否可读放过残留。"""
+        fields = dict(line.split(":", 1) for line in lines if ":" in line)
+        detail: dict[str, Any] = {"pid": int(entry.name)}
+        for key in ("Name", "State", "PPid", "Uid", "NSpid"):
+            detail[key] = fields.get(key, "").strip()[:128]
+        for key, target, link in (("cgroup", "cgroup", False), ("exe", "exe", True),
+                                  ("pidNamespace", "ns/pid", True)):
+            try:
+                detail[key] = (os.readlink(entry / target) if link else (entry / target).read_text())[:512].strip()
+            except OSError:
+                detail[key] = None
+        return detail
 
     def cgroups(self) -> int:
         """jobs/ 下遗留的执行组（box-*）个数。"""
