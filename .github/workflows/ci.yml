@@ -44,6 +44,10 @@ jobs:
         with:
           go-version-file: apps/judge-engine/go.mod
           cache-dependency-path: apps/judge-engine/go.sum
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: gofmt
         run: |
           unformatted=$(gofmt -l .)
@@ -70,6 +74,7 @@ jobs:
           g++ --version | head -1
           python3 --version
           java --version | head -1
+          javac --version
 
   web:
     name: web (React SPA)
