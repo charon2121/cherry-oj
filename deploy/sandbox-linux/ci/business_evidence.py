@@ -78,6 +78,7 @@ class Evidence:
         rows = self.rows('submission', "SELECT JSON_OBJECT('sha256',LOWER(SHA2(CAST(payload AS CHAR),256)),"
             "'limitSource',JSON_EXTRACT(payload,'$.limitSource'),"
             "'languageCalibrationId',JSON_EXTRACT(payload,'$.languageCalibrationId'),"
+            "'limitDerivation',JSON_EXTRACT(payload,'$.limitDerivation'),"
             "'effectiveLimits',JSON_EXTRACT(payload,'$.effectiveLimits')) "
             f"FROM judge_input WHERE submission_id='{sid}' LIMIT 2")
         if len(rows) != 1:

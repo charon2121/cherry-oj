@@ -40,7 +40,10 @@ class LanguageTests(unittest.TestCase):
         self.assertEqual(database, 'submission')
         self.assertTrue(query.startswith('SELECT '))
         self.assertIn('LIMIT 2', query)
+        for field in ('limitSource', 'languageCalibrationId', 'limitDerivation', 'effectiveLimits'):
+            self.assertIn("'$." + field + "'", query)
         self.assertNotIn('completeSource', query)
+        self.assertNotIn('solutionSource', query)
         for value in ("' OR 1=1", 'not-a-uuid'):
             with self.assertRaises(ValueError):
                 evidence.frozen(value)
