@@ -33,7 +33,7 @@ class RuntimeTests(unittest.TestCase):
                     return_value=self.response(dict(valid, **changed))), self.assertRaises(ValueError):
                 run('http://127.0.0.1:15051', (case,))
 
-    def test_a_traceback_cannot_masquerade_as_a_seccomp_rejection(self) -> None:
+    def test_a_module_error_cannot_masquerade_as_socket_permission_denial(self) -> None:
         case = Case('network', 'import socket\nsocket.socket()\n', 'RE')
         response = self.response(dict(verdict='RE', testcaseResults=[dict(idx=1, verdict='RE',
                                     stderr=dict(bytes=30, excerpt='ModuleNotFoundError'))]))

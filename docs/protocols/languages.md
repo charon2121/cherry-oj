@@ -79,7 +79,8 @@ class Solution:
 
 ## 5. 版本、兼容与失败
 
-目录保持 `x-contract-version: 2`，这里只新增语言项，既有 C/C++ 字段与行为不变。
+目录保持 `x-contract-version: 2`，新增语言项不修改既有 C/C++ 的目录字段；
+各语言共用的执行器策略与失败语义以 [sandbox 执行器协议](./sandbox-executor.md#8-用户程序看到的世界)为准。
 新语言必须同时具备目录、产品语言记录、judge 注册和通过冒烟的独立工具链；节点仅按已安装并验证的工具链声明语言。
 未完成这些条件或没有有效限制时，该语言不能进入题目的就绪作答列表；未知语言不回退到其他解释器。
 包锁 v2 的兼容约定以 rootfs README 为准；新增语言不重写历史 JudgeInput、旧锁或旧发布。
@@ -99,3 +100,81 @@ class Solution:
 节点的既有 namespace、只读挂载、能力清空、no-new-privileges 与资源回收探针通过。
 受限 `/proc` 下默认 nursery 与显式 `4MB` 均实测为 4MiB，后者消除了探测 CPU 缓存产生的警告。
 限制参数的对照范围见[限制协议的实测记录](./limits.md#11-实测记录)。
+
+## 7. Java 的身份、编译与运行
+
+- 语言 id 为 `java`，初始显示名 `Java 21`，同时支持 ACM 与 CORE。
+  首个官方工具链使用 Eclipse Temurin **21.0.13+9 / HotSpot / Linux amd64** 的完整 JDK；
+  不启用预览特性、不提供在线依赖安装或第三方库。JIT 在运行阶段保持启用。
+- 官方固定归档为
+  `https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz`，
+  大小 `207858352` bytes，SHA-256 为
+  `d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c`。
+  包锁 v2 的 `stripPrefix` 为 `jdk-21.0.13+9`，`target` 为 `usr/lib/java21`，
+  `bin` 把 `java`、`javac`、`jar` 分别链接到该完整 JDK 的 `bin/` 中同名命令。
+  保留完整运行库与许可证；既有归档解包上限与路径安全检查不变。
+- `files.driverFile = Main.java`，`files.solutionFile = Solution.java`，`requiresCompilation = true`。
+  ACM 提交完整的 Main.java；CORE 驱动为 Main.java，用户文本按既有前缀规则写入 Solution.java。
+  两者均使用默认包，入口为 `Main.main(String[] args)`；用户自行声明 `class Solution`，不改写 AST 或自动套类。
+  初始全局前缀为 `import java.io.*;\nimport java.util.*;\nimport java.math.*;\n`，仅在 CORE 拼接。
+- 编译器使用 `javac -encoding UTF-8 --release 21 -proc:none -classpath . -sourcepath . -d classes Main.java`；
+  javac 按普通 Java 源码查找规则编译驱动引用的 Solution.java。随后使用
+  `jar -J-Djava.io.tmpdir=. --create --file Main.jar -C classes .` 打包全部生成的类，包括内部类、匿名类与用户类。
+  jar 的临时归档与输出都在同一个工作挂载点，避开跨挂载移动时的复制和扩展属性处理；
+  两者都计入既有工作区容量与 inode 限额，不新增临时目录或资源额度。`.` 指编译进程的当前工作目录，兼容本机开发工作区。
+  两条命令由固定的 `sh -c` 脚本顺序执行；不插入用户提供的命令文本。
+  唯一移交的编译产物为 Main.jar，运行命令为 `java -cp Main.jar Main`（含下述固定 JVM 选项）。
+- Linux 工具链中的所有 JVM 固定 `-XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms8m`、
+  `-XX:-UseContainerSupport -XX:-UsePerfData -XX:-UseThreadPriorities -Djava.awt.headless=true`，
+  避免依赖隔离环境未提供的宿主探测设施；CPU、内存仍由原执行器统一限制。
+  固定 `-Dfile.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8`。
+  编译阶段 javac 与 jar 均通过 `-J` 传入同一组 JVM 选项，另固定 `-J-XX:TieredStopAtLevel=1`；
+  此编译器启动优化不影响生成的字节码，运行阶段不使用该选项。
+- 每次编译或运行，JVM 的 `-Xmx` 为该阶段实际 `memoryBytes` 向下取整到 1024 bytes 的十进制字节数；
+  编译阶段使用节点既有编译内存限制，运行阶段使用已冻结的题目内存限制。
+  不按宿主内存推测，不额外增加题目限额，不另外扣除固定保留量。
+  `-Xmx` 只约束堆；执行器按整组实际内存计量，堆、元空间、线程、JIT、GC 与运行库都计入同一限制。
+  小到无法启动 JVM 的限制不自动提高，也不据此移除语言的可用状态。
+- 每个测试点重新启动 JVM；类加载、启动、JIT 与 GC 全计入该测试点的 CPU 和内存，不共享预热状态。
+  编译失败沿用 CE；非零运行退出或未捕获异常沿用 RE，包含 JVM 自身的 OutOfMemoryError。
+  只有执行器的实际资源事实满足现有判定条件时才返回 MLE / TLE / OLE，不根据 stderr 文本猜测资源结论。
+  CORE 的 Solution.java 诊断与异常行号按冻结前缀行数换算；正式提交仍不公开隐藏测试的报错内容。
+- 自测预算包含已有的编译预算，不新增超时或预算字段。
+  初次接入时目录不配置 `limitModel`，只能通过 OVERRIDE 开放；完成真实节点的启动、计算、IO 和内存对照后，
+  再按限制协议更新参数并验证 BASE / DERIVED / OVERRIDE。现有 CodeNet 参数只作为拟合起点。
+- 目录仍为版本 2，执行器请求与应用接口不增加字段；新增产品语言使用追加迁移，不改写已有迁移与历史提交。
+  受影响的消费者为 problem-service、judging-service、submission-service、Web、Go judge、独立工具链构建与部署校验。
+  只有具备目录、产品语言记录、对应 judge 注册、通过冒烟的独立工具链和有效限制时，题目才可向用户开放 Java。
+
+CORE 示例驱动：
+
+```java
+import java.util.Scanner;
+public class Main {
+    public static void main(String[] args) {
+        Scanner in = new Scanner(System.in);
+        System.out.println(new Solution().add(in.nextInt(), in.nextInt()));
+    }
+}
+```
+
+对应用户编辑区：
+
+```java
+class Solution {
+    public int add(int a, int b) {
+        return a + b;
+    }
+}
+```
+
+版本来源为 [Temurin 官方发布](https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.13%2B9)；
+选项依据为 [Java 21 启动器规范](https://docs.oracle.com/en/java/javase/21/docs/specs/man/java.html)与
+[javac 规范](https://docs.oracle.com/en/java/javase/21/docs/specs/man/javac.html)。
+
+2026-11-16，测试服务器 Ubuntu 24.04 / Linux 6.8 / amd64 的正式执行器与独立 Java rootfs
+通过启动冒烟和 12 项 Java 运行时验证：标准库、JIT 实际编译、CORE 内部类与匿名类、UTF-8 stderr、
+编译诊断、CORE 编译与运行行号、TLE、JVM 内存异常 RE、实际内存限制 MLE、OLE 与网络拒绝。
+正常程序无探测警告；jar 仅在当前编译工作目录创建临时归档。
+同一节点通过 PyPy 9 项、既有判题 72 项、攻击样本 56 项，以及隔离与资源回收探针。
+参数对照及适用范围见[限制协议的实测记录](./limits.md#11-实测记录)；这不代表正式安全验收或应用发布已完成。

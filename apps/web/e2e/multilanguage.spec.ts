@@ -28,6 +28,13 @@ const pypy = {
   judgeTemplate: null,
   solutionPrefix: null,
 };
+const java = {
+  id: 'java',
+  displayName: 'Java 21',
+  starterCode: 'public class Main { public static void main(String[] args) {} }\n',
+  judgeTemplate: null,
+  solutionPrefix: null,
+};
 
 async function success(route: Route, data: unknown) {
   await route.fulfill({
@@ -112,7 +119,7 @@ async function backend(page: Page, role: 'ADMIN' | 'USER') {
       });
     if (path === '/api/admin/languages')
       return success(route, {
-        items: [c, cpp, pypy].map((language) => ({
+        items: [c, cpp, pypy, java].map((language) => ({
           id: language.id,
           displayName: language.displayName,
           solutionPrefix: '#include <stdio.h>\n',
@@ -131,7 +138,8 @@ async function backend(page: Page, role: 'ADMIN' | 'USER') {
         allowedLanguages: body.allowedLanguages.map((input) => ({
           ...input,
           displayName:
-            [c, cpp, pypy].find((language) => language.id === input.id)?.displayName ?? input.id,
+            [c, cpp, pypy, java].find((language) => language.id === input.id)?.displayName ??
+            input.id,
           solutionPrefix: null,
         })),
       };
@@ -315,7 +323,7 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
   await expect(page.getByText('c · 可作答', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: '公开题目', exact: true }).click();
   await expect.poll(() => state.problem.visibility).toBe('PUBLIC');
-  await page.getByRole('button', { name: '取消', exact: true }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
   await choose(page, '编辑语言', 'C');
   const updatedStarter = c.starterCode + '\n// published edit';
   const starterEditor = page.getByRole('textbox', { name: 'C 起始代码', exact: true });
@@ -333,6 +341,7 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
   await page.getByRole('region', { name: '题目语言配置', exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: '/tmp/cherry-multilang-admin-dark.png' });
   await page.getByRole('button', { name: /^切换到/ }).click();
+
   await page.screenshot({ path: '/tmp/cherry-multilang-admin-light.png' });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.getByRole('region', { name: '题目语言配置', exact: true }).scrollIntoViewIfNeeded();
@@ -438,18 +447,15 @@ test('PyPy has Python syntax, independent drafts and selected-language run and s
   await expect(keyword).toBeVisible();
   await page.screenshot({ path: '/tmp/cherry-pypy-student-dark.png' });
   await page.getByRole('button', { name: /^切换到/ }).click();
-  await expect
-    .poll(() =>
-      keyword.evaluate((element) => {
-        const probe = document.createElement('span');
-        probe.style.color = 'var(--ds-brand-foreground)';
-        document.body.append(probe);
-        const expected = getComputedStyle(probe).color;
-        probe.remove();
-        return getComputedStyle(element).color === expected;
-      }),
-    )
-    .toBe(true);
+  const expectedKeywordColor = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--ds-brand-foreground)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  await expect(keyword).toHaveCSS('color', expectedKeywordColor);
   await page.screenshot({ path: '/tmp/cherry-pypy-student-light.png' });
   await page.setViewportSize({ width: 320, height: 720 });
   await page.getByRole('tab', { name: '代码', exact: true }).click();
@@ -500,6 +506,111 @@ test('PyPy remains editable with Python indentation on a touch screen', async ({
       .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
       .toBeLessThanOrEqual(1);
     await page.screenshot({ path: '/tmp/cherry-pypy-touch-320.png' });
+  } finally {
+    await context.close();
+  }
+});
+
+test('Java syntax, drafts, file names and selected-language requests survive layout changes', async ({
+  page,
+}) => {
+  const state = await backend(page, 'USER');
+  state.problem = { ...state.problem, visibility: 'PUBLIC', allowedLanguages: [cpp, java] };
+  state.ready = ['cpp', 'java'];
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/problems/multi-sum');
+  await choose(page, '作答语言', java.displayName);
+  await expect(page.locator('[data-slot="code-editor-host"][data-mode-id="java"]')).toBeVisible();
+  const source =
+    'public class Main {\n    public static void main(String[] args) { System.out.println("中文结果"); }\n}\n';
+  await replaceCode(page, java.displayName, source);
+  const keyword = page
+    .locator('.monaco-editor .view-line')
+    .first()
+    .locator('span')
+    .filter({ hasText: /^public$/ })
+    .first();
+  await expect(keyword).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: '下载代码', exact: true }).click();
+  expect((await download).suggestedFilename()).toBe('Main.java');
+  await page.getByRole('button', { name: '运行', exact: true }).click();
+  await expect.poll(() => state.runs[0]).toMatchObject({ languageId: 'java', source });
+  await expect(page.getByText('样例全部通过', { exact: true })).toBeVisible();
+  await choose(page, '作答语言', 'C++');
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText(cpp.starterCode);
+  await choose(page, '作答语言', java.displayName);
+  await expect(page.locator('.monaco-editor .view-lines')).toContainText('中文结果');
+  await page.getByRole('button', { name: '提交', exact: true }).click();
+  await expect.poll(() => state.submissions[0]).toMatchObject({ languageId: 'java', source });
+  await page.screenshot({ path: '/tmp/cherry-java-student-dark.png' });
+  await page.getByRole('button', { name: /^切换到/ }).click();
+  const expectedKeywordColor = await page.evaluate(() => {
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--ds-brand-foreground)';
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  });
+  await expect(keyword).toHaveCSS('color', expectedKeywordColor);
+  await page.screenshot({ path: '/tmp/cherry-java-student-light.png' });
+  await page.setViewportSize({ width: 640, height: 450 });
+  await page.getByRole('tab', { name: '代码', exact: true }).click();
+  await expect(page.getByRole('button', { name: '运行', exact: true })).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await replaceCode(page, java.displayName, source + '// ' + '较长的中文代码说明'.repeat(40));
+  await page.getByRole('textbox', { name: /^Java 21 代码编辑器/ }).press('Control+Home');
+  await expect(page.getByRole('combobox', { name: '作答语言' })).toContainText(java.displayName);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
+    .toBeLessThanOrEqual(1);
+  await page.getByRole('combobox', { name: '作答语言' }).focus();
+  await page.keyboard.press('Tab');
+  await page.screenshot({ path: '/tmp/cherry-java-student-320-forced.png' });
+});
+
+test('Java uses the official grammar and four-space indentation on touch screens', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 320, height: 720 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    const state = await backend(page, 'USER');
+    state.problem = {
+      ...state.problem,
+      visibility: 'PUBLIC',
+      codeMode: 'CORE',
+      allowedLanguages: [java],
+    };
+    state.ready = ['java'];
+    await page.goto('/problems/multi-sum');
+    await page.getByRole('tab', { name: '代码', exact: true }).click();
+    const editor = page.getByRole('textbox', {
+      name: `${java.displayName} 代码编辑器`,
+      exact: true,
+    });
+    await expect(page.locator('.cm-editor').filter({ has: editor })).toBeVisible();
+    await expect(page.locator('.monaco-editor')).toHaveCount(0);
+    await editor.fill('class Solution {');
+    await editor.press('Enter');
+    await page.keyboard.insertText('int value;');
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: '下载代码', exact: true }).click();
+    expect((await download).suggestedFilename()).toBe('Solution.java');
+    await page.getByRole('button', { name: '运行', exact: true }).click();
+    await expect
+      .poll(() => state.runs[0])
+      .toMatchObject({ languageId: 'java', source: 'class Solution {\n    int value;' });
+    await editor.focus();
+    await editor.press('Tab');
+    await expect(editor).not.toBeFocused();
+    await page.screenshot({ path: '/tmp/cherry-java-touch-320.png' });
   } finally {
     await context.close();
   }

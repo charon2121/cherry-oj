@@ -18,6 +18,7 @@ ARCHIVE_LIMIT = 256 << 20
 EXPANDED_LIMIT = 512 << 20
 ENTRY_LIMIT = 65536
 NAME = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_.-]*')
+PREFIX = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_.+-]*')
 SHA256 = re.compile(r'[0-9a-f]{64}')
 
 
@@ -56,7 +57,7 @@ class Archive:
             raise ValueError('归档必须使用固定的无凭证 HTTPS URL')
         if type(value['sizeBytes']) is not int or not 0 < value['sizeBytes'] <= ARCHIVE_LIMIT:
             raise ValueError('归档大小超出协议范围')
-        if not NAME.fullmatch(value['stripPrefix']):
+        if not PREFIX.fullmatch(value['stripPrefix']):
             raise ValueError('归档顶层目录无效')
         relative_path(value['target'])
         commands = value['bin']

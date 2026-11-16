@@ -7,7 +7,7 @@ import { Button } from './button';
 import { loadCodeEditor } from './code-editor-loader';
 import type { CodeEditorHandle } from './code-editor-runtime';
 
-type CodeEditorSyntax = 'cpp' | 'python' | 'plain';
+type CodeEditorSyntax = 'cpp' | 'python' | 'java' | 'plain';
 
 export type CodeEditorProps = Readonly<{
   value: string;

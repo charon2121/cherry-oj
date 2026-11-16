@@ -29,7 +29,9 @@ class LanguageCatalogTests {
         assertNull(catalog.limitModel("unknown"));
         assertEquals(new LanguageFiles("Main.c", "solution.c"), catalog.coreFiles("c"));
         assertEquals(new LanguageFiles("Main.cpp", "solution.cpp"), catalog.coreFiles("cpp"));
+        assertEquals(new LanguageFiles("Main.java", "Solution.java"), catalog.coreFiles("java"));
         assertEquals(new LimitModel(1000, null, 0, 0, 1000, 0, true), catalog.limitModel("cpp"));
+        assertEquals(new LimitModel(3200, null, 280_000_000, 0, 1250, 40L << 20, true), catalog.limitModel("java"));
     }
 
     @Test

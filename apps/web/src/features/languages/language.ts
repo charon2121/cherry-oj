@@ -9,10 +9,15 @@ import languageCatalog from '../../../../../contracts/languages.json';
 export const languageIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/);
 
 /** 编辑器语法：认得的语言给高亮，其余退回纯文本，新语言不改前端也能用。 */
-export type EditorSyntax = 'cpp' | 'python' | 'plain';
+export type EditorSyntax = 'cpp' | 'python' | 'java' | 'plain';
 
 /** C 借用 C++ 的语法高亮：关键字、注释、字符串规则一致，多出来的 C++ 关键字在 C 代码里不会出现。 */
-const syntaxByLanguage: Record<string, EditorSyntax> = { c: 'cpp', cpp: 'cpp', pypy: 'python' };
+const syntaxByLanguage: Record<string, EditorSyntax> = {
+  c: 'cpp',
+  cpp: 'cpp',
+  pypy: 'python',
+  java: 'java',
+};
 
 export function editorSyntax(languageId: string | undefined): EditorSyntax {
   return (languageId && syntaxByLanguage[languageId]) || 'plain';
@@ -55,6 +60,7 @@ const driverSkeletons: Record<string, string> = {
   cpp: '#include "solution.cpp"\n\nint main() {\n    // 读入数据，调用 Solution 的方法，输出结果\n}\n',
   c: '#include "solution.c"\n\nint main(void) {\n    // 读入数据，调用用户函数，输出结果\n}\n',
   pypy: 'from solution import Solution\n\n# 读入数据，调用 Solution 的方法，输出结果\n',
+  java: 'public class Main {\n    public static void main(String[] args) {\n        // 读入数据，调用 Solution 的方法，输出结果\n    }\n}\n',
 };
 
 export function driverSkeleton(languageId: string): string | undefined {

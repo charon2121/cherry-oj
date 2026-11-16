@@ -11,17 +11,18 @@ from business_api import API, FIXTURES
 from business_config import private
 from business_evidence import Evidence
 from business_languages import run as run_languages
-from pypy_runtime import run as run_pypy_runtime
 from business_observer import JOBS, Observer, counters, verify_observations
 from business_resources import Dependencies, RECORD as BUSINESS_RECORD
 from business_results import LIVE_CASES, browser_diagnostic, verify_build as verify_business_build, verify_live
 from business_stack import PRIVATE, Stack
 from command import install_signal_handlers
 from build_check import verify_build
+from java_runtime import run as run_java_runtime
 from native import INSTALL, Native
 from native_resources import ACCOUNTS, Installation, RECORD as NATIVE_RECORD, STATE
 from native_results import check as check_native
 from owned import MARKER, Owned, github_vm, preflight
+from pypy_runtime import run as run_pypy_runtime
 from report import ROOT, Report, git_sha, read_json, validate, verify_files
 
 
@@ -161,10 +162,11 @@ class Business:
         before = parent_events()
         runtime = run_pypy_runtime('http://127.0.0.1:15051')
         save(self.report.output, 'pypy-runtime.json', runtime)
+        save(self.report.output, 'java-runtime.json', run_java_runtime('http://127.0.0.1:15051'))
         multilingual = run_languages(api, self.owned.identity, evidence.frozen)
         save(self.report.output, 'languages.json', multilingual)
         save(self.report.output, 'languages-memory-events.json', dict(before=before, after=verify_parent_events(before)))
-        self.report.record([self.active], 'PASS', ['languages.json', 'pypy-runtime.json', 'languages-memory-events.json'])
+        self.report.record([self.active], 'PASS', ['languages.json', 'pypy-runtime.json', 'java-runtime.json', 'languages-memory-events.json'])
         self.active = 'business.cleanup'
         # Recheck online session and test data; a restart must not hide OLE/empty leakage.
         if evidence.identity(self.native.node)['sessionId'] != context['sessionId']:

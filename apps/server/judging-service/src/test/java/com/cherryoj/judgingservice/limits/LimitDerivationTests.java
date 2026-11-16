@@ -10,8 +10,8 @@ class LimitDerivationTests {
     private static final long MS = 1_000_000L;
     private static final long MIB = 1L << 20;
     private static final LimitModel CPP = new LimitModel(1000, null, 0, 0, 1000, 0, true);
-    /** 协议第 8 节的 Java 初始参数；Java 还不在语言目录里，只在测试里用。 */
-    private static final LimitModel JAVA = new LimitModel(3200, null, 170 * MS, 0, 1250, 40 * MIB, true);
+    /** 协议第 8 节的 Java 参数，与真实节点测量后的语言目录一致。 */
+    private static final LimitModel JAVA = new LimitModel(3200, null, 280 * MS, 0, 1250, 40 * MIB, true);
 
     private static final long CAP_CPU = 20_000 * MS;
     private static final long CAP_MEMORY = 1024 * MIB;
@@ -19,7 +19,7 @@ class LimitDerivationTests {
     @Test
     void cppBaseDerivesJava() {
         var derived = LimitDerivation.derive(CPP, 1000 * MS, 256 * MIB, JAVA, 0, CAP_CPU, CAP_MEMORY);
-        assertThat(derived.cpuNs()).isEqualTo(3370 * MS);
+        assertThat(derived.cpuNs()).isEqualTo(3480 * MS);
         assertThat(derived.memoryBytes()).isEqualTo(360 * MIB);
         assertThat(derived.refCpuNs()).isEqualTo(1000 * MS);
         assertThat(derived.refMemoryBytes()).isEqualTo(256 * MIB);
@@ -29,7 +29,7 @@ class LimitDerivationTests {
 
     @Test
     void javaBaseInvertsBackToCpp() {
-        var derived = LimitDerivation.derive(JAVA, 3370 * MS, 360 * MIB, CPP, 0, CAP_CPU, CAP_MEMORY);
+        var derived = LimitDerivation.derive(JAVA, 3480 * MS, 360 * MIB, CPP, 0, CAP_CPU, CAP_MEMORY);
         assertThat(derived.cpuNs()).isEqualTo(1000 * MS);
         assertThat(derived.memoryBytes()).isEqualTo(256 * MIB);
         assertThat(derived.refCpuNs()).isEqualTo(1000 * MS);
@@ -38,16 +38,16 @@ class LimitDerivationTests {
 
     @Test
     void tinyBaseLimitsAreFlooredBeforeDeriving() {
-        // T_ref 取下限 10ms：3.2 × 10ms + 170ms = 202ms，向上取整到 210ms；M_ref 取下限 16MiB：1.25 × 16 + 40 = 60MiB
+        // T_ref 取下限 10ms：3.2 × 10ms + 280ms = 312ms，向上取整到 320ms；M_ref 取下限 16MiB：1.25 × 16 + 40 = 60MiB
         var derived = LimitDerivation.derive(CPP, 5 * MS, 16 * MIB, JAVA, 0, CAP_CPU, CAP_MEMORY);
-        assertThat(derived.cpuNs()).isEqualTo(210 * MS);
+        assertThat(derived.cpuNs()).isEqualTo(320 * MS);
         assertThat(derived.memoryBytes()).isEqualTo(60 * MIB);
         assertThat(derived.refCpuNs()).isEqualTo(10 * MS);
     }
 
     @Test
     void valuesAbovePlatformLimitsAreCappedAndMarked() {
-        // 3.2 × 8s + 170ms = 25.77s，1.25 × 1GiB + 40MiB = 1320MiB：都截到平台上限，语言照样可用
+        // 3.2 × 8s + 280ms = 25.88s，1.25 × 1GiB + 40MiB = 1320MiB：都截到平台上限，语言照样可用
         var derived = LimitDerivation.derive(CPP, 8000 * MS, 1024 * MIB, JAVA, 0, CAP_CPU, CAP_MEMORY);
         assertThat(derived.cpuNs()).isEqualTo(CAP_CPU);
         assertThat(derived.memoryBytes()).isEqualTo(CAP_MEMORY);

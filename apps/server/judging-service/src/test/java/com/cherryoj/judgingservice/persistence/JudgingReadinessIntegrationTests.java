@@ -66,7 +66,7 @@ class JudgingReadinessIntegrationTests {
     @MockitoSpyBean
     LanguageCatalog languages;
 
-    private static final LimitModel JAVA_LIKE = new LimitModel(3200, null, 170_000_000L, 0, 1250, 40L << 20, false);
+    private static final LimitModel JAVA_LIKE = new LimitModel(3200, null, 280_000_000L, 0, 1250, 40L << 20, false);
 
     @BeforeEach
     void onlineNode() {
@@ -378,8 +378,8 @@ class JudgingReadinessIntegrationTests {
         var profile = readiness.executionProfile();
         assertThat(profile.limitSource()).isEqualTo("DERIVED");
         assertThat(profile.calibrationId()).isEqualTo(base.id());
-        // 协议黄金用例：C++ 1s / 256MiB → 3.37s / 360MiB；推导值不带墙钟
-        assertThat(profile.cpuNs()).isEqualTo(3_370_000_000L);
+        // 协议黄金用例：C++ 1s / 256MiB → 3.48s / 360MiB；推导值不带墙钟
+        assertThat(profile.cpuNs()).isEqualTo(3_480_000_000L);
         assertThat(profile.memoryBytes()).isEqualTo(360L << 20);
         assertThat(profile.clockNs()).isNull();
         var derivation = profile.limitDerivation();
@@ -454,7 +454,7 @@ class JudgingReadinessIntegrationTests {
         // 覆盖标定对应旧数据，已经过期：按新数据的基础标定推导
         var profile = service.readiness(problem, "python", newDigest, 0).executionProfile();
         assertThat(profile.limitSource()).isEqualTo("DERIVED");
-        assertThat(profile.cpuNs()).isEqualTo(3_370_000_000L);
+        assertThat(profile.cpuNs()).isEqualTo(3_480_000_000L);
     }
 
     @Test

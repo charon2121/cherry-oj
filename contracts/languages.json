@@ -51,6 +51,22 @@
         "memoryOverheadBytes": 67108864,
         "baseEligible": true
       }
+    },
+    "java": {
+      "files": {
+        "driverFile": "Main.java",
+        "solutionFile": "Solution.java"
+      },
+      "requiresCompilation": true,
+      "limitModel": {
+        "cpuFactorPermille": 3200,
+        "cpuFactorCapPermille": null,
+        "cpuOverheadNs": 280000000,
+        "ioPicosPerByte": 0,
+        "memoryFactorPermille": 1250,
+        "memoryOverheadBytes": 41943040,
+        "baseEligible": true
+      }
     }
   }
 }

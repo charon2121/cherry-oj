@@ -1,4 +1,5 @@
 import { cpp } from '@codemirror/lang-cpp';
+import { java } from '@codemirror/lang-java';
 import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import {
@@ -16,7 +17,7 @@ import { type AriaAttributes, useEffect, useId, useRef } from 'react';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
-type TextEditorLanguage = 'plain' | 'markdown' | 'cpp' | 'python';
+type TextEditorLanguage = 'plain' | 'markdown' | 'cpp' | 'python' | 'java';
 type TextEditorSize = 'compact' | 'default' | 'code' | 'fill' | 'auto';
 type TextEditorAppearance = 'boxed' | 'bare';
 
@@ -43,6 +44,7 @@ const syntaxTheme = syntaxHighlighting(
 function languageExtension(language: TextEditorLanguage): Extension {
   if (language === 'markdown') return markdown();
   if (language === 'cpp') return cpp();
+  if (language === 'java') return [java(), indentUnit.of('    '), EditorState.tabSize.of(4)];
   if (language === 'python') return [python(), indentUnit.of('    '), EditorState.tabSize.of(4)];
   return [];
 }

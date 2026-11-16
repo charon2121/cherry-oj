@@ -1,0 +1,170 @@
+{
+  "version": 2,
+  "architecture": "amd64",
+  "layout": "usr-merged",
+  "source": "Ubuntu noble/noble-updates: reviewed C/C++ deb metadata with unchanged versions/SHA256; new shell dependencies from https://snapshot.ubuntu.com/ubuntu/20260910T000000Z/dists/noble/main/binary-amd64/Packages.xz; official Eclipse Temurin 21.0.13+9 archive",
+  "language": "java",
+  "roots": [
+    "coreutils",
+    "dash",
+    "libstdc++6",
+    "zlib1g"
+  ],
+  "packages": [
+    {
+      "file": "coreutils_9.4-3ubuntu6.3_amd64.deb",
+      "package": "coreutils",
+      "version": "9.4-3ubuntu6.3",
+      "architecture": "amd64",
+      "sha256": "e1e9a17892be0cc83b7cea747edf331ffeb6d6c010b4db296e60d888e8e9274c"
+    },
+    {
+      "file": "dash_0.5.12-6ubuntu5_amd64.deb",
+      "package": "dash",
+      "version": "0.5.12-6ubuntu5",
+      "architecture": "amd64",
+      "sha256": "e97728d8deaa51300255f0572bbd68b9549e0894a184c056dc420fc4e0ba0781"
+    },
+    {
+      "file": "debianutils_5.17build1_amd64.deb",
+      "package": "debianutils",
+      "version": "5.17build1",
+      "architecture": "amd64",
+      "sha256": "1047a9a57018e18531f76e5b00e226a68554b6f1d147f2a5c1b32518c7b20636"
+    },
+    {
+      "file": "dpkg_1.22.6ubuntu6_amd64.deb",
+      "package": "dpkg",
+      "version": "1.22.6ubuntu6",
+      "architecture": "amd64",
+      "sha256": "8a398c3a701a99be87766863487fc0eda943eb08c6e8fa254a6732d828eef531"
+    },
+    {
+      "file": "gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+      "package": "gcc-14-base",
+      "version": "14.2.0-4ubuntu2~24.04.1",
+      "architecture": "amd64",
+      "sha256": "b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f"
+    },
+    {
+      "file": "libacl1_2.3.2-1build1.1_amd64.deb",
+      "package": "libacl1",
+      "version": "2.3.2-1build1.1",
+      "architecture": "amd64",
+      "sha256": "f2bfd3f8f00413d5f1f04fc723063803c56ac0f1e0efae3bc41f2d7276972ec3"
+    },
+    {
+      "file": "libattr1_1%3a2.5.2-1ubuntu0.1_amd64.deb",
+      "package": "libattr1",
+      "version": "1:2.5.2-1ubuntu0.1",
+      "architecture": "amd64",
+      "sha256": "a99e2e2dfcefbc0e9c99fdc0b284c8b35eaa58744163aaed476de1c93d3c4ef4"
+    },
+    {
+      "file": "libbz2-1.0_1.0.8-5.1_amd64.deb",
+      "package": "libbz2-1.0",
+      "version": "1.0.8-5.1",
+      "architecture": "amd64",
+      "sha256": "695132af8a40fe417f7d4e5ea742d64521c04e069442a4719c2bd0f10ab93d94"
+    },
+    {
+      "file": "libc6_2.39-0ubuntu8.8_amd64.deb",
+      "package": "libc6",
+      "version": "2.39-0ubuntu8.8",
+      "architecture": "amd64",
+      "sha256": "3b8d5391b6b484a4c81fd000b6064885ad967ec3cb966bc57603f3fb3ebf0ed5"
+    },
+    {
+      "file": "libgcc-s1_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+      "package": "libgcc-s1",
+      "version": "14.2.0-4ubuntu2~24.04.1",
+      "architecture": "amd64",
+      "sha256": "aa7fadbe33b78bcf99885318040601c550c208929565b179891d9a3cc2aa68cd"
+    },
+    {
+      "file": "libgmp10_2%3a6.3.0+dfsg-2ubuntu6.1_amd64.deb",
+      "package": "libgmp10",
+      "version": "2:6.3.0+dfsg-2ubuntu6.1",
+      "architecture": "amd64",
+      "sha256": "285f8a505dfa8e1b33f357a9d8d3477ad35bf18c0b34771a6df4c25923f3ae0d"
+    },
+    {
+      "file": "liblzma5_5.6.1+really5.4.5-1_amd64.deb",
+      "package": "liblzma5",
+      "version": "5.6.1+really5.4.5-1",
+      "architecture": "amd64",
+      "sha256": "28851b3997e4ba74bb3197bd58796bd3041c204c21df85fe0ddafdcaced647f0"
+    },
+    {
+      "file": "libmd0_1.1.0-2build1_amd64.deb",
+      "package": "libmd0",
+      "version": "1.1.0-2build1",
+      "architecture": "amd64",
+      "sha256": "77f8cdbf03a43656bbf6604e18bd16834fc8bf2c949d4fbdf24ac297869b667a"
+    },
+    {
+      "file": "libpcre2-8-0_10.42-4ubuntu2.1_amd64.deb",
+      "package": "libpcre2-8-0",
+      "version": "10.42-4ubuntu2.1",
+      "architecture": "amd64",
+      "sha256": "110a797a57673d3ee497a141cf988199258058c57525799c63194d81822529a0"
+    },
+    {
+      "file": "libselinux1_3.5-2ubuntu2.1_amd64.deb",
+      "package": "libselinux1",
+      "version": "3.5-2ubuntu2.1",
+      "architecture": "amd64",
+      "sha256": "6abaa6c26f46ef17764c4a753e0e84de1cdadde5634fd2987621fdc617988d19"
+    },
+    {
+      "file": "libssl3t64_3.0.13-0ubuntu3.15_amd64.deb",
+      "package": "libssl3t64",
+      "version": "3.0.13-0ubuntu3.15",
+      "architecture": "amd64",
+      "sha256": "3d0955bc049bbcca0f4c3e78a3a8b994593d96db7d84f4320217224433844534"
+    },
+    {
+      "file": "libstdc++6_14.2.0-4ubuntu2~24.04.1_amd64.deb",
+      "package": "libstdc++6",
+      "version": "14.2.0-4ubuntu2~24.04.1",
+      "architecture": "amd64",
+      "sha256": "a51f8de7829211db961a31f02158058ad1a95f92ac6d0a5dff6350e2821c54c0"
+    },
+    {
+      "file": "libzstd1_1.5.5+dfsg2-2build1.1_amd64.deb",
+      "package": "libzstd1",
+      "version": "1.5.5+dfsg2-2build1.1",
+      "architecture": "amd64",
+      "sha256": "dfcf25061e07aad7efd3f4f880ba5ad4d4d09ebe7fc8cc77ab6b8a161d6d4727"
+    },
+    {
+      "file": "tar_1.35+dfsg-3build1_amd64.deb",
+      "package": "tar",
+      "version": "1.35+dfsg-3build1",
+      "architecture": "amd64",
+      "sha256": "015b65ef176021c1846ec8b6152167d5d266c1949ec30ee3367e95fa2b2ead27"
+    },
+    {
+      "file": "zlib1g_1%3a1.3.dfsg-3.1ubuntu2.2_amd64.deb",
+      "package": "zlib1g",
+      "version": "1:1.3.dfsg-3.1ubuntu2.2",
+      "architecture": "amd64",
+      "sha256": "84b9cf5752b29c9f92c27cd4c4ba9bbcc70b5ccf9b1b515421a28ae23212e273"
+    }
+  ],
+  "archives": [
+    {
+      "file": "OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz",
+      "url": "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13%2B9/OpenJDK21U-jdk_x64_linux_hotspot_21.0.13_9.tar.gz",
+      "sha256": "d7f5d5cf865a2902b70ff549b97586a7d3f234e016f041ab447ea740c7d66d1c",
+      "sizeBytes": 207858352,
+      "stripPrefix": "jdk-21.0.13+9",
+      "target": "usr/lib/java21",
+      "bin": {
+        "java": "bin/java",
+        "javac": "bin/javac",
+        "jar": "bin/jar"
+      }
+    }
+  ]
+}

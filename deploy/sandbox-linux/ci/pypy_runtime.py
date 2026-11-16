@@ -33,7 +33,7 @@ CASES = (
     Case('tle', 'while True: pass\n', 'TLE', cpu_ns=50_000_000),
     Case('mle', 'x=[]\nwhile True: x.append(bytearray(4<<20))\n', 'MLE', memory_bytes=128 << 20),
     Case('ole', 'while True: print("x"*65536)\n', 'OLE'),
-    # 当前过滤器终止调用 socket 的进程；若仅因模块缺失或导入失败退出，会留下 traceback，不能算隔离通过。
+    # 过滤器拒绝创建 socket；模块缺失或其他导入失败不能冒充权限拒绝。
     Case('network', 'import socket\nsocket.socket()\n', 'RE'),
 )
 
@@ -65,8 +65,10 @@ def run(endpoint: str, cases: tuple[Case, ...] = CASES) -> list[dict[str, Any]]:
         if case.output is not None and point.get('output', {}).get('excerpt') != case.output:
             raise ValueError('运行时回归输出不符: ' + case.name)
         stderr = point.get('stderr', {})
-        if case.name in ('imports', 'jit', 'core', 'network') and stderr.get('bytes') != 0:
+        if case.name in ('imports', 'jit', 'core') and stderr.get('bytes') != 0:
             raise ValueError('正常运行产生了警告，或网络用例因导入错误退出: ' + case.name)
+        if case.name == 'network' and 'PermissionError: [Errno 1]' not in stderr.get('excerpt', ''):
+            raise ValueError('PyPy 网络拒绝没有产生 EPERM 异常')
         if case.name in ('syntax', 'core-error') and 'SyntaxError' not in stderr.get('excerpt', ''):
             raise ValueError('语法错误没有保留原生诊断: ' + case.name)
         if case.name == 'core-error' and 'solution.py", line 2' not in stderr.get('excerpt', ''):

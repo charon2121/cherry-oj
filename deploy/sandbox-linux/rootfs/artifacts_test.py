@@ -38,6 +38,14 @@ def write_tar(path: Path, entries: list[tuple[str, bytes | str, bytes]]) -> arti
 
 
 class ArchiveTests(unittest.TestCase):
+    def test_official_build_number_is_allowed_only_in_top_directory_name(self) -> None:
+        archive = artifacts.Archive.parse(dict(record(), stripPrefix='jdk-21.0.13+9'))
+        self.assertEqual(archive.strip_prefix, 'jdk-21.0.13+9')
+        for fields in ({'stripPrefix': '../jdk+9'}, {'file': 'runtime+9.tar.gz'},
+                       {'bin': {'runtime+9': 'bin/runtime'}}):
+            with self.subTest(fields=fields), self.assertRaises(ValueError):
+                artifacts.Archive.parse(dict(record(), **fields))
+
     def test_complete_tree_and_license_are_preserved_and_command_is_relative(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

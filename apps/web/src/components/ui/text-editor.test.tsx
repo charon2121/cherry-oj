@@ -45,6 +45,25 @@ describe('TextEditor', () => {
     fireEvent.keyDown(editor, { key: 'Enter', code: 'Enter', keyCode: 13 });
     expect(view.state.doc.toString()).toBe('class Solution:\n    ');
   });
+  it('parses Java and indents a class body by four spaces', () => {
+    render(
+      <ThemeProvider>
+        <TextEditor
+          value="class Solution {"
+          onChange={vi.fn()}
+          language="java"
+          aria-label="Java 参考程序"
+        />
+      </ThemeProvider>,
+    );
+    const editor = screen.getByRole('textbox', { name: 'Java 参考程序' });
+    const view = EditorView.findFromDOM(editor);
+    if (!view) throw new Error('CodeMirror view was not mounted');
+    expect(syntaxTree(view.state).topNode.firstChild?.name).toBe('ClassDeclaration');
+    act(() => view.dispatch({ selection: { anchor: view.state.doc.length } }));
+    fireEvent.keyDown(editor, { key: 'Enter', code: 'Enter', keyCode: 13 });
+    expect(view.state.doc.toString()).toBe('class Solution {\n    ');
+  });
   it('holds IME candidates and publishes only the committed source', async () => {
     const onChange = renderEditor();
     const editor = screen.getByRole('textbox', { name: '题目正文 Markdown' });

@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <stddef.h>
 #include <sys/prctl.h>
+#include <sys/socket.h>
 
 #include "sandbox.h"
 
@@ -38,7 +39,7 @@ static const int allowed[] = {
     SCMP_SYS(epoll_pwait), SCMP_SYS(timerfd_create), SCMP_SYS(timerfd_settime), SCMP_SYS(timerfd_gettime),
     SCMP_SYS(signalfd4), SCMP_SYS(eventfd2), SCMP_SYS(epoll_create1), SCMP_SYS(dup3), SCMP_SYS(pipe2),
     SCMP_SYS(prlimit64), SCMP_SYS(getcpu), SCMP_SYS(getrandom), SCMP_SYS(membarrier), SCMP_SYS(statx),
-    SCMP_SYS(rseq), SCMP_SYS(close_range), SCMP_SYS(faccessat2), SCMP_SYS(epoll_pwait2), SCMP_SYS(fchmodat2),
+    SCMP_SYS(statfs), SCMP_SYS(fstatfs), SCMP_SYS(rseq), SCMP_SYS(close_range), SCMP_SYS(faccessat2), SCMP_SYS(epoll_pwait2), SCMP_SYS(fchmodat2),
 };
 
 // 只允许进程名称、匿名 VMA 名称与权限状态查询；不允许修改安全状态。
@@ -66,6 +67,15 @@ int filter_install(enum filter_profile profile) {
     rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(ENOSYS), SCMP_SYS(clone3), 0);
     // pidfd_open 是部分运行时的可选探测；返回 ENOSYS 让它们使用既有的 wait/kill 路径。
     rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(ENOSYS), SCMP_SYS(pidfd_open), 0);
+    // 运行时探测需要处理拒绝结果；不创建任何本地或网络套接字。
+    static const int denied_domains[] = {AF_UNIX, AF_INET, AF_INET6};
+    for (size_t i = 0; i < sizeof denied_domains / sizeof denied_domains[0]; i++)
+        rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(socket), 1,
+                               SCMP_A0(SCMP_CMP_EQ, denied_domains[i]));
+    // JDK 跨挂载移动归档时可回退到已允许的普通读写；不新增快速复制或修改属主的能力。
+    rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(ENOSYS), SCMP_SYS(copy_file_range), 0);
+    rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(ENOSYS), SCMP_SYS(sendfile), 0);
+    rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(fchown), 0);
     // isatty 不应导致程序被杀；所有 ioctl 返回 ENOTTY，不向设备透传。
     rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(ENOTTY), SCMP_SYS(ioctl), 0);
     for (size_t i = 0; i < sizeof allowed_prctl / sizeof allowed_prctl[0]; i++)

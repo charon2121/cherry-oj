@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -223,9 +224,35 @@ func TestNeedsCompile(t *testing.T) {
 	}
 }
 
+func TestJavaCommandsUseStageMemoryWithoutChangingRegisteredCommands(t *testing.T) {
+	lang, _ := Get("java")
+	for _, limit := range []int64{1, 16<<20 + 1023, 256 << 20, 1 << 30} {
+		heap := "-Xmx" + strconv.FormatInt(limit/1024*1024, 10)
+		compile := strings.Join(lang.CompileCommand(limit), " ")
+		run := lang.RunCommand(limit)
+		if strings.Count(compile, "-J"+heap) != 2 || !slices.Contains(run, heap) {
+			t.Fatalf("stage memory %d not used by every JVM: %v / %v", limit, compile, run)
+		}
+		if strings.Contains(compile, memoryPlaceholder) || strings.Contains(strings.Join(run, " "), memoryPlaceholder) {
+			t.Fatal("unresolved JVM memory placeholder")
+		}
+		if slices.Contains(run, "-XX:TieredStopAtLevel=1") {
+			t.Fatal("compiler startup optimization leaked into judged runtime")
+		}
+		run[0] = "changed"
+	}
+	if !strings.Contains(strings.Join(lang.Compile, " "), memoryPlaceholder) || lang.Run[0] != "java" {
+		t.Fatal("resolving one request changed future commands")
+	}
+	cpp, _ := Get("cpp")
+	if !slices.Equal(cpp.CompileCommand(256<<20), cpp.Compile) || !slices.Equal(cpp.RunCommand(256<<20), cpp.Run) {
+		t.Fatal("stage memory changed native language commands")
+	}
+}
+
 // 文件名以 contracts/languages.json 的 files 为准：judge 按它写文件，judging-service 按它认报错里的用户文件。
 // 两边任何一处改了名而另一处没改，行号就换算不了。目录里的语言必须都在注册表里；
-// 注册表里支持 CORE 的语言也必须登记在目录里（python、java 只供功能测试，不在目录里）。
+// 注册表里支持 CORE 的语言也必须登记在目录里（python 只供功能测试，不在目录里）。
 func TestLanguageFilesMatchCatalog(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "..", "contracts", "languages.json")
 	body, err := os.ReadFile(path)

@@ -9,16 +9,16 @@
 ## 快速使用
 
 题目 P 用 C++ 做基础标定：`cpuNs = 1s`、`memoryBytes = 256MiB`，测试点里输入加输出最大 2MB。Java 的限制参数为
-`a = 3.2`、`b = 170ms`、`c = 0`、`k = 1.25`、`m = 40MiB`：
+`a = 3.2`、`b = 280ms`、`c = 0`、`k = 1.25`、`m = 40MiB`：
 
 ```text
 T_ref = (1s − 0 − 0) / 1.0                    = 1s
-T_java = 3.2 × 1s + 170ms + 0 × 2MB           = 3.37s
+T_java = 3.2 × 1s + 280ms + 0 × 2MB           = 3.48s
 M_ref = (256MiB − 0) / 1.0                    = 256MiB
 M_java = 1.25 × 256MiB + 40MiB                = 360MiB
 ```
 
-以后用 Java 提交 P，冻结的限制就是 `cpuNs = 3370000000`、`memoryBytes = 377487360`，并记下这些值是怎么算出来的。
+以后用 Java 提交 P，冻结的限制就是 `cpuNs = 3480000000`、`memoryBytes = 377487360`，并记下这些值是怎么算出来的。
 
 ## 1. 参与方
 
@@ -121,7 +121,7 @@ M_L = ceilMiB( k_L × M_ref + m_L )
   "memoryCapped": false,
   "baseLimitModel": { "cpuFactorPermille": 1000, "cpuFactorCapPermille": null, "cpuOverheadNs": 0,
                       "ioPicosPerByte": 0, "memoryFactorPermille": 1000, "memoryOverheadBytes": 0 },
-  "languageLimitModel": { "cpuFactorPermille": 3200, "cpuFactorCapPermille": null, "cpuOverheadNs": 170000000,
+  "languageLimitModel": { "cpuFactorPermille": 3200, "cpuFactorCapPermille": null, "cpuOverheadNs": 280000000,
                           "ioPicosPerByte": 0, "memoryFactorPermille": 1250, "memoryOverheadBytes": 41943040 }
 }
 ```
@@ -145,7 +145,7 @@ M_L = ceilMiB( k_L × M_ref + m_L )
 | Rust | 1.2 | — | 0 | 1.0 | 4MiB | 是 |
 | Go | 1.9 | — | 15ms | 1.0 | 4MiB | 是 |
 | C# | 3.1 | — | 60ms | 1.0 | 20MiB | 是 |
-| Java | 3.2 | — | 170ms | 1.25 | 40MiB | 是 |
+| Java | 3.2 | — | 280ms | 1.25 | 40MiB | 是 |
 | Kotlin | 4.8 | — | 380ms | 1.25 | 40MiB | 否 |
 | JavaScript | 4.3 | — | 50ms | 1.0 | 24MiB | 是 |
 | PyPy | 4.5 | — | 150ms | 1.1 | 64MiB | 是 |
@@ -158,9 +158,9 @@ CPython 与 Ruby 的补偿上限 5.0（2026-11-02 定）：按 CodeNet 估算，
 
 | 基础 | IO | 目标 | 期望 |
 |---|---|---|---|
-| C++ 1s / 256MiB | 0 | Java | 3.37s / 360MiB |
-| Java 3.37s / 360MiB | 0 | C++ | 1s / 256MiB |
-| C++ 5ms / 16MiB | 0 | Java | 0.21s（T_ref 取下限 10ms）/ 60MiB |
+| C++ 1s / 256MiB | 0 | Java | 3.48s / 360MiB |
+| Java 3.48s / 360MiB | 0 | C++ | 1s / 256MiB |
+| C++ 5ms / 16MiB | 0 | Java | 0.32s（T_ref 取下限 10ms）/ 60MiB |
 | C++ 8s / 1GiB | 0 | Java | 20s（截断，`cpuCapped`）/ 1GiB（截断，`memoryCapped`）；按平台上限 20s / 1GiB 计 |
 
 ## 9. 版本与兼容
@@ -174,6 +174,19 @@ CPython 与 Ruby 的补偿上限 5.0（2026-11-02 定）：按 CodeNet 估算，
 行为以本文为准；字段以 `contracts/` 为准。
 
 ## 11. 实测记录
+
+2026-11-16，测试服务器 Ubuntu 24.04 / Linux 6.8 / amd64 上的 Temurin 21.0.13+9 / HotSpot 与 C++ 对照，采用
+[语言运行约定](./languages.md#7-java-的身份编译与运行)中的固定 JVM 选项与每测试点全新进程，
+覆盖启动、整数、浮点、排序、字典、堆、动态规划、数组分配、字符串、BFS 与 IO，
+22 个样本点、每门语言每点 3 次，共 132 次，输出逐组一致。
+保留 CodeNet 的 CPU 倍数 3.2、内存倍数 1.25 与固定内存 40MiB；原 170ms CPU 固定开销
+漏掉了排序和字典的重复样本峰值。按 C++ 每点 CPU 中位数及参考下限计算，
+取全部 Java 重复样本 `1.15 × cpuNs − 3.2 × T_ref` 的最大值 277177300ns，
+向上取到 10ms 后把固定开销设为 280ms。它包含类加载与 JIT 成本，不是纯启动时间。
+用第 4 节公式计算，新参数覆盖全部重复样本的 CPU 与内存；最大 CPU 占推导限制约 84.7%，
+最大内存占推导限制约 71.9%。据此启用目录中的 BASE / DERIVED / OVERRIDE，`ioPicosPerByte` 仍为 0。
+这批样本仅验证当前节点和所测规模，不代表所有题目的精确比例；对象布局、算法实现与 IO 写法的差异
+仍可能需要题目级覆盖标定，不据此下调其他语言参数。
 
 2026-11-15，测试服务器 Ubuntu 24.04 / Linux 6.8 / amd64，正式执行器与独立工具链：
 PyPy 8.0.1（Python 3.11.17、固定 4MiB GC nursery）与 C++ 对照启动、整数、浮点、排序、字典、堆、

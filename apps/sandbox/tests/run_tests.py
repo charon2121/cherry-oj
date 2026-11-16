@@ -172,6 +172,25 @@ class ExecutorTest(unittest.TestCase):
         f = self.box.facts(['tool', 'exit', '3'], inputs=[('tool', probe, True)])
         self.assertEqual(f['exitCode'], 3)
 
+    def test_socket_probes_return_permission_error_without_creating_descriptors(self):
+        for mode in ('unix-probe', 'ipv4', 'ipv6'):
+            with self.subTest(mode=mode):
+                f = self.box.facts(['probe', mode])
+                self.assertEqual((f['exitCode'], f['signal'], f['error']), (0, 0, ''))
+        for mode in ('socketpair', 'connect'):
+            with self.subTest(mode=mode):
+                f = self.box.facts(['probe', mode])
+                self.assertEqual((f['exitCode'], f['signal'], f['reason']), (-1, 31, ''))
+
+    def test_filesystem_queries_see_bounded_workspace_and_readonly_root(self):
+        f = self.box.facts(['probe', 'filesystem'])
+        self.assertEqual((f['exitCode'], f['signal'], f['error']), (0, 0, ''))
+
+    def test_copy_acceleration_and_owner_change_are_refused_but_read_write_still_work(self):
+        f = self.box.facts(['probe', 'copy-fallback'], outputs=['copy-out'])
+        self.assertEqual((f['exitCode'], f['signal'], f['error']), (0, 0, ''))
+        self.assertEqual(self.box.read('artifact-0'), b'copy')
+
     def test_artifacts_are_bounded_regular_files(self):
         f = self.box.facts(['probe', 'write'], outputs=['out.txt', 'sub/deep.txt', 'missing'])
         self.assertEqual(f['error'], '')

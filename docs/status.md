@@ -54,20 +54,34 @@ rootfs 52 项、CI 工具 120 项、Web 181 项、浏览器多语言 5 项与缩
 真实升级、旧格式发布兼容、双向回滚，以及 current 已切换但日志尚未更新时的中断恢复通过；
 五服务恢复健康，原生节点仍为 `cherry-home-pypy-gc-20261115`，主进程未变化。
 恢复后真实浏览器通过 PyPy 的 ACM/CORE 自测、AC 提交、下载文件名与编辑器报错行号检查；回归题已恢复私有。
+
+2026-11-16，新增 Java 21（Temurin 21.0.13+9 / HotSpot）的 ACM 与 CORE：编译后完整打包内部类和匿名类，
+运行只接收 Main.jar；JVM 堆上限跟随阶段实际内存限制，整组资源统一计量。测试服务器原生节点升级到
+`cherry-home-java-20261116-r3`，保留上一发布 `cherry-home-pypy-gc-20261115`，安装 C、C++、PyPy、Java
+四棵独立 rootfs。Java 原生运行时 12 项、执行器 12 项、PyPy 9 项、既有判题 72 项与攻击样本 56 项通过；
+性能对照后的隔离与资源回收复查通过，无任务进程、执行 cgroup 或工作文件残留。
+22 个样本点、132 次 C++/Java 对照后，Java 参数为 3.2 倍加 280ms、内存 1.25 倍加 40MiB，
+依据和适用范围见[限制协议](./protocols/limits.md#11-实测记录)。
+本机最终判题程序与五服务隔离栈通过 `scripts/e2e.py`：Java 两种题型的基础/推导/覆盖限制、自测、
+正式提交、用户行号、关闭基础语言入口及历史冻结均通过；真实浏览器另通过两种题型的自测与 AC 提交、
+Main.java / Solution.java 下载及 CORE 运行错误行号和 320px 页面。
+服务端 verify 共 343 项，342 项通过、1 项需要另行连接原生节点的客户端测试默认跳过；
+Go 竞态测试与 vet、Web 183 项测试和构建、多语言浏览器 7 项通过。
+本轮只升级原生节点，测试环境应用仍为 `app-31e60df07ee0-209b5d088b57`，尚未发布 Java 的应用迁移与 Web。
 应用回执已使用新格式，不再把旧 `judgeRelease` 当作实际判题版本；旧发布清单、备份与操作记录均保留。
 数据库迁移后拒绝自动回退由隔离故障测试覆盖；数据库与完整系统恢复仍需单独演练。
 
 | 部分 | 状态 |
 |---|---|
 | 应用发布与升级 | ✅ [仓库工具](../deploy/app/README.md)支持指定提交构建、包核验、升级、回滚与中断恢复；测试服务器实际演练通过。仅接管已有应用安装，不创建基础设施或开放公网；数据库恢复未演练 |
-| 同题多语言与限制标定 | ✅ C/C++/PyPy 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。2026-11-15 测试服务器三门语言真实接口及 PyPy 真实浏览器验证通过，范围见上文。模型及实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
+| 同题多语言与限制标定 | ✅ C/C++/PyPy/Java 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。前三门已部署应用；Java 的原生节点、隔离业务栈与真实浏览器验证通过，应用发布边界见上文。模型及实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
 | 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ `testcase` 按请求里的 `testDataLocation` 读[协议](./protocols/testdata.md)目录（本地路径与 HTTP 都实测过） |
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内；可带 CORE 的用户文件（`solutionSource`），文件名按 `contracts/languages.json` 的 `files`；benchmark 的 `core-add` 在本机 judge 镜像（devhost）上 7 项全过（2026-10-17） |
 | Docker 部署 | ✅ 单 judge 容器 Compose（开发与 MVP，devhost 后端） |
-| `apps/server`（五个 Java 服务） | ✅ 业务链路已实现；2026-10-07 起题目无版本、测试数据写成协议目录；2026-10-18 起支持 C++ 核心代码模式（驱动文件 + 语言前缀 + judging-service 换算报错行号）；`./mvnw clean verify` 312 项测试通过 |
+| `apps/server`（五个 Java 服务） | ✅ 业务链路已实现；2026-10-07 起题目无版本、测试数据写成协议目录；支持 C/C++/PyPy/Java 的核心代码文件组织与用户行号换算。本轮 verify 共 343 项，342 项通过、1 项连接原生节点的客户端测试默认跳过 |
 | 五服务 + judge 全链路 | ✅ `scripts/e2e.py` 在隔离栈（MySQL/Redis/Kafka + 真实 judge 容器）通过：上传→校准→公开→AC/WA/CE/TLE、Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题原地修改与取消公开（2026-10-07）；C++ 核心代码 A+B：公开检查拦住没有驱动代码的题、标定、公开、AC/WA、用户文件编译错误报在编辑器行号 `solution.cpp:4`、签名错误报在 `Main.cpp:6`、自测运行错误的 stderr 同样换算、冻结输入含驱动文件与前缀 + 用户代码、驱动代码不出现在公开接口/Kafka/服务日志、改驱动代码后提示重新标定（2026-10-18，提交 `5c8562c`）；测试服务器上的原生节点已按新发布重装并实测（真实 systemd 单元与 setuid 执行器下按地址判题、篡改得 SE、崩溃恢复，2026-10-07）；**Linux 业务闭环**（一次性 GitHub VM 上正式安装原生节点 + Kafka + 五服务 + 真实页面 `e2e-live`）15 项全过，手动触发 `.github/workflows/business.yml`（2026-10-19，run 39196126198，提交 `946ba8f`）；原生节点上的 CORE 由 Benchmark 工作流验证（`core-add` 7 项，2026-10-17） |
 | `apps/web` | ✅ 题库、答题、提交、自测与管理工作台（含核心代码题的创建、驱动代码编辑与作答）；`npm run check` 与 Playwright（mock 后端）通过；`judge-node` 对隔离真实栈通过、`e2e-live` 在业务闭环 CI 中通过（2026-10-19） |
 

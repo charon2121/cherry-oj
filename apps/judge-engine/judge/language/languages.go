@@ -1,6 +1,11 @@
 package language
 
-import "slices"
+import (
+	"runtime"
+	"slices"
+	"strconv"
+	"strings"
+)
 
 type Language struct {
 	Name             string
@@ -17,6 +22,34 @@ type Language struct {
 
 // SmokeInput 是冒烟程序读到的标准输入，各语言的 Smoke 都按它写。
 const SmokeInput = "1 2\n"
+
+// 只替换受信命令中的数值，不接受用户提供的 JVM 参数或 shell 文本。
+const memoryPlaceholder = "{{memoryBytes}}"
+
+var javaOptions = javaVMOptions()
+
+func javaVMOptions() []string {
+	options := []string{
+		"-XX:ActiveProcessorCount=1", "-XX:+UseSerialGC", "-Xms8m", "-Xmx" + memoryPlaceholder,
+		"-XX:-UsePerfData", "-XX:-UseThreadPriorities", "-Djava.awt.headless=true",
+		"-Dfile.encoding=UTF-8", "-Dstdout.encoding=UTF-8", "-Dstderr.encoding=UTF-8",
+	}
+	// macOS 的可信 devhost 不支持此 Linux 专用选项；正式工具链始终使用 Linux。
+	if runtime.GOOS == "linux" {
+		options = append(options, "-XX:-UseContainerSupport")
+	}
+	return options
+}
+
+func javaCompile() []string {
+	options := make([]string, 0, len(javaOptions)+1)
+	for _, option := range javaOptions {
+		options = append(options, "-J"+option)
+	}
+	options = append(options, "-J-XX:TieredStopAtLevel=1")
+	flags := strings.Join(options, " ")
+	return []string{"sh", "-c", "javac " + flags + " -encoding UTF-8 --release 21 -proc:none -classpath . -sourcepath . -d classes Main.java && jar " + flags + " -J-Djava.io.tmpdir=. --create --file Main.jar -C classes ."}
+}
 
 var registry = map[string]Language{
 	"c": {
@@ -57,16 +90,17 @@ var registry = map[string]Language{
 		Smoke:  "import sys\na, b = map(int, sys.stdin.read().split())\nsys.exit(0 if a + b == 3 else 1)\n",
 	},
 	"java": {
-		Name:       "java",
-		SourceName: "Main.java",
+		Name:         "java",
+		SourceName:   "Main.java",
+		SolutionName: "Solution.java",
 		// javac 会为内部类/匿名类额外产出 Main$Node.class、Main$1.class……
 		// 而 RunSpec.Artifacts 只能按确切文件名收，没有通配。只收 Main.class
 		// 的话，用了内部类的提交会在运行时 NoClassDefFoundError——而且
 		// A+B 这种简单题测不出来，等真有人写内部类才炸。
 		// 所以编译完顺手打成一个 jar，产物就只有一个确定的名字。
-		Compile:          []string{"sh", "-c", "javac Main.java && jar cf Main.jar *.class"},
+		Compile:          javaCompile(),
 		CompiledArtifact: "Main.jar",
-		Run:              []string{"java", "-cp", "Main.jar", "Main"},
+		Run:              append(append([]string{"java"}, javaOptions...), "-cp", "Main.jar", "Main"),
 		Smoke: "import java.util.Scanner;\npublic class Main {\n  public static void main(String[] args) {\n" +
 			"    Scanner in = new Scanner(System.in);\n    System.exit(in.nextInt() + in.nextInt() == 3 ? 0 : 1);\n  }\n}\n",
 	},
@@ -90,6 +124,23 @@ func Get(name string) (Language, bool) {
 }
 
 func (l Language) NeedsCompile() bool { return len(l.Compile) > 0 }
+
+func (l Language) CompileCommand(memoryBytes int64) []string {
+	return commandWithMemory(l.Compile, memoryBytes)
+}
+
+func (l Language) RunCommand(memoryBytes int64) []string {
+	return commandWithMemory(l.Run, memoryBytes)
+}
+
+func commandWithMemory(command []string, memoryBytes int64) []string {
+	resolved := make([]string, len(command))
+	value := strconv.FormatInt(memoryBytes/1024*1024, 10)
+	for i, arg := range command {
+		resolved[i] = strings.ReplaceAll(arg, memoryPlaceholder, value)
+	}
+	return resolved
+}
 
 // SupportsSolution 报告这门语言能否接收 CORE 的用户文件。
 func (l Language) SupportsSolution() bool { return l.SolutionName != "" }

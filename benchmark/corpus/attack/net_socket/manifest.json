@@ -13,7 +13,8 @@
   "sandbox": [
     {
       "facts": {
-        "signal": 31,
+        "exitCode": 5,
+        "signal": 0,
         "reason": ""
       }
     }
@@ -21,5 +22,5 @@
   "requires": [
     "backend:linux"
   ],
-  "notes": "网络被禁止。"
+  "notes": "网络套接字创建返回 EPERM，不产生描述符；夹具明确以 5 退出。"
 }

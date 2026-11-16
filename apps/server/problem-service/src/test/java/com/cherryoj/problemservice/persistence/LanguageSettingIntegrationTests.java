@@ -52,6 +52,20 @@ class LanguageSettingIntegrationTests {
     @Autowired
     AdminProblemService admin;
 
+    @Test
+    void javaMigrationProvidesCorePrefixWithoutChangingExistingLanguages() {
+        var java = languages.list().items().stream()
+                .filter(item -> item.id().equals("java"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(java.displayName()).isEqualTo("Java 21");
+        assertThat(java.solutionPrefix()).isEqualTo("import java.io.*;\nimport java.util.*;\nimport java.math.*;\n");
+        var core = admin.create(
+                new CreateProblemRequest("java-prefix", "Java prefix", Difficulty.EASY, CodeMode.CORE, "java"), ACTOR);
+        assertThat(core.allowedLanguages().getFirst().solutionPrefix()).isEqualTo(java.solutionPrefix());
+        assertThat(languages.list().items()).extracting(LanguageSetting::id).contains("c", "cpp", "pypy", "java");
+    }
+
     /** 前缀改了立即生效：CORE 题拿到新前缀、修改时间前进；没变就不动时间；拿旧时间保存的另一个窗口被拒绝。 */
     @Test
     void aPrefixChangeTakesEffectAndAStaleWindowIsRejected() {

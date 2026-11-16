@@ -247,7 +247,17 @@ stdout 在退出码 0 时恰好是一行 JSON（以换行结尾）；stderr 只�
 
 **seccomp：** 允许清单之外的系统调用杀死整个进程（`SIGSYS`）。清单覆盖普通 I/O、动态链接、进程与线程、信号、时钟；
 不含网络、提权、挂载、`ptrace`、内核管理。`clone` 只允许普通 fork 和线程需要的标志；`clone3` 与 `pidfd_open` 返回 `ENOSYS`；
-所有 `ioctl` 返回 `ENOTTY`。编译器和普通命令使用同一份策略。
+所有 `ioctl` 返回 `ENOTTY`。`socket` 的 `AF_UNIX`、`AF_INET`、`AF_INET6` 三种地址族返回 `EPERM`，
+不创建套接字或文件描述符。glibc 与 JDK 会在启动、编译时探测本地缓存及 IPv4/IPv6 支持，必须允许其处理拒绝结果；
+其他地址族的 `socket`、全部 `connect` 与 `socketpair` 仍杀死进程，不开放任何实际通信能力。
+用户程序自行处理这三种套接字错误，未处理时沿原非零退出规则得到 RE；不再要求这三种请求一定产生 SIGSYS。
+允许只读的 `statfs` / `fstatfs`，供 JDK 打包和标准文件操作查询当前隔离视图内文件系统的类型、空间与 inode 统计；
+它们不能写文件、改变挂载或取得隔离视图外的文件句柄。其他隔离边界、权限和资源限额不变。
+`copy_file_range` 与 `sendfile` 返回 `ENOSYS`，`fchown` 返回 `EPERM`；不执行快速复制或属主修改。
+这些拒绝结果允许运行时选择已允许的普通读写，保留用户原有的写入范围、身份与资源计量；
+其他属主修改和扩展属性操作仍按清单外调用终止。Java 打包工具将临时归档放在工作挂载点，
+避免通过跨挂载移动触发额外文件属性处理。
+编译器和普通命令使用同一份策略。
 
 ## 9. 计量与终止
 
@@ -283,7 +293,8 @@ stdout 在退出码 0 时恰好是一行 JSON（以换行结尾）；stderr 只�
 
 ## 12. 实测记录
 
-2026-10-10，Ubuntu 24.04 / Linux 6.8 / x86_64（节点 `cherry-linux-3`，`box_count=1`，1 GiB 内存）：
+2026-10-10，Ubuntu 24.04 / Linux 6.8 / x86_64（节点 `cherry-linux-3`，`box_count=1`，1 GiB 内存）。
+下表为当时的历史策略实测，当前系统调用失败语义以第 8 节为准：
 
 | 场景 | 事实 |
 |---|---|
@@ -306,3 +317,8 @@ stdout 在退出码 0 时恰好是一行 JSON（以换行结尾）；stderr 只�
 | 边界集缺 `CAP_KILL` | 退出码 1：`CAP_KILL is required to reclaim the namespace if the executor dies` |
 | 用户程序环境 | `pid=2`，uid 为 payload 身份，写 `/usr/bin` 被拒，写 `/work`、`/tmp` 可以，`/proc/1/status` 不可读，`/etc/passwd` 不存在 |
 | 结束后 | `jobs/` 下没有残留的 `box-*` 组；box 目录可复位 |
+
+2026-11-16，同一节点的四语言发布通过 12 项执行器原生测试：AF_UNIX、AF_INET、AF_INET6
+创建请求均返回 EPERM 且不产生描述符；connect 与 socketpair 仍被 SIGSYS 终止；
+statfs / fstatfs 只看到受限的工作区与只读根目录；快速复制和属主修改返回第 8 节规定的拒绝结果，
+普通读写仍可复制内容。既有判题 72 项、攻击回归 56 项、隔离与资源回收探针通过。

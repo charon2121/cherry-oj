@@ -25,6 +25,11 @@ var compileClock = flag.Duration("language-compile-clock", 15*time.Second, "trus
 // 依赖本机工具链，缺哪个就跳过哪个——CI 上装了什么就测什么。
 func runLang(t *testing.T, langName, source, stdin string) string {
 	t.Helper()
+	return runSources(t, langName, source, "", stdin)
+}
+
+func runSources(t *testing.T, langName, source, solution, stdin string) string {
+	t.Helper()
 	lang, ok := language.Get(langName)
 	if !ok {
 		t.Fatalf("Get(%s)", langName)
@@ -43,6 +48,9 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 
 	build := newWorkspace(t)
 	build.put(t, lang.SourceName, strings.NewReader(source), 0o644)
+	if solution != "" {
+		build.put(t, lang.SolutionName, strings.NewReader(solution), 0o644)
+	}
 
 	var artifact []byte
 	if lang.NeedsCompile() {
@@ -50,7 +58,7 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 		if *compileClock <= 0 || *compileClock > 30*time.Second {
 			t.Fatal("language-compile-clock must be within (0, 30s]")
 		}
-		u, err := build.run(lang.Compile, nil, nil, &cerr, *compileClock)
+		u, err := build.run(lang.CompileCommand(1<<30), nil, nil, &cerr, *compileClock)
 		t.Logf("compile language=%s usage=%+v waitError=%v", langName, u, err)
 		if err != nil || u.ExitCode != 0 {
 			t.Fatalf("编译失败 usage=%+v waitError=%v stderr=%s", u, err, cerr.String())
@@ -68,7 +76,7 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 	}
 
 	var out, errb bytes.Buffer
-	u, err := run.run(lang.Run, strings.NewReader(stdin), &out, &errb, 0)
+	u, err := run.run(lang.RunCommand(256<<20), strings.NewReader(stdin), &out, &errb, 0)
 	t.Logf("run language=%s usage=%+v waitError=%v", langName, u, err)
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +84,29 @@ func runLang(t *testing.T, langName, source, stdin string) string {
 	if u.ExitCode != 0 {
 		t.Fatalf("运行失败 exit=%d stderr=%s", u.ExitCode, errb.String())
 	}
+	if errb.Len() != 0 {
+		t.Fatalf("正常程序不应向 stderr 写入运行时探测警告: %s", errb.String())
+	}
 	return out.String()
+}
+
+func TestEndToEndJavaCoreWithAnonymousClassAndUTF8(t *testing.T) {
+	driver := `public class Main {
+    public static void main(String[] args) {
+        System.out.println(new Solution().message());
+    }
+}`
+	solution := `import java.util.function.Supplier;
+public class Solution {
+    public String message() {
+        return new Supplier<String>() {
+            public String get() { return "中文 · 结果"; }
+        }.get();
+    }
+}`
+	if got := runSources(t, "java", driver, solution, ""); got != "中文 · 结果\n" {
+		t.Fatalf("CORE classes or UTF-8 output lost: %q", got)
+	}
 }
 
 func TestEndToEndCpp(t *testing.T) {

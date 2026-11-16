@@ -16,6 +16,10 @@ import {
   language as cppLanguage,
 } from 'monaco-editor/languages/definitions/cpp/cpp';
 import {
+  conf as javaConfiguration,
+  language as javaLanguage,
+} from 'monaco-editor/languages/definitions/java/java';
+import {
   conf as pythonConfiguration,
   language as pythonLanguage,
 } from 'monaco-editor/languages/definitions/python/python';
@@ -29,7 +33,7 @@ type CodeEditorSettings = Readonly<{
   readOnly: boolean;
   ariaLabel: string;
   /** 未登记语法的语言按纯文本显示，不阻止新增平台语言。 */
-  syntax: 'cpp' | 'python' | 'plain';
+  syntax: 'cpp' | 'python' | 'java' | 'plain';
 }>;
 
 function modelLanguage(syntax: CodeEditorSettings['syntax']): string {
@@ -58,6 +62,9 @@ monaco.languages.setMonarchTokensProvider('cpp', cppLanguage);
 monaco.languages.register({ id: 'python', extensions: ['.py'], aliases: ['Python', 'python'] });
 monaco.languages.setLanguageConfiguration('python', pythonConfiguration);
 monaco.languages.setMonarchTokensProvider('python', pythonLanguage);
+monaco.languages.register({ id: 'java', extensions: ['.java'], aliases: ['Java', 'java'] });
+monaco.languages.setLanguageConfiguration('java', javaConfiguration);
+monaco.languages.setMonarchTokensProvider('java', javaLanguage);
 
 export async function createCodeEditor(
   host: HTMLElement,

@@ -126,6 +126,34 @@ func TestInterpretedCoreRunsBothSourcesWithItsRuntimeEnvironment(t *testing.T) {
 	}
 }
 
+func TestJavaCoreCompilesBothSourcesAndRunsOnlyJarWithFrozenMemory(t *testing.T) {
+	req := oneTestcaseRequest("java")
+	req.SolutionSource = "user Java source"
+	req.Limits.MemoryBytes = 256<<20 + 1023
+	fake := &fakeSandbox{runs: []runReply{{result: contract.RunResult{
+		Status: contract.StatusOK, Artifacts: map[string]string{"Main.jar": "jar-ref"},
+	}}, runOK("answer\n")}}
+	cfg := judgeConfig()
+	result := flow.Judge(context.Background(), fake, cfg, req, nil)
+	if result.Verdict != contract.VerdictAC || len(fake.calls) != 2 {
+		t.Fatalf("Java CORE failed: %+v, calls=%d", result, len(fake.calls))
+	}
+	compile, run := fake.calls[0], fake.calls[1]
+	if len(compile.Inputs) != 2 || compile.Inputs["Main.java"].Ref == "" || compile.Inputs["Solution.java"].Ref == "" {
+		t.Fatalf("CORE source organization lost: %+v", compile.Inputs)
+	}
+	if len(run.Inputs) != 1 || run.Inputs["Main.jar"].Ref != "jar-ref" {
+		t.Fatalf("compiled runtime must only receive jar: %+v", run.Inputs)
+	}
+	compileHeap := fmt.Sprintf("-J-Xmx%d", cfg.Compile.MemoryBytes/1024*1024)
+	if strings.Count(strings.Join(compile.Command, " "), compileHeap) != 2 || !slices.Contains(run.Command, "-Xmx268435456") {
+		t.Fatalf("compile and problem memory mixed: %v / %v", compile.Command, run.Command)
+	}
+	if run.Limits.MemoryBytes != req.Limits.MemoryBytes || compile.Limits.MemoryBytes != cfg.Compile.MemoryBytes {
+		t.Fatal("JVM heap alignment changed the actual stage limits")
+	}
+}
+
 func TestJudgeCompiledACBuildsExpectedSpecs(t *testing.T) {
 	cfg := judgeConfig()
 	req := trialRequest("cpp",

@@ -50,7 +50,7 @@ print('E2E output:',OUT,flush=True)
 env={key:os.environ[key] for key in ['PATH','HOME','TMPDIR','JAVA_HOME','LANG','LC_ALL',
  'DOCKER_HOST','DOCKER_CONTEXT','DOCKER_CONFIG','DOCKER_TLS_VERIFY','DOCKER_CERT_PATH'] if key in os.environ}
 env.update(JUDGE_BIND_ADDRESS='127.0.0.1',CHERRY_JUDGE_CONTROL_TOKEN='e2e-isolated-control',JUDGE_NODE_ID=NAME,
- JUDGE_TESTDATA_VOLUME=NAME+'-testdata',JUDGE_NODE_LANGUAGES='cpp,c',CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
+ JUDGE_TESTDATA_VOLUME=NAME+'-testdata',JUDGE_NODE_LANGUAGES='cpp,c,java',CHERRY_TEST_DATA_ROOT=str(TESTDATA_ROOT),JUDGE_STRICT_WHITESPACE='false',JUDGE_PORT=str(ports['judge']),JUDGE_ADVERTISE_URL=f"http://127.0.0.1:{ports['judge']}",
  JUDGE_CONTROL_PLANE_URL=f"http://host.docker.internal:{ports['judging']}",JUDGE_HEARTBEAT_INTERVAL='1s')
 env.update(E2E_DB_PASSWORD=secrets.token_urlsafe(24),E2E_MYSQL_PORT=str(ports['mysql']),
  E2E_REDIS_PORT=str(ports['redis']),E2E_KAFKA_PORT=str(ports['kafka']))
@@ -399,6 +399,66 @@ try:
  request(core_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':core_languages})
  print('C/C++ same-problem ACM + CORE, derived limits, override, closed base-language entry and frozen history: PASS.',flush=True)
 
+ # Java 只传单一 jar 到每个全新运行工作区；业务链同时验证两种题型与用户文件行号。
+ java_input='var in=new java.util.StringTokenizer(new String(System.in.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));'
+ java_driver='public class Main { public static void main(String[] args) throws Exception { '+java_input+'System.out.println(new Solution().add(Long.parseLong(in.nextToken()),Long.parseLong(in.nextToken()))); } }\n'
+ java_program='public class Main { public static void main(String[] args) throws Exception { '+java_input+'System.out.println(Long.parseLong(in.nextToken())+Long.parseLong(in.nextToken())); } }\n'
+ java_solution='class Solution {\n public long add(long a,long b){ return a+b; }\n}\n'
+ for java_problem,java_path,java_settings,java_source,java_template in (
+     (pid,problem_path,language_inputs,java_program,None),(cid,core_path,core_languages,java_solution,java_driver)):
+  current=request(java_path)
+  request(java_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':java_settings+[
+      {'id':'java','starterCode':'','judgeTemplate':java_template}]})
+  def java_submit(code: str) -> dict[str, object]:
+   return request('/api/submissions','POST',{'problemId':java_problem,'languageId':'java','source':code},expect=201,
+                  extra_headers={'Idempotency-Key':str(uuid.uuid4()),'X-Expected-User-Id':owner})
+  derived_limits=request(java_path+'/limits')['languages'][-1]
+  assert derived_limits['limitSource']=='DERIVED',derived_limits
+  derived_cpu=3480000000 if java_template else 6680000000
+  derived_memory=(360 if java_template else 200)<<20
+  assert (derived_limits['cpuNs'],derived_limits['memoryBytes'])==(derived_cpu,derived_memory),derived_limits
+  java_derived=finished(java_submit(java_source)['id'],'AC')
+  java_derived_frozen=sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+java_derived['id']+"'")
+  derived_payload=json.loads(bytes.fromhex(java_derived_frozen).decode())
+  assert derived_payload['limitSource']=='DERIVED' and derived_payload['limitDerivation']['languageLimitModel']['cpuOverheadNs']==280000000
+  derived_trial=request('/api/custom-runs','POST',{'problemId':java_problem,'languageId':'java','source':java_source,'inputText':'17 -9\n'},
+                        extra_headers={'X-Expected-User-Id':owner})
+  assert derived_trial['status']=='COMPLETED' and derived_trial['stdout']['text'].strip()=='8',derived_trial
+  assert (derived_trial['effectiveLimits']['cpuNs'],derived_trial['effectiveLimits']['memoryBytes'])==(derived_cpu,derived_memory),derived_trial
+  marked=request(java_path+'/calibration','POST',{'languageId':'java','kind':'OVERRIDE','cpuNs':1000000000,
+                 'memoryBytes':268435456,'clockNs':None,'referenceSource':java_source})
+  assert marked['status']=='VALID' and marked['kind']=='OVERRIDE',marked
+  java_trial=request('/api/custom-runs','POST',{'problemId':java_problem,'languageId':'java','source':java_source,'inputText':'17 -9\n'},
+                     extra_headers={'X-Expected-User-Id':owner})
+  assert java_trial['status']=='COMPLETED' and java_trial['stdout']['text'].strip()=='8',java_trial
+  java_done=finished(java_submit(java_source)['id'],'AC')
+  java_frozen=sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+java_done['id']+"'")
+  assert json.loads(bytes.fromhex(java_frozen).decode())['limitSource']=='OVERRIDE'
+  error_source=java_source.replace('a+b','missingJavaName') if java_template else java_source.replace('Long.parseLong(in.nextToken())+Long.parseLong(in.nextToken())','missingJavaName')
+  java_error=finished(java_submit(error_source)['id'],'CE')
+  if java_template:
+   assert 'Solution.java:2:' in java_error['message'],java_error
+   runtime_source=java_source.replace('return a+b;','throw new IllegalStateException("fixture");')
+   runtime_error=request('/api/custom-runs','POST',{'problemId':java_problem,'languageId':'java','source':runtime_source,'inputText':'1 2\n'},
+                         extra_headers={'X-Expected-User-Id':owner})
+   assert runtime_error['status']=='RUNTIME_ERROR' and 'Solution.java:2' in runtime_error['stderr']['text'],runtime_error
+  java_base=request(java_path+'/calibration','POST',{'languageId':'java','kind':'BASE','cpuNs':3480000000,
+                    'memoryBytes':360<<20,'clockNs':None,'referenceSource':java_source})
+  assert java_base['status']=='VALID' and java_base['kind']=='BASE',java_base
+  inverse=request(java_path+'/limits')['languages'][0]
+  assert (inverse['limitSource'],inverse['cpuNs'],inverse['memoryBytes'],inverse['calibrationId'])==('DERIVED',1000000000,256<<20,java_base['id']),inverse
+  if not java_template:current_calibration=java_base
+  current=request(java_path)
+  request(java_path+'/languages','PUT',{'rowVersion':current['rowVersion'],'allowedLanguages':java_settings})
+  assert request(java_path+'/limits')['languages'][0]['calibrationId']==java_base['id']
+  cpp_done=request('/api/submissions','POST',{'problemId':java_problem,'languageId':'cpp','source':reference if java_template else source},expect=201,
+                   extra_headers={'Idempotency-Key':str(uuid.uuid4()),'X-Expected-User-Id':owner})
+  finished(cpp_done['id'],'AC')
+  assert request('/api/submissions/'+java_done['id'])['verdict']=='AC'
+  assert java_frozen==sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+java_done['id']+"'")
+  assert java_derived_frozen==sql("SELECT HEX(CAST(payload AS CHAR)) FROM cherry_submission.judge_input WHERE submission_id='"+java_derived['id']+"'")
+ print('Java ACM + CORE, derived/override/base limits, custom run, formal submissions, editor diagnostics and frozen history: PASS.',flush=True)
+
  # Stop new admission while retaining reads and the original key's replay fact.
  submission_process=processes[3];submission_process.terminate();submission_process.wait(timeout=15)
  command,config,log=start('submission',{'CHERRY_SUBMISSION_ACCEPTING':'false'})
@@ -484,8 +544,9 @@ finally:
   try:process.wait(timeout=10)
   except subprocess.TimeoutExpired:process.kill();process.wait()
  if not args.preflight:
-  try:(OUT/'judge.log').write_bytes(run(compose+['logs','--no-color','judge'],env=env).stdout)
-  except subprocess.CalledProcessError:pass
+  for service in ('judge','mysql'):
+   try:(OUT/(service+'.log')).write_bytes(run(compose+['logs','--no-color',service],env=env).stdout)
+   except subprocess.CalledProcessError:pass
   try:run(compose+['down','-v'],env=env)
   except Exception:print('Cleanup failed; use the recorded project name to inspect owned resources.',flush=True)
  for volume in extra_volumes:

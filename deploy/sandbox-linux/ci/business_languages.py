@@ -21,6 +21,10 @@ C_DRIVER = '#include <stdio.h>\n#include "solution.c"\nint main(void){long long 
 PYPY_PROGRAM = 'a, b = map(int, input().split())\nprint(a + b)\n'
 PYPY_SOLUTION = 'class Solution:\n    def add(self, a, b):\n        return a + b\n'
 PYPY_DRIVER = 'from solution import Solution\na, b = map(int, input().split())\nprint(Solution().add(a, b))\n'
+JAVA_INPUT = 'var in=new java.util.StringTokenizer(new String(System.in.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));'
+JAVA_PROGRAM = 'public class Main { public static void main(String[] args) throws Exception { ' + JAVA_INPUT + 'System.out.println(Long.parseLong(in.nextToken())+Long.parseLong(in.nextToken())); } }\n'
+JAVA_SOLUTION = 'class Solution { public long add(long a,long b) { return a+b; } }\n'
+JAVA_DRIVER = 'public class Main { public static void main(String[] args) throws Exception { ' + JAVA_INPUT + 'System.out.println(new Solution().add(Long.parseLong(in.nextToken()),Long.parseLong(in.nextToken()))); } }\n'
 
 
 def require(condition: bool, message: str) -> None:
@@ -169,6 +173,37 @@ def run(api: API, identity: str, frozen: Callable[[str], dict[str, Any]]) -> dic
             require('solution.py", line 1' in failed_trial['stderr']['text'], 'Python 用户文件行号未映射到编辑器')
         syntax_result = submit(api, problem_id, 'pypy', syntax, 'RE')
         require(not syntax_result.get('message'), '正式提交公开了隐藏测试的运行错误')
+        languages(api, base, settings + [
+            dict(id='pypy', starterCode='', judgeTemplate=PYPY_DRIVER if mode == 'CORE' else None),
+            dict(id='java', starterCode='', judgeTemplate=JAVA_DRIVER if mode == 'CORE' else None)])
+        java_source = JAVA_SOLUTION if mode == 'CORE' else JAVA_PROGRAM
+        java_derived = limits(api, base)['java']
+        require(java_derived['limitSource'] == 'DERIVED' and java_derived['calibrationId'] == c_base,
+                'Java 未从 C 基础标定推导')
+        trial(api, problem_id, 'java', java_source, 3_480_000_000, 200 << 20)
+        derived_java = submit(api, problem_id, 'java', java_source)
+        frozen_derived_java = frozen(derived_java['id'])
+        require(frozen_derived_java['limitSource'] == 'DERIVED'
+                and frozen_derived_java['limitDerivation']['languageLimitModel']['cpuOverheadNs'] == 280_000_000,
+                'Java 推导依据没有冻结')
+        java_calibration = calibrate(api, base, 'java', java_source, 'OVERRIDE', 1_000_000_000, 256 << 20)
+        java_limits = limits(api, base)['java']
+        require(java_limits['limitSource'] == 'OVERRIDE'
+                and java_limits['calibrationId'] == java_calibration, 'Java 覆盖限制未生效')
+        trial(api, problem_id, 'java', java_source, 1_000_000_000, 256 << 20)
+        java_submission = submit(api, problem_id, 'java', java_source)
+        frozen_java = frozen(java_submission['id'])
+        require(frozen_java['limitSource'] == 'OVERRIDE', 'Java 标定没有冻结')
+        error_source = java_source.replace('return a+b;', 'return missingJavaName;') if mode == 'CORE' else java_source.replace('Long.parseLong(in.nextToken())+Long.parseLong(in.nextToken())', 'missingJavaName')
+        compile_error = submit(api, problem_id, 'java', error_source, 'CE')
+        if mode == 'CORE':
+            require('Solution.java:1:' in compile_error['message'], 'Java CORE 编译错误没有映射到编辑器行号')
+        java_base = calibrate(api, base, 'java', java_source, 'BASE', 3_480_000_000, 360 << 20)
+        inverse = limits(api, base)['cpp']
+        require((inverse['limitSource'], inverse['cpuNs'], inverse['memoryBytes'], inverse['calibrationId'])
+                == ('DERIVED', 1_000_000_000, 256 << 20, java_base), 'Java 基础标定未反推 C++ 限制')
+        trial(api, problem_id, 'cpp', sources['cpp'], 1_000_000_000, 256 << 20)
+        require(frozen(derived_java['id']) == frozen_derived_java, 'Java 标定变化改写了冻结推导输入')
         pypy_base = calibrate(api, base, 'pypy', pypy_source, 'BASE', 5_000_000_000, 256 << 20)
         current_limits = limits(api, base)
         require(current_limits['pypy']['limitSource'] == 'BASE'
@@ -176,10 +211,12 @@ def run(api: API, identity: str, frozen: Callable[[str], dict[str, Any]]) -> dic
                 and current_limits['cpp']['calibrationId'] == pypy_base, 'PyPy 基础标定未反推 C++ 限制')
         trial(api, problem_id, 'cpp', sources['cpp'], 1_080_000_000, 175 << 20)
         require(frozen(derived_pypy['id']) == frozen_pypy, 'PyPy 标定变化改写了冻结输入')
+        require(frozen(java_submission['id']) == frozen_java, '基础标定变化改写了 Java 冻结输入')
         # 成功后取消公开，永久测试环境不积累公开回归题；失败现场保留给调用者诊断。
         current = api.request('GET', base)
         api.request('POST', base + '/unpublish', dict(rowVersion=current['rowVersion']))
         result[mode] = dict(problemId=problem_id, derivedSubmissionId=submission['id'],
                             overrideSubmissionId=overridden['id'], baseCalibrationId=c_base,
-                            frozenSha256=derived['sha256'], pypySubmissionId=pypy_submission['id'])
+                            frozenSha256=derived['sha256'], pypySubmissionId=pypy_submission['id'],
+                            javaSubmissionId=java_submission['id'], javaDerivedSubmissionId=derived_java['id'])
     return result

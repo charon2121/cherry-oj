@@ -17,7 +17,7 @@ func (j *judgment) compile(ctx context.Context) (ref string, early *contract.Jud
 
 	run, err := sb.Run(ctx, contract.RunSpec{
 		Toolchain: lang.Name,
-		Command:   lang.Compile,
+		Command:   lang.CompileCommand(cfg.Compile.MemoryBytes),
 		Inputs:    sourceInputs(lang, j.sourceRef, j.solutionRef),
 		Artifacts: []string{lang.CompiledArtifact},
 		Limits:    compileLimits(cfg),
