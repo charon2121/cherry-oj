@@ -34,7 +34,7 @@
 [Business](https://github.com/charon2121/cherry-oj/actions/runs/43694294933) 共 16 项通过，
 包括新增的原生 C/C++ 同题 ACM/CORE、2 秒 CPU 自测、标定切换与历史冻结，资源清理通过。
 
-2026-11-15，测试环境新增 PyPy 8.0.1 / Python 3.11.17；当前应用发布为
+2026-11-15，测试环境新增 PyPy 8.0.1 / Python 3.11.17；当时应用发布为
 `pypy-20261115-b1b5d1691dd0`，原生节点发布为 `cherry-home-pypy-gc-20261115`，安装了 C、C++、PyPy
 三棵独立 rootfs。Java 的语言文件名、编译阶段声明与限制参数统一读取打包的 `contracts/languages.json`；
 Web 源码下载也读取该契约，ACM 下载驱动文件名，CORE 下载用户文件名。PyPy 的运行命令、固定 GC 环境与错误语义
@@ -47,8 +47,19 @@ PyPy 原生运行时 9 项、既有判题 72 项、攻击样本 56 项及隔离�
 本机 Java verify 共 342 项（默认跳过的原生客户端测试已另行连接节点补跑），Go 竞态测试与 vet、
 rootfs 52 项、CI 工具 120 项、Web 181 项、浏览器多语言 5 项与缩放回归 1 项通过。
 
+同日，应用发布工具已纳入 `deploy/app`，文件与恢复语义见[应用发布协议](./protocols/app-release.md)。
+工具从指定提交导出独立源码，完成 Java verify 与 Web check/build，生成带完整源码身份及文件摘要的发布包；
+新工具30项隔离测试在 macOS 与目标 Ubuntu 上均通过，脚本24项测试通过。测试服务器当前应用为 `app-31e60df07ee0-209b5d088b57`
+（源码提交 `31e60df0`），上一发布为 `pypy-20261115-b1b5d1691dd0`。
+真实升级、旧格式发布兼容、双向回滚，以及 current 已切换但日志尚未更新时的中断恢复通过；
+五服务恢复健康，原生节点仍为 `cherry-home-pypy-gc-20261115`，主进程未变化。
+恢复后真实浏览器通过 PyPy 的 ACM/CORE 自测、AC 提交、下载文件名与编辑器报错行号检查；回归题已恢复私有。
+应用回执已使用新格式，不再把旧 `judgeRelease` 当作实际判题版本；旧发布清单、备份与操作记录均保留。
+数据库迁移后拒绝自动回退由隔离故障测试覆盖；数据库与完整系统恢复仍需单独演练。
+
 | 部分 | 状态 |
 |---|---|
+| 应用发布与升级 | ✅ [仓库工具](../deploy/app/README.md)支持指定提交构建、包核验、升级、回滚与中断恢复；测试服务器实际演练通过。仅接管已有应用安装，不创建基础设施或开放公网；数据库恢复未演练 |
 | 同题多语言与限制标定 | ✅ C/C++/PyPy 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。2026-11-15 测试服务器三门语言真实接口及 PyPy 真实浏览器验证通过，范围见上文。模型及实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
 | 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
