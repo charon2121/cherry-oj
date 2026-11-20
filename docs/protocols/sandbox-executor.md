@@ -241,7 +241,7 @@ stdout 在退出码 0 时恰好是一行 JSON（以换行结尾）；stderr 只�
 | 其他 namespace | mount、IPC、UTS（主机名 `cherry-sandbox`）、cgroup，共 6 个 |
 | 文件系统 | 根是只读 rootfs；`/work`（工作目录、`HOME`）与 `/tmp` 是**同一块** tmpfs，128 MiB / 4096 inode，二者共用；`/dev` 只有 `null`、`zero`、`random`、`urandom` |
 | 环境变量 | 固定 `PATH=/usr/bin:/bin`、`HOME=/work`、`TMPDIR=/tmp`、`LANG=C`，再追加请求的 `env=` |
-| rlimit | core = 0；打开文件数 256；单文件大小 64 MiB |
+| rlimit | core 的软、硬上限均为 1 byte，禁止生成 core 文件及启动管道式崩溃收集器；打开文件数 256；单文件大小 64 MiB |
 | 写入 | rootfs 不可写；`/work`、`/tmp` 可写 |
 | 输入 | `input=` 的文件在工作区相对路径下，属于用户程序身份；stdin 是 fd 0，没有可改写的文件名 |
 
@@ -258,6 +258,16 @@ stdout 在退出码 0 时恰好是一行 JSON（以换行结尾）；stderr 只�
 其他属主修改和扩展属性操作仍按清单外调用终止。Java 打包工具将临时归档放在工作挂载点，
 避免通过跨挂载移动触发额外文件属性处理。
 编译器和普通命令使用同一份策略。
+
+**崩溃收集：** 执行器为自身及隔离环境固定 `RLIMIT_CORE={1,1}`，该值使用 Linux 对管道式
+core 收集的递归保护分支，且不足以生成普通 ELF core 文件。`RLIMIT_CORE=0` 不能阻止管道式
+收集器；固定为 1 是为了避免任务崩溃在宿主机启动不属于执行 cgroup 的辅助进程。
+用户程序仍可查询 core 限制，但通过 `setrlimit` 或 `prlimit64` 修改 `RLIMIT_CORE` 时返回 `EPERM`，
+包括尝试降低为 0；其他资源限制的查询与修改沿用原有行为。过滤器必须按内核实际使用的资源编号
+判断，不能通过系统调用参数的高位绕过。编译器、用户程序及其后代共用此规则。
+如果继承的 core 硬上限不足以设置为 1，执行器须在启动任务前拒绝执行并说明原因。
+不修改宿主机的 `core_pattern`、崩溃收集服务或其他全局设置；任务的终止信号、退出码、资源计量
+和回收判据保持不变。
 
 ## 9. 计量与终止
 

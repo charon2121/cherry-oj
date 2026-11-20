@@ -245,7 +245,7 @@ static _Noreturn void payload_main(const struct child_plan *plan, const char *pa
     const struct {
         int resource;
         rlim_t value;
-    } limits[] = {{RLIMIT_CORE, 0}, {RLIMIT_NOFILE, PAYLOAD_NOFILE}, {RLIMIT_FSIZE, PAYLOAD_FSIZE}};
+    } limits[] = {{RLIMIT_NOFILE, PAYLOAD_NOFILE}, {RLIMIT_FSIZE, PAYLOAD_FSIZE}};
     for (size_t i = 0; i < sizeof limits / sizeof limits[0]; i++) {
         struct rlimit r = {limits[i].value, limits[i].value};
         if (setrlimit(limits[i].resource, &r) != 0)

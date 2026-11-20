@@ -9,6 +9,7 @@
 #include <signal.h>
 #include <stddef.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 
 #include "sandbox.h"
@@ -52,7 +53,27 @@ static const uint64_t allowed_prctl[] = {3, 15, 16, 21, 23, 39, 0x53564d41};
 static const uint64_t allowed_clone = 0x100 | 0x200 | 0x400 | 0x800 | 0x4000 | 0x10000 | 0x40000 | 0x80000 |
                                       0x100000 | 0x200000 | 0x1000000;
 
+// 内核把 resource 截为 32 位，必须按同样的位宽拒绝修改，不能只比较完整的 64 位参数。
+// 单独叠加拒绝过滤器，保留其他 resource（含非法编号）原来的内核行为。
+static int freeze_core_limit(void) {
+    scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_ALLOW);
+    if (!ctx)
+        return -1;
+    int rc = seccomp_attr_set(ctx, SCMP_FLTATR_ACT_BADARCH, SCMP_ACT_KILL_PROCESS);
+    rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(setrlimit), 1,
+                           SCMP_A0(SCMP_CMP_MASKED_EQ, UINT32_MAX, RLIMIT_CORE));
+    rc |= seccomp_rule_add(ctx, SCMP_ACT_ERRNO(EPERM), SCMP_SYS(prlimit64), 2,
+                           SCMP_A1(SCMP_CMP_MASKED_EQ, UINT32_MAX, RLIMIT_CORE), SCMP_A2(SCMP_CMP_NE, 0));
+    if (rc == 0)
+        rc = seccomp_load(ctx);
+    seccomp_release(ctx);
+    return rc == 0 ? 0 : -1;
+}
+
 int filter_install(enum filter_profile profile) {
+    // 先装限制修改的过滤器：随后允许清单会禁止再次安装过滤器，二者由内核共同执行。
+    if (freeze_core_limit() != 0)
+        return -1;
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_KILL_PROCESS);
     if (!ctx)
         return -1;

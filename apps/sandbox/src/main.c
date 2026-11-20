@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -29,6 +30,19 @@
 static _Noreturn void refuse(int code, const char *message) {
     fprintf(stderr, "sandbox: %s\n", message);
     exit(code);
+}
+
+static void disable_coredumps(void) {
+    struct rlimit inherited;
+    if (getrlimit(RLIMIT_CORE, &inherited) != 0)
+        refuse(EXIT_REFUSED, "cannot read RLIMIT_CORE");
+    if (inherited.rlim_max < 1)
+        refuse(EXIT_REFUSED, "RLIMIT_CORE hard limit must be at least 1 to disable piped core dumps");
+    // 0 不能禁止管道式 core 收集；1 是 Linux 阻止收集器递归崩溃的特殊值。
+    // 在 fork 前固定软、硬上限，init、用户程序与后代均继承它。
+    const struct rlimit disabled = {1, 1};
+    if (setrlimit(RLIMIT_CORE, &disabled) != 0)
+        refuse(EXIT_REFUSED, "cannot set RLIMIT_CORE to 1 to disable piped core dumps");
 }
 
 // setuid 程序的调用方控制着环境变量、打开的 FD 与 umask，这些都不能带进后续步骤。
@@ -41,6 +55,7 @@ static void harden(void) {
         _exit(EXIT_REFUSED);
     if (clearenv() != 0 || prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0)
         _exit(EXIT_REFUSED);
+    disable_coredumps();
 }
 
 static int parse_box(int argc, char **argv) {

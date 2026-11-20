@@ -172,6 +172,31 @@ class ExecutorTest(unittest.TestCase):
         f = self.box.facts(['tool', 'exit', '3'], inputs=[('tool', probe, True)])
         self.assertEqual(f['exitCode'], 3)
 
+    def test_core_limit_is_fixed_across_fork_and_exec_without_blocking_other_limits(self):
+        for mode in ('core-limit', 'core-limit-fork', 'core-limit-exec'):
+            with self.subTest(mode=mode):
+                f = self.box.facts(['probe', mode])
+                self.assertEqual((f['exitCode'], f['signal'], f['error']), (0, 0, ''))
+
+    def test_zero_inherited_core_hard_limit_is_refused_before_starting_task(self):
+        self.box.prepare(['probe', 'exit', '0'])
+        # 独立解释器只降低本次调用的硬上限；不修改测试运行者及其他测试的限制。
+        command = ('import os,resource,sys; resource.setrlimit(resource.RLIMIT_CORE,(0,0)); '
+                   'os.execv(sys.argv[1],sys.argv[1:])')
+        result = subprocess.run([sys.executable, '-c', command, str(env.binary), '--box', '0'], input=b'',
+                                capture_output=True, user=self.service.pw_uid, group=self.service.pw_gid,
+                                extra_groups=[], timeout=10)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertEqual(result.stdout, b'')
+        self.assertIn(b'RLIMIT_CORE hard limit must be at least 1', result.stderr)
+
+    def test_core_signals_keep_their_facts_and_leave_no_core_artifact(self):
+        for mode, signal in (('abort', 6), ('segv', 11), ('mount', 31)):
+            with self.subTest(mode=mode):
+                f = self.box.facts(['probe', mode], outputs=['core'])
+                self.assertEqual((f['exitCode'], f['signal'], f['reason'], f['error']), (-1, signal, '', ''))
+                self.assertEqual(f['outputs'], [])
+
     def test_socket_probes_return_permission_error_without_creating_descriptors(self):
         for mode in ('unix-probe', 'ipv4', 'ipv6'):
             with self.subTest(mode=mode):
