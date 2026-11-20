@@ -315,9 +315,9 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
   await choose(page, '标定语言', 'C');
   await choose(page, '标定方式', '覆盖标定');
   await page.getByRole('textbox', { name: 'C 参考程序编辑器', exact: true }).fill(c.starterCode);
-  await page.getByRole('button', { name: '运行参考程序校准', exact: true }).click();
+  await page.getByRole('button', { name: '运行参考程序标定', exact: true }).click();
   await expect.poll(() => state.calibration).toMatchObject({ languageId: 'c', kind: 'OVERRIDE' });
-  await expect(page.getByRole('status').filter({ hasText: '校准状态' })).toContainText('VALID');
+  await expect(page.getByRole('status').filter({ hasText: '标定状态' })).toContainText('VALID');
   state.ready = ['c'];
   await page.goto(`/admin/problems/${problemId}?panel=publish`);
   await expect(page.getByText('c · 可作答', { exact: true })).toBeVisible();

@@ -151,12 +151,12 @@ Judge 注册前做启动自检：对端必须是 cherry-oj 的 sandbox；原生 
 测试数据地址与指纹（`cherry.judging.problem.token`，须属于 problem-service 的 `judging-problem-tokens`），
 把地址交给节点，节点按[测试数据协议](../../docs/protocols/testdata.md)读取；节点要能读到该地址
 （本地路径需挂载同一路径，见 Compose 的 `CHERRY_TEST_DATA_ROOT`）。
-标定按「题目 × 语言」记录并带标定时的数据指纹：题目的测试数据换了，旧标定过期，需在工作台重新校准。
+标定按「题目 × 语言」记录并带标定时的数据指纹：题目的测试数据换了，旧标定过期，需在工作台重新标定。
 
 隔离端到端验证：先运行 Maven package 和 `docker compose build judge`，再运行
 `python3 scripts/e2e.py`。脚本建立独立 MySQL/Redis/Kafka、五服务、Compose 项目与卷，
-从 Finder ZIP 上传测试数据（写成协议目录，节点按同一绝对路径只读挂载）、校准、公开，再验证 AC/WA/CE/TLE、
-Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题目原地修改与取消公开。
+从 Finder ZIP 上传测试数据（写成协议目录，节点按同一绝对路径只读挂载）、标定、公开，再验证 AC/WA/CE/TLE、
+Kafka 与节点故障恢复、测试数据替换后旧标定过期并重新标定、公开题目原地修改与取消公开。
 结束只清理本次创建的资源，证据保存在打印的临时目录；`--keep` 保留栈供浏览器验证。
 
 

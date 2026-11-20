@@ -263,7 +263,7 @@ try:
 # 判题结果记录它读取的是哪一份数据：第一次提交判的是第一份数据。
  digest_of=lambda sid:sql("SELECT a.test_data_digest FROM cherry_judging.judge_attempt a JOIN cherry_judging.judge_task t ON t.id=a.task_id WHERE t.submission_id='"+sid+"' AND a.status='COMPLETED' ORDER BY a.attempt_no DESC LIMIT 1")
  assert digest_of(first['id'])==asset['digest'],digest_of(first['id'])
- # 替换测试数据：旧校准立即过期，新提交被挡住，直到按新数据重新校准；已冻结的 JudgeInput 不变。
+ # 替换测试数据：旧标定立即过期，新提交被挡住，直到按新数据重新标定；已冻结的 JudgeInput 不变。
  frozen_input=sql("SELECT payload FROM cherry_submission.judge_input WHERE submission_id='"+first['id']+"'")
  second=put_test_data(pid,[('1',b'1 2\n',b'3\n'),('2',b'100 -7\n',b'93\n')])
  assert second['testcaseCount']==2 and second['digest']!=asset['digest'],second

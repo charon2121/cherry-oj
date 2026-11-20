@@ -55,7 +55,7 @@ function AdminDashboardPage() {
       title: problem.title,
       detail: problem.slug,
       status: problem.hasTestData ? 'partial' : 'none',
-      statusLabel: problem.hasTestData ? '有测试数据，待校准与公开' : '还没有测试数据',
+      statusLabel: problem.hasTestData ? '有测试数据，待标定与公开' : '还没有测试数据',
       link: 'problem',
     }));
   const pendingUsers: TodoRow[] = (users.data?.items ?? [])

@@ -212,7 +212,7 @@ test('replacing the test data uses PUT and warns that the old calibration is sta
   expect(state.requests.find((item) => item.method === 'PUT')?.path).toBe(
     `/api/admin/problems/${problemId}/test-data`,
   );
-  await expect(page.getByText('旧的校准已过期，请重新校准')).toBeVisible();
+  await expect(page.getByText('旧的标定已过期，请重新标定')).toBeVisible();
 });
 
 test('an archived problem is read-only', async ({ page }) => {
@@ -226,7 +226,7 @@ test('an archived problem is read-only', async ({ page }) => {
   await expect(page.getByText('这道题已归档，当前为只读状态')).toBeVisible();
   await expect(page.getByLabel('测试数据 ZIP')).toBeDisabled();
   await page.goto(`/admin/problems/${problemId}?panel=calibration`);
-  await expect(page.getByRole('button', { name: '运行参考程序校准', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '运行参考程序标定', exact: true })).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   // 只读题目没有保存按钮，正文也不可编辑。

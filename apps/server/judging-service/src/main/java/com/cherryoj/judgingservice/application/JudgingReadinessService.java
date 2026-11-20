@@ -184,13 +184,13 @@ public class JudgingReadinessService {
         if (!"BASE".equals(request.kind())) previousBase = null;
         for (CalibrationRow previous : distinct(sameLanguage, previousBase)) {
             if (repository.supersede(previous.id(), now(), previous.rowVersion()) != 1) {
-                throw conflict("CALIBRATION_STATE_CONFLICT", "有效校准已经改变，请重试。");
+                throw conflict("CALIBRATION_STATE_CONFLICT", "有效标定已经改变，请重试。");
             }
         }
         String previousId = previousBase != null ? previousBase.id() : sameLanguage == null ? null : sameLanguage.id();
         if (repository.markCalibrationValid(start.calibrationId(), actorId, previousId, writeJson(summary), now())
                 != 1) {
-            throw conflict("CALIBRATION_STATE_CONFLICT", "校准状态已经改变，请重试。");
+            throw conflict("CALIBRATION_STATE_CONFLICT", "标定状态已经改变，请重试。");
         }
         audit(
                 "CALIBRATION",
@@ -216,7 +216,7 @@ public class JudgingReadinessService {
             String id, BenchmarkSummary summary, String error, String actorId, String traceId) {
         transactions.executeWithoutResult(status -> {
             if (repository.markCalibrationFailed(id, writeJson(summary), safe(error), now()) != 1) {
-                throw conflict("CALIBRATION_STATE_CONFLICT", "校准状态已经改变，请重试。");
+                throw conflict("CALIBRATION_STATE_CONFLICT", "标定状态已经改变，请重试。");
             }
             audit(
                     "CALIBRATION",

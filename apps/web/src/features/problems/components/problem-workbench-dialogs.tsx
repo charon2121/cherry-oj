@@ -19,7 +19,7 @@ import type { AdminProblem, PublishCheck } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
 
-// 工作台里不属于"写题面"的动作——替换测试数据、校准、公开——各自是一个从属性栏打开的对话框
+// 工作台里不属于"写题面"的动作——替换测试数据、标定、公开——各自是一个从属性栏打开的对话框
 // （linear.app 新建 issue 对话框：宽 750、21px 圆角、标题 18px/600）。正文页只负责写。
 
 export function apiErrorMessage(error: unknown, fallback: string): string {
@@ -79,7 +79,7 @@ export function TestDataDialog({
         <DialogHeader>
           <DialogTitle>测试数据</DialogTitle>
           <DialogDescription>
-            一道题只有一份测试数据：上传即替换，替换后旧的校准过期。ZIP 中 .in/.out
+            一道题只有一份测试数据：上传即替换，替换后旧的标定过期。ZIP 中 .in/.out
             必须成对、文件名需安全。
           </DialogDescription>
         </DialogHeader>
@@ -231,10 +231,10 @@ export function CalibrationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>运行{referenceLabel}校准</DialogTitle>
+          <DialogTitle>运行{referenceLabel}标定</DialogTitle>
           <DialogDescription>
             用{referenceLabel}跑一遍当前测试数据，确认限制可用。{referenceLabel}
-            只在当前页面内存里，校准成功或离开工作台后清空。
+            只在当前页面内存里，标定成功或离开工作台后清空。
           </DialogDescription>
         </DialogHeader>
         {configuration}
@@ -289,7 +289,7 @@ export function CalibrationDialog({
             disabled={blockedReason !== undefined || !referenceSource.trim()}
             onClick={onRun}
           >
-            运行{referenceLabel}校准
+            运行{referenceLabel}标定
           </Button>
         </DialogFooter>
       </DialogContent>

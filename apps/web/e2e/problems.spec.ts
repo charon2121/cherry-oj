@@ -243,7 +243,7 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
         { code: 'SAMPLES', passed: true, message: '样例完整' },
         { code: 'LANGUAGE', passed: true, message: '语言配置完整' },
         { code: 'TEST_DATA', passed: false, message: '还没有测试数据' },
-        { code: 'CALIBRATION', passed: false, message: '尚未校准' },
+        { code: 'CALIBRATION', passed: false, message: '尚未标定' },
         { code: 'ONLINE_JUDGE_NODE', passed: true, message: '在线判题节点可用' },
       ],
     }),
@@ -461,7 +461,7 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
         { code: 'SAMPLES', passed: false, message: '至少需要一个样例。' },
         { code: 'LANGUAGE', passed: false, message: '核心代码题需要填写驱动代码。' },
         { code: 'TEST_DATA', passed: false, message: '还没有测试数据' },
-        { code: 'CALIBRATION', passed: false, message: '尚未校准' },
+        { code: 'CALIBRATION', passed: false, message: '尚未标定' },
         { code: 'ONLINE_JUDGE_NODE', passed: true, message: '在线判题节点可用' },
       ],
     }),
@@ -499,7 +499,7 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
 
   await driverSection.getByRole('button', { name: '重新标定' }).click();
   await expect(page).toHaveURL(/panel=calibration/);
-  await expect(page.getByRole('dialog', { name: '运行参考核心代码校准' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '运行参考核心代码标定' })).toBeVisible();
 });
 
 test('a published problem keeps its manual save reachable without widening a 320px page', async ({

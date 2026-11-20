@@ -230,7 +230,7 @@ export function AdminProblemWorkbench({
 
 // 构图取自 linear.app 的 Issue 详情（docs/design-system/measurements.md「详情页」）：
 // 左边一页到底地写——标题、题面、输入输出、数据范围、提示、样例、起始代码——没有步骤、没有表单标签和
-// 边框；右边一栏属性，点开即在原地改。不属于"写"的动作（测试数据、校准、公开）是属性栏打开的对话框。
+// 边框；右边一栏属性，点开即在原地改。不属于"写"的动作（测试数据、标定、公开）是属性栏打开的对话框。
 //
 // 保存：私有题目像 linear.app 一样停止输入后自动保存；已公开题目的修改会立即对学生生效，
 // 所以仍由管理员点"保存"（或 ⌘S）确认，避免写到一半的题面被学生看到。
@@ -403,7 +403,7 @@ function WorkbenchEditor({
     onSuccess: async (uploaded) => {
       uploadController.current = undefined;
       setUploadState(
-        `已替换测试数据，共 ${uploaded.testcaseCount} 组。旧的校准已过期，请重新校准。`,
+        `已替换测试数据，共 ${uploaded.testcaseCount} 组。旧的标定已过期，请重新标定。`,
       );
       await refresh();
     },
@@ -483,7 +483,7 @@ function WorkbenchEditor({
   const passedChecks = check.data?.checks.filter((item) => item.passed).length ?? 0;
   const totalChecks = check.data?.checks.length ?? 0;
 
-  // 测试数据、校准和公开都以服务端已保存的内容为准，本地还有没存的修改时先等它存好。
+  // 测试数据、标定和公开都以服务端已保存的内容为准，本地还有没存的修改时先等它存好。
   let unsavedReason: string | undefined;
   if (!editable) unsavedReason = '题目已归档，不能再修改。';
   else if (isDirty || languagesDirty) {
@@ -827,7 +827,7 @@ function WorkbenchEditor({
                 muted={!calibrationReady}
                 onClick={() => onPanelChange('calibration')}
               >
-                {calibrationReady ? '已校准' : '运行校准'}
+                {calibrationReady ? '已标定' : '运行标定'}
               </PropertyButton>
               <PropertyButton icon={<Server aria-hidden="true" />} disabled>
                 {nodeUnavailable
@@ -921,12 +921,12 @@ function WorkbenchEditor({
         running={calibration.isPending}
         resultMessage={
           calibration.data
-            ? `校准状态：${calibration.data.status}。参考源码已从页面内存清除。`
+            ? `标定状态：${calibration.data.status}。参考源码已从页面内存清除。`
             : undefined
         }
         errorMessage={
           calibration.isError
-            ? apiErrorMessage(calibration.error, '校准失败，参考程序仍保留在当前页面。')
+            ? apiErrorMessage(calibration.error, '标定失败，参考程序仍保留在当前页面。')
             : undefined
         }
         onRun={() => calibration.mutate()}

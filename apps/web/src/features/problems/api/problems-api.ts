@@ -305,7 +305,7 @@ function problemRequest<T>(
       ).data,
   );
 }
-/** 上传即替换：题目只有一份测试数据，数据一换，旧的校准就过期了。 */
+/** 上传即替换：题目只有一份测试数据，数据一换，旧的标定就过期了。 */
 export async function replaceTestData(problemId: string, file: File, signal?: AbortSignal) {
   const form = new FormData();
   form.set('file', file, file.name);
