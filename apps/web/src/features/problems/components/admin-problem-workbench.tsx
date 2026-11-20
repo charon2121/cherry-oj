@@ -104,19 +104,19 @@ const difficulties: ReadonlyArray<ProblemDifficulty> = ['UNRATED', 'EASY', 'MEDI
 // 停止输入多久后自动保存。linear.app 是边写边存；这里留一点间隔，避免每个字都发一次请求。
 const AUTOSAVE_DELAY_MS = 800;
 
-function toFormValues(version: AdminProblem): WorkbenchValues {
-  const language = version.allowedLanguages[0];
+function toFormValues(problem: AdminProblem): WorkbenchValues {
+  const language = problem.allowedLanguages[0];
   if (!language) throw new Error('题目语言配置为空。');
   return {
-    title: version.title,
-    statementMarkdown: version.statementMarkdown,
-    inputDescriptionMarkdown: version.inputDescriptionMarkdown,
-    outputDescriptionMarkdown: version.outputDescriptionMarkdown,
-    constraintsMarkdown: version.constraintsMarkdown ?? '',
-    hintMarkdown: version.hintMarkdown ?? '',
-    difficulty: version.difficulty,
-    tags: version.tags,
-    samples: version.samples.map((sample) => ({
+    title: problem.title,
+    statementMarkdown: problem.statementMarkdown,
+    inputDescriptionMarkdown: problem.inputDescriptionMarkdown,
+    outputDescriptionMarkdown: problem.outputDescriptionMarkdown,
+    constraintsMarkdown: problem.constraintsMarkdown ?? '',
+    hintMarkdown: problem.hintMarkdown ?? '',
+    difficulty: problem.difficulty,
+    tags: problem.tags,
+    samples: problem.samples.map((sample) => ({
       input: sample.input,
       output: sample.output,
       explanationMarkdown: sample.explanationMarkdown ?? '',
