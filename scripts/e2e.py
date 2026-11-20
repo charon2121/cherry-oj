@@ -104,9 +104,8 @@ def start(service,extra=None):
  CHERRY_JUDGING_SERVICE_URL=f"http://127.0.0.1:{ports['judging']}",
  CHERRY_KAFKA_BOOTSTRAP_SERVERS=f"127.0.0.1:{ports['kafka']}",
  CHERRY_SUBMISSION_MESSAGING_ENABLED='true',CHERRY_SUBMISSION_ACCEPTING='true',CHERRY_FORMAL_JUDGING_ENABLED='true',
- # 服务间调用身份：各服务按名字读 <name>-private.pem，user-service 读公钥；端口是随机的，换令牌地址要显式给。
- CHERRY_SERVICE_IDENTITY_DIR=str(OUT/'service-identity'),
- CHERRY_SERVICE_TOKEN_URI=f"http://127.0.0.1:{ports['user']}/internal/service-tokens")
+ # 各服务用自己的私钥签发调用令牌，并通过 public/ 下的公钥核验调用方。
+ CHERRY_SERVICE_IDENTITY_DIR=str(OUT/'service-identity'))
  if extra:config.update(extra)
  jar=APPLICATIONS/f'{service}.jar'
  log=open(OUT/f'{service}.log','ab');logs.append(log)
