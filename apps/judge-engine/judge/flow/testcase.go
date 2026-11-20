@@ -11,7 +11,7 @@ import (
 )
 
 func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCase) contract.TestcaseResult {
-	sb, cfg, lang := j.sandbox, j.config, j.language
+	exec, cfg, lang := j.execution, j.config, j.language
 	limits, clockNs := j.request.Limits, j.clockNs
 	executableRef := j.executableRef
 	trial := j.request.Mode == contract.ModeTrial
@@ -25,7 +25,7 @@ func (j *judgment) runTestcase(ctx context.Context, idx int, tc testcase.TestCas
 		}
 	}
 
-	run, runErr := sb.Run(ctx, contract.RunSpec{
+	run, runErr := exec.Run(ctx, contract.RunSpec{
 		Toolchain: lang.Name,
 		Command:   lang.RunCommand(limits.MemoryBytes),
 		Env:       lang.RunEnv,
@@ -77,7 +77,7 @@ func sourceInputs(lang language.Language, sourceRef, solutionRef string) map[str
 }
 
 func (j *judgment) stdinFor(ctx context.Context, input testcase.Blob) (*contract.FileSource, func(), error) {
-	sb, inlineThreshold := j.sandbox, j.config.InlineThresholdBytes
+	exec, inlineThreshold := j.execution, j.config.InlineThresholdBytes
 	rc, err := input.Open()
 	if err != nil {
 		return nil, func() {}, err
@@ -96,7 +96,7 @@ func (j *judgment) stdinFor(ctx context.Context, input testcase.Blob) (*contract
 		return &contract.FileSource{Text: string(body)}, func() {}, nil
 	}
 
-	ref, err := sb.Upload(ctx, rc)
+	ref, err := exec.Upload(ctx, rc)
 	if err != nil {
 		return nil, func() {}, err
 	}

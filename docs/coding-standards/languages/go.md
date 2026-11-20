@@ -56,12 +56,12 @@ go test -race ./...     # 全绿
 
 - **类型不导出、构造函数导出**：`diskStore` + `NewDiskStore()`。
   对外的契约是接口，具体实现随时能换。
-- **接口由消费方定义。** `flow.Sandbox`、`preflight.Sandbox`、`api.Judger` 都声明在
+- **接口由消费方定义。** `flow.Execution`、`preflight.VersionReader`、`api.Judger` 都声明在
   使用方，实现方完全不知道它们存在。好处：依赖单向不成环，且测试能塞一个
   十几行的假替身。
 - **接受接口，返回结构体。** `api.New(exec Executor, ...)` 收接口，
   `pool.New(...) *Pool` 返回具体类型。
-- **接口要小。** `flow.Sandbox` 只有 Upload/Run/Delete 三个方法，所以假替身
+- **接口要小。** `flow.Execution` 只有 Upload/Run/Delete 三个方法，所以假替身
   三十行就能写完。接口越大，替身越难写，测试就越容易退化成「起个真环境」。
 - 一段逻辑该挂在数据类型上还是放别处，**看它依不依赖配置**：
   `JudgeLimits.Validate()` 只看数据本身，挂类型上正好；算墙钟要读 `clockRatio`
@@ -236,7 +236,7 @@ lang.Compile[0] = "..."   // 改的是全局 registry！
 - **别在测试里吞 error**：`c, _ := NewHost()` 失败时 `c` 是 nil，报错推迟到下
   一行变成莫名其妙的 nil panic，行号还指错地方。
 - **假替身优先于真环境**：`httptest.NewServer` 假装控制面、手写的
-  `fakeSandbox` 假装整个执行层。判题逻辑的单测不该需要真起一个沙箱。
+  `fakeExecution` 假装整个执行层。判题逻辑的单测不该需要真起一个沙箱。
 - **黑盒（`package foo_test`）优先**；只有当断言必须读非导出字段或遍历非导出
   注册表时才用白盒，并在文件头注明理由（`language` 的一致性检查、
   `backend.devhost` 要读临时工作目录、`node/preflight` 要注入受保护文件与 cgroup 读取器）。

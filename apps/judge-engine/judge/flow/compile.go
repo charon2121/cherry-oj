@@ -10,12 +10,12 @@ import (
 // compile 返回编译产物 ref。解释型语言不编译，ref 为空；若判题应当提前结束，
 // early 带着已经区分好 CE / SE 的结果。
 func (j *judgment) compile(ctx context.Context) (ref string, early *contract.JudgeResult) {
-	sb, cfg, lang := j.sandbox, j.config, j.language
+	exec, cfg, lang := j.execution, j.config, j.language
 	if !lang.NeedsCompile() {
 		return "", nil
 	}
 
-	run, err := sb.Run(ctx, contract.RunSpec{
+	run, err := exec.Run(ctx, contract.RunSpec{
 		Toolchain: lang.Name,
 		Command:   lang.CompileCommand(cfg.Compile.MemoryBytes),
 		Inputs:    sourceInputs(lang, j.sourceRef, j.solutionRef),

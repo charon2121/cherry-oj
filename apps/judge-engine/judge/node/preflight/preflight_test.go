@@ -31,4 +31,4 @@ func TestCheckRefusesMissingManifestOrWrongBackend(t *testing.T) {
 }
 
 // 自检消费的是进程内执行层已有的能力，不另建一个探测通道。
-var _ preflight.Sandbox = (*execution.Engine)(nil)
+var _ preflight.VersionReader = (*execution.Engine)(nil)

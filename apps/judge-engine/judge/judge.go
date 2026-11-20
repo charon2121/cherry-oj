@@ -20,7 +20,7 @@ import (
 	"cherry-oj/judge-engine/judge/testcase"
 )
 
-// HTTP 连接的防护期限，与 sandbox 取值一致；不含写期限，理由见 Run。
+// 判题 HTTP 服务的连接防护期限；不含写期限，理由见 Run。
 const (
 	httpReadHeaderTimeout = 5 * time.Second
 	httpIdleTimeout       = 30 * time.Second
@@ -35,17 +35,17 @@ const (
 )
 
 // judgeService 把 HTTP API 的单次判题入口接到判题编排。
-// 依赖保留为 flow.Sandbox，既能接真实客户端，也不把传输实现泄漏给 API 层。
+// 它通过 flow.Execution 使用执行层，API 层只接触判题入口。
 type judgeService struct {
-	sandbox flow.Sandbox
-	config  judgeconfig.Settings
-	logger  *slog.Logger
+	execution flow.Execution
+	config    judgeconfig.Settings
+	logger    *slog.Logger
 }
 
 func (s *judgeService) Judge(ctx context.Context, req contract.JudgeRequest) contract.JudgeResult {
-	result := flow.Judge(ctx, s.sandbox, s.config, req, s.logger)
+	result := flow.Judge(ctx, s.execution, s.config, req, s.logger)
 	if result.Verdict == contract.VerdictSE {
-		// SE 是平台自己的问题（sandbox 不可用、测试数据损坏……），原因只写在响应的 message 里；
+		// SE 是平台自己的问题（执行层不可用、测试数据损坏……），原因只写在响应的 message 里；
 		// 不在这里留痕，排查就只能去调用方翻响应。WA、TLE 等正常结论不记。
 		s.logger.Warn("judge.result.system_error", "submissionId", req.SubmissionID,
 			"problemId", req.ProblemID, "testDataLocation", req.TestDataLocation, "reason", systemErrorReason(result))
@@ -95,9 +95,9 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 		return err
 	}
 	service := &judgeService{
-		sandbox: engine,
-		config:  cfg.Judge,
-		logger:  logger,
+		execution: engine,
+		config:    cfg.Judge,
+		logger:    logger,
 	}
 	handler := api.New(service).Handler()
 	var judgeNode *node.Node
@@ -148,13 +148,13 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 
 // smokeLanguages 用每门声明语言的冒烟程序走一遍真实的判题流程（编译加运行），任何一门没跑通就拒绝上线。
 // 悄悄少声明一门看起来更"可用"，但那门语言的标定与提交会一直找不到节点，比起不来更难发现。
-func smokeLanguages(ctx context.Context, sandbox flow.Sandbox, settings judgeconfig.Settings, languages []string, logger *slog.Logger) error {
+func smokeLanguages(ctx context.Context, execution flow.Execution, settings judgeconfig.Settings, languages []string, logger *slog.Logger) error {
 	for _, id := range languages {
 		lang, ok := language.Get(id)
 		if !ok {
 			return fmt.Errorf("language %s is not registered", id)
 		}
-		result := flow.Judge(ctx, sandbox, settings, contract.JudgeRequest{
+		result := flow.Judge(ctx, execution, settings, contract.JudgeRequest{
 			SubmissionID: "preflight-smoke-" + id,
 			ProblemID:    "preflight-smoke",
 			LanguageID:   id,

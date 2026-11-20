@@ -24,7 +24,7 @@ func TestJudgeChecksExecutionWallAgainstHardLimitBeforeUpload(t *testing.T) {
 			} else {
 				req.Limits.CPUNs = wall
 			}
-			fake := &fakeSandbox{runs: []runReply{compileOK(), runOK("answer\n")}}
+			fake := &fakeExecution{runs: []runReply{compileOK(), runOK("answer\n")}}
 			result := flow.Judge(context.Background(), fake, cfg, req, nil)
 			if delta <= 0 {
 				if result.Verdict != contract.VerdictAC || len(fake.calls) != 2 {

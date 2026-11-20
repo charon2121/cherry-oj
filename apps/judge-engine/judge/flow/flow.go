@@ -14,8 +14,8 @@ import (
 	"cherry-oj/judge-engine/judge/testcase"
 )
 
-// Sandbox 是判题所消费的能力；实现不依赖 flow，测试无需启动内核沙箱。
-type Sandbox interface {
+// Execution 是判题所需的进程内执行能力，包括运行命令和管理 blob 引用。
+type Execution interface {
 	Upload(context.Context, io.Reader) (string, error)
 	Run(context.Context, contract.RunSpec) (contract.RunResult, error)
 	Delete(context.Context, string) error
@@ -23,12 +23,12 @@ type Sandbox interface {
 
 // Judge 完成一次判题并释放引用；请求及基础设施错误归为 SE。
 // logger 记录不影响结论、但需要留痕的问题（如删除 blob 失败）；nil 使用 slog.Default。
-func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.JudgeRequest, logger *slog.Logger) contract.JudgeResult {
+func Judge(ctx context.Context, exec Execution, cfg config.Settings, req contract.JudgeRequest, logger *slog.Logger) contract.JudgeResult {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	req.Testcases = slices.Clone(req.Testcases)
-	job := judgment{sandbox: sb, config: cfg, request: req, log: logger}
+	job := judgment{execution: exec, config: cfg, request: req, log: logger}
 	return job.run(ctx)
 }
 
@@ -36,7 +36,7 @@ func Judge(ctx context.Context, sb Sandbox, cfg config.Settings, req contract.Ju
 // 测试点输入的临时引用由 runTestcase 在每点结束时释放，不累积到整次判题结束；
 // submit 模式下测试数据的本地副本（testData）随这次判题一起在 close 里删除。
 type judgment struct {
-	sandbox                  Sandbox
+	execution                Execution
 	config                   config.Settings
 	request                  contract.JudgeRequest
 	language                 language.Language
@@ -113,7 +113,7 @@ func (j *judgment) prepare(ctx context.Context) error {
 	if j.clockNs > config.MaxClockNs {
 		return fmt.Errorf("execution clockNs (%d) exceeds the wall-clock hard limit (%d)", j.clockNs, config.MaxClockNs)
 	}
-	ref, err := j.sandbox.Upload(ctx, strings.NewReader(j.request.Source))
+	ref, err := j.execution.Upload(ctx, strings.NewReader(j.request.Source))
 	if err != nil {
 		return fmt.Errorf("upload source: %v", err)
 	}
@@ -124,7 +124,7 @@ func (j *judgment) prepare(ctx context.Context) error {
 	if j.request.SolutionSource == "" {
 		return nil
 	}
-	ref, err = j.sandbox.Upload(ctx, strings.NewReader(j.request.SolutionSource))
+	ref, err = j.execution.Upload(ctx, strings.NewReader(j.request.SolutionSource))
 	if err != nil {
 		return fmt.Errorf("upload solution: %v", err)
 	}
@@ -165,10 +165,10 @@ func loadTestcases(ctx context.Context, cfg config.Settings, req contract.JudgeR
 	return testcase.Set{Testcases: testcase.FromSpecs(req.Testcases)}, nil
 }
 
-// deleteRef 用不随请求取消的上下文删除 blob。失败不影响判题结论（sandbox 的 store
-// 过了保留期会自行清理），但要留痕：持续失败说明 sandbox 的 store 或连接有问题。
+// deleteRef 用不随请求取消的上下文删除 blob。执行层会清理过期的 blob，
+// 因此删除失败只记日志，判题结论照常返回。
 func (j *judgment) deleteRef(ctx context.Context, ref string) {
-	if err := j.sandbox.Delete(context.WithoutCancel(ctx), ref); err != nil {
+	if err := j.execution.Delete(context.WithoutCancel(ctx), ref); err != nil {
 		j.log.Warn("judge.blob.delete.failed", "submissionId", j.request.SubmissionID, "ref", ref, "error", err)
 	}
 }

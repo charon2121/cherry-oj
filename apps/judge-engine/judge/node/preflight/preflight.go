@@ -8,8 +8,8 @@ import (
 	"cherry-oj/judge-engine/judge/config"
 )
 
-// Sandbox 是自检所消费的能力。接口由消费方定义，实现是 judge 在本进程内装配的执行层。
-type Sandbox interface {
+// VersionReader 读取节点自检所需的执行层版本与隔离类型。
+type VersionReader interface {
 	Version(ctx context.Context) (contract.SandboxVersion, error)
 }
 
@@ -17,8 +17,8 @@ type Sandbox interface {
 //
 // 执行层报告 linux 隔离与配置了部署清单必须同时成立：只有一边成立，说明部署与配置不一致，
 // 这时既不能按原生部署核对，也不能当作开发环境放行。
-func Check(ctx context.Context, j config.Settings, sandbox Sandbox) error {
-	version, err := sandbox.Version(ctx)
+func Check(ctx context.Context, j config.Settings, versions VersionReader) error {
+	version, err := versions.Version(ctx)
 	if err != nil {
 		return fmt.Errorf("sandbox unavailable: %w", err)
 	}

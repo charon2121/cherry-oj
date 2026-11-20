@@ -13,20 +13,20 @@ import (
 	judgeconfig "cherry-oj/judge-engine/judge/config"
 )
 
-type unreachableSandbox struct{}
+type unreachableExecution struct{}
 
-func (unreachableSandbox) Upload(context.Context, io.Reader) (string, error) {
+func (unreachableExecution) Upload(context.Context, io.Reader) (string, error) {
 	return "", errors.New("connection refused")
 }
-func (unreachableSandbox) Run(context.Context, contract.RunSpec) (contract.RunResult, error) {
+func (unreachableExecution) Run(context.Context, contract.RunSpec) (contract.RunResult, error) {
 	return contract.RunResult{}, errors.New("connection refused")
 }
-func (unreachableSandbox) Delete(context.Context, string) error { return nil }
+func (unreachableExecution) Delete(context.Context, string) error { return nil }
 
 // SE 的原因只写在响应里；judge 必须自己留痕，否则排查只能去调用方翻响应。
 func TestSystemErrorIsLoggedWithReason(t *testing.T) {
 	var logs bytes.Buffer
-	s := &judgeService{sandbox: unreachableSandbox{}, config: judgeconfig.Default().Judge,
+	s := &judgeService{execution: unreachableExecution{}, config: judgeconfig.Default().Judge,
 		logger: slog.New(slog.NewJSONHandler(&logs, nil))}
 	req := contract.JudgeRequest{SubmissionID: "s-7", LanguageID: "python", Source: "print(1)",
 		Mode: contract.ModeTrial, Limits: contract.JudgeLimits{CPUNs: 1e9, MemoryBytes: 64 << 20},

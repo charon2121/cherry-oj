@@ -11,12 +11,9 @@ import (
 	"cherry-oj/judge-engine/judge/node/registry"
 )
 
-// Sandbox 是启动自检所消费的能力，由 judge 现有的 sandbox 客户端实现。
-type Sandbox = preflight.Sandbox
-
-// Preflight 在注册前自检：对端是 cherry-oj 的 sandbox，原生部署与部署清单一致。
-func Preflight(ctx context.Context, s config.Settings, sandbox Sandbox) error {
-	return preflight.Check(ctx, s, sandbox)
+// Preflight 在注册前核对进程内执行层的版本、隔离类型和原生部署清单。
+func Preflight(ctx context.Context, s config.Settings, versions preflight.VersionReader) error {
+	return preflight.Check(ctx, s, versions)
 }
 
 // Languages 返回本节点要声明的语言：原生部署取发布包锁，开发环境取配置；在 Preflight 之后调用。
