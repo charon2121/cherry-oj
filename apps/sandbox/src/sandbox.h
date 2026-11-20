@@ -1,6 +1,6 @@
 // sandbox：一次性、setuid-root 的隔离执行器。每次调用执行一条命令，输出一行 JSON 事实后退出。
 //
-// 调用方（sandbox HTTP 服务，非 root）把请求写进 box 目录，再执行 `sandbox --box N`。
+// 调用方（judge 进程内的执行层，非 root）把请求写进 box 目录，再执行 `sandbox --box N`。
 // 本程序不理解判题：编译、比对与 verdict 都在 judge。进程结构见 main.c 顶部。
 #ifndef CHERRY_SANDBOX_H
 #define CHERRY_SANDBOX_H
@@ -112,20 +112,20 @@ int box_write_file(const struct box *b, const struct config *c, const char *name
 int box_copy_artifact(const struct box *b, const struct config *c, const char *name, int src, int64_t size);
 
 // ---- 执行组 ----
-struct usage {
+struct cgroup_usage {
     int64_t cpu_ns, memory_bytes;
     uint64_t oom, oom_kill, memory_max_events, pids_max_events;
     bool populated;
 };
-struct jobgroup {
+struct job_cgroup {
     int jobs; // 委派的 jobs 子树
     int dir;  // jobs/box-<N>
     char name[32];
 };
-int group_create(const struct config *c, int box, const struct limits *l, struct jobgroup *g, char *err, size_t errlen);
-int group_usage(const struct jobgroup *g, struct usage *u);
-int group_stop(const struct jobgroup *g, struct usage *final); // 整组 kill 并等待清空
-int group_remove(struct jobgroup *g);
+int cgroup_create(const struct config *c, int box, const struct limits *l, struct job_cgroup *g, char *err, size_t errlen);
+int cgroup_read_usage(const struct job_cgroup *g, struct cgroup_usage *u);
+int cgroup_stop(const struct job_cgroup *g, struct cgroup_usage *final); // 整组 kill 并等待清空
+int cgroup_remove(struct job_cgroup *g);
 
 // ---- namespace 内：init 与用户程序 ----
 struct child_plan {
@@ -175,7 +175,7 @@ struct facts {
     struct supervision supervision;
     bool cancelled;
     bool output_exceeded;
-    struct usage usage;
+    struct cgroup_usage usage;
     bool usage_valid;
     int64_t cpu_ns, clock_ns;
     int64_t cpu_budget;
@@ -197,7 +197,7 @@ struct run {
     int workspace; // 已停止的工作区，产物从这里取
     bool reclaimed;
 };
-int execute(const struct config *c, const struct spec *s, const struct box *b, struct jobgroup *g, struct run *r);
+int execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r);
 
 // ---- 小工具 ----
 int64_t monotonic_ns(void);

@@ -91,7 +91,7 @@ static void fail(struct supervision *s, const char *fmt, ...) {
 
 struct monitor {
     struct supervision *sup;
-    const struct jobgroup *group;
+    const struct job_cgroup *cgroup;
     const struct limits *limits;
     struct stream out, err;
     int exec_error, report, pidfd, cancel, timer;
@@ -107,10 +107,10 @@ static void on_exec_error(struct monitor *m) {
     close(m->exec_error);
     m->exec_error = -1;
     if (n == 0) {
-        struct usage u;
+        struct cgroup_usage u;
         m->sup->started = true;
         m->started_at = monotonic_ns();
-        if (group_usage(m->group, &u) != 0)
+        if (cgroup_read_usage(m->cgroup, &u) != 0)
             fail(m->sup, "read CPU baseline: %s", strerror(errno));
         else
             m->cpu_base = u.cpu_ns;
@@ -166,8 +166,8 @@ static bool on_tick(struct monitor *m) {
         m->sup->reason = REASON_WALL;
         return true;
     }
-    struct usage u;
-    if (group_usage(m->group, &u) != 0) {
+    struct cgroup_usage u;
+    if (cgroup_read_usage(m->cgroup, &u) != 0) {
         fail(m->sup, "sample CPU: %s", strerror(errno));
         return true;
     }
@@ -251,7 +251,7 @@ static int cancel_fd(void) {
     return fstat(0, &st) == 0 && S_ISFIFO(st.st_mode) ? 0 : -1;
 }
 
-int execute(const struct config *c, const struct spec *s, const struct box *b, struct jobgroup *g, struct run *r) {
+int execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r) {
     memset(r, 0, sizeof *r);
     r->workspace = -1;
     struct facts *f = &r->facts;
@@ -294,7 +294,7 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
     }
     struct itimerspec tick = {.it_interval = {0, CPU_SAMPLE_NS}, .it_value = {0, CPU_SAMPLE_NS}};
     struct monitor m = {
-        .sup = &f->supervision, .group = g, .limits = &s->limits,
+        .sup = &f->supervision, .cgroup = g, .limits = &s->limits,
         .out = {.fd = out[0], .data = r->stdout_data, .limit = (size_t)s->limits.stdout_max_bytes},
         .err = {.fd = err[0], .data = r->stderr_data, .limit = (size_t)s->limits.stderr_max_bytes},
         .exec_error = exec_error[0], .report = report[0], .pidfd = pidfd, .cancel = cancel_fd(), .timer = timer,
@@ -308,7 +308,7 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
     int64_t stopped_at = monotonic_ns();
 
     // 停组并确认清空之后，读到的计量才是最终事实；确认不了就不能交付，也不能复用这个 box。
-    if (group_stop(g, &f->usage) != 0) {
+    if (cgroup_stop(g, &f->usage) != 0) {
         r->reclaimed = false;
         return 0;
     }

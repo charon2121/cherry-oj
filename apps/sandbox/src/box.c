@@ -1,4 +1,4 @@
-// box 是调用方（非 root 的 sandbox HTTP 服务）准备的工作目录：
+// box 是调用方（judge 进程内的执行层，非 root）准备的工作目录：
 //
 //   <boxes>/<N>/spec       请求
 //   <boxes>/<N>/stdin      标准输入

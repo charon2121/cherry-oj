@@ -1,4 +1,4 @@
-// sandbox：一次性隔离执行器，setuid-root 安装，只有 sandbox HTTP 服务的组能执行。
+// sandbox：一次性隔离执行器，setuid-root 安装，只有 judge 服务所在的组能执行。
 //
 //   sandbox --box N
 //
@@ -182,18 +182,18 @@ int main(int argc, char **argv) {
         toolchain_rootfs(&config, spec.toolchain, spec.rootfs, sizeof spec.rootfs, err, sizeof err) != 0)
         refuse(EXIT_REFUSED, err);
 
-    struct jobgroup group;
-    int rc = group_create(&config, index, &spec.limits, &group, err, sizeof err);
+    struct job_cgroup cgroup;
+    int rc = cgroup_create(&config, index, &spec.limits, &cgroup, err, sizeof err);
     if (rc == -2)
         refuse(EXIT_UNRECLAIMED, err);
     if (rc != 0) {
-        if (group_remove(&group) != 0)
+        if (cgroup_remove(&cgroup) != 0)
             refuse(EXIT_UNRECLAIMED, err);
         refuse(EXIT_REFUSED, err);
     }
 
     struct run run;
-    execute(&config, &spec, &box, &group, &run);
+    execute(&config, &spec, &box, &cgroup, &run);
     if (!run.reclaimed)
         refuse(EXIT_UNRECLAIMED, "execution group reclaim was not confirmed");
     struct conclusion conclusion;
@@ -214,7 +214,7 @@ int main(int argc, char **argv) {
     }
     if (run.workspace >= 0)
         close(run.workspace);
-    if (group_remove(&group) != 0)
+    if (cgroup_remove(&cgroup) != 0)
         refuse(EXIT_UNRECLAIMED, "remove execution group");
     print_facts(&run, &conclusion, &spec, found, nfound);
     return EXIT_FACTS;

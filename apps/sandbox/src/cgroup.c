@@ -1,7 +1,7 @@
 // 执行组：jobs/box-<N>。同一 box 由 flock 保证串行，所以组名可以固定；上次执行若没回收干净，
 // 这次先把残留的组杀空并删掉，删不掉就不能继续用这个 box。
 //
-// jobs 子树由 systemd 委派给 sandbox HTTP 服务，本程序以 root 在其中建组；组内文件属于 root，
+// jobs 子树由 systemd 委派给 judge 服务，本程序以 root 在其中建组；组内文件属于 root，
 // 服务身份不能改写正在执行的组的限额，也不能把进程移进移出。
 #define _GNU_SOURCE
 #include <errno.h>
@@ -35,7 +35,7 @@ static int field(const char *text, const char *key, uint64_t *out) {
     return -1;
 }
 
-int group_usage(const struct jobgroup *g, struct usage *u) {
+int cgroup_read_usage(const struct job_cgroup *g, struct cgroup_usage *u) {
     char cpu[4096], peak[64], memory[4096], pids[256], events[256];
     if (read_file_at(g->dir, "cpu.stat", cpu, sizeof cpu, NULL) || read_file_at(g->dir, "memory.peak", peak, sizeof peak, NULL) ||
         read_file_at(g->dir, "memory.events", memory, sizeof memory, NULL) ||
@@ -83,13 +83,13 @@ static int kill_and_wait(int dir) {
     }
 }
 
-int group_stop(const struct jobgroup *g, struct usage *final) {
+int cgroup_stop(const struct job_cgroup *g, struct cgroup_usage *final) {
     if (kill_and_wait(g->dir) != 0)
         return -1;
-    return group_usage(g, final);
+    return cgroup_read_usage(g, final);
 }
 
-int group_remove(struct jobgroup *g) {
+int cgroup_remove(struct job_cgroup *g) {
     if (g->dir >= 0) {
         close(g->dir);
         g->dir = -1;
@@ -146,7 +146,7 @@ static int configure(int dir, const struct limits *l) {
     return 0;
 }
 
-int group_create(const struct config *c, int box, const struct limits *l, struct jobgroup *g, char *err, size_t errlen) {
+int cgroup_create(const struct config *c, int box, const struct limits *l, struct job_cgroup *g, char *err, size_t errlen) {
     memset(g, 0, sizeof *g);
     g->dir = -1;
     g->jobs = open(c->cgroup, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
@@ -167,13 +167,13 @@ int group_create(const struct config *c, int box, const struct limits *l, struct
         return -1;
     }
     g->dir = openat(g->jobs, g->name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
-    struct usage u;
+    struct cgroup_usage u;
     if (g->dir < 0 || configure(g->dir, l) != 0) {
         set_error(err, errlen, "configure execution group: %s", strerror(errno));
         return -1;
     }
     // 新组在启动任何进程前必须是干净的：没有进程，也没有计量历史。
-    if (group_usage(g, &u) != 0 || u.populated || u.cpu_ns || u.oom || u.oom_kill || u.memory_max_events ||
+    if (cgroup_read_usage(g, &u) != 0 || u.populated || u.cpu_ns || u.oom || u.oom_kill || u.memory_max_events ||
         u.pids_max_events) {
         set_error(err, errlen, "new execution group has processes or accounting history");
         return -1;
