@@ -30,7 +30,7 @@ func (i Identity) Registration() contract.NodeRegistration {
 
 // New 计算本次进程的身份：每次调用都生成新的 sessionId。
 //
-// languages 是启动时确定并逐门实测通过的语言（见 preflight.Languages 与 judge 的启动冒烟），
+// languages 是启动时确定并逐门实测通过的语言（见 preflight.Check 与 judge 的启动冒烟），
 // 这里只负责把它们写进身份；控制面按声明把判题路由给节点，所以不能声明没有实测过的语言。
 func New(s config.Settings, languages []string) (Identity, error) {
 	if len(languages) == 0 {

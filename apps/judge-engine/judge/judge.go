@@ -17,6 +17,7 @@ import (
 	"cherry-oj/judge-engine/judge/flow"
 	"cherry-oj/judge-engine/judge/language"
 	"cherry-oj/judge-engine/judge/node"
+	"cherry-oj/judge-engine/judge/node/preflight"
 	"cherry-oj/judge-engine/judge/testcase"
 )
 
@@ -80,9 +81,10 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 			result = errors.Join(result, err)
 		}
 	}()
+	var declaredLanguages []string
 	if cfg.Judge.Node.Enabled {
 		checkCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		err = node.Preflight(checkCtx, cfg.Judge, engine)
+		declaredLanguages, err = preflight.Check(checkCtx, cfg.Judge, engine)
 		cancel()
 		if err != nil {
 			logger.Error("judge.node.preflight.failed", "error", err)
@@ -102,19 +104,14 @@ func Run(ctx context.Context, cfg Config, logger *slog.Logger) (result error) {
 	handler := api.New(service).Handler()
 	var judgeNode *node.Node
 	if cfg.Judge.Node.Enabled {
-		languages, err := node.Languages(cfg.Judge)
-		if err != nil {
-			logger.Error("judge.node.languages.failed", "error", err)
-			return err
-		}
 		smokeCtx, cancel := context.WithTimeout(ctx, smokeTimeout)
-		err = smokeLanguages(smokeCtx, engine, cfg.Judge, languages, logger)
+		err = smokeLanguages(smokeCtx, engine, cfg.Judge, declaredLanguages, logger)
 		cancel()
 		if err != nil {
 			logger.Error("judge.node.language.smoke.failed", "error", err)
 			return err
 		}
-		judgeNode, err = node.New(cfg.Judge, languages, logger)
+		judgeNode, err = node.New(cfg.Judge, declaredLanguages, logger)
 		if err != nil {
 			logger.Error("judge.node.init.failed", "error", err)
 			return err

@@ -2,6 +2,7 @@ package preflight_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"cherry-oj/judge-engine/execution"
@@ -23,10 +24,20 @@ func TestCheckRefusesMissingManifestOrWrongBackend(t *testing.T) {
 				cfg.Node.DeploymentManifest = "/opt/cherry-oj/etc/deployment.json"
 			}
 			v := fixedVersion{contract.SandboxVersion{Name: execution.Name, Version: execution.Version, Isolation: isolation}}
-			if err := preflight.Check(context.Background(), cfg, v); err == nil {
+			if _, err := preflight.Check(context.Background(), cfg, v); err == nil {
 				t.Fatal("invalid deployment accepted")
 			}
 		})
+	}
+}
+
+func TestCheckReturnsConfiguredLanguagesForDevelopmentNodes(t *testing.T) {
+	cfg := config.Default().Judge
+	cfg.Node.Languages = []string{"cpp", "c"}
+	v := fixedVersion{contract.SandboxVersion{Name: execution.Name, Version: execution.Version, Isolation: "devhost"}}
+	got, err := preflight.Check(context.Background(), cfg, v)
+	if err != nil || !slices.Equal(got, cfg.Node.Languages) {
+		t.Fatalf("Check = %q, %v", got, err)
 	}
 }
 

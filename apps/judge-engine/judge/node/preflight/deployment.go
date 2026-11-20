@@ -8,11 +8,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"syscall"
 
-	"cherry-oj/judge-engine/judge/config"
 	"cherry-oj/judge-engine/judge/node/wire"
 )
 
@@ -29,23 +27,15 @@ type deploymentFile struct {
 	SHA256 string `json:"sha256"`
 }
 
-func checkDeployment(ctx context.Context, j config.Settings) error {
-	// 执行层在本进程内，天然就是本机同批安装的那一个；这里只核对平台与部署清单。
-	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
-		return fmt.Errorf("native deployment requires Linux/amd64")
-	}
-	return verifyDeployment(ctx, j.Node.DeploymentManifest)
-}
-
-func verifyDeployment(ctx context.Context, path string) error {
+func verifyDeployment(ctx context.Context, path string) ([]string, error) {
 	file, err := openProtected(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 	var manifest deploymentManifest
 	if err = wire.Decode(io.LimitReader(file, 65537), &manifest); err != nil {
-		return fmt.Errorf("deployment manifest: %w", err)
+		return nil, fmt.Errorf("deployment manifest: %w", err)
 	}
 	// 服务实际启动的是 current 下的路径；它解析到的文件必须就是清单声明的那一个，
 	// 否则校验的是清单里那份、跑的是另一份。
@@ -61,15 +51,15 @@ func verifyDeployment(ctx context.Context, path string) error {
 	for key, relative := range active {
 		resolved, err := filepath.EvalSymlinks(filepath.Join(releaseDir, relative))
 		if err != nil || resolved != manifest.Files[key].Path {
-			return fmt.Errorf("active release differs from deployment file %s", key)
+			return nil, fmt.Errorf("active release differs from deployment file %s", key)
 		}
 	}
 	return verifyManifest(ctx, manifest, protectedDigest)
 }
 
-func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest func(string) (string, error)) error {
+func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest func(string) (string, error)) ([]string, error) {
 	if manifest.Version != 1 || manifest.Backend != "linux" || manifest.Architecture != "amd64" {
-		return fmt.Errorf("unsupported deployment manifest")
+		return nil, fmt.Errorf("unsupported deployment manifest")
 	}
 	// 双向覆盖：要求的每一项都必须在清单里，清单里的每一项也都必须是要求的。
 	// 只比数量的话，多一项少一项会互相抵消，而报错也说不出是哪一项。
@@ -79,38 +69,38 @@ func verifyManifest(ctx context.Context, manifest deploymentManifest, fileDigest
 			continue
 		}
 		if !toolchainKey.MatchString(key) {
-			return fmt.Errorf("deployment declares unknown file %s", key)
+			return nil, fmt.Errorf("deployment declares unknown file %s", key)
 		}
 		checked = append(checked, key)
 	}
 	languages := toolchainLanguages(manifest)
 	if len(languages) == 0 {
-		return fmt.Errorf("deployment declares no toolchain")
+		return nil, fmt.Errorf("deployment declares no toolchain")
 	}
 	for _, language := range languages {
 		for _, kind := range []string{"manifest", "lock"} {
 			if _, ok := manifest.Files["toolchain."+language+"."+kind]; !ok {
-				return fmt.Errorf("deployment file toolchain.%s.%s missing", language, kind)
+				return nil, fmt.Errorf("deployment file toolchain.%s.%s missing", language, kind)
 			}
 		}
 	}
 	for _, key := range checked {
 		if err := ctx.Err(); err != nil {
-			return err
+			return nil, err
 		}
 		entry, ok := manifest.Files[key]
 		if !ok || len(entry.SHA256) != 64 {
-			return fmt.Errorf("deployment file %s missing", key)
+			return nil, fmt.Errorf("deployment file %s missing", key)
 		}
 		got, e := fileDigest(entry.Path)
 		if e != nil {
-			return fmt.Errorf("deployment file %s: %w", key, e)
+			return nil, fmt.Errorf("deployment file %s: %w", key, e)
 		}
 		if got != entry.SHA256 {
-			return fmt.Errorf("deployment file %s changed", key)
+			return nil, fmt.Errorf("deployment file %s changed", key)
 		}
 	}
-	return nil
+	return languages, nil
 }
 
 // toolchainLanguages 返回部署清单登记了工具链的语言，按编号排序。

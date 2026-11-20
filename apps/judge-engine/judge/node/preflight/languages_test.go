@@ -6,16 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"cherry-oj/judge-engine/judge/config"
 )
-
-func TestDevelopmentNodesDeclareConfiguredLanguages(t *testing.T) {
-	got, err := Languages(config.Settings{Node: config.Node{Languages: []string{"cpp"}}})
-	if err != nil || len(got) != 1 || got[0] != "cpp" {
-		t.Fatalf("Languages = %q, %v", got, err)
-	}
-}
 
 // 声明的语言必须非空、格式正确、不重复，并且 judge 认得：否则拒绝上线，而不是悄悄少报。
 func TestDeclaredLanguagesAreValidated(t *testing.T) {
@@ -23,13 +14,6 @@ func TestDeclaredLanguagesAreValidated(t *testing.T) {
 		if _, err := validLanguages(declared); err == nil {
 			t.Errorf("%q should be rejected", declared)
 		}
-	}
-}
-
-func TestManifestLanguagesComeFromToolchainEntries(t *testing.T) {
-	m := deploymentFixture()
-	if got := toolchainLanguages(m); len(got) != 2 || got[0] != "c" || got[1] != "cpp" {
-		t.Fatalf("languages = %q", got)
 	}
 }
 

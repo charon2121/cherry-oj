@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -45,9 +46,15 @@ func TestDeploymentRejectsChangedFiles(t *testing.T) {
 			case "bad-toolchain-name":
 				m.Files["toolchain.../.manifest"] = deploymentFile{Path: "/x", SHA256: strings.Repeat("a", 64)}
 			}
-			err := verifyManifest(context.Background(), m, hash)
+			languages, err := verifyManifest(context.Background(), m, hash)
 			if (err == nil) != (kind == "valid") {
 				t.Fatalf("err=%v", err)
+			}
+			if err == nil && !slices.Equal(languages, []string{"c", "cpp"}) {
+				t.Fatalf("verified languages = %q", languages)
+			}
+			if err != nil && len(languages) != 0 {
+				t.Fatalf("invalid manifest exposed languages %q", languages)
 			}
 			// 报错必须指出是哪一项，否则出问题时只知道「部署不合格」，不知道去看哪里。
 			named := map[string]string{

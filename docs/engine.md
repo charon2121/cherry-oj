@@ -384,7 +384,7 @@ Python 等解释型：通常 **没有** 编译那一次 `Run`，上传后直接 
 
 ```go
 // judge/flow
-type Sandbox interface {
+type Execution interface {
     Upload(context.Context, io.Reader) (string, error)
     Run(context.Context, contract.RunSpec) (contract.RunResult, error)
     Delete(context.Context, string) error
@@ -393,7 +393,7 @@ type Sandbox interface {
 
 这个接口声明在 `flow` 里，而不是在执行层里。差别在于：**实现不依赖 flow**，flow 也不依赖
 实现——实现是 `execution.Engine`，由 judge 根包装配后交给 flow。于是判题流程的测试不需要启动任何
-沙箱，给一个假的三方法实现就够了。同样的写法也用在 `node/preflight` 的 `Sandbox` 接口上：
+沙箱，给一个假的三方法实现就够了。同样的写法也用在 `node/preflight` 的 `VersionReader` 接口上：
 自检只要一个 `Version`。
 
 ### 5.5 节点身份与启动自检
@@ -416,6 +416,7 @@ judge 作为判题节点时，只向控制面报身份：`nodeId`（配置）、
 原生部署还要多一道：`node/preflight/deployment_spec.go` 用命名常量写清「一个合格的原生部署长什么样」
 ——哪些文件，各自的摘要是什么。校验是**双向覆盖**的：清单里声明的每一条都必须被核对，
 被核对的每一条都必须在清单里。只比数量的话，「少一条」和「多一条从不核对的」会互相抵消。
+自检直接从已核验的清单返回工具链语言，随后逐门运行冒烟，再用同一份语言列表注册。
 
 ---
 
@@ -789,7 +790,7 @@ server              judge（判题编排 → 执行层）                 执行
 
 节点控制协议以 `contracts/judge-node.schema.json` 为准。Judge 注册只带节点身份：稳定的 nodeId、
 每次进程启动新生成的 sessionId、访问地址和能判的语言；不上报机器信息，也没有「判题环境」分组。
-注册前先做启动自检：对端必须是 cherry-oj 的 sandbox，原生部署还要核对部署清单。后台心跳失败时
+注册前先核对进程内执行层与部署是否匹配，原生部署还要核对清单和发布文件。后台心跳失败时
 重试且不关闭健康入口；控制面租约过期后停止路由。
 
 测试数据**不再由控制面推送**：problem-service 按[测试数据协议](./protocols/testdata.md)写出目录，judging-service
