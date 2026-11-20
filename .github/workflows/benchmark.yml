@@ -153,10 +153,10 @@ jobs:
           sudo journalctl -u cherry-sandbox-judge.service -n 60 --no-pager
           exit 1
 
-      # sandbox 入口直接调用执行器，要 root；两个入口依次进行，judge 在运行但空闲。
+      # sandbox 入口直接调用执行器，要 root，并需要保留 core 硬上限；两个入口依次进行。
       - name: benchmark（strictWhitespace=false，judge 与 sandbox 两个入口，全部题目与攻击样本）
         run: >-
-          sudo python3 benchmark/run.py --entries judge,sandbox --judge-url "$JUDGE_URL"
+          sudo prlimit --core=1:1 -- python3 benchmark/run.py --entries judge,sandbox --judge-url "$JUDGE_URL"
           --published-root "$PUBLISHED_ROOT" --declare backend=linux strictWhitespace=false languages=cpp,c
           --report benchmark/reports/loose.json
 
