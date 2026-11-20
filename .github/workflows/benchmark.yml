@@ -111,7 +111,8 @@ jobs:
             BUILD="$RUNNER_TEMP/sandbox-test-build"
           gcc -static -O2 -pthread -Wall -Wextra -Werror -o "$RUNNER_TEMP/sandbox-test-probe" \
             apps/sandbox/tests/probe.c
-          sudo python3 -B apps/sandbox/tests/run_tests.py \
+          # sudo 将 core 硬上限降为 0；在 sudo 之后只为本次测试进程设置执行器所需的上限。
+          sudo prlimit --core=1:1 -- python3 -B apps/sandbox/tests/run_tests.py \
             --binary "$RUNNER_TEMP/sandbox-test-build/sandbox" --probe "$RUNNER_TEMP/sandbox-test-probe" \
             --config /var/lib/cherry-sandbox-test-config/executor.conf --payload-uid 62100 --init-uid 62300
 
