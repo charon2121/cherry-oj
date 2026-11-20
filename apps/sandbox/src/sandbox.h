@@ -197,12 +197,12 @@ struct run {
     int workspace; // 已停止的工作区，产物从这里取
     bool reclaimed;
 };
-int execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r);
+void execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r);
 
 // ---- 小工具 ----
 int64_t monotonic_ns(void);
 int write_all(int fd, const void *data, size_t len);
-int read_file_at(int dir, const char *name, char *buf, size_t cap, size_t *len);
+int read_file_at(int dir, const char *name, char *buf, size_t cap);
 int write_file_at(int dir, const char *name, const char *value);
 void set_error(char *err, size_t errlen, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 

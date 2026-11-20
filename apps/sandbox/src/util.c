@@ -31,7 +31,7 @@ int write_all(int fd, const void *data, size_t len) {
 }
 
 // 读取 dir 下的小文件（cgroupfs 等受信位置），超过容量视为错误，保证以 NUL 结尾。
-int read_file_at(int dir, const char *name, char *buf, size_t cap, size_t *len) {
+int read_file_at(int dir, const char *name, char *buf, size_t cap) {
     int fd = openat(dir, name, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd < 0)
         return -1;
@@ -57,8 +57,6 @@ int read_file_at(int dir, const char *name, char *buf, size_t cap, size_t *len) 
     }
     close(fd);
     buf[total] = 0;
-    if (len)
-        *len = total;
     return 0;
 }
 

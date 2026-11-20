@@ -37,10 +37,11 @@ static int field(const char *text, const char *key, uint64_t *out) {
 
 int cgroup_read_usage(const struct job_cgroup *g, struct cgroup_usage *u) {
     char cpu[4096], peak[64], memory[4096], pids[256], events[256];
-    if (read_file_at(g->dir, "cpu.stat", cpu, sizeof cpu, NULL) || read_file_at(g->dir, "memory.peak", peak, sizeof peak, NULL) ||
-        read_file_at(g->dir, "memory.events", memory, sizeof memory, NULL) ||
-        read_file_at(g->dir, "pids.events", pids, sizeof pids, NULL) ||
-        read_file_at(g->dir, "cgroup.events", events, sizeof events, NULL))
+    if (read_file_at(g->dir, "cpu.stat", cpu, sizeof cpu) ||
+        read_file_at(g->dir, "memory.peak", peak, sizeof peak) ||
+        read_file_at(g->dir, "memory.events", memory, sizeof memory) ||
+        read_file_at(g->dir, "pids.events", pids, sizeof pids) ||
+        read_file_at(g->dir, "cgroup.events", events, sizeof events))
         return -1;
     uint64_t usec, populated;
     char *end;
@@ -71,7 +72,7 @@ static int kill_and_wait(int dir) {
     for (;;) {
         char events[256];
         uint64_t populated;
-        if (read_file_at(dir, "cgroup.events", events, sizeof events, NULL) || field(events, "populated", &populated))
+        if (read_file_at(dir, "cgroup.events", events, sizeof events) || field(events, "populated", &populated))
             return -1;
         if (populated == 0)
             return 0;
@@ -116,7 +117,7 @@ static int remove_stale(int jobs, const char *name) {
 
 static bool has_controllers(int dir, const char *file) {
     char buf[512];
-    if (read_file_at(dir, file, buf, sizeof buf, NULL))
+    if (read_file_at(dir, file, buf, sizeof buf))
         return false;
     int found = 0;
     for (char *save = NULL, *w = strtok_r(buf, " \n", &save); w; w = strtok_r(NULL, " \n", &save))
@@ -135,7 +136,7 @@ static int configure(int dir, const struct limits *l) {
     for (size_t i = 0; i < sizeof settings / sizeof settings[0]; i++) {
         char back[64];
         if (write_file_at(dir, settings[i][0], settings[i][1]) != 0 ||
-            read_file_at(dir, settings[i][0], back, sizeof back, NULL) != 0)
+            read_file_at(dir, settings[i][0], back, sizeof back) != 0)
             return -1;
         back[strcspn(back, "\n")] = 0;
         if (strcmp(back, settings[i][1]) != 0) {

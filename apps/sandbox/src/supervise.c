@@ -251,7 +251,7 @@ static int cancel_fd(void) {
     return fstat(0, &st) == 0 && S_ISFIFO(st.st_mode) ? 0 : -1;
 }
 
-int execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r) {
+void execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r) {
     memset(r, 0, sizeof *r);
     r->workspace = -1;
     struct facts *f = &r->facts;
@@ -266,7 +266,7 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
         pipe2(err, O_CLOEXEC) || pipe2(exec_error, O_CLOEXEC) || pipe2(report, O_CLOEXEC)) {
         fail(&f->supervision, "prepare execution: %s", strerror(errno));
         r->reclaimed = true; // 什么都还没启动，没有需要回收的进程
-        return 0;
+        return;
     }
     struct child_plan plan = {.config = c, .spec = s, .box = b, .box_index = slot, .workspace = workspace,
                               .stdout_w = out[1], .stderr_w = err[1], .exec_error_w = exec_error[1],
@@ -290,7 +290,7 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
     if (pid < 0) {
         fail(&f->supervision, "clone isolated init: %s", strerror(errno));
         r->reclaimed = true;
-        return 0;
+        return;
     }
     struct itimerspec tick = {.it_interval = {0, CPU_SAMPLE_NS}, .it_value = {0, CPU_SAMPLE_NS}};
     struct monitor m = {
@@ -310,7 +310,7 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
     // 停组并确认清空之后，读到的计量才是最终事实；确认不了就不能交付，也不能复用这个 box。
     if (cgroup_stop(g, &f->usage) != 0) {
         r->reclaimed = false;
-        return 0;
+        return;
     }
     r->reclaimed = true;
     f->usage_valid = true;
@@ -334,5 +334,4 @@ int execute(const struct config *c, const struct spec *s, const struct box *b, s
         if (leftovers[i] >= 0)
             close(leftovers[i]);
     r->workspace = workspace;
-    return 0;
 }
