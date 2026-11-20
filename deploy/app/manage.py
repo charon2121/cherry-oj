@@ -15,7 +15,7 @@ from typing import Any
 
 from artifacts import digest, migration_files, read_json, unpack
 from host import Host, Mysql
-from state import Operation, Store, atomic, check_receipt
+from state import Operation, Store, atomic, check_receipt, previous_release
 
 
 APP_HOME = Path('/opt/cherry-app')
@@ -132,17 +132,14 @@ def execute(store: Store, mysql: Mysql, action: str, package: Path | None = None
                 raise ValueError('发布名已使用，拒绝覆盖；切换旧发布请用 rollback')
             candidate.rename(destination)
         elif action == 'ROLLBACK':
-            new = original.get('previous')
-            if isinstance(new, str) and 'version' not in original and new.startswith('releases/'):
-                new = new[len('releases/'):]
+            new = previous_release(original)
             if not new or new == old:
                 raise ValueError('没有可回滚的上一发布')
-            store.manifest(new)
-            if migration_files(store.release_path(old)) != migration_files(store.release_path(new)):
-                raise ValueError('目标发布的数据库迁移不同，拒绝自动回滚')
         else:
             raise ValueError('不支持的应用操作')
         store.manifest(new)
+        if action == 'ROLLBACK' and migration_files(store.release_path(old)) != migration_files(store.release_path(new)):
+            raise ValueError('目标发布的数据库迁移不同，拒绝自动回滚')
         operation = Operation(
             1, operation_id, action, 'PREPARED', old, new,
             digest(store.release_path(old) / 'release.json'), digest(store.release_path(new) / 'release.json'),

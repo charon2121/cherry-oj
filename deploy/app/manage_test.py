@@ -47,6 +47,23 @@ class ManageTests(unittest.TestCase):
             self.assertEqual(store.current(), new)
             self.assertTrue((store.home / 'releases/old').is_dir())
 
+    def test_rollback_accepts_legacy_previous_path_and_keeps_its_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            store = installation(Path(temporary))
+            target = store.home / 'releases/older'
+            legacy(target)
+            manifest = (target / 'release.json').read_bytes()
+            receipt = store.receipt()
+            receipt['previous'] = 'releases/older'
+            save(store.home / 'deployment.json', receipt)
+
+            execute(store, MYSQL, 'ROLLBACK', host_type=fake_host(Scenario()))
+
+            self.assertEqual(store.current(), 'older')
+            self.assertEqual(store.receipt()['previous'], 'old')
+            self.assertEqual(store.receipt()['version'], 1)
+            self.assertEqual((target / 'release.json').read_bytes(), manifest)
+
     def test_backup_and_start_failures_restore_the_original_receipt_and_processes(self) -> None:
         for kind in ('backup', 'start', 'stop'):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temporary:

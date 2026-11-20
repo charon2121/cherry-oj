@@ -101,6 +101,20 @@ class Operation:
         return result
 
 
+def previous_release(receipt: dict[str, Any]) -> str | None:
+    """读取上一发布名。只有无版本回执允许 releases/ 前缀。"""
+    name = receipt.get('previous')
+    if name is None:
+        return None
+    if not isinstance(name, str):
+        raise ValueError('部署回执发布路径无效')
+    if 'version' not in receipt:
+        name = name.removeprefix('releases/')
+    if not RELEASE.fullmatch(name):
+        raise ValueError('部署回执发布路径无效')
+    return name
+
+
 def check_receipt(value: dict[str, Any]) -> None:
     ports = value.get('ports')
     if (not isinstance(ports, dict) or set(ports) != set(SERVICES)
@@ -126,16 +140,11 @@ def check_receipt(value: dict[str, Any]) -> None:
                  'sourceTreeSha256', 'release', 'previous', 'artifactSetSha256'}
         if not set(value) <= known:
             raise ValueError('旧部署回执含未知字段')
-    for field in ('release', 'previous'):
-        name = value.get(field)
-        if name is None and field == 'previous':
-            continue
-        if field == 'release' and field not in value and 'version' not in value:
-            continue
-        if 'version' not in value and field == 'previous' and isinstance(name, str) and name.startswith('releases/'):
-            name = name[len('releases/'):]
+    if 'release' in value:
+        name = value['release']
         if not isinstance(name, str) or not RELEASE.fullmatch(name):
             raise ValueError('部署回执发布路径无效')
+    previous_release(value)
     if 'artifactSetSha256' in value and (not isinstance(value['artifactSetSha256'], str)
                                         or not SHA256.fullmatch(value['artifactSetSha256'])):
         raise ValueError('部署回执摘要无效')
