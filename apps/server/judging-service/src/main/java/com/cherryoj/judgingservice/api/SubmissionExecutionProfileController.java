@@ -5,7 +5,7 @@ import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
 import com.cherryoj.judgingservice.problem.ProblemTestDataException;
-import com.cherryoj.judgingservice.trial.TrialProperties;
+import com.cherryoj.judgingservice.trial.CustomRunProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -23,19 +23,19 @@ public class SubmissionExecutionProfileController {
     private final FormalProperties budgets;
     private final ProblemTestDataClient testData;
     private final LanguageCatalog languages;
-    private final TrialProperties trials;
+    private final CustomRunProperties customRun;
 
     public SubmissionExecutionProfileController(
             JudgingReadinessService service,
             FormalProperties budgets,
             ProblemTestDataClient testData,
             LanguageCatalog languages,
-            TrialProperties trials) {
+            CustomRunProperties customRun) {
         this.service = service;
         this.budgets = budgets;
         this.testData = testData;
         this.languages = languages;
-        this.trials = trials;
+        this.customRun = customRun;
     }
 
     @PostMapping("/internal/submission/execution-profile")
@@ -58,7 +58,7 @@ public class SubmissionExecutionProfileController {
         } catch (ArithmeticException | IllegalArgumentException invalid) {
             throw unavailable();
         }
-        if (trial && budget > trials.maxExecutionBudget().toNanos())
+        if (trial && budget > customRun.maxExecutionBudget().toNanos())
             throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
         if (!trial && budget >= budgets.deadline().toNanos()) throw unavailable();
         return new Profile(

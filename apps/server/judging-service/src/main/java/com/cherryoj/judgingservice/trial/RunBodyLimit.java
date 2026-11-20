@@ -8,7 +8,7 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAdapter;
 
-@ControllerAdvice(assignableTypes = TrialController.class)
+@ControllerAdvice(assignableTypes = CustomRunController.class)
 public class RunBodyLimit extends RequestBodyAdviceAdapter {
 
     public boolean supports(MethodParameter p, Type t, Class<? extends HttpMessageConverter<?>> c) {

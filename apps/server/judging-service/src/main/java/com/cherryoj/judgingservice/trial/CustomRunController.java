@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.ObjectMapper;
 
 @RestController
-public class TrialController {
+public class CustomRunController {
 
     private final SubmissionExecutionProfileController profiles;
 
@@ -41,7 +41,7 @@ public class TrialController {
 
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    public TrialController(
+    public CustomRunController(
             SubmissionExecutionProfileController profiles,
             JudgeNodeRepository nodes,
             FormalProperties budgets,
@@ -109,8 +109,8 @@ public class TrialController {
             throw error(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "代码或输入过大。");
         if ((request.solutionSource() == null) != (request.solutionPrefixLineCount() == null))
             throw error(HttpStatus.BAD_REQUEST, "INVALID_RUN_REQUEST", "用户文件与前缀行数必须同时给出。");
-        long deadline =
-                Math.min(request.deadlineEpochMs(), System.currentTimeMillis() + TrialProperties.DEADLINE.toMillis());
+        long deadline = Math.min(
+                request.deadlineEpochMs(), System.currentTimeMillis() + CustomRunProperties.DEADLINE.toMillis());
         remaining(deadline);
         if (!slots.tryAcquire()) throw error(HttpStatus.TOO_MANY_REQUESTS, "RUN_BUSY", "运行服务繁忙，请稍后重试。");
         // 0=未开始，1=工作线程持有槽位，2=启动前取消；取消与启动竞态只能释放一次。

@@ -8,7 +8,7 @@ import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.problem.ProblemTestData;
 import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
 import com.cherryoj.judgingservice.problem.ProblemTestDataException;
-import com.cherryoj.judgingservice.trial.TrialProperties;
+import com.cherryoj.judgingservice.trial.CustomRunProperties;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -24,7 +24,7 @@ class SubmissionExecutionProfileControllerTests {
                 budgets(),
                 testData,
                 new LanguageCatalog(new tools.jackson.databind.ObjectMapper()),
-                new TrialProperties(cap));
+                new CustomRunProperties(cap));
     }
 
     static com.cherryoj.judgingservice.formal.FormalProperties budgets() {

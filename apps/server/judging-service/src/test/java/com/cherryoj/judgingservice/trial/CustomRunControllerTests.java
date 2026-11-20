@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
-class TrialControllerTests {
+class CustomRunControllerTests {
 
     @Test
     void trialUsesOnlySuppliedInputAndKeepsIndependentStreams() throws Exception {
@@ -56,14 +56,14 @@ class TrialControllerTests {
         when(node.endpoint())
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
-        var controller = new TrialController(
+        var controller = new CustomRunController(
                 profiles,
                 nodes,
                 mock(FormalProperties.class),
                 json,
                 HttpClient.newHttpClient(),
                 new LanguageCatalog(json));
-        var request = new TrialController.Request(
+        var request = new CustomRunController.Request(
                 problem, "cpp", "int main(){}", null, null, "", System.currentTimeMillis() + 45000);
         try {
             var result = controller.run(request, null).getBody();
@@ -77,7 +77,7 @@ class TrialControllerTests {
             assertEquals("COMPILE_ERROR", ce.status());
             assertNull(ce.cpuNs());
             assertFalse(ce.compileDiagnostic().contains("/private"));
-            var expired = new TrialController.Request(problem, "cpp", "int main(){}", null, null, "", 1);
+            var expired = new CustomRunController.Request(problem, "cpp", "int main(){}", null, null, "", 1);
             assertThrows(JudgingApiException.class, () -> controller.run(expired, null));
         } finally {
             controller.close();
@@ -119,14 +119,14 @@ class TrialControllerTests {
         when(node.endpoint())
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
-        var controller = new TrialController(
+        var controller = new CustomRunController(
                 profiles,
                 nodes,
                 mock(FormalProperties.class),
                 json,
                 HttpClient.newHttpClient(),
                 new LanguageCatalog(json));
-        var request = new TrialController.Request(
+        var request = new CustomRunController.Request(
                 problem,
                 "cpp",
                 "#include \"solution.cpp\"\nint main(){}",
@@ -145,7 +145,7 @@ class TrialControllerTests {
             payload.set("{\"verdict\":\"CE\",\"message\":\"solution.cpp:5:20: error: x\\nMain.cpp:8:1: note\\n\"}");
             var ce = controller.run(request, null).getBody();
             assertEquals("solution.cpp:3:20: error: x\nMain.cpp:8:1: note\n", ce.compileDiagnostic());
-            var missingCount = new TrialController.Request(
+            var missingCount = new CustomRunController.Request(
                     problem, "cpp", "int main(){}", "class Solution {};", null, "", System.currentTimeMillis() + 45000);
             assertThrows(JudgingApiException.class, () -> controller.run(missingCount, null));
         } finally {
@@ -166,7 +166,7 @@ class TrialControllerTests {
         when(nodes.online(eq("c"), any())).thenReturn(List.of(node));
         var budgets = mock(FormalProperties.class);
         when(budgets.wallRatio()).thenReturn(10L);
-        var request = new TrialController.Request(
+        var request = new CustomRunController.Request(
                 problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 180_000);
         var accepted = new SubmissionExecutionProfileController.Profile(
                 problem.toString(),
@@ -190,14 +190,14 @@ class TrialControllerTests {
                 })
                 .when(http)
                 .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
-        var controller = new TrialController(
+        var controller = new CustomRunController(
                 profiles, nodes, budgets, new ObjectMapper(), http, new LanguageCatalog(new ObjectMapper()));
         try {
             assertEquals(
                     "COMPILE_ERROR", controller.run(request, null).getBody().status());
             assertEquals(
                     java.time.Duration.ofSeconds(51), captured.get().timeout().orElseThrow());
-            var tooLate = new TrialController.Request(
+            var tooLate = new CustomRunController.Request(
                     problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 1000);
             var late = assertThrows(JudgingApiException.class, () -> controller.run(tooLate, null));
             assertEquals(504, late.status().value()); // 期限不足不是题目预算超过上限。
@@ -221,6 +221,6 @@ class TrialControllerTests {
 
     @Test
     void utf8ClippingNeverSplitsCharacters() {
-        assertEquals("中", TrialController.clip("中文", 4));
+        assertEquals("中", CustomRunController.clip("中文", 4));
     }
 }
