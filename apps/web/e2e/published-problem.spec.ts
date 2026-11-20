@@ -50,7 +50,10 @@ async function success(route: Route, data: object) {
 /** 一个按路径分发的假后端：题目只有一份内容，没有版本、草稿或部署。 */
 async function mockBackend(
   page: Page,
-  state: { problem: object; requests: { method: string; path: string; body: unknown }[] },
+  state: {
+    problem: ReturnType<typeof adminProblem>;
+    requests: { method: string; path: string; body: unknown }[];
+  },
 ) {
   await page.route('**/api/**', async (route) => {
     const request = route.request();
@@ -128,6 +131,19 @@ async function mockBackend(
     }
     if (path === `/api/admin/problems/${problemId}` && request.method() === 'PATCH') {
       const body = request.postDataJSON() as { title: string; rowVersion: number };
+      if (body.rowVersion !== state.problem.rowVersion)
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/problem+json',
+          headers: { 'X-Request-Id': requestId },
+          body: JSON.stringify({
+            type: 'about:blank',
+            title: '资源已改变',
+            status: 409,
+            code: 'ROW_VERSION_CONFLICT',
+            meta: { requestId },
+          }),
+        });
       state.problem = { ...state.problem, title: body.title, rowVersion: body.rowVersion + 1 };
       return success(route, state.problem);
     }
@@ -163,6 +179,43 @@ test('a public problem is edited in place and the change is saved without any dr
   });
   expect(patch?.body).not.toHaveProperty('changeSummary');
   await expect(page.getByText(/^已保存/)).toBeVisible();
+});
+
+test('an autosave conflict keeps local edits and asks before leaving until the latest version is loaded', async ({
+  page,
+}) => {
+  const state = {
+    problem: adminProblem({ visibility: 'PRIVATE', publishedAt: null }),
+    requests: [] as { method: string; path: string; body: unknown }[],
+  };
+  await page.clock.install();
+  await mockBackend(page, state);
+  await page.goto(`/admin/problems/${problemId}`);
+
+  const title = page.getByLabel('题目标题');
+  await expect(title).toHaveValue('已公开题目');
+  state.problem = { ...state.problem, title: '其他窗口的修改', rowVersion: 5 };
+  await title.fill('当前窗口的修改');
+  await expect(page.getByText('服务端已有更新，本地内容仍保留')).toBeVisible();
+  await expect(title).toHaveValue('当前窗口的修改');
+  await page.clock.fastForward(3_000);
+  expect(state.requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
+
+  await page
+    .getByRole('navigation', { name: '管理侧栏导航' })
+    .getByRole('link', { name: '题目', exact: true })
+    .click();
+  const leave = page.getByRole('dialog', { name: '离开前确认未提交内容' });
+  await expect(leave).toContainText('题目修改尚未保存。');
+  await leave.getByRole('button', { name: '留在工作台' }).click();
+  await expect(title).toHaveValue('当前窗口的修改');
+
+  await page.getByRole('button', { name: '加载服务端最新版本' }).click();
+  await expect(title).toHaveValue('其他窗口的修改');
+  await expect(page.getByText('服务端已有更新，本地内容仍保留')).toHaveCount(0);
+  await title.fill('合并后的修改');
+  await expect.poll(() => state.problem.title).toBe('合并后的修改');
+  expect(state.problem.rowVersion).toBe(6);
 });
 
 test('an admin can take a public problem back to private', async ({ page }) => {
