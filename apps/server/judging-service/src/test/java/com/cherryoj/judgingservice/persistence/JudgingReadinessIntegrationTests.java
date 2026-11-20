@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.cherryoj.judgingservice.api.JudgeNodeDtos.Registration;
 import com.cherryoj.judgingservice.api.JudgingApiException;
 import com.cherryoj.judgingservice.api.JudgingDtos.CalibrationRequest;
+import com.cherryoj.judgingservice.application.CalibrationService;
 import com.cherryoj.judgingservice.application.JudgeNodeRegistry;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
@@ -54,6 +55,9 @@ class JudgingReadinessIntegrationTests {
     JudgingReadinessService service;
 
     @Autowired
+    CalibrationService calibrations;
+
+    @Autowired
     JudgeNodeRegistry registry;
 
     @Autowired
@@ -83,7 +87,7 @@ class JudgingReadinessIntegrationTests {
         assertThat(service.readiness(problem, "cpp", DIGEST, 0).ready()).isFalse();
 
         CalibrationRequest request = calibration(problem, DIGEST, "int main(){return 0;}");
-        var calibrated = service.calibrate(request, ACTOR, "trace-1");
+        var calibrated = calibrations.calibrate(request, ACTOR, "trace-1");
         assertThat(calibrated.status()).isEqualTo("VALID");
         assertThat(calibrated.testDataDigest()).isEqualTo(DIGEST);
         assertThat(calibrated.benchmarkSummary().verdict()).isEqualTo("AC");
@@ -103,7 +107,7 @@ class JudgingReadinessIntegrationTests {
     void calibrationRunsAgainstTheAddressItWasGivenAndAnyOnlineNode() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
+        calibrations.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
         var captured = org.mockito.ArgumentCaptor.forClass(JudgeGateway.JudgeRequest.class);
         org.mockito.Mockito.verify(judge)
                 .judge(org.mockito.ArgumentMatchers.eq("http://127.0.0.1:15051"), captured.capture(), any());
@@ -117,7 +121,7 @@ class JudgingReadinessIntegrationTests {
         String problem = UUID.randomUUID().toString();
         String newDigest = "b".repeat(64);
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        var old = service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
+        var old = calibrations.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
 
         var stale = service.readiness(problem, "cpp", newDigest, 0);
         assertThat(stale.ready()).isFalse();
@@ -128,7 +132,7 @@ class JudgingReadinessIntegrationTests {
                 .containsExactly("CALIBRATION");
 
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(newDigest));
-        var fresh = service.calibrate(calibration(problem, newDigest, "// ref"), ACTOR, null);
+        var fresh = calibrations.calibrate(calibration(problem, newDigest, "// ref"), ACTOR, null);
         assertThat(service.readiness(problem, "cpp", newDigest, 0).ready()).isTrue();
         assertThat(service.readiness(problem, "cpp", DIGEST, 0).ready()).isFalse();
         assertThat(status(old.id())).isEqualTo("SUPERSEDED");
@@ -139,13 +143,14 @@ class JudgingReadinessIntegrationTests {
     void calibrationIsVoidedWhenJudgeReadsADifferentTestDataThanRequested() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac("c".repeat(64)));
-        var result = service.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
+        var result = calibrations.calibrate(calibration(problem, DIGEST, "// ref"), ACTOR, null);
         assertThat(result.status()).isEqualTo("FAILED");
         assertThat(result.errorMessage()).isEqualTo("TEST_DATA_CHANGED");
         assertThat(service.readiness(problem, "cpp", DIGEST, 0).ready()).isFalse();
         // 判题结果没带指纹同样不能当作成功
         when(judge.judge(anyString(), any(), any())).thenReturn(new JudgeGateway.JudgeResult("AC", 1L, 2L, 100));
-        assertThat(service.calibrate(calibration(problem, DIGEST, "// ref2"), ACTOR, null)
+        assertThat(calibrations
+                        .calibrate(calibration(problem, DIGEST, "// ref2"), ACTOR, null)
                         .status())
                 .isEqualTo("FAILED");
     }
@@ -154,17 +159,17 @@ class JudgingReadinessIntegrationTests {
     void failedJudgeNeverSupersedesExistingValidCalibration() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        var valid = service.calibrate(calibration(problem, DIGEST, "// valid"), ACTOR, null);
+        var valid = calibrations.calibrate(calibration(problem, DIGEST, "// valid"), ACTOR, null);
 
         when(judge.judge(anyString(), any(), any()))
                 .thenReturn(new JudgeGateway.JudgeResult("WA", 3L, 4L, 0, null, null, DIGEST));
-        var failed = service.calibrate(calibration(problem, DIGEST, "// wrong"), ACTOR, null);
+        var failed = calibrations.calibrate(calibration(problem, DIGEST, "// wrong"), ACTOR, null);
         assertThat(failed.status()).isEqualTo("FAILED");
         assertThat(failed.benchmarkSummary().verdict()).isEqualTo("WA");
         assertThat(validCalibration(problem)).isEqualTo(valid.id());
 
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        var replacement = service.calibrate(calibration(problem, DIGEST, "// replacement"), ACTOR, null);
+        var replacement = calibrations.calibrate(calibration(problem, DIGEST, "// replacement"), ACTOR, null);
         assertThat(replacement.status()).isEqualTo("VALID");
         assertThat(validCalibration(problem)).isEqualTo(replacement.id());
         assertThat(status(valid.id())).isEqualTo("SUPERSEDED");
@@ -173,7 +178,7 @@ class JudgingReadinessIntegrationTests {
     @Test
     void calibrationNeedsAnOnlineNodeForTheLanguage() {
         String problem = UUID.randomUUID().toString();
-        assertThatThrownBy(() -> service.calibrate(
+        assertThatThrownBy(() -> calibrations.calibrate(
                         new CalibrationRequest(
                                 problem,
                                 "python",
@@ -196,7 +201,7 @@ class JudgingReadinessIntegrationTests {
     void databaseAllowsOnlyOneValidCalibrationPerProblemAndLanguage() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(calibration(problem, DIGEST, "// valid"), ACTOR, null);
+        calibrations.calibrate(calibration(problem, DIGEST, "// valid"), ACTOR, null);
         LocalDateTime now = LocalDateTime.now();
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO language_calibration
@@ -230,7 +235,7 @@ class JudgingReadinessIntegrationTests {
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
         String solution = "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {};\n";
 
-        var calibrated = service.calibrate(
+        var calibrated = calibrations.calibrate(
                 new CalibrationRequest(
                         problem,
                         "cpp",
@@ -256,7 +261,7 @@ class JudgingReadinessIntegrationTests {
     @Test
     void aCoreCalibrationNeedsBothTheSolutionFileAndThePrefixLineCount() {
         String problem = UUID.randomUUID().toString();
-        assertThatThrownBy(() -> service.calibrate(
+        assertThatThrownBy(() -> calibrations.calibrate(
                         new CalibrationRequest(
                                 problem,
                                 "cpp",
@@ -286,7 +291,7 @@ class JudgingReadinessIntegrationTests {
         registry.register(
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
         String problem = UUID.randomUUID().toString();
-        assertThatThrownBy(() -> service.calibrate(
+        assertThatThrownBy(() -> calibrations.calibrate(
                         request(problem, "python", "BASE", DIGEST, 1_000_000_000L, 268_435_456L), ACTOR, null))
                 .isInstanceOfSatisfying(JudgingApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("LANGUAGE_NOT_BASE_ELIGIBLE");
@@ -299,7 +304,7 @@ class JudgingReadinessIntegrationTests {
         // application.yaml 里平台上限是 10s / 1GiB：手填的限制和推导值受同一组上限约束
         String problem = UUID.randomUUID().toString();
         for (var limits : new long[][] {{10_000_000_001L, 268_435_456L}, {1_000_000_000L, (1L << 30) + 1}}) {
-            assertThatThrownBy(() -> service.calibrate(
+            assertThatThrownBy(() -> calibrations.calibrate(
                             request(problem, "cpp", "BASE", DIGEST, limits[0], limits[1]), ACTOR, null))
                     .isInstanceOfSatisfying(JudgingApiException.class, error -> {
                         assertThat(error.code()).isEqualTo("LIMIT_ABOVE_PLATFORM");
@@ -317,8 +322,8 @@ class JudgingReadinessIntegrationTests {
     void theCurrentBaseLanguageCannotBeOverridden() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
-        assertThatThrownBy(() -> service.calibrate(
+        calibrations.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        assertThatThrownBy(() -> calibrations.calibrate(
                         request(problem, "cpp", "OVERRIDE", DIGEST, 1_000_000_000L, 268_435_456L), ACTOR, null))
                 .isInstanceOfSatisfying(JudgingApiException.class, error -> {
                     assertThat(error.code()).isEqualTo("OVERRIDE_ON_BASE_LANGUAGE");
@@ -332,13 +337,13 @@ class JudgingReadinessIntegrationTests {
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        var python = service.calibrate(
+        var python = calibrations.calibrate(
                 request(problem, "python", "OVERRIDE", DIGEST, 3_000_000_000L, 268_435_456L), ACTOR, null);
-        var cppOverride = service.calibrate(
+        var cppOverride = calibrations.calibrate(
                 request(problem, "cpp", "OVERRIDE", DIGEST, 1_000_000_000L, 268_435_456L), ACTOR, null);
         assertThat(cppOverride.kind()).isEqualTo("OVERRIDE");
 
-        var base = service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        var base = calibrations.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
 
         assertThat(base.kind()).isEqualTo("BASE");
         assertThat(status(base.id())).isEqualTo("VALID");
@@ -350,7 +355,7 @@ class JudgingReadinessIntegrationTests {
     void databaseAllowsOnlyOneValidBasePerProblem() throws Exception {
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        calibrations.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
         LocalDateTime now = LocalDateTime.now();
         assertThatThrownBy(() -> jdbc.update("""
                 INSERT INTO language_calibration
@@ -370,7 +375,7 @@ class JudgingReadinessIntegrationTests {
         when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        var base = service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        var base = calibrations.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
 
         var readiness = service.readiness(problem, "python", DIGEST, 2_000_000);
 
@@ -403,7 +408,7 @@ class JudgingReadinessIntegrationTests {
         when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 1L << 30), ACTOR, null);
+        calibrations.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 1L << 30), ACTOR, null);
 
         var readiness = service.readiness(problem, "python", DIGEST, 0);
 
@@ -421,7 +426,7 @@ class JudgingReadinessIntegrationTests {
                 new Registration("node-readiness", SESSION, "http://127.0.0.1:15051", List.of("cpp", "python")));
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
+        calibrations.calibrate(calibration(problem, DIGEST, "// base"), ACTOR, null);
 
         var missing = service.readiness(problem, "python", DIGEST, 0);
         assertThat(missing.ready()).isFalse();
@@ -430,7 +435,7 @@ class JudgingReadinessIntegrationTests {
             assertThat(check.passed()).isFalse();
         });
 
-        var override = service.calibrate(
+        var override = calibrations.calibrate(
                 request(problem, "python", "OVERRIDE", DIGEST, 2_000_000_000L, 268_435_456L), ACTOR, null);
         var profile = service.readiness(problem, "python", DIGEST, 0).executionProfile();
         assertThat(profile.limitSource()).isEqualTo("OVERRIDE");
@@ -447,9 +452,10 @@ class JudgingReadinessIntegrationTests {
         String problem = UUID.randomUUID().toString();
         String newDigest = "b".repeat(64);
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        service.calibrate(request(problem, "python", "OVERRIDE", DIGEST, 2_000_000_000L, 268_435_456L), ACTOR, null);
+        calibrations.calibrate(
+                request(problem, "python", "OVERRIDE", DIGEST, 2_000_000_000L, 268_435_456L), ACTOR, null);
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(newDigest));
-        service.calibrate(calibration(problem, newDigest, "// base"), ACTOR, null);
+        calibrations.calibrate(calibration(problem, newDigest, "// base"), ACTOR, null);
 
         // 覆盖标定对应旧数据，已经过期：按新数据的基础标定推导
         var profile = service.readiness(problem, "python", newDigest, 0).executionProfile();
@@ -464,7 +470,8 @@ class JudgingReadinessIntegrationTests {
         when(languages.limitModel("python")).thenReturn(JAVA_LIKE);
         String problem = UUID.randomUUID().toString();
         when(judge.judge(anyString(), any(), any())).thenReturn(ac(DIGEST));
-        var base = service.calibrate(request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 256L << 20), ACTOR, null);
+        var base = calibrations.calibrate(
+                request(problem, "cpp", "BASE", DIGEST, 8_000_000_000L, 256L << 20), ACTOR, null);
 
         // ruby 既没有参数也没有覆盖标定，也没有在线节点：限制页照样列出它，并说明原因
         var rows = service.limits(problem, List.of("python", "ruby", "cpp"), DIGEST, 0)

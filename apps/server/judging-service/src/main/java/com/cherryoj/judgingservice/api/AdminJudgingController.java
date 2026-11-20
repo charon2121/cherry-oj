@@ -1,6 +1,7 @@
 package com.cherryoj.judgingservice.api;
 
 import com.cherryoj.identity.resource.CurrentCall;
+import com.cherryoj.judgingservice.application.CalibrationService;
 import com.cherryoj.judgingservice.application.JudgeNodeRegistry;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import jakarta.validation.Valid;
@@ -26,11 +27,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/internal/admin")
 public class AdminJudgingController {
-    private final JudgingReadinessService service;
+    private final CalibrationService calibrations;
+    private final JudgingReadinessService readiness;
     private final JudgeNodeRegistry nodes;
 
-    public AdminJudgingController(JudgingReadinessService service, JudgeNodeRegistry nodes) {
-        this.service = service;
+    public AdminJudgingController(
+            CalibrationService calibrations, JudgingReadinessService readiness, JudgeNodeRegistry nodes) {
+        this.calibrations = calibrations;
+        this.readiness = readiness;
         this.nodes = nodes;
     }
 
@@ -44,7 +48,7 @@ public class AdminJudgingController {
     ResponseEntity<JudgingDtos.Calibration> calibrate(
             @Valid @RequestBody JudgingDtos.CalibrationRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceId) {
-        return noStore(service.calibrate(request, CurrentCall.requireUser().id(), traceId));
+        return noStore(calibrations.calibrate(request, CurrentCall.requireUser().id(), traceId));
     }
 
     @GetMapping("/readiness")
@@ -53,7 +57,7 @@ public class AdminJudgingController {
             @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.LANGUAGE_PATTERN) String languageId,
             @RequestParam @NotBlank @Pattern(regexp = JudgingDtos.SHA_PATTERN) String testDataDigest,
             @RequestParam @Min(0) long maxTestcaseIoBytes) {
-        return noStore(service.readiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes));
+        return noStore(readiness.readiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes));
     }
 
     /** languageIds 是 problem-service 给出的题目开放语言：judging-service 不知道题目开放了哪些语言。 */
@@ -67,7 +71,7 @@ public class AdminJudgingController {
         if (new HashSet<>(languageIds).size() != languageIds.size()) {
             throw new JudgingApiException(HttpStatus.BAD_REQUEST, "DUPLICATE_LANGUAGE", "语言列表里有重复项。");
         }
-        return noStore(service.limits(problemId, languageIds, testDataDigest, maxTestcaseIoBytes));
+        return noStore(readiness.limits(problemId, languageIds, testDataDigest, maxTestcaseIoBytes));
     }
 
     private static <T> ResponseEntity<T> noStore(T body) {
