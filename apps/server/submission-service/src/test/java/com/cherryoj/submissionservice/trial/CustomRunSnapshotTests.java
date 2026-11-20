@@ -2,6 +2,9 @@ package com.cherryoj.submissionservice.trial;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.cherryoj.identity.token.CallToken;
 import com.cherryoj.identity.token.CallTokenSigner;
@@ -14,6 +17,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import tools.jackson.databind.ObjectMapper;
 
 class CustomRunSnapshotTests {
@@ -21,6 +26,32 @@ class CustomRunSnapshotTests {
             ServiceNames.SUBMISSION,
             ServiceKeys.privateKey("classpath:test-service-identity/submission-service-private.pem"),
             Clock.systemUTC());
+
+    @Test
+    void customRunBodyLimitAcceptsTwoMebibytesAndRejectsOneMoreByte() throws Exception {
+        var prerequisites = mock(SubmissionPrerequisites.class);
+        var controller = new CustomRunController(prerequisites, new ObjectMapper(), "http://127.0.0.1:1", SIGNER);
+        var mvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new SubmissionExceptionHandler(), new RunBodyLimit())
+                .build();
+        String id = "019c8e42-7f70-7000-8000-000000000010";
+        String body = """
+                {"problemId":"%s","languageId":"cpp","source":"int main(){}","inputText":""}
+                """.formatted(id);
+        String atLimit = body + " ".repeat(2 * 1024 * 1024 - body.length());
+
+        mvc.perform(post("/api/custom-runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(atLimit + " "))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("RUN_INPUT_TOO_LARGE"));
+        verifyNoInteractions(prerequisites);
+        mvc.perform(post("/api/custom-runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(atLimit))
+                .andExpect(status().isServiceUnavailable());
+        verify(prerequisites).snapshot(id, "cpp");
+    }
 
     @Test
     void snapshotOfAnotherProblemIsNeverForwarded() {

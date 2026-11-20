@@ -36,7 +36,7 @@ JDK 不是 Maven 依赖，不能通过 `pom.xml` 自动安装。若本地 JDK �
 
 根 POM 的 `packaging` 是 `pom`，它本身不生成业务服务，主要承担四件事：
 
-- 聚合五个服务与 `logging-support`、`identity-token-support`、`identity-resource-support` 三个基础库，让一条命令能构建全部服务。
+- 聚合五个服务与 `logging-support`、`identity-token-support`、`identity-resource-support`、`http-support` 四个基础库，让一条命令能构建全部服务。
 - 继承 Spring Boot Parent 的通用版本和 Maven 默认配置。
 - 用 Spring Cloud BOM 统一 Cloud 组件版本。
 - 统一 Java 版本和 Spring Boot 打包插件。
@@ -147,6 +147,10 @@ application-local.example.yaml 提供填写示例，application.yaml 保留公�
 签发与校验调用令牌、加载本服务私钥和公钥目录，不依赖 Web 栈，gateway 与 servlet 服务都用；它的 test-jar
 带五个服务各一对仅供测试的密钥和 `TestCallTokens`。`identity-resource-support` 给 servlet 服务提供主安全链：
 校验调用令牌、执行本服务声明的 `EndpointPolicies`，业务代码从 `CurrentCall` 取调用方与用户。
+
+### `http-support`
+
+提交服务和判题服务的自测入口共用实际请求字节的限长读取。各服务用自己的 Controller Advice 指定适用入口及上限。
 
 ### `spring-boot-starter-actuator`
 

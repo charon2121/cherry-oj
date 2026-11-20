@@ -229,6 +229,29 @@ class AdminJudgingSecurityIntegrationTests {
                 .resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
+    @Test
+    void trialBodyLimitAcceptsTwoMebibytesAndRejectsOneMoreByte() throws Exception {
+        String path = "/internal/submission/trials";
+        String authorization = TestCallTokens.authorization(ServiceNames.SUBMISSION, ServiceNames.JUDGING, null);
+        String body = """
+                {"problemId":"019c8e42-7f70-7000-8000-000000000010","languageId":"cpp",
+                 "source":"int main(){}","inputText":"","deadlineEpochMs":1}
+                """;
+        String atLimit = body + " ".repeat(2 * 1024 * 1024 - body.length());
+
+        mvc.perform(post(path)
+                        .header("Authorization", authorization)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(atLimit + " "))
+                .andExpect(status().isPayloadTooLarge());
+        // 上限内的正文能正常解码，并进入已有的过期检查。
+        mvc.perform(post(path)
+                        .header("Authorization", authorization)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(atLimit))
+                .andExpect(status().isGatewayTimeout());
+    }
+
     private static String problemService(CallUser user) {
         return TestCallTokens.authorization(ServiceNames.PROBLEM, ServiceNames.JUDGING, user);
     }

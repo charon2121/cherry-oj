@@ -1,34 +1,32 @@
 package com.cherryoj.submissionservice.trial;
 
-import java.io.*;
+import com.cherryoj.http.LimitedRequestBody;
+import com.cherryoj.submissionservice.api.SubmissionException;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import org.springframework.core.MethodParameter;
-import org.springframework.http.*;
+import org.springframework.http.HttpInputMessage;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.RequestBodyAdviceAdapter;
 
 @ControllerAdvice(assignableTypes = CustomRunController.class)
 public class RunBodyLimit extends RequestBodyAdviceAdapter {
+    private static final int MAX_BODY_BYTES = 2 * 1024 * 1024;
 
+    @Override
     public boolean supports(MethodParameter p, Type t, Class<? extends HttpMessageConverter<?>> c) {
         return true;
     }
 
+    @Override
     public HttpInputMessage beforeBodyRead(
             HttpInputMessage input, MethodParameter p, Type t, Class<? extends HttpMessageConverter<?>> c)
             throws IOException {
-        byte[] bytes = input.getBody().readNBytes(2 * 1024 * 1024 + 1);
-        if (bytes.length > 2 * 1024 * 1024)
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE);
-        return new HttpInputMessage() {
-            public InputStream getBody() {
-                return new ByteArrayInputStream(bytes);
-            }
-
-            public HttpHeaders getHeaders() {
-                return input.getHeaders();
-            }
-        };
+        return LimitedRequestBody.read(
+                input,
+                MAX_BODY_BYTES,
+                () -> new SubmissionException(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "请求正文过大。"));
     }
 }
