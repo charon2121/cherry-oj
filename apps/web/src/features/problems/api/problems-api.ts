@@ -228,12 +228,6 @@ export async function listProblems(search: ProblemSearch, signal?: AbortSignal) 
   if (response.meta.pagination?.kind !== 'cursor') throw new Error('题库响应缺少游标分页。');
   return { items: response.data.items, pagination: response.meta.pagination };
 }
-export function problemListQuery(search: ProblemSearch) {
-  return queryOptions({
-    queryKey: problemKeys.publicList(search),
-    queryFn: ({ signal }) => listProblems(search, signal),
-  });
-}
 export async function getProblem(slug: string, signal?: AbortSignal) {
   return (
     await requestJson(`/api/problems/${slug}`, problemDetailSchema, {
@@ -310,14 +304,6 @@ function problemRequest<T>(
         })
       ).data,
   );
-}
-/** 题目还没有测试数据时后端返回 404 TEST_DATA_NOT_FOUND；工作台用题目里的 testData 判断有没有。 */
-export async function getTestData(problemId: string, signal?: AbortSignal) {
-  return (
-    await requestJson(`/api/admin/problems/${problemId}/test-data`, testDataSchema, {
-      ...(signal === undefined ? {} : { signal }),
-    })
-  ).data;
 }
 /** 上传即替换：题目只有一份测试数据，数据一换，旧的校准就过期了。 */
 export async function replaceTestData(problemId: string, file: File, signal?: AbortSignal) {
