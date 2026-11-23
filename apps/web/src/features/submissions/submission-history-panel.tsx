@@ -3,14 +3,15 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
+import { SourceCopyButton } from '@/components/ui/copy-button';
 import { DataList } from '@/components/ui/data-list';
 import { SelectField } from '@/components/ui/select';
 import { TextEditor } from '@/components/ui/text-editor';
 import { Toolbar } from '@/components/ui/toolbar';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { editorSyntax, languageName } from '@/features/languages/language';
-import { SourceCopyButton } from '@/features/problems/components/source-copy-button';
 import type { ProblemDetail, SubmissionSourceData } from '@/generated/api';
+import { verdictLabels } from '@/lib/verdict-labels';
 
 import {
   getHistorySource,
@@ -21,7 +22,7 @@ import {
   verdictSchema,
   withHistoryIdentity,
 } from './submission-history-api';
-import { labels, SubmissionResult } from './submission-panel';
+import { SubmissionResult } from './submission-panel';
 import { getSubmission } from './submissions-api';
 
 export type HistoryLoad = { userId: string; source: SubmissionSourceData };
@@ -134,7 +135,7 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
               { value: 'ALL', label: '全部判定' },
               ...verdictSchema.options.map((value) => ({
                 value,
-                label: `${value} · ${labels[value]}`,
+                label: `${value} · ${verdictLabels[value]}`,
               })),
             ]}
             onValueChange={(value) =>
@@ -197,7 +198,7 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
                 >
                   <span className="text-foreground block">
                     {row.verdict
-                      ? `${row.verdict} · ${labels[row.verdict]}`
+                      ? `${row.verdict} · ${verdictLabels[row.verdict]}`
                       : row.status === 'JUDGING'
                         ? '正在判题'
                         : '等待判题'}

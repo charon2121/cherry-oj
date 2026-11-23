@@ -5,6 +5,7 @@ import { type ReactNode, type Ref, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { CopyIconButton } from '@/components/ui/copy-button';
 import { Container, Section } from '@/components/ui/layout';
 import { WorkbenchPageTemplate } from '@/components/ui/page-templates';
 import {
@@ -20,6 +21,8 @@ import { Heading } from '@/components/ui/typography';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { CustomRunWorkbench } from '@/features/custom-runs/custom-run-workbench';
 import { SubmissionHistoryPanel } from '@/features/submissions/submission-history-panel';
+import { SubmissionPanel } from '@/features/submissions/submission-panel';
+import { loadRecovery, recoveryKey } from '@/features/submissions/submission-recovery';
 import type { ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { cn } from '@/lib/utils';
@@ -36,7 +39,6 @@ import {
   SourceEditor,
 } from './problem-source-editor';
 import { SafeMarkdown } from './safe-markdown';
-import { CopyIconButton } from './source-copy-button';
 
 export function ProblemDetailPage({ slug }: { slug: string }) {
   const problem = useQuery(problemQuery(slug));
@@ -369,6 +371,7 @@ function ProblemCode({
   selectedLanguageId: string | undefined;
   onSelectLanguage: (languageId: string) => void;
 }) {
+  const { submissionId } = useSearch({ from: '/_site/problems/$slug' });
   const session = useQuery({ ...sessionQueryOptions(), refetchInterval: 15_000 });
   const languages = useQuery(readyLanguagesQuery(data.slug));
   const language = languages.isError
@@ -478,6 +481,9 @@ function ProblemCode({
     return wide ? <Pane label="代码">{readOnlyCode}</Pane> : readOnlyCode;
   }
 
+  const submissionProblem = { ...data, allowedLanguages: [language] };
+  const disabled = session.isError || unavailable;
+
   return (
     <DraftEditor
       key={`${user.id}:${data.problemId}:${language.id}`}
@@ -493,10 +499,28 @@ function ProblemCode({
       renderSubmission={(source) => (
         <CustomRunWorkbench
           userId={user.id}
-          problem={{ ...data, allowedLanguages: [language] }}
+          problem={submissionProblem}
           source={source}
-          disabled={session.isError || unavailable}
+          disabled={disabled}
           wide={wide}
+          showSubmissionFirst={() => {
+            try {
+              return Boolean(
+                submissionId || loadRecovery(recoveryKey(user.id, data.problemId, language.id)),
+              );
+            } catch {
+              return true;
+            }
+          }}
+          renderSubmission={(controls) => (
+            <SubmissionPanel
+              {...controls}
+              userId={user.id}
+              problem={submissionProblem}
+              source={source}
+              disabled={disabled}
+            />
+          )}
         />
       )}
       {...(wide

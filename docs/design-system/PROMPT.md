@@ -88,7 +88,7 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 `SelectField`/`Textarea`、`Dialog`、`Sheet`、`Popover`、`DropdownMenu`、`InlineNotice`、`AsyncState`（加载/空/错）、
 `Badge`、`Breadcrumb`、`TextEditor`（CodeMirror：长文本、样例、只读输出）、`CodeEditor`（Monaco：只用于做题
 编码区）、`RichMarkdownEditor`、`CodeBlockEditor`、页面模板 `ListPageTemplate`/`DetailPageTemplate`/
-`WorkbenchPageTemplate`。业务里复用的：`CopyIconButton`（`features/problems/components/source-copy-button.tsx`）、
+`WorkbenchPageTemplate`、`CopyIconButton`（`components/ui/copy-button.tsx`）。业务里复用的：
 `DifficultyIcon`、`SafeMarkdown`（不可信 Markdown 渲染）、品牌标志 `public/brand-mark.svg`（用 `<img>` 引用，
 不要重画）、`Pane`/`PaneHeader`（`problem-source-editor.tsx`）。
 确实缺件时，先按「三层来源」查 shadcn base-nova，再在 `components/ui/` 新增并写 story。
@@ -96,7 +96,7 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 ## 交互与文案约定
 
 - **同一事物只有一个叫法**，用户端、管理端、自测、提交都一样（例如两端都叫"输入说明/输出说明"；判定名称
-  统一用 `features/submissions/submission-panel.tsx` 导出的 `labels`，并按 `../design-system.md` §5 写成
+  统一用 `lib/verdict-labels.ts` 导出的 `verdictLabels`，并按 `../design-system.md` §5 写成
   "代码 · 名称"，例如"WA · 答案错误"）。写法可以不同，叫法不能不同。
 - **界面上不写功能说明。** 页面自己说明怎么用就是没设计好；给读屏的说明放 `sr-only`。只有操作被挡住时，
   才在旁边用可读文字说明原因和下一步。

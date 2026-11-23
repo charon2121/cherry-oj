@@ -1,9 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useSearch } from '@tanstack/react-router';
 import { Play } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { CopyIconButton } from '@/components/ui/copy-button';
 import {
   Dialog,
   DialogContent,
@@ -17,20 +17,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TextEditor } from '@/components/ui/text-editor';
 import { authKeys } from '@/features/auth/api/session-query';
 import { problemLanguage } from '@/features/languages/language';
-import { CopyIconButton } from '@/features/problems/components/source-copy-button';
-import { labels, SubmissionPanel } from '@/features/submissions/submission-panel';
-import { loadRecovery, recoveryKey } from '@/features/submissions/submission-recovery';
 import type { AuthSessionData, CustomRunData, ProblemDetail } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { modKey, useModEnter } from '@/lib/use-mod-enter';
 import { cn } from '@/lib/utils';
+import { verdictLabels } from '@/lib/verdict-labels';
 
 import { createCustomRun } from './custom-run-api';
 import { type CaseVerdict, caseVerdict } from './sample-check';
 
 // 判定名称与正式提交同一套；只有自测才有的两种结论另起名字。
 const caseLabels: Record<CaseVerdict, string> = {
-  ...labels,
+  ...verdictLabels,
   RAN: '运行完成',
   UNCHECKED: '运行完成（输出过长，未比对）',
 };
@@ -50,32 +48,33 @@ function failed(verdict: CaseVerdict) {
   return verdict !== 'AC' && verdict !== 'RAN' && verdict !== 'UNCHECKED';
 }
 
+type SubmissionControls = {
+  onSubmissionStart: () => void;
+  runControl: ReactNode;
+  className: string | undefined;
+  renderResults: (submission: ReactNode, actions: ReactNode) => ReactNode;
+};
+
 export function CustomRunWorkbench({
   userId,
   problem,
   source,
   disabled,
+  showSubmissionFirst,
+  renderSubmission,
   wide = false,
 }: {
   userId: string;
   problem: ProblemDetail;
   source: string;
   disabled: boolean;
+  showSubmissionFirst: () => boolean;
+  renderSubmission: (controls: SubmissionControls) => ReactNode;
   /** 宽屏做题页：结果区是一张卡片，正文在卡片里滚动。 */
   wide?: boolean;
 }) {
   const client = useQueryClient();
-  const search = useSearch({ from: '/_site/problems/$slug' });
-  const [tab, setTab] = useState(() => {
-    try {
-      return search.submissionId ||
-        loadRecovery(recoveryKey(userId, problem.problemId, problemLanguage(problem)?.id ?? ''))
-        ? 'submission'
-        : 'input';
-    } catch {
-      return 'submission';
-    }
-  });
+  const [tab, setTab] = useState(() => (showSubmissionFirst() ? 'submission' : 'input'));
   const samples: RunCase[] = problem.samples.map((sample) => ({
     key: `sample-${sample.ordinal}`,
     name: `样例 ${sample.ordinal}`,
@@ -206,184 +205,178 @@ export function CustomRunWorkbench({
       setCaseKey(CUSTOM);
     }
   }
-  return (
-    <SubmissionPanel
-      userId={userId}
-      problem={problem}
-      source={source}
-      disabled={disabled}
-      onSubmissionStart={() => setTab('submission')}
-      runControl={
-        <Button
-          size="sm"
-          variant="secondary"
-          disabled={runDisabled}
-          onClick={() => void run()}
-          aria-describedby="custom-run-help"
-          aria-keyshortcuts="Meta+Enter Control+Enter"
-          title={`运行（${modKey} Enter）`}
+  return renderSubmission({
+    onSubmissionStart: () => setTab('submission'),
+    runControl: (
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={runDisabled}
+        onClick={() => void run()}
+        aria-describedby="custom-run-help"
+        aria-keyshortcuts="Meta+Enter Control+Enter"
+        title={`运行（${modKey} Enter）`}
+      >
+        <Play aria-hidden="true" />
+        {busy && !disabled ? '正在运行…' : '运行'}
+      </Button>
+    ),
+    className: wide
+      ? 'flex max-h-none min-h-0 flex-1 flex-col overflow-hidden border-0 p-0'
+      : undefined,
+    renderResults: (submission, actions) => (
+      <>
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(String(value))}
+          className={wide ? 'min-h-0 flex-1' : undefined}
         >
-          <Play aria-hidden="true" />
-          {busy && !disabled ? '正在运行…' : '运行'}
-        </Button>
-      }
-      className={
-        wide ? 'flex max-h-none min-h-0 flex-1 flex-col overflow-hidden border-0 p-0' : undefined
-      }
-      renderResults={(submission, actions) => (
-        <>
-          <Tabs
-            value={tab}
-            onValueChange={(value) => setTab(String(value))}
-            className={wide ? 'min-h-0 flex-1' : undefined}
+          {/* 运行、提交放在测试卡片标题行右侧：紧挨着它们产生的结果，也离代码最近。 */}
+          <div
+            className={cn(
+              'flex shrink-0 flex-wrap items-center gap-2',
+              wide && 'border-border-soft border-b-hairline',
+            )}
           >
-            {/* 运行、提交放在测试卡片标题行右侧：紧挨着它们产生的结果，也离代码最近。 */}
-            <div
-              className={cn(
-                'flex shrink-0 flex-wrap items-center gap-2',
-                wide && 'border-border-soft border-b-hairline',
-              )}
-            >
-              <TabsList aria-label="测试与提交" className="flex-1">
-                <TabsTrigger value="input">测试用例</TabsTrigger>
-                <TabsTrigger value="run">运行结果</TabsTrigger>
-                <TabsTrigger value="submission">提交结果</TabsTrigger>
-              </TabsList>
-              <div className={cn('flex items-center gap-2', wide && 'pr-2')}>{actions}</div>
-            </div>
-            {/* 只在运行被挡住时说明原因；平常的说明只留给读屏，界面上不放。 */}
-            <p
-              id="custom-run-help"
-              className={
-                disabled || invalidSource || inputLarge
-                  ? cn('text-fg-meta text-xs', wide && 'px-4 pt-2')
-                  : 'sr-only'
-              }
-            >
-              {disabled
-                ? '当前题目或登录状态尚不可运行。'
-                : invalidSource
-                  ? '请输入非空代码，最多 256 KiB。'
-                  : inputLarge
-                    ? '自定义输入超过 64 KiB，请缩减后运行。'
-                    : '运行会用当前代码跑全部样例并比对预期输出，自定义输入有内容时一起运行；不计入提交记录。'}
-            </p>
-            <TabsContent value="input" className={cn('space-y-3 pt-3', body)}>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {samples.map((item) => (
-                  <Pill
-                    key={item.key}
-                    selected={caseKey === item.key}
-                    onClick={() => setCaseKey(item.key)}
-                  >
-                    {item.name}
-                  </Pill>
-                ))}
-                <Pill selected={caseKey === CUSTOM} onClick={() => setCaseKey(CUSTOM)}>
-                  自定义
-                </Pill>
-              </div>
-              {sample ? (
-                <>
-                  <TextEditor
-                    value={sample.input}
-                    onChange={() => undefined}
-                    readOnly
-                    language="plain"
-                    size="auto"
-                    aria-label={`${sample.name}输入`}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-fg-meta"
-                    disabled={disabled}
-                    onClick={() => writeCustom(sample.input)}
-                  >
-                    复制到自定义
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <TextEditor
-                    value={custom}
-                    onChange={setCustom}
-                    readOnly={disabled}
-                    language="plain"
-                    size="auto"
-                    aria-label="自定义输入数据"
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="text-fg-meta"
-                    disabled={disabled || !custom}
-                    onClick={() => writeCustom('')}
-                  >
-                    清空
-                  </Button>
-                </>
-              )}
-            </TabsContent>
-            <TabsContent value="run" className={cn('space-y-3 pt-3', body)}>
-              {disabled ? (
-                <p className="text-fg-muted">登录或题目状态暂时无法确认，运行结果已隐藏。</p>
-              ) : attempt ? (
-                <RunReport
-                  attempt={attempt}
-                  outcomes={outcomes}
-                  busy={busy}
-                  error={error}
-                  selected={resultKey}
-                  onSelect={setResultKey}
-                  stale={source !== attempt.source || custom !== attempt.custom}
-                />
-              ) : (
-                <p className="text-fg-muted">运行后结果会显示在这里。</p>
-              )}
-            </TabsContent>
-            <TabsContent value="submission" className={cn('pt-3', body)}>
-              {submission}
-            </TabsContent>
-          </Tabs>
-          <Dialog
-            open={replaceCustom !== null && !disabled}
-            onOpenChange={(open) => {
-              if (!open) setReplaceCustom(null);
-            }}
+            <TabsList aria-label="测试与提交" className="flex-1">
+              <TabsTrigger value="input">测试用例</TabsTrigger>
+              <TabsTrigger value="run">运行结果</TabsTrigger>
+              <TabsTrigger value="submission">提交结果</TabsTrigger>
+            </TabsList>
+            <div className={cn('flex items-center gap-2', wide && 'pr-2')}>{actions}</div>
+          </div>
+          {/* 只在运行被挡住时说明原因；平常的说明只留给读屏，界面上不放。 */}
+          <p
+            id="custom-run-help"
+            className={
+              disabled || invalidSource || inputLarge
+                ? cn('text-fg-meta text-xs', wide && 'px-4 pt-2')
+                : 'sr-only'
+            }
           >
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {replaceCustom === '' ? '清空自定义输入？' : '替换自定义输入？'}
-                </DialogTitle>
-                <DialogDescription>
-                  当前自定义输入将被{replaceCustom === '' ? '清空' : '替换'}
-                  。需要保留时，请先取消并复制备份。
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="secondary" onClick={() => setReplaceCustom(null)}>
-                  取消
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (replaceCustom !== null && !disabled) {
-                      setCustom(replaceCustom);
-                      setCaseKey(CUSTOM);
-                    }
-                    setReplaceCustom(null);
-                  }}
+            {disabled
+              ? '当前题目或登录状态尚不可运行。'
+              : invalidSource
+                ? '请输入非空代码，最多 256 KiB。'
+                : inputLarge
+                  ? '自定义输入超过 64 KiB，请缩减后运行。'
+                  : '运行会用当前代码跑全部样例并比对预期输出，自定义输入有内容时一起运行；不计入提交记录。'}
+          </p>
+          <TabsContent value="input" className={cn('space-y-3 pt-3', body)}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {samples.map((item) => (
+                <Pill
+                  key={item.key}
+                  selected={caseKey === item.key}
+                  onClick={() => setCaseKey(item.key)}
                 >
-                  {replaceCustom === '' ? '确认清空' : '确认替换'}
+                  {item.name}
+                </Pill>
+              ))}
+              <Pill selected={caseKey === CUSTOM} onClick={() => setCaseKey(CUSTOM)}>
+                自定义
+              </Pill>
+            </div>
+            {sample ? (
+              <>
+                <TextEditor
+                  value={sample.input}
+                  onChange={() => undefined}
+                  readOnly
+                  language="plain"
+                  size="auto"
+                  aria-label={`${sample.name}输入`}
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-fg-meta"
+                  disabled={disabled}
+                  onClick={() => writeCustom(sample.input)}
+                >
+                  复制到自定义
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </>
-      )}
-    />
-  );
+              </>
+            ) : (
+              <>
+                <TextEditor
+                  value={custom}
+                  onChange={setCustom}
+                  readOnly={disabled}
+                  language="plain"
+                  size="auto"
+                  aria-label="自定义输入数据"
+                />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-fg-meta"
+                  disabled={disabled || !custom}
+                  onClick={() => writeCustom('')}
+                >
+                  清空
+                </Button>
+              </>
+            )}
+          </TabsContent>
+          <TabsContent value="run" className={cn('space-y-3 pt-3', body)}>
+            {disabled ? (
+              <p className="text-fg-muted">登录或题目状态暂时无法确认，运行结果已隐藏。</p>
+            ) : attempt ? (
+              <RunReport
+                attempt={attempt}
+                outcomes={outcomes}
+                busy={busy}
+                error={error}
+                selected={resultKey}
+                onSelect={setResultKey}
+                stale={source !== attempt.source || custom !== attempt.custom}
+              />
+            ) : (
+              <p className="text-fg-muted">运行后结果会显示在这里。</p>
+            )}
+          </TabsContent>
+          <TabsContent value="submission" className={cn('pt-3', body)}>
+            {submission}
+          </TabsContent>
+        </Tabs>
+        <Dialog
+          open={replaceCustom !== null && !disabled}
+          onOpenChange={(open) => {
+            if (!open) setReplaceCustom(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {replaceCustom === '' ? '清空自定义输入？' : '替换自定义输入？'}
+              </DialogTitle>
+              <DialogDescription>
+                当前自定义输入将被{replaceCustom === '' ? '清空' : '替换'}
+                。需要保留时，请先取消并复制备份。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setReplaceCustom(null)}>
+                取消
+              </Button>
+              <Button
+                onClick={() => {
+                  if (replaceCustom !== null && !disabled) {
+                    setCustom(replaceCustom);
+                    setCaseKey(CUSTOM);
+                  }
+                  setReplaceCustom(null);
+                }}
+              >
+                {replaceCustom === '' ? '确认清空' : '确认替换'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    ),
+  });
 }
 
 // 一次运行的结果：先一句总结，再按用例切换查看输入、实际输出与预期输出。

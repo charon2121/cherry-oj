@@ -9,6 +9,7 @@ import type { ProblemDetail, SubmissionData } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
 import { modKey, useModEnter } from '@/lib/use-mod-enter';
 import { cn } from '@/lib/utils';
+import { verdictLabels } from '@/lib/verdict-labels';
 
 import {
   loadRecovery,
@@ -17,18 +18,6 @@ import {
   type SubmissionRecovery,
 } from './submission-recovery';
 import { createSubmission, findSubmission, getSubmission } from './submissions-api';
-
-export const labels = {
-  AC: '通过',
-  WA: '答案错误',
-  PE: '格式错误',
-  CE: '编译错误',
-  RE: '运行错误',
-  TLE: '超过时间限制',
-  MLE: '超过内存限制',
-  OLE: '超过输出限制',
-  SE: '系统错误',
-} satisfies Record<NonNullable<SubmissionData['verdict']>, string>;
 
 export function SubmissionPanel({
   userId,
@@ -321,7 +310,7 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
         )}
       >
         {value.status === 'DONE' && value.verdict
-          ? `${value.verdict} · ${labels[value.verdict]}`
+          ? `${value.verdict} · ${verdictLabels[value.verdict]}`
           : value.status === 'JUDGING'
             ? value.executedTestcaseCount !== undefined && value.testcaseCount !== undefined
               ? `正在判题 ${value.executedTestcaseCount} / ${value.testcaseCount}`

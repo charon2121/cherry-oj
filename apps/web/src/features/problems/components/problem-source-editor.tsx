@@ -4,6 +4,7 @@ import { type ReactNode, type Ref, useEffect, useImperativeHandle, useState } fr
 
 import { Button } from '@/components/ui/button';
 import { CodeEditor } from '@/components/ui/code-editor';
+import { CopyIconButton, SourceCopyButton } from '@/components/ui/copy-button';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +21,6 @@ import { cn } from '@/lib/utils';
 
 import { useCodeDraft } from '../hooks/use-code-draft';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
-import { CopyIconButton, SourceCopyButton } from './source-copy-button';
 
 export function SourceEditor({
   value,
