@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -12,128 +12,11 @@ from attack import AttackCommon, AttackSample
 from corpus import Check, Problem, RequestCase, Submission, TrialCase
 from judge_client import ClientError, JudgeClient
 from node import CLEAN_MEMORY_LIMIT, NodeInspector
+from results import AttackResult, Item, ProblemResult
+from run_config import DEFAULT_REPEATS, Declared
 
-DEFAULT_REPEATS = 3
 # 预期含这些结论的提交属于时间、内存类，默认重复运行以判定稳定性（协议 §7.3）。
 REPEATED_VERDICTS = frozenset({"TLE", "MLE", "OLE"})
-
-
-@dataclass(frozen=True)
-class Declared:
-    """运行者声明的节点配置（协议 §4）。没有声明的项就是未知，依赖它的项会被跳过，而不是去猜。"""
-
-    backend: str | None = None
-    strict_whitespace: bool | None = None
-    reveal_expected: bool = False
-    languages: tuple[str, ...] | None = None
-    entries: tuple[str, ...] = ("judge",)
-
-    def to_report(self) -> dict[str, Any]:
-        return {"backend": self.backend, "strictWhitespace": self.strict_whitespace,
-                "revealExpected": self.reveal_expected,
-                "languages": list(self.languages) if self.languages is not None else None,
-                "entries": list(self.entries)}
-
-    def unmet(self, tags: tuple[str, ...]) -> str | None:
-        """第一个不满足的标签的原因；全部满足返回 None。"""
-        for tag in tags:
-            kind, _, value = tag.partition(":")
-            if kind == "backend":
-                if self.backend != value:
-                    return f"需要 {tag}，运行者声明的 backend 是 {self.backend!r}"
-            elif kind == "strictWhitespace":
-                if self.strict_whitespace is None or self.strict_whitespace != (value == "true"):
-                    return f"需要 {tag}，运行者声明的 strictWhitespace 是 {self.strict_whitespace!r}"
-            elif kind == "entry":
-                if value not in self.entries:
-                    return f"需要 {tag}，本次运行的入口是 {', '.join(self.entries)}"
-            elif kind == "noLanguage":
-                if self.languages is None:
-                    return f"需要 {tag}，但运行者没有声明 languages"
-                if value in self.languages:
-                    return f"需要 {tag}，但节点声明有 {value}"
-        return None
-
-
-def parse_declared(pairs: list[str], entries: tuple[str, ...]) -> Declared:
-    values: dict[str, str] = {}
-    for pair in pairs:
-        key, separator, value = pair.partition("=")
-        if not separator or not key:
-            raise ValueError(f"--declare 的值必须是 key=value，收到 {pair!r}")
-        values[key] = value
-
-    def boolean(key: str) -> bool | None:
-        if key not in values:
-            return None
-        if values[key] not in ("true", "false"):
-            raise ValueError(f"--declare {key} 必须是 true 或 false")
-        return values[key] == "true"
-
-    unknown = set(values) - {"backend", "strictWhitespace", "revealExpected", "languages"}
-    if unknown:
-        raise ValueError(f"--declare 不认识 {', '.join(sorted(unknown))}")
-    return Declared(
-        backend=values.get("backend"), strict_whitespace=boolean("strictWhitespace"),
-        reveal_expected=bool(boolean("revealExpected")),
-        languages=tuple(v for v in values["languages"].split(",") if v) if "languages" in values else None,
-        entries=entries)
-
-
-@dataclass
-class Item:
-    kind: str  # submission | request | trial | attack
-    name: str
-    status: str = "pass"  # pass | fail | unstable | skipped | probe
-    expected: Any = None
-    actual: Any = None
-    repeats: int = 1
-    reason: str | None = None
-    diffs: list[str] = field(default_factory=list)
-    testcases: list[dict[str, Any]] = field(default_factory=list)
-    entry: str = "judge"
-    residue: dict[str, Any] | None = None  # 攻击样本的回收检查结果
-    runs: list[dict[str, Any]] = field(default_factory=list)  # sandbox 入口：每个运行说明的观测
-
-    def to_report(self) -> dict[str, Any]:
-        report: dict[str, Any] = {"name": self.name, "entry": self.entry, "status": self.status,
-                                  "expected": self.expected, "actual": self.actual, "repeats": self.repeats}
-        if self.residue is not None:
-            report["residue"] = self.residue
-        if self.runs:
-            report["runs"] = self.runs
-        if self.reason:
-            report["reason"] = self.reason
-        if self.diffs:
-            report["diffs"] = self.diffs
-        if self.testcases:
-            report["testcases"] = self.testcases
-        return report
-
-
-@dataclass
-class AttackResult:
-    """一个攻击样本在各入口的结果。"""
-
-    name: str
-    items: list[Item] = field(default_factory=list)
-
-    def to_report(self) -> dict[str, Any]:
-        return {"name": self.name, "results": [item.to_report() for item in self.items]}
-
-
-@dataclass
-class ProblemResult:
-    name: str
-    digest: str
-    items: list[Item] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
-
-    def to_report(self) -> dict[str, Any]:
-        def of(kind: str) -> list[dict[str, Any]]:
-            return [item.to_report() for item in self.items if item.kind == kind]
-        return {"name": self.name, "digest": self.digest, "submissions": of("submission"),
-                "requests": of("request"), "trials": of("trial")}
 
 
 @dataclass

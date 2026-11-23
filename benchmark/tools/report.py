@@ -7,7 +7,8 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
-from judge_entry import AttackResult, Declared, Item, ProblemResult
+from results import AttackResult, Item, ProblemResult
+from run_config import Declared
 
 EXIT_PASS, EXIT_FAIL, EXIT_UNSTABLE, EXIT_ENVIRONMENT = 0, 1, 2, 3
 

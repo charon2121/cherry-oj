@@ -12,7 +12,7 @@ import fake_executor
 import sandbox_entry
 import specs
 from executor import Call
-from judge_entry import Declared
+from run_config import Declared
 from node import NodeInspector
 from fake_executor import program
 

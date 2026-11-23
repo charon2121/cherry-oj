@@ -9,7 +9,9 @@ import fake_judge
 import publish
 import report
 from judge_client import JudgeClient
-from judge_entry import Declared, JudgeRunner, parse_declared
+from judge_entry import JudgeRunner
+from results import Item, ProblemResult
+from run_config import Declared, parse_declared
 
 REAL = Path(__file__).resolve().parents[1] / "corpus"
 
@@ -147,8 +149,6 @@ class RunnerTest(unittest.TestCase):
 
 class ReportTest(unittest.TestCase):
     def test_exit_code_prefers_failure_over_unstable(self):
-        from judge_entry import Item, ProblemResult
-
         def of(*statuses):
             return [ProblemResult("p", "d", [Item("submission", f"s{i}", status=s) for i, s in enumerate(statuses)])]
         self.assertEqual(report.exit_code(of("pass", "skipped", "probe")), 0)

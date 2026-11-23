@@ -11,8 +11,9 @@ import specs as spec_lib
 from attack import AttackSample
 from corpus import Corpus, Limits, Problem, Submission
 from executor import DEFAULT_OUTPUT, DEFAULT_PROCESSES, Call, Executor, ExecutorError
-from judge_entry import DEFAULT_REPEATS, AttackResult, Declared, Item, ProblemResult
 from node import NodeInspector, Residue
+from results import AttackResult, Item, ProblemResult
+from run_config import DEFAULT_REPEATS, Declared
 from specs import RunResult, RunSpec
 
 # 运行说明里出现这些结论的，属于时间、内存类，默认重复运行以判定稳定性（协议 §7.3）。

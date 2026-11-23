@@ -26,8 +26,9 @@ import publish  # noqa: E402
 import report as report_lib  # noqa: E402
 from executor import Executor, ExecutorError, load_config  # noqa: E402
 from judge_client import ClientError, JudgeClient  # noqa: E402
-from judge_entry import JudgeRunner, parse_declared  # noqa: E402
+from judge_entry import JudgeRunner  # noqa: E402
 from node import DEFAULT_EXECUTOR, DEFAULT_EXECUTOR_CONFIG, NodeInspector  # noqa: E402
+from run_config import DEFAULT_REPEATS, parse_declared  # noqa: E402
 from sandbox_entry import SandboxRunner  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -56,7 +57,8 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--select", help="只运行这些题或攻击样本，逗号分隔；默认全部")
     parser.add_argument("--declare", nargs="*", default=[], metavar="KEY=VALUE",
                         help="运行者声明的节点配置：backend、strictWhitespace、revealExpected、languages（逗号分隔）")
-    parser.add_argument("--repeat", type=int, default=3, help="时间、内存类提交重复运行的遍数（默认 3）")
+    parser.add_argument("--repeat", type=int, default=DEFAULT_REPEATS,
+                        help="时间、内存类提交重复运行的遍数（默认 %(default)s）")
     parser.add_argument("--report", type=Path, help="报告 JSON 的路径（默认 benchmark/reports/<时间>.json）")
     return parser.parse_args(argv)
 
