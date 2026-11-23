@@ -1,4 +1,4 @@
-// 从事实推出结论。这里不做 I/O、不改状态，规则沿用此前 Go 版 isolator 的 conclude。
+// 归纳监督与计量事实，按执行器协议输出一行 JSON。
 #define _GNU_SOURCE
 #include <signal.h>
 #include <stdio.h>
@@ -6,7 +6,7 @@
 
 #include "sandbox.h"
 
-const char *reason_name(enum reason r) {
+static const char *reason_name(enum reason r) {
     switch (r) {
     case REASON_CPU:
         return "cpu";
@@ -57,4 +57,42 @@ void conclude(const struct facts *f, struct conclusion *c) {
     }
     if (f->output_exceeded && c->reason == REASON_NONE)
         c->reason = REASON_OUTPUT;
+}
+
+static void json_string(FILE *f, const char *s) {
+    fputc('"', f);
+    for (; *s; s++) {
+        unsigned char ch = (unsigned char)*s;
+        if (ch == '"' || ch == '\\')
+            fprintf(f, "\\%c", ch);
+        else if (ch < 0x20 || ch >= 0x7f)
+            fprintf(f, "\\u%04x", ch);
+        else
+            fputc(ch, f);
+    }
+    fputc('"', f);
+}
+
+void write_facts(const struct run *r, const struct conclusion *c, const struct spec *s,
+                 const struct artifact *found, int nfound) {
+    const struct facts *f = &r->facts;
+    int exit_code = f->supervision.exit_code, signal = c->signal;
+    if (signal)
+        exit_code = -1;
+    printf("{\"version\":1,\"exitCode\":%d,\"signal\":%d,\"cpuNs\":%lld,\"memoryBytes\":%lld,\"clockNs\":%lld,",
+           exit_code, signal, (long long)f->cpu_ns, (long long)f->usage.memory_bytes, (long long)f->clock_ns);
+    printf("\"reason\":\"%s\",\"oom\":%llu,\"oomKill\":%llu,\"memoryMaxEvents\":%llu,\"pidsMaxEvents\":%llu,",
+           reason_name(c->reason), (unsigned long long)f->usage.oom, (unsigned long long)f->usage.oom_kill,
+           (unsigned long long)f->usage.memory_max_events, (unsigned long long)f->usage.pids_max_events);
+    printf("\"cancelled\":%s,\"outputExceeded\":%s,\"stdoutBytes\":%zu,\"stderrBytes\":%zu,\"outputs\":[",
+           f->cancelled ? "true" : "false", f->output_exceeded ? "true" : "false", r->stdout_len, r->stderr_len);
+    for (int i = 0; i < nfound; i++) {
+        printf("%s{\"index\":%d,\"path\":", i ? "," : "", found[i].index);
+        json_string(stdout, s->outputs[found[i].index]);
+        printf(",\"sizeBytes\":%lld}", (long long)found[i].size_bytes);
+    }
+    printf("],\"error\":");
+    json_string(stdout, c->failure);
+    printf("}\n");
+    fflush(stdout);
 }

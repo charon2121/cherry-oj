@@ -109,7 +109,12 @@ int box_open(const struct config *c, int index, struct box *b, char *err, size_t
 int box_read_spec(const struct box *b, const struct config *c, char **data, size_t *len, char *err, size_t errlen);
 int box_open_input(const struct box *b, const struct config *c, int index, int64_t *size);
 int box_write_file(const struct box *b, const struct config *c, const char *name, const void *data, size_t len);
-int box_copy_artifact(const struct box *b, const struct config *c, const char *name, int src, int64_t size);
+struct artifact {
+    int index;
+    int64_t size_bytes;
+};
+int box_collect_artifacts(const struct box *b, const struct config *c, const struct spec *s, int workspace,
+                          struct artifact *found, int *nfound, char *err, size_t errlen);
 
 // ---- 执行组 ----
 struct cgroup_usage {
@@ -186,7 +191,6 @@ struct conclusion {
     char failure[512];
 };
 void conclude(const struct facts *f, struct conclusion *c);
-const char *reason_name(enum reason r);
 
 // ---- 监督 ----
 struct run {
@@ -197,6 +201,8 @@ struct run {
     int workspace; // 已停止的工作区，产物从这里取
     bool reclaimed;
 };
+void write_facts(const struct run *r, const struct conclusion *c, const struct spec *s,
+                 const struct artifact *found, int nfound);
 void execute(const struct config *c, const struct spec *s, const struct box *b, struct job_cgroup *g, struct run *r);
 
 // ---- 小工具 ----

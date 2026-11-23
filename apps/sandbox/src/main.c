@@ -15,7 +15,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/capability.h>
-#include <linux/openat2.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,84 +83,6 @@ static void become_root(const struct config *c) {
         refuse(EXIT_REFUSED, "CAP_KILL is required to reclaim the namespace if the executor dies");
 }
 
-static void json_string(FILE *f, const char *s) {
-    fputc('"', f);
-    for (; *s; s++) {
-        unsigned char ch = (unsigned char)*s;
-        if (ch == '"' || ch == '\\')
-            fprintf(f, "\\%c", ch);
-        else if (ch < 0x20 || ch >= 0x7f)
-            fprintf(f, "\\u%04x", ch);
-        else
-            fputc(ch, f);
-    }
-    fputc('"', f);
-}
-
-struct artifact {
-    int index;
-    int64_t size;
-};
-
-// 产物只在执行组清空之后收集：用户进程不能边写边交付。路径限定在工作区内，
-// 禁止链接与跨挂载；只接受单链接的普通文件。声明了却没生成的产物跳过，由调用方判断是否要紧。
-static int collect(const struct box *b, const struct config *c, const struct spec *s, int workspace,
-                   struct artifact *found, int *nfound, char *err, size_t errlen) {
-    int64_t total = 0;
-    *nfound = 0;
-    for (int i = 0; i < s->noutputs; i++) {
-        struct open_how how = {.flags = O_RDONLY | O_CLOEXEC | O_NONBLOCK | O_NOFOLLOW,
-                               .resolve = RESOLVE_BENEATH | RESOLVE_NO_SYMLINKS | RESOLVE_NO_MAGICLINKS |
-                                          RESOLVE_NO_XDEV};
-        int fd = (int)syscall(SYS_openat2, workspace, s->outputs[i], &how, sizeof how);
-        if (fd < 0 && errno == ENOENT)
-            continue;
-        struct stat st;
-        if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1 ||
-            st.st_size > MAX_ARTIFACT_BYTES - total) {
-            if (fd >= 0)
-                close(fd);
-            set_error(err, errlen, "artifact %s is not a bounded regular file with exactly one link", s->outputs[i]);
-            return -1;
-        }
-        char name[32];
-        snprintf(name, sizeof name, "artifact-%d", i);
-        int rc = box_copy_artifact(b, c, name, fd, st.st_size);
-        close(fd);
-        if (rc != 0) {
-            set_error(err, errlen, "deliver artifact %s: %s", s->outputs[i], strerror(errno));
-            return -1;
-        }
-        total += st.st_size;
-        found[(*nfound)++] = (struct artifact){i, st.st_size};
-    }
-    return 0;
-}
-
-static void print_facts(const struct run *r, const struct conclusion *c, const struct spec *s,
-                        const struct artifact *found, int nfound) {
-    const struct facts *f = &r->facts;
-    int exit_code = f->supervision.exit_code, signal = c->signal;
-    if (signal)
-        exit_code = -1;
-    printf("{\"version\":1,\"exitCode\":%d,\"signal\":%d,\"cpuNs\":%lld,\"memoryBytes\":%lld,\"clockNs\":%lld,",
-           exit_code, signal, (long long)f->cpu_ns, (long long)f->usage.memory_bytes, (long long)f->clock_ns);
-    printf("\"reason\":\"%s\",\"oom\":%llu,\"oomKill\":%llu,\"memoryMaxEvents\":%llu,\"pidsMaxEvents\":%llu,",
-           reason_name(c->reason), (unsigned long long)f->usage.oom, (unsigned long long)f->usage.oom_kill,
-           (unsigned long long)f->usage.memory_max_events, (unsigned long long)f->usage.pids_max_events);
-    printf("\"cancelled\":%s,\"outputExceeded\":%s,\"stdoutBytes\":%zu,\"stderrBytes\":%zu,\"outputs\":[",
-           f->cancelled ? "true" : "false", f->output_exceeded ? "true" : "false", r->stdout_len, r->stderr_len);
-    for (int i = 0; i < nfound; i++) {
-        printf("%s{\"index\":%d,\"path\":", i ? "," : "", found[i].index);
-        json_string(stdout, s->outputs[found[i].index]);
-        printf(",\"sizeBytes\":%lld}", (long long)found[i].size);
-    }
-    printf("],\"error\":");
-    json_string(stdout, c->failure);
-    printf("}\n");
-    fflush(stdout);
-}
-
 int main(int argc, char **argv) {
     harden();
     int index = parse_box(argc, argv);
@@ -207,7 +128,7 @@ int main(int argc, char **argv) {
         snprintf(conclusion.failure, sizeof conclusion.failure, "write output streams: %s", strerror(errno));
     }
     if (conclusion.reason != REASON_PLATFORM && run.workspace >= 0 &&
-        collect(&box, &config, &spec, run.workspace, found, &nfound, err, sizeof err) != 0) {
+        box_collect_artifacts(&box, &config, &spec, run.workspace, found, &nfound, err, sizeof err) != 0) {
         conclusion.reason = REASON_PLATFORM;
         snprintf(conclusion.failure, sizeof conclusion.failure, "%s", err);
         nfound = 0;
@@ -216,6 +137,6 @@ int main(int argc, char **argv) {
         close(run.workspace);
     if (cgroup_remove(&cgroup) != 0)
         refuse(EXIT_UNRECLAIMED, "remove execution group");
-    print_facts(&run, &conclusion, &spec, found, nfound);
+    write_facts(&run, &conclusion, &spec, found, nfound);
     return EXIT_FACTS;
 }

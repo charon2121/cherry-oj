@@ -173,7 +173,7 @@ int box_write_file(const struct box *b, const struct config *c, const char *name
 }
 
 // 复制恰好 size 字节；源文件在复制期间变长或变短都视为失败，不能交付被截断的产物。
-int box_copy_artifact(const struct box *b, const struct config *c, const char *name, int src, int64_t size) {
+static int copy_artifact(const struct box *b, const struct config *c, const char *name, int src, int64_t size) {
     int fd = create_output(b, c, name);
     if (fd < 0)
         return -1;
@@ -194,4 +194,36 @@ int box_copy_artifact(const struct box *b, const struct config *c, const char *n
     if (rc == 0 && read(src, buf, 1) != 0)
         rc = -1;
     return close(fd) != 0 ? -1 : rc;
+}
+
+// 产物只在执行组清空之后收集：用户进程不能边写边交付。路径限定在工作区内，
+// 禁止链接与跨挂载；只接受单链接的普通文件。声明了却没生成的产物跳过，由调用方判断是否要紧。
+int box_collect_artifacts(const struct box *b, const struct config *c, const struct spec *s, int workspace,
+                          struct artifact *found, int *nfound, char *err, size_t errlen) {
+    int64_t total = 0;
+    *nfound = 0;
+    for (int i = 0; i < s->noutputs; i++) {
+        int fd = openat2_strict(workspace, s->outputs[i], O_RDONLY | O_NONBLOCK | O_NOFOLLOW, 0, RESOLVE_STRICT);
+        if (fd < 0 && errno == ENOENT)
+            continue;
+        struct stat st;
+        if (fd < 0 || fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_nlink != 1 ||
+            st.st_size > MAX_ARTIFACT_BYTES - total) {
+            if (fd >= 0)
+                close(fd);
+            set_error(err, errlen, "artifact %s is not a bounded regular file with exactly one link", s->outputs[i]);
+            return -1;
+        }
+        char name[32];
+        snprintf(name, sizeof name, "artifact-%d", i);
+        int rc = copy_artifact(b, c, name, fd, st.st_size);
+        close(fd);
+        if (rc != 0) {
+            set_error(err, errlen, "deliver artifact %s: %s", s->outputs[i], strerror(errno));
+            return -1;
+        }
+        total += st.st_size;
+        found[(*nfound)++] = (struct artifact){i, st.st_size};
+    }
+    return 0;
 }
