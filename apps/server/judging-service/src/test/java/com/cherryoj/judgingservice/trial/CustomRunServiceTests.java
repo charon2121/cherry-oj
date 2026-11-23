@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
 
-class CustomRunControllerTests {
+class CustomRunServiceTests {
 
     @Test
     void trialUsesOnlySuppliedInputAndKeepsIndependentStreams() throws Exception {
@@ -56,31 +56,31 @@ class CustomRunControllerTests {
         when(node.endpoint())
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
-        var controller = new CustomRunController(
+        var service = new CustomRunService(
                 profiles,
                 nodes,
                 mock(FormalProperties.class),
                 json,
                 HttpClient.newHttpClient(),
                 new LanguageCatalog(json));
-        var request = new CustomRunController.Request(
+        var request = new CustomRunDtos.Request(
                 problem, "cpp", "int main(){}", null, null, "", System.currentTimeMillis() + 45000);
         try {
-            var result = controller.run(request, null).getBody();
+            var result = service.run(request, null);
             assertEquals("COMPLETED", result.status());
             assertEquals("debug", result.stderr().text());
             assertEquals("", result.stdout().text());
             payload.set("{\"verdict\":\"RAN\"}");
-            assertThrows(JudgingApiException.class, () -> controller.run(request, null));
+            assertThrows(JudgingApiException.class, () -> service.run(request, null));
             payload.set("{\"verdict\":\"CE\",\"message\":\"/private/build/main.cpp: broken\"}");
-            var ce = controller.run(request, null).getBody();
+            var ce = service.run(request, null);
             assertEquals("COMPILE_ERROR", ce.status());
             assertNull(ce.cpuNs());
             assertFalse(ce.compileDiagnostic().contains("/private"));
-            var expired = new CustomRunController.Request(problem, "cpp", "int main(){}", null, null, "", 1);
-            assertThrows(JudgingApiException.class, () -> controller.run(expired, null));
+            var expired = new CustomRunDtos.Request(problem, "cpp", "int main(){}", null, null, "", 1);
+            assertThrows(JudgingApiException.class, () -> service.run(expired, null));
         } finally {
-            controller.close();
+            service.close();
             server.stop(0);
         }
     }
@@ -115,14 +115,14 @@ class CustomRunControllerTests {
         when(node.endpoint())
                 .thenReturn("http://127.0.0.1:" + server.getAddress().getPort());
         when(nodes.online(eq("cpp"), any())).thenReturn(List.of(node));
-        var controller = new CustomRunController(
+        var service = new CustomRunService(
                 profiles,
                 nodes,
                 mock(FormalProperties.class),
                 json,
                 HttpClient.newHttpClient(),
                 new LanguageCatalog(json));
-        var request = new CustomRunController.Request(
+        var request = new CustomRunDtos.Request(
                 problem,
                 "cpp",
                 "#include \"solution.cpp\"\nint main(){}",
@@ -131,7 +131,7 @@ class CustomRunControllerTests {
                 "",
                 System.currentTimeMillis() + 45000);
         try {
-            var run = controller.run(request, null).getBody();
+            var run = service.run(request, null);
             assertEquals(
                     "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {};\n",
                     received.get().path("solutionSource").asText());
@@ -139,13 +139,13 @@ class CustomRunControllerTests {
             assertEquals("solution.cpp:7:3: runtime error\n", run.stderr().text());
             assertEquals("solution.cpp:9\n", run.stdout().text());
             payload.set("{\"verdict\":\"CE\",\"message\":\"solution.cpp:5:20: error: x\\nMain.cpp:8:1: note\\n\"}");
-            var ce = controller.run(request, null).getBody();
+            var ce = service.run(request, null);
             assertEquals("solution.cpp:3:20: error: x\nMain.cpp:8:1: note\n", ce.compileDiagnostic());
-            var missingCount = new CustomRunController.Request(
+            var missingCount = new CustomRunDtos.Request(
                     problem, "cpp", "int main(){}", "class Solution {};", null, "", System.currentTimeMillis() + 45000);
-            assertThrows(JudgingApiException.class, () -> controller.run(missingCount, null));
+            assertThrows(JudgingApiException.class, () -> service.run(missingCount, null));
         } finally {
-            controller.close();
+            service.close();
             server.stop(0);
         }
     }
@@ -162,7 +162,7 @@ class CustomRunControllerTests {
         when(nodes.online(eq("c"), any())).thenReturn(List.of(node));
         var budgets = mock(FormalProperties.class);
         when(budgets.wallRatio()).thenReturn(10L);
-        var request = new CustomRunController.Request(
+        var request = new CustomRunDtos.Request(
                 problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 180_000);
         var accepted = new ExecutionProfileService.Profile(
                 new ResolvedLanguageLimits("cal", 2_000_000_000L, 128L << 20, null, "BASE", null, null),
@@ -185,21 +185,20 @@ class CustomRunControllerTests {
                 })
                 .when(http)
                 .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
-        var controller = new CustomRunController(
+        var service = new CustomRunService(
                 profiles, nodes, budgets, new ObjectMapper(), http, new LanguageCatalog(new ObjectMapper()));
         try {
-            var unsupported = assertThrows(JudgingApiException.class, () -> controller.run(request, null));
+            var unsupported = assertThrows(JudgingApiException.class, () -> service.run(request, null));
             assertEquals(422, unsupported.status().value());
             assertEquals("RUN_LIMIT_UNSUPPORTED", unsupported.code());
             verifyNoInteractions(nodes, http);
 
-            assertEquals(
-                    "COMPILE_ERROR", controller.run(request, null).getBody().status());
+            assertEquals("COMPILE_ERROR", service.run(request, null).status());
             assertEquals(
                     java.time.Duration.ofSeconds(51), captured.get().timeout().orElseThrow());
-            var tooLate = new CustomRunController.Request(
+            var tooLate = new CustomRunDtos.Request(
                     problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 1000);
-            var late = assertThrows(JudgingApiException.class, () -> controller.run(tooLate, null));
+            var late = assertThrows(JudgingApiException.class, () -> service.run(tooLate, null));
             assertEquals(504, late.status().value()); // 期限不足不是题目预算超过上限。
             verify(http, times(1))
                     .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
@@ -207,19 +206,18 @@ class CustomRunControllerTests {
                     .thenReturn(new ExecutionProfileService.Profile(accepted.limits(), 20_000_000L));
             var future = new java.util.concurrent.CompletableFuture<java.net.http.HttpResponse<byte[]>>();
             pending.set(future);
-            var expired = assertThrows(JudgingApiException.class, () -> controller.run(request, null));
+            var expired = assertThrows(JudgingApiException.class, () -> service.run(request, null));
             assertEquals(504, expired.status().value());
             assertTrue(future.isCancelled());
             pending.set(null);
-            assertEquals(
-                    "COMPILE_ERROR", controller.run(request, null).getBody().status());
+            assertEquals("COMPILE_ERROR", service.run(request, null).status());
         } finally {
-            controller.close();
+            service.close();
         }
     }
 
     @Test
     void utf8ClippingNeverSplitsCharacters() {
-        assertEquals("中", CustomRunController.clip("中文", 4));
+        assertEquals("中", TrialResultMapper.clip("中文", 4));
     }
 }
