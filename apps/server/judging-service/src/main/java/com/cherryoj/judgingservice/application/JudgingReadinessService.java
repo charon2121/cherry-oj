@@ -1,6 +1,5 @@
 package com.cherryoj.judgingservice.application;
 
-import com.cherryoj.judgingservice.api.JudgingDtos.ExecutionProfile;
 import com.cherryoj.judgingservice.api.JudgingDtos.LanguageLimits;
 import com.cherryoj.judgingservice.api.JudgingDtos.LanguageLimitsList;
 import com.cherryoj.judgingservice.api.JudgingDtos.Readiness;
@@ -8,6 +7,7 @@ import com.cherryoj.judgingservice.api.JudgingDtos.ReadinessCheck;
 import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.limits.LimitModel;
 import com.cherryoj.judgingservice.limits.PlatformLimits;
+import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository;
 import com.cherryoj.judgingservice.persistence.JudgingRepository.CalibrationRow;
@@ -55,6 +55,12 @@ public class JudgingReadinessService {
                 status -> resolveReadiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes));
     }
 
+    public ResolvedLanguageLimits readyLimits(
+            String problemId, String languageId, String testDataDigest, long maxTestcaseIoBytes) {
+        Readiness readiness = readiness(problemId, languageId, testDataDigest, maxTestcaseIoBytes);
+        return readiness.ready() ? readiness.executionProfile() : null;
+    }
+
     /**
      * 题目当前的测试数据指纹 = 标定时的指纹，旧标定才算数；数据一换，标定即过期。
      * 限制按 docs/protocols/limits.md 第 2 节取第一个可用的：该语言的覆盖标定 → 基础标定本身 → 由基础标定推导。
@@ -88,7 +94,7 @@ public class JudgingReadinessService {
                                         : r.modelPassed() ? "该语言有限制参数，可以由基础标定推导。" : "基础语言的限制参数已移除，请重新做基础标定。"));
 
         boolean ready = checks.stream().allMatch(ReadinessCheck::passed);
-        return new Readiness(ready, checks, ready ? profile(r, maxTestcaseIoBytes) : null);
+        return new Readiness(ready, checks, ready ? resolveLimits(r, maxTestcaseIoBytes) : null);
     }
 
     /**
@@ -109,15 +115,15 @@ public class JudgingReadinessService {
                 ? "NO_CALIBRATION"
                 : r.modelPassed() ? null : r.target() == null ? "NO_LIMIT_MODEL" : "BASE_LIMIT_MODEL_REMOVED";
         if (reason != null) return new LanguageLimits(languageId, null, null, null, null, null, false, false, reason);
-        ExecutionProfile profile = profile(r, io);
-        var derivation = profile.limitDerivation();
+        ResolvedLanguageLimits limits = resolveLimits(r, io);
+        var derivation = limits.limitDerivation();
         return new LanguageLimits(
                 languageId,
-                profile.limitSource(),
-                profile.cpuNs(),
-                profile.memoryBytes(),
-                profile.clockNs(),
-                profile.calibrationId(),
+                limits.limitSource(),
+                limits.cpuNs(),
+                limits.memoryBytes(),
+                limits.clockNs(),
+                limits.calibrationId(),
                 derivation != null && derivation.cpuCapped(),
                 derivation != null && derivation.memoryCapped(),
                 null);
@@ -138,7 +144,7 @@ public class JudgingReadinessService {
     }
 
     /** 调用前要求 calibrated() 与 modelPassed() 都成立。 */
-    private ExecutionProfile profile(Resolution r, long io) {
+    private ResolvedLanguageLimits resolveLimits(Resolution r, long io) {
         if (r.override() != null) return calibrated(r.override());
         if (r.isBaseLanguage()) return calibrated(r.base());
         return derived(r.base(), r.baseModel(), r.target(), io);
@@ -166,13 +172,13 @@ public class JudgingReadinessService {
     }
 
     /** BASE、OVERRIDE：标定里的绝对值原样生效。 */
-    private static ExecutionProfile calibrated(CalibrationRow row) {
-        return new ExecutionProfile(
+    private static ResolvedLanguageLimits calibrated(CalibrationRow row) {
+        return new ResolvedLanguageLimits(
                 row.id(), row.cpuNs(), row.memoryBytes(), row.clockNs(), row.kind(), null, row.approvedAt());
     }
 
     /** DERIVED：不带 clockNs，墙钟由 judge 按 cpuNs 推算；推导依据随提交冻结。 */
-    private ExecutionProfile derived(CalibrationRow base, LimitModel baseModel, LimitModel target, long io) {
+    private ResolvedLanguageLimits derived(CalibrationRow base, LimitModel baseModel, LimitModel target, long io) {
         var result = com.cherryoj.judgingservice.limits.LimitDerivation.derive(
                 baseModel,
                 base.cpuNs(),
@@ -181,7 +187,7 @@ public class JudgingReadinessService {
                 io,
                 platform.maxCpuNs(),
                 platform.maxMemoryBytes());
-        var derivation = new com.cherryoj.judgingservice.api.JudgingDtos.LimitDerivation(
+        var derivation = new ResolvedLanguageLimits.Derivation(
                 base.languageId(),
                 base.id(),
                 base.cpuNs(),
@@ -195,12 +201,12 @@ public class JudgingReadinessService {
                 result.memoryCapped(),
                 snapshot(baseModel),
                 snapshot(target));
-        return new ExecutionProfile(
+        return new ResolvedLanguageLimits(
                 base.id(), result.cpuNs(), result.memoryBytes(), null, "DERIVED", derivation, base.approvedAt());
     }
 
-    private static com.cherryoj.judgingservice.api.JudgingDtos.LimitModel snapshot(LimitModel model) {
-        return new com.cherryoj.judgingservice.api.JudgingDtos.LimitModel(
+    private static ResolvedLanguageLimits.ModelSnapshot snapshot(LimitModel model) {
+        return new ResolvedLanguageLimits.ModelSnapshot(
                 model.cpuFactorPermille(),
                 model.cpuFactorCapPermille(),
                 model.cpuOverheadNs(),

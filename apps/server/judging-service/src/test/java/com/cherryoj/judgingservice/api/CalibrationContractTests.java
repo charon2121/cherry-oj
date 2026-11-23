@@ -2,6 +2,7 @@ package com.cherryoj.judgingservice.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits;
 import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,8 +30,7 @@ class CalibrationContractTests {
                 .isEqualTo(properties(definitions, "BenchmarkSummary"));
         assertThat(components(JudgingDtos.Readiness.class)).isEqualTo(properties(definitions, "Readiness"));
         assertThat(components(JudgingDtos.ReadinessCheck.class)).isEqualTo(properties(definitions, "ReadinessCheck"));
-        assertThat(components(JudgingDtos.ExecutionProfile.class))
-                .isEqualTo(properties(definitions, "ExecutionProfile"));
+        assertThat(components(ResolvedLanguageLimits.class)).isEqualTo(properties(definitions, "ExecutionProfile"));
         assertThat(components(JudgingDtos.LanguageLimits.class)).isEqualTo(properties(definitions, "LanguageLimits"));
         assertThat(components(JudgingDtos.LanguageLimitsList.class))
                 .isEqualTo(properties(definitions, "LanguageLimitsList"));
@@ -40,9 +40,10 @@ class CalibrationContractTests {
                 .build()
                 .readTree(Files.readString(Path.of("../../../contracts/execution-profile.schema.json")))
                 .get("definitions");
-        assertThat(components(JudgingDtos.LimitDerivation.class))
+        assertThat(components(ResolvedLanguageLimits.Derivation.class))
                 .isEqualTo(properties(profileDefinitions, "LimitDerivation"));
-        assertThat(components(JudgingDtos.LimitModel.class)).isEqualTo(properties(profileDefinitions, "LimitModel"));
+        assertThat(components(ResolvedLanguageLimits.ModelSnapshot.class))
+                .isEqualTo(properties(profileDefinitions, "LimitModel"));
     }
 
     private static Set<String> components(Class<? extends Record> type) {

@@ -3,9 +3,13 @@ package com.cherryoj.judgingservice.trial;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.cherryoj.judgingservice.api.*;
+import com.cherryoj.judgingservice.api.JudgingApiException;
+import com.cherryoj.judgingservice.application.ExecutionProfileService;
+import com.cherryoj.judgingservice.application.ExecutionProfileService.Purpose;
+import com.cherryoj.judgingservice.application.ExecutionProfileService.Reason;
 import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.judge.LanguageCatalog;
+import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
@@ -40,17 +44,13 @@ class CustomRunControllerTests {
             }
         });
         server.start();
-        var profiles = mock(SubmissionExecutionProfileController.class);
+        var profiles = mock(ExecutionProfileService.class);
         var nodes = mock(JudgeNodeRepository.class);
         var problem = UUID.randomUUID();
-        when(profiles.resolve(any(), any()))
-                .thenReturn(new SubmissionExecutionProfileController.Profile(
-                        problem.toString(),
-                        "cpp",
-                        "calibration",
-                        new SubmissionExecutionProfileController.Limits(1000000000, 67108864, 2000000000L),
-                        "BASE",
-                        null,
+        when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
+                .thenReturn(new ExecutionProfileService.Profile(
+                        new ResolvedLanguageLimits(
+                                "calibration", 1000000000, 67108864, 2000000000L, "BASE", null, null),
                         3000000000L));
         var node = mock(JudgeNodeRepository.Node.class);
         when(node.endpoint())
@@ -103,17 +103,13 @@ class CustomRunControllerTests {
             }
         });
         server.start();
-        var profiles = mock(SubmissionExecutionProfileController.class);
+        var profiles = mock(ExecutionProfileService.class);
         var nodes = mock(JudgeNodeRepository.class);
         var problem = UUID.randomUUID();
-        when(profiles.resolve(any(), any()))
-                .thenReturn(new SubmissionExecutionProfileController.Profile(
-                        problem.toString(),
-                        "cpp",
-                        "calibration",
-                        new SubmissionExecutionProfileController.Limits(1000000000, 67108864, 2000000000L),
-                        "BASE",
-                        null,
+        when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
+                .thenReturn(new ExecutionProfileService.Profile(
+                        new ResolvedLanguageLimits(
+                                "calibration", 1000000000, 67108864, 2000000000L, "BASE", null, null),
                         3000000000L));
         var node = mock(JudgeNodeRepository.Node.class);
         when(node.endpoint())
@@ -157,7 +153,7 @@ class CustomRunControllerTests {
     @Test
     @SuppressWarnings("unchecked")
     void nodeWaitUsesTheExecutionBudgetAndTimeoutCancelsWorkWithoutLeakingTheSlot() {
-        var profiles = mock(SubmissionExecutionProfileController.class);
+        var profiles = mock(ExecutionProfileService.class);
         var nodes = mock(JudgeNodeRepository.class);
         var http = mock(HttpClient.class);
         var problem = UUID.randomUUID();
@@ -168,15 +164,14 @@ class CustomRunControllerTests {
         when(budgets.wallRatio()).thenReturn(10L);
         var request = new CustomRunController.Request(
                 problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 180_000);
-        var accepted = new SubmissionExecutionProfileController.Profile(
-                problem.toString(),
-                "c",
-                "cal",
-                new SubmissionExecutionProfileController.Limits(2_000_000_000L, 128L << 20, null),
-                "BASE",
-                null,
+        var accepted = new ExecutionProfileService.Profile(
+                new ResolvedLanguageLimits("cal", 2_000_000_000L, 128L << 20, null, "BASE", null, null),
                 51_000_000_000L);
-        when(profiles.resolve(any(), any())).thenReturn(accepted);
+        var rejected = mock(ExecutionProfileService.Rejected.class);
+        when(rejected.reason()).thenReturn(Reason.TRIAL_BUDGET_EXCEEDED);
+        when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
+                .thenThrow(rejected)
+                .thenReturn(accepted);
         var response = mock(java.net.http.HttpResponse.class);
         when(response.statusCode()).thenReturn(200);
         when(response.body()).thenReturn("{\"verdict\":\"CE\",\"message\":\"invalid user code\"}".getBytes());
@@ -193,6 +188,11 @@ class CustomRunControllerTests {
         var controller = new CustomRunController(
                 profiles, nodes, budgets, new ObjectMapper(), http, new LanguageCatalog(new ObjectMapper()));
         try {
+            var unsupported = assertThrows(JudgingApiException.class, () -> controller.run(request, null));
+            assertEquals(422, unsupported.status().value());
+            assertEquals("RUN_LIMIT_UNSUPPORTED", unsupported.code());
+            verifyNoInteractions(nodes, http);
+
             assertEquals(
                     "COMPILE_ERROR", controller.run(request, null).getBody().status());
             assertEquals(
@@ -203,9 +203,8 @@ class CustomRunControllerTests {
             assertEquals(504, late.status().value()); // 期限不足不是题目预算超过上限。
             verify(http, times(1))
                     .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
-            when(profiles.resolve(any(), any()))
-                    .thenReturn(new SubmissionExecutionProfileController.Profile(
-                            problem.toString(), "c", "cal", accepted.effectiveLimits(), "BASE", null, 20_000_000L));
+            when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
+                    .thenReturn(new ExecutionProfileService.Profile(accepted.limits(), 20_000_000L));
             var future = new java.util.concurrent.CompletableFuture<java.net.http.HttpResponse<byte[]>>();
             pending.set(future);
             var expired = assertThrows(JudgingApiException.class, () -> controller.run(request, null));

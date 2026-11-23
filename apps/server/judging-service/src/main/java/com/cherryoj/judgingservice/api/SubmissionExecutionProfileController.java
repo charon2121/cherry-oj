@@ -1,16 +1,11 @@
 package com.cherryoj.judgingservice.api;
 
-import com.cherryoj.judgingservice.application.JudgingReadinessService;
-import com.cherryoj.judgingservice.formal.FormalProperties;
-import com.cherryoj.judgingservice.judge.LanguageCatalog;
-import com.cherryoj.judgingservice.problem.ProblemTestDataClient;
-import com.cherryoj.judgingservice.problem.ProblemTestDataException;
-import com.cherryoj.judgingservice.trial.CustomRunProperties;
+import com.cherryoj.judgingservice.application.ExecutionProfileService;
+import com.cherryoj.judgingservice.application.ExecutionProfileService.Purpose;
+import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -19,75 +14,31 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 public class SubmissionExecutionProfileController {
-    private final JudgingReadinessService service;
-    private final FormalProperties budgets;
-    private final ProblemTestDataClient testData;
-    private final LanguageCatalog languages;
-    private final CustomRunProperties customRun;
+    private final ExecutionProfileService profiles;
 
-    public SubmissionExecutionProfileController(
-            JudgingReadinessService service,
-            FormalProperties budgets,
-            ProblemTestDataClient testData,
-            LanguageCatalog languages,
-            CustomRunProperties customRun) {
-        this.service = service;
-        this.budgets = budgets;
-        this.testData = testData;
-        this.languages = languages;
-        this.customRun = customRun;
+    public SubmissionExecutionProfileController(ExecutionProfileService profiles) {
+        this.profiles = profiles;
     }
 
     @PostMapping("/internal/submission/execution-profile")
     public Profile resolve(
             @Valid @RequestBody Request request, @RequestHeader(value = "traceparent", required = false) String trace) {
-        var data = currentTestData(request.problemId(), trace);
-        var readiness =
-                service.readiness(request.problemId(), request.languageId(), data.digest(), data.maxTestcaseIoBytes());
-        var profile = readiness.executionProfile();
-        if (!readiness.ready() || profile == null) throw unavailable();
-        boolean trial = "trial".equals(request.purpose());
-        long budget;
+        Purpose purpose = "trial".equals(request.purpose()) ? Purpose.TRIAL : Purpose.FORMAL;
+        ExecutionProfileService.Profile profile;
         try {
-            budget = budgets.executionBudget(
-                            languages.requiresCompilation(request.languageId()),
-                            profile.cpuNs(),
-                            profile.clockNs(),
-                            trial ? 1 : data.testcaseCount())
-                    .toNanos();
-        } catch (ArithmeticException | IllegalArgumentException invalid) {
-            throw unavailable();
+            profile = profiles.resolve(request.problemId(), request.languageId(), purpose, trace);
+        } catch (ExecutionProfileService.Rejected rejected) {
+            throw JudgingApiException.from(rejected);
         }
-        if (trial && budget > customRun.maxExecutionBudget().toNanos())
-            throw new JudgingApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RUN_LIMIT_UNSUPPORTED", "此题目的执行预算超过自测期限。");
-        if (!trial && budget >= budgets.deadline().toNanos()) throw unavailable();
+        ResolvedLanguageLimits limits = profile.limits();
         return new Profile(
                 request.problemId(),
                 request.languageId(),
-                profile.calibrationId(),
-                new Limits(profile.cpuNs(), profile.memoryBytes(), profile.clockNs()),
-                profile.limitSource(),
-                profile.limitDerivation(),
-                budget);
-    }
-
-    private com.cherryoj.judgingservice.problem.ProblemTestData currentTestData(String problemId, String trace) {
-        try {
-            return testData.current(problemId, trace);
-        } catch (ProblemTestDataException error) {
-            // 例如 PROBLEM_SERVICE_NOT_CONFIGURED：对调用方仍是"暂时无法判题"，日志里给出真实原因。
-            LoggerFactory.getLogger(SubmissionExecutionProfileController.class)
-                    .atWarn()
-                    .addKeyValue("event", "judging.profile.test_data_unavailable")
-                    .addKeyValue("problemId", problemId)
-                    .addKeyValue("reason", error.code())
-                    .log("judging.profile.test_data_unavailable");
-            throw unavailable();
-        }
-    }
-
-    private static JudgingApiException unavailable() {
-        return new JudgingApiException(HttpStatus.SERVICE_UNAVAILABLE, "JUDGING_NOT_READY", "当前题目暂时无法判题。");
+                limits.calibrationId(),
+                new Limits(limits.cpuNs(), limits.memoryBytes(), limits.clockNs()),
+                limits.limitSource(),
+                limits.limitDerivation(),
+                profile.executionBudgetNs());
     }
 
     public record Request(
@@ -108,6 +59,6 @@ public class SubmissionExecutionProfileController {
             String languageCalibrationId,
             Limits effectiveLimits,
             String limitSource,
-            JudgingDtos.LimitDerivation limitDerivation,
+            ResolvedLanguageLimits.Derivation limitDerivation,
             long executionBudgetNs) {}
 }

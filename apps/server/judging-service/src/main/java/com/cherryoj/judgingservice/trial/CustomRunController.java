@@ -1,11 +1,14 @@
 package com.cherryoj.judgingservice.trial;
 
-import com.cherryoj.judgingservice.api.*;
+import com.cherryoj.judgingservice.api.JudgingApiException;
+import com.cherryoj.judgingservice.api.JudgingDtos;
+import com.cherryoj.judgingservice.application.ExecutionProfileService;
 import com.cherryoj.judgingservice.formal.FormalProperties;
 import com.cherryoj.judgingservice.http.LimitedHttpBody;
 import com.cherryoj.judgingservice.judge.JudgeDiagnostics;
 import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.judge.LanguageFiles;
+import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits;
 import com.cherryoj.judgingservice.persistence.*;
 import jakarta.annotation.PreDestroy;
 import jakarta.validation.Valid;
@@ -25,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 public class CustomRunController {
 
-    private final SubmissionExecutionProfileController profiles;
+    private final ExecutionProfileService profiles;
 
     private final JudgeNodeRepository nodes;
 
@@ -42,7 +45,7 @@ public class CustomRunController {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     public CustomRunController(
-            SubmissionExecutionProfileController profiles,
+            ExecutionProfileService profiles,
             JudgeNodeRepository nodes,
             FormalProperties budgets,
             ObjectMapper json,
@@ -92,12 +95,14 @@ public class CustomRunController {
             Output stdout,
             Output stderr,
             String compileDiagnostic,
-            SubmissionExecutionProfileController.Limits effectiveLimits) {
+            EffectiveLimits effectiveLimits) {
         @Override
         public String toString() {
             return "TrialResult[status=" + status + "]";
         }
     }
+
+    public record EffectiveLimits(long cpuNs, long memoryBytes, long clockNs) {}
 
     @PostMapping("/internal/submission/trials")
     public ResponseEntity<Result> run(
@@ -125,6 +130,8 @@ public class CustomRunController {
                 if (!started.compareAndSet(0, 1)) throw unavailable();
                 try {
                     return execute(request, trace, deadline);
+                } catch (ExecutionProfileService.Rejected rejected) {
+                    throw JudgingApiException.from(rejected);
                 } finally {
                     release.run();
                 }
@@ -159,13 +166,12 @@ public class CustomRunController {
     }
 
     private Result execute(Request r, String trace, long deadline) {
-        var profile = profiles.resolve(
-                new SubmissionExecutionProfileController.Request(r.problemId().toString(), r.languageId(), "trial"),
-                trace);
-        var limits = profile.effectiveLimits();
+        ExecutionProfileService.Profile profile = profiles.resolve(
+                r.problemId().toString(), r.languageId(), ExecutionProfileService.Purpose.TRIAL, trace);
+        ResolvedLanguageLimits limits = profile.limits();
         long clock =
                 limits.clockNs() != null ? limits.clockNs() : Math.multiplyExact(limits.cpuNs(), budgets.wallRatio());
-        var effective = new SubmissionExecutionProfileController.Limits(limits.cpuNs(), limits.memoryBytes(), clock);
+        var effective = new EffectiveLimits(limits.cpuNs(), limits.memoryBytes(), clock);
         if (profile.executionBudgetNs() > TimeUnit.MILLISECONDS.toNanos(remaining(deadline))) throw timeout();
         // 自测只用请求里的输入，不读测试数据：任何在线、声明了该语言的节点都行。
         var online = nodes.online(r.languageId(), LocalDateTime.now(ZoneOffset.UTC));

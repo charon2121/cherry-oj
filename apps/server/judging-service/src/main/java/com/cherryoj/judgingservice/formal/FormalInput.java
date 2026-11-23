@@ -1,7 +1,7 @@
 package com.cherryoj.judgingservice.formal;
 
-import com.cherryoj.judgingservice.api.JudgingDtos.LimitDerivation;
 import com.cherryoj.judgingservice.judge.JudgeGateway.Limits;
+import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits.Derivation;
 import java.time.Instant;
 
 /**
@@ -22,7 +22,7 @@ public record FormalInput(
         String languageCalibrationId,
         Limits effectiveLimits,
         String limitSource,
-        LimitDerivation limitDerivation,
+        Derivation limitDerivation,
         Instant createdAt) {
     @Override
     public String toString() {

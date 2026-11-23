@@ -3,6 +3,9 @@ package com.cherryoj.judgingservice.security;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,6 +17,10 @@ import com.cherryoj.identity.token.CallUser;
 import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.cherryoj.judgingservice.api.JudgingDtos.Readiness;
+import com.cherryoj.judgingservice.application.ExecutionProfileService;
+import com.cherryoj.judgingservice.application.ExecutionProfileService.Purpose;
+import com.cherryoj.judgingservice.application.ExecutionProfileService.Reason;
+import com.cherryoj.judgingservice.application.ExecutionProfileService.Rejected;
 import com.cherryoj.judgingservice.application.JudgingReadinessService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -43,7 +50,7 @@ class AdminJudgingSecurityIntegrationTests {
     com.cherryoj.judgingservice.application.JudgeNodeRegistry nodes;
 
     @MockitoBean
-    com.cherryoj.judgingservice.api.SubmissionExecutionProfileController executionProfiles;
+    ExecutionProfileService executionProfiles;
 
     @Autowired
     AdminJudgingSecurityIntegrationTests(WebApplicationContext context) {
@@ -184,11 +191,12 @@ class AdminJudgingSecurityIntegrationTests {
     @Test
     void trialRouteIsForSubmissionServiceOnly() throws Exception {
         String path = "/internal/submission/trials";
+        String problemId = "019c8e42-7f70-7000-8000-000000000010";
         String body = """
-                {"problemId":"019c8e42-7f70-7000-8000-000000000010",
+                {"problemId":"%s",
                  "languageId":"cpp","source":"int main(){}",
                  "inputText":"","deadlineEpochMs":%d}
-                """.formatted(System.currentTimeMillis() + 45000);
+                """.formatted(problemId, System.currentTimeMillis() + 45000);
         mvc.perform(post(path).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
         // 管理员经 gateway 来也不行；令牌发往别的服务（aud 不是 judging-service）→ 401；调用方不对 → 403。
@@ -210,12 +218,10 @@ class AdminJudgingSecurityIntegrationTests {
                         .header("Authorization", problemService(null)))
                 .andExpect(status().isForbidden());
         // 下游无需功能开关；正确凭据进入执行配置检查，错误凭据不能触及执行逻辑。
-        org.mockito.Mockito.verifyNoInteractions(executionProfiles);
-        when(executionProfiles.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
-                .thenThrow(new com.cherryoj.judgingservice.api.JudgingApiException(
-                        org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
-                        "RUN_LIMIT_UNSUPPORTED",
-                        "测试执行配置不支持自测。"));
+        verifyNoInteractions(executionProfiles);
+        var rejected = mock(Rejected.class);
+        when(rejected.reason()).thenReturn(Reason.TRIAL_BUDGET_EXCEEDED);
+        when(executionProfiles.resolve(problemId, "cpp", Purpose.TRIAL, null)).thenThrow(rejected);
         mvc.perform(post(path)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)
@@ -225,8 +231,7 @@ class AdminJudgingSecurityIntegrationTests {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.code")
                         .value("RUN_LIMIT_UNSUPPORTED"));
-        org.mockito.Mockito.verify(executionProfiles)
-                .resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(executionProfiles).resolve(problemId, "cpp", Purpose.TRIAL, null);
     }
 
     @Test
