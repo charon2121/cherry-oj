@@ -1,131 +1,64 @@
 package com.cherryoj.problemservice.application;
 
+import static com.cherryoj.problemservice.application.ProblemReadinessChecks.*;
+
 import com.cherryoj.identity.token.CallUser;
 import com.cherryoj.problemservice.api.AdminProblemDtos;
-import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrateProblemRequest;
-import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrationStatus;
-import com.cherryoj.problemservice.api.AdminProblemDtos.JudgeVerdict;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Problem;
 import com.cherryoj.problemservice.api.AdminProblemDtos.PublishCheck;
 import com.cherryoj.problemservice.api.AdminProblemDtos.PublishCheckCode;
 import com.cherryoj.problemservice.api.AdminProblemDtos.PublishCheckItem;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Visibility;
 import com.cherryoj.problemservice.api.ProblemApiException;
-import com.cherryoj.problemservice.domain.UuidV7;
+import com.cherryoj.problemservice.application.ProblemReadinessChecks.Snapshot;
 import com.cherryoj.problemservice.integration.judging.JudgingClient;
 import com.cherryoj.problemservice.integration.judging.JudgingDtos;
 import com.cherryoj.problemservice.persistence.AdminProblemMapper;
-import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguagePrefixRow;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
-import com.cherryoj.problemservice.persistence.AdminProblemRows.ProblemRow;
-import com.cherryoj.problemservice.persistence.AdminProblemRows.SampleRow;
-import com.cherryoj.problemservice.storage.TestDataStore;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import tools.jackson.databind.ObjectMapper;
 
 /**
- * 标定与公开。题目没有草稿、验证、评审这些状态：公开就是把可见性改成 PUBLIC，前提是检查全部通过；
- * 标定记录在 judging-service，它记下标定时的测试数据指纹，数据一更新旧标定就过期。
+ * 公开检查和题目可见性。公开前需要本地条件与判题服务就绪，提交时重新确认版本与测试数据指纹。
  */
 @Service
 public class ProblemPublicationService {
     private final AdminProblemMapper problems;
-    private final TestDataStore testData;
+    private final ProblemReadinessChecks readiness;
     private final AdminProblemService adminProblems;
     private final JudgingClient judging;
-    private final UuidV7 ids;
+    private final ProblemAuditWriter audit;
     private final Clock clock;
-    private final ObjectMapper json;
     private final TransactionTemplate transactions;
 
     public ProblemPublicationService(
             AdminProblemMapper problems,
-            TestDataStore testData,
+            ProblemReadinessChecks readiness,
             AdminProblemService adminProblems,
             JudgingClient judging,
-            UuidV7 ids,
+            ProblemAuditWriter audit,
             Clock clock,
-            ObjectMapper json,
             PlatformTransactionManager transactionManager) {
         this.problems = problems;
-        this.testData = testData;
+        this.readiness = readiness;
         this.adminProblems = adminProblems;
         this.judging = judging;
-        this.ids = ids;
+        this.audit = audit;
         this.clock = clock;
-        this.json = json;
         this.transactions = new TransactionTemplate(transactionManager);
     }
 
-    public AdminProblemDtos.LanguageCalibration calibrate(
-            String problemId, CalibrateProblemRequest request, CallUser admin, String traceparent, String actorUserId) {
-        Snapshot local = transactions.execute(status -> snapshot(problemId, false));
-        requireActive(local.problem());
-        if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
-            throw state("题面、样例、语言或测试数据尚未就绪。");
-        }
-        if (local.languages().stream()
-                .noneMatch(language -> request.languageId().equals(language.languageId()))) {
-            throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "当前题目不支持这门语言。");
-        }
-        LanguageRow selected = selected(local, request.languageId());
-        if (languageProblem(local, selected) != null) throw state(languageProblem(local, selected));
-        JudgingDtos.Calibration result =
-                judging.calibrate(calibrationRequest(problemId, request, local), admin, traceparent);
-        CalibrationStatus remoteStatus = calibrationStatus(result.status());
-        if (!problemId.equals(result.problemId())
-                || !request.languageId().equals(result.languageId())
-                || !request.kind().equals(result.kind())
-                || (remoteStatus != CalibrationStatus.VALID && remoteStatus != CalibrationStatus.FAILED)) {
-            throw invalidResponse();
-        }
-        Map<String, Object> detail = new LinkedHashMap<>();
-        detail.put("calibrationId", result.id());
-        detail.put("status", remoteStatus.name());
-        detail.put("languageId", request.languageId());
-        detail.put("kind", request.kind());
-        detail.put("testDataDigest", local.info().digest());
-        if (result.benchmarkSummary() != null) {
-            detail.put("sourceSha256", result.benchmarkSummary().sourceSha256());
-            detail.put("verdict", result.benchmarkSummary().verdict());
-        }
-        transactions.executeWithoutResult(status -> audit(
-                problemId,
-                actorUserId,
-                remoteStatus == CalibrationStatus.VALID ? "PROBLEM_CALIBRATED" : "PROBLEM_CALIBRATION_FAILED",
-                detail));
-        return calibration(result);
-    }
-
-    public JudgingDtos.LanguageLimitsList limits(String problemId, CallUser admin, String traceparent) {
-        Snapshot local = transactions.execute(status -> snapshot(problemId, false));
-        if (local.info() == null)
-            throw new ProblemApiException(HttpStatus.NOT_FOUND, "TEST_DATA_NOT_FOUND", local.dataProblem());
-        var ids = local.languages().stream().map(LanguageRow::languageId).toList();
-        var response = judging.limits(
-                problemId, ids, local.info().digest(), local.info().maxTestcaseIoBytes(), admin, traceparent);
-        if (response == null
-                || response.languages() == null
-                || !response.languages().stream()
-                        .map(JudgingDtos.LanguageLimits::languageId)
-                        .toList()
-                        .equals(ids)) throw invalidResponse();
-        return response;
-    }
-
     public PublishCheck publishCheck(String problemId, CallUser admin, String traceparent) {
-        Snapshot local = transactions.execute(status -> snapshot(problemId, false));
+        Snapshot local = transactions.execute(status -> readiness.load(problemId, false));
         List<PublishCheckItem> checks = localChecks(local);
         var languages = new ArrayList<AdminProblemDtos.PublishLanguageCheck>();
         for (LanguageRow language : local.languages()) {
@@ -182,47 +115,6 @@ public class ProblemPublicationService {
     }
 
     /**
-     * CORE 的参考解要配合驱动文件、并加上该语言的前缀才能跑；ACM 原样发送。合并规则见 contracts/judge-input.schema.json：
-     * 用户文件 = 前缀 + 核心代码，前缀行数 = 前缀中换行符的个数。
-     */
-    private static JudgingDtos.CalibrationRequest calibrationRequest(
-            String problemId, CalibrateProblemRequest request, Snapshot local) {
-        String location = local.problem().testDataLocation();
-        String digest = local.info().digest();
-        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
-            return new JudgingDtos.CalibrationRequest(
-                    problemId,
-                    request.languageId(),
-                    request.kind(),
-                    location,
-                    digest,
-                    request.cpuNs(),
-                    request.memoryBytes(),
-                    request.clockNs(),
-                    request.referenceSource(),
-                    null,
-                    null);
-        }
-        String prefix = local.prefixes().get(request.languageId()).solutionPrefix();
-        return new JudgingDtos.CalibrationRequest(
-                problemId,
-                request.languageId(),
-                request.kind(),
-                location,
-                digest,
-                request.cpuNs(),
-                request.memoryBytes(),
-                request.clockNs(),
-                selected(local, request.languageId()).judgeTemplate(),
-                prefix + request.referenceSource(),
-                lineCount(prefix));
-    }
-
-    private static int lineCount(String prefix) {
-        return (int) prefix.chars().filter(character -> character == '\n').count();
-    }
-
-    /**
      * 修改驱动代码或前缀不会让标定自动失效（2026-10-17 决定先只做提示）：两者晚于这条标定修改时，在 CALIBRATION 项后附一句提示。
      * 只比较时间，不比较内容；judging-service 没给出标定时间时不提示。
      */
@@ -246,7 +138,7 @@ public class ProblemPublicationService {
     }
 
     public Problem publish(String problemId, long rowVersion, CallUser admin, String traceparent, String actorUserId) {
-        Snapshot before = transactions.execute(status -> snapshot(problemId, false));
+        Snapshot before = transactions.execute(status -> readiness.load(problemId, false));
         requireActive(before.problem());
         if (before.problem().visibility() == Visibility.PUBLIC) {
             return adminProblems.getProblem(problemId);
@@ -257,7 +149,7 @@ public class ProblemPublicationService {
         }
 
         transactions.executeWithoutResult(status -> {
-            Snapshot locked = snapshot(problemId, true);
+            Snapshot locked = readiness.load(problemId, true);
             requireActive(locked.problem());
             if (locked.problem().rowVersion() != rowVersion) throw conflict();
             if (localChecks(locked).stream().anyMatch(value -> !value.passed())) {
@@ -268,7 +160,7 @@ public class ProblemPublicationService {
                 throw state("测试数据已改变，请重新检查。");
             }
             if (problems.publishProblem(problemId, now(), rowVersion) != 1) throw conflict();
-            audit(
+            audit.append(
                     problemId,
                     actorUserId,
                     "PROBLEM_PUBLISHED",
@@ -279,98 +171,14 @@ public class ProblemPublicationService {
 
     public Problem unpublish(String problemId, long rowVersion, String actorUserId) {
         transactions.executeWithoutResult(status -> {
-            Snapshot locked = snapshot(problemId, true);
+            Snapshot locked = readiness.load(problemId, true);
             requireActive(locked.problem());
             if (locked.problem().visibility() == Visibility.PRIVATE) return;
             if (locked.problem().rowVersion() != rowVersion) throw conflict();
             if (problems.unpublishProblem(problemId, now(), rowVersion) != 1) throw conflict();
-            audit(problemId, actorUserId, "PROBLEM_UNPUBLISHED", Map.of());
+            audit.append(problemId, actorUserId, "PROBLEM_UNPUBLISHED", Map.of());
         });
         return adminProblems.getProblem(problemId);
-    }
-
-    private Snapshot snapshot(String problemId, boolean lock) {
-        ProblemRow problem = lock ? problems.findProblemForUpdate(problemId) : problems.findProblem(problemId);
-        if (problem == null) throw new ProblemApiException(HttpStatus.NOT_FOUND, "PROBLEM_NOT_FOUND", "题目不存在。");
-        TestDataStore.Info info = null;
-        String dataProblem = "还没有上传测试数据。";
-        if (problem.testDataLocation() != null) {
-            try {
-                info = testData.describe(problem.testDataLocation());
-            } catch (TestDataStore.AssetException error) {
-                dataProblem = "测试数据读取不到或已损坏，请重新上传。";
-            }
-        }
-        List<LanguageRow> languages = problems.findLanguages(problemId);
-        Map<String, LanguagePrefixRow> prefixes = new LinkedHashMap<>();
-        for (var language : languages) {
-            var prefix = problems.findLanguagePrefix(language.languageId());
-            if (prefix != null) prefixes.put(language.languageId(), prefix);
-        }
-        return new Snapshot(problem, problems.findSamples(problemId), languages, prefixes, info, dataProblem);
-    }
-
-    private static void requireActive(ProblemRow problem) {
-        if (problem.status() != AdminProblemDtos.ProblemStatus.ACTIVE) throw state("归档题目不能标定或公开。");
-    }
-
-    private List<PublishCheckItem> localChecks(Snapshot local) {
-        ProblemRow problem = local.problem();
-        boolean content = nonBlank(problem.title())
-                && nonBlank(problem.statementMarkdown())
-                && nonBlank(problem.inputDescriptionMarkdown())
-                && nonBlank(problem.outputDescriptionMarkdown());
-        boolean samples = !local.samples().isEmpty() && continuous(local.samples());
-        String languageProblem = languageProblem(local);
-        boolean language = languageProblem == null;
-        boolean data = local.info() != null;
-        ArrayList<PublishCheckItem> checks = new ArrayList<>(6);
-        checks.add(item(PublishCheckCode.CONTENT, content, content ? "题面必填章节完整。" : "标题、题面、输入或输出说明不完整。"));
-        checks.add(item(PublishCheckCode.SAMPLES, samples, samples ? "已有样例。" : "至少需要一个样例。"));
-        checks.add(item(
-                PublishCheckCode.LANGUAGE,
-                language,
-                language
-                        ? (problem.codeMode() == AdminProblemDtos.CodeMode.CORE ? "核心代码语言配置有效。" : "ACM 语言配置有效。")
-                        : languageProblem));
-        checks.add(item(
-                PublishCheckCode.TEST_DATA,
-                data,
-                data ? "测试数据就绪：" + local.info().testcaseCount() + " 个测试点。" : local.dataProblem()));
-        return checks;
-    }
-
-    /** 语言配置不能公开的原因；可以公开时返回 null。 */
-    private static String languageProblem(Snapshot local) {
-        if (local.languages().isEmpty()) return "请先配置语言。";
-        return local.languages().stream().anyMatch(language -> languageProblem(local, language) == null)
-                ? null
-                : languageProblem(local, local.languages().getFirst());
-    }
-
-    private static String languageProblem(Snapshot local, LanguageRow language) {
-        if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) return null;
-        if (!nonBlank(language.judgeTemplate())) return "核心代码题需要填写驱动代码。";
-        if (!local.prefixes().containsKey(language.languageId())) return "缺少该语言的前缀代码配置。";
-        return null;
-    }
-
-    private static LanguageRow selected(Snapshot local, String languageId) {
-        return local.languages().stream()
-                .filter(language -> language.languageId().equals(languageId))
-                .findFirst()
-                .orElseThrow();
-    }
-
-    private static boolean continuous(List<SampleRow> samples) {
-        for (int index = 0; index < samples.size(); index++) {
-            if (samples.get(index).ordinal() != index + 1) return false;
-        }
-        return true;
-    }
-
-    private static boolean nonBlank(String value) {
-        return value != null && !value.isBlank();
     }
 
     private static PublishCheckItem remoteCheck(
@@ -393,80 +201,11 @@ public class ProblemPublicationService {
         return new PublishCheckItem(code, passed, message);
     }
 
-    private static AdminProblemDtos.LanguageCalibration calibration(JudgingDtos.Calibration value) {
-        try {
-            AdminProblemDtos.BenchmarkSummary summary = value.benchmarkSummary() == null
-                    ? null
-                    : new AdminProblemDtos.BenchmarkSummary(
-                            value.benchmarkSummary().sourceSha256(),
-                            JudgeVerdict.valueOf(value.benchmarkSummary().verdict()),
-                            value.benchmarkSummary().maxCpuNs(),
-                            value.benchmarkSummary().maxMemoryBytes(),
-                            value.benchmarkSummary().maxClockNs());
-            return new AdminProblemDtos.LanguageCalibration(
-                    value.id(),
-                    value.problemId(),
-                    value.languageId(),
-                    value.kind(),
-                    calibrationStatus(value.status()),
-                    value.cpuNs(),
-                    value.memoryBytes(),
-                    value.clockNs(),
-                    value.testDataDigest(),
-                    summary,
-                    value.errorMessage(),
-                    value.createdAt(),
-                    value.updatedAt(),
-                    value.rowVersion());
-        } catch (ProblemApiException error) {
-            throw error;
-        } catch (RuntimeException error) {
-            throw invalidResponse();
-        }
-    }
-
-    private static CalibrationStatus calibrationStatus(String value) {
-        try {
-            return CalibrationStatus.valueOf(value);
-        } catch (RuntimeException error) {
-            throw invalidResponse();
-        }
-    }
-
-    private void audit(String problemId, String actorUserId, String action, Map<String, Object> detail) {
-        problems.insertAudit(ids.next().toString(), problemId, actorUserId, action, null, writeJson(detail), now());
-    }
-
-    private String writeJson(Object value) {
-        try {
-            return json.writeValueAsString(value);
-        } catch (Exception error) {
-            throw new IllegalStateException("Could not serialize publication audit", error);
-        }
-    }
-
     private LocalDateTime now() {
         return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
-    }
-
-    private static ProblemApiException invalidResponse() {
-        return new ProblemApiException(HttpStatus.BAD_GATEWAY, "JUDGING_INVALID_RESPONSE", "判题服务响应格式无效。");
-    }
-
-    private static ProblemApiException state(String message) {
-        return new ProblemApiException(HttpStatus.CONFLICT, "RESOURCE_STATE_CONFLICT", message);
     }
 
     private static ProblemApiException conflict() {
         return new ProblemApiException(HttpStatus.CONFLICT, "ROW_VERSION_CONFLICT", "资源已被其他窗口修改，请重新加载。");
     }
-
-    /** info 为 null 表示测试数据缺失或读不到，原因在 dataProblem 里；prefixes 按语言保存当前平台前缀。 */
-    private record Snapshot(
-            ProblemRow problem,
-            List<SampleRow> samples,
-            List<LanguageRow> languages,
-            Map<String, LanguagePrefixRow> prefixes,
-            TestDataStore.Info info,
-            String dataProblem) {}
 }

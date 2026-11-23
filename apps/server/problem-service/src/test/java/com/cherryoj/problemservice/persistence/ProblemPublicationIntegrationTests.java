@@ -16,6 +16,7 @@ import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Visibility;
 import com.cherryoj.problemservice.api.ProblemApiException;
 import com.cherryoj.problemservice.application.AdminProblemService;
+import com.cherryoj.problemservice.application.ProblemCalibrationService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import com.cherryoj.problemservice.application.TestDataService;
 import com.cherryoj.problemservice.integration.judging.JudgingClient;
@@ -87,6 +88,9 @@ class ProblemPublicationIntegrationTests {
     ProblemPublicationService publication;
 
     @Autowired
+    ProblemCalibrationService calibration;
+
+    @Autowired
     FakeJudgingClient judging;
 
     @Autowired
@@ -105,7 +109,7 @@ class ProblemPublicationIntegrationTests {
         Fixture fixture = fixture("calibrate");
         String sourceCanary = "source-canary-" + UUID.randomUUID();
 
-        var result = publication.calibrate(
+        var result = calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, sourceCanary),
                 TestCallTokens.ADMIN,
@@ -143,7 +147,7 @@ class ProblemPublicationIntegrationTests {
         Fixture fixture = fixture("failed");
         judging.calibrationStatus = "FAILED";
 
-        var result = publication.calibrate(
+        var result = calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1, 1, null, "reference"),
                 TestCallTokens.ADMIN,
@@ -163,7 +167,7 @@ class ProblemPublicationIntegrationTests {
         judging.calibrationFailure =
                 new ProblemApiException(HttpStatus.GATEWAY_TIMEOUT, "JUDGING_TIMEOUT", "判题服务请求超时，请读取状态后重试。");
 
-        assertThatThrownBy(() -> publication.calibrate(
+        assertThatThrownBy(() -> calibration.calibrate(
                         fixture.problemId(),
                         new CalibrateProblemRequest("cpp", 1, 1, null, "temporary-reference"),
                         TestCallTokens.ADMIN,
@@ -187,7 +191,7 @@ class ProblemPublicationIntegrationTests {
                         "cpp"),
                 ACTOR);
 
-        assertThatThrownBy(() -> publication.calibrate(
+        assertThatThrownBy(() -> calibration.calibrate(
                         empty.id(),
                         new CalibrateProblemRequest("cpp", 1, 1, null, "reference"),
                         TestCallTokens.ADMIN,
@@ -324,7 +328,7 @@ class ProblemPublicationIntegrationTests {
     void coreCalibrationSendsTheDriverAndTheReferenceWithTheLanguagePrefix() throws Exception {
         Fixture fixture = coreFixture("core-calibrate", DRIVER);
 
-        publication.calibrate(
+        calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, "class Solution {};\n"),
                 TestCallTokens.ADMIN,
@@ -341,7 +345,7 @@ class ProblemPublicationIntegrationTests {
     void acmCalibrationSendsNoSolutionFile() throws Exception {
         Fixture fixture = fixture("acm-calibrate");
 
-        publication.calibrate(
+        calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("cpp", 1, 1, null, "int main() {}"),
                 TestCallTokens.ADMIN,
@@ -358,7 +362,7 @@ class ProblemPublicationIntegrationTests {
         String reference =
                 "#include <stdio.h>\nint main(void) { int a,b; scanf(\"%d%d\", &a, &b); printf(\"%d\", a+b); }\n";
 
-        var result = publication.calibrate(
+        var result = calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("c", 1_000_000L, 64_000_000L, null, reference),
                 TestCallTokens.ADMIN,
@@ -369,7 +373,7 @@ class ProblemPublicationIntegrationTests {
         assertThat(judging.calibration.kind()).isEqualTo("BASE");
         assertThat(judging.calibration.referenceSource()).isEqualTo(reference);
         assertThat(judging.calibration.referenceSolutionSource()).isNull();
-        assertThatThrownBy(() -> publication.calibrate(
+        assertThatThrownBy(() -> calibration.calibrate(
                         fixture.problemId(),
                         new CalibrateProblemRequest("cpp", 1_000_000L, 64_000_000L, null, reference),
                         TestCallTokens.ADMIN,
@@ -397,7 +401,7 @@ class ProblemPublicationIntegrationTests {
         String prefix =
                 jdbc.queryForObject("SELECT solution_prefix FROM language WHERE language_id = 'c'", String.class);
 
-        publication.calibrate(
+        calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("c", 1_000_000L, 64_000_000L, null, reference),
                 TestCallTokens.ADMIN,
@@ -439,7 +443,7 @@ class ProblemPublicationIntegrationTests {
         assertThat(languageAvailability.ready(saved.slug(), null).items())
                 .extracting(com.cherryoj.problemservice.api.PublicProblemDtos.ProblemLanguage::id)
                 .containsExactly("c");
-        var override = publication.calibrate(
+        var override = calibration.calibrate(
                 fixture.problemId(),
                 new CalibrateProblemRequest("c", 1_000_000L, 64_000_000L, null, "reference", "OVERRIDE"),
                 TestCallTokens.ADMIN,
@@ -504,7 +508,7 @@ class ProblemPublicationIntegrationTests {
                 .isInstanceOfSatisfying(
                         ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("ROW_VERSION_CONFLICT"));
-        assertThatThrownBy(() -> publication.calibrate(
+        assertThatThrownBy(() -> calibration.calibrate(
                         fixture.problemId(),
                         new CalibrateProblemRequest("c", 1, 1, null, "reference", "OVERRIDE"),
                         TestCallTokens.ADMIN,
@@ -540,7 +544,7 @@ class ProblemPublicationIntegrationTests {
                     assertThat(item.passed()).isFalse();
                     assertThat(item.message()).contains("驱动代码");
                 });
-        assertThatThrownBy(() -> publication.calibrate(
+        assertThatThrownBy(() -> calibration.calibrate(
                         fixture.problemId(),
                         new CalibrateProblemRequest("cpp", 1, 1, null, "class Solution {};"),
                         TestCallTokens.ADMIN,

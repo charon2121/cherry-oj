@@ -7,6 +7,7 @@ import com.cherryoj.problemservice.api.AdminProblemDtos.ProblemStatus;
 import com.cherryoj.problemservice.api.AdminProblemDtos.RowVersionRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.UpdateProblemRequest;
 import com.cherryoj.problemservice.application.AdminProblemService;
+import com.cherryoj.problemservice.application.ProblemCalibrationService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -38,9 +39,15 @@ public class AdminProblemController {
     private final AdminProblemService problems;
     private final ProblemPublicationService publication;
 
-    public AdminProblemController(AdminProblemService problems, ProblemPublicationService publication) {
+    private final ProblemCalibrationService calibration;
+
+    public AdminProblemController(
+            AdminProblemService problems,
+            ProblemPublicationService publication,
+            ProblemCalibrationService calibration) {
         this.problems = problems;
         this.publication = publication;
+        this.calibration = calibration;
     }
 
     @GetMapping
@@ -92,7 +99,7 @@ public class AdminProblemController {
             @PathVariable @Pattern(regexp = ID) String problemId,
             @Valid @RequestBody CalibrateProblemRequest request,
             @RequestHeader(name = "traceparent", required = false) String traceparent) {
-        return noStore(publication.calibrate(problemId, request, CurrentCall.requireUser(), traceparent, actor()));
+        return noStore(calibration.calibrate(problemId, request, CurrentCall.requireUser(), traceparent, actor()));
     }
 
     @org.springframework.web.bind.annotation.PutMapping("/{problemId}/languages")
@@ -106,7 +113,7 @@ public class AdminProblemController {
     ResponseEntity<com.cherryoj.problemservice.integration.judging.JudgingDtos.LanguageLimitsList> limits(
             @PathVariable @Pattern(regexp = ID) String problemId,
             @RequestHeader(name = "traceparent", required = false) String traceparent) {
-        return noStore(publication.limits(problemId, CurrentCall.requireUser(), traceparent));
+        return noStore(calibration.limits(problemId, CurrentCall.requireUser(), traceparent));
     }
 
     @GetMapping("/{problemId}/publish-check")

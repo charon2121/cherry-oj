@@ -25,6 +25,7 @@ import com.cherryoj.identity.resource.CallAuthentication;
 import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.identity.token.testing.TestCallTokens;
 import com.cherryoj.problemservice.application.AdminProblemService;
+import com.cherryoj.problemservice.application.ProblemCalibrationService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import jakarta.servlet.Filter;
 import jakarta.servlet.ServletException;
@@ -401,7 +402,8 @@ class ProblemExceptionHandlerTests {
 
         @Bean
         AdminProblemController adminProblems(AdminProblemService problems) {
-            return new AdminProblemController(problems, mock(ProblemPublicationService.class));
+            return new AdminProblemController(
+                    problems, mock(ProblemPublicationService.class), mock(ProblemCalibrationService.class));
         }
 
         @Bean
