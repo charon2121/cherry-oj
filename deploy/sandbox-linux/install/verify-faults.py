@@ -12,15 +12,17 @@ import sys
 import time
 
 sys.path.insert(0, '/opt/cherry-oj/operations')
+import installation
 import layout
 import manage
+import node_system
 
 GROUP = Path('/sys/fs/cgroup/cherry.slice/cherry-sandbox.slice')
 JUDGE = GROUP / 'cherry-sandbox-judge.service'
 JOBS = JUDGE / 'jobs'
-EXECUTOR = (manage.STATE / 'current/libexec/sandbox').resolve()
-BLOBS = manage.STATE / 'judge/blobs'
-BOXES = manage.STATE / 'judge/boxes'
+EXECUTOR = (layout.STATE / 'current/libexec/sandbox').resolve()
+BLOBS = layout.STATE / 'judge/blobs'
+BOXES = layout.STATE / 'judge/boxes'
 
 
 def request(port, method, path, data=None):
@@ -112,20 +114,20 @@ def kill_process(pid, exe, uid, cgroup):
 def kill_target(case):
     if case == 'executor':
         return kill_process(wait_for(executor_pid, 'executor not observed'), EXECUTOR, 0, JUDGE / 'supervisor')
-    pid = int(manage.run('systemctl', 'show', manage.JUDGE_UNIT, '-p', 'MainPID', '--value'))
-    return kill_process(pid, (manage.STATE / 'current/bin/judge').resolve(), manage.JUDGE_UID, JUDGE / 'supervisor')
+    pid = int(node_system.systemctl('show', layout.JUDGE_UNIT, '-p', 'MainPID', '--value'))
+    return kill_process(pid, (layout.STATE / 'current/bin/judge').resolve(), layout.JUDGE_UID, JUDGE / 'supervisor')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case', choices=('judge', 'executor'), required=True)
     args = parser.parse_args()
-    manage.owned()
+    installation.require_owned_installation()
     assert not groups() and not task_processes(), 'node must be idle'
     baseline = trial('int main(){return 0;}')
     assert baseline['verdict'] == 'RAN', baseline
     before = {p.name for p in BLOBS.iterdir()}
-    manifest_hash = manage.digest(manage.ETC / 'deployment.json')
+    manifest_hash = installation.digest(layout.ETC / 'deployment.json')
     started = time.monotonic()
     outcome = None
     try:
@@ -148,7 +150,7 @@ def main():
     finally:
         # 执行器丢失回收确认后，执行层停止接单、judge 以失败退出；judge 被杀时单元已停。
         # 两种情况都先确认 judge 停下，再清理这次测试留下的 blob，最后重新启动。
-        manage.run('systemctl', 'stop', *reversed(manage.UNITS[1:]))
+        node_system.systemctl('stop', *reversed(layout.UNITS[1:]))
         # Only artifacts created by this idle-node test may be deleted; judge is stopped, so no
         # reader can hold them. The store reloads its directory on the next start.
         for path in BLOBS.iterdir():
@@ -156,11 +158,11 @@ def main():
                 assert re.fullmatch('(\\.pending-)?[a-zA-Z0-9_-]+', path.name), path.name
                 path.unlink()
         manage.operate('start')
-        assert manage.digest(manage.ETC / 'deployment.json') == manifest_hash
+        assert installation.digest(layout.ETC / 'deployment.json') == manifest_hash
     recovered = trial('int main(){return 0;}')
     assert recovered['verdict'] == 'RAN', recovered
     assert not groups() and not task_processes()
-    count = int(dict(line.split('=', 1) for line in (manage.ETC / 'executor.conf').read_text().splitlines()
+    count = int(dict(line.split('=', 1) for line in (layout.ETC / 'executor.conf').read_text().splitlines()
                      if '=' in line and not line.startswith('#'))['box_count'])
     assert sorted(p.name for p in BOXES.iterdir()) == sorted(['.lock', *map(str, range(count))])
     assert not any(any((BOXES / str(n) / sub).iterdir()) for n in range(count) for sub in ('in', 'out'))

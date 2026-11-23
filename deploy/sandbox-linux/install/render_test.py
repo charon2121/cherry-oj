@@ -5,7 +5,10 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import installation
+import layout
 import manage
+import node_system
 from render import render
 
 
@@ -41,11 +44,11 @@ class DeploymentTests(unittest.TestCase):
                 self.assertTrue(t['rootfs'].endswith('/releases/test-release/toolchains/'+t['language']+'/rootfs'))
             self.assertEqual(plan['toolchains'],{'c':'b'*64,'cpp':'a'*64})
             # 执行器的受信配置经过 current：切换发布不用改它；探针用排序后的第一门语言。
-            self.assertEqual(executor['toolchains'],str(manage.STATE/'current'/'toolchains'))
+            self.assertEqual(executor['toolchains'],str(layout.STATE/'current'/'toolchains'))
             self.assertNotIn('rootfs',executor)
             self.assertEqual(judge['execution']['probeToolchain'],'c')
             self.assertEqual(start['group']+'/jobs',executor['cgroup'])
-            self.assertEqual(start['command'][-1],str(manage.ETC/'judge.json'))
+            self.assertEqual(start['command'][-1],str(layout.ETC/'judge.json'))
             manifest=json.loads((root/'deployment.template.json').read_text())
             self.assertNotIn('limits',manifest)
             # 固定 6 项（执行器、受信配置、启动参数、启动脚本、两个单元）+ 每门语言的清单与包锁。
@@ -77,8 +80,8 @@ class DeploymentTests(unittest.TestCase):
                        'http://127.0.0.1:15051',TOOLCHAINS)
 
     def test_operations_refuse_modified_installation_before_systemctl(self):
-        with patch.object(manage,'owned',side_effect=ValueError('modified installation')), \
-             patch.object(manage,'run') as command:
+        with patch.object(installation, 'require_owned_installation',side_effect=ValueError('modified installation')), \
+             patch.object(node_system, 'run') as command:
             for action in ('start','stop','uninstall'):
                 with self.assertRaises(ValueError):
                     manage.operate(action)
@@ -87,12 +90,12 @@ class DeploymentTests(unittest.TestCase):
     def test_only_empty_inactive_implicit_slice_is_available(self):
         facts=dict(LoadState='loaded',ActiveState='inactive',Transient='no',
                    FragmentPath='',DropInPaths='',ControlGroup='')
-        self.assertFalse(manage.unit_conflicts('cherry-sandbox.slice',facts))
-        self.assertTrue(manage.unit_conflicts('cherry-sandbox-judge.service',facts))
+        self.assertFalse(node_system.unit_conflicts('cherry-sandbox.slice',facts))
+        self.assertTrue(node_system.unit_conflicts('cherry-sandbox-judge.service',facts))
         for key,value in [('FragmentPath','/etc/unit'),('DropInPaths','/etc/override'),
                           ('ControlGroup','/live'),('ActiveState','active'),('Transient','yes')]:
             changed={**facts,key:value}
-            self.assertTrue(manage.unit_conflicts('cherry-sandbox.slice',changed))
+            self.assertTrue(node_system.unit_conflicts('cherry-sandbox.slice',changed))
 
     def test_start_failure_stops_only_owned_services(self):
         commands=[]
@@ -101,11 +104,11 @@ class DeploymentTests(unittest.TestCase):
             if args[1]=='start':
                 raise OSError('dependency failed')
             return ''
-        with patch.object(manage,'owned',return_value={'status':'installed'}), \
-             patch.object(manage,'run',side_effect=command):
+        with patch.object(installation, 'require_owned_installation',return_value={'status':'installed'}), \
+             patch.object(node_system, 'run',side_effect=command):
             with self.assertRaises(OSError):
                 manage.operate('start')
-        self.assertEqual(commands[-1],('systemctl','stop',*reversed(manage.UNITS[1:])))
+        self.assertEqual(commands[-1],('systemctl','stop',*reversed(layout.UNITS[1:])))
 
     def test_parallelism_sets_box_count_judge_parallelism_and_account_count(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -139,17 +142,17 @@ class DeploymentTests(unittest.TestCase):
     def test_uninstall_preserves_data_and_accounts(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
-            for unit in manage.UNITS:
+            for unit in layout.UNITS:
                 (root/unit).touch()
             commands=[]
-            with patch.object(manage,'SYSTEMD',root), \
-                 patch.object(manage,'owned',return_value={'status':'stopped'}), \
-                 patch.object(manage,'write_json') as receipt, \
-                 patch.object(manage,'backup_units'), \
-                 patch.object(manage,'run',side_effect=lambda *args:commands.append(args)):
+            with patch.object(layout, 'SYSTEMD',root), \
+                 patch.object(installation, 'require_owned_installation',return_value={'status':'stopped'}), \
+                 patch.object(installation, 'write_receipt') as receipt, \
+                 patch.object(installation, 'backup_units'), \
+                 patch.object(node_system, 'run',side_effect=lambda *args:commands.append(args)):
                 manage.operate('uninstall')
             self.assertFalse(any(root.iterdir()))
-            self.assertEqual(receipt.call_args.args[1]['status'],'uninstalled')
+            self.assertEqual(receipt.call_args.args[0]['status'],'uninstalled')
             self.assertTrue(all(c[0]=='systemctl' for c in commands))
             self.assertFalse(any('userdel' in c or 'groupdel' in c for c in commands))
 

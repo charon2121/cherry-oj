@@ -1,14 +1,23 @@
 """Upgrade, rollback and prune switch only recorded releases and restore each release's reviewed configuration."""
-from contextlib import ExitStack
+
+from __future__ import annotations
+
 import hashlib
 import json
 import os
-from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
+from contextlib import ExitStack
+from pathlib import Path
 from unittest.mock import patch
 
+import installation
+import layout
 import manage
+import node_release
+import node_system
 from render import render
 
 TOKEN = 'control-token-0123456789'
@@ -29,14 +38,14 @@ class UpgradeTests(unittest.TestCase):
         self.fail_start = set()
         for key, value in [('STATE', self.state), ('ETC', self.etc), ('SYSTEMD', self.units),
                            ('RECEIPT', self.receipt_path), ('GROUP', str(self.root / 'cgroup'))]:
-            self.stack.enter_context(patch.object(manage, key, value))
+            self.stack.enter_context(patch.object(layout, key, value))
         # macOS tests use ordinary temporary directories; root ownership, setuid and systemd run on Linux.
-        for name in ('protected', 'check_executor'):
-            self.stack.enter_context(patch.object(manage, name))
+        self.stack.enter_context(patch.object(installation, 'require_root_protected_path'))
+        self.stack.enter_context(patch.object(node_release, 'check_executor'))
         self.stack.enter_context(patch.object(manage.os, 'chown'))
-        self.stack.enter_context(patch.object(manage, 'run', side_effect=self.command))
+        self.stack.enter_context(patch.object(node_system, 'run', side_effect=self.command))
         # 部署清单里的路径是节点上的真实路径；这里只记下用了哪份审核材料。
-        self.stack.enter_context(patch.object(manage, 'write_deployment', side_effect=lambda review: (
+        self.stack.enter_context(patch.object(node_release, 'write_deployment', side_effect=lambda review: (
             self.etc / 'deployment.json').write_text(json.dumps({'review': review.name}))))
         self.install('v1')
 
@@ -71,17 +80,17 @@ class UpgradeTests(unittest.TestCase):
         """装好第一个发布的样子：与 install() 走同一套步骤，跳过账号、系统检查与 systemd。"""
         review, source = self.release(name)
         receipt = dict(version=1, status='running', release=name, previous=None, releases=[name],
-                       accounts={n: {'uid': uid} for n, uid in manage.read_plan(review)['accounts'].items()},
+                       accounts={n: {'uid': uid} for n, uid in node_release.read_plan(review)['accounts'].items()},
                        files={}, enabled=False)
-        manage.place_release(source, name)
+        node_release.place_release(source, name)
         (self.state / 'current').symlink_to(Path('releases') / name)
-        for unit in manage.UNITS:
+        for unit in layout.UNITS:
             (self.units / unit).write_bytes((review / unit).read_bytes())
-            receipt['files'][str(self.units / unit)] = manage.digest(self.units / unit)
-        manage.write_config(review, TOKEN, receipt)
-        manage.save_operations(receipt)
-        manage.save_review(review, name, receipt)
-        manage.write_json(self.receipt_path, receipt, 0o600)
+            receipt['files'][str(self.units / unit)] = installation.digest(self.units / unit)
+        node_release.write_config(review, TOKEN, receipt)
+        installation.save_operations(receipt)
+        node_release.save_review(review, name, receipt)
+        layout.write_json(self.receipt_path, receipt, 0o600)
 
     def test_upgrade_switches_current_and_config_and_restarts(self):
         manage.upgrade(*self.release('v2', language='c'))
@@ -93,10 +102,32 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(judge['judge']['node']['controlToken'], TOKEN)
         self.assertEqual(judge['execution']['probeToolchain'], 'c')
         self.assertIn('/releases/v2/toolchains/c/', (self.etc / 'judge-start.json').read_text())
-        self.assertEqual(receipt['files'][str(self.etc / 'judge.json')], manage.digest(self.etc / 'judge.json'))
-        self.assertTrue((manage.reviews() / 'v2' / 'plan.json').is_file())
-        stop = self.commands.index(('systemctl', 'stop', *reversed(manage.UNITS[1:])))
+        self.assertEqual(receipt['files'][str(self.etc / 'judge.json')], installation.digest(self.etc / 'judge.json'))
+        self.assertTrue((node_release.reviews_directory() / 'v2' / 'plan.json').is_file())
+        stop = self.commands.index(('systemctl', 'stop', *reversed(layout.UNITS[1:])))
         self.assertEqual(self.commands[stop + 1][:2], ('systemctl', 'start'))
+
+    def test_upgrade_installs_the_entrypoint_with_all_its_modules(self) -> None:
+        operations = self.state / 'operations'
+        receipt = self.receipt()
+        for module in ('installation.py', 'node_release.py', 'node_system.py'):
+            path = operations / module
+            path.unlink()
+            del receipt['files'][str(path)]
+        installation.write_receipt(receipt)
+
+        manage.upgrade(*self.release('v2'))
+
+        files = self.receipt()['files']
+        for name in installation.OPERATION_SCRIPTS:
+            path = operations / name
+            self.assertEqual(files[str(path)], installation.digest(path))
+        result = subprocess.run(
+            [sys.executable, '-EsB', str(operations / 'manage.py'), '--help'],
+            cwd=self.root, capture_output=True, text=True, check=True, timeout=10,
+        )
+        self.assertIn('rollback', result.stdout)
+        self.assertIn('restore', result.stdout)
 
     def test_failed_start_switches_back_to_the_previous_release(self):
         self.fail_start.add('v2')
@@ -120,7 +151,7 @@ class UpgradeTests(unittest.TestCase):
     def test_stopped_node_stays_stopped(self):
         receipt = self.receipt()
         receipt['status'] = 'stopped'
-        manage.write_json(self.receipt_path, receipt, 0o600)
+        layout.write_json(self.receipt_path, receipt, 0o600)
         manage.upgrade(*self.release('v2'))
         self.assertEqual(self.receipt()['status'], 'stopped')
         self.assertFalse(any(c[:2] == ('systemctl', 'start') for c in self.commands))
@@ -132,9 +163,9 @@ class UpgradeTests(unittest.TestCase):
         receipt = self.receipt()
         self.assertEqual(receipt['releases'], ['v2', 'v3'])
         self.assertEqual(sorted(p.name for p in (self.state / 'releases').iterdir()), ['v2', 'v3'])
-        self.assertEqual(sorted(p.name for p in manage.reviews().iterdir()), ['v2', 'v3'])
+        self.assertEqual(sorted(p.name for p in node_release.reviews_directory().iterdir()), ['v2', 'v3'])
         self.assertFalse(any('/reviews/v1/' in path for path in receipt['files']))
-        manage.owned()  # 回执里剩下的文件都还在、摘要一致
+        installation.require_owned_installation()  # 回执里剩下的文件都还在、摘要一致
 
     def test_upgrade_refuses_changes_that_need_a_reinstall(self):
         review, source = self.release('v2')
@@ -142,13 +173,13 @@ class UpgradeTests(unittest.TestCase):
                {'cpp': 'a' * 64}, parallelism=3)
         with self.assertRaisesRegex(ValueError, 'parallelism'):
             manage.upgrade(self.root / 'wider', source)
-        (review / manage.UNITS[1]).write_text('[Service]\nchanged\n')
+        (review / layout.UNITS[1]).write_text('[Service]\nchanged\n')
         with self.assertRaisesRegex(ValueError, 'systemd units'):
             manage.upgrade(review, source)
         with self.assertRaisesRegex(ValueError, 'already installed'):
             manage.upgrade(self.root / 'review-v1', self.root / 'source-v1')
         self.assertEqual(self.commands, [('systemctl', 'show', unit, '-p', 'DropInPaths', '--value')
-                                         for _ in range(3) for unit in manage.UNITS])
+                                         for _ in range(3) for unit in layout.UNITS])
 
     def test_rollback_without_previous_is_refused(self):
         with self.assertRaisesRegex(ValueError, 'no previous release'):

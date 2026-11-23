@@ -13,8 +13,11 @@ import time
 
 sys.path.insert(0, '/opt/cherry-oj/operations')
 sys.path.insert(0, '/opt/cherry-oj/etc')
-import manage
 import health
+import installation
+import layout
+import manage
+import node_system
 
 CAPS = ('CAP_SYS_ADMIN', 'CAP_SETUID', 'CAP_SETGID', 'CAP_SETPCAP',
         'CAP_CHOWN', 'CAP_DAC_OVERRIDE', 'CAP_MKNOD', 'CAP_KILL')
@@ -24,23 +27,23 @@ DROPIN = DIRECTORY / '90-cherry-capability-test.conf'
 
 
 def stopped():
-    manage.run('systemctl', 'stop', *reversed(manage.UNITS[1:]))
+    node_system.systemctl('stop', *reversed(layout.UNITS[1:]))
 
 
 def configure(caps):
     content = '[Service]\nCapabilityBoundingSet=\nCapabilityBoundingSet=' + ' '.join(caps) + '\n'
     DROPIN.write_text(content)
     DROPIN.chmod(0o644)
-    manage.run('systemctl', 'daemon-reload')
+    node_system.systemctl('daemon-reload')
     return content
 
 
 def sandbox_state():
-    return manage.run('systemctl', 'show', UNIT, '-p', 'ActiveState', '--value')
+    return node_system.systemctl('show', UNIT, '-p', 'ActiveState', '--value')
 
 
 def start_observation():
-    raw = manage.run('systemctl', 'show', UNIT, '-p', 'InvocationID',
+    raw = node_system.systemctl('show', UNIT, '-p', 'InvocationID',
                      '-p', 'ExecMainStartTimestampMonotonic')
     values = dict(line.split('=', 1) for line in raw.splitlines())
     return dict(invocationID=values.get('InvocationID', ''),
@@ -61,7 +64,7 @@ def reset_failure():
     state = sandbox_state()
     assert state in ('inactive', 'failed'), state
     if state == 'failed':
-        manage.run('systemctl', 'reset-failed', UNIT)
+        node_system.systemctl('reset-failed', UNIT)
 
 
 def probe():
@@ -86,7 +89,7 @@ def probe():
 
 
 def main():
-    manage.owned()
+    installation.require_owned_installation()
     assert not DIRECTORY.exists() and not DIRECTORY.is_symlink()
     spec = importlib.util.spec_from_file_location('native', '/opt/cherry-oj/operations/verify-native.py')
     native = importlib.util.module_from_spec(spec)
@@ -116,7 +119,7 @@ def main():
             content = configure(tuple(cap for cap in CAPS if cap != excluded))
             ready, observation = probe()
             assert not ready, 'capability may be redundant: ' + excluded
-            result = manage.run('systemctl', 'show', UNIT, '-p', 'Result', '--value')
+            result = node_system.systemctl('show', UNIT, '-p', 'Result', '--value')
             assert result != 'start-limit-hit', result
             print(json.dumps(dict(test='remove-capability', removed=excluded, startup='REFUSED', **observation)), flush=True)
             stopped()
@@ -126,8 +129,8 @@ def main():
             assert DROPIN.read_text() == content
             DROPIN.unlink()
         DIRECTORY.rmdir()
-        manage.run('systemctl', 'daemon-reload')
-        manage.owned()
+        node_system.systemctl('daemon-reload')
+        installation.require_owned_installation()
         reset_failure()
         manage.operate('start')
     print('Original deployment restored; no judge registration under temporary policy.', flush=True)

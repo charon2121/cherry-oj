@@ -12,17 +12,20 @@
 
 配置只接受 root 管理的文件：文件与每一级祖先都属于 root 且不可被组或其他人写入。
 """
+
+from __future__ import annotations
+
 import hashlib
 import json
 import os
-from pathlib import Path
 import stat
 import sys
+from pathlib import Path
 
 MOUNT_POINTS = ('work', 'tmp', 'proc', 'dev', '.oldroot')
 
 
-def protected(path):
+def require_root_protected_path(path: Path) -> None:
     for item in [path, *path.parents]:
         info = item.lstat()
         if info.st_uid != 0 or info.st_mode & 0o022 or stat.S_ISLNK(info.st_mode):
@@ -38,7 +41,7 @@ def digest(path):
 
 
 def read_manifest(path, expected):
-    protected(path)
+    require_root_protected_path(path)
     data = path.read_bytes()
     if len(data) > 8 << 20 or hashlib.sha256(data).hexdigest() != expected:
         raise ValueError('rootfs manifest digest mismatch')
@@ -79,7 +82,7 @@ def check_entry(path, rel, entry):
 
 def verify_rootfs(root, entries):
     """同时拒绝多出的与缺少的条目：只检查清单列出的文件，会漏掉 rootfs 中新增的内容。"""
-    protected(root)
+    require_root_protected_path(root)
     remaining = dict(entries)
     for parent, dirs, files in os.walk(root, followlinks=False):
         for name in dirs + files:
@@ -110,7 +113,7 @@ def prepare_groups(group):
 
 def main():
     config_path = Path(sys.argv[1])
-    protected(config_path)
+    require_root_protected_path(config_path)
     config = json.loads(config_path.read_text())
     # 每门语言一棵独立的 rootfs，逐门核对；任何一门对不上都拒绝启动，不带着被改过的工具链上线。
     toolchains = config['toolchains']

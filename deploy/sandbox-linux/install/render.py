@@ -1,19 +1,13 @@
 #!/usr/bin/env python3
 """Render reviewable configuration without touching system paths or services."""
 import argparse
-import json
 from pathlib import Path
 import re
 import shutil
 from urllib.parse import urlsplit
 
 from layout import (accounts, BLOBS_ROOT, BOXES_ROOT, ETC, EXECUTOR, INIT_UID, JUDGE_DATA,
-                    JUDGE_GROUP, JUDGE_UID, JUDGE_UNIT, PAYLOAD_UID, STATE, UNITS)
-
-
-def write_json(path, value, mode=0o644):
-    path.write_text(json.dumps(value, indent=2) + '\n')
-    path.chmod(mode)
+                    JUDGE_GROUP, JUDGE_UID, PAYLOAD_UID, STATE, UNITS, write_json)
 
 
 def origin(value):
