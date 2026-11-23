@@ -17,9 +17,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.cherryoj.identity.token.CallUser;
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.LanguageSettingService;
+import com.cherryoj.problemservice.application.ProblemJudgeSnapshotService;
 import com.cherryoj.problemservice.application.ProblemPublicationService;
 import com.cherryoj.problemservice.application.PublicProblemService;
-import com.cherryoj.problemservice.application.SubmissionSnapshotService;
 import com.cherryoj.problemservice.application.TestDataService;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
@@ -59,7 +59,7 @@ class EndpointPolicyIntegrationTests {
     LanguageSettingService languages;
 
     @MockitoBean
-    SubmissionSnapshotService snapshots;
+    ProblemJudgeSnapshotService snapshots;
 
     private final MockMvc mvc;
 

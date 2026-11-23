@@ -14,17 +14,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class SubmissionSnapshotService {
+public class ProblemJudgeSnapshotService {
     private final AdminProblemMapper problems;
     private final TestDataStore testData;
 
-    public SubmissionSnapshotService(AdminProblemMapper problems, TestDataStore testData) {
+    public ProblemJudgeSnapshotService(AdminProblemMapper problems, TestDataStore testData) {
         this.problems = problems;
         this.testData = testData;
     }
 
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
-    public Snapshot resolve(String problemId, String languageId) {
+    public ProblemJudgeSnapshot resolve(String problemId, String languageId) {
         var problem = problems.findProblem(problemId);
         if (problem == null || problem.visibility() != Visibility.PUBLIC || problem.status() != ProblemStatus.ACTIVE) {
             throw unavailable();
@@ -43,14 +43,14 @@ public class SubmissionSnapshotService {
             throw unavailable();
         }
         if (problem.codeMode() != CodeMode.CORE) {
-            return new Snapshot(problem.id(), problem.title(), languageId, CodeMode.ACM.name(), null, null);
+            return new ProblemJudgeSnapshot(problem.id(), problem.title(), languageId, CodeMode.ACM.name(), null, null);
         }
         // 公开检查保证了驱动代码与前缀；公开之后它们缺了，按"暂时不可提交"处理，而不是送出一个编不过的程序。
         LanguagePrefixRow prefix = problems.findLanguagePrefix(languageId);
         if (language.judgeTemplate() == null || language.judgeTemplate().isBlank() || prefix == null) {
             throw unavailable();
         }
-        return new Snapshot(
+        return new ProblemJudgeSnapshot(
                 problem.id(),
                 problem.title(),
                 languageId,
@@ -69,7 +69,7 @@ public class SubmissionSnapshotService {
      * 驱动代码不得写进日志，toString 不带它们。
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record Snapshot(
+    public record ProblemJudgeSnapshot(
             String problemId,
             String problemTitle,
             String languageId,
@@ -78,7 +78,8 @@ public class SubmissionSnapshotService {
             String solutionPrefix) {
         @Override
         public String toString() {
-            return "Snapshot[problemId=" + problemId + ", languageId=" + languageId + ", codeMode=" + codeMode + "]";
+            return "ProblemJudgeSnapshot[problemId=" + problemId + ", languageId=" + languageId + ", codeMode="
+                    + codeMode + "]";
         }
     }
 }

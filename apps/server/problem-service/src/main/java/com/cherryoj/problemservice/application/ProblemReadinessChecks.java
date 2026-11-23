@@ -28,7 +28,7 @@ class ProblemReadinessChecks {
         this.testData = testData;
     }
 
-    Snapshot load(String problemId, boolean lock) {
+    PublicationSnapshot load(String problemId, boolean lock) {
         ProblemRow problem = lock ? problems.findProblemForUpdate(problemId) : problems.findProblem(problemId);
         if (problem == null) throw new ProblemApiException(HttpStatus.NOT_FOUND, "PROBLEM_NOT_FOUND", "题目不存在。");
         TestDataStore.Info info = null;
@@ -46,14 +46,15 @@ class ProblemReadinessChecks {
             var prefix = problems.findLanguagePrefix(language.languageId());
             if (prefix != null) prefixes.put(language.languageId(), prefix);
         }
-        return new Snapshot(problem, problems.findSamples(problemId), languages, prefixes, info, dataProblem);
+        return new PublicationSnapshot(
+                problem, problems.findSamples(problemId), languages, prefixes, info, dataProblem);
     }
 
     static void requireActive(ProblemRow problem) {
         if (problem.status() != AdminProblemDtos.ProblemStatus.ACTIVE) throw state("归档题目不能标定或公开。");
     }
 
-    static List<PublishCheckItem> localChecks(Snapshot local) {
+    static List<PublishCheckItem> localChecks(PublicationSnapshot local) {
         ProblemRow problem = local.problem();
         boolean content = nonBlank(problem.title())
                 && nonBlank(problem.statementMarkdown())
@@ -80,14 +81,14 @@ class ProblemReadinessChecks {
     }
 
     /** 语言配置不能公开的原因；可以公开时返回 null。 */
-    private static String languageProblem(Snapshot local) {
+    private static String languageProblem(PublicationSnapshot local) {
         if (local.languages().isEmpty()) return "请先配置语言。";
         return local.languages().stream().anyMatch(language -> languageProblem(local, language) == null)
                 ? null
                 : languageProblem(local, local.languages().getFirst());
     }
 
-    static String languageProblem(Snapshot local, LanguageRow language) {
+    static String languageProblem(PublicationSnapshot local, LanguageRow language) {
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) return null;
         if (!nonBlank(language.judgeTemplate())) return "核心代码题需要填写驱动代码。";
         if (!local.prefixes().containsKey(language.languageId())) return "缺少该语言的前缀代码配置。";
@@ -114,7 +115,7 @@ class ProblemReadinessChecks {
     }
 
     /** info 为 null 表示测试数据缺失或读不到，原因在 dataProblem 里；prefixes 按语言保存当前平台前缀。 */
-    record Snapshot(
+    record PublicationSnapshot(
             ProblemRow problem,
             List<SampleRow> samples,
             List<LanguageRow> languages,

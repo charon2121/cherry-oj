@@ -52,7 +52,7 @@ public final class JudgingDtos {
      * calibratedAt 是所依据那条标定的批准时间（UTC）；驱动代码或前缀晚于它修改时提示重新标定。
      * limitSource 与 limitDerivation 见 docs/protocols/limits.md；problem-service 不解读推导依据，原样接收。
      */
-    public record ExecutionProfile(
+    public record ResolvedLanguageLimits(
             String calibrationId,
             long cpuNs,
             long memoryBytes,
@@ -61,7 +61,7 @@ public final class JudgingDtos {
             JsonNode limitDerivation,
             LocalDateTime calibratedAt) {}
 
-    public record Readiness(boolean ready, List<ReadinessCheck> checks, ExecutionProfile executionProfile) {}
+    public record Readiness(boolean ready, List<ReadinessCheck> checks, ResolvedLanguageLimits executionProfile) {}
 
     public record ProblemReadinessRequest(
             String problemId, String testDataDigest, long maxTestcaseIoBytes, List<String> languageIds) {}

@@ -1,21 +1,21 @@
 package com.cherryoj.problemservice.api;
 
-import com.cherryoj.problemservice.application.SubmissionSnapshotService;
+import com.cherryoj.problemservice.application.ProblemJudgeSnapshotService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-public class SubmissionSnapshotController {
-    private final SubmissionSnapshotService service;
+public class ProblemJudgeSnapshotController {
+    private final ProblemJudgeSnapshotService service;
 
-    public SubmissionSnapshotController(SubmissionSnapshotService service) {
+    public ProblemJudgeSnapshotController(ProblemJudgeSnapshotService service) {
         this.service = service;
     }
 
     @PostMapping("/internal/submission/problem-snapshot")
-    public SubmissionSnapshotService.Snapshot resolve(@Valid @RequestBody Request request) {
+    public ProblemJudgeSnapshotService.ProblemJudgeSnapshot resolve(@Valid @RequestBody Request request) {
         return service.resolve(request.problemId(), request.languageId());
     }
 

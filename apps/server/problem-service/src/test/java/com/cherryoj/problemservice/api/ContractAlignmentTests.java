@@ -2,7 +2,7 @@ package com.cherryoj.problemservice.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.cherryoj.problemservice.application.SubmissionSnapshotService;
+import com.cherryoj.problemservice.application.ProblemJudgeSnapshotService;
 import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,11 +33,11 @@ class ContractAlignmentTests {
     }
 
     @Test
-    void submissionSnapshotHasExactlyTheContractFieldsAndNoVersionOrAddress() throws Exception {
+    void problemJudgeSnapshotHasExactlyTheContractFieldsAndNoVersionOrAddress() throws Exception {
         JsonNode schema = schema("problem-judge-snapshot.schema.json");
 
         Set<String> contract = fieldNames(schema.get("properties"));
-        Set<String> dto = components(SubmissionSnapshotService.Snapshot.class);
+        Set<String> dto = components(ProblemJudgeSnapshotService.ProblemJudgeSnapshot.class);
 
         assertThat(dto).isEqualTo(contract);
         assertThat(contract).noneMatch(name -> name.contains("ersion") || name.startsWith("testData"));
@@ -58,7 +58,7 @@ class ContractAlignmentTests {
                 .isEqualTo(fieldNames(definitions.get("Readiness").get("properties")));
         assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.ReadinessCheck.class))
                 .isEqualTo(fieldNames(definitions.get("ReadinessCheck").get("properties")));
-        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.ExecutionProfile.class))
+        assertThat(components(com.cherryoj.problemservice.integration.judging.JudgingDtos.ResolvedLanguageLimits.class))
                 .isEqualTo(fieldNames(definitions.get("ExecutionProfile").get("properties")));
     }
 

@@ -20,11 +20,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
-class SubmissionSnapshotServiceTests {
+class ProblemJudgeSnapshotServiceTests {
 
     private final AdminProblemMapper problems = mock(AdminProblemMapper.class);
     private final TestDataStore data = mock(TestDataStore.class);
-    private final SubmissionSnapshotService service = new SubmissionSnapshotService(problems, data);
+    private final ProblemJudgeSnapshotService service = new ProblemJudgeSnapshotService(problems, data);
 
     @Test
     void onlyAPublicActiveAllowedProblemWithReadableTestDataBecomesASubmissionSnapshot() throws Exception {

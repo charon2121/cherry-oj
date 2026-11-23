@@ -8,7 +8,7 @@ import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrateProblemRequest;
 import com.cherryoj.problemservice.api.AdminProblemDtos.CalibrationStatus;
 import com.cherryoj.problemservice.api.AdminProblemDtos.JudgeVerdict;
 import com.cherryoj.problemservice.api.ProblemApiException;
-import com.cherryoj.problemservice.application.ProblemReadinessChecks.Snapshot;
+import com.cherryoj.problemservice.application.ProblemReadinessChecks.PublicationSnapshot;
 import com.cherryoj.problemservice.integration.judging.JudgingClient;
 import com.cherryoj.problemservice.integration.judging.JudgingDtos;
 import com.cherryoj.problemservice.persistence.AdminProblemRows.LanguageRow;
@@ -40,7 +40,7 @@ public class ProblemCalibrationService {
 
     public AdminProblemDtos.LanguageCalibration calibrate(
             String problemId, CalibrateProblemRequest request, CallUser admin, String traceparent, String actorUserId) {
-        Snapshot local = transactions.execute(status -> readiness.load(problemId, false));
+        PublicationSnapshot local = transactions.execute(status -> readiness.load(problemId, false));
         requireActive(local.problem());
         if (localChecks(local).stream().anyMatch(value -> !value.passed())) {
             throw state("题面、样例、语言或测试数据尚未就绪。");
@@ -79,7 +79,7 @@ public class ProblemCalibrationService {
     }
 
     public JudgingDtos.LanguageLimitsList limits(String problemId, CallUser admin, String traceparent) {
-        Snapshot local = transactions.execute(status -> readiness.load(problemId, false));
+        PublicationSnapshot local = transactions.execute(status -> readiness.load(problemId, false));
         if (local.info() == null)
             throw new ProblemApiException(HttpStatus.NOT_FOUND, "TEST_DATA_NOT_FOUND", local.dataProblem());
         var ids = local.languages().stream().map(LanguageRow::languageId).toList();
@@ -99,7 +99,7 @@ public class ProblemCalibrationService {
      * 用户文件 = 前缀 + 核心代码，前缀行数 = 前缀中换行符的个数。
      */
     private static JudgingDtos.CalibrationRequest calibrationRequest(
-            String problemId, CalibrateProblemRequest request, Snapshot local) {
+            String problemId, CalibrateProblemRequest request, PublicationSnapshot local) {
         String location = local.problem().testDataLocation();
         String digest = local.info().digest();
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE) {
@@ -135,7 +135,7 @@ public class ProblemCalibrationService {
         return (int) prefix.chars().filter(character -> character == '\n').count();
     }
 
-    private static LanguageRow selected(Snapshot local, String languageId) {
+    private static LanguageRow selected(PublicationSnapshot local, String languageId) {
         return local.languages().stream()
                 .filter(language -> language.languageId().equals(languageId))
                 .findFirst()

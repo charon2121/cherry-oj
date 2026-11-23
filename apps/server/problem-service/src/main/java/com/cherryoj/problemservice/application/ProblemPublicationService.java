@@ -10,7 +10,7 @@ import com.cherryoj.problemservice.api.AdminProblemDtos.PublishCheckCode;
 import com.cherryoj.problemservice.api.AdminProblemDtos.PublishCheckItem;
 import com.cherryoj.problemservice.api.AdminProblemDtos.Visibility;
 import com.cherryoj.problemservice.api.ProblemApiException;
-import com.cherryoj.problemservice.application.ProblemReadinessChecks.Snapshot;
+import com.cherryoj.problemservice.application.ProblemReadinessChecks.PublicationSnapshot;
 import com.cherryoj.problemservice.integration.judging.JudgingClient;
 import com.cherryoj.problemservice.integration.judging.JudgingDtos;
 import com.cherryoj.problemservice.persistence.AdminProblemMapper;
@@ -58,7 +58,7 @@ public class ProblemPublicationService {
     }
 
     public PublishCheck publishCheck(String problemId, CallUser admin, String traceparent) {
-        Snapshot local = transactions.execute(status -> readiness.load(problemId, false));
+        PublicationSnapshot local = transactions.execute(status -> readiness.load(problemId, false));
         List<PublishCheckItem> checks = localChecks(local);
         var languages = new ArrayList<AdminProblemDtos.PublishLanguageCheck>();
         for (LanguageRow language : local.languages()) {
@@ -119,7 +119,7 @@ public class ProblemPublicationService {
      * 只比较时间，不比较内容；judging-service 没给出标定时间时不提示。
      */
     private static String recalibrationHint(
-            Snapshot local, LanguageRow language, JudgingDtos.ExecutionProfile profile) {
+            PublicationSnapshot local, LanguageRow language, JudgingDtos.ResolvedLanguageLimits profile) {
         if (local.problem().codeMode() != AdminProblemDtos.CodeMode.CORE
                 || profile == null
                 || profile.calibratedAt() == null) {
@@ -138,7 +138,7 @@ public class ProblemPublicationService {
     }
 
     public Problem publish(String problemId, long rowVersion, CallUser admin, String traceparent, String actorUserId) {
-        Snapshot before = transactions.execute(status -> readiness.load(problemId, false));
+        PublicationSnapshot before = transactions.execute(status -> readiness.load(problemId, false));
         requireActive(before.problem());
         if (before.problem().visibility() == Visibility.PUBLIC) {
             return adminProblems.getProblem(problemId);
@@ -149,7 +149,7 @@ public class ProblemPublicationService {
         }
 
         transactions.executeWithoutResult(status -> {
-            Snapshot locked = readiness.load(problemId, true);
+            PublicationSnapshot locked = readiness.load(problemId, true);
             requireActive(locked.problem());
             if (locked.problem().rowVersion() != rowVersion) throw conflict();
             if (localChecks(locked).stream().anyMatch(value -> !value.passed())) {
@@ -171,7 +171,7 @@ public class ProblemPublicationService {
 
     public Problem unpublish(String problemId, long rowVersion, String actorUserId) {
         transactions.executeWithoutResult(status -> {
-            Snapshot locked = readiness.load(problemId, true);
+            PublicationSnapshot locked = readiness.load(problemId, true);
             requireActive(locked.problem());
             if (locked.problem().visibility() == Visibility.PRIVATE) return;
             if (locked.problem().rowVersion() != rowVersion) throw conflict();

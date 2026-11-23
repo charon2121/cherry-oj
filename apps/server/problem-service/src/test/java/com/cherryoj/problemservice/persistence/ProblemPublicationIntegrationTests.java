@@ -851,7 +851,7 @@ class ProblemPublicationIntegrationTests {
                             new JudgingDtos.ReadinessCheck(
                                     "CALIBRATION", ready, ready ? "Calibration ready." : "Calibration missing.")),
                     ready
-                            ? new JudgingDtos.ExecutionProfile(
+                            ? new JudgingDtos.ResolvedLanguageLimits(
                                     UUID.randomUUID().toString(), 1, 1, null, "BASE", null, calibratedAt)
                             : null);
             if (afterReadiness != null) afterReadiness.run();
