@@ -17,7 +17,7 @@ import {
   Server,
   Trash2,
 } from 'lucide-react';
-import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,7 @@ import { RichMarkdownEditor } from '@/components/ui/rich-markdown-editor';
 import { SelectField } from '@/components/ui/select';
 import { Text } from '@/components/ui/typography';
 import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
-import { ApiError } from '@/lib/api/api-client';
+import { apiErrorMessage } from '@/lib/api/api-error-message';
 import { cn } from '@/lib/utils';
 
 import {
@@ -53,16 +53,15 @@ import {
   getPublishCheck,
   problemKeys,
   publish,
-  replaceTestData,
   unpublish,
 } from '../api/problems-api';
+import { useTestDataUpload } from '../hooks/use-test-data-upload';
 import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
 import { ProblemLanguagesEditor } from './problem-languages-editor';
 import { ProblemSampleList } from './problem-sample-list';
 import { ProblemTagProperty } from './problem-tag-property';
 import {
-  apiErrorMessage,
   CalibrationDialog,
   type CalibrationLimits,
   ConfirmationDialog,
@@ -181,11 +180,9 @@ function WorkbenchEditor({
   const navigate = useNavigate();
   const ids = useId();
   const statementId = `${ids}-statement`;
-  const uploadController = useRef<AbortController | undefined>(undefined);
   const [references, setReferences] = useState<Record<string, string>>({});
   const [calibrationLanguageId, setCalibrationLanguageId] = useState('');
   const [calibrationKind, setCalibrationKind] = useState<'BASE' | 'OVERRIDE'>('BASE');
-  const [uploadState, setUploadState] = useState<string>();
   const [limits, setLimits] = useState<CalibrationLimits>({
     cpuSeconds: '1',
     memoryMib: '256',
@@ -200,13 +197,6 @@ function WorkbenchEditor({
   const referenceSource = references[language.id] ?? '';
   const setReferenceSource = (value: string) =>
     setReferences((previous) => ({ ...previous, [language.id]: value }));
-  useEffect(
-    () => () => {
-      uploadController.current?.abort();
-    },
-    [],
-  );
-
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: problemKeys.adminProblem(problem.id) }),
@@ -241,26 +231,7 @@ function WorkbenchEditor({
   } = useProblemWorkbenchSave(problem, hasReferenceSource);
   usePageCrumb(title || problem.title);
 
-  const upload = useMutation({
-    mutationFn: ({ file, signal }: { file: File; signal: AbortSignal }) =>
-      replaceTestData(problem.id, file, signal),
-    onMutate: () => setUploadState('正在上传并检查 ZIP…'),
-    onSuccess: async (uploaded) => {
-      uploadController.current = undefined;
-      setUploadState(
-        `已替换测试数据，共 ${uploaded.testcaseCount} 组。旧的标定已过期，请重新标定。`,
-      );
-      await refresh();
-    },
-    onError: (error) => {
-      uploadController.current = undefined;
-      setUploadState(
-        error instanceof ApiError && error.kind === 'aborted'
-          ? '上传已取消。'
-          : apiErrorMessage(error, '上传或 ZIP 检查失败；原有测试数据保持不变。'),
-      );
-    },
-  });
+  const upload = useTestDataUpload(problem.id, refresh);
 
   const calibration = useMutation({
     mutationFn: () => {
@@ -689,15 +660,10 @@ function WorkbenchEditor({
         onOpenChange={(open) => onPanelChange(open ? 'test-data' : undefined)}
         testData={problem.testData}
         blockedReason={unsavedReason}
-        uploading={upload.isPending}
-        uploadState={uploadState}
-        onUpload={(file) => {
-          uploadController.current?.abort();
-          const controller = new AbortController();
-          uploadController.current = controller;
-          upload.mutate({ file, signal: controller.signal });
-        }}
-        onCancelUpload={() => uploadController.current?.abort()}
+        isUploading={upload.isUploading}
+        uploadMessage={upload.uploadMessage}
+        onUpload={upload.startUpload}
+        onCancelUpload={upload.cancelUpload}
       />
       <CalibrationDialog
         open={panel === 'calibration'}

@@ -19,9 +19,9 @@ import { Cluster } from '@/components/ui/layout';
 import { DetailPageTemplate } from '@/components/ui/page-templates';
 import { Text } from '@/components/ui/typography';
 import { editorSyntax } from '@/features/languages/language';
-import { apiErrorMessage } from '@/features/problems/components/problem-workbench-dialogs';
 import type { AdminLanguageSetting } from '@/generated/api';
 import { ApiError } from '@/lib/api/api-client';
+import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import {
   adminLanguageKeys,

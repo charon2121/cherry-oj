@@ -10,9 +10,10 @@ import {
 } from '@/features/admin-languages/api/admin-languages-api';
 import { driverSkeleton, editorSyntax } from '@/features/languages/language';
 import type { AdminProblem, LanguageCalibration, ProblemLanguageInput } from '@/generated/api';
+import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { languageLimitsQuery, problemKeys, replaceProblemLanguages } from '../api/problems-api';
-import { apiErrorMessage, ConfirmationDialog } from './problem-workbench-dialogs';
+import { ConfirmationDialog } from './problem-workbench-dialogs';
 
 function values(problem: AdminProblem): ProblemLanguageInput[] {
   return problem.allowedLanguages.map((language) => ({

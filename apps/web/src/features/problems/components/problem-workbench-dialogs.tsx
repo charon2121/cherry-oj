@@ -16,17 +16,11 @@ import { TextEditor } from '@/components/ui/text-editor';
 import { Text } from '@/components/ui/typography';
 import { editorSyntax } from '@/features/languages/language';
 import type { AdminProblem, PublishCheck } from '@/generated/api';
-import { ApiError } from '@/lib/api/api-client';
+import { apiErrorMessage } from '@/lib/api/api-error-message';
 import { cn } from '@/lib/utils';
 
 // 工作台里不属于"写题面"的动作——替换测试数据、标定、公开——各自是一个从属性栏打开的对话框
 // （linear.app 新建 issue 对话框：宽 750、21px 圆角、标题 18px/600）。正文页只负责写。
-
-export function apiErrorMessage(error: unknown, fallback: string): string {
-  if (!(error instanceof ApiError)) return error instanceof Error ? error.message : fallback;
-  const request = error.requestId ? `（请求 ID：${error.requestId}）` : '';
-  return `${error.problem?.detail ?? error.message ?? fallback}${request}`;
-}
 
 export function formatBytes(value: number | null): string {
   if (value === null) return '大小未知';
@@ -48,8 +42,8 @@ export function TestDataDialog({
   onOpenChange,
   testData,
   blockedReason,
-  uploading,
-  uploadState,
+  isUploading,
+  uploadMessage,
   onUpload,
   onCancelUpload,
 }: {
@@ -57,14 +51,14 @@ export function TestDataDialog({
   onOpenChange: (open: boolean) => void;
   testData: AdminProblem['testData'];
   blockedReason: string | undefined;
-  uploading: boolean;
-  uploadState: string | undefined;
+  isUploading: boolean;
+  uploadMessage: string | undefined;
   onUpload: (file: File) => void;
   onCancelUpload: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const disabled = blockedReason !== undefined || uploading;
+  const disabled = blockedReason !== undefined || isUploading;
 
   const onDrop = (event: DragEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -135,15 +129,15 @@ export function TestDataDialog({
         </button>
 
         {blockedReason ? <BlockedReason>{blockedReason}</BlockedReason> : null}
-        {uploading ? <progress className="w-full" aria-label="测试数据正在上传并检查" /> : null}
-        {uploadState ? (
+        {isUploading ? <progress className="w-full" aria-label="测试数据正在上传并检查" /> : null}
+        {uploadMessage ? (
           <Text size="sm" role="status" aria-live="polite">
-            {uploadState}
+            {uploadMessage}
           </Text>
         ) : null}
 
         <DialogFooter>
-          {uploading ? (
+          {isUploading ? (
             <Button variant="secondary" onClick={onCancelUpload}>
               取消上传
             </Button>

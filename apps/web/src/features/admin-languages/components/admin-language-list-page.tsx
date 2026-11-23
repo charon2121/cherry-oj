@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DataList, dataListRowLinkClasses } from '@/components/ui/data-list';
 import { ListPageTemplate } from '@/components/ui/page-templates';
 import { Toolbar } from '@/components/ui/toolbar';
-import { apiErrorMessage } from '@/features/problems/components/problem-workbench-dialogs';
+import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { adminLanguageKeys, listLanguageSettings } from '../api/admin-languages-api';
 import { prefixLineCount, updatedAtFormat } from '../lib/prefix';
