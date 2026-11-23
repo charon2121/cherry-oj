@@ -91,8 +91,8 @@ MyBatis 的 XML mapper 负责题库键集分页和详情批量读取；Connector
 
 Apache Commons Compress 只在 problem-service 内处理私有测试数据 ZIP。它让服务在不解压到
 业务目录的前提下识别 symlink/非普通文件，并配合实际流量、解压总量、单文件和压缩比
-限额拒绝 ZIP 穿越与解压炸弹。原包保存到 `CHERRY_TEST_DATA_ROOT` 配置根内，READY 文件
-只读封存，不与 judging-service 共享目录。
+限额拒绝 ZIP 穿越与解压炸弹。原包在 `CHERRY_TEST_DATA_ROOT` 内私有暂存，校验后写出独立的协议目录。
+数据库事务提交当前地址和上传审计，judging-service 通过内部 HTTP 取得地址。
 
 ## judging-service 的标定与判题调度
 

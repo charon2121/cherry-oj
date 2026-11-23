@@ -154,6 +154,16 @@
         UPDATE problem SET test_data_location = #{location}, test_data_updated_at = #{updatedAt}, updated_at = #{updatedAt}
         WHERE id = UUID_TO_BIN(#{id}) AND status = 'ACTIVE'
     </update>
+
+    <select id="findTestDataUploadAt" resultType="java.time.LocalDateTime">
+        SELECT created_at
+        FROM problem_audit_event
+        WHERE id = UUID_TO_BIN(#{auditId}) AND action = 'TEST_DATA_UPLOADED'
+    </select>
+
+    <select id="testDataLocationIsReferenced" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM problem WHERE test_data_location = #{location})
+    </select>
     <delete id="deleteSamples">DELETE FROM problem_sample WHERE problem_id = UUID_TO_BIN(#{problemId})</delete>
     <delete id="deleteLanguages">DELETE FROM problem_language WHERE problem_id = UUID_TO_BIN(#{problemId})</delete>
     <update id="touchProblem">

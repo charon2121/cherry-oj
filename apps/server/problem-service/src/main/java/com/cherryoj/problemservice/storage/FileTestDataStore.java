@@ -5,6 +5,8 @@ import com.cherryoj.problemservice.storage.TestDataArchiveReader.ValidatedArchiv
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.FileChannel;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -19,12 +21,16 @@ import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -33,20 +39,24 @@ import tools.jackson.databind.ObjectMapper;
  *
  * <pre>
  * &lt;root&gt;/tmp/                          暂存上传的 ZIP，私有
- * &lt;root&gt;/.store/&lt;problemId&gt;-&lt;digest 前 16 位&gt;/   以内容寻址的真实目录：数据文件加 testdata.json
- * &lt;root&gt;/&lt;problemId&gt;                    题目的地址：指向上面某个目录的相对符号链接
+ * &lt;root&gt;/.store/published/&lt;problemId&gt;-&lt;uploadId&gt;/  每次上传的独立目录
+ * &lt;root&gt;/&lt;problemId&gt;                    旧安装保留的固定地址，仍指向 .store 下的旧目录
  * </pre>
  *
- * 更新数据时先写出完整的新目录，再用一次重命名换掉符号链接，所以读取方不会读到一半新一半旧的数据。
+ * 新上传只交付独立目录。当前数据由题目行发布，旧地址可以继续读取自己的内容。
  */
 @Component
 public final class FileTestDataStore implements TestDataStore {
 
-    private static final Pattern PROBLEM_ID =
-            Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+    private static final Logger LOG = LoggerFactory.getLogger(FileTestDataStore.class);
+    private static final String UUID_FORMAT = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+    private static final Pattern PROBLEM_ID = Pattern.compile(UUID_FORMAT);
+    private static final Pattern PUBLISHED_GENERATION = Pattern.compile("(" + UUID_FORMAT + ")-" + UUID_FORMAT);
+    private static final Pattern LEGACY_GENERATION = Pattern.compile("(" + UUID_FORMAT + ")-[0-9a-f]{16}");
     private static final String STORE_DIRECTORY = ".store";
     private static final String TEMPORARY_DIRECTORY = "tmp";
-    private static final int GENERATION_SUFFIX = 17; // "-" 加 16 位 digest
+    // 覆盖正式判题和标定的最长调用预算。计时始于在题目行锁内首次确认地址已退役。
+    private static final Duration RETIRED_RETENTION = Duration.ofHours(24);
     private static final int MAX_METADATA_BYTES = 1 << 20;
     // judge 与 problem-service 通常不是同一个系统用户，所以测试数据目录要让其他用户可读；
     // 暂存的 ZIP 只有本服务自己读，保持私有。
@@ -62,6 +72,7 @@ public final class FileTestDataStore implements TestDataStore {
     private Path root;
     private Path temporaryDirectory;
     private Path storeDirectory;
+    private Path publishedDirectory;
 
     public FileTestDataStore(TestDataStorageProperties properties, Clock clock, ObjectMapper json) {
         this.properties = properties;
@@ -79,9 +90,13 @@ public final class FileTestDataStore implements TestDataStore {
             }
             temporaryDirectory = root.resolve(TEMPORARY_DIRECTORY);
             storeDirectory = root.resolve(STORE_DIRECTORY);
-            createDirectory(root, SHARED_DIRECTORY);
+            publishedDirectory = storeDirectory.resolve("published");
+            createStorageRoot(root);
             createDirectory(temporaryDirectory, PRIVATE_DIRECTORY);
             createDirectory(storeDirectory, SHARED_DIRECTORY);
+            createDirectory(publishedDirectory, SHARED_DIRECTORY);
+            forceDirectory(storeDirectory);
+            forceDirectory(root);
         } catch (IOException error) {
             throw new IllegalStateException("Could not initialize test data storage", error);
         }
@@ -91,13 +106,16 @@ public final class FileTestDataStore implements TestDataStore {
     public Prepared prepare(String problemId, InputStream zip) throws AssetException {
         requireProblemId(problemId);
         Path staged = temporaryDirectory.resolve(UUID.randomUUID() + ".upload");
+        String generation = problemId + "-" + UUID.randomUUID();
+        Path building = stagingDirectory(generation);
+        boolean prepared = false;
         try {
             archives.stage(zip, staged);
             setPermissions(staged, PRIVATE_FILE);
             ValidatedArchive archive = archives.read(staged);
             TestDataMetadata.Document document = archive.document();
-            String generation = problemId + "-" + document.digest().substring(0, 16);
-            materialize(archive, document, generation);
+            materialize(archive, document, building);
+            prepared = true;
             return new Prepared(problemId, generation, info(document));
         } catch (AssetException error) {
             throw error;
@@ -105,62 +123,94 @@ public final class FileTestDataStore implements TestDataStore {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_STORAGE_WRITE_FAILED", error);
         } finally {
             deletePath(staged);
+            if (!prepared) deleteTree(building);
         }
     }
 
     @Override
-    public String activate(String problemId, Prepared prepared) throws AssetException {
-        requireProblemId(problemId);
-        Path target = storeDirectory.resolve(prepared.generation()).normalize();
-        if (!storeDirectory.equals(target.getParent())
-                || !prepared.generation().startsWith(problemId + "-")
-                || !Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
-            throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_GENERATION_MISSING");
+    public String seal(Prepared prepared) throws AssetException {
+        if (!belongsTo(prepared.problemId(), prepared.generation(), PUBLISHED_GENERATION)) {
+            throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_GENERATION_INVALID");
         }
-        Path address = root.resolve(problemId);
-        if (Files.exists(address, LinkOption.NOFOLLOW_LINKS) && !Files.isSymbolicLink(address)) {
-            throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_ADDRESS_NOT_A_LINK");
-        }
-        // 先建好新链接，再用一次重命名换掉旧链接：读取方任何时刻都能解析到一份完整的数据。
-        Path link = root.resolve("." + problemId + "." + UUID.randomUUID() + ".link");
+        Path building = stagingDirectory(prepared.generation());
+        Path target = publishedDirectory.resolve(prepared.generation());
         try {
-            Files.createSymbolicLink(link, Path.of(STORE_DIRECTORY, prepared.generation()));
-            Files.move(link, address, StandardCopyOption.ATOMIC_MOVE);
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)
+                    || !Files.isDirectory(building, LinkOption.NOFOLLOW_LINKS)
+                    || !Files.isRegularFile(building.resolve(TestDataMetadata.FILE_NAME), LinkOption.NOFOLLOW_LINKS)) {
+                throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_GENERATION_UNAVAILABLE");
+            }
+            setPermissions(building, SHARED_DIRECTORY);
+            forceDirectory(building);
+            Files.move(building, target, StandardCopyOption.ATOMIC_MOVE);
+            forceDirectory(publishedDirectory);
         } catch (IOException | UnsupportedOperationException error) {
-            deletePath(link);
-            throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_ACTIVATE_FAILED", error);
+            throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_SEAL_FAILED", error);
         }
-        return address.toString();
+        return target.toString();
     }
 
     @Override
     public void discard(Prepared prepared) {
-        Path target = storeDirectory.resolve(prepared.generation()).normalize();
-        if (!storeDirectory.equals(target.getParent())) {
-            return;
-        }
-        // 内容寻址：同样的数据可能正被别的上传复用，只删没有被任何地址指向的目录。
-        if (!isReferenced(target)) {
-            deleteTree(target);
+        if (belongsTo(prepared.problemId(), prepared.generation(), PUBLISHED_GENERATION)) {
+            deleteTree(stagingDirectory(prepared.generation()));
         }
     }
 
     @Override
-    public void prune(String problemId) {
-        if (!PROBLEM_ID.matcher(problemId).matches()) {
-            return;
+    public List<StoredDirectory> storedDirectories() {
+        var directories = new ArrayList<StoredDirectory>();
+        scanDirectories(publishedDirectory, false, directories);
+        scanDirectories(storeDirectory, true, directories);
+        return directories;
+    }
+
+    private void scanDirectories(Path parent, boolean legacy, List<StoredDirectory> directories) {
+        Pattern pattern = legacy ? LEGACY_GENERATION : PUBLISHED_GENERATION;
+        try (var children = Files.list(parent)) {
+            children.filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+                    .forEach(path -> {
+                        String name = path.getFileName().toString();
+                        var match = pattern.matcher(name);
+                        if (match.matches()) directories.add(new StoredDirectory(match.group(1), name, legacy));
+                    });
+        } catch (IOException error) {
+            LOG.warn("testdata.cleanup.scan_failed legacy={}", legacy);
         }
-        String current = currentGeneration(problemId);
-        try (var children = Files.list(storeDirectory)) {
-            List<Path> others = children.filter(
-                            path -> path.getFileName().toString().startsWith(problemId + "-")
-                                    && !path.getFileName().toString().equals(current)
-                                    && Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-                    .sorted(Comparator.comparing(FileTestDataStore::modified).reversed())
-                    .toList();
-            others.stream().skip(1).forEach(FileTestDataStore::deleteTree);
-        } catch (IOException ignored) {
-            // 清理是尽力而为，下一次上传还会再清理。
+    }
+
+    @Override
+    public void reclaim(StoredDirectory directory, Predicate<String> isReferenced) {
+        boolean legacy = directory.legacy();
+        String generation = directory.generation();
+        if (!belongsTo(directory.problemId(), generation, legacy ? LEGACY_GENERATION : PUBLISHED_GENERATION)) return;
+        Path path = (legacy ? storeDirectory : publishedDirectory).resolve(generation);
+        Path marker = temporaryDirectory.resolve(generation + ".retired");
+        Path alias = root.resolve(directory.problemId());
+        try {
+            boolean hasAlias = legacy
+                    && Files.isSymbolicLink(alias)
+                    && Files.readSymbolicLink(alias).equals(Path.of(STORE_DIRECTORY, generation));
+            if (isReferenced.test(path.toString()) || (hasAlias && isReferenced.test(alias.toString()))) {
+                Files.deleteIfExists(marker);
+                return;
+            }
+            // 有的目录刚被替换或提交结果曾不明确。第一次看到无引用时只记时间，保留期后才删除。
+            try {
+                Files.createFile(marker);
+                Files.setLastModifiedTime(marker, FileTime.from(clock.instant()));
+                return;
+            } catch (FileAlreadyExistsException ignored) {
+                // 使用之前记录的时间，重启后也按同一保留期处理。
+            }
+            Instant retiredAt =
+                    Files.getLastModifiedTime(marker, LinkOption.NOFOLLOW_LINKS).toInstant();
+            if (clock.instant().isBefore(retiredAt.plus(RETIRED_RETENTION))) return;
+            if (hasAlias) Files.deleteIfExists(alias);
+            deleteTree(path);
+            if (Files.notExists(path, LinkOption.NOFOLLOW_LINKS)) Files.deleteIfExists(marker);
+        } catch (IOException error) {
+            LOG.warn("testdata.cleanup.reclaim_failed problemId={}", directory.problemId());
         }
     }
 
@@ -200,59 +250,52 @@ public final class FileTestDataStore implements TestDataStore {
     }
 
     @Override
-    public void remove(String problemId) {
-        if (!PROBLEM_ID.matcher(problemId).matches()) {
-            return;
-        }
-        deletePath(root.resolve(problemId));
-        try (var children = Files.list(storeDirectory)) {
-            children.filter(path -> path.getFileName().toString().startsWith(problemId + "-"))
-                    .forEach(FileTestDataStore::deleteTree);
-        } catch (IOException ignored) {
-            // 残留目录没有任何地址指向，读不到，之后的清理会处理。
-        }
-    }
-
-    @Override
     public RecoveryResult recover() {
         Instant cutoff = clock.instant().minus(properties.staleAge());
         int files = deleteStale(temporaryDirectory, cutoff, ".upload", false);
         files += deleteStale(root, cutoff, ".link", false);
-        int directories = deleteStale(storeDirectory, cutoff, ".tmp", true);
+        int directories = deleteStale(storeDirectory, cutoff, ".tmp", true)
+                + deleteStale(publishedDirectory, cutoff, ".tmp", true);
         return new RecoveryResult(files, directories);
     }
 
-    private void materialize(ValidatedArchive archive, TestDataMetadata.Document document, String generation)
-            throws AssetException, IOException {
-        Path target = storeDirectory.resolve(generation);
-        // 内容寻址：同样的数据已经写好就直接复用。
-        if (Files.isRegularFile(target.resolve(TestDataMetadata.FILE_NAME), LinkOption.NOFOLLOW_LINKS)) {
-            return;
-        }
-        Path building = storeDirectory.resolve("." + generation + "." + UUID.randomUUID() + ".tmp");
+    private void materialize(ValidatedArchive archive, TestDataMetadata.Document document, Path building)
+            throws IOException, AssetException {
         Files.createDirectory(building);
-        setPermissions(building, SHARED_DIRECTORY);
-        try {
-            archive.extractTo(building);
-            for (TestDataMetadata.TestcaseEntry testcase : document.testcases()) {
-                setPermissions(building.resolve(testcase.name() + ".in"), SHARED_FILE);
-                setPermissions(building.resolve(testcase.name() + ".out"), SHARED_FILE);
-            }
-            // testdata.json 最后写：读取方把它当作「这份数据已完整」的标记。
-            Path metadata = building.resolve(TestDataMetadata.FILE_NAME);
-            Files.write(metadata, json.writeValueAsBytes(document), StandardOpenOption.CREATE_NEW);
-            setPermissions(metadata, SHARED_FILE);
-            try {
-                Files.move(building, target, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException error) {
-                // 另一个上传同时写好了同样的内容：目录已经在了，丢掉自己这份。
-                if (!Files.isRegularFile(target.resolve(TestDataMetadata.FILE_NAME), LinkOption.NOFOLLOW_LINKS)) {
-                    throw error;
-                }
-            }
-        } finally {
-            deleteTree(building);
+        setPermissions(building, PRIVATE_DIRECTORY);
+        archive.extractTo(building);
+        for (TestDataMetadata.TestcaseEntry testcase : document.testcases()) {
+            sealFile(building.resolve(testcase.name() + ".in"));
+            sealFile(building.resolve(testcase.name() + ".out"));
         }
+        // 元数据最后写；数据与目录都落盘后，数据库才能发布这个地址。
+        Path metadata = building.resolve(TestDataMetadata.FILE_NAME);
+        Files.write(metadata, json.writeValueAsBytes(document), StandardOpenOption.CREATE_NEW);
+        sealFile(metadata);
+    }
+
+    private static void sealFile(Path path) throws IOException {
+        setPermissions(path, SHARED_FILE);
+        try (var channel = FileChannel.open(path, StandardOpenOption.WRITE)) {
+            channel.force(true);
+        }
+    }
+
+    private static void forceDirectory(Path path) throws IOException {
+        try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
+            channel.force(true);
+        }
+    }
+
+    private Path stagingDirectory(String generation) {
+        return publishedDirectory.resolve("." + generation + ".tmp");
+    }
+
+    private static boolean belongsTo(String problemId, String generation, Pattern pattern) {
+        return problemId != null
+                && generation != null
+                && pattern.matcher(generation).matches()
+                && generation.startsWith(problemId + "-");
     }
 
     private static Info info(TestDataMetadata.Document document) {
@@ -267,21 +310,6 @@ public final class FileTestDataStore implements TestDataStore {
                 document.totalBytes(),
                 maxTestcaseIoBytes,
                 document.testcases());
-    }
-
-    private String currentGeneration(String problemId) {
-        try {
-            return Files.readSymbolicLink(root.resolve(problemId)).getFileName().toString();
-        } catch (IOException | UnsupportedOperationException error) {
-            return "";
-        }
-    }
-
-    private boolean isReferenced(Path generation) {
-        String name = generation.getFileName().toString();
-        int problemEnd = name.length() - GENERATION_SUFFIX;
-        return problemEnd > 0
-                && currentGeneration(name.substring(0, problemEnd)).equals(name);
     }
 
     private int deleteStale(Path directory, Instant cutoff, String suffix, boolean directories) {
@@ -303,7 +331,7 @@ public final class FileTestDataStore implements TestDataStore {
                 }
             }
         } catch (IOException ignored) {
-            // 恢复是尽力而为，只会删上面三种明确命名的临时项，不会超出这几个目录。
+            // 恢复只处理明确命名的临时项，失败时下次再试。
         }
         return deleted;
     }
@@ -320,6 +348,18 @@ public final class FileTestDataStore implements TestDataStore {
         if (problemId == null || !PROBLEM_ID.matcher(problemId).matches()) {
             throw new AssetException(Kind.STORAGE_UNAVAILABLE, "TEST_DATA_PROBLEM_ID_INVALID");
         }
+    }
+
+    private static void createStorageRoot(Path directory) throws IOException {
+        var parentsOfNewDirectories = new ArrayList<Path>();
+        for (Path path = directory;
+                path.getParent() != null && Files.notExists(path, LinkOption.NOFOLLOW_LINKS);
+                path = path.getParent()) {
+            parentsOfNewDirectories.add(path.getParent());
+        }
+        createDirectory(directory, SHARED_DIRECTORY);
+        // 首次启动可能创建多级目录。父目录也要落盘，才能在断电后找到已发布的数据。
+        for (Path parent : parentsOfNewDirectories) forceDirectory(parent);
     }
 
     private static void createDirectory(Path path, Set<PosixFilePermission> permissions) throws IOException {

@@ -189,7 +189,8 @@ try:
  assert asset['testcaseCount']==1 and len(asset['digest'])==64 and 'location' not in asset,asset
  assert request(problem_path)['testData']['digest']==asset['digest']
  # 协议目录由 problem-service 写出：地址只存在服务器上，浏览器永远看不到；数据文件与 testdata.json 齐全。
- directory=TESTDATA_ROOT/pid
+ directory=pathlib.Path(sql(f"SELECT test_data_location FROM cherry_problem.problem WHERE id=UUID_TO_BIN('{uuid.UUID(pid)}')"))
+ assert directory.is_relative_to(TESTDATA_ROOT),directory
  assert (directory/'testdata.json').is_file() and (directory/'1.in').is_file(),list(TESTDATA_ROOT.rglob('*'))
  before=request(problem_path+'/publish-check');assert any(c['code']=='ONLINE_JUDGE_NODE' and not c['passed'] for c in before['checks']),before
  source='#include <iostream>\nint main(){long long a,b;std::cin>>a>>b;std::cout<<a+b<<"\\n";}'
@@ -267,6 +268,14 @@ try:
  frozen_input=sql("SELECT payload FROM cherry_submission.judge_input WHERE submission_id='"+first['id']+"'")
  second=put_test_data(pid,[('1',b'1 2\n',b'3\n'),('2',b'100 -7\n',b'93\n')])
  assert second['testcaseCount']==2 and second['digest']!=asset['digest'],second
+ replacement=sql(f"SELECT test_data_location FROM cherry_problem.problem WHERE id=UUID_TO_BIN('{uuid.UUID(pid)}')")
+ assert replacement!=str(directory),replacement
+ retained_request={'submissionId':str(uuid.uuid4()),'problemId':pid,'mode':'submit','languageId':'cpp',
+  'source':source,'testDataLocation':str(directory),'limits':{'cpuNs':1000000000,'memoryBytes':268435456}}
+ with urllib.request.urlopen(urllib.request.Request(env['JUDGE_ADVERTISE_URL']+'/judge',
+         json.dumps(retained_request).encode(),{'Content-Type':'application/json'}),timeout=30) as response:
+  retained=json.load(response)
+ assert retained['verdict']=='AC' and retained['testDataDigest']==asset['digest'],retained
  stale=request(problem_path+'/publish-check');assert any(c['code']=='CALIBRATION' and not c['passed'] for c in stale['checks']),stale
  assert submit(source,expect=503)[1]['code']=='JUDGING_NOT_READY'
  recalibrated=request(problem_path+'/calibration','POST',calibration_payload)

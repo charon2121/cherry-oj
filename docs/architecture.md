@@ -409,22 +409,22 @@ int main() {
 
 ### 8.1 测试数据（协议目录）
 
-题目只有一份测试数据，上传 ZIP 即整体替换。problem-service 把它写成[测试数据协议](./protocols/testdata.md)规定的目录：
+题目只有一个当前测试数据地址，上传 ZIP 即整体替换。problem-service 把它写成[测试数据协议](./protocols/testdata.md)规定的目录：
 
 ```text
-<root>/<problemId>  →（相对符号链接）.store/<problemId>-<digest 前 16 位>/
+<root>/.store/published/<problemId>-<uploadId>/
   testdata.json          schemaVersion、testcaseCount、totalBytes、digest、testcases[]（含每个文件的大小与 SHA-256）
   1.in  1.out
   2.in  2.out
 ```
 
-写入内容寻址的真实目录后再原子切换符号链接，读取方任何时刻都读到一份完整的数据。数据库只存目录地址，
-指纹、测试点数、文件清单都从 `testdata.json` 读。
+完整目录先落盘，再在一个事务里更新题目当前地址和上传审计。指纹、测试点数、文件清单都从该地址下的
+`testdata.json` 读。已发出的旧地址继续可读，回收任务在题目行锁内检查地址引用，从确认无引用起至少保留 24 小时。
 
 ### 8.2 节点读取
 
 节点不预先安装数据：每次判题请求带 `testDataLocation`（本地绝对路径或 http(s) 地址），Go judge 读 `testdata.json`，
-把文件复制到私有工作目录并核对大小与 SHA-256（撞上写入方替换时重读重试一次），`.out` 不进入沙箱，`.in` 作为标准输入。
+把文件复制到私有工作目录并核对大小与 SHA-256。`.out` 不进入沙箱，`.in` 作为标准输入。
 本地路径要求节点能读到同一个路径（Compose 用必填的 `CHERRY_TEST_DATA_ROOT` 按同一绝对路径只读挂载）。
 安全（地址白名单、隐藏数据的访问控制）暂未作为约束，是已知缺口。
 

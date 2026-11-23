@@ -20,8 +20,6 @@ import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.commons.compress.archivers.zip.UnixStat;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
@@ -43,27 +41,23 @@ class FileTestDataStoreTests {
     Path temporary;
 
     @Test
-    void anUploadBecomesAProtocolDirectoryBehindAnAtomicAddress() throws Exception {
-        Path root = temporary.resolve("store");
+    void anUploadSealsAnIndependentProtocolDirectory() throws Exception {
+        Path root = temporary.resolve("fresh/store");
         FileTestDataStore store = store(root, 100);
         byte[] archive = zip(goldenEntries());
 
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(archive));
-        // 此时还没有任何地址指向它
-        assertThat(root.resolve(PROBLEM)).doesNotExist();
-        String location = store.activate(PROBLEM, prepared);
+        Path target = root.resolve(".store/published").resolve(prepared.generation());
+        assertThat(target).doesNotExist();
+        String location = store.seal(prepared);
 
-        assertThat(location)
-                .isEqualTo(root.toAbsolutePath().normalize().resolve(PROBLEM).toString());
+        assertThat(location).isEqualTo(target.toString());
         assertThat(prepared.info().digest()).isEqualTo(GOLDEN_DIGEST);
         assertThat(prepared.info().testcaseCount()).isEqualTo(2);
         assertThat(prepared.info().totalBytes()).isEqualTo(16);
-        assertThat(prepared.generation()).isEqualTo(PROBLEM + "-" + GOLDEN_DIGEST.substring(0, 16));
-
-        // 地址是指向真实目录的相对符号链接：整个存储根按同一路径挂进容器后依然有效
         Path address = Path.of(location);
-        assertThat(Files.isSymbolicLink(address)).isTrue();
-        assertThat(Files.readSymbolicLink(address)).isEqualTo(Path.of(".store", prepared.generation()));
+        assertThat(Files.isDirectory(address, LinkOption.NOFOLLOW_LINKS)).isTrue();
+        assertThat(root.resolve(PROBLEM)).doesNotExist();
         assertThat(Files.readString(address.resolve("1.in"))).isEqualTo("1 2\n");
         assertThat(Files.readString(address.resolve("2.out"))).isEqualTo("93\n");
         assertThat(Files.readString(address.resolve("testdata.json")))
@@ -72,8 +66,8 @@ class FileTestDataStoreTests {
         // judge 通常是另一个系统用户，所以数据要让其他用户可读；暂存的 ZIP 已经删掉
         assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(address.resolve("1.in"))))
                 .isEqualTo("rw-r--r--");
-        assertThat(PosixFilePermissions.toString(
-                        Files.getPosixFilePermissions(root.resolve(".store").resolve(prepared.generation()))))
+        assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(
+                        root.resolve(".store/published").resolve(prepared.generation()))))
                 .isEqualTo("rwxr-xr-x");
         try (var staged = Files.list(root.resolve("tmp"))) {
             assertThat(staged).isEmpty();
@@ -115,7 +109,7 @@ class FileTestDataStoreTests {
         entries.put("testin/test1.in", bytes("1 2\n"));
 
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(entries)));
-        String location = store.activate(PROBLEM, prepared);
+        String location = store.seal(prepared);
 
         assertThat(prepared.info().testcaseCount()).isOne();
         assertThat(prepared.info().totalBytes()).isEqualTo(6);
@@ -242,7 +236,7 @@ class FileTestDataStoreTests {
         }
         // 失败不留任何残留：没有暂存文件，没有数据目录，没有地址
         try (var staged = Files.list(root.resolve("tmp"));
-                var generations = Files.list(root.resolve(".store"))) {
+                var generations = Files.list(root.resolve(".store/published"))) {
             assertThat(staged).isEmpty();
             assertThat(generations).isEmpty();
         }
@@ -300,130 +294,83 @@ class FileTestDataStoreTests {
     }
 
     @Test
-    void uploadingTheSameDataAgainReusesTheContentAddressedDirectory() throws Exception {
-        Path root = temporary.resolve("reuse");
+    void identicalUploadsHaveIndependentAddressesAndEqualDigests() throws Exception {
+        Path root = temporary.resolve("same-data");
         FileTestDataStore store = store(root, 100);
         byte[] archive = zip(goldenEntries());
 
-        var first = store.prepare(PROBLEM, new ByteArrayInputStream(archive));
-        store.activate(PROBLEM, first);
-        Path directory = root.resolve(".store").resolve(first.generation());
-        Instant created = Files.getLastModifiedTime(directory).toInstant();
+        String first = store.seal(store.prepare(PROBLEM, new ByteArrayInputStream(archive)));
+        String second = store.seal(store.prepare(PROBLEM, new ByteArrayInputStream(archive)));
 
-        var second = store.prepare(PROBLEM, new ByteArrayInputStream(archive));
-
-        assertThat(second.generation()).isEqualTo(first.generation());
-        assertThat(Files.getLastModifiedTime(directory).toInstant()).isEqualTo(created);
-        try (var generations = Files.list(root.resolve(".store"))) {
-            assertThat(generations).hasSize(1);
-        }
+        assertThat(first).isNotEqualTo(second);
+        assertThat(store.describe(first).digest())
+                .isEqualTo(store.describe(second).digest());
     }
 
     @Test
-    void replacingDataKeepsOnlyTheCurrentAndThePreviousGeneration() throws Exception {
-        Path root = temporary.resolve("generations");
+    void retiredDirectoriesSurviveTheGracePeriodAndCleanupRechecksReferences() throws Exception {
+        Path root = temporary.resolve("retention");
         FileTestDataStore store = store(root, 100);
-        String location = null;
-        String lastGeneration = null;
-        for (int version = 1; version <= 4; version++) {
-            var prepared = store.prepare(
-                    PROBLEM,
-                    new ByteArrayInputStream(
-                            zip(Map.of("1.in", bytes("in " + version), "1.out", bytes("out " + version)))));
-            location = store.activate(PROBLEM, prepared);
-            store.prune(PROBLEM);
-            lastGeneration = prepared.generation();
-            assertThat(Files.readString(Path.of(location).resolve("1.in"))).isEqualTo("in " + version);
-            Files.setLastModifiedTime(
-                    root.resolve(".store").resolve(lastGeneration),
-                    FileTime.from(Instant.parse("2026-08-30T00:00:00Z").plusSeconds(version)));
-        }
+        byte[] archive = zip(goldenEntries());
+        String retired = store.seal(store.prepare(PROBLEM, new ByteArrayInputStream(archive)));
+        String current = store.seal(store.prepare(PROBLEM, new ByteArrayInputStream(archive)));
+        String other = store.seal(store.prepare(OTHER_PROBLEM, new ByteArrayInputStream(archive)));
 
-        try (var generations = Files.list(root.resolve(".store"))) {
-            assertThat(generations.map(path -> path.getFileName().toString()).toList())
-                    .hasSize(2)
-                    .contains(lastGeneration);
-        }
-        assertThat(lastGeneration).endsWith(store.describe(location).digest().substring(0, 16));
+        store.storedDirectories()
+                .forEach(entry -> store.reclaim(entry, location -> location.equals(current) || location.equals(other)));
+        FileTestDataStore beforeExpiry = store(root, 100, Clock.offset(CLOCK, Duration.ofHours(23)));
+        beforeExpiry
+                .storedDirectories()
+                .forEach(entry ->
+                        beforeExpiry.reclaim(entry, location -> location.equals(current) || location.equals(other)));
+        assertThat(Path.of(retired)).isDirectory();
+
+        FileTestDataStore afterExpiry = store(root, 100, Clock.offset(CLOCK, Duration.ofHours(25)));
+        afterExpiry
+                .storedDirectories()
+                .forEach(entry ->
+                        afterExpiry.reclaim(entry, location -> location.equals(current) || location.equals(other)));
+        assertThat(Path.of(retired)).doesNotExist();
+        assertThat(afterExpiry.describe(current).digest()).isEqualTo(GOLDEN_DIGEST);
+        assertThat(afterExpiry.describe(other).digest()).isEqualTo(GOLDEN_DIGEST);
     }
 
     @Test
-    void pruningOneProblemNeverTouchesAnotherProblemsData() throws Exception {
-        Path root = temporary.resolve("isolation");
+    void legacyAliasAndItsTargetRemainReadableUntilCleanup() throws Exception {
+        Path root = temporary.resolve("legacy");
         FileTestDataStore store = store(root, 100);
-        var other = store.prepare(
-                OTHER_PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("x"), "1.out", bytes("y")))));
-        String otherLocation = store.activate(OTHER_PROBLEM, other);
-        for (int version = 1; version <= 3; version++) {
-            var prepared = store.prepare(
-                    PROBLEM,
-                    new ByteArrayInputStream(zip(Map.of("1.in", bytes("in " + version), "1.out", bytes("out")))));
-            store.activate(PROBLEM, prepared);
-            store.prune(PROBLEM);
-        }
+        Path source = Path.of(store.seal(store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries())))));
+        Path target = root.resolve(".store").resolve(PROBLEM + "-" + GOLDEN_DIGEST.substring(0, 16));
+        Files.move(source, target);
+        Path legacy = Files.createSymbolicLink(root.resolve(PROBLEM), root.relativize(target));
 
-        assertThat(Files.readString(Path.of(otherLocation).resolve("1.in"))).isEqualTo("x");
-    }
+        store.storedDirectories().forEach(entry -> store.reclaim(entry, legacy.toString()::equals));
+        assertThat(store.describe(legacy.toString()).digest()).isEqualTo(GOLDEN_DIGEST);
 
-    /**
-     * 读取方在更新过程中随时读取，必须每次都读到一份完整的数据（新的或旧的），不能读到一半——
-     * 这是用符号链接的原子重命名切换地址的全部理由。读取方照协议在出错时重读重试一次：macOS 上读取撞上
-     * 符号链接被替换的瞬间偶尔会得到 EINVAL，Linux 上不会，但重试一次对两者都成立；连续两次失败就是真问题。
-     * 两个方向都断言：新旧两份都被读到过，才说明切换确实发生了。
-     */
-    @Test
-    void readersNeverSeeAPartialDirectoryWhileTheAddressIsSwitched() throws Exception {
-        Path root = temporary.resolve("atomic");
-        FileTestDataStore store = store(root, 100);
-        var first =
-                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A")))));
-        var second =
-                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("b"), "1.out", bytes("B")))));
-        String location = store.activate(PROBLEM, first);
-
-        AtomicBoolean running = new AtomicBoolean(true);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        java.util.Set<String> seen = java.util.concurrent.ConcurrentHashMap.newKeySet();
-        Thread reader = new Thread(() -> {
-            try {
-                while (running.get()) {
-                    try {
-                        seen.add(store.describe(location).digest());
-                    } catch (AssetException firstAttempt) {
-                        seen.add(store.describe(location).digest());
-                    }
-                }
-            } catch (Throwable error) {
-                failure.set(error);
-            }
-        });
-        reader.start();
-        for (int index = 0; index < 200 && failure.get() == null; index++) {
-            store.activate(PROBLEM, index % 2 == 0 ? second : first);
-        }
-        running.set(false);
-        reader.join();
-
-        assertThat(failure.get()).isNull();
-        assertThat(seen)
-                .containsExactlyInAnyOrder(first.info().digest(), second.info().digest());
+        store.storedDirectories().forEach(entry -> store.reclaim(entry, ignored -> false));
+        assertThat(store.describe(legacy.toString()).digest()).isEqualTo(GOLDEN_DIGEST);
+        FileTestDataStore later = store(root, 100, Clock.offset(CLOCK, Duration.ofHours(25)));
+        later.storedDirectories().forEach(entry -> later.reclaim(entry, ignored -> false));
+        assertThat(Files.exists(legacy, LinkOption.NOFOLLOW_LINKS)).isFalse();
+        assertThat(target).doesNotExist();
     }
 
     @Test
-    void discardRemovesOnlyDirectoriesNoAddressPointsTo() throws Exception {
+    void discardRemovesOnlyStagingEvenAfterTheDirectoryIsSealed() throws Exception {
         Path root = temporary.resolve("discard");
         FileTestDataStore store = store(root, 100);
-        var live =
-                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A")))));
-        store.activate(PROBLEM, live);
-        var pending =
-                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("b"), "1.out", bytes("B")))));
+        byte[] archive = zip(goldenEntries());
+        var live = store.prepare(PROBLEM, new ByteArrayInputStream(archive));
+        String location = store.seal(live);
+        var pending = store.prepare(PROBLEM, new ByteArrayInputStream(archive));
+        Path staging = root.resolve(".store/published/." + pending.generation() + ".tmp");
+        assertThat(staging).isDirectory();
 
         store.discard(pending);
         store.discard(live);
 
-        assertThat(root.resolve(".store").resolve(pending.generation())).doesNotExist();
-        assertThat(root.resolve(".store").resolve(live.generation())).exists();
+        assertThat(staging).doesNotExist();
+        assertThat(store.describe(location).digest()).isEqualTo(GOLDEN_DIGEST);
     }
 
     @Test
@@ -431,7 +378,7 @@ class FileTestDataStoreTests {
         Path root = temporary.resolve("describe");
         FileTestDataStore store = store(root, 100);
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries())));
-        String location = store.activate(PROBLEM, prepared);
+        String location = store.seal(prepared);
 
         for (String bad : List.of(
                 "/etc", "relative/path", "", root.resolve("../elsewhere").toString())) {
@@ -444,7 +391,7 @@ class FileTestDataStoreTests {
 
         Path metadata = Path.of(location).resolve("testdata.json");
         String valid = Files.readString(metadata);
-        Path generation = root.resolve(".store").resolve(prepared.generation());
+        Path generation = root.resolve(".store/published").resolve(prepared.generation());
         Files.setPosixFilePermissions(
                 generation.resolve("testdata.json"), PosixFilePermissions.fromString("rw-------"));
         for (String broken : List.of(
@@ -468,27 +415,6 @@ class FileTestDataStoreTests {
     }
 
     @Test
-    void removeDeletesTheAddressAndEveryGeneration() throws Exception {
-        Path root = temporary.resolve("remove");
-        FileTestDataStore store = store(root, 100);
-        store.activate(PROBLEM, store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries()))));
-        store.activate(
-                PROBLEM,
-                store.prepare(PROBLEM, new ByteArrayInputStream(zip(Map.of("1.in", bytes("a"), "1.out", bytes("A"))))));
-        var other = store.prepare(OTHER_PROBLEM, new ByteArrayInputStream(zip(goldenEntries())));
-        store.activate(OTHER_PROBLEM, other);
-
-        store.remove(PROBLEM);
-
-        assertThat(Files.exists(root.resolve(PROBLEM), LinkOption.NOFOLLOW_LINKS))
-                .isFalse();
-        try (var generations = Files.list(root.resolve(".store"))) {
-            assertThat(generations.map(path -> path.getFileName().toString()).toList())
-                    .containsExactly(other.generation());
-        }
-    }
-
-    @Test
     void recoveryDeletesOnlyOldTemporaryFilesLinksAndDirectories() throws Exception {
         Path root = temporary.resolve("recovery");
         // 时钟拨到两天之后：此刻新建的文件都算「过期」，用将来的修改时间标出需要保留的「新」文件。
@@ -506,13 +432,13 @@ class FileTestDataStoreTests {
                 new FileTestDataStore(properties, later, JsonMapper.builder().build());
         store.initialize();
         var live = store.prepare(PROBLEM, new ByteArrayInputStream(zip(goldenEntries())));
-        String location = store.activate(PROBLEM, live);
+        String location = store.seal(live);
         FileTime recent = FileTime.from(Instant.now().plus(Duration.ofDays(3)));
 
         Path staleUpload = root.resolve("tmp/" + java.util.UUID.randomUUID() + ".upload");
         Path freshUpload = root.resolve("tmp/" + java.util.UUID.randomUUID() + ".upload");
         Path staleLink = root.resolve("." + PROBLEM + ".stale.link");
-        Path staleBuilding = root.resolve(".store/." + live.generation() + ".stale.tmp");
+        Path staleBuilding = root.resolve(".store/published/." + live.generation() + ".stale.tmp");
         Files.write(staleUpload, bytes("temporary"));
         Files.write(freshUpload, bytes("temporary"));
         Files.createSymbolicLink(staleLink, Path.of(".store", live.generation()));
@@ -537,6 +463,10 @@ class FileTestDataStoreTests {
     }
 
     private FileTestDataStore store(Path root, double ratio) {
+        return store(root, ratio, CLOCK);
+    }
+
+    private FileTestDataStore store(Path root, double ratio, Clock clock) {
         var properties = new TestDataStorageProperties(
                 root,
                 DataSize.ofMegabytes(1),
@@ -546,7 +476,7 @@ class FileTestDataStoreTests {
                 ratio,
                 Duration.ofHours(1));
         var store =
-                new FileTestDataStore(properties, CLOCK, JsonMapper.builder().build());
+                new FileTestDataStore(properties, clock, JsonMapper.builder().build());
         store.initialize();
         return store;
     }

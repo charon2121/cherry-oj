@@ -18,7 +18,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 2048,
-      "description": "测试数据目录的地址：以 / 开头的本地绝对路径，或 http(s) 地址"
+      "description": "当前测试数据目录的地址：以 / 开头的本地绝对路径，或 http(s) 地址。替换成功后可返回新地址，已返回的地址在保留期内指向同一份测试数据"
     },
     "digest": {
       "type": "string",
@@ -42,7 +42,7 @@
   },
   "examples": [
     {
-      "location": "/srv/cherry-oj/testdata/0198cafe-0000-7000-8000-000000000002",
+      "location": "/srv/cherry-oj/testdata/.store/published/0198cafe-0000-7000-8000-000000000002-97f1093d-ba64-4b57-9d6a-d12f8b1373eb",
       "digest": "6c67e6d15542f93808352ac2b692f3772e1243d09bd34b2366b9b212345a07e4",
       "testcaseCount": 2,
       "totalBytes": 16,

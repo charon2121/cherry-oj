@@ -84,11 +84,11 @@ submission-service
 ```text
 Problem p-a-plus-b  （PUBLIC / ACTIVE）
   ├─ 题面、样例、语言（起始代码、CORE 驱动代码）
-  └─ test_data_location → <root>/p-a-plus-b → .store/p-a-plus-b-<digest 前缀>/
+  └─ test_data_location → <root>/.store/published/<problemId>-<uploadId>/
 ```
 
-管理员改了题目，改动立即生效；公开题目不能被改成空题面或没有样例。测试数据上传即整体替换：判题时读到的是此刻
-地址下的那份数据，判题结果记录它读取的数据指纹（`testDataDigest`），用于追溯「这次拿哪份数据判的」。
+管理员改了题目，改动立即生效；公开题目不能被改成空题面或没有样例。测试数据上传成功后整体替换，判题按领取时的地址
+读对应的完整目录，结果记录实际读取的数据指纹（`testDataDigest`）。
 标定绑定数据指纹：数据换了，旧标定过期，新提交被挡住，直到按新数据重新标定。
 
 ### 2.2 Submission 与 JudgeInput
@@ -114,7 +114,8 @@ JudgeInput 与 Submission 在同一个 submission-service 本地事务创建。�
 
 ### 2.3 删除规则
 
-- 从未公开过的题目（`published_at` 为空）可以删除：它不可能有提交；题面、样例、语言、审计事件和测试数据目录一并删除。
+- 从未公开过的题目（`published_at` 为空）可以删除。题面、样例、语言和审计事件一并删除，已发出的测试数据地址
+  按[测试数据协议](./protocols/testdata.md)保留和回收。
 - 公开过的题目只能归档，不得物理删除。
 - 被 JudgeInput 引用的 LanguageCalibration 不得物理删除，只能被新的标定替代（SUPERSEDED）。
 - Submission、JudgeInput、JudgeTask、JudgeAttempt 和审计事件默认不级联删除。
@@ -220,11 +221,10 @@ user_audit_event
 
 ### 4.4 测试数据
 
-没有单独的表：一道题只有一份测试数据，就是 `Problem.testDataLocation` 指向的目录。目录格式由
+题目当前使用 `Problem.testDataLocation` 指向的目录。目录格式由
 [测试数据协议](./protocols/testdata.md)规定：`testdata.json`（`schemaVersion`、`testcaseCount`、`totalBytes`、`digest`、
-`testcases[]`）加成对的 `<name>.in/.out`。problem-service 把上传的 ZIP 校验后写成内容寻址的真实目录
-`<root>/.store/<problemId>-<digest 前 16 位>/`，再把相对符号链接 `<root>/<problemId>` 原子切换过去；
-只保留当前与上一代目录。数据库不抄指纹、测试点数或清单，避免两处不一致。
+`testcases[]`）加成对的 `<name>.in/.out`。上传完成后，题目地址与审计在一个事务里提交，旧地址在保留期内仍可读。
+指纹、测试点数和清单从目录读取。
 
 ### 4.5 Language
 

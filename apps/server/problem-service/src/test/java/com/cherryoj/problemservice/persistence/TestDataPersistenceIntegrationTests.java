@@ -11,6 +11,9 @@ import com.cherryoj.problemservice.api.ProblemApiException;
 import com.cherryoj.problemservice.application.AdminProblemService;
 import com.cherryoj.problemservice.application.TestDataService;
 import com.cherryoj.problemservice.bootstrap.TestDataRecovery;
+import com.cherryoj.problemservice.config.TestDataStorageProperties;
+import com.cherryoj.problemservice.domain.UuidV7;
+import com.cherryoj.problemservice.storage.TestDataStore;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,6 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +40,10 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.multipart.MultipartFile;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -80,6 +88,24 @@ class TestDataPersistenceIntegrationTests {
     @Autowired
     TestDataRecovery recovery;
 
+    @Autowired
+    TestDataStore store;
+
+    @Autowired
+    TestDataStorageProperties properties;
+
+    @Autowired
+    AdminProblemMapper mapper;
+
+    @Autowired
+    UuidV7 ids;
+
+    @Autowired
+    Clock clock;
+
+    @Autowired
+    PlatformTransactionManager transactionManager;
+
     @Test
     void uploadWritesAProtocolDirectoryRecordsOnlyTheAddressAndServesJudging() throws Exception {
         var problem = createProblem("asset");
@@ -102,12 +128,8 @@ class TestDataPersistenceIntegrationTests {
         // 数据库里只有地址，没有指纹、清单或数据本身
         String location = jdbc.queryForObject(
                 "SELECT test_data_location FROM problem WHERE id = UUID_TO_BIN(?)", String.class, problem.id());
-        assertThat(location)
-                .isEqualTo(STORAGE_ROOT
-                        .toAbsolutePath()
-                        .normalize()
-                        .resolve(problem.id())
-                        .toString());
+        assertThat(Path.of(location).getParent()).isEqualTo(STORAGE_ROOT.resolve(".store/published"));
+        assertThat(Path.of(location).getFileName().toString()).startsWith(problem.id() + "-");
         assertThat(Files.readString(Path.of(location).resolve("testdata.json"))).contains(GOLDEN_DIGEST);
         assertThat(Files.readString(Path.of(location).resolve("2.out"))).isEqualTo("93\n");
 
@@ -125,12 +147,13 @@ class TestDataPersistenceIntegrationTests {
         assertThat(reloaded.testData().digest()).isEqualTo(GOLDEN_DIGEST);
         assertThat(reloaded.rowVersion()).isEqualTo(problem.rowVersion());
         try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
-            assertThat(temporaryFiles).isEmpty();
+            assertThat(temporaryFiles.filter(path -> path.toString().endsWith(".upload")))
+                    .isEmpty();
         }
     }
 
     @Test
-    void replacingTheDataKeepsTheAddressAndChangesTheDigestImmediately() throws Exception {
+    void replacingTheDataPublishesANewAddressAndKeepsThePreviousAddressReadable() throws Exception {
         var problem = createProblem("replace");
         var first = testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
         String address = testData.forJudging(problem.id()).location();
@@ -140,25 +163,98 @@ class TestDataPersistenceIntegrationTests {
 
         assertThat(second.digest()).isNotEqualTo(first.digest());
         assertThat(second.testcaseCount()).isEqualTo(1);
-        // 地址不变，数据变了：「改了就是改了」
         var current = testData.forJudging(problem.id());
-        assertThat(current.location()).isEqualTo(address);
+        assertThat(current.location()).isNotEqualTo(address);
         assertThat(current.digest()).isEqualTo(second.digest());
-        assertThat(Files.readString(Path.of(address).resolve("1.out"))).isEqualTo("11\n");
+        assertThat(store.describe(address).digest()).isEqualTo(first.digest());
+        assertThat(Files.readString(Path.of(address).resolve("2.out"))).isEqualTo("93\n");
+        assertThat(Files.readString(Path.of(current.location()).resolve("1.out")))
+                .isEqualTo("11\n");
 
-        // 再换一次：只保留当前与上一代，磁盘占用有界
-        testData.upload(problem.id(), multipart(zip(Map.of("1.in", bytes("7\n"), "1.out", bytes("8\n")))), ACTOR);
-        try (var generations = Files.list(STORAGE_ROOT.resolve(".store"))) {
-            assertThat(generations
-                            .map(path -> path.getFileName().toString())
-                            .filter(name -> name.startsWith(problem.id()))
-                            .toList())
-                    .hasSize(2);
-        }
+        var third = testData.upload(
+                problem.id(), multipart(zip(Map.of("1.in", bytes("7\n"), "1.out", bytes("8\n")))), ACTOR);
+        assertThat(testData.forJudging(problem.id()).digest()).isEqualTo(third.digest());
+        assertThat(store.describe(address).digest()).isEqualTo(first.digest());
+        assertThat(store.describe(current.location()).digest()).isEqualTo(second.digest());
         assertThat(jdbc.queryForList("""
                 SELECT action FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?) ORDER BY created_at
                 """, String.class, problem.id()))
                 .containsExactly("PROBLEM_CREATED", "TEST_DATA_UPLOADED", "TEST_DATA_UPLOADED", "TEST_DATA_UPLOADED");
+    }
+
+    @Test
+    void auditFailureRollsBackBothTheFirstUploadAndAReplacement() throws Exception {
+        var problem = createProblem("audit-failure");
+        byte[] initial = goldenZip();
+        byte[] replacement = zip(Map.of("1.in", bytes("7\n"), "1.out", bytes("8\n")));
+
+        // UUID_TO_BIN 在插入上传审计时失败，此时事务内已写入新的地址。
+        assertStorageFailure(problem.id(), initial);
+        assertThat(admin.getProblem(problem.id()).testData()).isNull();
+        assertThat(uploadDigests(problem.id())).isEmpty();
+
+        var uploaded = testData.upload(problem.id(), multipart(initial), ACTOR);
+        var original = testData.forJudging(problem.id());
+        assertStorageFailure(problem.id(), replacement);
+
+        assertThat(testData.forJudging(problem.id())).isEqualTo(original);
+        assertThat(admin.getProblem(problem.id()).testData()).isEqualTo(uploaded);
+        assertThat(uploadDigests(problem.id())).containsExactly(uploaded.digest());
+    }
+
+    @Test
+    void anUncertainCommitIsResolvedByTheCommittedUploadAudit() throws Exception {
+        var problem = createProblem("commit-result");
+        PlatformTransactionManager ambiguousCommit = new PlatformTransactionManager() {
+            @Override
+            public TransactionStatus getTransaction(TransactionDefinition definition) {
+                return transactionManager.getTransaction(definition);
+            }
+
+            @Override
+            public void commit(TransactionStatus status) {
+                transactionManager.commit(status);
+                throw new TransactionSystemException("simulated lost commit acknowledgement");
+            }
+
+            @Override
+            public void rollback(TransactionStatus status) {
+                transactionManager.rollback(status);
+            }
+        };
+        var service = new TestDataService(mapper, store, ids, clock, json, properties, ambiguousCommit);
+        var uploaded = service.upload(problem.id(), multipart(goldenZip()), ACTOR);
+
+        assertThat(testData.get(problem.id())).isEqualTo(uploaded);
+        assertThat(testData.forJudging(problem.id()).digest()).isEqualTo(GOLDEN_DIGEST);
+        assertThat(uploadDigests(problem.id())).containsExactly(GOLDEN_DIGEST);
+    }
+
+    @Test
+    void aLegacyAddressRemainsReadableDuringAndAfterTheFirstReplacement() throws Exception {
+        var problem = createProblem("legacy");
+        testData.upload(problem.id(), multipart(goldenZip()), ACTOR);
+        Path source = Path.of(testData.forJudging(problem.id()).location());
+        Path legacyTarget = STORAGE_ROOT.resolve(".store").resolve(problem.id() + "-" + GOLDEN_DIGEST.substring(0, 16));
+        Files.move(source, legacyTarget);
+        Path legacy =
+                Files.createSymbolicLink(STORAGE_ROOT.resolve(problem.id()), STORAGE_ROOT.relativize(legacyTarget));
+        jdbc.update(
+                "UPDATE problem SET test_data_location = ? WHERE id = UUID_TO_BIN(?)", legacy.toString(), problem.id());
+        assertThat(testData.forJudging(problem.id()).location()).isEqualTo(legacy.toString());
+
+        testData.upload(problem.id(), multipart(zip(Map.of("1.in", bytes("4\n"), "1.out", bytes("9\n")))), ACTOR);
+        var current = testData.forJudging(problem.id());
+        assertThat(current.location()).isNotEqualTo(legacy.toString());
+        recovery.recover();
+        assertThat(store.describe(legacy.toString()).digest()).isEqualTo(GOLDEN_DIGEST);
+
+        Path retired = STORAGE_ROOT.resolve("tmp").resolve(legacyTarget.getFileName() + ".retired");
+        Files.setLastModifiedTime(retired, FileTime.from(Instant.now().minusSeconds(172_800)));
+        recovery.recover();
+        assertThat(Files.exists(legacy, LinkOption.NOFOLLOW_LINKS)).isFalse();
+        assertThat(legacyTarget).doesNotExist();
+        assertThat(testData.forJudging(problem.id())).isEqualTo(current);
     }
 
     @Test
@@ -175,7 +271,8 @@ class TestDataPersistenceIntegrationTests {
 
         assertThat(testData.forJudging(problem.id()).digest()).isEqualTo(good.digest());
         try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
-            assertThat(temporaryFiles).isEmpty();
+            assertThat(temporaryFiles.filter(path -> path.toString().endsWith(".upload")))
+                    .isEmpty();
         }
     }
 
@@ -192,7 +289,8 @@ class TestDataPersistenceIntegrationTests {
         assertThat(Files.exists(STORAGE_ROOT.resolve(problem.id()), LinkOption.NOFOLLOW_LINKS))
                 .isFalse();
         try (var temporaryFiles = Files.list(STORAGE_ROOT.resolve("tmp"))) {
-            assertThat(temporaryFiles).isEmpty();
+            assertThat(temporaryFiles.filter(path -> path.toString().endsWith(".upload")))
+                    .isEmpty();
         }
     }
 
@@ -226,6 +324,12 @@ class TestDataPersistenceIntegrationTests {
 
         var current = testData.forJudging(problem.id());
         assertThat(digests).contains(current.digest());
+        assertThat(uploadDigests(problem.id())).containsExactlyInAnyOrderElementsOf(digests);
+        assertThat(jdbc.queryForObject("""
+                SELECT JSON_UNQUOTE(JSON_EXTRACT(a.detail_json, '$.digest'))
+                FROM problem_audit_event a JOIN problem p ON p.id = a.problem_id AND p.test_data_updated_at = a.created_at
+                WHERE p.id = UUID_TO_BIN(?) AND a.action = 'TEST_DATA_UPLOADED'
+                """, String.class, problem.id())).isEqualTo(current.digest());
         // 地址下的 testdata.json、数据文件与数据库读到的指纹是同一份
         assertThat(Files.readString(Path.of(current.location()).resolve("testdata.json")))
                 .contains(current.digest());
@@ -271,6 +375,20 @@ class TestDataPersistenceIntegrationTests {
     private String uploadAfter(CountDownLatch start, String problemId, byte[] zip) throws Exception {
         start.await();
         return testData.upload(problemId, multipart(zip), ACTOR).digest();
+    }
+
+    private void assertStorageFailure(String problemId, byte[] content) {
+        assertThatThrownBy(() -> testData.upload(problemId, multipart(content), "invalid-audit-actor"))
+                .isInstanceOfSatisfying(
+                        ProblemApiException.class,
+                        error -> assertThat(error.code()).isEqualTo("TEST_DATA_STORAGE_UNAVAILABLE"));
+    }
+
+    private List<String> uploadDigests(String problemId) {
+        return jdbc.queryForList("""
+                SELECT JSON_UNQUOTE(JSON_EXTRACT(detail_json, '$.digest'))
+                FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?) AND action = 'TEST_DATA_UPLOADED'
+                """, String.class, problemId);
     }
 
     private com.cherryoj.problemservice.api.AdminProblemDtos.Problem createProblem(String prefix) {

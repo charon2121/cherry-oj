@@ -2,32 +2,31 @@ package com.cherryoj.problemservice.storage;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * 题目的测试数据目录，布局见 docs/protocols/testdata.md。
  *
- * 上传分两步：{@link #prepare} 校验 ZIP 并把内容写成以内容寻址的目录，此时没有任何题目地址指向它；
- * {@link #activate} 再让题目地址原子地切到它。这样慢的部分（读 ZIP、写文件）可以放在数据库事务之外，
- * 事务里只剩一次重命名。
+ * {@link #prepare} 校验 ZIP 并写入暂存目录，{@link #seal} 交付完整的独立目录。
+ * 当前地址由数据库选定。交付和回收同一道题的数据时，调用方持有相同的题目行锁。
  */
 public interface TestDataStore {
 
     Prepared prepare(String problemId, InputStream zip) throws AssetException;
 
-    /** 让题目的地址指向 prepared 的目录并返回地址（以 / 开头的绝对路径）。读取方要么看到旧的完整数据，要么看到新的。 */
-    String activate(String problemId, Prepared prepared) throws AssetException;
+    /** 写好目录后返回其绝对地址，供调用方写入数据库。 */
+    String seal(Prepared prepared) throws AssetException;
 
-    /** prepare 之后没能 activate 时丢弃；已经被地址指向的目录不会被删。 */
+    /** 丢弃暂存目录。已交付目录由回收流程在确认数据库引用后处理。 */
     void discard(Prepared prepared);
 
-    /** 只保留题目当前与上一代目录。上一代留给还在读取旧数据的 judge 请求，它们读不到时会重试一次。 */
-    void prune(String problemId);
+    List<StoredDirectory> storedDirectories();
+
+    /** 标记未引用目录，或回收已过保留期的目录及其旧地址。 */
+    void reclaim(StoredDirectory directory, Predicate<String> isReferenced);
 
     /** 读地址下的 testdata.json。 */
     Info describe(String location) throws AssetException;
-
-    /** 题目被删除时移除它的地址与全部目录。 */
-    void remove(String problemId);
 
     /** 清理中断的上传留下的临时文件。 */
     RecoveryResult recover();
@@ -40,6 +39,8 @@ public interface TestDataStore {
             List<TestDataMetadata.TestcaseEntry> testcases) {}
 
     record Prepared(String problemId, String generation, Info info) {}
+
+    record StoredDirectory(String problemId, String generation, boolean legacy) {}
 
     record RecoveryResult(int temporaryFilesDeleted, int temporaryDirectoriesDeleted) {}
 

@@ -55,19 +55,32 @@ public class DevProblemSeed implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        // 测试数据按协议写成真实目录，不放进事务：失败时不会留下指向不存在数据的公开题目。
-        String location = publishTestData(PROBLEM_ID);
-        String coreLocation = publishTestData(CORE_PROBLEM_ID);
         transactions.executeWithoutResult(status -> {
-            seed(location);
-            seedCore(coreLocation);
+            seed();
+            seedCore();
+            publishTestData(PROBLEM_ID);
+            publishTestData(CORE_PROBLEM_ID);
         });
     }
 
-    private String publishTestData(String problemId) {
+    private void publishTestData(String problemId) {
+        String current = jdbc.queryForObject(
+                "SELECT test_data_location FROM problem WHERE id = UUID_TO_BIN(?) FOR UPDATE", String.class, problemId);
+        if (current != null) return;
         try {
             var prepared = testData.prepare(problemId, new ByteArrayInputStream(zip()));
-            return testData.activate(problemId, prepared);
+            try {
+                String location = testData.seal(prepared);
+                jdbc.update("""
+                        UPDATE problem
+                        SET test_data_location = ?, test_data_updated_at = UTC_TIMESTAMP(6),
+                            visibility = 'PUBLIC', published_at = COALESCE(published_at, UTC_TIMESTAMP(6)),
+                            updated_at = UTC_TIMESTAMP(6)
+                        WHERE id = UUID_TO_BIN(?)
+                        """, location, problemId);
+            } finally {
+                testData.discard(prepared);
+            }
         } catch (TestDataStore.AssetException | IOException error) {
             throw new IllegalStateException("Could not write the development test data", error);
         }
@@ -85,7 +98,7 @@ public class DevProblemSeed implements ApplicationRunner {
         return bytes.toByteArray();
     }
 
-    private void seed(String location) {
+    private void seed() {
         jdbc.update("""
                 INSERT IGNORE INTO problem
                     (id, slug, visibility, status, code_mode, title, statement_markdown,
@@ -108,17 +121,10 @@ public class DevProblemSeed implements ApplicationRunner {
                 VALUES (UUID_TO_BIN(?), 'cpp', 1,
                         '#include <iostream>\nusing namespace std;\nint main() { return 0; }\n', NULL)
                 """, PROBLEM_ID);
-        jdbc.update("""
-                UPDATE problem
-                SET test_data_location = ?, test_data_updated_at = UTC_TIMESTAMP(6),
-                    visibility = 'PUBLIC', published_at = COALESCE(published_at, UTC_TIMESTAMP(6)),
-                    updated_at = UTC_TIMESTAMP(6)
-                WHERE id = UUID_TO_BIN(?)
-                """, location, PROBLEM_ID);
     }
 
     /** 核心代码模式的 A+B：用户只写 class Solution，读写由驱动代码负责。 */
-    private void seedCore(String location) {
+    private void seedCore() {
         jdbc.update("""
                 INSERT IGNORE INTO problem
                     (id, slug, visibility, status, code_mode, title, statement_markdown,
@@ -140,12 +146,5 @@ public class DevProblemSeed implements ApplicationRunner {
                     (problem_id, language_id, display_order, starter_code, judge_template, judge_template_updated_at)
                 VALUES (UUID_TO_BIN(?), 'cpp', 1, ?, ?, UTC_TIMESTAMP(6))
                 """, CORE_PROBLEM_ID, CORE_STARTER, CORE_DRIVER);
-        jdbc.update("""
-                UPDATE problem
-                SET test_data_location = ?, test_data_updated_at = UTC_TIMESTAMP(6),
-                    visibility = 'PUBLIC', published_at = COALESCE(published_at, UTC_TIMESTAMP(6)),
-                    updated_at = UTC_TIMESTAMP(6)
-                WHERE id = UUID_TO_BIN(?)
-                """, location, CORE_PROBLEM_ID);
     }
 }

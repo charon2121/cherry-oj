@@ -34,8 +34,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
@@ -283,13 +281,7 @@ public class AdminProblemService {
         if (mapper.deleteNeverPublished(problemId, rowVersion) != 1) {
             throw conflict();
         }
-        // 数据库提交之后才动文件：事务回滚时不能把测试数据已经删掉。
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                testDataStore.remove(problemId);
-            }
-        });
+        // 已领取测试数据的标定仍可能在读。提交后由回收任务观察题目引用并开始计时。
     }
 
     @Transactional(readOnly = true)

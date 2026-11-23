@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -30,6 +32,8 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Service
 public class TestDataService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TestDataService.class);
 
     private final AdminProblemMapper problems;
     private final TestDataStore store;
@@ -61,7 +65,7 @@ public class TestDataService {
         return TestDataDtos.TestData.from(describe(problem), problem.testDataUpdatedAt());
     }
 
-    /** 上传并替换题目的测试数据。慢的部分（读 ZIP、写文件）在事务之外，事务里只有一次原子切换。 */
+    /** ZIP 在事务外准备。题目行锁串行化目录交付与发布，提交事务才让新地址生效。 */
     public TestDataDtos.TestData upload(String problemId, MultipartFile file, String actorUserId) {
         if (file == null || file.isEmpty()) {
             throw new ProblemApiException(HttpStatus.UNPROCESSABLE_ENTITY, "TEST_DATA_EMPTY", "测试数据 ZIP 不能为空。");
@@ -72,7 +76,7 @@ public class TestDataService {
                     "PAYLOAD_TOO_LARGE",
                     "ZIP 超过 " + TestDataStorageProperties.readable(storageProperties.maxArchiveSize()) + " 的上传上限。");
         }
-        transactions.executeWithoutResult(status -> requireActive(requireProblem(problemId, false)));
+        requireActive(requireProblem(problemId, false));
 
         Prepared prepared;
         try (InputStream source = file.getInputStream()) {
@@ -84,13 +88,13 @@ public class TestDataService {
                     HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时无法保存。");
         }
 
-        TestDataDtos.TestData result;
+        String auditId = ids.next().toString();
         try {
-            result = transactions.execute(status -> {
+            return transactions.execute(status -> {
                 requireActive(requireProblem(problemId, true));
                 String location;
                 try {
-                    location = store.activate(problemId, prepared);
+                    location = store.seal(prepared);
                 } catch (AssetException error) {
                     throw new AssetRuntimeException(error);
                 }
@@ -99,8 +103,10 @@ public class TestDataService {
                     throw state("题目状态已改变。");
                 }
                 audit(
+                        auditId,
                         problemId,
                         actorUserId,
+                        now,
                         Map.of(
                                 "digest", prepared.info().digest(),
                                 "testcaseCount", prepared.info().testcaseCount(),
@@ -108,15 +114,16 @@ public class TestDataService {
                 return TestDataDtos.TestData.from(prepared.info(), now);
             });
         } catch (RuntimeException error) {
-            // 没能切换时目录没有被任何地址指向，可以丢掉；已经切换成功的目录 discard 不会动。
-            store.discard(prepared);
             if (error instanceof AssetRuntimeException asset) throw assetProblem(asset.cause());
             if (error instanceof ProblemApiException problem) throw problem;
+            // 连接在提交时断开，MySQL 可能已经完成事务。审计和当前地址同事务写入。
+            var committedAt = committedUploadAt(auditId);
+            if (committedAt != null) return TestDataDtos.TestData.from(prepared.info(), committedAt);
             throw new ProblemApiException(
                     HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时无法保存。");
+        } finally {
+            store.discard(prepared);
         }
-        store.prune(problemId);
-        return result;
     }
 
     /** judging-service 判题与标定前来取题目当前的测试数据地址；每次都读 testdata.json，拿到的就是最新的。 */
@@ -152,18 +159,32 @@ public class TestDataService {
         if (problem.status() != ProblemStatus.ACTIVE) throw state("归档题目不能上传测试数据。");
     }
 
-    private void audit(String problemId, String actorUserId, Map<String, Object> detail) {
+    private void audit(
+            String auditId,
+            String problemId,
+            String actorUserId,
+            LocalDateTime uploadedAt,
+            Map<String, Object> detail) {
         try {
             problems.insertAudit(
-                    ids.next().toString(),
+                    auditId,
                     problemId,
                     actorUserId,
                     "TEST_DATA_UPLOADED",
                     null,
                     json.writeValueAsString(detail),
-                    now());
+                    uploadedAt);
         } catch (RuntimeException error) {
             throw new IllegalStateException("Could not write test data audit", error);
+        }
+    }
+
+    private LocalDateTime committedUploadAt(String auditId) {
+        try {
+            return problems.findTestDataUploadAt(auditId);
+        } catch (RuntimeException error) {
+            LOG.warn("testdata.upload.outcome_unknown auditId={}", auditId);
+            return null;
         }
     }
 

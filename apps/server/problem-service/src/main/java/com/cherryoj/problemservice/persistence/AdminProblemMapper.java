@@ -87,6 +87,10 @@ public interface AdminProblemMapper {
     int updateTestData(
             @Param("id") String id, @Param("location") String location, @Param("updatedAt") LocalDateTime updatedAt);
 
+    LocalDateTime findTestDataUploadAt(@Param("auditId") String auditId);
+
+    boolean testDataLocationIsReferenced(@Param("location") String location);
+
     int deleteSamples(@Param("problemId") String problemId);
 
     int deleteLanguages(@Param("problemId") String problemId);

@@ -17,7 +17,6 @@ import com.cherryoj.problemservice.application.TestDataService;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -386,7 +385,7 @@ class AdminProblemPersistenceIntegrationTests {
     }
 
     @Test
-    void onlyNeverPublishedProblemsCanBeDeletedAndTheirTestDataGoesWithThem() throws Exception {
+    void deletingANeverPublishedProblemKeepsInFlightTestDataReadable() throws Exception {
         var draft = admin.create(
                 new CreateProblemRequest(
                         "draft-" + UUID.randomUUID().toString().substring(0, 8),
@@ -397,8 +396,8 @@ class AdminProblemPersistenceIntegrationTests {
                 ACTOR);
         var uploaded = testData.upload(
                 draft.id(), new MockMultipartFile("file", "cases.zip", "application/zip", zip()), ACTOR);
-        Path address = STORAGE_ROOT.resolve(draft.id());
-        assertThat(Files.exists(address, LinkOption.NOFOLLOW_LINKS)).isTrue();
+        Path address = Path.of(testData.forJudging(draft.id()).location());
+        assertThat(address).isDirectory();
         assertThat(uploaded.digest()).matches("[a-f0-9]{64}");
 
         admin.delete(draft.id(), admin.getProblem(draft.id()).rowVersion());
@@ -407,17 +406,13 @@ class AdminProblemPersistenceIntegrationTests {
                 .isInstanceOfSatisfying(
                         ProblemApiException.class,
                         error -> assertThat(error.code()).isEqualTo("PROBLEM_NOT_FOUND"));
-        // 审计事件与样例、语言一起删掉，数据目录和所有代际也删掉；别的题目的数据不受影响
+        // 题目和审计立即消失，已经领取的地址由回收任务延后清理。
         assertThat(jdbc.queryForObject(
                         "SELECT COUNT(*) FROM problem_audit_event WHERE problem_id = UUID_TO_BIN(?)",
                         Integer.class,
                         draft.id()))
                 .isZero();
-        assertThat(Files.exists(address, LinkOption.NOFOLLOW_LINKS)).isFalse();
-        try (var generations = Files.list(STORAGE_ROOT.resolve(".store"))) {
-            assertThat(generations.map(path -> path.getFileName().toString()))
-                    .noneMatch(name -> name.startsWith(draft.id()));
-        }
+        assertThat(Files.readString(address.resolve("testdata.json"))).contains(uploaded.digest());
 
         String slug = "never-delete-" + UUID.randomUUID().toString().substring(0, 8);
         ProblemFixtures.insertPublic(jdbc, slug, "Published", "EASY", "x", LocalDateTime.now(ZoneOffset.UTC));
