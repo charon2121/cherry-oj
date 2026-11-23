@@ -3,6 +3,9 @@ package com.cherryoj.submissionservice.application;
 import com.cherryoj.submissionservice.api.SubmissionDtos.*;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import com.cherryoj.submissionservice.judging.ExecutionProfile;
+import com.cherryoj.submissionservice.judging.JudgeInput;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 import com.cherryoj.submissionservice.persistence.SubmissionMapper;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -46,18 +49,20 @@ public class SubmissionService {
         // 这里只认语言编号的格式；题目支不支持这门语言由 problem-service 在快照里回答。
         if (request.languageId() == null || !request.languageId().matches("^[a-z][a-z0-9-]{0,31}$"))
             throw problem(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_LANGUAGE", "语言编号无效。");
-        if (request.source() == null || request.source().isBlank())
+        String userSource = request.source();
+        if (userSource == null || userSource.isBlank())
             throw problem(HttpStatus.BAD_REQUEST, "INVALID_SOURCE", "请输入完整代码。");
-        if (request.source().getBytes(StandardCharsets.UTF_8).length > 262144)
+        if (userSource.getBytes(StandardCharsets.UTF_8).length > 262144)
             throw problem(HttpStatus.PAYLOAD_TOO_LARGE, "SOURCE_TOO_LARGE", "代码超过 256 KiB。");
-        String digest = sha(json.writeValueAsString(request));
+        String digest = sha256(json.writeValueAsString(request));
         var replay = replay(user, key, digest);
         if (replay != null) return replay;
         if (!accepting || !messaging) throw problem(HttpStatus.SERVICE_UNAVAILABLE, "SUBMISSIONS_PAUSED", "正式提交暂时不可用。");
-        var snapshot = prerequisites.snapshot(request.problemId().toString(), request.languageId());
-        validateSnapshot(snapshot, request);
-        var profile = prerequisites.profile(snapshot);
-        validateProfile(profile, snapshot);
+        ProblemJudgeSnapshot snapshot =
+                prerequisites.resolveProblemJudgeSnapshot(request.problemId().toString(), request.languageId());
+        validateProblemJudgeSnapshot(snapshot, request);
+        ExecutionProfile executionProfile = prerequisites.resolveExecutionProfile(snapshot);
+        validateExecutionProfile(executionProfile, snapshot);
         Instant now = Instant.now();
         String id = uuid7(), event = uuid7();
         var view = new View(
@@ -76,21 +81,23 @@ public class SubmissionService {
                 null,
                 null);
         // Submission 保存用户原文；JudgeInput 冻结实际送判的文件：CORE 是驱动文件 + 用户文件（前缀 + 用户代码）与前缀行数。
-        var sources = JudgeSources.of(snapshot, request.source());
-        var input = new Input(
+        JudgeSources judgeSources = JudgeSources.of(snapshot, userSource);
+        String mainFileSource = judgeSources.mainFileSource();
+        String solutionFileSource = judgeSources.solutionFileSource();
+        var judgeInput = new JudgeInput(
                 id,
                 "2",
                 snapshot.problemId(),
                 request.languageId(),
-                sources.source(),
-                sha(sources.source()),
-                sources.solutionSource(),
-                sources.solutionSource() == null ? null : sha(sources.solutionSource()),
-                sources.solutionPrefixLineCount(),
-                profile.languageCalibrationId(),
-                profile.effectiveLimits(),
-                profile.limitSource(),
-                profile.limitDerivation(),
+                mainFileSource,
+                sha256(mainFileSource),
+                solutionFileSource,
+                solutionFileSource == null ? null : sha256(solutionFileSource),
+                judgeSources.solutionPrefixLineCount(),
+                executionProfile.languageCalibrationId(),
+                executionProfile.effectiveLimits(),
+                executionProfile.limitSource(),
+                executionProfile.limitDerivation(),
                 now);
         String payload = json.writeValueAsString(Map.of(
                 "eventId",
@@ -111,8 +118,8 @@ public class SubmissionService {
             return transaction.execute(status -> {
                 // 唯一键冲突会回滚整个事务；不能在这个事务里吞异常后继续提交半条事实。
                 var time = LocalDateTime.ofInstant(now, ZoneOffset.UTC);
-                store.put(id, user, snapshot.problemId(), json.writeValueAsString(view), request.source(), time);
-                store.putInput(id, json.writeValueAsString(input));
+                store.put(id, user, snapshot.problemId(), json.writeValueAsString(view), userSource, time);
+                store.putJudgeInput(id, json.writeValueAsString(judgeInput));
                 store.putRequest(user, key, digest, id, time);
                 store.putOutbox(event, id, payload, traceParent(), time);
                 return new Created(view, true);
@@ -163,57 +170,57 @@ public class SubmissionService {
         return new HistoryPage(items, page, size, total, (int) Math.min(Integer.MAX_VALUE, (total + size - 1) / size));
     }
 
-    public Source source(String user, String id) {
+    public SubmissionSource source(String user, String id) {
         var row = store.source(user, id);
         if (row == null) throw missing();
         var view = json.readValue(row.readModel(), View.class);
-        return new Source(row.id(), row.problemId(), view.languageId(), row.source());
+        return new SubmissionSource(row.id(), row.problemId(), view.languageId(), row.source());
     }
 
-    public Input input(String id) {
-        String value = store.input(id);
-        if (value == null) throw missing();
-        return json.readValue(value, Input.class);
+    public JudgeInput getJudgeInput(String submissionId) {
+        String judgeInputJson = store.getJudgeInputJson(submissionId);
+        if (judgeInputJson == null) throw missing();
+        return json.readValue(judgeInputJson, JudgeInput.class);
     }
 
-    private static void validateSnapshot(Snapshot s, Create r) {
-        if (s == null
-                || !r.problemId().toString().equals(s.problemId())
-                || !r.languageId().equals(s.languageId())
-                || !JudgeSources.consistent(s)
-                || s.problemTitle() == null) throw invalidSnapshot();
+    private static void validateProblemJudgeSnapshot(ProblemJudgeSnapshot snapshot, Create request) {
+        if (snapshot == null
+                || !request.problemId().toString().equals(snapshot.problemId())
+                || !request.languageId().equals(snapshot.languageId())
+                || !JudgeSources.consistent(snapshot)
+                || snapshot.problemTitle() == null) throw invalidJudgePrerequisite();
     }
 
-    private static void validateProfile(Profile p, Snapshot s) {
-        if (p == null
-                || !s.problemId().equals(p.problemId())
-                || !s.languageId().equals(p.languageId())
-                || p.languageCalibrationId() == null
-                || p.effectiveLimits() == null
-                || !validLimitSource(p)) throw invalidSnapshot();
-        var limits = p.effectiveLimits();
-        if (p.executionBudgetNs() <= 0
+    private static void validateExecutionProfile(ExecutionProfile executionProfile, ProblemJudgeSnapshot snapshot) {
+        if (executionProfile == null
+                || !snapshot.problemId().equals(executionProfile.problemId())
+                || !snapshot.languageId().equals(executionProfile.languageId())
+                || executionProfile.languageCalibrationId() == null
+                || executionProfile.effectiveLimits() == null
+                || !validLimitSource(executionProfile)) throw invalidJudgePrerequisite();
+        var limits = executionProfile.effectiveLimits();
+        if (executionProfile.executionBudgetNs() <= 0
                 || limits.cpuNs() <= 0
                 || limits.memoryBytes() <= 0
-                || (limits.clockNs() != null && limits.clockNs() <= 0)) throw invalidSnapshot();
+                || (limits.clockNs() != null && limits.clockNs() <= 0)) throw invalidJudgePrerequisite();
         try {
-            UUID.fromString(p.languageCalibrationId());
+            UUID.fromString(executionProfile.languageCalibrationId());
         } catch (IllegalArgumentException error) {
-            throw invalidSnapshot();
+            throw invalidJudgePrerequisite();
         }
     }
 
     /** 推导依据只在 DERIVED 时出现（docs/protocols/limits.md 第 6 节）；对不上就不冻结，免得记下无法追溯的限制。 */
-    private static boolean validLimitSource(Profile p) {
-        if (p.limitSource() == null) return false;
-        return switch (p.limitSource()) {
-            case "BASE", "OVERRIDE" -> p.limitDerivation() == null;
-            case "DERIVED" -> p.limitDerivation() != null;
+    private static boolean validLimitSource(ExecutionProfile executionProfile) {
+        if (executionProfile.limitSource() == null) return false;
+        return switch (executionProfile.limitSource()) {
+            case "BASE", "OVERRIDE" -> executionProfile.limitDerivation() == null;
+            case "DERIVED" -> executionProfile.limitDerivation() != null;
             default -> false;
         };
     }
 
-    private static SubmissionException invalidSnapshot() {
+    private static SubmissionException invalidJudgePrerequisite() {
         return problem(HttpStatus.SERVICE_UNAVAILABLE, "INVALID_JUDGE_SNAPSHOT", "当前题目暂时无法判题。");
     }
 
@@ -225,10 +232,10 @@ public class SubmissionService {
         return new SubmissionException(status, code, message);
     }
 
-    public static String sha(String source) {
+    public static String sha256(String text) {
         try {
             return HexFormat.of()
-                    .formatHex(MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8)));
+                    .formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8)));
         } catch (java.security.NoSuchAlgorithmException error) {
             throw new IllegalStateException(error);
         }

@@ -6,6 +6,9 @@ import static org.mockito.Mockito.*;
 
 import com.cherryoj.submissionservice.api.SubmissionDtos.*;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import com.cherryoj.submissionservice.judging.ExecutionProfile;
+import com.cherryoj.submissionservice.judging.ExecutionProfile.JudgeLimits;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 import com.cherryoj.submissionservice.persistence.SubmissionMapper;
 import java.time.*;
 import java.util.*;
@@ -67,14 +70,15 @@ class SubmissionKafkaTests {
     void durableRequestCrossesKafkaAndDuplicateCompletionOnlyAppliesOnce() throws Exception {
         UUID problem = UUID.randomUUID();
         String user = UUID.randomUUID().toString();
-        var snapshot = new Snapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
-        when(prerequisites.snapshot(problem.toString(), "cpp")).thenReturn(snapshot);
-        when(prerequisites.profile(snapshot))
-                .thenReturn(new Profile(
+        var snapshot = new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(snapshot);
+        when(prerequisites.resolveExecutionProfile(snapshot))
+                .thenReturn(new ExecutionProfile(
                         problem.toString(),
                         "cpp",
                         UUID.randomUUID().toString(),
-                        new Limits(1000, 2000, 3000L),
+                        new JudgeLimits(1000, 2000, 3000L),
                         "BASE",
                         null,
                         40000000000L));

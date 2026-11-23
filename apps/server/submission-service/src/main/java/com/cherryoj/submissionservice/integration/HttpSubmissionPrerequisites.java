@@ -2,8 +2,9 @@ package com.cherryoj.submissionservice.integration;
 
 import com.cherryoj.identity.token.CallTokenSigner;
 import com.cherryoj.identity.token.ServiceNames;
-import com.cherryoj.submissionservice.api.SubmissionDtos.*;
 import com.cherryoj.submissionservice.api.SubmissionException;
+import com.cherryoj.submissionservice.judging.ExecutionProfile;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.net.http.*;
@@ -41,22 +42,22 @@ public class HttpSubmissionPrerequisites implements SubmissionPrerequisites {
         this.calls = calls;
     }
 
-    public Snapshot snapshot(String id, String language) {
+    public ProblemJudgeSnapshot resolveProblemJudgeSnapshot(String problemId, String languageId) {
         return post(
                 problemUrl,
                 "/internal/submission/problem-snapshot",
                 ServiceNames.PROBLEM,
-                Map.of("problemId", id, "languageId", language),
-                Snapshot.class);
+                Map.of("problemId", problemId, "languageId", languageId),
+                ProblemJudgeSnapshot.class);
     }
 
-    public Profile profile(Snapshot s) {
+    public ExecutionProfile resolveExecutionProfile(ProblemJudgeSnapshot snapshot) {
         return post(
                 judgingUrl,
                 "/internal/submission/execution-profile",
                 ServiceNames.JUDGING,
-                Map.of("problemId", s.problemId(), "languageId", s.languageId(), "purpose", "formal"),
-                Profile.class);
+                Map.of("problemId", snapshot.problemId(), "languageId", snapshot.languageId(), "purpose", "formal"),
+                ExecutionProfile.class);
     }
 
     private <T> T post(String base, String path, String audience, Object body, Class<T> type) {

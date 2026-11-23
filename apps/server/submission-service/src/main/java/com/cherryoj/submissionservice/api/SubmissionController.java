@@ -2,6 +2,7 @@ package com.cherryoj.submissionservice.api;
 
 import com.cherryoj.identity.resource.CurrentCall;
 import com.cherryoj.submissionservice.application.SubmissionService;
+import com.cherryoj.submissionservice.judging.JudgeInput;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +37,7 @@ public class SubmissionController {
     }
 
     @GetMapping("/api/submissions/{id}/source")
-    public ResponseEntity<SubmissionDtos.Source> source(@PathVariable UUID id) {
+    public ResponseEntity<SubmissionDtos.SubmissionSource> source(@PathVariable UUID id) {
         return ResponseEntity.ok().header("Cache-Control", "no-store").body(service.source(userId(), id.toString()));
     }
 
@@ -51,8 +52,8 @@ public class SubmissionController {
     }
 
     @GetMapping("/internal/judging/judge-inputs/{id}")
-    public SubmissionDtos.Input input(@PathVariable UUID id) {
-        return service.input(id.toString());
+    public JudgeInput getJudgeInput(@PathVariable UUID id) {
+        return service.getJudgeInput(id.toString());
     }
 
     private static String userId() {

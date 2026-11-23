@@ -6,6 +6,11 @@ import static org.mockito.Mockito.*;
 import com.cherryoj.submissionservice.api.SubmissionDtos.*;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import com.cherryoj.submissionservice.judging.ExecutionProfile;
+import com.cherryoj.submissionservice.judging.ExecutionProfile.JudgeLimits;
+import com.cherryoj.submissionservice.judging.ExecutionProfile.LimitDerivation;
+import com.cherryoj.submissionservice.judging.ExecutionProfile.LimitModel;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 import com.cherryoj.submissionservice.messaging.SubmissionLifecycle;
 import com.cherryoj.submissionservice.persistence.SubmissionMapper;
 import java.time.Instant;
@@ -67,14 +72,15 @@ class SubmissionPersistenceTests {
     @BeforeEach
     void setup() {
         service = new SubmissionService(store, prerequisites, json, manager, true, true);
-        var snapshot = new Snapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
-        when(prerequisites.snapshot(problem.toString(), "cpp")).thenReturn(snapshot);
-        when(prerequisites.profile(snapshot))
-                .thenReturn(new Profile(
+        var snapshot = new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(snapshot);
+        when(prerequisites.resolveExecutionProfile(snapshot))
+                .thenReturn(new ExecutionProfile(
                         problem.toString(),
                         "cpp",
                         calibration,
-                        new Limits(1000000000L, 268435456L, 3000000000L),
+                        new JudgeLimits(1000000000L, 268435456L, 3000000000L),
                         "BASE",
                         null,
                         40000000000L));
@@ -109,7 +115,7 @@ class SubmissionPersistenceTests {
             String id = ids.iterator().next();
             assertEquals(
                     1, jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event WHERE message_key=?", Integer.class, id));
-            assertEquals(request.source(), service.input(id).completeSource());
+            assertEquals(request.source(), service.getJudgeInput(id).completeSource());
             assertEquals(id, service.request(user, key).id());
             assertFalse(store.pending().stream()
                     .filter(x -> x.messageKey().equals(id))
@@ -131,14 +137,15 @@ class SubmissionPersistenceTests {
     void coreSubmissionFreezesTheDriverAndThePrefixedSolutionFile() {
         String prefix = "#include <bits/stdc++.h>\nusing namespace std;\n",
                 driver = "#include \"solution.cpp\"\nint main() {}\n";
-        var core = new Snapshot(problem.toString(), "A+B", "cpp", "CORE", driver, prefix);
-        when(prerequisites.snapshot(problem.toString(), "cpp")).thenReturn(core);
-        when(prerequisites.profile(core))
-                .thenReturn(new Profile(
+        var core = new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "CORE", driver, prefix);
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(core);
+        when(prerequisites.resolveExecutionProfile(core))
+                .thenReturn(new ExecutionProfile(
                         problem.toString(),
                         "cpp",
                         calibration,
-                        new Limits(1000000000L, 268435456L, 3000000000L),
+                        new JudgeLimits(1000000000L, 268435456L, 3000000000L),
                         "BASE",
                         null,
                         40000000000L));
@@ -148,16 +155,16 @@ class SubmissionPersistenceTests {
                 .view()
                 .id();
 
-        var input = service.input(id);
+        var input = service.getJudgeInput(id);
         assertEquals(driver, input.completeSource());
-        assertEquals(SubmissionService.sha(driver), input.sourceSha256());
+        assertEquals(SubmissionService.sha256(driver), input.sourceSha256());
         assertEquals(prefix + source, input.solutionSource());
-        assertEquals(SubmissionService.sha(prefix + source), input.solutionSha256());
+        assertEquals(SubmissionService.sha256(prefix + source), input.solutionSha256());
         assertEquals(2, input.solutionPrefixLineCount());
         assertEquals(source, service.source(user, id).source());
 
-        when(prerequisites.snapshot(problem.toString(), "cpp"))
-                .thenReturn(new Snapshot(problem.toString(), "A+B", "cpp", "ACM", null, null));
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "ACM", null, null));
         String acm = service.create(user, UUID.randomUUID().toString(), request("int main() {}"))
                 .view()
                 .id();
@@ -173,8 +180,9 @@ class SubmissionPersistenceTests {
     /** 限制来源与推导依据对不上：记下来也无法追溯，不建提交（docs/protocols/limits.md 第 6 节）。 */
     @Test
     void inconsistentLimitSourcesNeverCreateSubmissions() {
-        var snapshot = new Snapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
-        when(prerequisites.snapshot(problem.toString(), "cpp")).thenReturn(snapshot);
+        var snapshot = new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "ACM", null, null);
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(snapshot);
         var model = new LimitModel(1000, null, 0, 0, 1000, 0);
         var derivation = new LimitDerivation(
                 "cpp",
@@ -192,12 +200,12 @@ class SubmissionPersistenceTests {
                 model);
         long before = jdbc.queryForObject("SELECT COUNT(*) FROM submission", Long.class);
         for (var source : new Object[][] {{"DERIVED", null}, {"BASE", derivation}, {"UNKNOWN", null}, {null, null}}) {
-            when(prerequisites.profile(snapshot))
-                    .thenReturn(new Profile(
+            when(prerequisites.resolveExecutionProfile(snapshot))
+                    .thenReturn(new ExecutionProfile(
                             problem.toString(),
                             "cpp",
                             UUID.randomUUID().toString(),
-                            new Limits(1000000000L, 268435456L, null),
+                            new JudgeLimits(1000000000L, 268435456L, null),
                             (String) source[0],
                             (LimitDerivation) source[1],
                             40000000000L));
@@ -213,10 +221,11 @@ class SubmissionPersistenceTests {
     void inconsistentCoreSnapshotsNeverCreateSubmissions() {
         long before = jdbc.queryForObject("SELECT COUNT(*) FROM submission", Long.class);
         for (var snapshot : List.of(
-                new Snapshot(problem.toString(), "A+B", "cpp", "CORE", null, "p\n"),
-                new Snapshot(problem.toString(), "A+B", "cpp", "CORE", "driver", "no newline"),
-                new Snapshot(problem.toString(), "A+B", "cpp", "ACM", "driver", null))) {
-            when(prerequisites.snapshot(problem.toString(), "cpp")).thenReturn(snapshot);
+                new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "CORE", null, "p\n"),
+                new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "CORE", "driver", "no newline"),
+                new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "ACM", "driver", null))) {
+            when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                    .thenReturn(snapshot);
             var error = assertThrows(
                     SubmissionException.class,
                     () -> service.create(user, UUID.randomUUID().toString(), request("x")));
@@ -244,14 +253,14 @@ class SubmissionPersistenceTests {
     @Test
     void mismatchedSnapshotAndMissingProfileNeverCreateSubmission() {
         long before = jdbc.queryForObject("SELECT COUNT(*) FROM submission", Long.class);
-        when(prerequisites.snapshot(problem.toString(), "cpp"))
-                .thenReturn(new Snapshot(UUID.randomUUID().toString(), "A+B", "cpp", "ACM", null, null));
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(new ProblemJudgeSnapshot(UUID.randomUUID().toString(), "A+B", "cpp", "ACM", null, null));
         assertThrows(
                 SubmissionException.class,
                 () -> service.create(user, UUID.randomUUID().toString(), request("source")));
-        when(prerequisites.snapshot(problem.toString(), "cpp"))
-                .thenReturn(new Snapshot(problem.toString(), "A+B", "cpp", "ACM", null, null));
-        when(prerequisites.profile(any())).thenReturn(null);
+        when(prerequisites.resolveProblemJudgeSnapshot(problem.toString(), "cpp"))
+                .thenReturn(new ProblemJudgeSnapshot(problem.toString(), "A+B", "cpp", "ACM", null, null));
+        when(prerequisites.resolveExecutionProfile(any())).thenReturn(null);
         assertThrows(
                 SubmissionException.class,
                 () -> service.create(user, UUID.randomUUID().toString(), request("source")));
@@ -368,7 +377,8 @@ class SubmissionPersistenceTests {
                 readService.source(user, first).source());
         assertFalse(readService.source(user, first).toString().contains("original"));
         assertEquals(
-                readService.source(user, first).source(), service.input(first).completeSource());
+                readService.source(user, first).source(),
+                service.getJudgeInput(first).completeSource());
         var denied = assertThrows(SubmissionException.class, () -> readService.source(otherUser, first));
         var missing = assertThrows(
                 SubmissionException.class,

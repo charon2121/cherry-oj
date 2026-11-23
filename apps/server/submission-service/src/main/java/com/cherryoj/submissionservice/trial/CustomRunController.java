@@ -5,6 +5,7 @@ import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.submissionservice.api.SubmissionException;
 import com.cherryoj.submissionservice.application.JudgeSources;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import java.net.URI;
@@ -70,30 +71,32 @@ public class CustomRunController {
                 outerDeadline == null ? Long.MAX_VALUE : outerDeadline,
                 System.currentTimeMillis() + DEADLINE.toMillis());
         if (deadline <= System.currentTimeMillis()) throw timeout();
-        if (r.source().getBytes(StandardCharsets.UTF_8).length > 262144
+        String userSource = r.source();
+        if (userSource.getBytes(StandardCharsets.UTF_8).length > 262144
                 || r.inputText().getBytes(StandardCharsets.UTF_8).length > 65536)
             throw failure(HttpStatus.PAYLOAD_TOO_LARGE, "RUN_INPUT_TOO_LARGE", "源码或输入超过大小限制。");
-        var s = prerequisites.snapshot(r.problemId().toString(), r.languageId());
-        if (s == null
-                || !r.problemId().toString().equals(s.problemId())
-                || !JudgeSources.consistent(s)
-                || !r.languageId().equals(s.languageId())) throw unavailable();
+        ProblemJudgeSnapshot snapshot =
+                prerequisites.resolveProblemJudgeSnapshot(r.problemId().toString(), r.languageId());
+        if (snapshot == null
+                || !r.problemId().toString().equals(snapshot.problemId())
+                || !JudgeSources.consistent(snapshot)
+                || !r.languageId().equals(snapshot.languageId())) throw unavailable();
         // 与正式提交同一套合并：CORE 送驱动文件 + 用户文件，judging-service 据前缀行数换算报错行号。
-        var sources = JudgeSources.of(s, r.source());
+        JudgeSources judgeSources = JudgeSources.of(snapshot, userSource);
         var body = new java.util.LinkedHashMap<String, Object>(Map.of(
                 "problemId",
-                s.problemId(),
+                snapshot.problemId(),
                 "languageId",
                 r.languageId(),
                 "source",
-                sources.source(),
+                judgeSources.mainFileSource(),
                 "inputText",
                 r.inputText(),
                 "deadlineEpochMs",
                 deadline));
-        if (sources.solutionSource() != null) {
-            body.put("solutionSource", sources.solutionSource());
-            body.put("solutionPrefixLineCount", sources.solutionPrefixLineCount());
+        if (judgeSources.solutionFileSource() != null) {
+            body.put("solutionSource", judgeSources.solutionFileSource());
+            body.put("solutionPrefixLineCount", judgeSources.solutionPrefixLineCount());
         }
         long remaining = deadline - System.currentTimeMillis();
         if (remaining <= 0) throw timeout();
@@ -131,7 +134,7 @@ public class CustomRunController {
             for (String field : List.of(
                     "status", "cpuNs", "memoryBytes", "stdout", "stderr", "compileDiagnostic", "effectiveLimits"))
                 if (result.has(field)) output.set(field, result.get(field));
-            output.put("problemId", s.problemId());
+            output.put("problemId", snapshot.problemId());
             output.put("languageId", r.languageId());
             return ResponseEntity.ok().header("Cache-Control", "no-store").body(output);
         } catch (InterruptedException e) {

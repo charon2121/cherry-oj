@@ -1,9 +1,10 @@
 package com.cherryoj.submissionservice.integration;
 
-import com.cherryoj.submissionservice.api.SubmissionDtos.*;
+import com.cherryoj.submissionservice.judging.ExecutionProfile;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 
 public interface SubmissionPrerequisites {
-    Snapshot snapshot(String problemId, String languageId);
+    ProblemJudgeSnapshot resolveProblemJudgeSnapshot(String problemId, String languageId);
 
-    Profile profile(Snapshot snapshot);
+    ExecutionProfile resolveExecutionProfile(ProblemJudgeSnapshot snapshot);
 }

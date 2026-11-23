@@ -49,7 +49,7 @@ public interface SubmissionMapper {
     RequestRow request(@Param("user") String user, @Param("key") String key);
 
     @Select("SELECT payload FROM judge_input WHERE submission_id=#{id}")
-    String input(String id);
+    String getJudgeInputJson(String id);
 
     @Insert(
             "INSERT INTO submission(id,user_id,problem_id,status,read_model,source,created_at) VALUES(#{id},#{user},#{problem},'PENDING',#{model},#{source},#{now})")
@@ -62,7 +62,7 @@ public interface SubmissionMapper {
             @Param("now") LocalDateTime now);
 
     @Insert("INSERT INTO judge_input VALUES(#{id},#{payload})")
-    void putInput(@Param("id") String id, @Param("payload") String payload);
+    void putJudgeInput(@Param("id") String id, @Param("payload") String payload);
 
     @Insert("INSERT INTO submission_request VALUES(#{user},#{key},#{digest},#{id},#{now})")
     void putRequest(

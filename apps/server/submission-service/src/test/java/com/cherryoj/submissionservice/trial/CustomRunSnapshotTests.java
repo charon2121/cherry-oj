@@ -13,6 +13,7 @@ import com.cherryoj.identity.token.ServiceKeys;
 import com.cherryoj.identity.token.ServiceNames;
 import com.cherryoj.submissionservice.api.*;
 import com.cherryoj.submissionservice.integration.SubmissionPrerequisites;
+import com.cherryoj.submissionservice.judging.ProblemJudgeSnapshot;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.*;
@@ -50,21 +51,20 @@ class CustomRunSnapshotTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(atLimit))
                 .andExpect(status().isServiceUnavailable());
-        verify(prerequisites).snapshot(id, "cpp");
+        verify(prerequisites).resolveProblemJudgeSnapshot(id, "cpp");
     }
 
     @Test
     void snapshotOfAnotherProblemIsNeverForwarded() {
         var prerequisite = mock(SubmissionPrerequisites.class);
         var id = UUID.randomUUID();
-        when(prerequisite.snapshot(id.toString(), "cpp"))
-                .thenReturn(
-                        new SubmissionDtos.Snapshot(UUID.randomUUID().toString(), "title", "cpp", "ACM", null, null));
+        when(prerequisite.resolveProblemJudgeSnapshot(id.toString(), "cpp"))
+                .thenReturn(new ProblemJudgeSnapshot(UUID.randomUUID().toString(), "title", "cpp", "ACM", null, null));
         var controller = new CustomRunController(prerequisite, new ObjectMapper(), "http://127.0.0.1:1", SIGNER);
         var request = new CustomRunController.Request(id, "cpp", "int main(){}", "");
         var error = assertThrows(SubmissionException.class, () -> controller.run(request, null, null));
         assertEquals("CUSTOM_RUN_UNAVAILABLE", error.code());
-        verify(prerequisite, never()).profile(any());
+        verify(prerequisite, never()).resolveExecutionProfile(any());
     }
 
     @Test
@@ -72,8 +72,8 @@ class CustomRunSnapshotTests {
         var prerequisite = mock(SubmissionPrerequisites.class);
         var id = UUID.randomUUID();
         var json = new ObjectMapper();
-        when(prerequisite.snapshot(id.toString(), "cpp"))
-                .thenReturn(new SubmissionDtos.Snapshot(id.toString(), "title", "cpp", "ACM", null, null));
+        when(prerequisite.resolveProblemJudgeSnapshot(id.toString(), "cpp"))
+                .thenReturn(new ProblemJudgeSnapshot(id.toString(), "title", "cpp", "ACM", null, null));
         var captured = new java.util.concurrent.atomic.AtomicReference<tools.jackson.databind.JsonNode>();
         var authorization = new java.util.concurrent.atomic.AtomicReference<String>();
         var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
@@ -120,7 +120,7 @@ class CustomRunSnapshotTests {
             assertEquals("", captured.get().path("inputText").asText());
             assertEquals("int main(){}", captured.get().path("source").asText());
             assertFalse(captured.get().has("solutionSource"));
-            verify(prerequisite, never()).profile(any());
+            verify(prerequisite, never()).resolveExecutionProfile(any());
         } finally {
             server.stop(0);
         }
@@ -132,8 +132,8 @@ class CustomRunSnapshotTests {
         var prerequisite = mock(SubmissionPrerequisites.class);
         var id = UUID.randomUUID();
         var json = new ObjectMapper();
-        when(prerequisite.snapshot(id.toString(), "cpp"))
-                .thenReturn(new SubmissionDtos.Snapshot(
+        when(prerequisite.resolveProblemJudgeSnapshot(id.toString(), "cpp"))
+                .thenReturn(new ProblemJudgeSnapshot(
                         id.toString(),
                         "title",
                         "cpp",
