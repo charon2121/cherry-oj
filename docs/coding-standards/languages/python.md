@@ -3,8 +3,8 @@
 > 本项目跨语言约定见 [`project-conventions.md`](../project-conventions.md)，通用编码指令见
 > [`general.md`](../general.md)。
 
-本仓库的 Python 不是业务代码，而是**工具代码**：`scripts/*_test.py`（文档与契约校验）、`deploy/sandbox-linux/ci/*.py`（按需沙箱回归）、
-各服务的 `scripts/*.py`。它们服务于核心 CI 和按需验证，错误会影响开发或部署，所以约束比一般脚本严。
+本仓库的 Python 用于交付和验证，包括 `scripts/*_test.py` 的文档与契约校验、`deploy/sandbox-linux/` 的节点部署、
+`deploy/app/` 的应用发布以及 `benchmark/` 的判题回归。
 
 ## 1. 零第三方依赖
 

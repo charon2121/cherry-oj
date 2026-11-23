@@ -24,8 +24,6 @@ import (
 // 不提供任何隔离或限额，也不试图复刻 sandbox 的后端语义。
 type workspace struct{ dir string }
 
-// usage 的字段名与顺序是诊断脚本的输入格式（deploy/sandbox-linux/ci/diagnose_language.py
-// 按 %+v 的文本解析 java 编译耗时），改动字段即改动该脚本的契约。
 type usage struct {
 	ExitCode        int
 	Signal          int

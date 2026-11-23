@@ -82,8 +82,8 @@ Go 竞态测试与 vet、Web 183 项测试和构建、多语言浏览器 7 项�
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内；可带 CORE 的用户文件（`solutionSource`），文件名按 `contracts/languages.json` 的 `files`；benchmark 的 `core-add` 在本机 judge 镜像（devhost）上 7 项全过（2026-10-17） |
 | Docker 部署 | ✅ 单 judge 容器 Compose（开发与 MVP，devhost 后端） |
 | `apps/server`（五个 Java 服务） | ✅ 业务链路已实现；2026-10-07 起题目无版本、测试数据写成协议目录；支持 C/C++/PyPy/Java 的核心代码文件组织与用户行号换算。本轮 verify 共 343 项，342 项通过、1 项连接原生节点的客户端测试默认跳过 |
-| 五服务 + judge 全链路 | ✅ `scripts/e2e.py` 在隔离栈（MySQL/Redis/Kafka + 真实 judge 容器）通过：上传→校准→公开→AC/WA/CE/TLE、Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题原地修改与取消公开（2026-10-07）；C++ 核心代码 A+B：公开检查拦住没有驱动代码的题、标定、公开、AC/WA、用户文件编译错误报在编辑器行号 `solution.cpp:4`、签名错误报在 `Main.cpp:6`、自测运行错误的 stderr 同样换算、冻结输入含驱动文件与前缀 + 用户代码、驱动代码不出现在公开接口/Kafka/服务日志、改驱动代码后提示重新标定（2026-10-18，提交 `5c8562c`）；测试服务器上的原生节点已按新发布重装并实测（真实 systemd 单元与 setuid 执行器下按地址判题、篡改得 SE、崩溃恢复，2026-10-07）；**Linux 业务闭环**（一次性 GitHub VM 上正式安装原生节点 + Kafka + 五服务 + 真实页面 `e2e-live`）15 项全过，手动触发 `.github/workflows/business.yml`（2026-10-19，run 39196126198，提交 `946ba8f`）；原生节点上的 CORE 由 Benchmark 工作流验证（`core-add` 7 项，2026-10-17） |
-| `apps/web` | ✅ 题库、答题、提交、自测与管理工作台（含核心代码题的创建、驱动代码编辑与作答）；`npm run check` 与 Playwright（mock 后端）通过；`judge-node` 对隔离真实栈通过、`e2e-live` 在业务闭环 CI 中通过（2026-10-19） |
+| 五服务 + judge 全链路 | ✅ `scripts/e2e.py` 在隔离栈（MySQL/Redis/Kafka + 真实 judge 容器）通过：上传→校准→公开→AC/WA/CE/TLE、Kafka 与节点故障恢复、测试数据替换后旧校准过期并重新校准、公开题原地修改与取消公开（2026-10-07）；C++ 核心代码 A+B：公开检查拦住没有驱动代码的题、标定、公开、AC/WA、用户文件编译错误报在编辑器行号 `solution.cpp:4`、签名错误报在 `Main.cpp:6`、自测运行错误的 stderr 同样换算、冻结输入含驱动文件与前缀 + 用户代码、驱动代码不出现在公开接口/Kafka/服务日志、改驱动代码后提示重新标定（2026-10-18，提交 `5c8562c`）；测试服务器上的原生节点已按新发布重装并实测（真实 systemd 单元与 setuid 执行器下按地址判题、篡改得 SE、崩溃恢复，2026-10-07）；**Linux 业务闭环**（一次性 GitHub VM 上正式安装原生节点 + Kafka + 五服务 + 真实页面 `e2e-live`）通过 15 项验证（已退役的 Business 工作流，2026-10-19，run 39196126198，提交 `946ba8f`）；原生节点上的 CORE 由 Benchmark 工作流验证（`core-add` 7 项，2026-10-17） |
+| `apps/web` | ✅ 题库、答题、提交、自测与管理工作台（含核心代码题的创建、驱动代码编辑与作答）；`npm run check` 与 Playwright（mock 后端）通过；`judge-node` 对隔离真实栈通过、`e2e-live` 曾在 Business 工作流中通过（2026-10-19） |
 
 状态变化跟着实现走：某个模块从骨架变成可用时，把证据（提交号或 CI run）写进提交说明，再回来改这张表。
 不要凭印象更新——「✅」在这里的含义是「有人跑通过并留下了证据」。
