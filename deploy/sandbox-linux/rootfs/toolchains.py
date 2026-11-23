@@ -11,7 +11,6 @@
 """
 from __future__ import annotations
 import argparse
-import hashlib
 import json
 import re
 import shutil
@@ -20,7 +19,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 import build as builder
-from artifacts import read_lock
+from artifacts import digest, read_lock
 
 LOCKS = Path(__file__).resolve().parent / 'locks'
 LANGUAGE = re.compile(r'[a-z][a-z0-9-]{0,31}')
@@ -63,11 +62,6 @@ def union(paths: Sequence[Path]) -> dict[str, Any]:
             'source': 'union of ' + ', '.join(p.name for p in paths) + ' for download and caching only',
             'packages': [packages[name] for name in sorted(packages)],
             'archives': [archives[name] for name in sorted(archives)]}
-
-
-def digest(path: Path) -> str:
-    with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
 
 
 def build_release(release: Path, packages: Path, work: Path, directory: Path = LOCKS) -> None:

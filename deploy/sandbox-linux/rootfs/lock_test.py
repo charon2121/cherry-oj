@@ -1,4 +1,7 @@
+import lzma
+import tempfile
 import unittest
+from pathlib import Path
 
 import lock
 
@@ -32,6 +35,12 @@ class VersionTest(unittest.TestCase):
 
 
 class RelationTest(unittest.TestCase):
+    def test_offline_index_preserves_dependency_continuations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            index = Path(tmp) / 'Packages.xz'
+            index.write_bytes(lzma.compress(b'Package: gcc\nDepends: libc6,\n libgcc-s1\n'))
+            self.assertEqual(lock.read_index(index), [{'Package': 'gcc', 'Depends': 'libc6,\nlibgcc-s1'}])
+
     def test_parses_alternatives_versions_and_qualifiers(self):
         groups = lock.parse_relations('libc6 (>= 2.34), gcc:any | clang [amd64], python3:any <!nocheck>')
         self.assertEqual(groups, [[('libc6', '>=', '2.34')], [('gcc', None, None), ('clang', None, None)],

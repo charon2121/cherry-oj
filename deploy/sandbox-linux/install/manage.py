@@ -25,7 +25,7 @@ RELEASE_ID = re.compile(r'[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}')
 REVIEW_FILES = ('plan.json', 'executor.conf', 'judge-start.json', 'judge-start.py', 'health.py', 'judge.json',
                 'deployment.template.json', *UNITS)
 OPERATION_SCRIPTS = ('manage.py', 'layout.py', 'render.py', 'verify-native.py', 'verify-lifecycle.py',
-                     'verify-faults.py', 'verify-uninstall.py', 'verify-capabilities.py')
+                     'verify-faults.py', 'verify-capabilities.py')
 
 
 def run(*args):

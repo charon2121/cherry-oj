@@ -2,28 +2,51 @@
 """Download locked Ubuntu packages; indexes locate files, the reviewed SHA256 authorizes bytes."""
 from __future__ import annotations
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
+import io
 import lzma
-from pathlib import Path, PurePosixPath
-from typing import Any
 import tempfile
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path, PurePosixPath
+from typing import Any
 
+from artifacts import Archive, digest, read_lock
 from diagnostics import Diagnostics
-from artifacts import Archive, read_lock
 
 BASE = 'https://archive.ubuntu.com/ubuntu/'
 # The live archive keeps only current versions; locked packages vanish after updates.
 # Download from the snapshot taken when the lock was generated; change both together.
 SNAPSHOT = 'https://snapshot.ubuntu.com/ubuntu/20260910T000000Z/'
+SUITES = ('noble', 'noble-updates')
+
+
+def package_stanzas(lines: Iterable[str]) -> Iterator[dict[str, str]]:
+    """逐条读取 Ubuntu Packages 索引，也保留依赖字段的续行。"""
+    fields: dict[str, str] = {}
+    key = ''
+    for line in lines:
+        line = line.rstrip('\r\n')
+        if not line:
+            if fields:
+                yield fields
+            fields, key = {}, ''
+        elif line[0].isspace():
+            if key:
+                fields[key] += '\n' + line.strip()
+        else:
+            key, _, value = line.partition(':')
+            fields[key] = value.strip()
+    if fields:
+        yield fields
 
 
 def locations(open_url=urllib.request.urlopen, diagnostics=None, base=BASE):
     diagnostics = diagnostics or Diagnostics(False)
     result = {}
-    for number, suite in enumerate(('noble', 'noble-updates'), 1):
+    for number, suite in enumerate(SUITES, 1):
         with diagnostics.request(number, suite + '-Packages.xz') as observation:
             url = base + 'dists/' + suite + '/main/binary-amd64/Packages.xz'
             with observation.open(open_url, url) as response:
@@ -34,17 +57,10 @@ def locations(open_url=urllib.request.urlopen, diagnostics=None, base=BASE):
             if len(body) > 32 << 20:
                 raise ValueError('package index too large')
             observation.phase('parse')
-            import io
-            with lzma.open(io.BytesIO(body), 'rt') as stream:
-                fields = {}
-                for line in stream:
-                    if line == '\n':
-                        if 'Package' in fields and 'Filename' in fields:
-                            result[fields['Package']] = fields['Filename']
-                        fields = {}
-                    elif not line[0].isspace():
-                        key, _, value = line.partition(': ')
-                        fields[key] = value.strip()
+            with lzma.open(io.BytesIO(body), 'rt', encoding='utf-8') as stream:
+                for fields in package_stanzas(stream):
+                    if 'Package' in fields and 'Filename' in fields:
+                        result[fields['Package']] = fields['Filename']
             observation.phase('index_ready')
     return result
 
@@ -109,21 +125,16 @@ def download(lock: Path, output: Path, resume: bool = False, address_failover: b
         number, package = item
         with diagnostics.request(number, package['file']) as observation:
             filename = package['file']
-            if PurePosixPath(filename).name != filename:
-                raise ValueError('unsafe package name')
             target = output / filename
             if target.exists() or target.is_symlink():
                 if not resume or target.is_symlink() or not target.is_file():
                     raise ValueError('refusing existing output: '+filename)
-                with target.open('rb') as existing:
-                    if hashlib.file_digest(existing,'sha256').hexdigest() != package['sha256']:
-                        raise ValueError('existing package differs: '+filename)
+                if digest(target) != package['sha256']:
+                    raise ValueError('existing package differs: '+filename)
                 observation.phase('verified_existing')
                 return filename
             # 只有真要下载时才需要索引里的位置。
             path = archive_path(package, paths[package['package']])
-            if path.parts[0] != 'pool' or '..' in path.parts:
-                raise ValueError('unsafe archive location')
             url = base + urllib.parse.quote(str(path))
             h = hashlib.sha256()
             total = 0

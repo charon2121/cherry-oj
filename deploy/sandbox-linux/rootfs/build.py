@@ -2,7 +2,6 @@
 """离线组装 rootfs；只解包已锁定的来源，不运行安装脚本，不安装宿主软件。"""
 from __future__ import annotations
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,12 +9,7 @@ import shutil
 import stat
 import subprocess
 
-from artifacts import Archive, read_lock, unpack
-
-
-def digest(path):
-    with open(path, 'rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+from artifacts import Archive, digest, read_lock, unpack
 
 
 def seal(root, source):
@@ -78,14 +72,9 @@ def apply_layout(root, layout):
 
 def build(lock_path: Path, packages: Path, output: Path) -> None:
     lock = read_lock(lock_path, for_build=True)
-    records = lock.get('packages', [])
-    if not records or len(records) > 256:
-        raise ValueError('包数量无效')
     checked = []
-    for record in records:
+    for record in lock['packages']:
         name = record['file']
-        if Path(name).name != name or not name.endswith('.deb'):
-            raise ValueError('包必须是包目录下的 .deb 文件名')
         path = packages / name
         if path.is_symlink() or digest(path) != record['sha256']:
             raise ValueError(f'包摘要不符: {name}')

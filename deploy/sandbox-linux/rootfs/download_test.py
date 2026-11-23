@@ -84,7 +84,8 @@ class ArchiveLocationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             lock, package = self.fixture(root)
-            index = lzma.compress(b'Package: cpp\nFilename: pool/main/c/cpp/current.deb\n\n')
+            # 最后一条记录可以没有空行，下载器仍须找到包所在目录。
+            index = lzma.compress(b'Package: cpp\r\nFilename: pool/main/c/cpp/current.deb')
             open_url = Mock(side_effect=lambda url, **_: io.BytesIO(index if url.endswith('.xz') else b'locked-package'))
             with patch.object(module.urllib.request, 'urlopen', open_url), redirect_stdout(io.StringIO()):
                 module.download(lock, root / 'packages', base=module.SNAPSHOT)

@@ -11,7 +11,7 @@ rootfs 不是一台完整的系统，只装判题要用的包：给出几个根�
 - 依赖的是虚包（只有别的包 Provides 它）：取第一个提供者，按包名排序以保证结果稳定。
 - 版本约束满足不了就报错退出，不猜。
 
-快照地址与 download.py 的 SNAPSHOT 是同一个；换快照要两处一起换。
+快照地址沿用 download.py 的 SNAPSHOT。
 """
 from __future__ import annotations
 
@@ -27,9 +27,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Sequence
 
-from download import SNAPSHOT
+from download import SNAPSHOT, SUITES, package_stanzas
 
-SUITES = ('noble', 'noble-updates')
 ARCHITECTURES = ('amd64', 'all')
 MAX_INDEX_BYTES = 64 << 20
 
@@ -89,24 +88,6 @@ def satisfies(version, op, wanted):
 
 # ---------- 索引 ----------
 
-def parse_stanzas(text):
-    stanzas, fields, key = [], {}, None
-    for line in text.splitlines():
-        if not line:
-            if fields:
-                stanzas.append(fields)
-            fields, key = {}, None
-        elif line[0].isspace():
-            if key:
-                fields[key] += '\n' + line.strip()
-        else:
-            key, _, value = line.partition(':')
-            fields[key] = value.strip()
-    if fields:
-        stanzas.append(fields)
-    return stanzas
-
-
 def fetch_index(base, suite, component, open_url=urllib.request.urlopen, attempts=3, sleep=time.sleep):
     url = f'{base}dists/{suite}/{component}/binary-amd64/Packages.xz'
     for attempt in range(1, attempts + 1):
@@ -124,14 +105,14 @@ def fetch_index(base, suite, component, open_url=urllib.request.urlopen, attempt
     if len(body) > MAX_INDEX_BYTES:
         raise ValueError(f'package index too large: {url}')
     with lzma.open(io.BytesIO(body), 'rt', encoding='utf-8') as stream:
-        return parse_stanzas(stream.read())
+        return list(package_stanzas(stream))
 
 
 def read_index(path):
     if path.stat().st_size > MAX_INDEX_BYTES:
         raise ValueError(f'package index too large: {path}')
     with lzma.open(path, 'rt', encoding='utf-8') as stream:
-        return parse_stanzas(stream.read())
+        return list(package_stanzas(stream))
 
 
 class Index:

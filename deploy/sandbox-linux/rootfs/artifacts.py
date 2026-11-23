@@ -22,6 +22,11 @@ PREFIX = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_.+-]*')
 SHA256 = re.compile(r'[0-9a-f]{64}')
 
 
+def digest(path: Path) -> str:
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
 def relative_path(value: str) -> PurePosixPath:
     if (not isinstance(value, str) or not value or len(value) > 4096 or '\\' in value
             or any(part in ('', '.', '..') for part in value.split('/'))):
@@ -73,9 +78,8 @@ class Archive:
     def verify(self, path: Path) -> None:
         if path.is_symlink() or not path.is_file() or path.stat().st_size != self.size_bytes:
             raise ValueError('归档类型或大小不符: ' + self.file)
-        with path.open('rb') as stream:
-            if hashlib.file_digest(stream, 'sha256').hexdigest() != self.sha256:
-                raise ValueError('归档 SHA-256 不符: ' + self.file)
+        if digest(path) != self.sha256:
+            raise ValueError('归档 SHA-256 不符: ' + self.file)
 
 
 def read_lock(path: Path, *, for_build: bool = False) -> dict[str, Any]:
