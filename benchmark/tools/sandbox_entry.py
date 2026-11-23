@@ -14,7 +14,7 @@ from executor import DEFAULT_OUTPUT, DEFAULT_PROCESSES, Call, Executor, Executor
 from node import NodeInspector, Residue
 from results import AttackResult, Item, ProblemResult
 from run_config import DEFAULT_REPEATS, Declared
-from specs import RunResult, RunSpec
+from specs import SandboxRunObservation, SandboxRunCase
 
 # 运行说明里出现这些结论的，属于时间、内存类，默认重复运行以判定稳定性（协议 §7.3）。
 TIMEBOXED_REASONS = frozenset({"cpu", "wall", "output"})
@@ -30,7 +30,7 @@ class SandboxItem:
     source: str
     language: str
     limits: Limits
-    runs: tuple[RunSpec, ...]
+    runs: tuple[SandboxRunCase, ...]
     requires: tuple[str, ...]
     inputs: dict[str, bytes]  # 测试点名字 → .in 的内容（题目的提交用）
     repeat: int | None
@@ -68,19 +68,19 @@ class SandboxRunner:
 
     # ----- 一次运行 -----
 
-    def _limits(self, item: SandboxItem, spec: RunSpec) -> dict[str, int]:
+    def _limits(self, item: SandboxItem, spec: SandboxRunCase) -> dict[str, int]:
         limits = {**item.limits.request(), "maxProcesses": DEFAULT_PROCESSES, "stdoutMaxBytes": DEFAULT_OUTPUT,
                   "stderrMaxBytes": DEFAULT_OUTPUT}
         limits.update(spec.limits)
         return limits
 
     @staticmethod
-    def _stdin(item: SandboxItem, spec: RunSpec) -> bytes:
+    def _stdin(item: SandboxItem, spec: SandboxRunCase) -> bytes:
         if spec.testcase is not None:
             return item.inputs[spec.testcase]
         return (spec.stdin or "").replace(spec_lib.RUNNER_PID, str(os.getpid())).encode()
 
-    def _run_group(self, item: SandboxItem, binary: bytes, group: list[RunSpec]) -> list[Call]:
+    def _run_group(self, item: SandboxItem, binary: bytes, group: list[SandboxRunCase]) -> list[Call]:
         if len(group) > self.executor.config.box_count:
             raise ExecutorError(f"并发组有 {len(group)} 个成员，超过执行器配置的 box_count={self.executor.config.box_count}")
         if len(group) == 1:
@@ -109,15 +109,15 @@ class SandboxRunner:
         return [c for c in calls if isinstance(c, Call)]
 
     @staticmethod
-    def _observe(call: Call) -> tuple[RunResult | None, list[str]]:
+    def _observe(call: Call) -> tuple[SandboxRunObservation | None, list[str]]:
         """把一次调用变成可比对的观测；执行器拒绝或回收未确认时没有观测，只有差异。"""
         if call.exit_code != 0 or call.facts is None:
             note = "回收未确认，该 box 作废" if call.exit_code == 2 else "执行器拒绝了请求"
             return None, [f"{note}（退出码 {call.exit_code}）：{call.refusal or '没有说明'}"]
-        return RunResult(call.facts, call.stdout.decode(errors="replace"), call.stderr.decode(errors="replace"),
+        return SandboxRunObservation(call.facts, call.stdout.decode(errors="replace"), call.stderr.decode(errors="replace"),
                          call.elapsed_ms), []
 
-    def _repeats_for(self, item: SandboxItem, spec: RunSpec) -> int:
+    def _repeats_for(self, item: SandboxItem, spec: SandboxRunCase) -> int:
         if item.repeat is not None:
             return item.repeat
         assertions = spec.any_of or ((spec.assertion,) if spec.assertion else ())
@@ -188,7 +188,7 @@ class SandboxRunner:
         out.expected, out.actual = (expected[0], actual[0]) if len(item.runs) == 1 else (expected, actual)
         return out
 
-    def _judge_group(self, group: list[RunSpec], calls: list[Call]) -> tuple[tuple[Any, ...], list[str], list[dict[str, Any]]]:
+    def _judge_group(self, group: list[SandboxRunCase], calls: list[Call]) -> tuple[tuple[Any, ...], list[str], list[dict[str, Any]]]:
         diffs: list[str] = []
         signature: list[Any] = []
         runs: list[dict[str, Any]] = []

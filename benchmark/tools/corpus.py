@@ -22,7 +22,7 @@ import testdata_pack  # noqa: E402  （仓库脚本：生成与核对 testdata.j
 from corpus_base import (  # noqa: E402,F401  （其余模块通过 corpus 访问这些名字）
     ASSERTION_KEYS, LIMIT_KEYS, REQUIRES_PATTERNS, Check, CorpusError, fields, parse_check, parse_requires,
     positive_int, read_json)
-from specs import RunSpec, parse_run_specs
+from specs import SandboxRunCase, parse_sandbox_run_cases
 
 PROBLEM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ITEM_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}")
@@ -65,7 +65,7 @@ class Submission:
     message: Check | None
     requires: tuple[str, ...]
     probe: bool
-    sandbox: tuple[RunSpec, ...]  # sandbox 入口的运行说明，没有则为空
+    sandbox: tuple[SandboxRunCase, ...]  # sandbox 入口的运行说明，没有则为空
 
 
 @dataclass(frozen=True)
@@ -302,7 +302,7 @@ def load_submissions(problem: Problem, declared: Any, expect_path: Path) -> dict
             message=parse_check(item["message"], f"{where}.message") if "message" in item else None,
             requires=parse_requires(item.get("requires", []), f"{where}.requires"),
             probe=item.get("probe", False),
-            sandbox=parse_run_specs(item["sandbox"], f"{where}.sandbox", problem.testcase_names)
+            sandbox=parse_sandbox_run_cases(item["sandbox"], f"{where}.sandbox", problem.testcase_names)
             if "sandbox" in item else ())
     return result
 

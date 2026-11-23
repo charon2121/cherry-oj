@@ -8,7 +8,7 @@ from typing import Any
 
 import corpus as lib
 from corpus_base import CorpusError, fields, parse_requires, positive_int, read_json
-from specs import RunSpec, parse_run_specs
+from specs import SandboxRunCase, parse_sandbox_run_cases
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class AttackSample:
     language: str
     limits: lib.Limits
     judge: tuple[str, str] | None  # ("verdict", "TLE") 或 ("verdictNot", "AC")
-    sandbox: tuple[RunSpec, ...]
+    sandbox: tuple[SandboxRunCase, ...]
     repeat_judge: int
     repeat_sandbox: int | None  # None 表示按默认（时间、内存类重复 3 遍，其余 1 遍）
     requires: tuple[str, ...]
@@ -82,7 +82,7 @@ def load_sample(directory: Path, root: Path) -> AttackSample:
         if value not in lib.VERDICTS:
             raise CorpusError(f"{path} 的 judge.{kind} 必须是 {'、'.join(lib.VERDICTS)} 之一")
         judge = (kind, value)
-    sandbox = parse_run_specs(manifest["sandbox"], f"{path} 的 sandbox", None) if "sandbox" in manifest else ()
+    sandbox = parse_sandbox_run_cases(manifest["sandbox"], f"{path} 的 sandbox", None) if "sandbox" in manifest else ()
     if judge is None and not sandbox:
         raise CorpusError(f"{path}：judge 与 sandbox 至少要有一个")
     repeat = fields(manifest.get("repeat", {}), f"{path} 的 repeat", (), ("judge", "sandbox"))

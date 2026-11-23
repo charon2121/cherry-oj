@@ -5,7 +5,7 @@ from corpus_base import CorpusError
 
 
 def parse(value, testcases=("1", "2")):
-    return specs.parse_run_specs(value, "x", testcases)
+    return specs.parse_sandbox_run_cases(value, "x", testcases)
 
 
 class ParseTest(unittest.TestCase):
@@ -44,7 +44,7 @@ class ParseTest(unittest.TestCase):
 
     def test_attack_samples_cannot_use_testcase(self):
         with self.assertRaises(CorpusError):
-            specs.parse_run_specs([{"testcase": "1", "facts": {"reason": "x"}}], "x", None)
+            specs.parse_sandbox_run_cases([{"testcase": "1", "facts": {"reason": "x"}}], "x", None)
 
     def test_groups(self):
         parsed = parse([{"facts": {"reason": "a"}},
@@ -56,7 +56,7 @@ class ParseTest(unittest.TestCase):
 
 
 def result(**facts):
-    return specs.RunResult({"exitCode": 0, "reason": "", "cpuNs": 1_100_000_000, "cancelled": False, **facts},
+    return specs.SandboxRunObservation({"exitCode": 0, "reason": "", "cpuNs": 1_100_000_000, "cancelled": False, **facts},
                            "out", "err", 120.0)
 
 

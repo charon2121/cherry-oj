@@ -23,7 +23,7 @@ LINUX = Declared(backend="linux", languages=("cpp",), entries=("sandbox",))
 
 def item(source, runs, **extra):
     return sandbox_entry.SandboxItem(extra.pop("kind", "attack"), "sample", source, "cpp", LIMITS,
-                                     specs.parse_run_specs(runs, "t", None), extra.pop("requires", ()), {},
+                                     specs.parse_sandbox_run_cases(runs, "t", None), extra.pop("requires", ()), {},
                                      extra.pop("repeat", None))
 
 

@@ -28,7 +28,7 @@ class Assertion:
 
 
 @dataclass(frozen=True)
-class RunSpec:
+class SandboxRunCase:
     id: str | None
     testcase: str | None
     stdin: str | None
@@ -40,7 +40,7 @@ class RunSpec:
 
 
 @dataclass(frozen=True)
-class RunResult:
+class SandboxRunObservation:
     """一次执行器调用的观测。"""
 
     facts: dict[str, Any]
@@ -81,7 +81,7 @@ def _parse_assertion(raw: Any, where: str) -> Assertion:
         stderr=parse_check(obj["stderr"], f"{where}.stderr") if "stderr" in obj else None)
 
 
-def parse_run_specs(value: Any, where: str, testcases: tuple[str, ...] | None) -> tuple[RunSpec, ...]:
+def parse_sandbox_run_cases(value: Any, where: str, testcases: tuple[str, ...] | None) -> tuple[SandboxRunCase, ...]:
     """`testcases` 是所属题目的测试点名字；攻击样本传 None，表示不允许用 testcase。"""
     if not isinstance(value, list) or not value:
         raise CorpusError(f"{where} 必须是非空数组")
@@ -122,7 +122,7 @@ def parse_run_specs(value: Any, where: str, testcases: tuple[str, ...] | None) -
         concurrent = obj.get("concurrent", [])
         if not isinstance(concurrent, list) or not all(isinstance(c, str) for c in concurrent):
             raise CorpusError(f"{at}.concurrent 必须是 id 数组")
-        specs.append(RunSpec(spec_id, testcase, stdin, dict(limits), assertion, alternatives, elapsed,
+        specs.append(SandboxRunCase(spec_id, testcase, stdin, dict(limits), assertion, alternatives, elapsed,
                              tuple(concurrent)))
     ids = [s.id for s in specs if s.id]
     if len(ids) != len(set(ids)):
@@ -139,7 +139,7 @@ def parse_run_specs(value: Any, where: str, testcases: tuple[str, ...] | None) -
     return tuple(specs)
 
 
-def groups(specs: tuple[RunSpec, ...]) -> list[list[RunSpec]]:
+def groups(specs: tuple[SandboxRunCase, ...]) -> list[list[SandboxRunCase]]:
     """按 concurrent 关系分组：互相引用的成为一组，其余各自一组；保持在数组里的先后顺序。"""
     by_id = {s.id: s for s in specs if s.id}
     seen: set[int] = set()
@@ -183,7 +183,7 @@ def _describe(expected: Any) -> str:
     return repr(expected)
 
 
-def _assertion_diffs(assertion: Assertion, result: RunResult) -> list[str]:
+def _assertion_diffs(assertion: Assertion, result: SandboxRunObservation) -> list[str]:
     diffs = []
     for name, expected in assertion.facts.items():
         if name not in result.facts:
@@ -196,7 +196,7 @@ def _assertion_diffs(assertion: Assertion, result: RunResult) -> list[str]:
     return diffs
 
 
-def evaluate(spec: RunSpec, result: RunResult) -> list[str]:
+def evaluate(spec: SandboxRunCase, result: SandboxRunObservation) -> list[str]:
     """运行说明与一次观测的差异；空列表表示符合预期。"""
     if spec.any_of:
         attempts = [_assertion_diffs(a, result) for a in spec.any_of]
@@ -210,7 +210,7 @@ def evaluate(spec: RunSpec, result: RunResult) -> list[str]:
     return diffs
 
 
-def expected_summary(spec: RunSpec) -> dict[str, Any]:
+def expected_summary(spec: SandboxRunCase) -> dict[str, Any]:
     """报告里的「预期」：断言里提到的事实字段与取值。"""
     if spec.any_of:
         return {"anyOf": [dict(a.facts) for a in spec.any_of]}
@@ -218,7 +218,7 @@ def expected_summary(spec: RunSpec) -> dict[str, Any]:
     return dict(spec.assertion.facts)
 
 
-def actual_summary(spec: RunSpec, result: RunResult) -> dict[str, Any]:
+def actual_summary(spec: SandboxRunCase, result: SandboxRunObservation) -> dict[str, Any]:
     names = set()
     for assertion in (spec.any_of or ((spec.assertion,) if spec.assertion else ())):
         names |= set(assertion.facts)
