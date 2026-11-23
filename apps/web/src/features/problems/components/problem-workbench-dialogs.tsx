@@ -19,6 +19,8 @@ import type { AdminProblem, PublishCheck } from '@/generated/api';
 import { apiErrorMessage } from '@/lib/api/api-error-message';
 import { cn } from '@/lib/utils';
 
+import type { CalibrationLimits } from '../hooks/use-problem-calibration';
+
 // 工作台里不属于"写题面"的动作——替换测试数据、标定、公开——各自是一个从属性栏打开的对话框
 // （linear.app 新建 issue 对话框：宽 750、21px 圆角、标题 18px/600）。正文页只负责写。
 
@@ -148,8 +150,6 @@ export function TestDataDialog({
     </Dialog>
   );
 }
-
-export type CalibrationLimits = { cpuSeconds: string; memoryMib: string; clockSeconds: string };
 
 function LimitInput({
   label,

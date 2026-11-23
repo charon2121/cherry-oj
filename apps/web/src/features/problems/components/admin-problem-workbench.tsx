@@ -45,16 +45,9 @@ import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
 import { apiErrorMessage } from '@/lib/api/api-error-message';
 import { cn } from '@/lib/utils';
 
-import {
-  archiveProblem,
-  calibrate,
-  deleteProblem,
-  getAdminProblem,
-  getPublishCheck,
-  problemKeys,
-  publish,
-  unpublish,
-} from '../api/problems-api';
+import { archiveProblem, deleteProblem, getAdminProblem, problemKeys } from '../api/problems-api';
+import { useProblemCalibration } from '../hooks/use-problem-calibration';
+import { useProblemPublication } from '../hooks/use-problem-publication';
 import { useTestDataUpload } from '../hooks/use-test-data-upload';
 import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
@@ -63,7 +56,6 @@ import { ProblemSampleList } from './problem-sample-list';
 import { ProblemTagProperty } from './problem-tag-property';
 import {
   CalibrationDialog,
-  type CalibrationLimits,
   ConfirmationDialog,
   formatBytes,
   PublishDialog,
@@ -79,31 +71,6 @@ type MarkdownFieldName =
   'inputDescriptionMarkdown' | 'outputDescriptionMarkdown' | 'constraintsMarkdown' | 'hintMarkdown';
 
 const difficulties: ReadonlyArray<ProblemDifficulty> = ['UNRATED', 'EASY', 'MEDIUM', 'HARD'];
-
-function secondsToNanoseconds(value: string, optional = false): number | null {
-  if (optional && value.trim() === '') return null;
-  const converted = Number(value) * 1_000_000_000;
-  if (!Number.isFinite(converted) || converted <= 0 || !Number.isSafeInteger(converted)) {
-    throw new Error('时间限制必须是可换算为安全整数的正数。');
-  }
-  return converted;
-}
-
-function mebibytesToBytes(value: string): number {
-  const converted = Number(value) * 1_048_576;
-  if (!Number.isFinite(converted) || converted <= 0 || !Number.isSafeInteger(converted)) {
-    throw new Error('内存限制必须是可换算为安全整数的正数。');
-  }
-  return converted;
-}
-
-function nanosecondsToSeconds(value: number | null): string | undefined {
-  return value === null ? undefined : String(value / 1_000_000_000);
-}
-
-function bytesToMebibytes(value: number | null): string | undefined {
-  return value === null ? undefined : String(value / 1_048_576);
-}
 
 export function AdminProblemWorkbench({
   problemId,
@@ -180,23 +147,7 @@ function WorkbenchEditor({
   const navigate = useNavigate();
   const ids = useId();
   const statementId = `${ids}-statement`;
-  const [references, setReferences] = useState<Record<string, string>>({});
-  const [calibrationLanguageId, setCalibrationLanguageId] = useState('');
-  const [calibrationKind, setCalibrationKind] = useState<'BASE' | 'OVERRIDE'>('BASE');
-  const [limits, setLimits] = useState<CalibrationLimits>({
-    cpuSeconds: '1',
-    memoryMib: '256',
-    clockSeconds: '',
-  });
   const [confirming, setConfirming] = useState<'archive' | 'delete'>();
-  const isCore = problem.codeMode === 'CORE';
-  const language =
-    problem.allowedLanguages.find((item) => item.id === calibrationLanguageId) ??
-    problem.allowedLanguages[0];
-  if (!language) throw new Error('题目语言配置为空。');
-  const referenceSource = references[language.id] ?? '';
-  const setReferenceSource = (value: string) =>
-    setReferences((previous) => ({ ...previous, [language.id]: value }));
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: problemKeys.adminProblem(problem.id) }),
@@ -205,7 +156,9 @@ function WorkbenchEditor({
     ]);
   };
 
-  const hasReferenceSource = Object.values(references).some((value) => value.trim().length > 0);
+  const publication = useProblemPublication(problem.id, problem.rowVersion, refresh);
+  const { check, nodeUnavailable, calibrationReady, passedChecks, totalChecks } = publication;
+  const calibration = useProblemCalibration(problem, check, refresh);
   const {
     form,
     title,
@@ -228,56 +181,11 @@ function WorkbenchEditor({
     markChanged,
     reloadLatest,
     copyLocalDraft,
-  } = useProblemWorkbenchSave(problem, hasReferenceSource);
+  } = useProblemWorkbenchSave(problem, calibration.hasReferenceSource);
   usePageCrumb(title || problem.title);
 
   const upload = useTestDataUpload(problem.id, refresh);
 
-  const calibration = useMutation({
-    mutationFn: () => {
-      const cpuNs = secondsToNanoseconds(limits.cpuSeconds);
-      const clockNs = secondsToNanoseconds(limits.clockSeconds, true);
-      if (cpuNs === null) throw new Error('请填写 CPU 时间限制。');
-      return calibrate(problem.id, {
-        languageId: language.id,
-        kind: calibrationKind,
-        cpuNs,
-        memoryBytes: mebibytesToBytes(limits.memoryMib),
-        clockNs,
-        referenceSource,
-      });
-    },
-    onSuccess: async (result) => {
-      const cpuSeconds = nanosecondsToSeconds(result.cpuNs);
-      const memoryMib = bytesToMebibytes(result.memoryBytes);
-      const clockSeconds = nanosecondsToSeconds(result.clockNs);
-      setLimits((current) => ({
-        cpuSeconds: cpuSeconds ?? current.cpuSeconds,
-        memoryMib: memoryMib ?? current.memoryMib,
-        clockSeconds: clockSeconds ?? '',
-      }));
-      setReferences((previous) => ({ ...previous, [result.languageId]: '' }));
-      await refresh();
-      await queryClient.invalidateQueries({ queryKey: problemKeys.limits(problem.id) });
-      await queryClient.invalidateQueries({ queryKey: problemKeys.readyLanguages(problem.slug) });
-    },
-  });
-
-  const check = useQuery({
-    queryKey: problemKeys.publishCheck(problem.id),
-    queryFn: ({ signal }) => getPublishCheck(problem.id, signal),
-    refetchInterval: 10_000,
-    retry: false,
-  });
-
-  const publishing = useMutation({
-    mutationFn: () => publish(problem.id, problem.rowVersion),
-    onSuccess: refresh,
-  });
-  const unpublishing = useMutation({
-    mutationFn: () => unpublish(problem.id, problem.rowVersion),
-    onSuccess: refresh,
-  });
   const archive = useMutation({
     mutationFn: () => archiveProblem(problem.id, problem.rowVersion),
     onSuccess: refresh,
@@ -289,28 +197,6 @@ function WorkbenchEditor({
       await navigate({ to: '/admin/problems', search: { page: 1, q: '', status: 'ALL' } });
     },
   });
-
-  const nodeUnavailable = check.data?.checks.find(
-    (item) => item.code === 'ONLINE_JUDGE_NODE' && !item.passed,
-  );
-  const calibrationReady = Boolean(
-    check.data?.checks.some((item) => item.code === 'CALIBRATION' && item.passed),
-  );
-  const passedChecks = check.data?.checks.filter((item) => item.passed).length ?? 0;
-  const totalChecks = check.data?.checks.length ?? 0;
-
-  let calibrationBlocked = unsavedReason;
-  if (calibrationBlocked === undefined && !problem.testData)
-    calibrationBlocked = '先上传测试数据。';
-  const selectedChecks =
-    check.data?.languages?.find((item) => item.languageId === language.id)?.checks ??
-    check.data?.checks;
-  const unavailable = selectedChecks?.find(
-    (item) => (item.code === 'ONLINE_JUDGE_NODE' || item.code === 'LANGUAGE') && !item.passed,
-  );
-  if (calibrationBlocked === undefined && unavailable) calibrationBlocked = unavailable.message;
-  if (calibrationBlocked === undefined && isCore && !language.judgeTemplate?.trim())
-    calibrationBlocked = '先保存这门语言的驱动代码。';
 
   const scrollToSection = (sectionId: string) => {
     onPanelChange(undefined);
@@ -520,10 +406,10 @@ function WorkbenchEditor({
               saveRef={languageEditor}
               onSavingChange={setLanguageSaving}
               onCalibrate={(id) => {
-                setCalibrationLanguageId(id);
+                calibration.setLanguageId(id);
                 onPanelChange('calibration');
               }}
-              calibration={calibration.data}
+              calibration={calibration.result}
             />
           </div>
         </form>
@@ -625,7 +511,7 @@ function WorkbenchEditor({
               <PropertyButton icon={<Server aria-hidden="true" />} disabled>
                 {nodeUnavailable
                   ? '没有在线判题节点'
-                  : check.data
+                  : check
                     ? '判题节点在线'
                     : '正在检查判题节点…'}
               </PropertyButton>
@@ -634,7 +520,7 @@ function WorkbenchEditor({
             <PropertyGroup title="公开">
               <PropertyButton
                 icon={
-                  check.data?.ready ? (
+                  check?.ready ? (
                     <CircleDot className="text-success" aria-hidden="true" />
                   ) : (
                     <CircleDashed aria-hidden="true" />
@@ -642,11 +528,11 @@ function WorkbenchEditor({
                 }
                 onClick={() => onPanelChange('publish')}
               >
-                {!check.data
+                {!check
                   ? '正在检查…'
                   : isPublic
                     ? '公开设置'
-                    : check.data.ready
+                    : check.ready
                       ? '可以公开'
                       : `公开检查 ${passedChecks} / ${totalChecks}`}
               </PropertyButton>
@@ -672,80 +558,56 @@ function WorkbenchEditor({
           <div className="flex flex-wrap gap-3">
             <SelectField
               label="标定语言"
-              value={language.id}
-              disabled={calibration.isPending}
+              value={calibration.language.id}
+              disabled={calibration.isRunning}
               items={problem.allowedLanguages.map((item) => ({
                 value: item.id,
                 label: item.displayName,
               }))}
-              onValueChange={(id) => {
-                setCalibrationLanguageId(id);
-                calibration.reset();
-              }}
+              onValueChange={calibration.selectLanguage}
             />
             <SelectField
               label="标定方式"
-              value={calibrationKind}
-              disabled={calibration.isPending}
+              value={calibration.kind}
+              disabled={calibration.isRunning}
               items={[
                 { value: 'BASE', label: '基础标定' },
                 { value: 'OVERRIDE', label: '覆盖标定' },
               ]}
               onValueChange={(kind) => {
-                if (kind === 'BASE' || kind === 'OVERRIDE') setCalibrationKind(kind);
+                if (kind === 'BASE' || kind === 'OVERRIDE') calibration.setKind(kind);
               }}
             />
           </div>
         }
-        limits={limits}
-        onLimitsChange={setLimits}
-        referenceLabel={isCore ? '参考核心代码' : '参考程序'}
-        languageId={language.id}
-        languageName={language.displayName}
-        referenceSource={referenceSource}
-        onReferenceSourceChange={setReferenceSource}
+        limits={calibration.limits}
+        onLimitsChange={calibration.setLimits}
+        referenceLabel={calibration.referenceLabel}
+        languageId={calibration.language.id}
+        languageName={calibration.language.displayName}
+        referenceSource={calibration.referenceSource}
+        onReferenceSourceChange={calibration.setReferenceSource}
         editable={editable}
-        blockedReason={calibrationBlocked}
-        running={calibration.isPending}
-        resultMessage={
-          calibration.data
-            ? `标定状态：${calibration.data.status}。参考源码已从页面内存清除。`
-            : undefined
-        }
-        errorMessage={
-          calibration.isError
-            ? apiErrorMessage(calibration.error, '标定失败，参考程序仍保留在当前页面。')
-            : undefined
-        }
-        onRun={() => calibration.mutate()}
+        blockedReason={calibration.blockedReason(unsavedReason)}
+        running={calibration.isRunning}
+        resultMessage={calibration.resultMessage}
+        errorMessage={calibration.errorMessage}
+        onRun={calibration.run}
       />
       <PublishDialog
         open={panel === 'publish'}
         onOpenChange={(open) => onPanelChange(open ? 'publish' : undefined)}
-        check={check.data}
-        checkPending={check.isPending}
-        checkFetching={check.isFetching}
-        checkError={
-          check.isError ? apiErrorMessage(check.error, '公开检查失败，请刷新题目状态。') : undefined
-        }
-        onRecheck={() => void check.refetch()}
+        check={check}
+        checkPending={publication.isChecking}
+        checkFetching={publication.isRefreshingCheck}
+        checkError={publication.checkError}
+        onRecheck={publication.refreshCheck}
         isPublic={isPublic}
         blockedReason={unsavedReason}
-        acting={publishing.isPending || unpublishing.isPending}
-        actionError={
-          publishing.isError || unpublishing.isError
-            ? apiErrorMessage(
-                publishing.error ?? unpublishing.error,
-                '操作失败，题目状态保持不变。',
-              )
-            : undefined
-        }
-        onPublish={() =>
-          publishing.mutate(undefined, { onSuccess: () => onPanelChange(undefined) })
-        }
-        onUnpublish={() =>
-          unpublishing.mutate(undefined, { onSuccess: () => onPanelChange(undefined) })
-        }
+        acting={publication.isChangingVisibility}
+        actionError={publication.actionError}
+        onPublish={() => publication.publish(() => onPanelChange(undefined))}
+        onUnpublish={() => publication.unpublish(() => onPanelChange(undefined))}
         onResolve={resolveCheck}
       />
       <ConfirmationDialog
@@ -773,7 +635,7 @@ function WorkbenchEditor({
             <DialogTitle>离开前确认未提交内容</DialogTitle>
             <DialogDescription>
               {hasUnsavedEdits ? '题目修改尚未保存。' : ''}
-              {hasReferenceSource ? '参考程序只在当前页面内存中，离开后会丢失。' : ''}
+              {calibration.hasReferenceSource ? '参考程序只在当前页面内存中，离开后会丢失。' : ''}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
