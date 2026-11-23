@@ -17,3 +17,5 @@
 | `wa_token` | `N+1` | 无 | WA | token 不同才是 WA |
 
 同一排版的 `_loose` 与 `_strict` 两个文件**源码逐字节相同**（有单测守着）：一个提交只有一个预期，所以靠 `requires` 区分。运行者声明的 `strictWhitespace` 决定哪一半运行、哪一半跳过。
+
+PyPy 与 Java 分别复用这组测试点，覆盖精确输出、token 不匹配与表中的四种空白差异。

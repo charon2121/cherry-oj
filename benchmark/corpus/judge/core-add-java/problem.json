@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "name": "core-add-java",
+  "title": "Java 核心代码模式：驱动与用户文件的组合及错误位置",
+  "seed": 1,
+  "limits": {
+    "cpuNs": 1000000000,
+    "memoryBytes": 268435456,
+    "clockNs": 3000000000
+  },
+  "requires": [],
+  "driver": "driver.java"
+}

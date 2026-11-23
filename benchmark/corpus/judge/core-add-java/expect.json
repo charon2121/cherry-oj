@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "ce_solution": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "Solution.java:7:"
+      }
+    },
+    "ce_signature": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "Main.java:8:"
+      }
+    },
+    "ac_add": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "re_exception": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    }
+  },
+  "requests": {},
+  "trials": {
+    "trial_ac": {
+      "source": "ac_add",
+      "verdict": "AC",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "AC"
+        }
+      ]
+    },
+    "trial_re": {
+      "source": "re_exception",
+      "verdict": "RE",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "RE",
+          "stderr": {
+            "contains": "Solution.java:7"
+          }
+        }
+      ]
+    }
+  }
+}

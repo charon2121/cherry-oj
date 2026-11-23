@@ -65,13 +65,13 @@ def load_sample(directory: Path, root: Path) -> AttackSample:
         raise CorpusError(f"{path} 的 schemaVersion 只支持 1")
     if manifest["name"] != name:
         raise CorpusError(f"{path} 的 name 必须与目录名 {name} 相同")
-    if manifest["language"] not in lib.LANGUAGES.values():
-        raise CorpusError(f"{path} 的 language 必须是 {', '.join(lib.LANGUAGES.values())}")
+    if manifest["language"] not in lib.SANDBOX_SOURCE_LANGUAGES.values():
+        raise CorpusError(f"{path} 的 language 必须是 {', '.join(lib.SANDBOX_SOURCE_LANGUAGES.values())}")
     limits = fields(manifest["limits"], f"{path} 的 limits", lib.LIMIT_KEYS)
     source_path = (directory / manifest.get("source", "sample.cpp")).resolve()
     if root.resolve() not in source_path.parents or not source_path.is_file():
         raise CorpusError(f"{path} 的源码 {manifest.get('source', 'sample.cpp')!r} 不存在，或不在语料根之内")
-    if source_path.suffix not in lib.LANGUAGES:
+    if source_path.suffix not in lib.SANDBOX_SOURCE_LANGUAGES:
         raise CorpusError(f"{source_path} 的扩展名不是支持的语言")
     judge = None
     if "judge" in manifest:

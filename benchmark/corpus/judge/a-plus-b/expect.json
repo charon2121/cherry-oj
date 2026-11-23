@@ -145,6 +145,89 @@
           }
         }
       ]
+    },
+    "pypy_ac_stderr": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "pypy_re_exit": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    },
+    "pypy_tle_loop": {
+      "verdict": "TLE",
+      "testcases": [
+        "TLE",
+        "TLE",
+        "TLE"
+      ]
+    },
+    "java_ac_stderr": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "java_wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "java_re_exit": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    },
+    "java_tle_loop": {
+      "verdict": "TLE",
+      "testcases": [
+        "TLE",
+        "TLE",
+        "TLE"
+      ]
+    },
+    "pypy_re_syntax": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    },
+    "java_ce_syntax": {
+      "verdict": "CE",
+      "testcases": []
+    },
+    "java_ce_marker": {
+      "verdict": "CE",
+      "testcases": [],
+      "message": {
+        "contains": "BENCHMARK_EXPECTED_COMPILE_ERROR"
+      }
     }
   },
   "requests": {
@@ -221,6 +304,40 @@
           "verdict": "RAN",
           "output": {
             "contains": "3"
+          }
+        }
+      ]
+    },
+    "pypy_trial_ran_stderr": {
+      "source": "pypy_ac_stderr",
+      "verdict": "RAN",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "verdict": "RAN",
+          "stderr": {
+            "contains": "用于 Benchmark 的日志"
+          },
+          "output": {
+            "equals": "3\n"
+          }
+        }
+      ]
+    },
+    "java_trial_ran_stderr": {
+      "source": "java_ac_stderr",
+      "verdict": "RAN",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "verdict": "RAN",
+          "stderr": {
+            "contains": "用于 Benchmark 的日志"
+          },
+          "output": {
+            "equals": "3\n"
           }
         }
       ]

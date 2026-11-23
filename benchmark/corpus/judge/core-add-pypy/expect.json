@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "submissions": {
+    "re_solution": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    },
+    "re_signature": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    },
+    "ac_add": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "wa_minus": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "re_exception": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
+    }
+  },
+  "requests": {},
+  "trials": {
+    "trial_ac": {
+      "source": "ac_add",
+      "verdict": "AC",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "AC"
+        }
+      ]
+    },
+    "trial_re_exception": {
+      "source": "re_exception",
+      "verdict": "RE",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "RE",
+          "stderr": {
+            "contains": "solution.py\", line 5"
+          }
+        }
+      ]
+    },
+    "trial_re_signature": {
+      "source": "re_signature",
+      "verdict": "RE",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "RE",
+          "stderr": {
+            "contains": "Main.py\", line 4"
+          }
+        }
+      ]
+    },
+    "trial_re_solution": {
+      "source": "re_solution",
+      "verdict": "RE",
+      "testcases": [
+        {
+          "name": "sample",
+          "input": "1 2\n",
+          "expected": "3\n",
+          "verdict": "RE",
+          "stderr": {
+            "contains": "solution.py\", line 4"
+          }
+        }
+      ]
+    }
+  }
+}

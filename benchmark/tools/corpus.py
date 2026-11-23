@@ -26,12 +26,12 @@ from specs import SandboxRunCase, parse_sandbox_run_cases
 
 PROBLEM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 ITEM_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}")
-DRIVER_NAME = re.compile(r"[a-z0-9][a-z0-9_]{0,62}\.(?:cpp|c)")
 VERDICTS = ("AC", "WA", "PE", "CE", "RE", "TLE", "MLE", "OLE", "SE")
 TRIAL_VERDICTS = VERDICTS + ("RAN",)
 # 从最严重到最轻（协议 §3.1）；RAN 只出现在试运行里。
 SEVERITY = ("SE", "CE", "RE", "MLE", "OLE", "TLE", "WA", "PE", "RAN", "AC")
-LANGUAGES = {".c": "c", ".cpp": "cpp"}
+SANDBOX_SOURCE_LANGUAGES = {".c": "c", ".cpp": "cpp"}
+JUDGE_SOURCE_LANGUAGES = {**SANDBOX_SOURCE_LANGUAGES, ".py": "pypy", ".java": "java"}
 
 
 def worst(verdicts: list[str]) -> str:
@@ -232,12 +232,18 @@ def load_problem(directory: Path) -> Problem:
     limits = fields(meta["limits"], f"{meta_path} 的 limits", LIMIT_KEYS)
     digest, names = testdata_info(directory / "testdata")
     driver = None
+    driver_language = None
     if "driver" in meta:
-        if not isinstance(meta["driver"], str) or not DRIVER_NAME.fullmatch(meta["driver"]):
-            raise CorpusError(f"{meta_path} 的 driver 必须是本题目录下的文件名，符合 {DRIVER_NAME.pattern}")
-        if not (directory / meta["driver"]).is_file():
-            raise CorpusError(f"{meta_path} 的 driver 指向的 {meta['driver']} 不存在")
-        driver = (directory / meta["driver"]).read_text(encoding="utf-8")
+        filename = meta["driver"]
+        if not isinstance(filename, str) or Path(filename).name != filename or not ITEM_NAME.fullmatch(Path(filename).stem):
+            raise CorpusError(f"{meta_path} 的 driver 必须是本题目录下的文件名，主文件名符合 {ITEM_NAME.pattern}")
+        driver_path = directory / filename
+        driver_language = JUDGE_SOURCE_LANGUAGES.get(driver_path.suffix)
+        if driver_language is None:
+            raise CorpusError(f"{meta_path} 的 driver 扩展名必须是 {', '.join(JUDGE_SOURCE_LANGUAGES)}")
+        if not driver_path.is_file():
+            raise CorpusError(f"{meta_path} 的 driver 指向的 {filename} 不存在")
+        driver = driver_path.read_text(encoding="utf-8")
     problem = Problem(
         name=name, directory=directory, title=meta["title"], seed=meta["seed"],
         limits=Limits(*(positive_int(limits[key], f"{meta_path} 的 limits.{key}") for key in LIMIT_KEYS)),
@@ -249,6 +255,10 @@ def load_problem(directory: Path) -> Problem:
     if expect["schemaVersion"] != 1:
         raise CorpusError(f"{expect_path} 的 schemaVersion 只支持 1")
     submissions = load_submissions(problem, expect["submissions"], expect_path)
+    if driver_language is not None:
+        for submission in submissions.values():
+            if submission.language != driver_language:
+                raise CorpusError(f"{submission.path} 的语言必须与 CORE 驱动文件一致（{driver_language}）")
     return Problem(**{
         **problem.__dict__,
         "submissions": submissions,
@@ -261,10 +271,15 @@ def load_submissions(problem: Problem, declared: Any, expect_path: Path) -> dict
     if not isinstance(declared, dict):
         raise CorpusError(f"{expect_path} 的 submissions 必须是对象")
     directory = problem.directory / "submissions"
-    files = {path.stem: path for path in directory.iterdir() if path.is_file()} if directory.is_dir() else {}
-    for stem, path in files.items():
-        if path.suffix not in LANGUAGES:
-            raise CorpusError(f"{path} 的扩展名不是支持的语言（{', '.join(LANGUAGES)}）")
+    files: dict[str, Path] = {}
+    for path in sorted(directory.glob("*")):
+        if not path.is_file():
+            continue
+        if path.suffix not in JUDGE_SOURCE_LANGUAGES:
+            raise CorpusError(f"{path} 的扩展名不是支持的语言（{', '.join(JUDGE_SOURCE_LANGUAGES)}）")
+        if path.stem in files:
+            raise CorpusError(f"{path} 与 {files[path.stem]} 的提交名重复")
+        files[path.stem] = path
     if set(files) != set(declared):
         only_files = sorted(set(files) - set(declared))
         only_expect = sorted(set(declared) - set(files))
@@ -293,11 +308,14 @@ def load_submissions(problem: Problem, declared: Any, expect_path: Path) -> dict
                 raise CorpusError(f"{where}：整体 {verdict} 与逐点结论按严重度取最坏者（{worst(testcases)}）不一致")
         if not isinstance(item.get("probe", False), bool):
             raise CorpusError(f"{where}.probe 必须是布尔值")
-        if problem.driver is not None and "sandbox" in item:
-            raise CorpusError(f"{where}：CORE 题的提交只是用户文件，sandbox 入口单独编译它没有意义，不能写 sandbox")
         path = files[name]
+        if "sandbox" in item:
+            if problem.driver is not None:
+                raise CorpusError(f"{where}：CORE 题的提交只是用户文件，sandbox 入口单独编译它没有意义，不能写 sandbox")
+            if path.suffix not in SANDBOX_SOURCE_LANGUAGES:
+                raise CorpusError(f"{where}：sandbox 入口仅支持 C/C++，不能写 sandbox")
         result[name] = Submission(
-            name=name, path=path, language=LANGUAGES[path.suffix], source=path.read_text(encoding="utf-8"),
+            name=name, path=path, language=JUDGE_SOURCE_LANGUAGES[path.suffix], source=path.read_text(encoding="utf-8"),
             verdict=verdict, testcases=tuple(testcases),
             message=parse_check(item["message"], f"{where}.message") if "message" in item else None,
             requires=parse_requires(item.get("requires", []), f"{where}.requires"),

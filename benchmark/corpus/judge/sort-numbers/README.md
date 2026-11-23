@@ -17,4 +17,6 @@
 | `tle_bubble` | TLE | AC AC AC TLE TLE | `n = 1000` 够快，`n = 10^5` 的冒泡远超 CPU 限制 |
 | `wa_unique` | WA | AC WA AC WA WA | 排序后去重，只有含重复的点才错 |
 
+PyPy 与 Java 各覆盖标准库排序（AC）、去重导致部分 WA、冒泡排序只在大输入上 TLE。Java 冒泡排序执行两轮，以拉开与 CPU 限制的距离。
+
 参考解 A 用内置排序，B 是手写堆排序。

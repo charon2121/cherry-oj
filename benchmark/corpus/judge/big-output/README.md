@@ -12,3 +12,5 @@
 | `ac_modest` | AC | AC AC | 输出远小于上限 |
 | `ole_flood` | OLE | OLE OLE | 忽略输入，无限输出 |
 | `probe_near_limit` | 探测项 | 只记录 | 输出约 1 MiB 减一点，观察边界；预期值只是占位，不进断言 |
+
+PyPy 与 Java 各有三项。正常输出约 0.3 MB 以内，OLE 提交尝试输出 2 MiB，探测项输出 1 MiB 减 4 KiB。

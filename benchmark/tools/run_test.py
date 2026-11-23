@@ -58,7 +58,7 @@ class RunTest(unittest.TestCase):
         self.assertEqual(report["environment"]["corpusDigest"], lib.corpus_digest(self.corpus.digests()))
         self.assertIsNone(report["environment"]["kernel"])
         self.assertEqual(report["summary"]["judge"]["failed"], 0)
-        self.assertEqual(report["summary"]["judge"]["ran"], 18)
+        self.assertEqual(report["summary"]["judge"]["ran"], 31)
         self.assertEqual(set(self.statuses().values()), {"pass"})
         self.assertIn("攻击样本：0，未覆盖沙箱安全", out)
 
@@ -146,17 +146,17 @@ class RunTest(unittest.TestCase):
     def run_everything(self, *declare: str) -> dict:
         strict = "strictWhitespace=true" in declare
         with fake_judge.FakeJudge(fake_judge.ideal_corpus(self.corpus, self.published.resolve(), strict)) as judge:
-            code, _, err = self.go(judge.url, select=None, declare=("backend=linux", "languages=cpp", *declare))
+            code, _, err = self.go(judge.url, select=None, declare=("backend=linux", "languages=cpp,c,pypy,java", *declare))
         self.assertEqual((code, err), (0, ""))
         return self.report()["summary"]["judge"]
 
     def test_whole_corpus_runs_the_half_of_whitespace_the_declaration_selects(self):
-        # 70 项 = 59 个提交 + 6 个请求级 + 5 个试运行；whitespace 的 8 个 _loose/_strict 只有一半会运行，探测项另计。
-        self.assertEqual(self.run_everything(), dict(ran=61, passed=61, failed=0, unstable=0, skipped=8, probes=1))
+        # 154 项 = 135 个提交 + 6 个请求级 + 13 个试运行。空白模式用例按节点声明选择，探测项另计。
+        self.assertEqual(self.run_everything(), dict(ran=127, passed=127, failed=0, unstable=0, skipped=24, probes=3))
         self.assertEqual(self.run_everything("strictWhitespace=false"),
-                         dict(ran=65, passed=65, failed=0, unstable=0, skipped=4, probes=1))
+                         dict(ran=139, passed=139, failed=0, unstable=0, skipped=12, probes=3))
         self.assertEqual(self.run_everything("strictWhitespace=true"),
-                         dict(ran=65, passed=65, failed=0, unstable=0, skipped=4, probes=1))
+                         dict(ran=139, passed=139, failed=0, unstable=0, skipped=12, probes=3))
         self.assertEqual(self.statuses("whitespace")["ws_crlf_strict"], "pass")
 
     def test_linux_only_problems_are_skipped_without_the_declaration(self):

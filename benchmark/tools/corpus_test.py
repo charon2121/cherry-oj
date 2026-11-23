@@ -29,8 +29,8 @@ class RealCorpusTest(unittest.TestCase):
         self.assertEqual(lib.verify_lock(corpus), [])
         problem = corpus.problems["a-plus-b"]
         self.assertEqual(problem.testcase_names, ("1", "2", "3"))
-        self.assertEqual(len(problem.submissions), 10)
-        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 59)
+        self.assertEqual({s.language for s in problem.submissions.values()}, {"cpp", "pypy", "java"})
+        self.assertEqual(sum(len(p.submissions) for p in corpus.problems.values()), 135)
 
     def test_core_problem_sends_driver_and_solution(self):
         problem = lib.load_corpus(REAL).problems["core-add"]
@@ -40,6 +40,14 @@ class RealCorpusTest(unittest.TestCase):
         acm = lib.load_corpus(REAL).problems["a-plus-b"]
         self.assertIsNone(acm.driver)
         self.assertEqual(acm.sources("x"), {"source": "x"})
+
+    def test_pypy_and_java_core_use_the_driver_language(self):
+        corpus = lib.load_corpus(REAL)
+        for language in ("pypy", "java"):
+            with self.subTest(language=language):
+                problem = corpus.problems[f"core-add-{language}"]
+                self.assertIsNotNone(problem.driver)
+                self.assertEqual({s.language for s in problem.submissions.values()}, {language})
 
     def test_covers_every_verdict_but_se_through_submissions(self):
         problem = lib.load_corpus(REAL).problems["a-plus-b"]
@@ -52,7 +60,7 @@ class WhitespaceTwinsTest(unittest.TestCase):
     def test_loose_and_strict_variants_have_byte_identical_sources(self):
         problem = lib.load_corpus(REAL).problems["whitespace"]
         pairs = [name[:-len("_loose")] for name in problem.submissions if name.endswith("_loose")]
-        self.assertEqual(len(pairs), 4)
+        self.assertEqual(len(pairs), 12)
         for base in pairs:
             self.assertEqual(problem.submissions[f"{base}_loose"].source, problem.submissions[f"{base}_strict"].source)
             self.assertEqual(problem.submissions[f"{base}_loose"].requires, ("strictWhitespace:false",))
@@ -103,6 +111,22 @@ class RejectsBadCorpusTest(unittest.TestCase):
         edit_json(self.root / "judge" / "core-add" / "expect.json",
                   lambda v: v["submissions"]["ac_class"].update(sandbox=[{"testcase": "1", "facts": {"exitCode": 0}}]))
         self.assertRejected("不能写 sandbox")
+
+    def test_core_submission_must_match_driver_language(self):
+        submission = self.root / "judge" / "core-add-java" / "submissions" / "ac_add.java"
+        submission.rename(submission.with_suffix(".py"))
+        self.assertRejected("语言必须与 CORE 驱动文件一致")
+
+    def test_submissions_with_same_stem_are_rejected(self):
+        (self.problem / "submissions" / "ac_iostream.py").write_text("print(8)", encoding="utf-8")
+        self.assertRejected("提交名重复")
+
+    def test_pypy_and_java_submissions_cannot_use_the_sandbox_entry(self):
+        for submission in ("pypy_ac_stderr", "java_ac_stderr"):
+            with self.subTest(submission=submission):
+                self.expect(lambda v: v["submissions"][submission].update(sandbox=[]))
+                self.assertRejected("sandbox 入口仅支持 C/C++")
+                self.expect(lambda v: v["submissions"][submission].pop("sandbox"))
 
     def test_unknown_problem_field(self):
         edit_json(self.problem / "problem.json", lambda v: v.update(extra=1))

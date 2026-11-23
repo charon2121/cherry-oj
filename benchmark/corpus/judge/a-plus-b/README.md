@@ -23,6 +23,10 @@
 | `re_segv` | RE | RE RE RE | 被 SIGSEGV 终止 |
 | `tle_loop` | TLE | TLE TLE TLE | 死循环，远超 CPU 限制 |
 
+PyPy 与 Java 的提交使用 `pypy_`、`java_` 前缀，覆盖相减得 WA、非零退出得 RE、循环超时得 TLE 和 stderr 有输出时仍判 AC。
+PyPy 的语法错误判 RE，Java 的语法错误判 CE，`java_ce_marker` 同时检查编译诊断里的标记。
+两种语言各有一条 RAN 试运行，用同一提交检查 stdout 和中文 stderr。
+
 `requests` 钉住 SE 的路径（地址不存在、相对路径、发布副本被篡改、未知语言、节点没有的语言）；`trials` 覆盖试运行（AC、WA、不给期望的 RAN）。
 
 ## 数据

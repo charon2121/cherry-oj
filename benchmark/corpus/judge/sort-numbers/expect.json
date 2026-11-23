@@ -40,7 +40,68 @@
         "WA",
         "WA"
       ]
+    },
+    "pypy_ac_sort": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_wa_unique": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "WA",
+        "AC",
+        "WA",
+        "WA"
+      ]
+    },
+    "pypy_tle_bubble": {
+      "verdict": "TLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "TLE",
+        "TLE"
+      ]
+    },
+    "java_ac_sort": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "java_wa_unique": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "WA",
+        "AC",
+        "WA",
+        "WA"
+      ]
+    },
+    "java_tle_bubble": {
+      "verdict": "TLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "TLE",
+        "TLE"
+      ]
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

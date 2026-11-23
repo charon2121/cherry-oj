@@ -22,7 +22,52 @@
         "WA"
       ],
       "probe": true
+    },
+    "pypy_ac_modest": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_ole_large": {
+      "verdict": "OLE",
+      "testcases": [
+        "OLE",
+        "OLE"
+      ]
+    },
+    "pypy_probe_near_limit": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ],
+      "probe": true
+    },
+    "java_ac_modest": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "java_ole_large": {
+      "verdict": "OLE",
+      "testcases": [
+        "OLE",
+        "OLE"
+      ]
+    },
+    "java_probe_near_limit": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ],
+      "probe": true
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

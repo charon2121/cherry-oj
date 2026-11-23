@@ -21,7 +21,36 @@
         "WA",
         "WA"
       ]
+    },
+    "pypy_ac_reads_eof": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_wa_prints_text": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ]
+    },
+    "java_ac_reads_eof": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "java_wa_prints_text": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ]
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

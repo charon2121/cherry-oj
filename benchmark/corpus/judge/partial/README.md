@@ -18,3 +18,5 @@
 | `fail_last_only` | WA | AC AC AC AC AC WA | 错误点在末尾 |
 | `re_middle` | RE | AC AC RE AC AC AC | 中间崩溃不影响其余点 |
 | `pass_half_tle_rest` | TLE | AC AC AC TLE TLE TLE | 部分通过的汇总 |
+
+PyPy 与 Java 各覆盖仅首点 WA、仅末点 WA、中间一点因未捕获异常判 RE，以及后三点 TLE，均断言全部六点的结论与汇总。

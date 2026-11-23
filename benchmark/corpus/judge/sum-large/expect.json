@@ -27,7 +27,44 @@
         "WA",
         "AC"
       ]
+    },
+    "pypy_ac_wide_sum": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_wa_int32": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "WA",
+        "WA",
+        "AC"
+      ]
+    },
+    "java_ac_wide_sum": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "java_wa_int32": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "WA",
+        "WA",
+        "AC"
+      ]
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

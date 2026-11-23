@@ -55,7 +55,96 @@
         "TLE",
         "TLE"
       ]
+    },
+    "pypy_fail_first": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_fail_last": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "WA"
+      ]
+    },
+    "pypy_re_middle": {
+      "verdict": "RE",
+      "testcases": [
+        "AC",
+        "AC",
+        "RE",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_tle_last_half": {
+      "verdict": "TLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "TLE",
+        "TLE",
+        "TLE"
+      ]
+    },
+    "java_fail_first": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "java_fail_last": {
+      "verdict": "WA",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "AC",
+        "WA"
+      ]
+    },
+    "java_re_middle": {
+      "verdict": "RE",
+      "testcases": [
+        "AC",
+        "AC",
+        "RE",
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "java_tle_last_half": {
+      "verdict": "TLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC",
+        "TLE",
+        "TLE",
+        "TLE"
+      ]
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

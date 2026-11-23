@@ -12,3 +12,5 @@
 | `ac_silent` | AC | AC AC | 什么都不输出，空对空 |
 | `ac_reads_eof` | AC | AC AC | 读到 EOF，没有整数就不输出 |
 | `wa_prints_text` | WA | WA WA | 期望是空，多输出就是错 |
+
+PyPy 与 Java 各覆盖读到 EOF 后保持 stdout 为空（AC）及多输出一行（WA）。

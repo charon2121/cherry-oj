@@ -32,7 +32,64 @@
         "AC",
         "MLE"
       ]
+    },
+    "pypy_ac_touch_pages": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_mle_large": {
+      "verdict": "MLE",
+      "testcases": [
+        "MLE",
+        "MLE",
+        "MLE"
+      ]
+    },
+    "pypy_mle_last": {
+      "verdict": "MLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "MLE"
+      ]
+    },
+    "java_ac_touch_pages": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC",
+        "AC"
+      ]
+    },
+    "java_mle_large": {
+      "verdict": "MLE",
+      "testcases": [
+        "MLE",
+        "MLE",
+        "MLE"
+      ]
+    },
+    "java_mle_last": {
+      "verdict": "MLE",
+      "testcases": [
+        "AC",
+        "AC",
+        "MLE"
+      ]
+    },
+    "java_re_vm_array_limit": {
+      "verdict": "RE",
+      "testcases": [
+        "RE",
+        "RE",
+        "RE"
+      ]
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

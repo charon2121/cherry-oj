@@ -94,7 +94,196 @@
       "requires": [
         "strictWhitespace:true"
       ]
+    },
+    "pypy_ac_exact": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "pypy_wa_token": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ]
+    },
+    "pypy_ws_trailing_space_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "pypy_ws_trailing_space_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "pypy_ws_no_final_newline_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "pypy_ws_no_final_newline_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "pypy_ws_crlf_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "pypy_ws_crlf_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "pypy_ws_extra_blank_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "pypy_ws_extra_blank_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "java_ac_exact": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ]
+    },
+    "java_wa_token": {
+      "verdict": "WA",
+      "testcases": [
+        "WA",
+        "WA"
+      ]
+    },
+    "java_ws_trailing_space_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "java_ws_trailing_space_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "java_ws_no_final_newline_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "java_ws_no_final_newline_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "java_ws_crlf_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "java_ws_crlf_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
+    },
+    "java_ws_extra_blank_loose": {
+      "verdict": "AC",
+      "testcases": [
+        "AC",
+        "AC"
+      ],
+      "requires": [
+        "strictWhitespace:false"
+      ]
+    },
+    "java_ws_extra_blank_strict": {
+      "verdict": "PE",
+      "testcases": [
+        "PE",
+        "PE"
+      ],
+      "requires": [
+        "strictWhitespace:true"
+      ]
     }
   },
-  "requests": {}
+  "requests": {},
+  "trials": {}
 }

@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
-from corpus import Corpus, Problem
+from corpus import Corpus, JUDGE_SOURCE_LANGUAGES, Problem
 
 Respond = Callable[[dict[str, Any]], tuple[int, Any]]
 
@@ -37,19 +37,23 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
     whitespace 的 _loose 与 _strict 源码相同，真实 judge 靠配置给出不同结论，所以这里只让与配置相符的那一半参与分派。
     """
     wrong_config = f"strictWhitespace:{'false' if strict_whitespace else 'true'}"
-    by_source = {s.source: s for s in problem.submissions.values() if wrong_config not in s.requires}
-    trials = {(c.source and problem.submissions[c.source].source, tuple((t.input, t.expected) for t in c.testcases)): c
-              for c in problem.trials.values()}
+    by_source = {(s.language, s.source): s for s in problem.submissions.values() if wrong_config not in s.requires}
+    trials = {}
+    for case in problem.trials.values():
+        submission = problem.submissions[case.source] if case.source else None
+        source = (submission.language, submission.source) if submission else ("cpp", case.source_text)
+        trials[source, tuple((t.input, t.expected) for t in case.testcases)] = case
 
     def respond(request: dict[str, Any]) -> tuple[int, Any]:
         language = request["languageId"]
         # CORE 题的 source 都是同一份驱动文件，提交要按用户文件认。
-        submitted = request.get("solutionSource", request["source"])
-        if "solutionSource" in request and language not in ("c", "cpp"):
+        submitted = (language, request.get("solutionSource", request["source"]))
+        supports_core = language in JUDGE_SOURCE_LANGUAGES.values()
+        if "solutionSource" in request and not supports_core:
             return 200, {"verdict": "SE", "message": f'language "{language}" does not accept a solution file'}
         if language == "python":
             return 200, {"verdict": "SE", "message": "sandbox executor refused the request: sandbox: toolchain python is not installed as a root-owned directory"}
-        if language not in ("c", "cpp"):
+        if not supports_core:
             return 200, {"verdict": "SE", "message": f'unknown language: "{language}"'}
         if request["mode"] == "trial":
             case = trials[(submitted, tuple((t["input"], t.get("expected")) for t in request["testcases"]))]
@@ -59,6 +63,9 @@ def ideal(problem: Problem, location: Path, strict_whitespace: bool = False) -> 
                 row["stderr"] = {"excerpt": "", "bytes": 0}
                 if t.verdict in ("RAN", "AC", "WA"):
                     row["output"] = {"excerpt": "3\n", "bytes": 2}
+                for label, check in (("output", t.output), ("stderr", t.stderr)):
+                    if check is not None:
+                        row[label] = {"excerpt": check.value, "bytes": len(check.value.encode("utf-8"))}
                 rows.append(row)
             return 200, {"verdict": case.verdict, "score": 0, "testcaseResults": rows}
         if request["testDataLocation"] != str(location):
