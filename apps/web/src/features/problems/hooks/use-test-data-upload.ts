@@ -6,7 +6,7 @@ import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { replaceTestData } from '../api/problems-api';
 
-export function useTestDataUpload(problemId: string, onUploaded: () => Promise<void>) {
+export function useTestDataUpload(problemId: string, refreshTestData: () => Promise<void>) {
   const activeUpload = useRef<AbortController | undefined>(undefined);
   const [uploadMessage, setUploadMessage] = useState<string>();
 
@@ -28,16 +28,22 @@ export function useTestDataUpload(problemId: string, onUploaded: () => Promise<v
           `已替换测试数据，共 ${uploaded.testcaseCount} 组。旧的标定已过期，请重新标定。`,
         );
       }
-      await onUploaded();
+      await refreshTestData();
     },
-    onError: (error, { controller }) => {
+    onError: async (error, { controller }) => {
       if (activeUpload.current !== controller) return;
       activeUpload.current = undefined;
-      setUploadMessage(
-        error instanceof ApiError && error.kind === 'aborted'
-          ? '上传已取消。'
-          : apiErrorMessage(error, '上传或 ZIP 检查失败；原有测试数据保持不变。'),
-      );
+      if (error instanceof ApiError && error.kind === 'aborted') {
+        setUploadMessage('上传已取消。');
+        return;
+      }
+      const message = apiErrorMessage(error, '上传失败。');
+      if (error instanceof ApiError && (error.kind !== 'http' || (error.status ?? 500) >= 500)) {
+        setUploadMessage(`${message} 请核对当前测试数据。`);
+        await refreshTestData();
+      } else {
+        setUploadMessage(message);
+      }
     },
   });
 
