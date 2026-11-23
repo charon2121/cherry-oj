@@ -22,6 +22,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - name: 已合入的 Flyway 迁移只允许追加
+        env:
+          # 手动运行时使用已有实际部署记录的应用源码基线。
+          MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '31e60df07ee068e6a72341464cf3406987589694' }}
+        run: |
+          if ! git diff --exit-code --name-status --no-renames --diff-filter=a "$MIGRATION_BASE" HEAD -- \
+            ':(glob)apps/server/*-service/src/main/resources/db/migration/**'; then
+            echo '::error::已合入的 Flyway 迁移不可修改、删除或改名，请追加新版本。'
+            exit 1
+          fi
       - name: 契约与文档校验器测试
         run: python3 -m unittest discover -s scripts -p '*_test.py'
       - name: 应用发布工具测试

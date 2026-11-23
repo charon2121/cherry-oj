@@ -67,11 +67,14 @@ hook 提前运行部分检查；CI 还会验证完整构建和 Java 测试，本
 
 | job | 检查 | 要守住什么 |
 |---|---|---|
-| `checks` | 契约结构与引用、校验器和记录工具测试、文档链接、历史原件完整性 | 共享契约有效，文档可查，历史依据不丢失 |
+| `checks` | 契约结构与引用、工具测试、文档链接、Flyway 历史 | 共享契约有效，文档可查，已合入的迁移可重复校验 |
 | `go` | gofmt、依赖同步、vet、build、`test -race -count=1 -p=1 ./...` | 判题机能编译，基础行为与并发安全不退化 |
 | `web` | `npm ci`、`npm run check`、`npm run build` | 生成物同步，格式、类型、组件测试和生产构建通过 |
 | `java` | JDK 21 与根 Maven wrapper 的 `clean verify` | 所有 Java 模块能编译、测试并打包，不以跳过测试代替验证 |
 | `sandbox` | 安装 libseccomp 编译依赖、`make -C apps/sandbox` | C 执行器能在目标 Linux 平台编译，保留 `-Werror` |
+
+Flyway 检查在 PR 上对照目标分支基线，在推送到 main 时对照推送前的提交。已合入的迁移文件只允许追加，
+改写、删除和改名会列出涉及路径并让检查失败。手动运行以已有实部署记录的 `31e60df0` 为基线。
 
 Go 的依赖检查并入 `go`，契约与文档检查合并为 `checks`。Go 任务仍打印 g++、Python、Java
 版本，方便核对依赖工具链的测试是否跳过。Java 中的单服务 MySQL、Redis、Kafka 测试通过

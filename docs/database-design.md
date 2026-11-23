@@ -1284,22 +1284,25 @@ HTTP、Kafka 发布、对象存储传输和 Go judge 调用都不允许发生在
 
 ```text
 apps/server/user-service/src/main/resources/db/migration/
-  V1__create_user_tables.sql
+  V1__create_user_identity_tables.sql
+  V2__use_fixed_absolute_login_sessions.sql
+  V3__rename_login_grant_to_session_id.sql
 
 apps/server/problem-service/src/main/resources/db/migration/
   V1__create_problem_tables.sql
+  V2__add_pypy_language.sql
+  V3__add_java_language.sql
 
 apps/server/submission-service/src/main/resources/db/migration/
-  V1__create_submission_tables.sql
-  V2__create_submission_messaging_tables.sql
+  V1__create_formal_submissions.sql
 
 apps/server/judging-service/src/main/resources/db/migration/
   V1__create_judging_tables.sql
 ```
 
-首个正式环境从空库执行所有 migration。项目仍在开发期：2026-10-07 去掉版本时直接改写了 problem-service 与 judging-service
-的 V1（judging-service 把原 V1–V5 合并为一个新的 V1），已有数据一律不保留、不写迁移；**第一次正式部署之后**，
-migration 发布后禁止改写校验和，只能追加新版本。
+新环境从空库执行所有 migration。合入主分支的 migration 保留原名和原内容，后续结构与数据变更追加新版本。
+[日常 CI](./git-workflow.md#43-ci-会检查什么) 校验这项规则。problem-service 另以 MySQL 8.4 验证从已部署的
+`31e60df0` 对应的 V2 升级到当前版本，保留既有语言配置。
 
 ### 9.1 Migration 规则
 
