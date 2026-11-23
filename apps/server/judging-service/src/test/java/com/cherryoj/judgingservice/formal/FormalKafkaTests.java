@@ -79,7 +79,7 @@ class FormalKafkaTests {
                 problem,
                 "cpp",
                 "source",
-                FormalWorker.hash("source"),
+                FormalInputValidator.hash("source"),
                 null,
                 null,
                 null,

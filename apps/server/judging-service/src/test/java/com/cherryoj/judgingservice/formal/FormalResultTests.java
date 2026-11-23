@@ -20,7 +20,7 @@ class FormalResultTests {
             "#include \"solution.cpp\"\n",
             "x",
             SOLUTION,
-            FormalWorker.hash(SOLUTION),
+            FormalInputValidator.hash(SOLUTION),
             2,
             "c",
             new JudgeGateway.Limits(1, 1, null),
@@ -39,14 +39,14 @@ class FormalResultTests {
                 null);
         assertEquals(
                 "In file included from Main.cpp:1:\nsolution.cpp:3:20: error: 'x' was not declared\n",
-                FormalWorker.safe(ce, 1, CORE, LANGUAGES).get("message"));
+                FormalResultMapper.toLifecycleResult(ce, 1, CORE, LANGUAGES).get("message"));
     }
 
     @Test
     void coreInputsMustCarryTheSolutionItsHashAndThePrefixLineCountTogether() {
-        assertTrue(FormalWorker.validSolution(CORE, LANGUAGES));
-        assertTrue(FormalWorker.validSolution(ACM, LANGUAGES));
-        assertFalse(FormalWorker.validSolution(
+        assertTrue(FormalInputValidator.validSolution(CORE, LANGUAGES));
+        assertTrue(FormalInputValidator.validSolution(ACM, LANGUAGES));
+        assertFalse(FormalInputValidator.validSolution(
                 new FormalInput(
                         "s",
                         "2",
@@ -55,7 +55,7 @@ class FormalResultTests {
                         "d",
                         "x",
                         SOLUTION,
-                        FormalWorker.hash(SOLUTION),
+                        FormalInputValidator.hash(SOLUTION),
                         null,
                         "c",
                         new JudgeGateway.Limits(1, 1, null),
@@ -63,7 +63,7 @@ class FormalResultTests {
                         null,
                         java.time.Instant.EPOCH),
                 LANGUAGES));
-        assertFalse(FormalWorker.validSolution(
+        assertFalse(FormalInputValidator.validSolution(
                 new FormalInput(
                         "s",
                         "2",
@@ -80,7 +80,7 @@ class FormalResultTests {
                         null,
                         java.time.Instant.EPOCH),
                 LANGUAGES));
-        assertFalse(FormalWorker.validSolution(
+        assertFalse(FormalInputValidator.validSolution(
                 new FormalInput(
                         "s",
                         "2",
@@ -124,7 +124,7 @@ class FormalResultTests {
                 {"verdict":"WA","message":"hidden input printed here",
                  "testcaseResults":[{"idx":1,"verdict":"WA","name":"secret name","output":{"stdout":"hidden input"},"diff":{"expected":"secret answer"}}]}
                 """, JudgeGateway.JudgeResult.class);
-        var safe = FormalWorker.safe(result, 3, ACM, LANGUAGES);
+        var safe = FormalResultMapper.toLifecycleResult(result, 3, ACM, LANGUAGES);
         assertEquals(1, safe.get("executedTestcaseCount"));
         assertEquals(0, safe.get("passedTestcaseCount"));
         assertEquals(3, safe.get("testcaseCount"));
@@ -136,7 +136,7 @@ class FormalResultTests {
 
     @Test
     void presentationErrorRemainsAProgramResult() {
-        var safe = FormalWorker.safe(
+        var safe = FormalResultMapper.toLifecycleResult(
                 new JudgeGateway.JudgeResult(
                         "PE", 1L, 1L, null, null, List.of(new JudgeGateway.TestcaseResult(1, "PE", 1L, 1L))),
                 1,
@@ -155,16 +155,18 @@ class FormalResultTests {
                 null,
                 "/private/compiler/Main.cpp:3: error\u001b[31m\u0000\n" + "x".repeat(9000),
                 null);
-        String message = (String) FormalWorker.safe(ce, 1, ACM, LANGUAGES).get("message");
+        String message = (String)
+                FormalResultMapper.toLifecycleResult(ce, 1, ACM, LANGUAGES).get("message");
         assertTrue(message.length() <= 8192);
         assertFalse(message.contains("/private"));
         assertFalse(message.contains("\u001b"));
         assertThrows(
                 FormalFailure.class,
-                () -> FormalWorker.safe(new JudgeGateway.JudgeResult("UNKNOWN", null, null, null), 1, ACM, LANGUAGES));
+                () -> FormalResultMapper.toLifecycleResult(
+                        new JudgeGateway.JudgeResult("UNKNOWN", null, null, null), 1, ACM, LANGUAGES));
         assertThrows(
                 FormalFailure.class,
-                () -> FormalWorker.safe(
+                () -> FormalResultMapper.toLifecycleResult(
                         new JudgeGateway.JudgeResult(
                                 "AC",
                                 null,
