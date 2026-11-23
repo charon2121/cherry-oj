@@ -58,9 +58,7 @@ public class TestDataService {
 
     public TestDataDtos.TestData get(String problemId) {
         ProblemRow problem = requireProblem(problemId, false);
-        Info info = describe(problem);
-        return new TestDataDtos.TestData(
-                info.digest(), info.testcaseCount(), info.totalBytes(), problem.testDataUpdatedAt(), info.manifest());
+        return TestDataDtos.TestData.from(describe(problem), problem.testDataUpdatedAt());
     }
 
     /** 上传并替换题目的测试数据。慢的部分（读 ZIP、写文件）在事务之外，事务里只有一次原子切换。 */
@@ -107,12 +105,7 @@ public class TestDataService {
                                 "digest", prepared.info().digest(),
                                 "testcaseCount", prepared.info().testcaseCount(),
                                 "totalBytes", prepared.info().totalBytes()));
-                return new TestDataDtos.TestData(
-                        prepared.info().digest(),
-                        prepared.info().testcaseCount(),
-                        prepared.info().totalBytes(),
-                        now,
-                        prepared.info().manifest());
+                return TestDataDtos.TestData.from(prepared.info(), now);
             });
         } catch (RuntimeException error) {
             // 没能切换时目录没有被任何地址指向，可以丢掉；已经切换成功的目录 discard 不会动。
@@ -192,7 +185,7 @@ public class TestDataService {
         };
     }
 
-    // 每条都说清是哪一个文件、哪一条规则或哪一个上限，以及怎么改；原因代码见 FileTestDataStore。
+    // 每条都说清是哪一个文件、哪一条规则或哪一个上限，以及怎么改；原因代码见 TestDataArchiveReader。
     private static String invalidArchiveDetail(AssetException error) {
         String entry = error.entry();
         String limit = error.limit();

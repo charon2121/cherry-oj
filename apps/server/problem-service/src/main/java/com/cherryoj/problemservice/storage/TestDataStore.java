@@ -1,7 +1,7 @@
 package com.cherryoj.problemservice.storage;
 
-import com.cherryoj.problemservice.api.TestDataDtos.Manifest;
 import java.io.InputStream;
+import java.util.List;
 
 /**
  * 题目的测试数据目录，布局见 docs/protocols/testdata.md。
@@ -32,7 +32,12 @@ public interface TestDataStore {
     /** 清理中断的上传留下的临时文件。 */
     RecoveryResult recover();
 
-    record Info(String digest, int testcaseCount, long totalBytes, long maxTestcaseIoBytes, Manifest manifest) {}
+    record Info(
+            String digest,
+            int testcaseCount,
+            long totalBytes,
+            long maxTestcaseIoBytes,
+            List<TestDataMetadata.TestcaseEntry> testcases) {}
 
     record Prepared(String problemId, String generation, Info info) {}
 

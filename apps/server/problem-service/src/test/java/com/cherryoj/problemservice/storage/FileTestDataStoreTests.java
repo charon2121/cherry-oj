@@ -81,9 +81,9 @@ class FileTestDataStoreTests {
 
         var described = store.describe(location);
         assertThat(described).isEqualTo(prepared.info());
-        assertThat(described.manifest().files())
-                .extracting(file -> file.name())
-                .containsExactly("1.in", "1.out", "2.in", "2.out");
+        assertThat(described.testcases())
+                .extracting(TestDataMetadata.TestcaseEntry::name)
+                .containsExactly("1", "2");
     }
 
     @Test
@@ -97,19 +97,9 @@ class FileTestDataStoreTests {
 
         var prepared = store.prepare(PROBLEM, new ByteArrayInputStream(zip(entries)));
 
-        assertThat(prepared.info().manifest().files())
-                .extracting(file -> file.name())
-                .containsExactly(
-                        "1.in",
-                        "1.out",
-                        "2.in",
-                        "2.out",
-                        "10.in",
-                        "10.out",
-                        "big-1.in",
-                        "big-1.out",
-                        "small.in",
-                        "small.out");
+        assertThat(prepared.info().testcases())
+                .extracting(TestDataMetadata.TestcaseEntry::name)
+                .containsExactly("1", "2", "10", "big-1", "small");
     }
 
     @Test

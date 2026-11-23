@@ -365,8 +365,7 @@ public class AdminProblemService {
         }
         try {
             TestDataStore.Info info = testDataStore.describe(row.testDataLocation());
-            return new TestDataDtos.TestData(
-                    info.digest(), info.testcaseCount(), info.totalBytes(), row.testDataUpdatedAt(), info.manifest());
+            return TestDataDtos.TestData.from(info, row.testDataUpdatedAt());
         } catch (TestDataStore.AssetException error) {
             return null;
         }
