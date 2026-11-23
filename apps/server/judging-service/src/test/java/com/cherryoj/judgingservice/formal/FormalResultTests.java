@@ -12,7 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
 class FormalResultTests {
     private static final LanguageCatalog LANGUAGES = new LanguageCatalog(new ObjectMapper());
     private static final String SOLUTION = "#include <bits/stdc++.h>\nusing namespace std;\nclass Solution {};\n";
-    private static final FormalInput CORE = new FormalInput(
+    private static final JudgeInput CORE = new JudgeInput(
             "s",
             "2",
             "p",
@@ -20,10 +20,10 @@ class FormalResultTests {
             "#include \"solution.cpp\"\n",
             "x",
             SOLUTION,
-            FormalInputValidator.hash(SOLUTION),
+            JudgeInputValidator.sha256(SOLUTION),
             2,
             "c",
-            new JudgeGateway.Limits(1, 1, null),
+            new JudgeGateway.JudgeLimits(1, 1, null),
             "BASE",
             null,
             java.time.Instant.EPOCH);
@@ -44,10 +44,10 @@ class FormalResultTests {
 
     @Test
     void coreInputsMustCarryTheSolutionItsHashAndThePrefixLineCountTogether() {
-        assertTrue(FormalInputValidator.validSolution(CORE, LANGUAGES));
-        assertTrue(FormalInputValidator.validSolution(ACM, LANGUAGES));
-        assertFalse(FormalInputValidator.validSolution(
-                new FormalInput(
+        assertTrue(JudgeInputValidator.validSolutionFile(CORE, LANGUAGES));
+        assertTrue(JudgeInputValidator.validSolutionFile(ACM, LANGUAGES));
+        assertFalse(JudgeInputValidator.validSolutionFile(
+                new JudgeInput(
                         "s",
                         "2",
                         "p",
@@ -55,16 +55,16 @@ class FormalResultTests {
                         "d",
                         "x",
                         SOLUTION,
-                        FormalInputValidator.hash(SOLUTION),
+                        JudgeInputValidator.sha256(SOLUTION),
                         null,
                         "c",
-                        new JudgeGateway.Limits(1, 1, null),
+                        new JudgeGateway.JudgeLimits(1, 1, null),
                         "BASE",
                         null,
                         java.time.Instant.EPOCH),
                 LANGUAGES));
-        assertFalse(FormalInputValidator.validSolution(
-                new FormalInput(
+        assertFalse(JudgeInputValidator.validSolutionFile(
+                new JudgeInput(
                         "s",
                         "2",
                         "p",
@@ -75,13 +75,13 @@ class FormalResultTests {
                         "0".repeat(64),
                         2,
                         "c",
-                        new JudgeGateway.Limits(1, 1, null),
+                        new JudgeGateway.JudgeLimits(1, 1, null),
                         "BASE",
                         null,
                         java.time.Instant.EPOCH),
                 LANGUAGES));
-        assertFalse(FormalInputValidator.validSolution(
-                new FormalInput(
+        assertFalse(JudgeInputValidator.validSolutionFile(
+                new JudgeInput(
                         "s",
                         "2",
                         "p",
@@ -92,14 +92,14 @@ class FormalResultTests {
                         null,
                         2,
                         "c",
-                        new JudgeGateway.Limits(1, 1, null),
+                        new JudgeGateway.JudgeLimits(1, 1, null),
                         "BASE",
                         null,
                         java.time.Instant.EPOCH),
                 LANGUAGES));
     }
 
-    private static final FormalInput ACM = new FormalInput(
+    private static final JudgeInput ACM = new JudgeInput(
             "s",
             "2",
             "p",
@@ -110,7 +110,7 @@ class FormalResultTests {
             null,
             null,
             "c",
-            new JudgeGateway.Limits(1, 1, null),
+            new JudgeGateway.JudgeLimits(1, 1, null),
             "BASE",
             null,
             java.time.Instant.EPOCH);

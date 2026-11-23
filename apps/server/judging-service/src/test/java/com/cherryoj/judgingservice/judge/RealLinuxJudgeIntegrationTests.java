@@ -44,7 +44,7 @@ class RealLinuxJudgeIntegrationTests {
                 "cpp",
                 source,
                 null,
-                new JudgeGateway.Limits(1_000_000_000L, 268_435_456L, null),
+                new JudgeGateway.JudgeLimits(1_000_000_000L, 268_435_456L, null),
                 "submit");
     }
 }

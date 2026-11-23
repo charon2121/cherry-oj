@@ -1,11 +1,11 @@
 package com.cherryoj.judgingservice.judge;
 
 public interface JudgeGateway {
-    JudgeResult judge(String endpointRef, JudgeRequest request, String traceId) throws JudgeCallException;
+    JudgeResult judge(String endpointRef, JudgeRequest request, String traceParent) throws JudgeCallException;
 
-    default JudgeResult judge(String endpoint, JudgeRequest request, String trace, java.time.Duration budget)
+    default JudgeResult judge(String endpoint, JudgeRequest request, String traceParent, java.time.Duration budget)
             throws JudgeCallException {
-        return judge(endpoint, request, trace);
+        return judge(endpoint, request, traceParent);
     }
 
     /**
@@ -20,11 +20,11 @@ public interface JudgeGateway {
             String languageId,
             String source,
             String solutionSource,
-            Limits limits,
+            JudgeLimits limits,
             String mode) {}
 
     @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-    record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
+    record JudgeLimits(long cpuNs, long memoryBytes, Long clockNs) {}
 
     record JudgeResult(
             String verdict,

@@ -1,6 +1,6 @@
 package com.cherryoj.judgingservice.formal;
 
-import com.cherryoj.judgingservice.judge.JudgeGateway.Limits;
+import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeLimits;
 import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits.Derivation;
 import java.time.Instant;
 
@@ -9,7 +9,7 @@ import java.time.Instant;
  * CORE 时 completeSource 是驱动文件，另冻结用户文件、它的摘要与前缀行数；ACM 时三者都为 null。
  * 限制的来源与推导依据只用于追溯，判题只认 effectiveLimits。
  */
-public record FormalInput(
+public record JudgeInput(
         String submissionId,
         String contractVersion,
         String problemId,
@@ -20,12 +20,12 @@ public record FormalInput(
         String solutionSha256,
         Integer solutionPrefixLineCount,
         String languageCalibrationId,
-        Limits effectiveLimits,
+        JudgeLimits effectiveLimits,
         String limitSource,
         Derivation limitDerivation,
         Instant createdAt) {
     @Override
     public String toString() {
-        return "FormalInput[submissionId=" + submissionId + ", source=<redacted>]";
+        return "JudgeInput[submissionId=" + submissionId + ", source=<redacted>]";
     }
 }

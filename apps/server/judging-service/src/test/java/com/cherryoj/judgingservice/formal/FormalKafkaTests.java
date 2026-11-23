@@ -59,7 +59,7 @@ class FormalKafkaTests {
     ObjectMapper json;
 
     @MockitoBean
-    FormalInputClient inputs;
+    JudgeInputClient judgeInputs;
 
     @MockitoBean
     JudgeNodeRepository nodes;
@@ -73,22 +73,22 @@ class FormalKafkaTests {
     @Test
     void requestedEventIsDurableAndOnlySafeCompletionCrossesKafka() throws Exception {
         String id = UUID.randomUUID().toString(), problem = UUID.randomUUID().toString();
-        var input = new FormalInput(
+        var input = new JudgeInput(
                 id,
                 "2",
                 problem,
                 "cpp",
                 "source",
-                FormalInputValidator.hash("source"),
+                JudgeInputValidator.sha256("source"),
                 null,
                 null,
                 null,
                 UUID.randomUUID().toString(),
-                new JudgeGateway.Limits(1000, 2000, 3000L),
+                new JudgeGateway.JudgeLimits(1000, 2000, 3000L),
                 "BASE",
                 null,
                 Instant.now());
-        when(inputs.get(eq(id), nullable(String.class))).thenReturn(input);
+        when(judgeInputs.get(eq(id), nullable(String.class))).thenReturn(input);
         when(testData.current(eq(problem), nullable(String.class)))
                 .thenReturn(
                         new com.cherryoj.judgingservice.problem.ProblemTestData("/data/p", "a".repeat(64), 1, 10, 0L));

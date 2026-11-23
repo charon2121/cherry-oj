@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "cherry.formal.enabled", havingValue = "true")
 class FormalAttemptRunner {
     private final FormalTaskStore store;
-    private final FormalInputClient inputs;
+    private final JudgeInputClient judgeInputs;
     private final JudgeNodeRepository nodes;
     private final JudgeGateway judge;
     private final ProblemTestDataClient testData;
@@ -29,7 +29,7 @@ class FormalAttemptRunner {
 
     FormalAttemptRunner(
             FormalTaskStore store,
-            FormalInputClient inputs,
+            JudgeInputClient judgeInputs,
             JudgeNodeRepository nodes,
             JudgeGateway judge,
             ProblemTestDataClient testData,
@@ -37,7 +37,7 @@ class FormalAttemptRunner {
             Clock clock,
             LanguageCatalog languages) {
         this.store = store;
-        this.inputs = inputs;
+        this.judgeInputs = judgeInputs;
         this.nodes = nodes;
         this.judge = judge;
         this.testData = testData;
@@ -51,16 +51,16 @@ class FormalAttemptRunner {
         try {
             if (!clock.instant().isBefore(deadline)) throw new FormalFailure("JUDGE_DEADLINE_EXCEEDED");
             if (task.attemptNo() > properties.maxAttempts()) throw new FormalFailure("JUDGE_ATTEMPTS_EXHAUSTED");
-            var input = inputs.get(task.submissionId(), task.traceParent());
-            FormalInputValidator.validate(input, task.submissionId(), languages);
+            JudgeInput judgeInput = judgeInputs.get(task.submissionId(), task.traceParent());
+            JudgeInputValidator.validate(judgeInput, task.submissionId(), languages);
             // 地址不在提交时冻结：判题时向 problem-service 取题目此刻的测试数据，预算按当前测试点数重算。
-            var data = currentTestData(input.problemId(), task.traceParent());
+            var data = currentTestData(judgeInput.problemId(), task.traceParent());
             Duration budget;
             try {
                 budget = properties.executionBudget(
-                        languages.requiresCompilation(input.languageId()),
-                        input.effectiveLimits().cpuNs(),
-                        input.effectiveLimits().clockNs(),
+                        languages.requiresCompilation(judgeInput.languageId()),
+                        judgeInput.effectiveLimits().cpuNs(),
+                        judgeInput.effectiveLimits().clockNs(),
                         data.testcaseCount());
             } catch (ArithmeticException | IllegalArgumentException error) {
                 throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE");
@@ -70,25 +70,26 @@ class FormalAttemptRunner {
                     || clock.instant().plus(budget).isAfter(deadline))
                 throw new FormalFailure("JUDGE_BUDGET_UNAVAILABLE");
             // 派发时再选节点：任何在线、声明了该语言的节点都行，它们按同一个地址读同一份数据。
-            var online = nodes.online(input.languageId(), LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+            var online =
+                    nodes.online(judgeInput.languageId(), LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
             if (online.isEmpty()) throw new FormalFailure("NO_MATCHING_JUDGE_NODE");
             var result = judge.judge(
                     online.getFirst().endpoint(),
                     new JudgeGateway.JudgeRequest(
-                            input.submissionId(),
-                            input.problemId(),
+                            judgeInput.submissionId(),
+                            judgeInput.problemId(),
                             data.location(),
-                            input.languageId(),
-                            input.completeSource(),
-                            input.solutionSource(),
-                            input.effectiveLimits(),
+                            judgeInput.languageId(),
+                            judgeInput.completeSource(),
+                            judgeInput.solutionSource(),
+                            judgeInput.effectiveLimits(),
                             "submit"),
                     task.traceParent(),
                     budget);
             if ("SE".equals(result.verdict())) throw new FormalFailure("JUDGE_SYSTEM_ERROR");
             store.finish(
                     task,
-                    FormalResultMapper.toLifecycleResult(result, data.testcaseCount(), input, languages),
+                    FormalResultMapper.toLifecycleResult(result, data.testcaseCount(), judgeInput, languages),
                     result.testDataDigest(),
                     null,
                     null);

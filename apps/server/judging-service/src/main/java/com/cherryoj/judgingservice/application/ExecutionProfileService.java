@@ -34,7 +34,7 @@ public class ExecutionProfileService {
         this.customRun = customRun;
     }
 
-    public Profile resolve(String problemId, String languageId, Purpose purpose, String trace) {
+    public ExecutionProfile resolve(String problemId, String languageId, Purpose purpose, String trace) {
         ProblemTestData data = currentTestData(problemId, trace);
         ResolvedLanguageLimits limits =
                 readiness.readyLimits(problemId, languageId, data.digest(), data.maxTestcaseIoBytes());
@@ -56,7 +56,7 @@ public class ExecutionProfileService {
             throw new Rejected(Reason.TRIAL_BUDGET_EXCEEDED);
         }
         if (!trial && budget >= budgets.deadline().toNanos()) throw new Rejected(Reason.NOT_READY);
-        return new Profile(limits, budget);
+        return new ExecutionProfile(limits, budget);
     }
 
     private ProblemTestData currentTestData(String problemId, String trace) {
@@ -72,7 +72,7 @@ public class ExecutionProfileService {
         }
     }
 
-    public record Profile(ResolvedLanguageLimits limits, long executionBudgetNs) {}
+    public record ExecutionProfile(ResolvedLanguageLimits limits, long executionBudgetNs) {}
 
     public enum Purpose {
         FORMAL,

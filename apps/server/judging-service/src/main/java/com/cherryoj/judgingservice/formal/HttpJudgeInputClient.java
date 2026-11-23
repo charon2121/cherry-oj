@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
-public class HttpFormalInputClient implements FormalInputClient {
+public class HttpJudgeInputClient implements JudgeInputClient {
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(2))
             .followRedirects(HttpClient.Redirect.NEVER)
@@ -20,26 +20,28 @@ public class HttpFormalInputClient implements FormalInputClient {
     private final ObjectMapper json;
     private final CallTokenSigner calls;
 
-    public HttpFormalInputClient(FormalProperties properties, ObjectMapper json, CallTokenSigner calls) {
+    public HttpJudgeInputClient(FormalProperties properties, ObjectMapper json, CallTokenSigner calls) {
         this.properties = properties;
         this.json = json;
         this.calls = calls;
     }
 
-    public FormalInput get(String id, String trace) {
-        UUID.fromString(id);
-        var builder = HttpRequest.newBuilder(URI.create(
-                        properties.submissionUrl().replaceAll("/$", "") + "/internal/judging/judge-inputs/" + id))
+    @Override
+    public JudgeInput get(String submissionId, String traceParent) {
+        UUID.fromString(submissionId);
+        var builder = HttpRequest.newBuilder(
+                        URI.create(properties.submissionUrl().replaceAll("/$", "") + "/internal/judging/judge-inputs/"
+                                + submissionId))
                 .timeout(Duration.ofSeconds(5))
                 .header("Authorization", calls.authorization(ServiceNames.SUBMISSION, null))
                 .GET();
-        if (trace != null) builder.header("traceparent", trace);
+        if (traceParent != null) builder.header("traceparent", traceParent);
         var future = http.sendAsync(
                 builder.build(), ignored -> new com.cherryoj.judgingservice.http.LimitedHttpBody(2097152));
         try {
             var response = future.get(6, TimeUnit.SECONDS);
             if (response.statusCode() != 200) throw new FormalFailure("JUDGE_INPUT_UNAVAILABLE");
-            return json.readValue(response.body(), FormalInput.class);
+            return json.readValue(response.body(), JudgeInput.class);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             throw new FormalFailure("JUDGE_INPUT_INTERRUPTED");

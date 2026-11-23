@@ -2,6 +2,7 @@ package com.cherryoj.judgingservice.api;
 
 import com.cherryoj.judgingservice.application.ExecutionProfileService;
 import com.cherryoj.judgingservice.application.ExecutionProfileService.Purpose;
+import com.cherryoj.judgingservice.judge.JudgeGateway.JudgeLimits;
 import com.cherryoj.judgingservice.limits.ResolvedLanguageLimits;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -21,21 +22,21 @@ public class SubmissionExecutionProfileController {
     }
 
     @PostMapping("/internal/submission/execution-profile")
-    public Profile resolve(
+    public ExecutionProfile resolve(
             @Valid @RequestBody Request request, @RequestHeader(value = "traceparent", required = false) String trace) {
         Purpose purpose = "trial".equals(request.purpose()) ? Purpose.TRIAL : Purpose.FORMAL;
-        ExecutionProfileService.Profile profile;
+        ExecutionProfileService.ExecutionProfile profile;
         try {
             profile = profiles.resolve(request.problemId(), request.languageId(), purpose, trace);
         } catch (ExecutionProfileService.Rejected rejected) {
             throw JudgingApiException.from(rejected);
         }
         ResolvedLanguageLimits limits = profile.limits();
-        return new Profile(
+        return new ExecutionProfile(
                 request.problemId(),
                 request.languageId(),
                 limits.calibrationId(),
-                new Limits(limits.cpuNs(), limits.memoryBytes(), limits.clockNs()),
+                new JudgeLimits(limits.cpuNs(), limits.memoryBytes(), limits.clockNs()),
                 limits.limitSource(),
                 limits.limitDerivation(),
                 profile.executionBudgetNs());
@@ -50,14 +51,11 @@ public class SubmissionExecutionProfileController {
 
             @Pattern(regexp = "formal|trial") String purpose) {}
 
-    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-    public record Limits(long cpuNs, long memoryBytes, Long clockNs) {}
-
-    public record Profile(
+    public record ExecutionProfile(
             String problemId,
             String languageId,
             String languageCalibrationId,
-            Limits effectiveLimits,
+            JudgeLimits effectiveLimits,
             String limitSource,
             ResolvedLanguageLimits.Derivation limitDerivation,
             long executionBudgetNs) {}

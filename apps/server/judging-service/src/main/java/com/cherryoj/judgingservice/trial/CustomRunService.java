@@ -124,7 +124,7 @@ class CustomRunService {
     }
 
     private Result execute(Request r, String trace, long deadline) {
-        ExecutionProfileService.Profile profile = profiles.resolve(
+        ExecutionProfileService.ExecutionProfile profile = profiles.resolve(
                 r.problemId().toString(), r.languageId(), ExecutionProfileService.Purpose.TRIAL, trace);
         ResolvedLanguageLimits limits = profile.limits();
         long clock =

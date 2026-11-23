@@ -20,7 +20,7 @@ class SubmissionExecutionProfileControllerTests {
     void defaultPurposeReturnsContractFieldsAndOmitsUnsetWallLimit() {
         var limits = new ResolvedLanguageLimits("cal", 1000, 2000, null, "BASE", null, null);
         when(profiles.resolve(PROBLEM, "cpp", Purpose.FORMAL, "trace"))
-                .thenReturn(new ExecutionProfileService.Profile(limits, 3000));
+                .thenReturn(new ExecutionProfileService.ExecutionProfile(limits, 3000));
         var result =
                 controller.resolve(new SubmissionExecutionProfileController.Request(PROBLEM, "cpp", null), "trace");
         var json = new ObjectMapper().valueToTree(result);

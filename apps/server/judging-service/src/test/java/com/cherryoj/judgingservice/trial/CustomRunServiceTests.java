@@ -48,7 +48,7 @@ class CustomRunServiceTests {
         var nodes = mock(JudgeNodeRepository.class);
         var problem = UUID.randomUUID();
         when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
-                .thenReturn(new ExecutionProfileService.Profile(
+                .thenReturn(new ExecutionProfileService.ExecutionProfile(
                         new ResolvedLanguageLimits(
                                 "calibration", 1000000000, 67108864, 2000000000L, "BASE", null, null),
                         3000000000L));
@@ -107,7 +107,7 @@ class CustomRunServiceTests {
         var nodes = mock(JudgeNodeRepository.class);
         var problem = UUID.randomUUID();
         when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
-                .thenReturn(new ExecutionProfileService.Profile(
+                .thenReturn(new ExecutionProfileService.ExecutionProfile(
                         new ResolvedLanguageLimits(
                                 "calibration", 1000000000, 67108864, 2000000000L, "BASE", null, null),
                         3000000000L));
@@ -164,7 +164,7 @@ class CustomRunServiceTests {
         when(budgets.wallRatio()).thenReturn(10L);
         var request = new CustomRunDtos.Request(
                 problem, "c", "int main(void){}", null, null, "", System.currentTimeMillis() + 180_000);
-        var accepted = new ExecutionProfileService.Profile(
+        var accepted = new ExecutionProfileService.ExecutionProfile(
                 new ResolvedLanguageLimits("cal", 2_000_000_000L, 128L << 20, null, "BASE", null, null),
                 51_000_000_000L);
         var rejected = mock(ExecutionProfileService.Rejected.class);
@@ -203,7 +203,7 @@ class CustomRunServiceTests {
             verify(http, times(1))
                     .sendAsync(any(java.net.http.HttpRequest.class), any(java.net.http.HttpResponse.BodyHandler.class));
             when(profiles.resolve(eq(problem.toString()), anyString(), eq(Purpose.TRIAL), any()))
-                    .thenReturn(new ExecutionProfileService.Profile(accepted.limits(), 20_000_000L));
+                    .thenReturn(new ExecutionProfileService.ExecutionProfile(accepted.limits(), 20_000_000L));
             var future = new java.util.concurrent.CompletableFuture<java.net.http.HttpResponse<byte[]>>();
             pending.set(future);
             var expired = assertThrows(JudgingApiException.class, () -> service.run(request, null));

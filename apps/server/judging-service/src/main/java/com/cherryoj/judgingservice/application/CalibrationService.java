@@ -89,7 +89,7 @@ public class CalibrationService {
                             request.languageId(),
                             request.referenceSource(),
                             request.referenceSolutionSource(),
-                            new JudgeGateway.Limits(request.cpuNs(), request.memoryBytes(), request.clockNs()),
+                            new JudgeGateway.JudgeLimits(request.cpuNs(), request.memoryBytes(), request.clockNs()),
                             "submit"),
                     traceId);
         } catch (JudgeCallException error) {

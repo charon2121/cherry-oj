@@ -12,7 +12,7 @@ final class FormalResultMapper {
     private FormalResultMapper() {}
 
     static Map<String, Object> toLifecycleResult(
-            JudgeGateway.JudgeResult result, int testcaseCount, FormalInput input, LanguageCatalog languages) {
+            JudgeGateway.JudgeResult result, int testcaseCount, JudgeInput judgeInput, LanguageCatalog languages) {
         Set<String> verdicts = Set.of("AC", "WA", "PE", "TLE", "MLE", "OLE", "RE", "CE");
         if (result == null || result.verdict() == null || !verdicts.contains(result.verdict()))
             throw new FormalFailure("INVALID_JUDGE_RESULT");
@@ -42,11 +42,12 @@ final class FormalResultMapper {
                 && result.message() != null
                 && !result.message().isBlank()) {
             // CORE：用户文件的行号按冻结的前缀行数换算成编辑器行号；路径只留文件名。
-            LanguageFiles files = input.solutionSource() == null ? null : languages.coreFiles(input.languageId());
+            LanguageFiles files =
+                    judgeInput.solutionSource() == null ? null : languages.coreFiles(judgeInput.languageId());
             String diagnostic = JudgeDiagnostics.forUser(
                     result.message(),
                     files == null ? null : files.solutionFile(),
-                    files == null ? null : input.solutionPrefixLineCount(),
+                    files == null ? null : judgeInput.solutionPrefixLineCount(),
                     JudgeDiagnostics.looksCut(result.message()));
             safe.put("message", diagnostic.substring(0, Math.min(diagnostic.length(), 8192)));
         }

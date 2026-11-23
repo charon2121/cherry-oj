@@ -42,7 +42,14 @@ class HttpJudgeGatewaySizeTests {
             var result = gateway.judge(
                     "http://127.0.0.1:" + server.getAddress().getPort(),
                     new JudgeGateway.JudgeRequest(
-                            "s", "p", "/data/p", "cpp", "source", null, new JudgeGateway.Limits(1, 1, null), "submit"),
+                            "s",
+                            "p",
+                            "/data/p",
+                            "cpp",
+                            "source",
+                            null,
+                            new JudgeGateway.JudgeLimits(1, 1, null),
+                            "submit"),
                     null);
             assertEquals("WA", result.verdict());
             assertEquals(300, result.testcaseResults().size());

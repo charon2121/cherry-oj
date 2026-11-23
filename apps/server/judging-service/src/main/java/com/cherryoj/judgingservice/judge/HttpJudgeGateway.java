@@ -25,12 +25,12 @@ public final class HttpJudgeGateway implements JudgeGateway {
     }
 
     @Override
-    public JudgeResult judge(String endpointRef, JudgeRequest request, String traceId) throws JudgeCallException {
-        return judge(endpointRef, request, traceId, properties.judgeTimeout());
+    public JudgeResult judge(String endpointRef, JudgeRequest request, String traceParent) throws JudgeCallException {
+        return judge(endpointRef, request, traceParent, properties.judgeTimeout());
     }
 
     @Override
-    public JudgeResult judge(String endpointRef, JudgeRequest request, String traceId, java.time.Duration budget)
+    public JudgeResult judge(String endpointRef, JudgeRequest request, String traceParent, java.time.Duration budget)
             throws JudgeCallException {
         java.util.concurrent.CompletableFuture<HttpResponse<byte[]>> future = null;
         try {
@@ -44,7 +44,7 @@ public final class HttpJudgeGateway implements JudgeGateway {
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(
                             json.writeValueAsString(request), StandardCharsets.UTF_8));
-            if (traceId != null && !traceId.isBlank()) builder.header("traceparent", traceId);
+            if (traceParent != null && !traceParent.isBlank()) builder.header("traceparent", traceParent);
             future = client.sendAsync(
                     builder.build(), ignored -> new com.cherryoj.judgingservice.http.LimitedHttpBody(MAX_RESULT_BYTES));
             var response = future.get(budget.toNanos(), java.util.concurrent.TimeUnit.NANOSECONDS);
