@@ -18,7 +18,6 @@ SPEC_ID = re.compile(r"[a-z0-9][a-z0-9_]{0,31}")
 RUNNER_PID = "${runnerPid}"
 # 运行说明里可以覆盖的限制，及缺省值（协议 §6）。
 LIMIT_FIELDS = ("cpuNs", "memoryBytes", "clockNs", "maxProcesses", "stdoutMaxBytes", "stderrMaxBytes")
-DEFAULT_EXTRA_LIMITS = {"maxProcesses": 64, "stdoutMaxBytes": 1 << 20, "stderrMaxBytes": 1 << 20}
 
 
 @dataclass(frozen=True)
