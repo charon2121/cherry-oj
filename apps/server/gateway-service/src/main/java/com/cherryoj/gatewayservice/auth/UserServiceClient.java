@@ -62,11 +62,11 @@ final class UserServiceClient {
                 UserPage.class);
     }
 
-    Mono<CreatedUser> createUser(ActingUser identity, String username) {
+    Mono<IssuedTemporaryPassword> createUser(ActingUser identity, String username) {
         return response(
                 requests.authenticated(client.post().uri("/internal/admin/users"), identity)
                         .bodyValue(new CreateUserRequest(username)),
-                CreatedUser.class);
+                IssuedTemporaryPassword.class);
     }
 
     Mono<InternalUser> updateStatus(ActingUser identity, String userId, String status, long rowVersion) {
@@ -76,12 +76,12 @@ final class UserServiceClient {
                 InternalUser.class);
     }
 
-    Mono<CreatedUser> resetPassword(ActingUser identity, String userId, long rowVersion) {
+    Mono<IssuedTemporaryPassword> resetPassword(ActingUser identity, String userId, long rowVersion) {
         return response(
                 requests.authenticated(
                                 client.post().uri("/internal/admin/users/{userId}/password-reset", userId), identity)
                         .bodyValue(new ResetPasswordRequest(rowVersion)),
-                CreatedUser.class);
+                IssuedTemporaryPassword.class);
     }
 
     private <T> Mono<T> response(WebClient.RequestHeadersSpec<?> request, Class<T> type) {
@@ -153,7 +153,7 @@ final class UserServiceClient {
 
     record SessionValidationResult(InternalUser user, Instant sessionExpiresAt) {}
 
-    record CreatedUser(InternalUser user, String temporaryPassword) {}
+    record IssuedTemporaryPassword(InternalUser user, String temporaryPassword) {}
 
     record UserPage(List<InternalUser> items, int page, int size, long totalElements, int totalPages) {}
 }

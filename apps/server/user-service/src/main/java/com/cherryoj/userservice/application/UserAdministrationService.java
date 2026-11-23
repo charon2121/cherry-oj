@@ -47,12 +47,12 @@ public class UserAdministrationService {
     }
 
     @Transactional
-    public CreatedUser createUser(String actorUserId, String username) {
+    public IssuedTemporaryPassword createUser(String actorUserId, String username) {
         String temporaryPassword = temporaryPasswordFor(usernames.normalize(username));
         UserAccount account = newAccount(username, temporaryPassword, UserRole.USER, true);
         insert(account);
         audit.record(actorUserId, account.id(), "USER_CREATED");
-        return new CreatedUser(UserView.from(account), temporaryPassword);
+        return new IssuedTemporaryPassword(UserView.from(account), temporaryPassword);
     }
 
     @Transactional
@@ -102,7 +102,7 @@ public class UserAdministrationService {
     }
 
     @Transactional
-    public CreatedUser resetPassword(String actorUserId, String userId, long expectedRowVersion) {
+    public IssuedTemporaryPassword resetPassword(String actorUserId, String userId, long expectedRowVersion) {
         UserAccount account = requireUserForUpdate(userId);
         if (account.rowVersion() != expectedRowVersion) {
             throw versionConflict();
@@ -115,7 +115,7 @@ public class UserAdministrationService {
         }
         sessions.revokeAll(userId, now, "PASSWORD_RESET");
         audit.record(actorUserId, userId, "PASSWORD_RESET");
-        return new CreatedUser(UserView.from(accounts.findById(userId)), temporaryPassword);
+        return new IssuedTemporaryPassword(UserView.from(accounts.findById(userId)), temporaryPassword);
     }
 
     private UserAccount requireUserForUpdate(String userId) {

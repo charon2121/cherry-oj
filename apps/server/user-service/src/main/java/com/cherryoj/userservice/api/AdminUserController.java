@@ -1,7 +1,7 @@
 package com.cherryoj.userservice.api;
 
 import com.cherryoj.identity.resource.CurrentCall;
-import com.cherryoj.userservice.application.CreatedUser;
+import com.cherryoj.userservice.application.IssuedTemporaryPassword;
 import com.cherryoj.userservice.application.UserAdministrationService;
 import com.cherryoj.userservice.application.UserPage;
 import com.cherryoj.userservice.application.UserView;
@@ -43,7 +43,7 @@ public class AdminUserController {
     }
 
     @PostMapping
-    CreatedUser create(@Valid @RequestBody CreateUserRequest request) {
+    IssuedTemporaryPassword create(@Valid @RequestBody CreateUserRequest request) {
         return users.createUser(CurrentCall.requireUser().id(), request.username());
     }
 
@@ -55,7 +55,7 @@ public class AdminUserController {
     }
 
     @PostMapping("/{userId}/password-reset")
-    CreatedUser resetPassword(
+    IssuedTemporaryPassword resetPassword(
             @PathVariable @Pattern(regexp = "^[0-9a-fA-F-]{36}$") String userId,
             @Valid @RequestBody ResetPasswordRequest request) {
         return users.resetPassword(CurrentCall.requireUser().id(), userId, request.rowVersion());
