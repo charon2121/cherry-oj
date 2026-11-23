@@ -76,7 +76,7 @@ Go 竞态测试与 vet、Web 183 项测试和构建、多语言浏览器 7 项�
 | 应用发布与升级 | ✅ [仓库工具](../deploy/app/README.md)支持指定提交构建、包核验、升级、回滚与中断恢复；测试服务器实际演练通过。仅接管已有应用安装，不创建基础设施或开放公网；数据库恢复未演练 |
 | 同题多语言与限制标定 | ✅ C/C++/PyPy/Java 的 ACM、CORE 同题配置；基础、推导与覆盖限制；至少一门就绪即可公开；作答只列就绪语言、按语言恢复草稿。前三门已部署应用；Java 的原生节点、隔离业务栈与真实浏览器验证通过，应用发布边界见上文。模型及实测范围见 [运行限制协议](./protocols/limits.md#11-实测记录) |
 | `contracts/` | ✅ v2：judge / submission / judge-input / snapshot / profile / events / problem-test-data；题目没有版本；verdict 保持稳定 |
-| 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用；真实内核隔离测试最后一次随旧 CI 于 2026-10-04 通过（`5f2dea7`），日常 CI 现只编译执行器，内核测试需按需在 Linux 机器上运行 |
+| 执行层（store, runner, pool, backend）与 C 执行器 | ✅ judge 进程内使用。日常 CI 编译执行器，[原生 Benchmark](https://github.com/charon2121/cherry-oj/actions/runs/45126872782) 在真实 Linux 上验证执行器协议、资源回收和 judge、sandbox 两个入口 |
 | `internal/config` | ✅ YAML + 环境变量 |
 | judge：`contract`、`testcase`、`language`、`checker`、`client`、`flow` | ✅ `testcase` 按请求里的 `testDataLocation` 读[协议](./protocols/testdata.md)目录（本地路径与 HTTP 都实测过） |
 | judge：`api`、`cmd/judge` | ✅ `POST /judge`，执行层在进程内；可带 CORE 的用户文件（`solutionSource`），文件名按 `contracts/languages.json` 的 `files`；benchmark 的 `core-add` 在本机 judge 镜像（devhost）上 7 项全过（2026-10-17） |

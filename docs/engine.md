@@ -172,14 +172,14 @@ apps/judge-engine/
 
 apps/sandbox/                   # ★ 执行器（C，setuid-root），不在 Go 模块里
 ├── src/
-│   ├── main.c                  #   入口：受信配置、调用方核对、提权、锁 box、输出事实
+│   ├── main.c                  #   入口：受信配置、调用方核对、提权、执行与回收顺序
 │   ├── config.c / spec.c       #   受信配置与请求解析
-│   ├── box.c                   #   box 目录的安全打开与写回
+│   ├── box.c                   #   box 目录的安全打开、写回与产物收集
 │   ├── cgroup.c                #   执行组：建组、写限额并读回、计量、整组 kill
 │   ├── supervise.c             #   clone3、监督墙钟/CPU/输出/取消
 │   ├── child.c                 #   namespace 内：init（PID 1）与用户程序
 │   ├── privilege.c / filter.c  #   降权步骤 / seccomp 策略
-│   └── facts.c                 #   从事实推出结论（纯函数）
+│   └── facts.c                 #   归纳执行事实并编码成 JSON
 └── tests/                      #   需要真实内核与 root 的测试
 ```
 
@@ -459,6 +459,9 @@ judge 作为判题节点时，只向控制面报身份：`nodeId`（配置）、
 - 第 5、6 步的先后是刻意的，见 §6.3 和 §6.6。
 
 ### 6.3 `Backend`：一次性执行接口
+
+Linux 后端由 `executor.go` 负责编排 box 生命周期和处理退出码。同包的 `request.go` 编码请求，
+`process.go` 负责执行器启动、取消和等待，`facts.go` 解码事实，`delivery.go` 交付输出流和产物。
 
 ```go
 // execution/backend
