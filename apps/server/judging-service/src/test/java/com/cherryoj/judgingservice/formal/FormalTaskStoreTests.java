@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 
 import com.cherryoj.judgingservice.domain.UuidV7;
 import com.cherryoj.judgingservice.judge.JudgeGateway;
+import com.cherryoj.judgingservice.judge.LanguageCatalog;
 import com.cherryoj.judgingservice.persistence.JudgeNodeRepository;
 import com.cherryoj.judgingservice.problem.*;
 import java.security.SecureRandom;
@@ -97,7 +98,85 @@ class FormalTaskStoreTests {
         var nodes = mock(JudgeNodeRepository.class);
         var judge = mock(JudgeGateway.class);
         var testData = mock(ProblemTestDataClient.class);
-        var properties = new FormalProperties(
+        var input = input(id, problem);
+        when(judgeInputs.get(id, null)).thenReturn(input);
+        when(testData.current(eq(problem), any()))
+                .thenReturn(new ProblemTestData("/data/p", "a".repeat(64), 1, 10, 0L));
+        var runner = new FormalAttemptRunner(
+                store, judgeInputs, nodes, judge, testData, properties(), clock, new LanguageCatalog(json));
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            runner.execute(store.claim(Duration.ofSeconds(30)));
+            clock.advance(6);
+        }
+        assertNull(store.claim(Duration.ofSeconds(30)));
+        assertEquals(
+                1,
+                store.pending().stream()
+                        .filter(e -> e.payload().contains("JudgeFailed"))
+                        .count());
+        verify(nodes, times(3)).online(eq("cpp"), any());
+        verifyNoInteractions(judge);
+    }
+
+    @Test
+    void retryKeepsFrozenSourceAndLimitsAndUsesTheCurrentTestData() throws Exception {
+        String id = UUID.randomUUID().toString(), problem = UUID.randomUUID().toString();
+        store.receive(UUID.randomUUID().toString(), id, clock.instant(), "a".repeat(32), null);
+        var judgeInputs = mock(JudgeInputClient.class);
+        var nodes = mock(JudgeNodeRepository.class);
+        var judge = mock(JudgeGateway.class);
+        var testData = mock(ProblemTestDataClient.class);
+        var input = input(id, problem);
+        var properties = properties();
+        String endpoint = "http://judge.test";
+        String oldDigest = "a".repeat(64), currentDigest = "b".repeat(64);
+        when(judgeInputs.get(id, null)).thenReturn(input);
+        when(testData.current(problem, null))
+                .thenReturn(
+                        new ProblemTestData("/data/first", oldDigest, 1, 10, 5L),
+                        new ProblemTestData("/data/current", currentDigest, 2, 20, 10L));
+        when(nodes.online(eq("cpp"), any()))
+                .thenReturn(List.of(
+                        new JudgeNodeRepository.Node("node", UUID.randomUUID().toString(), endpoint, null)));
+        var firstRequest = new JudgeGateway.JudgeRequest(
+                id, problem, "/data/first", "cpp", input.completeSource(), null, input.effectiveLimits(), "submit");
+        var retryRequest = new JudgeGateway.JudgeRequest(
+                id, problem, "/data/current", "cpp", input.completeSource(), null, input.effectiveLimits(), "submit");
+        when(judge.judge(endpoint, firstRequest, null, Duration.ofSeconds(31).plusNanos(3000)))
+                .thenReturn(new JudgeGateway.JudgeResult("SE", null, null, null));
+        var passed = List.of(
+                new JudgeGateway.TestcaseResult(1, "AC", 10L, 100L),
+                new JudgeGateway.TestcaseResult(2, "AC", 10L, 100L));
+        when(judge.judge(endpoint, retryRequest, null, Duration.ofSeconds(32).plusNanos(6000)))
+                .thenReturn(new JudgeGateway.JudgeResult("AC", 20L, 100L, 100, null, passed, currentDigest));
+
+        var runner = new FormalAttemptRunner(
+                store, judgeInputs, nodes, judge, testData, properties, clock, new LanguageCatalog(json));
+        runner.execute(store.claim(Duration.ofSeconds(30)));
+        clock.advance(2);
+        runner.execute(store.claim(Duration.ofSeconds(30)));
+
+        verify(judgeInputs, times(2)).get(id, null);
+        verify(testData, times(2)).current(problem, null);
+        verify(judge).judge(endpoint, firstRequest, null, Duration.ofSeconds(31).plusNanos(3000));
+        verify(judge).judge(endpoint, retryRequest, null, Duration.ofSeconds(32).plusNanos(6000));
+        assertEquals(
+                currentDigest,
+                jdbc.queryForObject("SELECT test_data_digest FROM judge_attempt WHERE attempt_no=2", String.class));
+        var completion = store.pending().stream()
+                .map(event -> json.readTree(event.payload()))
+                .filter(event -> event.path("eventType").asString().equals("JudgeCompleted"))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(
+                "AC", completion.path("payload").path("result").path("verdict").asString());
+        assertEquals(
+                2,
+                completion.path("payload").path("result").path("testcaseCount").asInt());
+    }
+
+    private static FormalProperties properties() {
+        return new FormalProperties(
                 false,
                 "requests",
                 "lifecycle",
@@ -109,7 +188,10 @@ class FormalTaskStoreTests {
                 Duration.ofSeconds(30),
                 10,
                 Duration.ofSeconds(1));
-        var input = new JudgeInput(
+    }
+
+    private JudgeInput input(String id, String problem) {
+        return new JudgeInput(
                 id,
                 "2",
                 problem,
@@ -124,30 +206,6 @@ class FormalTaskStoreTests {
                 "BASE",
                 null,
                 clock.instant());
-        when(judgeInputs.get(id, null)).thenReturn(input);
-        when(testData.current(eq(problem), any()))
-                .thenReturn(new ProblemTestData("/data/p", "a".repeat(64), 1, 10, 0L));
-        var runner = new FormalAttemptRunner(
-                store,
-                judgeInputs,
-                nodes,
-                judge,
-                testData,
-                properties,
-                clock,
-                new com.cherryoj.judgingservice.judge.LanguageCatalog(new tools.jackson.databind.ObjectMapper()));
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            runner.execute(store.claim(Duration.ofSeconds(30)));
-            clock.advance(6);
-        }
-        assertNull(store.claim(Duration.ofSeconds(30)));
-        assertEquals(
-                1,
-                store.pending().stream()
-                        .filter(e -> e.payload().contains("JudgeFailed"))
-                        .count());
-        verify(nodes, times(3)).online(eq("cpp"), any());
-        verifyNoInteractions(judge);
     }
 
     static class MutableClock extends Clock {

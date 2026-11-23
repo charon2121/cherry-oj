@@ -614,6 +614,9 @@ CreateSubmissionRequest { problemId, languageId, source }
 7. 当前 leaseToken 匹配时保存 Attempt（含数据指纹）并发布 JudgeCompleted；可重试故障进入 RETRY_WAITING。
 8. 重试耗尽或不可重试错误进入 DEAD 并发布 JudgeFailed。
 
+RETRY_WAITING 再次领取时，JudgeInput 仍取提交时冻结的记录。新尝试重新读取题目当前的测试数据地址与
+测试点数。两次尝试之间的数据替换可能改变新尝试使用的测试数据及其指纹。
+
 ### 8.3 自定义测试
 
 自定义测试不创建 Submission、JudgeTask 或 Kafka 事件：
