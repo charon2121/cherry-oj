@@ -27,7 +27,7 @@ def check_manifest(store: Store, name: str, expected: str) -> None:
         raise ValueError('操作绑定的发布清单发生变化: ' + name)
 
 
-def restore(store: Store, host: Host, operation: Operation) -> None:
+def restore_original_release(store: Store, host: Host, operation: Operation) -> None:
     host.stop()
     check_manifest(store, operation.fromRelease, operation.fromManifestSha256)
     current = store.current()
@@ -53,7 +53,7 @@ def restore(store: Store, host: Host, operation: Operation) -> None:
     store.persist(operation)
 
 
-def recovery_required(store: Store, host: Host, operation: Operation) -> bool:
+def mark_recovery_required(store: Store, host: Host, operation: Operation) -> bool:
     stopped = True
     try:
         host.stop()
@@ -67,7 +67,7 @@ def recovery_required(store: Store, host: Host, operation: Operation) -> bool:
     return stopped
 
 
-def transition(store: Store, host: Host, operation: Operation, original: dict[str, Any]) -> None:
+def apply_release_change(store: Store, host: Host, operation: Operation, original: dict[str, Any]) -> None:
     stage = 'STOP_FAILED'
     try:
         host.stop()
@@ -100,9 +100,9 @@ def transition(store: Store, host: Host, operation: Operation, original: dict[st
     except BaseException as error:
         operation.errorCode = stage
         try:
-            restore(store, host, operation)
+            restore_original_release(store, host, operation)
         except BaseException as recovery_error:
-            stopped = recovery_required(store, host, operation)
+            stopped = mark_recovery_required(store, host, operation)
             status = '服务保持停止' if stopped else '无法确认服务全部停止'
             raise RuntimeError('应用需要人工恢复，' + status + '；操作材料: '
                                + str(store.operations / operation.operationId)) from recovery_error
@@ -147,7 +147,7 @@ def execute(store: Store, mysql: Mysql, action: str, package: Path | None = None
         atomic(directory / 'deployment.before.json', (store.home / 'deployment.json').read_bytes(), 0o600)
         store.persist(operation)
         print(json.dumps(dict(operationId=operation_id, action=action, target=new)), flush=True)
-        transition(store, host, operation, original)
+        apply_release_change(store, host, operation, original)
         return operation
 
 
@@ -166,10 +166,10 @@ def recover(store: Store, mysql: Mysql, host_type: type[Host] = Host) -> Operati
         if host.settings() != operation.mysql:
             raise ValueError('数据库参数与待恢复操作不一致')
         try:
-            restore(store, host, operation)
+            restore_original_release(store, host, operation)
         except BaseException as error:
             operation.errorCode = 'RECOVERY_FAILED'
-            stopped = recovery_required(store, host, operation)
+            stopped = mark_recovery_required(store, host, operation)
             status = '服务保持停止' if stopped else '无法确认服务全部停止'
             raise RuntimeError('无法自动恢复，' + status + '；操作材料: ' + str(directory)) from error
         return operation
