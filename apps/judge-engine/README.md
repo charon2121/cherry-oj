@@ -24,7 +24,8 @@ judging-service ──HTTP /judge──▶ judge（非特权）
 
 | 目录 | 一句话 |
 |---|---|
-| [cmd/](cmd) | 唯一的 `main`，只调用 `judge.Run` |
+| [cmd/judge/](cmd/judge) | 判题服务入口 |
+| [cmd/problem-build/](cmd/problem-build/README.md) | C++ ACM 题目的验题与测试数据导出工具 |
 | [judge/](judge) | 编排一次判题：上传源码、编译、逐点运行、比对、汇总 Verdict；入口 [flow](judge/flow/flow.go)；[judge.go](judge/judge.go) 装配执行层与 HTTP |
 | [execution/](execution) | 进程内执行层：blob、排队、限额归一化、把执行事实归类成 Status；入口 [engine.go](execution/engine.go) |
 | · [backend](execution/backend/doc.go) | 单次执行的可替换边界：[executor.go](execution/backend/executor.go) 调用 C 执行器，devhost 不隔离、只用于开发 |

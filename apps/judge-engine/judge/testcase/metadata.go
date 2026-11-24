@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+
+	"cherry-oj/judge-engine/internal/contract"
 )
 
 // MetadataFile 是测试数据目录里的元数据文件名。写入方最后写它，读不到就说明数据还没就绪。
@@ -117,4 +119,17 @@ func (m metadata) computeDigest() string {
 		fmt.Fprintf(h, "%s  %s\n%s  %s\n", c.Input.SHA256, c.inputFile(), c.Output.SHA256, c.outputFile())
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// DigestSpecs 计算已按发布顺序排列的测试点的测试数据指纹。
+func DigestSpecs(specs []contract.TestcaseSpec) string {
+	m := metadata{Testcases: make([]testcaseMetadata, 0, len(specs))}
+	for _, c := range specs {
+		m.Testcases = append(m.Testcases, testcaseMetadata{
+			Name:   c.Name,
+			Input:  fileMetadata{SHA256: fmt.Sprintf("%x", sha256.Sum256([]byte(c.Input)))},
+			Output: fileMetadata{SHA256: fmt.Sprintf("%x", sha256.Sum256([]byte(c.Expected)))},
+		})
+	}
+	return m.computeDigest()
 }

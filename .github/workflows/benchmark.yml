@@ -153,6 +153,24 @@ jobs:
           sudo journalctl -u cherry-sandbox-judge.service -n 60 --no-pager
           exit 1
 
+      - name: C++ ACM 自动验题与可重复构建
+        run: |
+          set -eu
+          cd apps/judge-engine
+          binary="$RUNNER_TEMP/problem-build"
+          manifest="$RUNNER_TEMP/release/toolchains/cpp/manifest.json"
+          go build -o "$binary" ./cmd/problem-build
+          for attempt in first second; do
+            output="$RUNNER_TEMP/problem-build-$attempt"
+            if ! sh cmd/problem-build/testdata/range-sum/run.sh "$binary" "$manifest" "$output" "$JUDGE_URL"; then
+              if [ -f "$output/report.txt" ]; then cat "$output/report.txt"; fi
+              exit 1
+            fi
+          done
+          cmp "$RUNNER_TEMP/problem-build-first/testdata.zip" "$RUNNER_TEMP/problem-build-second/testdata.zip"
+          grep '^数据指纹=' "$RUNNER_TEMP/problem-build-first/report.txt" > "$RUNNER_TEMP/fingerprint"
+          grep -Fx -f "$RUNNER_TEMP/fingerprint" "$RUNNER_TEMP/problem-build-second/report.txt"
+
       # sandbox 入口直接调用执行器，要 root，并需要保留 core 硬上限；两个入口依次进行。
       - name: benchmark（strictWhitespace=false，judge 与 sandbox 两个入口，全部题目与攻击样本）
         run: >-
