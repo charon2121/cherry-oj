@@ -157,7 +157,7 @@ theme contract、默认主题或 adapter 时，必须在同一 WORK/TASK 中同�
 
 ### `vite`
 
-开发时启动 5173 端口、提供快速刷新并代理 `/api`；构建时把源码、样式和资源打包进 `dist/`。配置入口是 `vite.config.ts`。它不承担生产服务端业务。
+开发时按 `ports.env` 的端口启动、提供快速刷新并代理 `/api`；构建时把源码、样式和资源打包进 `dist/`。配置入口是 `vite.config.ts`。它不承担生产服务端业务。
 
 ### `@vitejs/plugin-react`
 

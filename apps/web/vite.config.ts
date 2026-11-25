@@ -22,6 +22,31 @@ const ports = readPorts();
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    {
+      name: 'cherry-local-origin',
+      configureServer(server) {
+        const trustedOrigin = process.env.CHERRY_WEB_ORIGIN;
+        server.middlewares.use((request, response, next) => {
+          const path = request.url ?? '/';
+          const port = request.socket.localPort;
+          const origin = `http://cherry.localhost:${port}`;
+          if (
+            !port ||
+            (trustedOrigin && trustedOrigin !== origin) ||
+            request.method !== 'GET' ||
+            !request.headers.accept?.includes('text/html') ||
+            !/^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(request.headers.host ?? '') ||
+            !path.startsWith('/') ||
+            /^\/api(?:[/?]|$)/.test(path)
+          ) {
+            next();
+            return;
+          }
+          // Redirect before the SPA loads so cookies and writes use the gateway's trusted origin.
+          response.writeHead(307, { Location: `${origin}${path}` }).end();
+        });
+      },
+    },
     tanstackRouter({
       target: 'react',
       autoCodeSplitting: true,

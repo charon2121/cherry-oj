@@ -14,9 +14,9 @@ npm ci
 npm run dev
 ```
 
-浏览器打开 `http://cherry.localhost:5173`（`*.localhost` 由浏览器直接解析到本机）。网关只信任 `http://cherry.localhost:<前端端口>` 这一个来源，换成 `localhost` 或 `127.0.0.1` 后登录等带请求体的接口会被跨域检查拒绝。用独立主机名还有一个原因：Cookie 按主机名而不按端口隔离，`localhost` 上其他本地项目留下的 Cookie 会一起发出，累积过大时网关会以 431 拒绝请求。端口和下面的代理目标都读自仓库根目录的 `ports.env`。Vite 会在文件保存后刷新页面。
+浏览器打开 `http://cherry.localhost:5174`（`*.localhost` 由浏览器直接解析到本机）。使用默认网关来源配置时，从 `localhost` 或 `127.0.0.1` 打开前端页面也会自动跳转到同端口的 `cherry.localhost`，并保留页面路径和查询参数。登录等有状态请求使用网关信任的来源。浏览器按主机名隔离 Cookie，使用独立主机名可以避免 `localhost` 上其他项目的 Cookie 累积过大，导致网关返回 431。端口和下面的代理目标都读自仓库根目录的 `ports.env`。Vite 会在文件保存后刷新页面。
 
-前端访问 `/api` 时，开发服务器会把请求转发到 `ports.env` 里的网关端口（默认 8080），也就是 Java Gateway。只查看静态页面不需要启动后端；需要真实接口时，再启动 Gateway 和对应业务服务。
+前端访问 `/api` 时，开发服务器会把请求转发到 `ports.env` 里的网关端口（当前为 9080），也就是 Java Gateway。只查看静态页面不需要启动后端；需要真实接口时，再启动 Gateway 和对应业务服务。
 
 ## 设计系统和主题从哪里来
 
@@ -71,7 +71,7 @@ npm run build
 npm run preview
 ```
 
-- `dev`：启动开发服务器，默认端口 5173。
+- `dev`：启动开发服务器，端口来自 `ports.env`（当前为 5174）。
 - `build`：先做 TypeScript 构建检查，再生成可部署的 `dist/`。
 - `preview`：在本地预览 `dist/`，用于确认生产构建结果，不替代正式部署。
 
@@ -158,7 +158,7 @@ npm run test:e2e
 
 ### 页面能打开，但 `/api` 请求失败
 
-确认 Gateway 已在 8080 端口启动。Vite 只负责转发请求，不会替你启动后端，也不会伪造真实业务数据。
+确认 Gateway 已在 `ports.env` 的网关端口启动。Vite 只负责转发请求，不会替你启动后端，也不会伪造真实业务数据。
 
 ### 新路由没有出现
 
