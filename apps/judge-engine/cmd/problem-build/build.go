@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -10,10 +11,12 @@ import (
 	"cherry-oj/judge-engine/judge/testcase"
 )
 
+type runTrial func(stage string, target languageBuild, program program, specs []contract.TestcaseSpec) (contract.JudgeResult, error)
+
 func build(ctx context.Context, judge judgeClient, report *buildReport, output string) error {
 	input := report.input
-	run := func(stage string, source sourceFile, specs []contract.TestcaseSpec) (contract.JudgeResult, error) {
-		result, err := judge.trial(ctx, input.options.limits, source.text, specs)
+	run := func(stage string, target languageBuild, program program, specs []contract.TestcaseSpec) (contract.JudgeResult, error) {
+		result, err := judge.trial(ctx, target.id, target.limits, program, specs)
 		summary := result
 		summary.TestcaseResults = slices.Clone(result.TestcaseResults)
 		for i := range summary.TestcaseResults {
@@ -26,12 +29,23 @@ func build(ctx context.Context, judge judgeClient, report *buildReport, output s
 		}
 		return result, nil
 	}
+	answerIndex := slices.IndexFunc(input.languages, func(target languageBuild) bool {
+		return target.id == input.answerLanguage
+	})
+	if answerIndex < 0 {
+		return fmt.Errorf("未配置答案语言 %q", input.answerLanguage)
+	}
+	answer := input.languages[answerIndex]
+	tools := languageBuild{id: "cpp", limits: input.toolLimits}
 
 	recipes := make([]contract.TestcaseSpec, 0, len(input.cases))
 	for _, c := range input.cases {
 		recipes = append(recipes, contract.TestcaseSpec{Name: c.name, Input: c.recipe.text})
 	}
-	generated, err := run("生成输入", input.generator, recipes)
+	if err := report.mark("GENERATOR"); err != nil {
+		return err
+	}
+	generated, err := run("生成输入", tools, program{source: input.generator}, recipes)
 	if err != nil {
 		return err
 	}
@@ -48,14 +62,20 @@ func build(ctx context.Context, judge judgeClient, report *buildReport, output s
 		}
 		specs = append(specs, contract.TestcaseSpec{Name: c.name, Input: text})
 	}
-	validated, err := run("校验输入", input.validator, specs)
+	if err := report.mark("VALIDATOR"); err != nil {
+		return err
+	}
+	validated, err := run("校验输入", tools, program{source: input.validator}, specs)
 	if err != nil {
 		return err
 	}
 	if err := report.requireVerdict("校验输入", validated, specs, contract.VerdictRAN); err != nil {
 		return err
 	}
-	reference, err := run("生成答案", input.reference, specs)
+	if err := report.mark("ANSWERS"); err != nil {
+		return err
+	}
+	reference, err := run("生成答案", answer, answer.reference, specs)
 	if err != nil {
 		return err
 	}
@@ -77,7 +97,10 @@ func build(ctx context.Context, judge judgeClient, report *buildReport, output s
 			oracleSpecs = append(oracleSpecs, specs[i])
 		}
 	}
-	checked, err := run("运行独立核对解", input.oracle, oracleSpecs)
+	if err := report.mark("ORACLE"); err != nil {
+		return err
+	}
+	checked, err := run("运行独立核对解", tools, program{source: input.oracle}, oracleSpecs)
 	if err != nil {
 		return err
 	}
@@ -97,16 +120,76 @@ func build(ctx context.Context, judge judgeClient, report *buildReport, output s
 	}
 	report.specs = specs
 
-	correct, err := run("checker 验证参考解", input.reference, specs)
+	samples := make([]contract.TestcaseSpec, 0, len(specs))
+	for i, c := range input.cases {
+		if c.sample != nil {
+			samples = append(samples, contract.TestcaseSpec{Name: c.name, Input: specs[i].Input})
+		}
+	}
+	var languageErrors []error
+	if err := report.mark("LANGUAGES"); err != nil {
+		return err
+	}
+	for _, target := range input.languages {
+		if ctx.Err() != nil {
+			languageErrors = append(languageErrors, ctx.Err())
+			break
+		}
+		outcome := languageResult{LanguageID: target.id, Status: "PASSED", ToolchainDigest: target.manifest.sha256}
+		if err := verifyLanguage(run, report, target, specs, samples, &outcome); err != nil {
+			outcome.Status, outcome.Detail = "FAILED", err.Error()
+			languageErrors = append(languageErrors, err)
+		}
+		report.results = append(report.results, outcome)
+	}
+	if err := errors.Join(languageErrors...); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("导出 ZIP：%w", err)
+	}
+	if err := report.mark("EXPORT"); err != nil {
+		return err
+	}
+	if err := writeArchive(output, specs); err != nil {
+		return fmt.Errorf("导出 ZIP：%w", err)
+	}
+	report.digest = testcase.DigestSpecs(specs)
+	return nil
+}
+
+func (r *buildReport) mark(stage string) error {
+	r.stage = stage
+	if r.progress != nil {
+		return r.progress(stage)
+	}
+	return nil
+}
+
+func verifyLanguage(run runTrial, report *buildReport, target languageBuild, specs, samples []contract.TestcaseSpec, outcome *languageResult) error {
+	referenceStage := "checker 验证参考解 [" + target.id + "]"
+	correct, err := run(referenceStage, target, target.reference, specs)
+	outcome.Verdict, outcome.MaxCPUNs, outcome.MaxMemoryBytes = correct.Verdict, correct.CPUNs, correct.MemoryBytes
 	if err != nil {
 		return err
 	}
-	if err := report.requireVerdict("checker 验证参考解", correct, specs, contract.VerdictAC); err != nil {
+	if err := report.requireVerdict(referenceStage, correct, specs, contract.VerdictAC); err != nil {
 		return err
 	}
-	for _, wrong := range input.wrong {
-		stage := fmt.Sprintf("checker 验证错误解 %q（指定点 %s）", wrong.source.path, wrong.caseName)
-		result, err := run(stage, wrong.source, specs)
+	if target.starter != nil {
+		stage := "运行 CORE 起始代码 [" + target.id + "]"
+		starter, err := run(stage, target, *target.starter, samples)
+		outcome.StarterVerdict = starter.Verdict
+		if err != nil {
+			return err
+		}
+		if err := report.requireVerdict(stage, starter, samples, contract.VerdictRAN); err != nil {
+			return err
+		}
+	}
+	for _, wrong := range target.wrong {
+		stage := fmt.Sprintf("checker 验证错误解 [%s] %q（指定点 %s）", target.id, wrong.program.submission().path, wrong.caseName)
+		result, err := run(stage, target, wrong.program, specs)
 		if err != nil {
 			return err
 		}
@@ -122,13 +205,6 @@ func build(ctx context.Context, judge judgeClient, report *buildReport, output s
 			return fmt.Errorf("%s：总体结论为 %s，期望 WA", stage, result.Verdict)
 		}
 	}
-	if err := ctx.Err(); err != nil {
-		return fmt.Errorf("导出 ZIP：%w", err)
-	}
-	if err := writeArchive(output, specs); err != nil {
-		return fmt.Errorf("导出 ZIP：%w", err)
-	}
-	report.digest = testcase.DigestSpecs(specs)
 	return nil
 }
 
@@ -162,11 +238,11 @@ func (r *buildReport) fullOutputs(stage string, result contract.JudgeResult, spe
 
 func (r *buildReport) caseFailure(stage string, c contract.TestcaseSpec, verdict contract.Verdict, reason string) error {
 	var evidence strings.Builder
-	fmt.Fprintf(&evidence, "输入=%q\n", c.Input)
+	fmt.Fprintf(&evidence, "%s %s 输入=%q\n", stage, c.Name, c.Input)
 	if c.Expected != "" {
 		fmt.Fprintf(&evidence, "期望输出=%q\n", c.Expected)
 	}
-	r.evidence = evidence.String()
+	r.evidence += evidence.String()
 	return fmt.Errorf("%s：测试点 %q 返回 %s，%s", stage, c.Name, verdict, reason)
 }
 

@@ -27,6 +27,10 @@ final class ProblemApiErrors {
             "UNSUPPORTED_LANGUAGE",
             "TEST_DATA_EMPTY",
             "INVALID_TEST_DATA_ARCHIVE",
+            "AUTHORING_JOB_NOT_FOUND",
+            "AUTHORING_INPUT_CHANGED",
+            "AUTHORING_ARTIFACT_CHANGED",
+            "AUTHORING_QUEUE_FULL",
             "JUDGING_STATE_CONFLICT",
             "JUDGING_VALIDATION_FAILED");
 
@@ -57,6 +61,7 @@ final class ProblemApiErrors {
                     case "JUDGE_NODE_UNREACHABLE" -> "判题节点暂时无法连接，请等待节点恢复后重试。";
                     case "JUDGE_NODE_DATA_REJECTED" -> "判题节点拒绝测试数据，请检查数据包后重新部署。";
                     case "JUDGE_NODE_RECEIPT_MISMATCH" -> "判题节点返回的数据回执不匹配，请重新部署或联系管理员。";
+                    case "AUTHORING_UNAVAILABLE" -> upstream.detail() == null ? "出题服务暂不可用。" : upstream.detail();
                     default -> null;
                 };
                 if (detail != null)

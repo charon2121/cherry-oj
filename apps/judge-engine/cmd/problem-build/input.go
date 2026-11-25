@@ -15,6 +15,7 @@ import (
 
 	"cherry-oj/judge-engine/internal/contract"
 	"cherry-oj/judge-engine/judge/config"
+	"cherry-oj/judge-engine/judge/language"
 )
 
 const (
@@ -58,11 +59,16 @@ type buildOptions struct {
 	judgeURL          string
 	output            string
 	toolchainManifest string
+	answerManifest    string
+	answerLanguage    string
 	statement         string
 	generator         string
 	validator         string
 	reference         string
 	oracle            string
+	driver            string
+	solutionPrefix    string
+	starter           string
 	cases             fileAssignments
 	expected          fileAssignments
 	samples           fileAssignments
@@ -81,15 +87,20 @@ func parseOptions(args []string, stderr io.Writer) (buildOptions, error) {
 	flags.StringVar(&options.judgeURL, "judge-url", "http://127.0.0.1:15051", "受信原生判题节点的回环 HTTP 地址")
 	flags.StringVar(&options.output, "output", "", "新的私有产物目录")
 	flags.StringVar(&options.toolchainManifest, "toolchain-manifest", "", "原生节点当前 C++ 工具链的 manifest.json")
+	flags.StringVar(&options.answerLanguage, "answer-language", "cpp", "提供参考解和错误解的作答语言")
+	flags.StringVar(&options.answerManifest, "answer-toolchain-manifest", "", "非 C++ 作答语言的工具链 manifest.json")
 	flags.StringVar(&options.statement, "statement", "", "题面与约束的 Markdown 文件")
 	flags.StringVar(&options.generator, "generator", "", "C++ 生成器源码")
 	flags.StringVar(&options.validator, "validator", "", "C++ 输入校验器源码，输入合法时退出码为 0")
-	flags.StringVar(&options.reference, "reference", "", "高效 C++ 参考解源码")
+	flags.StringVar(&options.reference, "reference", "", "高效参考解源码")
 	flags.StringVar(&options.oracle, "oracle", "", "独立 C++ 核对解源码")
+	flags.StringVar(&options.driver, "driver", "", "CORE 的驱动文件源码，提供后按 CORE 验题")
+	flags.StringVar(&options.solutionPrefix, "solution-prefix", "", "CORE 全局前缀，原样拼到各份核心代码之前")
+	flags.StringVar(&options.starter, "starter", "", "CORE 编辑器起始代码，用公开样例检查")
 	flags.Var(options.cases, "case", "name=path，将该文件原样作为生成器 stdin，可重复")
 	flags.Var(options.expected, "expected", "name=path，独立确定的期望输出，例如样例或构造点，可重复")
 	flags.Var(options.samples, "sample", "name=path，核对公开样例的输入原文，须同时指定 -expected")
-	flags.Func("wrong", "name=path，必须在指定测试点判 WA 的 C++ 错误解，可重复", func(value string) error {
+	flags.Func("wrong", "name=path，必须在指定测试点判 WA 的错误解，可重复", func(value string) error {
 		name, path, err := parseAssignment(value)
 		if err != nil {
 			return err
@@ -127,6 +138,22 @@ func parseOptions(args []string, stderr io.Writer) (buildOptions, error) {
 	}
 	if len(options.samples) == 0 || len(options.oracleCases) == 0 {
 		return options, fmt.Errorf("需要至少一个 -sample 和一个 -oracle-case")
+	}
+	lang, ok := language.Get(options.answerLanguage)
+	if !ok {
+		return options, fmt.Errorf("不支持的作答语言 %q", options.answerLanguage)
+	}
+	if options.driver != "" && !lang.SupportsSolution() {
+		return options, fmt.Errorf("作答语言 %q 不支持 CORE 模式", options.answerLanguage)
+	}
+	if options.answerLanguage != "cpp" && options.answerManifest == "" {
+		return options, fmt.Errorf("作答语言 %q 缺少 -answer-toolchain-manifest", options.answerLanguage)
+	}
+	if options.driver == "" && (options.solutionPrefix != "" || options.starter != "") {
+		return options, fmt.Errorf("-solution-prefix 与 -starter 需要 CORE 驱动文件 -driver")
+	}
+	if options.driver != "" && options.starter == "" {
+		return options, fmt.Errorf("CORE 验题缺少 -starter")
 	}
 	if err := options.limits.Validate(); err != nil {
 		return options, err
@@ -166,34 +193,54 @@ type buildCase struct {
 
 type wrongSolution struct {
 	caseName string
+	program  program
+}
+
+// program 与现有 JudgeRequest 的一个或两个文件对应。CORE 模式在到达 judge 之前已经展开。
+type program struct {
 	source   sourceFile
+	solution *sourceFile
+}
+
+func (p program) submission() sourceFile {
+	if p.solution != nil {
+		return *p.solution
+	}
+	return p.source
+}
+
+type languageBuild struct {
+	id        string
+	manifest  sourceFile
+	limits    contract.JudgeLimits
+	reference program
+	starter   *program
+	wrong     []wrongSolution
 }
 
 type buildInput struct {
-	options                                                      buildOptions
-	statement, manifest, generator, validator, reference, oracle sourceFile
-	cases                                                        []buildCase
-	wrong                                                        []wrongSolution
+	toolLimits                                        contract.JudgeLimits
+	statement, manifest, generator, validator, oracle sourceFile
+	cases                                             []buildCase
+	answerLanguage                                    string
+	languages                                         []languageBuild
 }
 
 func loadBuild(options buildOptions) (buildInput, error) {
-	input := buildInput{options: options}
+	input := buildInput{toolLimits: options.limits, answerLanguage: options.answerLanguage}
 	for _, item := range []struct {
 		path string
 		dest *sourceFile
 	}{
 		{options.statement, &input.statement},
 		{options.generator, &input.generator}, {options.validator, &input.validator},
-		{options.reference, &input.reference}, {options.oracle, &input.oracle},
+		{options.oracle, &input.oracle},
 	} {
 		file, err := readText(item.path, maxSourceBytes, false)
 		if err != nil {
 			return input, err
 		}
 		*item.dest = file
-	}
-	if input.reference.sha256 == input.oracle.sha256 {
-		return input, fmt.Errorf("参考解和独立核对解的源码相同")
 	}
 	manifest, err := fingerprintFile(options.toolchainManifest)
 	if err != nil {
@@ -241,17 +288,84 @@ func loadBuild(options buildOptions) (buildInput, error) {
 		}
 		input.cases = append(input.cases, c)
 	}
+	answer, err := loadLanguageBuild(options, manifest)
+	if err != nil {
+		return input, err
+	}
+	if answer.id == "cpp" && answer.reference.solution == nil && answer.reference.source.sha256 == input.oracle.sha256 {
+		return input, fmt.Errorf("参考解和独立核对解的源码相同")
+	}
+	input.languages = []languageBuild{answer}
+	return input, nil
+}
+
+func loadLanguageBuild(options buildOptions, manifest sourceFile) (languageBuild, error) {
+	result := languageBuild{id: options.answerLanguage, manifest: manifest, limits: options.limits}
+	var err error
+	if options.answerManifest != "" {
+		result.manifest, err = fingerprintFile(options.answerManifest)
+		if err != nil {
+			return result, err
+		}
+		if result.id == "cpp" && result.manifest.sha256 != manifest.sha256 {
+			return result, fmt.Errorf("C++ 出题工具与作答程序必须使用同一工具链清单")
+		}
+	}
+
+	var driver *sourceFile
+	var prefix string
+	if options.driver != "" {
+		file, err := readText(options.driver, maxSourceBytes, false)
+		if err != nil {
+			return result, err
+		}
+		driver = &file
+	}
+	if options.solutionPrefix != "" {
+		file, err := readText(options.solutionPrefix, maxSourceBytes, true)
+		if err != nil {
+			return result, err
+		}
+		prefix = file.text
+	}
+	result.reference, err = readProgram(options.reference, driver, prefix)
+	if err != nil {
+		return result, err
+	}
+	if options.starter != "" {
+		starter, err := readProgram(options.starter, driver, prefix)
+		if err != nil {
+			return result, err
+		}
+		result.starter = &starter
+	}
 	for _, witness := range options.wrong {
 		if _, ok := options.cases[witness.caseName]; !ok {
-			return input, fmt.Errorf("错误解 %q 的指定测试点 %q 未配置", witness.sourcePath, witness.caseName)
+			return result, fmt.Errorf("错误解 %q 的指定测试点 %q 未配置", witness.sourcePath, witness.caseName)
 		}
-		wrong, err := readText(witness.sourcePath, maxSourceBytes, false)
+		wrong, err := readProgram(witness.sourcePath, driver, prefix)
 		if err != nil {
-			return input, err
+			return result, err
 		}
-		input.wrong = append(input.wrong, wrongSolution{caseName: witness.caseName, source: wrong})
+		result.wrong = append(result.wrong, wrongSolution{caseName: witness.caseName, program: wrong})
 	}
-	return input, nil
+	return result, nil
+}
+
+func readProgram(path string, driver *sourceFile, prefix string) (program, error) {
+	file, err := readText(path, maxSourceBytes, false)
+	if err != nil {
+		return program{}, err
+	}
+	if driver == nil {
+		return program{source: file}, nil
+	}
+	file.text = prefix + file.text
+	if len(file.text) > maxSourceBytes {
+		return program{}, fmt.Errorf("%s 加上 CORE 前缀后超过 %d 字节", path, maxSourceBytes)
+	}
+	file.sha256 = fmt.Sprintf("%x", sha256.Sum256([]byte(file.text)))
+	return program{source: *driver, solution: &file}, nil
 }
 
 func sortedNames(files fileAssignments) []string {

@@ -93,6 +93,9 @@
     <select id="findLanguagePrefix" resultMap="languagePrefixRow">
         SELECT language_id, display_name, solution_prefix, updated_at FROM language WHERE language_id = #{languageId}
     </select>
+    <select id="lockLanguagePrefix" resultMap="languagePrefixRow">
+        SELECT language_id, display_name, solution_prefix, updated_at FROM language WHERE language_id = #{languageId} FOR SHARE
+    </select>
     <select id="findLanguageSettings" resultMap="languagePrefixRow">
         SELECT language_id, display_name, solution_prefix, updated_at FROM language ORDER BY language_id
     </select>

@@ -8,7 +8,7 @@ import {
 
 // 工作台是一页到底的编辑页；panel 只记录当前打开的对话框（测试数据、标定、公开），便于直接链接。
 const panelSchema = z.object({
-  panel: z.enum(['test-data', 'calibration', 'publish']).optional().catch(undefined),
+  panel: z.enum(['test-data', 'calibration', 'publish', 'authoring']).optional().catch(undefined),
 });
 
 export const Route = createFileRoute('/admin/problems/$problemId')({

@@ -690,6 +690,160 @@ export type PublishLanguageCheck = {
     ];
 };
 
+/**
+ * 仅 ACTIVE + PRIVATE 草稿。校验 rowVersion，并冻结题面、样例、测试数据地址和所选语言的前缀、驱动、模板。相同草稿快照与规范化输入复用原任务；失败或取消后由 retry 创建下一次尝试。
+ */
+export type ProblemAuthoringBuildRequest = {
+    kind: 'BUILD';
+    rowVersion: number;
+    input: BuildPlan;
+};
+
+/**
+ * 仅 ACTIVE + PRIVATE 草稿。外部模型仅收到管理员本次显式提交的知识点、难度与目标，以及有意选择的同题既有模型提案和修订指令。站内私有题面、隐藏数据、题库、用户源码不发送。修订需同时给 basedOnProposalId 和 revisionInstructions。 推荐部署接入 OpenAI Responses，部署配置模型和 API 密钥。默认关闭模型能力，不发送整个题库或站内私有资料。模型输出只作为待审候选。
+ */
+export type ProblemAuthoringProposalRequest = {
+    kind: 'PROPOSAL';
+    rowVersion: number;
+    knowledgePoint: string;
+    difficulty: ProblemDifficulty;
+    goal: string;
+    basedOnProposalId?: string;
+    revisionInstructions?: string;
+};
+
+export type ProblemAuthoringJobRequest = ({
+    kind: 'BUILD';
+} & ProblemAuthoringBuildRequest) | ({
+    kind: 'PROPOSAL';
+} & ProblemAuthoringProposalRequest);
+
+export type ProblemAuthoringProposal = {
+    title: string;
+    statementMarkdown: string;
+    inputDescriptionMarkdown: string;
+    outputDescriptionMarkdown: string;
+    constraintsMarkdown: string;
+    samples: Array<ProblemSample>;
+    languages: Array<ProblemLanguageInput>;
+    input: BuildPlan;
+};
+
+export type ProblemAuthoringJobSummary = {
+    id: string;
+    kind: 'BUILD' | 'PROPOSAL';
+    status: 'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+    stage: 'QUEUED' | 'MODEL' | 'INPUT' | 'GENERATOR' | 'VALIDATOR' | 'ANSWERS' | 'ORACLE' | 'LANGUAGES' | 'EXPORT' | 'COMPLETE';
+    rowVersion: number;
+    attempt: number;
+    createdAt: string;
+    updatedAt: string;
+    appliedAt: string | null;
+};
+
+/**
+ * 只有当前尝试可回填。阶段状态由任务服务维护。用户可从同题现有公开检查查看当前在线节点与标定；验题报告记录运行时的验证事实。
+ */
+export type ProblemAuthoringJobDetail = {
+    job: ProblemAuthoringJobSummary;
+    buildResult: RunnerResult | null;
+    proposal: ProblemAuthoringProposal | null;
+    errorCode: 'AUTHORING_RUNNER_UNAVAILABLE' | 'AUTHORING_BUILD_FAILED' | 'AUTHORING_MODEL_UNAVAILABLE' | 'AUTHORING_MODEL_INVALID_RESULT' | 'AUTHORING_TIMEOUT' | 'AUTHORING_INTERRUPTED' | null;
+    reportAvailable: boolean;
+};
+
+export type ProblemAuthoringJobList = {
+    items: Array<ProblemAuthoringJobSummary>;
+};
+
+export type ProblemAuthoringApplyRequest = {
+    rowVersion: number;
+    testDataDigest: Digest;
+};
+
+export type ProblemAuthoringJobSuccess = {
+    data: ProblemAuthoringJobDetail;
+    meta: ApiMeta;
+};
+
+export type ProblemAuthoringJobListSuccess = {
+    data: ProblemAuthoringJobList;
+    meta: ApiMeta;
+};
+
+/**
+ * 测试点名和语言 ID 各自唯一。答案语言属于 languages，每个错误解见证点必须存在。每点有独立核对解、明确期望输出或题目公开样例；至少一个核对解点，所有现有公开样例各对应一个测试点。显式期望输出与样例期望同时给出时须逐字节相同。
+ */
+export type BuildPlan = {
+    generatorSource: Source;
+    validatorSource: Source;
+    oracleSource: Source;
+    answerLanguageId: ProblemAuthoringSchemaLanguageId;
+    cases: Array<Case>;
+    languages: Array<LanguagePlan>;
+};
+
+export type Case = {
+    name: CaseName;
+    generatorInput: string;
+    oracle: boolean;
+    expectedOutput?: string;
+    sampleOrdinal?: number;
+};
+
+export type CaseName = string;
+
+export type Digest = string;
+
+/**
+ * 实际值由 languages.json 和本题启用语言约束。
+ */
+export type ProblemAuthoringSchemaLanguageId = string;
+
+export type LanguagePlan = {
+    languageId: ProblemAuthoringSchemaLanguageId;
+    limits: Limits;
+    referenceSource: Source;
+    wrongSolutions: Array<WrongSolution>;
+};
+
+export type LanguageResult = {
+    languageId: ProblemAuthoringSchemaLanguageId;
+    status: 'PASSED' | 'FAILED' | 'NOT_RUN';
+    verdict?: string;
+    starterVerdict?: string;
+    toolchainDigest?: Digest;
+    maxCpuNs?: number;
+    maxMemoryBytes?: number;
+    detail?: string;
+};
+
+export type Limits = {
+    cpuNs: number;
+    clockNs: number;
+    memoryBytes: number;
+};
+
+/**
+ * UTF-8 result.json，上限 64 KiB。SUCCEEDED 时必有 testDataDigest、testcaseCount，全部指定语言通过。stderr 不作协议字段。详报 report.txt 上限 1 MiB；成功才有 testdata.zip，上限 9 MiB。
+ */
+export type RunnerResult = {
+    schemaVersion: 1;
+    status: 'SUCCEEDED' | 'FAILED';
+    stage: 'INPUT' | 'GENERATOR' | 'VALIDATOR' | 'ANSWERS' | 'ORACLE' | 'LANGUAGES' | 'EXPORT';
+    testDataDigest?: Digest;
+    testcaseCount?: number;
+    languages: Array<LanguageResult>;
+    detail?: string;
+};
+
+export type Source = string;
+
+export type WrongSolution = {
+    source: Source;
+    witnessCaseName: CaseName;
+};
+
 export type LoginRequestWritable = {
     username: Username;
     password: string;
@@ -1808,3 +1962,433 @@ export type GetReadyProblemLanguagesResponses = {
 };
 
 export type GetReadyProblemLanguagesResponse = GetReadyProblemLanguagesResponses[keyof GetReadyProblemLanguagesResponses];
+
+export type ListProblemAuthoringJobsData = {
+    body?: never;
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs';
+};
+
+export type ListProblemAuthoringJobsErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type ListProblemAuthoringJobsError = ListProblemAuthoringJobsErrors[keyof ListProblemAuthoringJobsErrors];
+
+export type ListProblemAuthoringJobsResponses = {
+    /**
+     * 成功。
+     */
+    200: ProblemAuthoringJobListSuccess;
+};
+
+export type ListProblemAuthoringJobsResponse = ListProblemAuthoringJobsResponses[keyof ListProblemAuthoringJobsResponses];
+
+export type CreateProblemAuthoringJobData = {
+    body: ProblemAuthoringJobRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs';
+};
+
+export type CreateProblemAuthoringJobErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type CreateProblemAuthoringJobError = CreateProblemAuthoringJobErrors[keyof CreateProblemAuthoringJobErrors];
+
+export type CreateProblemAuthoringJobResponses = {
+    /**
+     * 成功。
+     */
+    202: ProblemAuthoringJobSuccess;
+};
+
+export type CreateProblemAuthoringJobResponse = CreateProblemAuthoringJobResponses[keyof CreateProblemAuthoringJobResponses];
+
+export type GetProblemAuthoringJobData = {
+    body?: never;
+    path: {
+        problemId: string;
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs/{jobId}';
+};
+
+export type GetProblemAuthoringJobErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type GetProblemAuthoringJobError = GetProblemAuthoringJobErrors[keyof GetProblemAuthoringJobErrors];
+
+export type GetProblemAuthoringJobResponses = {
+    /**
+     * 成功。
+     */
+    200: ProblemAuthoringJobSuccess;
+};
+
+export type GetProblemAuthoringJobResponse = GetProblemAuthoringJobResponses[keyof GetProblemAuthoringJobResponses];
+
+export type GetProblemAuthoringReportData = {
+    body?: never;
+    path: {
+        problemId: string;
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs/{jobId}/report';
+};
+
+export type GetProblemAuthoringReportErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type GetProblemAuthoringReportError = GetProblemAuthoringReportErrors[keyof GetProblemAuthoringReportErrors];
+
+export type GetProblemAuthoringReportResponses = {
+    /**
+     * UTF-8 纯文本报告。
+     */
+    200: string;
+};
+
+export type GetProblemAuthoringReportResponse = GetProblemAuthoringReportResponses[keyof GetProblemAuthoringReportResponses];
+
+export type CancelProblemAuthoringJobData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs/{jobId}/cancel';
+};
+
+export type CancelProblemAuthoringJobErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type CancelProblemAuthoringJobError = CancelProblemAuthoringJobErrors[keyof CancelProblemAuthoringJobErrors];
+
+export type CancelProblemAuthoringJobResponses = {
+    /**
+     * 成功。
+     */
+    200: ProblemAuthoringJobSuccess;
+};
+
+export type CancelProblemAuthoringJobResponse = CancelProblemAuthoringJobResponses[keyof CancelProblemAuthoringJobResponses];
+
+export type RetryProblemAuthoringJobData = {
+    body?: never;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs/{jobId}/retry';
+};
+
+export type RetryProblemAuthoringJobErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type RetryProblemAuthoringJobError = RetryProblemAuthoringJobErrors[keyof RetryProblemAuthoringJobErrors];
+
+export type RetryProblemAuthoringJobResponses = {
+    /**
+     * 成功。
+     */
+    202: ProblemAuthoringJobSuccess;
+};
+
+export type RetryProblemAuthoringJobResponse = RetryProblemAuthoringJobResponses[keyof RetryProblemAuthoringJobResponses];
+
+export type ApplyProblemAuthoringBuildData = {
+    body: ProblemAuthoringApplyRequest;
+    headers: {
+        'X-CSRF-Token': string;
+    };
+    path: {
+        problemId: string;
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/admin/problems/{problemId}/authoring/jobs/{jobId}/apply';
+};
+
+export type ApplyProblemAuthoringBuildErrors = {
+    /**
+     * VALIDATION_FAILED：JSON 格式无效。
+     */
+    400: ApiProblem;
+    /**
+     * UNAUTHENTICATED。
+     */
+    401: ApiProblem;
+    /**
+     * FORBIDDEN 或 CSRF 校验失败。
+     */
+    403: ApiProblem;
+    /**
+     * PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。
+     */
+    404: ApiProblem;
+    /**
+     * ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。
+     */
+    409: ApiProblem;
+    /**
+     * PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。
+     */
+    413: ApiProblem;
+    /**
+     * VALIDATION_FAILED：字段或交叉约束不合法。
+     */
+    422: ApiProblem;
+    /**
+     * AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。
+     */
+    429: ApiProblem;
+    /**
+     * AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。
+     */
+    503: ApiProblem;
+};
+
+export type ApplyProblemAuthoringBuildError = ApplyProblemAuthoringBuildErrors[keyof ApplyProblemAuthoringBuildErrors];
+
+export type ApplyProblemAuthoringBuildResponses = {
+    /**
+     * 成功。
+     */
+    200: TestDataSuccess;
+};
+
+export type ApplyProblemAuthoringBuildResponse = ApplyProblemAuthoringBuildResponses[keyof ApplyProblemAuthoringBuildResponses];

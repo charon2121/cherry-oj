@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -78,20 +80,50 @@ public class TestDataService {
         }
         requireActive(requireProblem(problemId, false));
 
-        Prepared prepared;
         try (InputStream source = file.getInputStream()) {
-            prepared = store.prepare(problemId, source);
-        } catch (AssetException error) {
-            throw assetProblem(error);
-        } catch (Exception error) {
+            return publishPrepared(problemId, prepare(problemId, source), actorUserId, row -> null, result -> {});
+        } catch (java.io.IOException error) {
             throw new ProblemApiException(
                     HttpStatus.SERVICE_UNAVAILABLE, "TEST_DATA_STORAGE_UNAVAILABLE", "测试数据暂时无法保存。");
         }
+    }
 
+    TestDataDtos.TestData applyAuthoring(
+            String problemId,
+            InputStream archive,
+            String actorUserId,
+            String expectedDigest,
+            Function<ProblemRow, TestDataDtos.TestData> verify,
+            Consumer<TestDataDtos.TestData> record) {
+        Prepared prepared = prepare(problemId, archive);
+        if (!prepared.info().digest().equals(expectedDigest)) {
+            store.discard(prepared);
+            throw new ProblemApiException(HttpStatus.CONFLICT, "AUTHORING_ARTIFACT_CHANGED", "产物与审核指纹不一致。");
+        }
+        return publishPrepared(problemId, prepared, actorUserId, verify, record);
+    }
+
+    private Prepared prepare(String problemId, InputStream source) {
+        try {
+            return store.prepare(problemId, source);
+        } catch (AssetException error) {
+            throw assetProblem(error);
+        }
+    }
+
+    private TestDataDtos.TestData publishPrepared(
+            String problemId,
+            Prepared prepared,
+            String actorUserId,
+            Function<ProblemRow, TestDataDtos.TestData> verify,
+            Consumer<TestDataDtos.TestData> record) {
         String auditId = ids.next().toString();
         try {
             return transactions.execute(status -> {
-                requireActive(requireProblem(problemId, true));
+                var problem = requireProblem(problemId, true);
+                var replay = verify.apply(problem);
+                if (replay != null) return replay;
+                requireActive(problem);
                 String location;
                 try {
                     location = store.seal(prepared);
@@ -111,7 +143,9 @@ public class TestDataService {
                                 "digest", prepared.info().digest(),
                                 "testcaseCount", prepared.info().testcaseCount(),
                                 "totalBytes", prepared.info().totalBytes()));
-                return TestDataDtos.TestData.from(prepared.info(), now);
+                var result = TestDataDtos.TestData.from(prepared.info(), now);
+                record.accept(result);
+                return result;
             });
         } catch (RuntimeException error) {
             if (error instanceof AssetRuntimeException asset) throw assetProblem(asset.cause());

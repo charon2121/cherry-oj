@@ -1,0 +1,463 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cherry-oj.dev/schema/problem-authoring.schema.json",
+  "title": "Problem authoring v1",
+  "x-contract-version": 1,
+  "$defs": {
+    "LanguageId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "实际值由 languages.json 和本题启用语言约束。"
+    },
+    "CaseName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,62}$"
+    },
+    "Digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "Source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    },
+    "Limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cpuNs",
+        "clockNs",
+        "memoryBytes"
+      ],
+      "properties": {
+        "cpuNs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000000
+        },
+        "clockNs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000000000
+        },
+        "memoryBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1073741824
+        }
+      }
+    },
+    "Case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "generatorInput",
+        "oracle"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CaseName"
+        },
+        "generatorInput": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 65536
+        },
+        "oracle": {
+          "type": "boolean"
+        },
+        "expectedOutput": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "sampleOrdinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      }
+    },
+    "WrongSolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "witnessCaseName"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "witnessCaseName": {
+          "$ref": "#/$defs/CaseName"
+        }
+      }
+    },
+    "LanguagePlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languageId",
+        "limits",
+        "referenceSource",
+        "wrongSolutions"
+      ],
+      "properties": {
+        "languageId": {
+          "$ref": "#/$defs/LanguageId"
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        },
+        "referenceSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "wrongSolutions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/WrongSolution"
+          },
+          "minItems": 1,
+          "maxItems": 16
+        }
+      }
+    },
+    "BuildPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generatorSource",
+        "validatorSource",
+        "oracleSource",
+        "answerLanguageId",
+        "cases",
+        "languages"
+      ],
+      "properties": {
+        "generatorSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "validatorSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "oracleSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "answerLanguageId": {
+          "$ref": "#/$defs/LanguageId"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Case"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LanguagePlan"
+          },
+          "minItems": 1,
+          "maxItems": 4
+        }
+      },
+      "description": "测试点名和语言 ID 各自唯一。答案语言属于 languages，每个错误解见证点必须存在。每点有独立核对解、明确期望输出或题目公开样例；至少一个核对解点，所有现有公开样例各对应一个测试点。显式期望输出与样例期望同时给出时须逐字节相同。"
+    },
+    "BuildProgram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/Source"
+        },
+        "solutionSource": {
+          "$ref": "#/$defs/Source"
+        }
+      }
+    },
+    "RunnerCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "generatorInput",
+        "oracle"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/CaseName"
+        },
+        "generatorInput": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 65536
+        },
+        "oracle": {
+          "type": "boolean"
+        },
+        "expectedOutput": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "sampleInput": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 65536
+        }
+      }
+    },
+    "RunnerWrong": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "program",
+        "witnessCaseName"
+      ],
+      "properties": {
+        "program": {
+          "$ref": "#/$defs/BuildProgram"
+        },
+        "witnessCaseName": {
+          "$ref": "#/$defs/CaseName"
+        }
+      }
+    },
+    "RunnerLanguage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languageId",
+        "limits",
+        "reference",
+        "wrongSolutions"
+      ],
+      "properties": {
+        "languageId": {
+          "$ref": "#/$defs/LanguageId"
+        },
+        "limits": {
+          "$ref": "#/$defs/Limits"
+        },
+        "reference": {
+          "$ref": "#/$defs/BuildProgram"
+        },
+        "starter": {
+          "$ref": "#/$defs/BuildProgram"
+        },
+        "wrongSolutions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RunnerWrong"
+          },
+          "minItems": 1,
+          "maxItems": 16
+        }
+      }
+    },
+    "RunnerInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "statementDigest",
+        "generatorSource",
+        "validatorSource",
+        "oracleSource",
+        "answerLanguageId",
+        "cases",
+        "languages"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "statementDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "generatorSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "validatorSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "oracleSource": {
+          "$ref": "#/$defs/Source"
+        },
+        "answerLanguageId": {
+          "$ref": "#/$defs/LanguageId"
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RunnerCase"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RunnerLanguage"
+          },
+          "minItems": 1,
+          "maxItems": 4
+        }
+      },
+      "description": "UTF-8 input.json，上限 8 MiB。题目语言、题面摘要、原样样例、前缀拼接和驱动仅由 problem-service 冻结；不由模型或客户端指定节点或文件路径。生成器、校验器、独立核对解都是 C++ ACM。"
+    },
+    "LanguageResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languageId",
+        "status"
+      ],
+      "properties": {
+        "languageId": {
+          "$ref": "#/$defs/LanguageId"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PASSED",
+            "FAILED",
+            "NOT_RUN"
+          ]
+        },
+        "verdict": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4
+        },
+        "starterVerdict": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4
+        },
+        "toolchainDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "maxCpuNs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxMemoryBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      }
+    },
+    "RunnerResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "status",
+        "stage",
+        "languages"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUCCEEDED",
+            "FAILED"
+          ]
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "INPUT",
+            "GENERATOR",
+            "VALIDATOR",
+            "ANSWERS",
+            "ORACLE",
+            "LANGUAGES",
+            "EXPORT"
+          ]
+        },
+        "testDataDigest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "testcaseCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/LanguageResult"
+          },
+          "minItems": 0,
+          "maxItems": 4
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "description": "UTF-8 result.json，上限 64 KiB。SUCCEEDED 时必有 testDataDigest、testcaseCount，全部指定语言通过。stderr 不作协议字段。详报 report.txt 上限 1 MiB；成功才有 testdata.zip，上限 9 MiB。"
+    },
+    "RunnerProgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "stage"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "INPUT",
+            "GENERATOR",
+            "VALIDATOR",
+            "ANSWERS",
+            "ORACLE",
+            "LANGUAGES",
+            "EXPORT"
+          ]
+        }
+      }
+    }
+  },
+  "x-runner-protocol": {
+    "invocation": [
+      "problem-build",
+      "-job",
+      "<private directory>/input.json",
+      "-output",
+      "<new private attempt directory>",
+      "-judge-url",
+      "<operator-configured native loopback HTTP URL>",
+      "-toolchain-root",
+      "<operator-configured C++ and solution toolchain manifests>"
+    ],
+    "input": "input.json 使用 RunnerInput。运行目录与节点均由部署方指定。节点须为原生 Linux sandbox，默认不启用在线构建。工具链清单按 <toolchain-root>/<languageId>/manifest.json 选择。",
+    "progress": "每进入新阶段，以原子替换写 progress.json。内容符合 RunnerProgress；服务可用它显示当前运行阶段。",
+    "result": "以原子替换写 result.json。进程退出 0 且结果 SUCCEEDED 时才接受 testdata.zip。程序失败返回非零，能形成结构化失败结果时写 result.json 和 report.txt。无有效结果属于执行器故障。超时或取消发送 SIGTERM，超时未退出则终止进程；不得把迟到的尝试当成当前尝试。",
+    "limits": "执行器单次任务最多 600000000000 ns。生成器、校验器和独立核对解每点固定 cpuNs 1000000000、clockNs 3000000000、memoryBytes 268435456。报告中的运行限制、已测资源与正式标定分别记录。"
+  }
+}

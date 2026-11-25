@@ -48,6 +48,7 @@
 | 16 | 运行限制推导 | judging-service 推导；problem-service、submission-service 消费 | 基础标定 + `contracts/languages.json` 的 `limitModel` 推导各语言绝对限制，随 JudgeInput 冻结；同题多语言配置、标定管理与就绪语言查询 | [`limits.md`](./limits.md) |
 | 17 | 语言运行约定 | 题目与提交服务、judging-service、judge 与工具链 | 语言 id、文件组织、运行命令、错误与预算语义 | 字段：[`languages.json`](../../contracts/languages.json)；运行：[`languages.md`](./languages.md) |
 | 18 | 应用发布与升级 | 构建器、运维工具 ↔ systemd 与 Nginx | 应用归档、release.json、deployment.json、升级回滚与中断恢复 | [`app-release.md`](./app-release.md) |
+| 19 | 自动出题 | 管理端 ↔ Gateway ↔ problem-service ↔ problem-build | 管理任务经 HTTP 提交与查询，执行器读取冻结输入并写报告和 ZIP | [`problem-authoring.md`](./problem-authoring.md) |
 
 `contracts/` 里另有三份**数据模型与词表**，不是有两端的接口，但同样是跨服务的真源：
 [`submission.json`](../../contracts/submission.json)（用户可见的提交读模型）、

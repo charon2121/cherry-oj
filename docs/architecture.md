@@ -106,6 +106,7 @@ MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约�
 - Problem（题面、模式、难度、标签、公开状态都在题目本身，**没有版本**）、ProblemSample、ProblemLanguage，包括 `starterCode` 与 CORE 的驱动代码 `judgeTemplate`。
 - Language：每门语言一份 CORE 前缀代码（常用库的 include/import），所有题目复用；在管理端"语言"页（`/admin/languages`，接口 `GET /api/admin/languages`、`PUT /api/admin/languages/{languageId}`）修改。
 - 测试数据：只存目录**地址**（`test_data_location`）；指纹、测试点数和文件清单都从地址下的 `testdata.json` 读，不在库里抄一份。
+- 出题任务、冻结的草稿输入、验题报告和待应用产物。审核后应用测试数据时，同一事务记录任务回执和题目当前数据地址。
 - 题目审计。
 
 提供两类接口：
@@ -115,6 +116,8 @@ MVP 角色为 `USER | ADMIN`。单管理员是部署策略，不用数据库约�
 - 面向 judging-service 的内部读取 `GET /internal/judging/problems/{id}/test-data`：当前测试数据的地址、指纹、测试点数（只接受 judging-service 的调用）。
 
 problem-service 不保存 Submission，不选择判题节点，不保存标定后的绝对限制，不执行判题。
+后台出题调用独立的验题工具，由部署方指定受信原生节点。AI 提案与验题任务共用队列，公开由管理员通过现有入口发起。
+出题输入、进度和产物见[自动出题协议](./protocols/problem-authoring.md)。
 
 ### 3.4 submission-service
 

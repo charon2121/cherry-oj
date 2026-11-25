@@ -38,16 +38,21 @@ func newJudgeClient(url string) judgeClient {
 	}
 }
 
-func (j judgeClient) trial(ctx context.Context, limits contract.JudgeLimits, source string, specs []contract.TestcaseSpec) (contract.JudgeResult, error) {
+func (j judgeClient) trial(ctx context.Context, languageID string, limits contract.JudgeLimits, program program, specs []contract.TestcaseSpec) (contract.JudgeResult, error) {
 	var result contract.JudgeResult
+	var solution string
+	if program.solution != nil {
+		solution = program.solution.text
+	}
 	body, err := json.Marshal(contract.JudgeRequest{
-		SubmissionID: "problem-build-" + rand.Text(),
-		ProblemID:    "problem-build",
-		Mode:         contract.ModeTrial,
-		LanguageID:   "cpp",
-		Source:       source,
-		Limits:       limits,
-		Testcases:    specs,
+		SubmissionID:   "problem-build-" + rand.Text(),
+		ProblemID:      "problem-build",
+		Mode:           contract.ModeTrial,
+		LanguageID:     languageID,
+		Source:         program.source.text,
+		SolutionSource: solution,
+		Limits:         limits,
+		Testcases:      specs,
 	})
 	if err != nil {
 		return result, err

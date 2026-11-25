@@ -50,6 +50,7 @@ class ContractsTest(unittest.TestCase):
             "submission.json",
             "problem-judge-snapshot.schema.json",
             "problem-test-data.schema.json",
+            "problem-authoring.schema.json",
             "execution-profile.schema.json",
             "judge-input.schema.json",
             "judge-events.schema.json",

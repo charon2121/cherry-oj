@@ -1959,6 +1959,934 @@
           }
         }
       }
+    },
+    "/api/admin/problems/{problemId}/authoring/jobs": {
+      "parameters": [
+        {
+          "name": "problemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "listProblemAuthoringJobs",
+        "description": "仅 ADMIN。按最近创建倒序返回这道题最近 50 个任务。",
+        "responses": {
+          "200": {
+            "description": "成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAuthoringJobListSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "createProblemAuthoringJob",
+        "description": "仅 ADMIN。将构建或 AI 提案请求持久化并入队。相同输入和草稿快照返回已存在任务，创建成功与重复调用均返回 202。 全局最多 1 个执行中任务和 16 个待执行任务；达到上限时返回 429。",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemAuthoringJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAuthoringJobSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/authoring/jobs/{jobId}": {
+      "parameters": [
+        {
+          "name": "problemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "getProblemAuthoringJob",
+        "description": "仅 ADMIN。任务只能通过它所属的题目 ID 读取。",
+        "responses": {
+          "200": {
+            "description": "成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAuthoringJobSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/authoring/jobs/{jobId}/report": {
+      "parameters": [
+        {
+          "name": "problemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "getProblemAuthoringReport",
+        "description": "仅 ADMIN。读取当前尝试的纯文本验题报告。失败报告可包含复现材料。响应不缓存。",
+        "responses": {
+          "200": {
+            "description": "UTF-8 纯文本报告。",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1048576
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/authoring/jobs/{jobId}/cancel": {
+      "parameters": [
+        {
+          "name": "problemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "cancelProblemAuthoringJob",
+        "description": "仅 ADMIN。QUEUED 或 RUNNING 可转 CANCELLED，重复取消返回当前值。当前尝试停止，迟到的结果不覆盖已取消状态。",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAuthoringJobSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/authoring/jobs/{jobId}/retry": {
+      "parameters": [
+        {
+          "name": "problemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "retryProblemAuthoringJob",
+        "description": "仅 ADMIN。FAILED 或 CANCELLED 使用冻结输入重新排队；最多 5 次。同一尝试已排队或运行时重复调用返回当前值。草稿快照已变化返回 409。",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemAuthoringJobSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/problems/{problemId}/authoring/jobs/{jobId}/apply": {
+      "parameters": [
+        {
+          "name": "problemId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "jobId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "AdminProblems"
+        ],
+        "operationId": "applyProblemAuthoringBuild",
+        "description": "仅 ADMIN。仅成功 BUILD 的匹配指纹可应用。锁题目行校验 ACTIVE、PRIVATE、rowVersion、测试数据地址及所选语言的配置快照。同事务更新测试数据地址、记录任务应用与审计。同一产物重复调用返回第一次应用结果。标定与公开使用现有专用接口。",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CsrfToken"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProblemAuthoringApplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestDataSuccess"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_FAILED：JSON 格式无效。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UNAUTHENTICATED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "FORBIDDEN 或 CSRF 校验失败。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PROBLEM_NOT_FOUND 或 AUTHORING_JOB_NOT_FOUND。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ROW_VERSION_CONFLICT、RESOURCE_STATE_CONFLICT、AUTHORING_INPUT_CHANGED 或 AUTHORING_ARTIFACT_CHANGED。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE：请求正文超过 8 MiB。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_FAILED：字段或交叉约束不合法。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "AUTHORING_QUEUE_FULL：同时排队或运行的任务达到限制。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AUTHORING_UNAVAILABLE：部署未启用构建执行器或模型，或产物暂不可用。",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiProblem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4608,6 +5536,353 @@
           }
         },
         "description": "每门语言恰好三项：LANGUAGE=本地配置完整且有节点支持，ONLINE_JUDGE_NODE=在线节点，CALIBRATION=按 BASE/OVERRIDE/DERIVED 规则有可用限制；ready 为三项同时通过。"
+      },
+      "ProblemAuthoringBuildRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "rowVersion",
+          "input"
+        ],
+        "properties": {
+          "kind": {
+            "const": "BUILD"
+          },
+          "rowVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input": {
+            "$ref": "problem-authoring.schema.json#/$defs/BuildPlan"
+          }
+        },
+        "description": "仅 ACTIVE + PRIVATE 草稿。校验 rowVersion，并冻结题面、样例、测试数据地址和所选语言的前缀、驱动、模板。相同草稿快照与规范化输入复用原任务；失败或取消后由 retry 创建下一次尝试。"
+      },
+      "ProblemAuthoringProposalRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "rowVersion",
+          "knowledgePoint",
+          "difficulty",
+          "goal"
+        ],
+        "properties": {
+          "kind": {
+            "const": "PROPOSAL"
+          },
+          "rowVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "knowledgePoint": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "difficulty": {
+            "$ref": "#/components/schemas/ProblemDifficulty"
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "basedOnProposalId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revisionInstructions": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        },
+        "description": "仅 ACTIVE + PRIVATE 草稿。外部模型仅收到管理员本次显式提交的知识点、难度与目标，以及有意选择的同题既有模型提案和修订指令。站内私有题面、隐藏数据、题库、用户源码不发送。修订需同时给 basedOnProposalId 和 revisionInstructions。 推荐部署接入 OpenAI Responses，部署配置模型和 API 密钥。默认关闭模型能力，不发送整个题库或站内私有资料。模型输出只作为待审候选。"
+      },
+      "ProblemAuthoringJobRequest": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ProblemAuthoringBuildRequest"
+          },
+          {
+            "$ref": "#/components/schemas/ProblemAuthoringProposalRequest"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "BUILD": "#/components/schemas/ProblemAuthoringBuildRequest",
+            "PROPOSAL": "#/components/schemas/ProblemAuthoringProposalRequest"
+          }
+        }
+      },
+      "ProblemAuthoringProposal": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "statementMarkdown",
+          "inputDescriptionMarkdown",
+          "outputDescriptionMarkdown",
+          "constraintsMarkdown",
+          "samples",
+          "languages",
+          "input"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "statementMarkdown": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536
+          },
+          "inputDescriptionMarkdown": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536
+          },
+          "outputDescriptionMarkdown": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536
+          },
+          "constraintsMarkdown": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 65536
+          },
+          "samples": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProblemSample"
+            },
+            "minItems": 1,
+            "maxItems": 64
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProblemLanguageInput"
+            },
+            "minItems": 1,
+            "maxItems": 4
+          },
+          "input": {
+            "$ref": "problem-authoring.schema.json#/$defs/BuildPlan"
+          }
+        }
+      },
+      "ProblemAuthoringJobSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "stage",
+          "rowVersion",
+          "attempt",
+          "createdAt",
+          "updatedAt",
+          "appliedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "BUILD",
+              "PROPOSAL"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "MODEL",
+              "INPUT",
+              "GENERATOR",
+              "VALIDATOR",
+              "ANSWERS",
+              "ORACLE",
+              "LANGUAGES",
+              "EXPORT",
+              "COMPLETE"
+            ]
+          },
+          "rowVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "appliedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ProblemAuthoringJobDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "job",
+          "buildResult",
+          "proposal",
+          "errorCode",
+          "reportAvailable"
+        ],
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/ProblemAuthoringJobSummary"
+          },
+          "buildResult": {
+            "anyOf": [
+              {
+                "$ref": "problem-authoring.schema.json#/$defs/RunnerResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProblemAuthoringProposal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "AUTHORING_RUNNER_UNAVAILABLE",
+                  "AUTHORING_BUILD_FAILED",
+                  "AUTHORING_MODEL_UNAVAILABLE",
+                  "AUTHORING_MODEL_INVALID_RESULT",
+                  "AUTHORING_TIMEOUT",
+                  "AUTHORING_INTERRUPTED"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reportAvailable": {
+            "type": "boolean"
+          }
+        },
+        "description": "只有当前尝试可回填。阶段状态由任务服务维护。用户可从同题现有公开检查查看当前在线节点与标定；验题报告记录运行时的验证事实。"
+      },
+      "ProblemAuthoringJobList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProblemAuthoringJobSummary"
+            },
+            "minItems": 0,
+            "maxItems": 50
+          }
+        }
+      },
+      "ProblemAuthoringApplyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rowVersion",
+          "testDataDigest"
+        ],
+        "properties": {
+          "rowVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "testDataDigest": {
+            "$ref": "problem-authoring.schema.json#/$defs/Digest"
+          }
+        }
+      },
+      "ProblemAuthoringJobSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProblemAuthoringJobDetail"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
+      },
+      "ProblemAuthoringJobListSuccess": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ProblemAuthoringJobList"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ApiMeta"
+          }
+        }
       }
     }
   }

@@ -24,6 +24,8 @@ import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -105,6 +107,39 @@ class TestDataPersistenceIntegrationTests {
 
     @Autowired
     PlatformTransactionManager transactionManager;
+
+    @Autowired
+    AuthoringMapper authoring;
+
+    @Test
+    void authoringQueueMapsTheIdleLockAndFencesResultsFromCancelledAttempts() {
+        var problem = createProblem("authoring-lease");
+        var tx = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        var now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        String id = ids.next().toString();
+        tx.executeWithoutResult(status -> {
+            var lease = authoring.lockQueue();
+            assertThat(lease.slotId()).isEqualTo(1);
+            assertThat(lease.jobId()).isNull();
+            authoring.insert(
+                    id, problem.id(), "a".repeat(64), "b".repeat(64), problem.rowVersion(), "BUILD", "{}", now);
+            assertThat(authoring.start(id, 1, "INPUT", now)).isEqualTo(1);
+            authoring.lease(id, 1, now.plusMinutes(12));
+            assertThat(authoring.cancel(id, now)).isEqualTo(1);
+            assertThat(authoring.retry(id, now)).isEqualTo(1);
+            authoring.finish(id, 1, "SUCCEEDED", "COMPLETE", "{}", null, null, null, now);
+            authoring.release(id, 1);
+            var current = authoring.get(problem.id(), id);
+            assertThat(current.attempt()).isEqualTo(2);
+            assertThat(current.status()).isEqualTo("QUEUED");
+            assertThat(current.resultJson()).isNull();
+            assertThat(authoring.lockQueue().jobId()).isNull();
+            assertThat(authoring.start(id, 2, "INPUT", now)).isEqualTo(1);
+            byte[] archive = {80, 75, -1, 0};
+            authoring.finish(id, 2, "SUCCEEDED", "COMPLETE", "{}", null, "report", archive, now);
+            assertThat(authoring.archive(problem.id(), id).archive()).isEqualTo(archive);
+        });
+    }
 
     @Test
     void uploadWritesAProtocolDirectoryRecordsOnlyTheAddressAndServesJudging() throws Exception {

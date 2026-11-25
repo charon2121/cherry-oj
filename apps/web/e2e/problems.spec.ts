@@ -561,3 +561,171 @@ test('a published problem keeps its manual save reachable without widening a 320
   const box = await save.boundingBox();
   expect(box && box.x + box.width).toBeLessThanOrEqual(320);
 });
+
+test('authoring review at 320px requires explicit confirmation before applying a fingerprint', async ({
+  page,
+}) => {
+  const timestamp = '2026-11-24T01:00:00Z';
+  const jobId = '29bbf628-189a-4db9-96d5-3e5807766ca5';
+  const fingerprint = 'a'.repeat(64);
+  const routeBase = `/api/admin/problems/${problemId}/authoring/jobs`;
+  let applied = false;
+  const job = () => ({
+    id: jobId,
+    kind: 'BUILD',
+    status: 'SUCCEEDED',
+    stage: 'COMPLETE',
+    rowVersion: 3,
+    attempt: 1,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    appliedAt: applied ? timestamp : null,
+  });
+  const asset = {
+    digest: fingerprint,
+    testcaseCount: 1,
+    totalBytes: 4,
+    updatedAt: timestamp,
+    manifest: { testcaseCount: 1, totalBytes: 4, files: [] },
+  };
+  await page.route('**/api/auth/session', (route) =>
+    success(route, {
+      authenticated: true,
+      user: {
+        id: problemId,
+        username: 'admin',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        passwordChangeRequired: false,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        rowVersion: 0,
+      },
+    }),
+  );
+  await page.route('**/api/auth/csrf', (route) =>
+    success(route, {
+      token: 'csrf-token-for-authoring',
+      headerName: 'X-CSRF-Token',
+    }),
+  );
+  await page.route(`**/api/admin/problems/${problemId}`, (route) =>
+    success(route, {
+      id: problemId,
+      slug: 'sum',
+      visibility: 'PRIVATE',
+      status: 'ACTIVE',
+      codeMode: 'ACM',
+      title: '两数之和',
+      statementMarkdown: '计算两数之和。',
+      inputDescriptionMarkdown: '两个整数。',
+      outputDescriptionMarkdown: '它们的和。',
+      constraintsMarkdown: null,
+      hintMarkdown: null,
+      difficulty: 'EASY',
+      tags: [],
+      samples: [{ ordinal: 1, input: '1 2', output: '3', explanationMarkdown: null }],
+      allowedLanguages: [{ id: 'cpp', displayName: 'C++', starterCode: '', judgeTemplate: null }],
+      testData: applied ? asset : null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      publishedAt: null,
+      rowVersion: 3,
+    }),
+  );
+  await page.route(`**/api/admin/problems/${problemId}/publish-check`, (route) =>
+    success(route, {
+      ready: false,
+      checks: [
+        'CONTENT',
+        'SAMPLES',
+        'LANGUAGE',
+        'TEST_DATA',
+        'ONLINE_JUDGE_NODE',
+        'CALIBRATION',
+      ].map((code) => ({
+        code,
+        passed: false,
+        message: '未就绪',
+      })),
+      languages: [
+        {
+          languageId: 'cpp',
+          ready: false,
+          checks: ['LANGUAGE', 'ONLINE_JUDGE_NODE', 'CALIBRATION'].map((code) => ({
+            code,
+            passed: false,
+            message: code === 'CALIBRATION' ? '尚未标定' : '未就绪',
+          })),
+        },
+      ],
+    }),
+  );
+  await page.route(`**/api/admin/problems/${problemId}/limits`, (route) =>
+    success(route, {
+      languages: [
+        {
+          languageId: 'cpp',
+          limitSource: null,
+          cpuNs: null,
+          memoryBytes: null,
+          clockNs: null,
+          calibrationId: null,
+          cpuCapped: false,
+          memoryCapped: false,
+          unavailableReason: 'NO_CALIBRATION',
+        },
+      ],
+    }),
+  );
+  await page.route(`**${routeBase}`, (route) => success(route, { items: [job()] }));
+  await page.route(`**${routeBase}/${jobId}`, (route) =>
+    success(route, {
+      job: job(),
+      proposal: null,
+      errorCode: null,
+      reportAvailable: true,
+      buildResult: {
+        schemaVersion: 1,
+        status: 'SUCCEEDED',
+        stage: 'EXPORT',
+        testDataDigest: fingerprint,
+        testcaseCount: 1,
+        languages: [
+          {
+            languageId: 'cpp',
+            status: 'PASSED',
+            verdict: 'AC',
+            maxCpuNs: 1_000_000,
+            maxMemoryBytes: 1024,
+          },
+        ],
+      },
+    }),
+  );
+  await page.route(`**${routeBase}/${jobId}/apply`, async (route) => {
+    expect(route.request().postDataJSON()).toEqual({ rowVersion: 3, testDataDigest: fingerprint });
+    applied = true;
+    await success(route, asset);
+  });
+  await page.setViewportSize({ width: 320, height: 720 });
+  await page.goto(`/admin/problems/${problemId}?panel=authoring`);
+  const dialog = page.getByRole('dialog', { name: '自动出题' });
+  await expect(dialog.getByText(/C\+\+ · 验题通过/)).toBeVisible();
+  await expect(dialog.getByText('尚未标定')).toBeVisible();
+  await expect(dialog.getByRole('link', { name: '查看报告' })).toHaveAttribute(
+    'href',
+    `${routeBase}/${jobId}/report`,
+  );
+  expect(
+    await dialog.evaluate((element) => element.scrollWidth - element.clientWidth),
+  ).toBeLessThanOrEqual(1);
+  await dialog.getByRole('button', { name: '应用到草稿' }).click();
+  const confirm = page.getByRole('dialog', { name: '应用验题产物' });
+  await expect(confirm).toBeVisible();
+  expect(applied).toBe(false);
+  await confirm.getByRole('button', { name: '应用到草稿' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(dialog.getByRole('button', { name: '进入标定' })).toBeVisible();
+  expect(applied).toBe(true);
+});

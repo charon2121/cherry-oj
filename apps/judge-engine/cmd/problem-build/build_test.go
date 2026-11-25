@@ -24,6 +24,10 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 		{"wrong", "需在指定点得到 WA"},
 		{"truncated", "需取得完整 UTF-8 输出"},
 		{"system", "返回 SE"},
+		{"core", ""},
+		{"core-starter", "运行 CORE 起始代码 [pypy]"},
+		{"multi", ""},
+		{"multi-mismatch", "checker 验证参考解 [pypy]"},
 	} {
 		t.Run(test.stage, func(t *testing.T) {
 			root := t.TempDir()
@@ -38,10 +42,29 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var req contract.JudgeRequest
 				if err := json.NewDecoder(r.Body).Decode(&req); err != nil || r.URL.Path != "/judge" ||
-					req.Mode != contract.ModeTrial || req.LanguageID != "cpp" {
+					req.Mode != contract.ModeTrial {
 					t.Errorf("invalid trial request: %v %#v", err, req)
 					w.WriteHeader(http.StatusBadRequest)
 					return
+				}
+				source := req.Source
+				if req.Source == "driver" {
+					if req.LanguageID != "pypy" || !strings.HasPrefix(req.SolutionSource, "prefix\n") {
+						t.Errorf("CORE trial did not keep language and source files: %#v", req)
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					source = strings.TrimPrefix(req.SolutionSource, "prefix\n")
+				} else {
+					expectedLanguage := "cpp"
+					if source == "second-reference" || source == "second-wrong" {
+						expectedLanguage = "pypy"
+					}
+					if req.LanguageID != expectedLanguage || req.SolutionSource != "" {
+						t.Errorf("ACM trial had the wrong language or a CORE file: %#v", req)
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
 				}
 				if test.stage == "system" {
 					_ = json.NewEncoder(w).Encode(contract.JudgeResult{Verdict: contract.VerdictSE, Message: "node unavailable"})
@@ -51,7 +74,7 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 				for i, c := range req.Testcases {
 					row := contract.TestcaseResult{Idx: i + 1, Name: c.Name, Verdict: contract.VerdictRAN}
 					output := "2\n"
-					switch req.Source {
+					switch source {
 					case "generator":
 						output = c.Input
 					case "validator":
@@ -67,7 +90,22 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 						if c.Expected != "" {
 							row.Verdict = contract.VerdictAC
 						}
-					case "wrong", "wrong-again":
+					case "second-reference":
+						if c.Expected != "2\n" || len(req.Testcases) != 2 {
+							t.Errorf("additional language received different answers: %#v", req.Testcases)
+						}
+						row.Verdict = contract.VerdictAC
+						if test.stage == "multi-mismatch" && c.Name == "boundary" {
+							row.Verdict = contract.VerdictWA
+						}
+					case "starter":
+						if len(req.Testcases) != 1 || c.Name != "sample" || c.Expected != "" {
+							t.Errorf("starter must only run public samples without comparison: %#v", req.Testcases)
+						}
+						if test.stage == "core-starter" {
+							row.Verdict = contract.VerdictRE
+						}
+					case "wrong", "wrong-again", "second-wrong":
 						row.Verdict = contract.VerdictAC
 						if (test.stage == "wrong" && c.Name == "sample") || (test.stage != "wrong" && c.Name == "boundary") {
 							row.Verdict = contract.VerdictWA
@@ -86,7 +124,7 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 			defer server.Close()
 			dir := filepath.Join(root, "out")
 			var stdout, stderr bytes.Buffer
-			code := execute(t.Context(), []string{
+			args := []string{
 				"-judge-url", server.URL, "-output", dir, "-toolchain-manifest", file("manifest", "{}"),
 				"-statement", file("statement", "题面"), "-generator", file("generator", "generator"),
 				"-validator", file("validator", "validator"), "-reference", file("reference", "reference"),
@@ -95,7 +133,37 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 				"-sample", "sample=" + filepath.Join(root, "sample"), "-expected", "sample=" + file("answer", "2\n"),
 				"-wrong", "boundary=" + file("wrong", "wrong"),
 				"-wrong", "boundary=" + file("wrong-again", "wrong-again"),
-			}, &stdout, &stderr)
+			}
+			if strings.HasPrefix(test.stage, "core") {
+				args = append(args,
+					"-answer-language", "pypy", "-answer-toolchain-manifest", file("pypy-manifest", "{}"),
+					"-driver", file("driver", "driver"), "-solution-prefix", file("prefix", "prefix\n"), "-starter", file("starter", "starter"))
+			}
+			var code int
+			if strings.HasPrefix(test.stage, "multi") {
+				options, err := parseOptions(args, &stderr)
+				if err != nil {
+					t.Fatal(err)
+				}
+				input, err := loadBuild(options)
+				if err != nil {
+					t.Fatal(err)
+				}
+				second := input.languages[0]
+				second.id = "pypy"
+				second.reference = program{source: sourceFile{text: "second-reference"}}
+				second.wrong = []wrongSolution{{
+					caseName: "boundary",
+					program:  program{source: sourceFile{text: "second-wrong"}},
+				}}
+				input.languages = append(input.languages, second)
+				if _, err := runBuild(t.Context(), options.judgeURL, dir, input); err != nil {
+					code = 1
+					stderr.WriteString(err.Error())
+				}
+			} else {
+				code = execute(t.Context(), args, &stdout, &stderr)
+			}
 			report, err := os.ReadFile(filepath.Join(dir, "report.txt"))
 			if err != nil {
 				t.Fatalf("report: %v; stderr: %s", err, &stderr)
@@ -110,6 +178,10 @@ func TestBuildGatesBeforeExport(t *testing.T) {
 			}
 			if code != 0 || !strings.Contains(string(report), "数据指纹=") {
 				t.Fatalf("exit=%d stderr=%s report:\n%s", code, &stderr, report)
+			}
+			if test.stage == "multi" && (!strings.Contains(string(report), "checker 验证参考解 [cpp] verdict=AC") ||
+				!strings.Contains(string(report), "checker 验证参考解 [pypy] verdict=AC")) {
+				t.Fatalf("missing language results:\n%s", report)
 			}
 			assertArchive(t, archive)
 		})

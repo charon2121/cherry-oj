@@ -23,7 +23,10 @@ function values(problem: AdminProblem): ProblemLanguageInput[] {
   }));
 }
 
-export type ProblemLanguagesHandle = { save: (rowVersion: number) => Promise<AdminProblem> };
+export type ProblemLanguagesHandle = {
+  save: (rowVersion: number) => Promise<AdminProblem>;
+  stage: (languages: ProblemLanguageInput[]) => void;
+};
 
 export function ProblemLanguagesEditor({
   problem,
@@ -86,6 +89,10 @@ export function ProblemLanguagesEditor({
   });
   useImperativeHandle(saveRef, () => ({
     save: (rowVersion) => save.mutateAsync({ languages: drafts, rowVersion }),
+    stage: (languages) => {
+      save.reset();
+      setDrafts(languages);
+    },
   }));
   useEffect(() => onSavingChange(save.isPending), [save.isPending, onSavingChange]);
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);

@@ -7,6 +7,7 @@ import com.cherryoj.identity.token.ServiceNames;
 import java.util.List;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePartEvent;
@@ -17,6 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.JsonNode;
 
 @Component
 final class ProblemServiceClient {
@@ -24,6 +26,7 @@ final class ProblemServiceClient {
     private static final MediaType APPLICATION_ZIP = MediaType.parseMediaType("application/zip");
 
     private final WebClient client;
+    private final WebClient authoringClient;
     private final ProblemServiceProperties properties;
     private final InternalRequests requests;
 
@@ -33,7 +36,44 @@ final class ProblemServiceClient {
                 .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(properties.maxJsonBytes()))
                 .build();
         this.properties = properties;
+        this.authoringClient = builder.clone()
+                .baseUrl(properties.baseUrl().toString())
+                .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(9 << 20))
+                .build();
         this.requests = new InternalRequests(calls, ServiceNames.PROBLEM);
+    }
+
+    Mono<JsonNode> authoring(
+            ActingUser identity, HttpMethod method, String problemId, String jobId, String action, byte[] bytes) {
+        var request = requests.authenticated(
+                authoringClient
+                        .method(method)
+                        .uri(builder ->
+                                authoringPath(builder, problemId, jobId, action).build()),
+                identity);
+        return streamingJson(
+                bytes.length == 0
+                        ? request
+                        : request.contentType(MediaType.APPLICATION_JSON).bodyValue(bytes),
+                JsonNode.class);
+    }
+
+    Mono<String> authoringReport(ActingUser identity, String problemId, String jobId) {
+        return streamingJson(
+                requests.authenticated(
+                        authoringClient
+                                .get()
+                                .uri(builder -> authoringPath(builder, problemId, jobId, "report")
+                                        .build()),
+                        identity),
+                String.class);
+    }
+
+    private static UriBuilder authoringPath(UriBuilder builder, String problemId, String jobId, String action) {
+        builder.pathSegment("internal", "admin", "problems", problemId, "authoring", "jobs");
+        if (jobId != null) builder.pathSegment(jobId);
+        if (action != null) builder.pathSegment(action);
+        return builder;
     }
 
     Mono<ProblemDtos.ProblemList> listPublic(

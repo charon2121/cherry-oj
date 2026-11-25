@@ -22,6 +22,9 @@ type buildReport struct {
 	digest   string
 	failure  string
 	evidence string
+	progress func(string) error
+	stage    string
+	results  []languageResult
 }
 
 type trialRecord struct {
@@ -36,15 +39,15 @@ func writeReport(dir string, report buildReport) error {
 	} else {
 		fmt.Fprintf(&out, "验题失败\n失败原因=%q\n%s", report.failure, report.evidence)
 	}
-	limits := report.input.options.limits
-	fmt.Fprintf(&out, "\nC++ ACM 每点上限 cpuNs=%d clockNs=%d memoryBytes=%d\n", limits.CPUNs, limits.ClockNs, limits.MemoryBytes)
+	limits := report.input.toolLimits
+	fmt.Fprintf(&out, "\nC++ 出题工具每点上限 cpuNs=%d clockNs=%d memoryBytes=%d\n", limits.CPUNs, limits.ClockNs, limits.MemoryBytes)
 	for _, file := range []struct {
 		label string
 		file  sourceFile
 	}{
 		{"题面", report.input.statement}, {"运行者提供的 C++ 工具链清单", report.input.manifest},
 		{"生成器", report.input.generator}, {"校验器", report.input.validator},
-		{"参考解", report.input.reference}, {"独立核对解", report.input.oracle},
+		{"独立核对解", report.input.oracle},
 	} {
 		fmt.Fprintf(&out, "%s %q sha256=%s\n", file.label, file.file.path, file.file.sha256)
 	}
@@ -65,8 +68,25 @@ func writeReport(dir string, report buildReport) error {
 			fmt.Fprintf(&out, "   输入 sha256=%x 输出 sha256=%x\n", sha256.Sum256([]byte(spec.Input)), sha256.Sum256([]byte(spec.Expected)))
 		}
 	}
-	for _, wrong := range report.input.wrong {
-		fmt.Fprintf(&out, "错误解 %q sha256=%s 指定 WA 点=%s\n", wrong.source.path, wrong.source.sha256, wrong.caseName)
+	fmt.Fprintf(&out, "\n答案语言=%s\n", report.input.answerLanguage)
+	for _, target := range report.input.languages {
+		limits := target.limits
+		fmt.Fprintf(&out, "%s 每点上限 cpuNs=%d clockNs=%d memoryBytes=%d\n", target.id, limits.CPUNs, limits.ClockNs, limits.MemoryBytes)
+		fmt.Fprintf(&out, "  工具链清单 %q sha256=%s\n", target.manifest.path, target.manifest.sha256)
+		reference := target.reference.submission()
+		fmt.Fprintf(&out, "  参考解 %q sha256=%s\n", reference.path, reference.sha256)
+		if target.reference.solution != nil {
+			driver := target.reference.source
+			fmt.Fprintf(&out, "  CORE 驱动 %q sha256=%s\n", driver.path, driver.sha256)
+		}
+		if target.starter != nil {
+			starter := target.starter.submission()
+			fmt.Fprintf(&out, "  CORE 起始代码 %q sha256=%s\n", starter.path, starter.sha256)
+		}
+		for _, wrong := range target.wrong {
+			source := wrong.program.submission()
+			fmt.Fprintf(&out, "  错误解 %q sha256=%s 指定 WA 点=%s\n", source.path, source.sha256, wrong.caseName)
+		}
 	}
 	for _, run := range report.runs {
 		result := run.result
@@ -84,7 +104,12 @@ func writeReport(dir string, report buildReport) error {
 			}
 		}
 	}
-	if err := os.WriteFile(filepath.Join(dir, "report.txt"), []byte(out.String()), 0o600); err != nil {
+	content := out.String()
+	if report.progress != nil && len(content) > jobReportMaxBytes {
+		const suffix = "\n报告达到大小上限，余下内容已省略。\n"
+		content = truncateText(content, jobReportMaxBytes-len(suffix)) + suffix
+	}
+	if err := os.WriteFile(filepath.Join(dir, "report.txt"), []byte(content), 0o600); err != nil {
 		return fmt.Errorf("写入报告：%w", err)
 	}
 	return nil

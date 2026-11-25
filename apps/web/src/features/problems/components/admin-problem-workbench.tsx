@@ -8,6 +8,7 @@ import {
   Copy,
   Cpu,
   FileArchive,
+  FlaskConical,
   Gauge,
   Globe,
   Lock,
@@ -45,12 +46,14 @@ import type { AdminProblem, ProblemDifficulty } from '@/generated/api';
 import { apiErrorMessage } from '@/lib/api/api-error-message';
 import { cn } from '@/lib/utils';
 
+import type { AuthoringProposal } from '../api/authoring-api';
 import { archiveProblem, deleteProblem, getAdminProblem, problemKeys } from '../api/problems-api';
 import { useProblemCalibration } from '../hooks/use-problem-calibration';
 import { useProblemPublication } from '../hooks/use-problem-publication';
 import { useTestDataUpload } from '../hooks/use-test-data-upload';
 import { codeModeLabels } from '../lib/code-mode';
 import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
+import { ProblemAuthoringDialog } from './problem-authoring-dialog';
 import { ProblemLanguagesEditor } from './problem-languages-editor';
 import { ProblemSampleList } from './problem-sample-list';
 import { ProblemTagProperty } from './problem-tag-property';
@@ -65,7 +68,7 @@ import { PropertyButton } from './property-button';
 import { useProblemWorkbenchSave } from './use-problem-workbench-save';
 
 /** 工作台上可以直接链接打开的对话框。 */
-export type ProblemWorkbenchPanel = 'test-data' | 'calibration' | 'publish';
+export type ProblemWorkbenchPanel = 'test-data' | 'calibration' | 'publish' | 'authoring';
 
 type MarkdownFieldName =
   'inputDescriptionMarkdown' | 'outputDescriptionMarkdown' | 'constraintsMarkdown' | 'hintMarkdown';
@@ -185,6 +188,24 @@ function WorkbenchEditor({
   usePageCrumb(title || problem.title);
 
   const upload = useTestDataUpload(problem.id, refresh);
+
+  const adoptProposal = (proposal: AuthoringProposal) => {
+    form.setFieldValue('title', proposal.title);
+    form.setFieldValue('statementMarkdown', proposal.statementMarkdown);
+    form.setFieldValue('inputDescriptionMarkdown', proposal.inputDescriptionMarkdown);
+    form.setFieldValue('outputDescriptionMarkdown', proposal.outputDescriptionMarkdown);
+    form.setFieldValue('constraintsMarkdown', proposal.constraintsMarkdown);
+    form.setFieldValue(
+      'samples',
+      proposal.samples.map((sample) => ({
+        input: sample.input,
+        output: sample.output,
+        explanationMarkdown: sample.explanationMarkdown ?? '',
+      })),
+    );
+    languageEditor.current?.stage(proposal.languages);
+    markChanged();
+  };
 
   const archive = useMutation({
     mutationFn: () => archiveProblem(problem.id, problem.rowVersion),
@@ -487,6 +508,12 @@ function WorkbenchEditor({
 
             <PropertyGroup title="判题准备">
               <PropertyButton
+                icon={<FlaskConical aria-hidden="true" />}
+                onClick={() => onPanelChange('authoring')}
+              >
+                自动出题
+              </PropertyButton>
+              <PropertyButton
                 icon={<FileArchive aria-hidden="true" />}
                 muted={!problem.testData}
                 onClick={() => onPanelChange('test-data')}
@@ -550,6 +577,16 @@ function WorkbenchEditor({
         uploadMessage={upload.uploadMessage}
         onUpload={upload.startUpload}
         onCancelUpload={upload.cancelUpload}
+      />
+      <ProblemAuthoringDialog
+        open={panel === 'authoring'}
+        onOpenChange={(open) => onPanelChange(open ? 'authoring' : undefined)}
+        problem={problem}
+        check={check}
+        blockedReason={unsavedReason}
+        refresh={refresh}
+        onAdopt={adoptProposal}
+        onCalibrate={() => onPanelChange('calibration')}
       />
       <CalibrationDialog
         open={panel === 'calibration'}

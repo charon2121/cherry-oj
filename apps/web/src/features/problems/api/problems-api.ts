@@ -59,7 +59,7 @@ const problemDetailSchema = z
     allowedLanguages: z.array(languageSummarySchema.extend({ starterCode: z.string() }).strip()),
   })
   .strip() satisfies z.ZodType<ProblemDetail>;
-const testDataSchema = z
+export const testDataSchema = z
   .object({
     digest: z.string().regex(/^[a-f0-9]{64}$/),
     testcaseCount: z.number().int(),
