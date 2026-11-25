@@ -18,7 +18,7 @@ import {
   Server,
   Trash2,
 } from 'lucide-react';
-import { type ReactNode, useId, useState } from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button } from '@/components/ui/button';
@@ -149,7 +149,11 @@ function WorkbenchEditor({
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const ids = useId();
+  const titleId = `${ids}-title`;
   const statementId = `${ids}-statement`;
+  const samplesId = `${ids}-samples`;
+  const languagesId = `${ids}-languages`;
+  const publicationFocus = useRef<HTMLElement | null>(null);
   const [confirming, setConfirming] = useState<'archive' | 'delete'>();
   const refresh = async () => {
     await Promise.all([
@@ -219,21 +223,46 @@ function WorkbenchEditor({
     },
   });
 
-  const scrollToSection = (sectionId: string) => {
+  const goToSection = (sectionId: string) => {
+    publicationFocus.current = document.getElementById(sectionId);
     onPanelChange(undefined);
-    // 等对话框关闭、焦点归还之后再滚动，避免被焦点恢复拉回去。
-    window.setTimeout(() => {
-      document.getElementById(sectionId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    }, 0);
   };
 
   const resolveCheck = (code: string) => {
     if (code === 'TEST_DATA') onPanelChange('test-data');
-    else if (code === 'CALIBRATION' || code === 'ONLINE_JUDGE_NODE') onPanelChange('calibration');
-    else if (code === 'SAMPLES') scrollToSection(`${ids}-samples`);
-    else if (code === 'LANGUAGE') scrollToSection(`${ids}-starter-code`);
-    else scrollToSection(`${ids}-content`);
+    else if (code === 'CALIBRATION') onPanelChange('calibration');
+    else if (code === 'ONLINE_JUDGE_NODE') void navigate({ to: '/admin' });
+    else if (code === 'SAMPLES') goToSection(samplesId);
+    else if (code === 'LANGUAGE') goToSection(languagesId);
+    else if (code === 'CONTENT') goToSection(titleId);
   };
+
+  const readyToPublish = check?.ready && !publication.checkError && !unsavedReason;
+  const publishControl = (
+    <PropertyButton
+      aria-haspopup="dialog"
+      icon={
+        readyToPublish ? (
+          <CircleDot className="text-success" aria-hidden="true" />
+        ) : (
+          <CircleDashed aria-hidden="true" />
+        )
+      }
+      onClick={() => onPanelChange('publish')}
+    >
+      {publication.checkError
+        ? '公开检查失败'
+        : isPublic
+          ? '公开设置'
+          : !check
+            ? '正在运行公开检查…'
+            : readyToPublish
+              ? '可以公开'
+              : check.ready && editable
+                ? '公开前先保存'
+                : `公开检查 ${passedChecks} / ${totalChecks}`}
+    </PropertyButton>
+  );
 
   const markdownField = (name: MarkdownFieldName, label: string, placeholder: string) => (
     <form.Field name={name}>
@@ -317,6 +346,7 @@ function WorkbenchEditor({
             <form.Field name="title">
               {(field) => (
                 <textarea
+                  id={titleId}
                   aria-label="题目标题"
                   rows={1}
                   value={field.state.value}
@@ -334,7 +364,7 @@ function WorkbenchEditor({
                       document.getElementById(statementId)?.focus();
                     }
                   }}
-                  className="text-foreground font-heading placeholder:text-fg-disabled block field-sizing-content w-full resize-none bg-transparent text-2xl leading-[38px] tracking-[-0.1px] outline-none"
+                  className="text-foreground font-heading placeholder:text-fg-disabled block field-sizing-content w-full resize-none scroll-mt-[calc(var(--layout-header)+var(--space-6))] bg-transparent text-2xl leading-[38px] tracking-[-0.1px] outline-none md:scroll-mt-6"
                 />
               )}
             </form.Field>
@@ -351,6 +381,7 @@ function WorkbenchEditor({
                   ? ' · 这道题已公开，保存会立即对学生生效'
                   : null}
             </Text>
+            <div className="mt-3 lg:hidden">{publishControl}</div>
 
             {saveError !== null ? (
               <div className="mt-6 grid gap-2" role="alert">
@@ -381,7 +412,7 @@ function WorkbenchEditor({
               </div>
             ) : null}
 
-            <div id={`${ids}-content`} className="mt-6 scroll-mt-6">
+            <div className="mt-6">
               <div>
                 <form.Field name="statementMarkdown">
                   {(field) => (
@@ -405,7 +436,7 @@ function WorkbenchEditor({
               {markdownField('hintMarkdown', '提示', '可选')}
             </div>
 
-            <EditorSection id={`${ids}-samples`} title="样例">
+            <EditorSection id={samplesId} title="样例">
               <form.Field name="samples">
                 {(field) => (
                   <ProblemSampleList
@@ -421,6 +452,7 @@ function WorkbenchEditor({
             </EditorSection>
 
             <ProblemLanguagesEditor
+              sectionId={languagesId}
               problem={problem}
               blocked={blockLanguageSave}
               onDirtyChange={setLanguagesDirty}
@@ -535,35 +567,25 @@ function WorkbenchEditor({
               >
                 {calibrationReady ? '已标定' : '运行标定'}
               </PropertyButton>
-              <PropertyButton icon={<Server aria-hidden="true" />} disabled>
-                {nodeUnavailable
-                  ? '没有在线判题节点'
-                  : check
-                    ? '判题节点在线'
-                    : '正在检查判题节点…'}
-              </PropertyButton>
+              <Text size="sm" tone="meta" className="flex items-start gap-2 px-1.5 py-1">
+                <Server className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  {!problem.testData
+                    ? '上传测试数据后检查判题节点'
+                    : publication.checkError
+                      ? '判题节点状态未确认'
+                      : nodeUnavailable
+                        ? nodeUnavailable.message
+                        : check
+                          ? '判题节点在线'
+                          : '正在检查判题节点…'}
+                </span>
+              </Text>
             </PropertyGroup>
 
-            <PropertyGroup title="公开">
-              <PropertyButton
-                icon={
-                  check?.ready ? (
-                    <CircleDot className="text-success" aria-hidden="true" />
-                  ) : (
-                    <CircleDashed aria-hidden="true" />
-                  )
-                }
-                onClick={() => onPanelChange('publish')}
-              >
-                {!check
-                  ? '正在检查…'
-                  : isPublic
-                    ? '公开设置'
-                    : check.ready
-                      ? '可以公开'
-                      : `公开检查 ${passedChecks} / ${totalChecks}`}
-              </PropertyButton>
-            </PropertyGroup>
+            <div className="hidden lg:block">
+              <PropertyGroup title="公开">{publishControl}</PropertyGroup>
+            </div>
           </div>
         </aside>
       </div>
@@ -634,7 +656,18 @@ function WorkbenchEditor({
       <PublishDialog
         open={panel === 'publish'}
         onOpenChange={(open) => onPanelChange(open ? 'publish' : undefined)}
+        onCloseComplete={() => {
+          const target = publicationFocus.current;
+          publicationFocus.current = null;
+          if (target === null) return;
+          // 先让对话框完成焦点归还，再把键盘焦点和视口移到编辑区。
+          window.requestAnimationFrame(() => {
+            target.focus({ preventScroll: true });
+            target.scrollIntoView({ block: 'start' });
+          });
+        }}
         check={check}
+        languages={problem.allowedLanguages}
         checkPending={publication.isChecking}
         checkFetching={publication.isRefreshingCheck}
         checkError={publication.checkError}
@@ -706,7 +739,12 @@ function EditorSection({
 }) {
   const headingId = useId();
   return (
-    <section id={id} aria-labelledby={headingId} className="mt-8 scroll-mt-6">
+    <section
+      id={id}
+      tabIndex={id === undefined ? undefined : -1}
+      aria-labelledby={headingId}
+      className="focus-visible:outline-ring mt-8 scroll-mt-[calc(var(--layout-header)+var(--space-6))] focus-visible:outline-1 md:scroll-mt-6"
+    >
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
         <h2 id={headingId} className="text-foreground font-heading text-15">
           {title}

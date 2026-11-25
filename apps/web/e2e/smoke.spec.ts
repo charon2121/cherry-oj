@@ -332,6 +332,97 @@ test('renders the same task-first admin dashboard at both requested routes', asy
   );
 });
 
+test('keeps dashboard sections visible and retries only the failed source', async ({ page }) => {
+  const admin = account({ username: 'root-admin', role: 'ADMIN' });
+  const title = '最大子数组和与很长的中文题目标题排版测试';
+  const calls = { problems: 0, users: 0, nodes: 0 };
+  let allowProblems = false;
+  let releaseUsers: () => void = () => {};
+  const usersResponse = new Promise<void>((resolve) => {
+    releaseUsers = resolve;
+  });
+  const metadata = {
+    pagination: { kind: 'page', page: 1, size: 20, totalElements: 41, totalPages: 3 },
+  };
+
+  await page.setViewportSize({ width: 320, height: 720 });
+  await mockSession(page, () => ({ authenticated: true, user: admin }));
+  await page.route('**/api/admin/problems?*', (route) => {
+    calls.problems += 1;
+    return allowProblems
+      ? apiSuccess(
+          route,
+          {
+            items: [
+              {
+                id: '01a1429f-dbf2-795b-bb28-1a4f5180e142',
+                slug: 'maximum-subarray-with-a-long-slug',
+                title,
+                visibility: 'PRIVATE',
+                status: 'ACTIVE',
+                difficulty: 'EASY',
+                hasTestData: true,
+                updatedAt: '2026-10-16T02:00:00Z',
+                publishedAt: null,
+                rowVersion: 1,
+              },
+            ],
+          },
+          { meta: metadata },
+        )
+      : apiProblem(route, 503, 'SERVICE_UNAVAILABLE', '题目服务暂不可用');
+  });
+  await page.route('**/api/admin/users?page=1&size=20', async (route) => {
+    calls.users += 1;
+    await usersResponse;
+    await apiSuccess(route, { items: [admin] }, { meta: metadata });
+  });
+  await page.route('**/api/admin/judging/judge-nodes', (route) => {
+    calls.nodes += 1;
+    return apiSuccess(route, { items: [] });
+  });
+
+  try {
+    await page.goto('/admin');
+    const nodes = page.getByRole('region', { name: '判题节点', exact: true });
+    const problems = page.getByRole('region', { name: '私有题目', exact: true });
+    const users = page.getByRole('region', { name: '待首次改密的账号', exact: true });
+    await expect(nodes.getByText('0 / 0 在线')).toBeVisible();
+    await expect(nodes.getByText('没有在线判题节点')).toBeInViewport();
+    await expect(users.getByRole('status')).toHaveText('正在加载待首次改密的账号…');
+    await expect(problems.getByText('私有题目加载失败')).toBeVisible();
+
+    const beforeRetry = { ...calls };
+    allowProblems = true;
+    const retry = problems.getByRole('button', { name: '重试私有题目' });
+    await retry.focus();
+    await page.keyboard.press('Enter');
+    await expect(problems.getByRole('link', { name: title })).toBeVisible();
+    await expect(
+      problems
+        .getByText('测试数据已上传', { exact: true })
+        .and(problems.locator('[aria-hidden="true"]:visible')),
+    ).toBeVisible();
+    await expect(problems.getByText('本页 1 道')).toBeVisible();
+    await expect(problems.getByText('私有题目加载失败')).toHaveCount(0);
+    await expect(nodes.getByText('没有在线判题节点')).toBeVisible();
+    expect(calls).toEqual({ ...beforeRetry, problems: beforeRetry.problems + 1 });
+
+    releaseUsers();
+    await expect(users.getByText('本页没有待首次改密的账号')).toBeVisible();
+    const hasHorizontalOverflow = await page
+      .locator('#admin-main')
+      .evaluate(
+        (main) =>
+          main.scrollWidth > main.clientWidth ||
+          document.documentElement.scrollWidth > window.innerWidth,
+      );
+    expect(hasHorizontalOverflow).toBe(false);
+  } finally {
+    releaseUsers();
+  }
+});
+
 test('keeps the desktop admin sidebar fixed and scrolls only the main content', async ({
   page,
 }) => {

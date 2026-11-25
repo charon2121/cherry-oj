@@ -29,6 +29,7 @@ export type ProblemLanguagesHandle = {
 };
 
 export function ProblemLanguagesEditor({
+  sectionId,
   problem,
   blocked,
   onDirtyChange,
@@ -37,6 +38,7 @@ export function ProblemLanguagesEditor({
   onCalibrate,
   calibration,
 }: {
+  sectionId: string;
   problem: AdminProblem;
   blocked: boolean;
   onDirtyChange: (dirty: boolean) => void;
@@ -128,7 +130,12 @@ export function ProblemLanguagesEditor({
   }
 
   return (
-    <section className="mt-8 grid min-w-0 grid-cols-1 gap-6" aria-label="题目语言配置">
+    <section
+      id={sectionId}
+      tabIndex={-1}
+      className="focus-visible:outline-ring mt-8 grid min-w-0 scroll-mt-[calc(var(--layout-header)+var(--space-6))] grid-cols-1 gap-6 focus-visible:outline-1 md:scroll-mt-6"
+      aria-label="题目语言配置"
+    >
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-foreground text-sm">语言配置</h2>
         <span className="text-fg-meta text-xs" role="status">

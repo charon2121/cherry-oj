@@ -320,7 +320,9 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
   await expect(page.getByRole('status').filter({ hasText: '标定状态' })).toContainText('VALID');
   state.ready = ['c'];
   await page.goto(`/admin/problems/${problemId}?panel=publish`);
-  await expect(page.getByText('c · 可作答', { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('list', { name: '各语言检查' }).getByText('C · 可作答', { exact: true }),
+  ).toBeVisible();
   await page.getByRole('button', { name: '公开题目', exact: true }).click();
   await expect.poll(() => state.problem.visibility).toBe('PUBLIC');
   await expect(page.getByRole('dialog')).toBeHidden();

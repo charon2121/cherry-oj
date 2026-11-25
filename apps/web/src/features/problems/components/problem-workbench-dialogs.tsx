@@ -291,10 +291,21 @@ export function CalibrationDialog({
   );
 }
 
+const publishCheckActions = new Map([
+  ['CONTENT', '编辑题面'],
+  ['SAMPLES', '补充样例'],
+  ['LANGUAGE', '打开语言配置'],
+  ['TEST_DATA', '管理测试数据'],
+  ['CALIBRATION', '打开标定'],
+  ['ONLINE_JUDGE_NODE', '查看判题节点'],
+]);
+
 export function PublishDialog({
   open,
   onOpenChange,
+  onCloseComplete,
   check,
+  languages,
   checkPending,
   checkFetching,
   checkError,
@@ -309,7 +320,9 @@ export function PublishDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCloseComplete: () => void;
   check: PublishCheck | undefined;
+  languages: AdminProblem['allowedLanguages'];
   checkPending: boolean;
   checkFetching: boolean;
   checkError: string | undefined;
@@ -322,8 +335,15 @@ export function PublishDialog({
   onUnpublish: () => void;
   onResolve: (code: string) => void;
 }) {
+  const missingTestData = check?.checks.some((item) => item.code === 'TEST_DATA' && !item.passed);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onOpenChangeComplete={(isOpen) => {
+        if (!isOpen) onCloseComplete();
+      }}
+    >
       <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{isPublic ? '公开设置' : '检查与公开'}</DialogTitle>
@@ -345,42 +365,55 @@ export function PublishDialog({
               {null}
             </AsyncState>
           ) : null}
-          {check?.checks.map((item) => (
-            <div
-              key={item.code}
-              className="flex min-h-9 min-w-0 items-center gap-3 rounded-lg text-sm"
-            >
-              {item.passed ? (
-                <CheckCircle2 className="text-success size-4 shrink-0" aria-hidden="true" />
-              ) : (
-                <XCircle className="text-danger size-4 shrink-0" aria-hidden="true" />
-              )}
-              <span className={cn('min-w-0 flex-1', item.passed ? 'text-fg-meta' : 'text-fg-2')}>
-                {item.message}
-              </span>
-              {!item.passed ? (
-                <Button size="sm" variant="ghost" onClick={() => onResolve(item.code)}>
-                  去处理
-                  <ChevronRight aria-hidden="true" />
-                </Button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-        {check?.languages?.map((language) => (
-          <div key={language.languageId} className="text-fg-2 mt-3 grid gap-1 text-xs">
-            <span>
-              {language.languageId} · {language.ready ? '可作答' : '尚未就绪'}
-            </span>
-            {language.checks
-              .filter((item) => !item.passed)
-              .map((item) => (
-                <span key={item.code} className="text-fg-meta">
+          {check?.checks.map((item) => {
+            const waitsForData =
+              missingTestData && (item.code === 'CALIBRATION' || item.code === 'ONLINE_JUDGE_NODE');
+            const action =
+              item.passed || waitsForData ? undefined : publishCheckActions.get(item.code);
+            return (
+              <div
+                key={item.code}
+                className="flex min-h-9 min-w-0 flex-wrap items-center gap-x-3 gap-y-0 py-1 text-sm"
+              >
+                {item.passed ? (
+                  <CheckCircle2 className="text-success size-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <XCircle className="text-danger size-4 shrink-0" aria-hidden="true" />
+                )}
+                <span className={cn('min-w-0 flex-1', item.passed ? 'text-fg-meta' : 'text-fg-2')}>
+                  <span className="sr-only">{item.passed ? '已通过。' : '未通过。'}</span>
                   {item.message}
                 </span>
-              ))}
-          </div>
-        ))}
+                {action ? (
+                  <Button size="sm" variant="ghost" onClick={() => onResolve(item.code)}>
+                    {action}
+                    <ChevronRight aria-hidden="true" />
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        {check?.languages?.length ? (
+          <ul aria-label="各语言检查" className="grid gap-3">
+            {check.languages.map((language) => (
+              <li key={language.languageId} className="grid gap-1 text-xs">
+                <span className="text-foreground">
+                  {languages.find((item) => item.id === language.languageId)?.displayName ??
+                    language.languageId}{' '}
+                  <span className="text-fg-2">· {language.ready ? '可作答' : '尚未就绪'}</span>
+                </span>
+                {language.checks
+                  .filter((item) => !item.passed)
+                  .map((item) => (
+                    <span key={item.code} className="text-fg-meta">
+                      {item.message}
+                    </span>
+                  ))}
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {checkError ? (
           <Text className="text-danger" size="sm" role="alert">
             {checkError}

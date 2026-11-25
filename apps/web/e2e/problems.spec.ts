@@ -338,10 +338,8 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   // 公开检查里没通过的项直接带到对应的对话框。
   await page.getByRole('button', { name: /公开检查/ }).click();
   await page
-    .getByRole('dialog')
-    .getByText('还没有测试数据')
-    .locator('xpath=..')
-    .getByRole('button', { name: '去处理' })
+    .getByRole('dialog', { name: '检查与公开' })
+    .getByRole('button', { name: '管理测试数据' })
     .click();
   await expect(page).toHaveURL(/panel=test-data/);
   await expect(page.getByRole('dialog', { name: '测试数据' })).toBeVisible();
@@ -483,6 +481,21 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
 
   await expect(page).toHaveURL(new RegExp(`/admin/problems/${problemId}(?:\\?.*)?$`));
   await expect(page.getByRole('button', { name: '核心代码 · C++' })).toBeDisabled();
+  await page.setViewportSize({ width: 320, height: 720 });
+  const publishCheck = page.getByRole('button', { name: /^公开检查 \d/ });
+  await expect(publishCheck).toBeInViewport();
+  await publishCheck.press('Enter');
+  const checks = page.getByRole('dialog', { name: '检查与公开' });
+  await expect(checks.getByRole('button', { name: '打开标定' })).toHaveCount(0);
+  await checks.getByRole('button', { name: '打开语言配置' }).press('Enter');
+  await expect(checks).toHaveCount(0);
+  const languageConfig = page.getByRole('region', { name: '题目语言配置' });
+  await expect(languageConfig).toBeFocused();
+  await expect(
+    languageConfig.getByRole('heading', { name: '语言配置', exact: true }),
+  ).toBeInViewport();
+  await expect(page).not.toHaveURL(/panel=publish/);
+  await page.setViewportSize({ width: 1280, height: 720 });
   const driverSection = page.getByRole('region', { name: '驱动代码' });
   await expect(driverSection).toBeVisible();
   // 前缀代码只读展示，写驱动代码时能看到用户文件里已有哪些库。
