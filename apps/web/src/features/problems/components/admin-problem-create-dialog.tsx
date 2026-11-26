@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -122,7 +121,6 @@ export function AdminProblemCreateDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>新建题目</DialogTitle>
-          <DialogDescription>先建立题目，再进入工作台完善题面、样例和测试数据。</DialogDescription>
         </DialogHeader>
         <form
           className="grid gap-5"
@@ -162,7 +160,6 @@ export function AdminProblemCreateDialog({
               <FormField
                 label="题目标识"
                 required
-                description="用于公开访问地址，例如 a-plus-b；创建后保持稳定。"
                 invalid={Boolean(errors.slug)}
                 error={errors.slug}
               >
@@ -223,7 +220,7 @@ export function AdminProblemCreateDialog({
             {(field) => (
               <SelectField
                 label="代码模式"
-                description="语言与代码模式创建后不可修改。"
+                description="创建后不可更改。"
                 value={field.state.value}
                 onValueChange={(value) => field.handleChange(value as ProblemCodeMode)}
                 items={[

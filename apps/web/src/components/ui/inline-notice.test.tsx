@@ -13,17 +13,20 @@ const variants: ReadonlyArray<readonly [InlineNoticeVariant, string]> = [
 ];
 
 describe('InlineNotice', () => {
-  it.each(variants)('gives %s a visible, non-color status label', (variant, label) => {
-    const { container } = render(
-      <InlineNotice variant={variant} title="状态标题">
-        状态说明
-      </InlineNotice>,
-    );
+  it.each(variants)(
+    'gives %s a readable status and an icon without a second visible label',
+    (variant, label) => {
+      const { container } = render(
+        <InlineNotice variant={variant} title="状态标题">
+          状态说明
+        </InlineNotice>,
+      );
 
-    expect(screen.getByText(label)).toBeVisible();
-    expect(screen.getByText('状态标题')).toBeVisible();
-    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
-  });
+      expect(screen.getByText(`${label}。`)).toHaveClass('sr-only');
+      expect(screen.getByText('状态标题')).toBeVisible();
+      expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    },
+  );
 
   it('uses an assertive live region only when an urgent update requests one', () => {
     render(

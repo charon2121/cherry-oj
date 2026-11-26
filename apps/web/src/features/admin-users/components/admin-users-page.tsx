@@ -25,7 +25,9 @@ import { FormField } from '@/components/ui/field';
 import { IconButton } from '@/components/ui/icon-button';
 import { Input } from '@/components/ui/input';
 import { Cluster } from '@/components/ui/layout';
-import { CodeText, Heading, Text } from '@/components/ui/typography';
+import { ListPageTemplate } from '@/components/ui/page-templates';
+import { Toolbar } from '@/components/ui/toolbar';
+import { CodeText, Text } from '@/components/ui/typography';
 import { authKeys } from '@/features/auth/api/session-query';
 import { ErrorNotice } from '@/features/auth/components/error-notice';
 import { authErrorMessage } from '@/features/auth/lib/auth-error-message';
@@ -42,25 +44,11 @@ import {
 
 const PAGE_SIZE = 20;
 
-// 构图取自 linear.app 的 Settings › Members（docs/design-system/measurements.md）：页标题、一行
-// 工具条（主操作在右）、灰色列头、按状态分组的 32px 分组带、50px 的行（头像 + 名字两行）、其余列 12px 灰。
-// 行操作收进行尾的"…"菜单，不在每行平铺按钮。
 const columns =
-  'grid grid-cols-[minmax(0,1fr)_7rem_7rem_2rem] items-center gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_8rem_8rem_2rem]';
+  'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,22rem)_6rem_6rem_2rem]';
 
 function roleLabel(role: UserAccountData['role']) {
   return role === 'ADMIN' ? '管理员' : '用户';
-}
-
-function UserAvatar({ username }: { username: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="bg-surface-hover text-fg-2 text-cap flex size-6 shrink-0 items-center justify-center rounded-full uppercase"
-    >
-      {username.slice(0, 1)}
-    </span>
-  );
 }
 
 function TemporaryPasswordDialog({
@@ -84,11 +72,9 @@ function TemporaryPasswordDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>一次性临时密码</DialogTitle>
-          <DialogDescription>请立即安全交给用户。关闭后无法再次查看。</DialogDescription>
+          <DialogDescription>请通过安全渠道交给用户。关闭后无法再次查看。</DialogDescription>
         </DialogHeader>
-        <CodeText className="text-foreground bg-surface block rounded-lg px-3 py-2 wrap-anywhere select-all">
-          {password}
-        </CodeText>
+        <CodeText className="text-foreground block wrap-anywhere select-all">{password}</CodeText>
         <DialogFooter>
           <Button
             variant="secondary"
@@ -135,10 +121,13 @@ function CreateUserDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>新建账号</DialogTitle>
-          <DialogDescription>系统会生成一次性临时密码，用户首次登录时必须修改。</DialogDescription>
         </DialogHeader>
         <form className="grid gap-5" onSubmit={(event) => void submit(event)}>
-          <FormField label="用户名" required description="3–64 位字母、数字、点、下划线或连字符。">
+          <FormField
+            label="用户名"
+            required
+            description="3–64 位，以字母或数字开头，可用点、下划线和连字符。"
+          >
             <Input
               minLength={3}
               maxLength={64}
@@ -266,155 +255,143 @@ export function AdminUsersPage({ page }: { page: number }) {
       reset.mutate(user);
   };
 
+  const state = users.isPending ? (
+    <AsyncState variant="loading" size="inline" title="正在加载账号…" progressLabel="正在加载账号…">
+      {null}
+    </AsyncState>
+  ) : users.isError ? (
+    <AsyncState
+      variant="error"
+      size="inline"
+      title="账号列表加载失败"
+      action={
+        <Button variant="secondary" onClick={() => void users.refetch()}>
+          重试
+        </Button>
+      }
+    >
+      {authErrorMessage(users.error)}
+    </AsyncState>
+  ) : items.length === 0 ? (
+    <AsyncState variant="empty" size="inline" title="还没有账号">
+      {null}
+    </AsyncState>
+  ) : undefined;
+
+  const pagination =
+    users.data && users.data.pagination.totalPages > 1 ? (
+      <nav aria-label="账号分页">
+        <Cluster gap={3} justify="between">
+          <Text as="span" size="sm" tone="meta">
+            第 {users.data.pagination.page} / {users.data.pagination.totalPages} 页
+          </Text>
+          <Cluster gap={2}>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => void navigate({ to: '/admin/users', search: { page: page - 1 } })}
+            >
+              上一页
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={page >= users.data.pagination.totalPages}
+              onClick={() => void navigate({ to: '/admin/users', search: { page: page + 1 } })}
+            >
+              下一页
+            </Button>
+          </Cluster>
+        </Cluster>
+      </nav>
+    ) : undefined;
+
   return (
-    <div className="mx-auto w-full max-w-[72rem] px-4 pt-6 pb-12 sm:px-14">
-      <Heading level={1} size="xl" className="font-body text-2xl">
-        账号
-      </Heading>
-      <Cluster gap={2} justify="between" className="mt-4">
-        <Text size="xs" tone="meta">
-          {users.data ? `共 ${users.data.pagination.totalElements} 个账号` : null}
-        </Text>
-        <CreateUserDialog
-          creating={create.isPending}
-          onCreate={async (username) => {
-            await create.mutateAsync({ username });
-          }}
-        />
-      </Cluster>
-
-      {mutationError ? (
-        <div className="mt-4">
-          <ErrorNotice message={authErrorMessage(mutationError)} />
-        </div>
-      ) : null}
-
-      <div className="mt-6">
-        {users.isPending ? (
-          <AsyncState
-            variant="loading"
-            size="inline"
-            title="正在加载账号…"
-            progressLabel="正在加载账号…"
-          >
-            {null}
-          </AsyncState>
-        ) : users.isError ? (
-          <AsyncState
-            variant="error"
-            size="inline"
-            title="账号列表加载失败"
-            action={
-              <Button variant="secondary" onClick={() => void users.refetch()}>
-                重试
-              </Button>
+    <ListPageTemplate
+      title="账号"
+      width="column"
+      state={state}
+      pagination={pagination}
+      toolbar={
+        <>
+          <Toolbar
+            className="mx-1 sm:mx-2 lg:mx-4"
+            filters={<span className="text-fg-2 font-body text-sm md:hidden">账号</span>}
+            actions={
+              <CreateUserDialog
+                creating={create.isPending}
+                onCreate={async (username) => {
+                  await create.mutateAsync({ username });
+                }}
+              />
             }
-          >
-            {authErrorMessage(users.error)}
-          </AsyncState>
-        ) : items.length === 0 ? (
-          <AsyncState variant="empty" size="inline" title="还没有账号">
-            用右上角的「新建账号」开始。
-          </AsyncState>
-        ) : (
-          <div role="table" aria-label="账号" className="min-w-0">
-            <div role="row" className={`${columns} text-fg-meta text-cap px-2 pb-2`}>
-              <span role="columnheader">用户名</span>
-              <span role="columnheader">角色</span>
-              <span role="columnheader" className="max-sm:hidden">
-                登录
-              </span>
-              <span role="columnheader">状态</span>
-              <span role="columnheader" className="sr-only">
-                操作
-              </span>
+          />
+          {mutationError ? (
+            <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-2 mt-2">
+              <ErrorNotice message={authErrorMessage(mutationError)} />
             </div>
-            {groups.map((group) => (
-              <div role="rowgroup" key={group.key}>
-                <div
-                  role="row"
-                  className="bg-surface text-fg-meta text-cap font-body mb-half flex min-h-8 items-center gap-2 rounded-lg px-2"
-                >
-                  <span role="cell">
-                    {group.label} <span className="font-regular">{group.rows.length}</span>
+          ) : null}
+          <TemporaryPasswordDialog
+            password={temporaryPassword}
+            onClose={() => setTemporaryPassword(undefined)}
+          />
+        </>
+      }
+    >
+      <div
+        role="table"
+        aria-label="账号"
+        className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-2 min-w-0"
+      >
+        <div role="row" className={`${columns} text-fg-meta text-cap min-h-8 max-sm:hidden`}>
+          <span role="columnheader">用户名</span>
+          <span role="columnheader">角色</span>
+          <span role="columnheader">首次改密</span>
+          <span role="columnheader" className="sr-only">
+            操作
+          </span>
+        </div>
+        {groups.map((group) => (
+          <div role="rowgroup" key={group.key} className="mt-4">
+            <div role="row" className="text-fg-2 font-body mb-1 text-sm">
+              <span role="cell">{group.label}</span>
+            </div>
+            {group.rows.map((user) => (
+              <div
+                role="row"
+                key={user.id}
+                className={`${columns} hover:bg-surface-translucent-hover duration-fast min-h-11 rounded-lg py-1 transition-colors motion-reduce:transition-none`}
+              >
+                <span role="cell" className="min-w-0">
+                  <span className="text-foreground font-body block text-sm wrap-anywhere">
+                    {user.username}
                   </span>
-                </div>
-                {group.rows.map((user) => (
-                  <div
-                    role="row"
-                    key={user.id}
-                    className={`${columns} hover:bg-surface-translucent-hover duration-fast min-h-[50px] rounded-lg px-2 transition-colors motion-reduce:transition-none`}
-                  >
-                    <span role="cell" className="gap-2x flex min-w-0 items-center">
-                      <UserAvatar username={user.username} />
-                      <span className="min-w-0">
-                        <span className="text-fg-2 font-body block truncate text-sm">
-                          {user.username}
-                        </span>
-                      </span>
-                    </span>
-                    <span role="cell" className="text-fg-meta text-cap">
-                      {roleLabel(user.role)}
-                    </span>
-                    <span role="cell" className="text-fg-meta text-cap max-sm:hidden">
-                      {user.passwordChangeRequired ? '待首次改密' : '已改密'}
-                    </span>
-                    <span
-                      role="cell"
-                      className={
-                        user.status === 'ACTIVE' ? 'text-fg-meta text-cap' : 'text-danger text-cap'
-                      }
-                    >
-                      {user.status === 'ACTIVE' ? '正常' : '已停用'}
-                    </span>
-                    <span role="cell" className="flex justify-end">
-                      <UserRowActions
-                        user={user}
-                        busy={status.isPending || reset.isPending}
-                        onReset={() => resetPassword(user)}
-                        onToggleStatus={() => toggleStatus(user)}
-                      />
-                    </span>
-                  </div>
-                ))}
+                  <span className="text-fg-meta text-cap block sm:hidden">
+                    {roleLabel(user.role)}
+                    {user.passwordChangeRequired ? <span> · 待首次改密</span> : null}
+                  </span>
+                  <span className="sr-only">{group.label}</span>
+                </span>
+                <span role="cell" className="text-fg-meta text-cap max-sm:hidden">
+                  {roleLabel(user.role)}
+                </span>
+                <span role="cell" className="text-fg-meta text-cap max-sm:hidden">
+                  {user.passwordChangeRequired ? '待首次改密' : null}
+                </span>
+                <span role="cell" className="flex justify-end">
+                  <UserRowActions
+                    user={user}
+                    busy={status.isPending || reset.isPending}
+                    onReset={() => resetPassword(user)}
+                    onToggleStatus={() => toggleStatus(user)}
+                  />
+                </span>
               </div>
             ))}
           </div>
-        )}
+        ))}
       </div>
-
-      {users.data && users.data.pagination.totalPages > 1 ? (
-        <nav aria-label="账号分页" className="mt-4">
-          <Cluster gap={3} justify="between">
-            <Text as="span" size="sm" tone="meta">
-              第 {users.data.pagination.page} / {users.data.pagination.totalPages} 页
-            </Text>
-            <Cluster gap={2}>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => void navigate({ to: '/admin/users', search: { page: page - 1 } })}
-              >
-                上一页
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={page >= users.data.pagination.totalPages}
-                onClick={() => void navigate({ to: '/admin/users', search: { page: page + 1 } })}
-              >
-                下一页
-              </Button>
-            </Cluster>
-          </Cluster>
-        </nav>
-      ) : null}
-
-      <TemporaryPasswordDialog
-        password={temporaryPassword}
-        onClose={() => setTemporaryPassword(undefined)}
-      />
-    </div>
+    </ListPageTemplate>
   );
 }

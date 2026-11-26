@@ -21,11 +21,9 @@ function Pill({
   ...props
 }: PillProps) {
   const classes = cn(
-    // linear.app 实测的视图切换：高 28px、左右 10px、12px/500、全圆角；未选是比面板亮一档的底与
-    // 灰字，选中再亮一档并换成主前景色。状态只改颜色（§7.2 B）。
-    'inline-flex min-h-7 max-w-full items-center gap-1x rounded-full bg-surface shadow-ring px-[10px] font-display text-xs font-body text-fg-meta transition-colors duration-fast ease-standard focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring motion-reduce:transition-none',
+    'inline-flex min-h-7 max-w-full items-center gap-1x rounded-full px-[10px] font-display text-xs font-body text-fg-meta transition-colors duration-fast ease-standard focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring motion-reduce:transition-none',
     dot && 'pl-2',
-    selected && 'bg-surface-hover text-foreground',
+    selected && 'bg-surface-hover text-foreground forced-colors:outline-1',
     onClick && !selected && 'cursor-pointer hover:text-foreground',
     !onClick && 'cursor-default',
     className,

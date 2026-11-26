@@ -7,7 +7,6 @@ import { SourceCopyButton } from '@/components/ui/copy-button';
 import { DataList } from '@/components/ui/data-list';
 import { SelectField } from '@/components/ui/select';
 import { TextEditor } from '@/components/ui/text-editor';
-import { Toolbar } from '@/components/ui/toolbar';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { editorSyntax, languageName } from '@/features/languages/language';
 import type { ProblemDetail, SubmissionSourceData } from '@/generated/api';
@@ -44,14 +43,13 @@ export function SubmissionHistoryPanel(props: Props) {
   const user = session.data?.authenticated ? session.data.user : undefined;
   if (!user)
     return (
-      <div className="space-y-3 p-4">
-        <p className="text-fg-2">登录后查看自己在本题的提交记录。</p>
+      <div className="px-4 py-3">
         <Link
           to="/login"
           search={{ returnTo: `/problems/${props.problem.slug}?tab=submissions` }}
           className={buttonVariants({ size: 'sm' })}
         >
-          登录
+          登录后查看提交记录
         </Link>
       </div>
     );
@@ -112,41 +110,40 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
   const shown = isPrivateAccessError(list.error) ? undefined : list.data;
   return (
     <div className="min-w-0">
-      <Toolbar
-        title="本题提交"
-        count={shown ? `${shown.pagination.totalElements} 条` : undefined}
-        actions={
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={list.isFetching}
-            onClick={() => void list.refetch()}
-          >
-            刷新
-          </Button>
-        }
-        filters={
-          <SelectField
-            label="判定"
-            labelPlacement="hidden"
-            className="relative"
-            value={search.historyVerdict ?? 'ALL'}
-            items={[
-              { value: 'ALL', label: '全部判定' },
-              ...verdictSchema.options.map((value) => ({
-                value,
-                label: `${value} · ${verdictLabels[value]}`,
-              })),
-            ]}
-            onValueChange={(value) =>
-              change({
-                historyVerdict: value === 'ALL' ? undefined : verdictSchema.parse(value),
-                historyPage: 1,
-              })
-            }
-          />
-        }
-      />
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2">
+        <SelectField
+          label="判定"
+          labelPlacement="hidden"
+          className="relative"
+          value={search.historyVerdict ?? 'ALL'}
+          items={[
+            { value: 'ALL', label: '全部判定' },
+            ...verdictSchema.options.map((value) => ({
+              value,
+              label: `${value} · ${verdictLabels[value]}`,
+            })),
+          ]}
+          onValueChange={(value) =>
+            change({
+              historyVerdict: value === 'ALL' ? undefined : verdictSchema.parse(value),
+              historyPage: 1,
+            })
+          }
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={list.isFetching}
+          onClick={() => void list.refetch()}
+        >
+          刷新
+        </Button>
+        {shown?.pagination.totalElements ? (
+          <span className="text-fg-meta font-mono text-xs">
+            {shown.pagination.totalElements} 条
+          </span>
+        ) : null}
+      </div>
       {list.isPending ? (
         <p className="text-fg-muted p-4" role="status">
           正在加载提交记录…
@@ -211,27 +208,35 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
               ),
             })}
           />
-          <div className="text-fg-muted flex flex-wrap items-center gap-3 p-4 text-xs">
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={shown.pagination.page <= 1}
-              onClick={() => change({ historyPage: shown.pagination.page - 1 })}
+          {shown.pagination.totalPages > 1 ? (
+            <nav
+              aria-label="提交记录分页"
+              className="text-fg-meta flex flex-wrap items-center gap-3 px-4 py-3 text-xs"
             >
-              上一页
-            </Button>
-            <span>
-              第 {shown.pagination.page} 页 · 共 {shown.pagination.totalPages} 页
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={shown.pagination.page >= shown.pagination.totalPages}
-              onClick={() => change({ historyPage: shown.pagination.page + 1 })}
-            >
-              下一页
-            </Button>
-          </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={shown.pagination.page <= 1}
+                onClick={() => change({ historyPage: shown.pagination.page - 1 })}
+              >
+                上一页
+              </Button>
+              <span aria-hidden="true" className="font-mono">
+                {shown.pagination.page} / {shown.pagination.totalPages}
+              </span>
+              <span className="sr-only">
+                第 {shown.pagination.page} 页，共 {shown.pagination.totalPages} 页
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={shown.pagination.page >= shown.pagination.totalPages}
+                onClick={() => change({ historyPage: shown.pagination.page + 1 })}
+              >
+                下一页
+              </Button>
+            </nav>
+          ) : null}
         </>
       ) : null}
     </div>
@@ -284,8 +289,7 @@ function HistoryDetail({
       ) : null}
       {result.data && !denied ? (
         <>
-          <p className="text-foreground break-words">{result.data.problemTitle}</p>
-          <p className="text-fg-meta text-xs">
+          <p className="text-fg-meta font-mono text-xs">
             {new Date(result.data.createdAt).toLocaleString()} ·{' '}
             {languageName(problem, result.data.languageId)}
           </p>
@@ -336,10 +340,10 @@ function HistoryDetail({
             onChange={() => undefined}
             readOnly
             language={editorSyntax(code.languageId)}
-            size="code"
+            size="auto"
+            className="border-0"
             aria-label="历史提交代码"
           />
-          <p className="text-fg-muted text-xs">这是提交时的原始代码。查看记录不会改变右侧草稿。</p>
         </>
       ) : null}
     </section>

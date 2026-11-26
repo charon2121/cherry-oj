@@ -191,7 +191,7 @@ test('switching accounts clears private input and discards a late result', async
   await expect(input(page)).toHaveText('');
   release();
   await page.getByRole('tab', { name: '运行结果', exact: true }).click();
-  await expect(page.getByText('运行后结果会显示在这里。')).toBeVisible();
+  await expect(page.getByText('尚未运行', { exact: true })).toBeVisible();
   await expect(page.getByText('样例全部通过', { exact: true })).toHaveCount(0);
 });
 

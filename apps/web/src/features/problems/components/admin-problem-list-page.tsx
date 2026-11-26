@@ -16,6 +16,7 @@ import {
   listLanguageSettings,
 } from '@/features/admin-languages/api/admin-languages-api';
 import type { AdminProblemSummary } from '@/generated/api';
+import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { createProblem, listAdminProblems, problemKeys } from '../api/problems-api';
 import { AdminProblemCreateDialog } from './admin-problem-create-dialog';
@@ -94,7 +95,7 @@ export function AdminProblemListPage({
             value={keyword}
             maxLength={100}
             placeholder="标题或标识"
-            containerClassName="w-56"
+            containerClassName="w-40 sm:w-56"
             onChange={(event) => setKeyword(event.target.value)}
           />
           <button type="submit" className="sr-only">
@@ -130,11 +131,11 @@ export function AdminProblemListPage({
         </Button>
       }
     >
-      已有筛选条件会保留。
+      {apiErrorMessage(problems.error, '请稍后重试。')}
     </AsyncState>
   ) : problems.data.items.length === 0 ? (
     <AsyncState variant="empty" size="inline" title="没有符合条件的题目">
-      {search.q || search.status !== 'ALL' ? '换一组条件试试。' : '用右上角的「新建题目」开始。'}
+      {null}
     </AsyncState>
   ) : undefined;
 
@@ -168,27 +169,39 @@ export function AdminProblemListPage({
     ) : undefined;
 
   return (
-    <ListPageTemplate title="题目管理" toolbar={toolbar} state={state} pagination={pagination}>
+    <ListPageTemplate
+      title="题目管理"
+      width="column"
+      toolbar={toolbar}
+      state={state}
+      pagination={pagination}
+    >
       <DataList
         caption="题目"
+        align="packed"
         groups={groupByVisibility(problems.data?.items ?? [])}
         rowKey={(problem) => problem.id}
         rowInteractive
         aria-busy={problems.isFetching}
         renderRow={(problem) => ({
           leading: <DifficultyIcon difficulty={problem.difficulty} />,
-          id: problem.slug,
           title: (
-            <Link
-              to="/admin/problems/$problemId"
-              params={{ problemId: problem.id }}
-              className={dataListRowLinkClasses}
-            >
-              {problem.title}
-            </Link>
+            <span className="block wrap-anywhere whitespace-normal">
+              <Link
+                to="/admin/problems/$problemId"
+                params={{ problemId: problem.id }}
+                className={dataListRowLinkClasses}
+              >
+                {problem.title}
+              </Link>
+              <span className="text-fg-meta text-cap block md:hidden">{problem.slug}</span>
+            </span>
           ),
           trailing: (
             <>
+              <span className="w-28 truncate" title={problem.slug}>
+                {problem.slug}
+              </span>
               {problem.status === 'ARCHIVED' ? <span>已归档</span> : null}
               <span>{problem.hasTestData ? '有测试数据' : '没有测试数据'}</span>
               <time dateTime={problem.updatedAt} className="w-12 text-right tabular-nums">
@@ -196,7 +209,12 @@ export function AdminProblemListPage({
               </time>
             </>
           ),
-          meta: <span>{problem.hasTestData ? '有测试数据' : '没有测试数据'}</span>,
+          meta: (
+            <span className="flex flex-col">
+              {problem.status === 'ARCHIVED' ? <span>已归档</span> : null}
+              <span>{problem.hasTestData ? '有测试数据' : '没有测试数据'}</span>
+            </span>
+          ),
         })}
       />
     </ListPageTemplate>

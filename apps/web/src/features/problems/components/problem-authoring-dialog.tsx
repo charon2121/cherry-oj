@@ -2,13 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { SelectField } from '@/components/ui/select';
 import { TextEditor } from '@/components/ui/text-editor';
@@ -218,9 +212,6 @@ export function ProblemAuthoringDialog({
       <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>自动出题</DialogTitle>
-          <DialogDescription className="sr-only">
-            构建测试数据，查看验题报告或生成 AI 提案。
-          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-wrap gap-2" role="group" aria-label="出题工作台">
           {(
@@ -287,7 +278,9 @@ export function ProblemAuthoringDialog({
         {view === 'proposal' ? (
           <section aria-label="AI 提案输入" className="grid min-w-0 gap-3">
             <div className="grid gap-2">
-              <label htmlFor={knowledgeId}>知识点</label>
+              <label htmlFor={knowledgeId} className="text-fg-2 text-sm">
+                知识点
+              </label>
               <Input
                 id={knowledgeId}
                 value={knowledgePoint}
@@ -384,7 +377,11 @@ export function ProblemAuthoringDialog({
             {job ? (
               <>
                 <Text role="status" size="sm">
-                  {statuses[job.status]} · {stages[job.stage]} · 第 {job.attempt} 次尝试
+                  {statuses[job.status]}
+                  {job.stage !== 'QUEUED' && job.stage !== 'COMPLETE'
+                    ? ` · ${stages[job.stage]}`
+                    : null}{' '}
+                  · 第 {job.attempt} 次尝试
                 </Text>
                 {detail.data?.errorCode ? (
                   <Text size="sm" className="text-danger">
@@ -398,10 +395,14 @@ export function ProblemAuthoringDialog({
                 ) : null}
                 {result ? (
                   <div className="grid min-w-0 gap-2">
+                    {result.testcaseCount == null ? null : (
+                      <Text size="sm">{result.testcaseCount} 个测试点</Text>
+                    )}
                     {result.testDataDigest ? (
-                      <Text size="sm" className="font-mono break-all">
-                        {result.testcaseCount} 个测试点 · {result.testDataDigest}
-                      </Text>
+                      <details className="text-fg-meta min-w-0 text-xs">
+                        <summary className="cursor-pointer">测试数据摘要</summary>
+                        <span className="font-mono wrap-anywhere">{result.testDataDigest}</span>
+                      </details>
                     ) : null}
                     {result.detail ? (
                       <Text size="sm" className="text-danger">
@@ -557,8 +558,8 @@ export function ProblemAuthoringDialog({
         title={confirmed === 'apply' ? '应用验题产物' : '采用 AI 提案'}
         description={
           confirmed === 'apply'
-            ? '将替换私有草稿的当前测试数据。应用后可按新数据重新标定。'
-            : '将替换当前草稿的题面、样例和语言配置。请核对内容，再发起确定性验题。'
+            ? '将替换草稿的当前测试数据。'
+            : '将替换当前草稿的题面、样例和语言配置。'
         }
         confirmLabel={confirmed === 'apply' ? '应用到草稿' : '采用提案'}
         loading={apply.isPending}

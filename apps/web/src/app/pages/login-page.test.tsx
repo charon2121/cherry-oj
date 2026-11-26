@@ -28,8 +28,8 @@ describe('LoginPageView', () => {
       'current-password',
     );
     expect(screen.getByRole('button', { name: '登录' })).toBeEnabled();
-    expect(screen.getByTestId('login-workspace-art')).toHaveAttribute('aria-hidden', 'true');
-    expect(container.querySelector('img')).toHaveAttribute('src', '/login-workspace-art.png');
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
+    expect(container.querySelector('img')).toBeNull();
     expect(container.querySelector('[data-slot="card"]')).toBeNull();
     expect(screen.queryByRole('link')).toBeNull();
   });

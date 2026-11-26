@@ -67,17 +67,16 @@ export function SourceEditor({
   );
 }
 
-/** 分栏顶部的一行（linear.app 详情页顶栏高 44px、0.5px 下边）：左边是标题或状态，右边是图标操作。 */
+/** 分栏顶部左侧是状态，右侧是编辑器操作。 */
 export function PaneHeader({ start, children }: { start?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="border-border-soft border-b-hairline flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
+    <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
       <div className="text-fg-meta flex min-w-0 flex-1 items-center gap-2 text-xs">{start}</div>
       {children}
     </div>
   );
 }
 
-/** 做题页的一栏：平铺在面板上，栏与栏之间只有分隔线（linear.app 的分栏）。给了 label 就是一个区域。 */
 export function Pane({
   children,
   className,
@@ -90,7 +89,7 @@ export function Pane({
   return (
     <section
       aria-label={label}
-      className={cn('bg-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', className)}
+      className={cn('flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', className)}
     >
       {children}
     </section>
@@ -187,7 +186,7 @@ export function DraftEditor({
                     'min-w-0 truncate',
                     draft.status === 'error' || draft.status === 'conflict'
                       ? 'text-danger'
-                      : 'text-fg-disabled',
+                      : 'text-fg-meta',
                   )}
                 >
                   {draft.message}
@@ -238,7 +237,7 @@ export function DraftEditor({
           <DialogHeader>
             <DialogTitle>载入历史代码？</DialogTitle>
             <DialogDescription>
-              将使用这次提交的代码替换右侧当前草稿。需要保留时，请先取消并复制或下载。
+              这次提交的代码会替换当前草稿。需要备份时，请先取消并复制或下载草稿。
               新提交按题目当前的测试数据判题。
             </DialogDescription>
           </DialogHeader>
@@ -275,7 +274,7 @@ export function DraftEditor({
           <DialogHeader>
             <DialogTitle>恢复起始代码？</DialogTitle>
             <DialogDescription>
-              将替换当前账号、当前题目版本的代码。需要保留时，请先复制或下载。
+              起始代码会替换当前草稿。需要备份时，请先复制或下载草稿。
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

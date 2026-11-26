@@ -264,13 +264,12 @@ function WorkbenchEditor({
     </PropertyButton>
   );
 
-  const markdownField = (name: MarkdownFieldName, label: string, placeholder: string) => (
+  const markdownField = (name: MarkdownFieldName, label: string) => (
     <form.Field name={name}>
       {(field) => (
         <EditorSection title={label}>
           <RichMarkdownEditor
             aria-label={label}
-            placeholder={placeholder}
             value={field.state.value}
             disabled={!editable}
             onChange={(value) => {
@@ -364,7 +363,7 @@ function WorkbenchEditor({
                       document.getElementById(statementId)?.focus();
                     }
                   }}
-                  className="text-foreground font-heading placeholder:text-fg-disabled block field-sizing-content w-full resize-none scroll-mt-[calc(var(--layout-header)+var(--space-6))] bg-transparent text-2xl leading-[38px] tracking-[-0.1px] outline-none md:scroll-mt-6"
+                  className="text-foreground font-heading placeholder:text-fg-meta block field-sizing-content w-full resize-none scroll-mt-[calc(var(--layout-header)+var(--space-6))] bg-transparent text-2xl leading-[38px] tracking-[-0.1px] outline-none md:scroll-mt-6"
                 />
               )}
             </form.Field>
@@ -413,27 +412,25 @@ function WorkbenchEditor({
             ) : null}
 
             <div className="mt-6">
-              <div>
-                <form.Field name="statementMarkdown">
-                  {(field) => (
-                    <RichMarkdownEditor
-                      id={statementId}
-                      aria-label="题目正文"
-                      placeholder="描述题目…（支持 Markdown：## 标题、**粗体**、``` 代码块）"
-                      value={field.state.value}
-                      disabled={!editable}
-                      onChange={(value) => {
-                        field.handleChange(value);
-                        markChanged();
-                      }}
-                    />
-                  )}
-                </form.Field>
-              </div>
-              {markdownField('inputDescriptionMarkdown', '输入说明', '说明输入的格式…')}
-              {markdownField('outputDescriptionMarkdown', '输出说明', '说明输出的格式…')}
-              {markdownField('constraintsMarkdown', '数据范围', '可选')}
-              {markdownField('hintMarkdown', '提示', '可选')}
+              <form.Field name="statementMarkdown">
+                {(field) => (
+                  <RichMarkdownEditor
+                    id={statementId}
+                    aria-label="题目正文"
+                    placeholder="题目正文"
+                    value={field.state.value}
+                    disabled={!editable}
+                    onChange={(value) => {
+                      field.handleChange(value);
+                      markChanged();
+                    }}
+                  />
+                )}
+              </form.Field>
+              {markdownField('inputDescriptionMarkdown', '输入说明')}
+              {markdownField('outputDescriptionMarkdown', '输出说明')}
+              {markdownField('constraintsMarkdown', '数据范围')}
+              {markdownField('hintMarkdown', '提示')}
             </div>
 
             <EditorSection id={samplesId} title="样例">
@@ -469,7 +466,7 @@ function WorkbenchEditor({
 
         <aside
           aria-label="题目属性"
-          className="border-border-soft lg:border-l-hairline min-w-0 px-4 pb-8 lg:sticky lg:top-0 lg:self-start lg:px-6 lg:pt-10"
+          className="min-w-0 px-4 pb-8 lg:sticky lg:top-0 lg:self-start lg:px-6 lg:pt-10"
         >
           <div className="grid gap-6">
             <PropertyGroup title="属性">
@@ -517,10 +514,13 @@ function WorkbenchEditor({
               >
                 {isPublic ? '已公开' : '私有'}
               </PropertyButton>
-              <PropertyButton icon={<Cpu aria-hidden="true" />} disabled>
-                {codeModeLabels[problem.codeMode]} ·{' '}
-                {problem.allowedLanguages.map((item) => item.displayName).join(' / ')}
-              </PropertyButton>
+              <Text size="sm" tone="meta" className="flex items-start gap-2 px-1.5 py-1">
+                <Cpu className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  {codeModeLabels[problem.codeMode]} ·{' '}
+                  {problem.allowedLanguages.map((item) => item.displayName).join(' / ')}
+                </span>
+              </Text>
             </PropertyGroup>
 
             <PropertyGroup title="标签">
@@ -614,7 +614,7 @@ function WorkbenchEditor({
         open={panel === 'calibration'}
         onOpenChange={(open) => onPanelChange(open ? 'calibration' : undefined)}
         configuration={
-          <div className="flex flex-wrap gap-3">
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:w-fit">
             <SelectField
               label="标定语言"
               value={calibration.language.id}
@@ -726,15 +726,10 @@ function WorkbenchEditor({
 function EditorSection({
   id,
   title,
-  description,
-  actions,
   children,
 }: {
   id?: string;
   title: string;
-  description?: string;
-  /** 标题行末尾的操作，只放与这一节内容直接相关的按钮。 */
-  actions?: ReactNode;
   children: ReactNode;
 }) {
   const headingId = useId();
@@ -745,30 +740,17 @@ function EditorSection({
       aria-labelledby={headingId}
       className="focus-visible:outline-ring mt-8 scroll-mt-[calc(var(--layout-header)+var(--space-6))] focus-visible:outline-1 md:scroll-mt-6"
     >
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
-        <h2 id={headingId} className="text-foreground font-heading text-15">
-          {title}
-        </h2>
-        {description ? (
-          <Text as="span" size="sm" tone="meta">
-            {description}
-          </Text>
-        ) : null}
-        {actions ? <span className="ml-auto">{actions}</span> : null}
-      </div>
+      <h2 id={headingId} className="text-foreground font-heading text-15 mb-3">
+        {title}
+      </h2>
       {children}
     </section>
   );
 }
 
-// 属性栏的组：组标题 13px/500 灰，下面是一列属性胶囊（linear.app 详情页右栏）。
 function PropertyGroup({ title, children }: { title: string; children: ReactNode }) {
-  const headingId = useId();
   return (
-    <section aria-labelledby={headingId} className="grid justify-items-start gap-0.5">
-      <h2 id={headingId} className="text-fg-meta font-body mb-1 px-1.5 text-sm">
-        {title}
-      </h2>
+    <section aria-label={title} className="grid justify-items-start gap-0.5">
       {children}
     </section>
   );
@@ -799,7 +781,7 @@ function SaveStatus({
       hour: '2-digit',
       minute: '2-digit',
     })}`;
-  } else if (autosave) content = '修改会自动保存';
+  } else if (autosave) content = '自动保存';
   return (
     <Text
       className={cn('max-sm:sr-only', isError && 'text-danger')}

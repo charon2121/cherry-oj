@@ -111,7 +111,6 @@ export function CustomRunWorkbench({
     if (disabled) invalidate();
     return invalidate;
   }, [disabled]);
-  // 宽屏时结果区是卡片里可滚动的正文。
   const body = wide ? 'min-h-0 flex-1 overflow-y-auto px-4 pb-4' : undefined;
   const inputLarge = new TextEncoder().encode(custom).length > 65536;
   const invalidSource = !source.trim() || new TextEncoder().encode(source).length > 262144;
@@ -191,7 +190,14 @@ export function CustomRunWorkbench({
       }
     }
   }
-  const runDisabled = disabled || busy || inputLarge || invalidSource;
+  const blocked = disabled
+    ? '当前题目或登录状态尚不可运行。'
+    : invalidSource
+      ? '请输入非空代码，最多 256 KiB。'
+      : inputLarge
+        ? '自定义输入超过 64 KiB，请缩减后运行。'
+        : undefined;
+  const runDisabled = busy || blocked !== undefined;
   // ⌘/Ctrl + Enter 运行：在代码编辑器里也能直接按，不用把手离开键盘。
   useModEnter(false, () => {
     if (!runDisabled) void run();
@@ -213,7 +219,7 @@ export function CustomRunWorkbench({
         variant="secondary"
         disabled={runDisabled}
         onClick={() => void run()}
-        aria-describedby="custom-run-help"
+        aria-describedby={blocked ? 'custom-run-help' : undefined}
         aria-keyshortcuts="Meta+Enter Control+Enter"
         title={`运行（${modKey} Enter）`}
       >
@@ -221,9 +227,7 @@ export function CustomRunWorkbench({
         {busy && !disabled ? '正在运行…' : '运行'}
       </Button>
     ),
-    className: wide
-      ? 'flex max-h-none min-h-0 flex-1 flex-col overflow-hidden border-0 p-0'
-      : undefined,
+    className: wide ? 'flex max-h-none min-h-0 flex-1 flex-col overflow-hidden p-0' : undefined,
     renderResults: (submission, actions) => (
       <>
         <Tabs
@@ -231,37 +235,19 @@ export function CustomRunWorkbench({
           onValueChange={(value) => setTab(String(value))}
           className={wide ? 'min-h-0 flex-1' : undefined}
         >
-          {/* 运行、提交放在测试卡片标题行右侧：紧挨着它们产生的结果，也离代码最近。 */}
-          <div
-            className={cn(
-              'flex shrink-0 flex-wrap items-center gap-2',
-              wide && 'border-border-soft border-b-hairline',
-            )}
-          >
-            <TabsList aria-label="测试与提交" className="flex-1">
+          <div className="flex shrink-0 flex-wrap items-center gap-x-2">
+            <TabsList aria-label="测试与提交" className={cn('flex-1', !wide && 'px-0')}>
               <TabsTrigger value="input">测试用例</TabsTrigger>
               <TabsTrigger value="run">运行结果</TabsTrigger>
               <TabsTrigger value="submission">提交结果</TabsTrigger>
             </TabsList>
             <div className={cn('flex items-center gap-2', wide && 'pr-2')}>{actions}</div>
           </div>
-          {/* 只在运行被挡住时说明原因；平常的说明只留给读屏，界面上不放。 */}
-          <p
-            id="custom-run-help"
-            className={
-              disabled || invalidSource || inputLarge
-                ? cn('text-fg-meta text-xs', wide && 'px-4 pt-2')
-                : 'sr-only'
-            }
-          >
-            {disabled
-              ? '当前题目或登录状态尚不可运行。'
-              : invalidSource
-                ? '请输入非空代码，最多 256 KiB。'
-                : inputLarge
-                  ? '自定义输入超过 64 KiB，请缩减后运行。'
-                  : '运行会用当前代码跑全部样例并比对预期输出，自定义输入有内容时一起运行；不计入提交记录。'}
-          </p>
+          {blocked ? (
+            <p id="custom-run-help" className={cn('text-fg-meta text-xs', wide && 'px-4 pt-2')}>
+              {blocked}
+            </p>
+          ) : null}
           <TabsContent value="input" className={cn('space-y-3 pt-3', body)}>
             <div className="flex flex-wrap items-center gap-1.5">
               {samples.map((item) => (
@@ -285,6 +271,7 @@ export function CustomRunWorkbench({
                   readOnly
                   language="plain"
                   size="auto"
+                  appearance="bare"
                   aria-label={`${sample.name}输入`}
                 />
                 <Button
@@ -333,7 +320,7 @@ export function CustomRunWorkbench({
                 stale={source !== attempt.source || custom !== attempt.custom}
               />
             ) : (
-              <p className="text-fg-muted">运行后结果会显示在这里。</p>
+              <p className="text-fg-muted">尚未运行</p>
             )}
           </TabsContent>
           <TabsContent value="submission" className={cn('pt-3', body)}>
@@ -351,10 +338,7 @@ export function CustomRunWorkbench({
               <DialogTitle>
                 {replaceCustom === '' ? '清空自定义输入？' : '替换自定义输入？'}
               </DialogTitle>
-              <DialogDescription>
-                当前自定义输入将被{replaceCustom === '' ? '清空' : '替换'}
-                。需要保留时，请先取消并复制备份。
-              </DialogDescription>
+              <DialogDescription>需要保留当前输入时，请先取消并复制备份。</DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="secondary" onClick={() => setReplaceCustom(null)}>
@@ -490,7 +474,7 @@ function CaseResult({ item, outcome }: { item: RunCase; outcome: Outcome | undef
   if (!outcome) return <p className="text-fg-muted">{item.name}尚未运行。</p>;
   const { value, verdict } = outcome;
   return (
-    <section aria-label={`${item.name}结果`} className="space-y-3">
+    <section aria-label={`${item.name}结果`} className="@container space-y-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {/* 判定写代码加名称（design-system.md §5）；只有自测才有的两种结论没有代码。 */}
         <p className={failed(verdict) ? 'text-danger' : 'text-foreground'}>
@@ -509,13 +493,20 @@ function CaseResult({ item, outcome }: { item: RunCase; outcome: Outcome | undef
           {value.effectiveLimits.memoryBytes / 1048576} MiB）
         </p>
       </div>
-      <OutputView label="输入" text={item.input} />
-      <OutputView
-        label="实际输出"
-        text={value.stdout?.text ?? ''}
-        truncated={value.stdout?.truncated}
-      />
-      {item.expected !== undefined ? <OutputView label="预期输出" text={item.expected} /> : null}
+      <div
+        className={cn(
+          'grid gap-x-4 gap-y-3',
+          item.expected === undefined ? '@md:grid-cols-2' : '@xl:grid-cols-3',
+        )}
+      >
+        <OutputView label="输入" text={item.input} />
+        <OutputView
+          label="实际输出"
+          text={value.stdout?.text ?? ''}
+          truncated={value.stdout?.truncated}
+        />
+        {item.expected !== undefined ? <OutputView label="预期输出" text={item.expected} /> : null}
+      </div>
       {value.stderr ? (
         <OutputView label="错误输出" text={value.stderr.text} truncated={value.stderr.truncated} />
       ) : null}
@@ -533,7 +524,7 @@ function OutputView({
   truncated?: boolean | undefined;
 }) {
   return (
-    <section aria-label={label} className="space-y-1.5">
+    <section aria-label={label} className="min-w-0 space-y-1.5">
       <div className="flex flex-wrap items-center gap-1">
         <span className="text-foreground font-heading text-sm">{label}</span>
         {truncated ? <span className="text-fg-meta text-xs">展示已截断</span> : null}
@@ -546,6 +537,7 @@ function OutputView({
           readOnly
           language="plain"
           size="auto"
+          appearance="bare"
           aria-label={label}
         />
       ) : (

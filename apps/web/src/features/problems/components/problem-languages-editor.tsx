@@ -9,7 +9,12 @@ import {
   listLanguageSettings,
 } from '@/features/admin-languages/api/admin-languages-api';
 import { driverSkeleton, editorSyntax } from '@/features/languages/language';
-import type { AdminProblem, LanguageCalibration, ProblemLanguageInput } from '@/generated/api';
+import type {
+  AdminProblem,
+  LanguageCalibration,
+  ProblemLanguageInput,
+  ProblemLanguageLimits,
+} from '@/generated/api';
 import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { languageLimitsQuery, problemKeys, replaceProblemLanguages } from '../api/problems-api';
@@ -22,6 +27,21 @@ function values(problem: AdminProblem): ProblemLanguageInput[] {
     judgeTemplate: language.judgeTemplate ?? null,
   }));
 }
+
+const limitSourceLabels: Record<NonNullable<ProblemLanguageLimits['limitSource']>, string> = {
+  BASE: '基础标定',
+  OVERRIDE: '覆盖标定',
+  DERIVED: '推导',
+};
+
+const unavailableLimitLabels: Record<
+  NonNullable<ProblemLanguageLimits['unavailableReason']>,
+  string
+> = {
+  NO_CALIBRATION: '尚未标定',
+  NO_LIMIT_MODEL: '需要覆盖标定',
+  BASE_LIMIT_MODEL_REMOVED: '需要重新基础标定',
+};
 
 export type ProblemLanguagesHandle = {
   save: (rowVersion: number) => Promise<AdminProblem>;
@@ -202,7 +222,9 @@ export function ProblemLanguagesEditor({
           先保存题面修改，再保存语言配置。
         </p>
       ) : null}
-      {drafts.length === 1 ? <p className="text-fg-meta text-xs">至少保留一门语言。</p> : null}
+      {editable && drafts.length === 1 ? (
+        <p className="text-fg-meta text-xs">至少保留一门语言。</p>
+      ) : null}
       {catalog.isError ? (
         <p className="text-danger text-sm" role="alert">
           语言目录加载失败。
@@ -219,7 +241,7 @@ export function ProblemLanguagesEditor({
       {current ? (
         <>
           <section aria-label="起始代码" className="grid min-w-0 gap-2">
-            <h3 className="text-fg-2 text-sm">起始代码 · {displayName}</h3>
+            <h3 className="text-fg-2 text-sm">起始代码</h3>
             <CodeBlockEditor
               language={editorSyntax(current.id)}
               value={current.starterCode}
@@ -232,17 +254,14 @@ export function ProblemLanguagesEditor({
             <>
               {prefix ? (
                 <section aria-label="前缀代码">
-                  <p className="text-fg-meta text-xs">
-                    用户文件 = 这 {prefix.split('\n').length - 1} 行 + 用户代码
-                  </p>
-                  <details open className="text-fg-meta min-w-0 text-xs">
-                    <summary>前缀代码 · {displayName}</summary>
+                  <details className="text-fg-meta min-w-0 text-xs">
+                    <summary className="cursor-pointer">前缀代码</summary>
                     <pre className="overflow-x-auto font-mono">{prefix}</pre>
                   </details>
                 </section>
               ) : null}
               <section aria-label="驱动代码" className="grid min-w-0 gap-2">
-                <h3 className="text-fg-2 text-sm">驱动代码 · {displayName}</h3>
+                <h3 className="text-fg-2 text-sm">驱动代码</h3>
                 {editable && !current.judgeTemplate?.trim() && driverSkeleton(current.id) ? (
                   <Button
                     type="button"
@@ -307,13 +326,11 @@ export function ProblemLanguagesEditor({
                   ?.displayName ?? limit.languageId}
               </span>
               <span>
-                {limit.limitSource === 'BASE'
-                  ? '基础标定'
-                  : limit.limitSource === 'OVERRIDE'
-                    ? '覆盖标定'
-                    : limit.limitSource === 'DERIVED'
-                      ? '公式推导'
-                      : '尚无有效限制'}
+                {limit.limitSource
+                  ? limitSourceLabels[limit.limitSource]
+                  : limit.unavailableReason
+                    ? unavailableLimitLabels[limit.unavailableReason]
+                    : '尚无有效限制'}
               </span>
               {limit.cpuNs !== null && limit.memoryBytes !== null ? (
                 <span className="font-mono">
@@ -324,13 +341,6 @@ export function ProblemLanguagesEditor({
                 <span className="text-warning">
                   {limit.cpuCapped ? '时间已截断 ' : ''}
                   {limit.memoryCapped ? '内存已截断' : ''}
-                </span>
-              ) : null}
-              {limit.unavailableReason ? (
-                <span>
-                  {limit.unavailableReason === 'NO_CALIBRATION'
-                    ? '请先完成基础或覆盖标定。'
-                    : '语言限制参数不可用，请做覆盖标定或重新基础标定。'}
                 </span>
               ) : null}
             </div>

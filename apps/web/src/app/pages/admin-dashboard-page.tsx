@@ -1,6 +1,6 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
@@ -11,7 +11,6 @@ import {
   dataListRowLinkClasses,
   DataListStatusDot,
 } from '@/components/ui/data-list';
-import { InlineNotice } from '@/components/ui/inline-notice';
 import { Stack } from '@/components/ui/layout';
 import { ListPageTemplate } from '@/components/ui/page-templates';
 import { Toolbar } from '@/components/ui/toolbar';
@@ -66,10 +65,13 @@ function renderTodoRow(row: TodoRow): DataListItem {
         <span className="w-28 truncate" title={row.detail}>
           {row.detail}
         </span>
-        <span aria-hidden="true">{row.statusLabel}</span>
+        {row.link === 'users' ? null : <span aria-hidden="true">{row.statusLabel}</span>}
       </>
     ),
-    meta: <span aria-hidden="true">{row.compactStatusLabel ?? row.statusLabel}</span>,
+    meta:
+      row.link === 'users' ? undefined : (
+        <span aria-hidden="true">{row.compactStatusLabel ?? row.statusLabel}</span>
+      ),
   };
 }
 
@@ -221,9 +223,15 @@ function AdminDashboardPage() {
           count={`${onlineNodes} / ${nodes.length} 在线`}
           notice={
             onlineNodes === 0 ? (
-              <InlineNotice variant="warning" live="polite" title="没有在线判题节点">
-                提交暂时无法判题。
-              </InlineNotice>
+              <div className="flex items-start gap-2" role="status">
+                <TriangleAlert
+                  className="text-warning mt-half size-4 shrink-0"
+                  aria-hidden="true"
+                />
+                <Text size="sm" className="text-warning">
+                  没有在线判题节点
+                </Text>
+              </div>
             ) : undefined
           }
         />

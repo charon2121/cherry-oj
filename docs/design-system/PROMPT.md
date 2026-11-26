@@ -72,14 +72,14 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 
 | Cherry 页面 | 现有实现 | linear.app 对应 | 要点 |
 |---|---|---|---|
-| 管理端外壳 | `app/shells/admin-app-shell.tsx` | 侧栏 + 内嵌面板 | 侧栏 244px 与画布同底；主内容是内嵌面板，44px 顶栏在面板内。页面级操作用 `HeaderActions`、当前对象名用 `usePageCrumb`（`components/ui/header-slot.tsx`）放进这条顶栏，不在内容里再叠一条 |
-| 用户端外壳 | `app/shells/site-app-shell.tsx` | 无（用户端没有侧栏） | 44px 顶栏：品牌与栏目在左，主题与账号在右；做题页填满视口、隐藏页脚 |
+| 管理端外壳 | `app/shells/admin-app-shell.tsx` | 侧栏与顶栏布局 | 侧栏 244px，顶栏 44px，导航和主内容共用画布。页面级操作用 `HeaderActions`，当前对象名用 `usePageCrumb`（`components/ui/header-slot.tsx`）放在同一顶栏 |
+| 用户端外壳 | `app/shells/site-app-shell.tsx` | 无（用户端没有侧栏） | 44px 顶栏，品牌与栏目在左，主题与账号在右。做题页填满视口，其余页面按文档滚动 |
 | 列表 | `features/problems/components/problem-list-page.tsx`、`admin-problem-list-page.tsx` | Issues 列表 | `ListPageTemplate` + `Toolbar` + `DataList`，见下方「页面语法」 |
 | 成员/账号管理 | `features/admin-users/components/admin-users-page.tsx` | Settings › Members | 页标题、一行工具条、成组的行 |
 | 对象编辑（一页到底） | `features/problems/components/admin-problem-workbench.tsx` | Issue 详情 | 左正文、右属性栏（`property-button.tsx` 的属性胶囊原地改）；长文本用 `RichMarkdownEditor`（所见即所得，存 Markdown）；不属于"写"的动作是属性栏打开的对话框，可用 `?panel=` 直达；保存规则见 `../design-system.md` §7.1 |
 | 平台级条目设置（列表 → 单项编辑） | `features/admin-languages/components/admin-language-list-page.tsx`、`admin-language-edit-page.tsx` | Settings › Templates（列表一行一项，点开是单独的编辑页） | 列表用 `ListPageTemplate width="column"` + `DataList align="packed"`；编辑页 `DetailPageTemplate width="narrow"`（760px 一列），区块标题行放状态，右下"还原 / 保存"，影响全局的保存先确认、影响写在确认框里；返回靠外壳面包屑 |
 | 新建对象 | `features/problems/components/admin-problem-create-dialog.tsx` | 新建 issue 对话框 | 只问必要字段（标题、标识、难度），其余在编辑页补 |
-| 做题页（编码工作台） | `features/problems/components/problem-detail-page.tsx`、`features/custom-runs/custom-run-workbench.tsx` | 无直接对应，由 Linear 零件组合 | 面包屑一行（题库 › 题名，右侧 slug）；宽屏 `SplitPane` 分栏（题目｜代码/测试，栏间 0.5px 线，可拖、可键盘调）；每栏顶部 `PaneHeader`（44px、0.5px 下边）；栏内切换用胶囊 `Tabs`；窄屏用 `Tabs` 在题目/代码间切换 |
+| 做题页（编码工作台） | `features/problems/components/problem-detail-page.tsx`、`features/custom-runs/custom-run-workbench.tsx` | 无直接对应，由 Linear 零件组合 | 面包屑一行（题库 › 题名），宽屏 `SplitPane` 分栏（题目和代码/测试，可拖动或用键盘调整）。每栏顶部为 `PaneHeader`，视图切换用 `Tabs` |
 
 ## 已有组件（先用，不要重写）
 
@@ -98,8 +98,8 @@ hairline 分隔、克制圆角、几乎无动效。参照物是工程工具，�
 - **同一事物只有一个叫法**，用户端、管理端、自测、提交都一样（例如两端都叫"输入说明/输出说明"；判定名称
   统一用 `lib/verdict-labels.ts` 导出的 `verdictLabels`，并按 `../design-system.md` §5 写成
   "代码 · 名称"，例如"WA · 答案错误"）。写法可以不同，叫法不能不同。
-- **界面上不写功能说明。** 页面自己说明怎么用就是没设计好；给读屏的说明放 `sr-only`。只有操作被挡住时，
-  才在旁边用可读文字说明原因和下一步。
+- **直接呈现任务。** 保留操作名称、字段约束、状态、错误与危险操作后果。导航与表单通过对齐和间距分组，
+  读屏专用说明放 `sr-only`。
 - **结果先给一句结论，再给细节。** 结论用颜色区分：通过 `text-success`、失败 `text-danger`、进行中
   `text-fg-2`；有多项时自动选中第一个失败项，细节按"输入 → 实际 → 预期"并排。
 - **操作放在它产生结果的区域旁**，宽窄屏同一位置。用户触发的结果自动切到对应页签，但不抢焦点。
@@ -136,7 +136,7 @@ packed（标题只有几个字，中文标题基本都属于这类）
 
 **内容装不下时先减字段，不要挤压标题。**
 
-行高 44px、圆角 8px，行间不画分隔线，分段靠 36px 分组带的明度，不用卡片间距。
+行高 44px，交互行圆角 8px。组标题与数据行左侧对齐，分段用组间留白。
 窄屏把右簇折进 `meta` 显示在标题下方——降级是折行，不是裁切也不是横向滚动。
 
 **`Card` 与 `Panel` 默认无框无底色。** 确需边界时显式 `bordered`，确需抬升时显式 `elevated`，

@@ -206,11 +206,7 @@ function WorkbenchPageTemplate({
         className={cn('flex h-full min-h-0 min-w-0 flex-col', className)}
       >
         <PageTitle title={title} visible={titleVisible} action={titleAction} />
-        {statusBar === undefined ? null : (
-          <div className="border-border-soft bg-panel border-b-hairline shrink-0 px-4 py-2">
-            {statusBar}
-          </div>
-        )}
+        {statusBar === undefined ? null : <div className="shrink-0 px-4 py-2">{statusBar}</div>}
         <div className="min-h-0 min-w-0 flex-1">{state ?? children}</div>
       </div>
     );
@@ -220,9 +216,7 @@ function WorkbenchPageTemplate({
       <Section>
         <PageTitle title={title} visible={titleVisible} action={titleAction} />
         {statusBar === undefined ? null : (
-          <div className="border-border bg-panel top-header py-2x sticky z-30 mb-4 rounded-lg border px-4">
-            {statusBar}
-          </div>
+          <div className="bg-background top-header py-2x sticky z-30 mb-4">{statusBar}</div>
         )}
         {state ?? (
           <div

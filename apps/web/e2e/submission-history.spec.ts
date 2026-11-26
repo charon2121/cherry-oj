@@ -158,7 +158,7 @@ test('tabs and history preserve the editor; load requires confirmation and retai
   await page.getByRole('button', { name: '下一页' }).click();
   await expect(page).toHaveURL(/historyPage=2/);
   await page.reload();
-  await expect(page.getByText('第 2 页 · 共 2 页')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '提交记录分页' })).toContainText('2 / 2');
   await expect.poll(() => code(page)).toBe(historicalSource);
   const measurements = await page
     .locator('[data-slot="data-list-row"]')
@@ -199,7 +199,7 @@ test('source is not polled and logout hides historical code', async ({ page }) =
   await expect(page.getByRole('textbox', { name: '历史提交代码' })).not.toBeVisible({
     timeout: 20000,
   });
-  await expect(page.getByText('登录后查看自己在本题的提交记录。')).toBeVisible();
+  await expect(page.getByRole('link', { name: '登录后查看提交记录' })).toBeVisible();
 });
 
 test('mobile nested tabs keep code and visitors can read the statement', async ({ page }) => {
@@ -218,7 +218,7 @@ test('mobile nested tabs keep code and visitors can read the statement', async (
   await expect(page.getByRole('button', { name: /WA · 答案错误/ })).toBeVisible();
   state.loggedIn = false;
   await page.reload();
-  await expect(page.getByText('登录后查看自己在本题的提交记录。')).toBeVisible();
+  await expect(page.getByRole('link', { name: '登录后查看提交记录' })).toBeVisible();
   await page.getByRole('tab', { name: '题目描述', exact: true }).click();
   await expect(page.getByText('计算两个数的和。')).toBeVisible();
 });

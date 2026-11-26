@@ -4,14 +4,7 @@ import { cn } from '@/lib/utils';
 
 import { Pill } from './pill';
 
-// Toolbar 是第 3 层业务组件，构图依据是冻结来源 ui_kits/app/ProblemList.jsx 的两行工具条。
-//
-// 它替代的是"Panel 包住的 grid 表单 + 一个筛选提交按钮"。来源的过滤是**即时生效**的一排 pill：
-// 少一次点击，也少一个需要解释的中间状态。只有当查询确实昂贵（例如全表扫描、跨服务聚合）
-// 才回到显式提交，并且要在对应 DESIGN 里说明什么算昂贵。
-//
-// 第一行：标题 + 计数 + 搜索 + 主操作。计数是来源的习惯——列表页第一眼要能回答"有多少"。
-// 第二行：pill 过滤 + toolbar 按钮。两行都用 border-soft 收边，高度对齐 header。
+// 标题、查询和主操作共享一行。筛选项通过留白另起一行，保持即时生效。
 type ToolbarProps = Readonly<{
   actions?: ReactNode;
   children?: ReactNode;
@@ -58,7 +51,7 @@ function Toolbar({
 
   return (
     <div data-slot="toolbar" className={cn('min-w-0', className)}>
-      <div className="border-border-soft min-h-header flex min-w-0 flex-wrap items-center gap-3 border-b px-4">
+      <div className="min-h-header flex min-w-0 flex-wrap items-center gap-3 px-4">
         <span id={titleId} className="font-display font-body text-foreground text-sm">
           {title}
         </span>
@@ -68,7 +61,7 @@ function Toolbar({
         {actions}
       </div>
       {hasSecondRow ? (
-        <div className="border-border-soft py-2x flex min-w-0 flex-wrap items-center gap-2 border-b px-4">
+        <div className="py-2x flex min-w-0 flex-wrap items-center gap-2 px-4">
           {filters}
           {children === undefined ? null : (
             <>

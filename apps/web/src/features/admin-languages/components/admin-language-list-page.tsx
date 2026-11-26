@@ -10,8 +10,9 @@ import { Toolbar } from '@/components/ui/toolbar';
 import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { adminLanguageKeys, listLanguageSettings } from '../api/admin-languages-api';
-import { prefixLineCount, updatedAtFormat } from '../lib/prefix';
 import { useRedirectWhenSignedOut } from './use-redirect-when-signed-out';
+
+const updatedAtFormat = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' });
 
 // 构图照题目管理列表（ListPageTemplate + Toolbar + DataList）。语言名只有几个字、条目很少，
 // 按 PROMPT「列表页（行只有几个短字段）」用 column + packed。点一行进入这门语言的前缀编辑页
@@ -46,9 +47,7 @@ export function AdminLanguageListPage() {
     <ListPageTemplate
       title="语言"
       width="column"
-      toolbar={
-        <Toolbar title="语言" count={languages.data ? `${languages.data.length} 门` : undefined} />
-      }
+      toolbar={<Toolbar title="语言" className="md:hidden" />}
       state={state}
     >
       <DataList
@@ -59,7 +58,11 @@ export function AdminLanguageListPage() {
         rowInteractive
         renderRow={(language) => ({
           leading: <Braces aria-hidden="true" className="text-fg-meta size-4" />,
-          id: language.id,
+          id: (
+            <span className="block w-14 truncate" title={language.id}>
+              {language.id}
+            </span>
+          ),
           title: (
             <Link
               to="/admin/languages/$languageId"
@@ -70,14 +73,10 @@ export function AdminLanguageListPage() {
             </Link>
           ),
           trailing: (
-            <>
-              <span>前缀代码 {prefixLineCount(language.solutionPrefix)} 行</span>
-              <time dateTime={language.updatedAt} className="w-12 text-right tabular-nums">
-                {updatedAtFormat.format(new Date(language.updatedAt))}
-              </time>
-            </>
+            <time dateTime={language.updatedAt} className="tabular-nums" title="更新日期">
+              {updatedAtFormat.format(new Date(language.updatedAt))}
+            </time>
           ),
-          meta: <span>前缀代码 {prefixLineCount(language.solutionPrefix)} 行</span>,
         })}
       />
     </ListPageTemplate>

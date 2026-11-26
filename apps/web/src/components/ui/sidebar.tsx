@@ -91,10 +91,7 @@ function SidebarMenuSub({ className, ...props }: ComponentProps<'ul'>) {
   return (
     <ul
       data-slot="sidebar-menu-sub"
-      className={cn(
-        'border-sidebar-border ml-5 grid min-w-0 list-none gap-1 border-l py-1 pr-0 pl-3',
-        className,
-      )}
+      className={cn('ml-5 grid min-w-0 list-none gap-1 py-1 pl-3', className)}
       {...props}
     />
   );

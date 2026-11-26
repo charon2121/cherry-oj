@@ -88,32 +88,47 @@ test('opens an anonymous application shell without protected-content flash', asy
     .locator('header a')
     .evaluateAll((links) => links.map((link) => getComputedStyle(link).textDecorationLine));
   expect(headerLinkDecorations).not.toContain('underline');
-  const footer = page.getByRole('contentinfo');
-  await expect(footer).toContainText('Cherry OJ');
+  await expect(page.getByRole('contentinfo')).toHaveCount(0);
   const userShellSurfaces = await page.evaluate(() => {
     const main = document.querySelector('main');
-    const contentInfo = document.querySelector('footer');
-    if (main === null || contentInfo === null) throw new Error('User shell landmarks are missing.');
-    const mainStyle = getComputedStyle(main);
-    const footerStyle = getComputedStyle(contentInfo);
+    const header = document.querySelector('header');
+    if (main === null || header === null) throw new Error('User shell landmarks are missing.');
     return {
-      footerBackground: footerStyle.backgroundColor,
-      footerBorderTopWidth: footerStyle.borderTopWidth,
-      footerBoxShadow: footerStyle.boxShadow,
-      footerBottom: contentInfo.getBoundingClientRect().bottom,
-      mainBackground: mainStyle.backgroundColor,
+      headerBorder: getComputedStyle(header).borderBottomWidth,
+      headerBackground: getComputedStyle(header).backgroundColor,
+      canvasBackground: getComputedStyle(main.parentElement ?? main).backgroundColor,
+      mainBottom: main.getBoundingClientRect().bottom,
       viewportHeight: window.innerHeight,
     };
   });
-  expect(userShellSurfaces.footerBackground).toBe(userShellSurfaces.mainBackground);
-  expect(userShellSurfaces.footerBorderTopWidth).toBe('1px');
-  expect(userShellSurfaces.footerBoxShadow).toBe('none');
+  expect(userShellSurfaces.headerBorder).toBe('0px');
+  expect(userShellSurfaces.headerBackground).toBe(userShellSurfaces.canvasBackground);
   expect(
-    Math.abs(userShellSurfaces.footerBottom - userShellSurfaces.viewportHeight),
+    Math.abs(userShellSurfaces.mainBottom - userShellSurfaces.viewportHeight),
   ).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({ width: 320, height: 720 });
+  let finishSession = () => {};
+  const delayedSession = new Promise<void>((resolve) => {
+    finishSession = resolve;
+  });
+  await page.route('**/api/auth/session', async (route) => {
+    await delayedSession;
+    await apiSuccess(route, { authenticated: false });
+  });
+  try {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(
+      page.locator('header').getByRole('status').filter({ hasText: '正在检查登录状态…' }),
+    ).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  } finally {
+    finishSession();
+  }
+  await expect(page.getByRole('link', { name: '登录', exact: true })).toBeVisible();
 });
 
-test('renders the redesigned login as a responsive full-page workspace', async ({ page }) => {
+test('keeps login title, form and feedback in one responsive column', async ({ page }) => {
   await mockSession(page, () => ({ authenticated: false }));
   await mockCsrf(page);
   await page.route('**/api/auth/login', (route) =>
@@ -124,28 +139,28 @@ test('renders the redesigned login as a responsive full-page workspace', async (
   await page.goto('/login');
 
   const heading = page.getByRole('heading', { level: 1, name: '登录 Cherry OJ' });
-  const workspaceArt = page.getByTestId('login-workspace-art');
   await expect(heading).toBeVisible();
-  await expect(workspaceArt).toBeVisible();
+  await expect(page.locator('main img, main h2')).toHaveCount(0);
   await expect(page.locator('[data-slot="card"]')).toHaveCount(0);
   await expect(page.locator('main').getByRole('link')).toHaveCount(0);
   const desktopGeometry = await page.evaluate(() => {
     const title = document.querySelector('h1');
-    const art = document.querySelector('[data-testid="login-workspace-art"]');
     const form = document.querySelector('form');
-    if (title === null || art === null || form === null) {
+    if (title === null || form === null) {
       throw new Error('Login page regions are missing.');
     }
     return {
-      artLeft: art.getBoundingClientRect().left,
-      formRight: form.getBoundingClientRect().right,
+      formLeft: form.getBoundingClientRect().left,
+      formWidth: form.getBoundingClientRect().width,
+      formBorder: getComputedStyle(form).borderTopWidth,
       pageHeight: document.documentElement.scrollHeight,
       titleLeft: title.getBoundingClientRect().left,
       viewportHeight: window.innerHeight,
     };
   });
-  expect(desktopGeometry.titleLeft).toBeLessThan(desktopGeometry.artLeft);
-  expect(desktopGeometry.formRight).toBeLessThan(desktopGeometry.artLeft);
+  expect(desktopGeometry.titleLeft).toBe(desktopGeometry.formLeft);
+  expect(desktopGeometry.formWidth).toBeLessThanOrEqual(512);
+  expect(desktopGeometry.formBorder).toBe('0px');
   expect(desktopGeometry.pageHeight).toBeLessThanOrEqual(desktopGeometry.viewportHeight);
 
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -172,7 +187,6 @@ test('renders the redesigned login as a responsive full-page workspace', async (
     .toEqual({ horizontal: 0, vertical: 0 });
 
   await page.setViewportSize({ width: 320, height: 720 });
-  await expect(workspaceArt).toBeHidden();
   await expect(heading).toBeInViewport();
   await expect(page.getByRole('button', { name: '登录' })).toBeInViewport();
   const horizontalOverflow = await page.evaluate(
@@ -290,13 +304,14 @@ test('renders the same task-first admin dashboard at both requested routes', asy
     const adminShellGeometry = await page.evaluate(() => {
       const main = document.querySelector('#admin-main');
       if (main === null) throw new Error('Admin shell main is missing.');
-      // 主内容是内嵌面板（linear.app 实测）：面板下边距视口底部 8px。
       const contentRegion = main.parentElement;
       if (contentRegion === null) throw new Error('Admin shell content region is missing.');
       const shell = contentRegion.parentElement;
       if (shell === null) throw new Error('Admin shell root is missing.');
       return {
         contentBottom: contentRegion.getBoundingClientRect().bottom,
+        contentBorder: getComputedStyle(contentRegion).borderTopWidth,
+        contentShadow: getComputedStyle(contentRegion).boxShadow,
         headerHeight: document.querySelector('header')?.getBoundingClientRect().height,
         sidebarWidth: document
           .querySelector<HTMLElement>('[data-slot="sidebar"]')
@@ -310,8 +325,10 @@ test('renders the same task-first admin dashboard at both requested routes', asy
     expect(adminShellGeometry.headerHeight).toBe(44);
     expect(adminShellGeometry.sidebarWidth).toBe(244);
     expect(
-      Math.abs(adminShellGeometry.contentBottom - (adminShellGeometry.viewportHeight - 8)),
+      Math.abs(adminShellGeometry.contentBottom - adminShellGeometry.viewportHeight),
     ).toBeLessThanOrEqual(1);
+    expect(adminShellGeometry.contentBorder).toBe('0px');
+    expect(adminShellGeometry.contentShadow).toBe('none');
     expect(
       Math.abs(adminShellGeometry.shellBottom - adminShellGeometry.viewportHeight),
     ).toBeLessThanOrEqual(1);
@@ -454,7 +471,7 @@ test('keeps the desktop admin sidebar fixed and scrolls only the main content', 
   const geometry = await page.evaluate(() => {
     const header = document.querySelector('header');
     const main = document.querySelector<HTMLElement>('#admin-main');
-    const firstPanel = main?.querySelector<HTMLElement>('h1');
+    const firstPanel = main?.querySelector<HTMLElement>('[data-slot="toolbar"]');
     const sidebar = document.querySelector<HTMLElement>('[data-slot="sidebar"]');
     if (
       header === null ||
@@ -708,5 +725,5 @@ test('redirects a signed-in non-admin away from user management', async ({ page 
   await page.goto('/admin/users?page=1');
 
   await expect(page).toHaveURL('/forbidden');
-  await expect(page.getByRole('heading', { name: '当前账号不能打开这个页面' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '无权访问' })).toBeVisible();
 });

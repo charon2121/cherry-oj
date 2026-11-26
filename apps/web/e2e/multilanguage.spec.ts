@@ -310,7 +310,7 @@ test('admin adds C, overrides its derived limits and publishes with one ready la
     .poll(() => state.problem.allowedLanguages.map((item) => item.id))
     .toEqual(['cpp', 'c']);
   await expect(page.getByRole('status').filter({ hasText: '语言配置已保存' })).toBeVisible();
-  await expect(page.getByText('公式推导', { exact: true })).toBeVisible();
+  await expect(page.getByText('推导', { exact: true })).toBeVisible();
   await page.goto(`/admin/problems/${problemId}?panel=calibration`);
   await choose(page, '标定语言', 'C');
   await choose(page, '标定方式', '覆盖标定');

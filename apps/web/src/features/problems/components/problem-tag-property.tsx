@@ -50,21 +50,21 @@ export function ProblemTagProperty({ value, onChange, disabled = false }: Proble
   };
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       {value.map((tag) => (
         <span
           key={tag}
-          className="group/tag bg-surface shadow-ring text-fg-2 inline-flex h-6 max-w-full items-center gap-1 rounded-full pr-1 pl-2 text-xs"
+          className="text-fg-2 inline-flex min-h-6 max-w-full min-w-0 items-center gap-1 px-1.5 text-xs"
         >
-          <span className="min-w-0 truncate">{tag}</span>
+          <span className="min-w-0 wrap-anywhere">{tag}</span>
           {disabled ? null : (
             <button
               type="button"
               aria-label={`删除标签 ${tag}`}
-              className="text-fg-meta hover:text-foreground focus-visible:outline-ring inline-flex size-4 items-center justify-center rounded-full focus-visible:outline-1"
+              className="text-fg-meta hover:text-foreground focus-visible:outline-ring inline-flex size-4 shrink-0 items-center justify-center rounded-full focus-visible:outline-1"
               onClick={() => onChange(value.filter((item) => item !== tag))}
             >
-              <X className="size-3" aria-hidden="true" />
+              <X className="size-3.5" aria-hidden="true" />
             </button>
           )}
         </span>
@@ -100,7 +100,7 @@ export function ProblemTagProperty({ value, onChange, disabled = false }: Proble
               ref={inputRef}
               aria-label="标签名"
               value={draft}
-              placeholder={value.length >= 20 ? '已达 20 个上限' : '输入标签，Enter 添加'}
+              placeholder={value.length >= 20 ? '已达 20 个上限' : '标签名'}
               onChange={(event) => {
                 setDraft(event.target.value);
                 setMessage('');
@@ -109,11 +109,7 @@ export function ProblemTagProperty({ value, onChange, disabled = false }: Proble
               className="text-foreground placeholder:text-fg-meta h-9 w-full bg-transparent px-3.5 text-sm outline-none"
             />
             {message ? (
-              <Text
-                className="text-danger border-border-soft border-t-hairline px-3.5 py-2"
-                size="sm"
-                role="status"
-              >
+              <Text className="text-danger px-3.5 py-2" size="sm" role="status">
                 {message}
               </Text>
             ) : null}

@@ -3,13 +3,7 @@ import { Menu } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 import { AccountMenu } from './account-menu';
@@ -28,10 +22,8 @@ function SiteAppShell({ children }: SiteAppShellProps) {
   return (
     <div
       className={cn(
-        'bg-background text-foreground grid',
-        coding
-          ? 'h-dvh grid-rows-[auto_minmax(0,1fr)] overflow-hidden'
-          : 'min-h-svh grid-rows-[auto_1fr_auto]',
+        'bg-background text-foreground grid grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)]',
+        coding ? 'h-dvh overflow-hidden' : 'min-h-svh',
       )}
     >
       <a
@@ -40,7 +32,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
       >
         跳到主要内容
       </a>
-      <header className="h-header border-border-soft bg-panel border-b-hairline sticky top-0 z-40">
+      <header className="h-header bg-background sticky top-0 z-40">
         <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop h-full">
           <div className="flex h-full min-w-0 flex-nowrap items-center gap-2 sm:gap-6">
             <AppBrand />
@@ -56,7 +48,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
               onClick={() => setNavigationOpen(true)}
             >
               <Menu aria-hidden="true" />
-              导航
+              <span className="sr-only">导航</span>
             </Button>
             <ThemeSwitcher className="ml-auto" />
             <AccountMenu className="ml-0" showAdminEntry />
@@ -68,19 +60,10 @@ function SiteAppShell({ children }: SiteAppShellProps) {
         {children ?? <Outlet />}
       </main>
 
-      <footer hidden={coding} className="border-border-soft border-t-hairline">
-        <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop">
-          <div className="flex min-h-12 flex-wrap items-center justify-between gap-2 py-2 text-sm">
-            <span className="font-display font-body">Cherry OJ</span>
-          </div>
-        </div>
-      </footer>
-
       <Sheet open={navigationOpen} onOpenChange={setNavigationOpen}>
         <SheetContent aria-labelledby="site-navigation-title" closeLabel="关闭主导航">
           <SheetHeader>
             <SheetTitle id="site-navigation-title">主导航</SheetTitle>
-            <SheetDescription>前往 Cherry OJ 当前可用页面。</SheetDescription>
           </SheetHeader>
           <SitePrimaryNavigation
             id="site-mobile-navigation"

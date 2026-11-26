@@ -37,7 +37,7 @@ export function SubmissionPanel({
   /** 自己排版结果区；actions 是运行与提交按钮，放在哪一行由调用方决定。 */
   renderResults?: (results: ReactNode, actions: ReactNode) => ReactNode;
   onSubmissionStart?: () => void;
-  /** 自己排版结果区时，外层容器的样式（例如做题页的测试卡片）。 */
+  /** 自己排版结果区时，外层容器的样式。 */
   className?: string | undefined;
 }) {
   const queryClient = useQueryClient();
@@ -212,9 +212,7 @@ export function SubmissionPanel({
         {!shown && (id || requestKey) && result.isFetching ? <p>正在确认提交结果…</p> : null}
         {shown ? <SubmissionResult value={shown} /> : null}
       </div>
-      {idle && !invalidSource ? (
-        <p className="text-fg-muted text-sm">提交后结果会显示在这里。</p>
-      ) : null}
+      {idle && !invalidSource ? <p className="text-fg-muted text-sm">暂无提交结果</p> : null}
       {(unknown || result.isError) && !disabled && !submit.isPending ? (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -271,18 +269,13 @@ export function SubmissionPanel({
   );
   if (renderResults) {
     return (
-      <div
-        className={cn(
-          'border-border-soft bg-panel border-t-hairline max-h-1/2 shrink-0 overflow-y-auto px-4 py-2',
-          className,
-        )}
-      >
+      <div className={cn('max-h-1/2 shrink-0 overflow-y-auto px-4 py-2', className)}>
         {renderResults(results, actions)}
       </div>
     );
   }
   return (
-    <div className="border-border-soft bg-panel border-t-hairline max-h-1/2 shrink-0 space-y-3 overflow-y-auto px-4 py-3">
+    <div className="max-h-1/2 shrink-0 space-y-3 overflow-y-auto px-4 py-3">
       <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
       {!runControl ? (
         <p id="run-unavailable" className="text-fg-muted text-xs">

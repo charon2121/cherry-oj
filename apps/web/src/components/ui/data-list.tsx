@@ -159,20 +159,14 @@ function DataList<Row>({
       data-slot="data-list"
       aria-label={caption}
       aria-busy={ariaBusy}
-      className={cn('min-w-0', className)}
+      className={cn('min-w-0', groups !== undefined && 'space-y-4', className)}
     >
       {groups === undefined ? (
         <ul className="min-w-0 px-2">{body(rows ?? [])}</ul>
       ) : (
         groups.map((group) => (
           <div key={group.key} className="min-w-0 px-2">
-            {/* 分组带：36px，底色比面板亮一档，圆角 8px。参照用明度分段，不用标题文字分段。 */}
-            <div
-              className={cn(
-                'bg-surface min-h-item flex min-w-0 items-center gap-2 rounded-lg text-sm',
-                gutters,
-              )}
-            >
+            <div className={cn('min-h-item flex min-w-0 items-center gap-2 text-sm', gutters)}>
               {group.icon}
               <span className="text-fg-2 font-body">{group.label}</span>
               {group.count === undefined ? null : (

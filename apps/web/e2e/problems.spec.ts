@@ -284,7 +284,7 @@ test('an admin creates a problem and restores the complete workbench', async ({ 
   // 一页到底：标题、题面、样例、起始代码都在同一页，没有步骤切换。
   await expect(page.getByRole('textbox', { name: '题目正文' })).toBeVisible();
   await expect(page.getByRole('region', { name: '样例' })).toBeVisible();
-  await expect(page.getByText('修改会自动保存')).toBeVisible();
+  await expect(page.getByText('自动保存', { exact: true })).toBeVisible();
 
   // 私有题目自动保存；保存进行中继续编辑，等这次完成后接着保存最新内容，不丢输入。
   await page.getByLabel('题目标题').fill('两数之和（已更新）');
@@ -480,7 +480,7 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
   await expect.poll(() => createdCodeMode).toBe('CORE');
 
   await expect(page).toHaveURL(new RegExp(`/admin/problems/${problemId}(?:\\?.*)?$`));
-  await expect(page.getByRole('button', { name: '核心代码 · C++' })).toBeDisabled();
+  await expect(page.getByText('核心代码 · C++', { exact: true })).toBeVisible();
   await page.setViewportSize({ width: 320, height: 720 });
   const publishCheck = page.getByRole('button', { name: /^公开检查 \d/ });
   await expect(publishCheck).toBeInViewport();
@@ -500,8 +500,8 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
   await expect(driverSection).toBeVisible();
   // 前缀代码只读展示，写驱动代码时能看到用户文件里已有哪些库。
   const prefixSection = page.getByRole('region', { name: '前缀代码' });
-  await expect(prefixSection).toContainText('这 2 行 + 用户代码');
-  await expect(prefixSection).toContainText('#include <bits/stdc++.h>');
+  await prefixSection.getByText('前缀代码', { exact: true }).click();
+  await expect(prefixSection.getByText(/#include <bits\/stdc\+\+\.h>/)).toBeVisible();
   await expect(prefixSection.getByRole('button')).toHaveCount(0);
 
   // 驱动代码为空时给出骨架；填入后自动保存，并提示改过的驱动代码需要重新标定。
@@ -512,7 +512,7 @@ test('an admin creates a core problem, writes its driver and is told to recalibr
 
   await driverSection.getByRole('button', { name: '重新标定' }).click();
   await expect(page).toHaveURL(/panel=calibration/);
-  await expect(page.getByRole('dialog', { name: '运行参考核心代码标定' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '标定', exact: true })).toBeVisible();
 });
 
 test('a published problem keeps its manual save reachable without widening a 320px page', async ({

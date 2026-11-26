@@ -4,7 +4,6 @@ import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataList, dataListRowLinkClasses } from '@/components/ui/data-list';
 import { ListPageTemplate } from '@/components/ui/page-templates';
@@ -65,42 +64,45 @@ export function ProblemListPage({ search, navigate }: Props) {
     navigate({ sort: 'UPDATED_DESC', size: search.size });
   };
 
-  // 一行的信息按重要性从左往右贴着排，不推到两端：题目名 5–10 个字，把元信息推到右边缘
-  // 会空出整行的一大半。slug 不进列表——用户按题目名找题，不按 slug。
-  const renderRow = (problem: ProblemSummary) => ({
-    leading: <DifficultyIcon difficulty={problem.difficulty} />,
-    title: (
-      <Link
-        to="/problems/$slug"
-        params={{ slug: problem.slug }}
-        search={{}}
-        className={dataListRowLinkClasses}
-      >
-        {problem.title}
-      </Link>
-    ),
-    trailing: (
-      <>
-        <span className="w-10 shrink-0">{difficultyLabel(problem.difficulty)}</span>
-        <span className="flex w-52 shrink-0 flex-wrap items-center gap-1">
-          {problem.tags.slice(0, 2).map((tag) => (
-            <Badge key={tag}>{tag}</Badge>
-          ))}
-        </span>
-        <span className="w-16 shrink-0">
-          {problem.allowedLanguages.map((language) => language.displayName).join(' / ')}
-        </span>
-      </>
-    ),
-    meta: (
-      <>
-        <span>{difficultyLabel(problem.difficulty)}</span>
-        {problem.tags.slice(0, 1).map((tag) => (
-          <span key={tag}>{tag}</span>
-        ))}
-      </>
-    ),
-  });
+  const renderRow = (problem: ProblemSummary) => {
+    const firstTag = problem.tags[0];
+    const tags = problem.tags.slice(0, 2).join(' · ');
+    const languages = problem.allowedLanguages.map((language) => language.displayName).join(' / ');
+    return {
+      leading: <DifficultyIcon difficulty={problem.difficulty} />,
+      title: (
+        <Link
+          to="/problems/$slug"
+          params={{ slug: problem.slug }}
+          search={{}}
+          className={dataListRowLinkClasses}
+        >
+          {problem.title}
+        </Link>
+      ),
+      trailing: (
+        <>
+          <span className="w-10 shrink-0">{difficultyLabel(problem.difficulty)}</span>
+          <span className="w-40 shrink-0 truncate" title={tags}>
+            {tags}
+          </span>
+          <span className="w-44 shrink-0 truncate" title={languages}>
+            {languages}
+          </span>
+        </>
+      ),
+      meta: (
+        <>
+          <span>{difficultyLabel(problem.difficulty)}</span>
+          {firstTag ? (
+            <span className="max-w-24 truncate" title={firstTag}>
+              {firstTag}
+            </span>
+          ) : null}
+        </>
+      ),
+    };
+  };
 
   // 工具条第一行放标题、计数与关键词搜索；第二行放其余筛选。除关键词与标签需要
   // 敲完再提交（回车即生效，没有"筛选"按钮）外，下拉一律选中即生效。
@@ -256,7 +258,7 @@ export function ProblemListPage({ search, navigate }: Props) {
         ) : undefined
       }
     >
-      换一组条件试试。
+      {null}
     </AsyncState>
   ) : undefined;
 
@@ -267,32 +269,29 @@ export function ProblemListPage({ search, navigate }: Props) {
       toolbar={toolbar}
       state={pageState}
       pagination={
-        result.data === undefined ? undefined : (
-          <nav aria-label="题库分页" className="flex flex-wrap items-center justify-between gap-3">
-            <Text size="sm" tone="muted">
-              {result.data.pagination.hasMore ? '还有更多题目' : '已到最后一批'}
-            </Text>
-            <span className="flex items-center gap-2">
-              {search.cursor ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => navigate({ ...search, cursor: undefined })}
-                >
-                  返回首批
-                </Button>
-              ) : null}
+        result.data && (search.cursor || result.data.pagination.hasMore) ? (
+          <nav aria-label="题库分页" className="flex flex-wrap items-center gap-2">
+            {search.cursor ? (
               <Button
                 variant="secondary"
-                disabled={!result.data.pagination.hasMore || result.isFetching}
+                onClick={() => navigate({ ...search, cursor: undefined })}
+              >
+                返回首批
+              </Button>
+            ) : null}
+            {result.data.pagination.hasMore ? (
+              <Button
+                variant="secondary"
+                disabled={result.isFetching}
                 onClick={() =>
                   navigate({ ...search, cursor: result.data?.pagination.nextCursor ?? undefined })
                 }
               >
                 下一批
               </Button>
-            </span>
+            ) : null}
           </nav>
-        )
+        ) : undefined
       }
     >
       {result.isError && result.data ? (

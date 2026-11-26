@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ArrowLeft, ChevronDown, KeyRound, LayoutDashboard, LogOut, UserRound } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronDown,
+  KeyRound,
+  LayoutDashboard,
+  LoaderCircle,
+  LogOut,
+  RotateCcw,
+  UserRound,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -11,10 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuLinkItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Text } from '@/components/ui/typography';
 import { logout } from '@/features/auth/api/auth-api';
 import { authKeys, sessionQueryOptions } from '@/features/auth/api/session-query';
 import { authErrorMessage } from '@/features/auth/lib/auth-error-message';
@@ -131,7 +138,6 @@ function AccountMenuView({
         <DropdownMenuContent>
           <DropdownMenuGroup>
             <DropdownMenuLabel>
-              <span>登录账号</span>
               <span
                 className="text-foreground font-heading max-w-48 truncate text-sm"
                 title={username}
@@ -163,7 +169,6 @@ function AccountMenuView({
               </DropdownMenuLinkItem>
             ) : null}
           </DropdownMenuGroup>
-          <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="danger"
             disabled={logoutState === 'pending'}
@@ -202,15 +207,19 @@ function AccountMenu({
 
   if (session.isPending) {
     return (
-      <Text
-        as="span"
+      <span
         role="status"
-        size="xs"
-        tone="muted"
-        className={cn('ml-auto shrink-0', className)}
+        className={cn(
+          'text-fg-meta ml-auto inline-flex size-8 shrink-0 items-center justify-center',
+          className,
+        )}
       >
-        正在检查登录状态…
-      </Text>
+        <LoaderCircle
+          aria-hidden="true"
+          className="size-4 animate-spin motion-reduce:animate-none"
+        />
+        <span className="sr-only">正在检查登录状态…</span>
+      </span>
     );
   }
 
@@ -223,7 +232,8 @@ function AccountMenu({
         aria-label="登录状态加载失败，重试"
         onClick={() => void session.refetch()}
       >
-        重试登录状态
+        <RotateCcw aria-hidden="true" />
+        <span className="max-sm:sr-only">重试</span>
       </Button>
     );
   }

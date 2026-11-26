@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { BookOpen, ChevronRight, Code2 } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { type ReactNode, type Ref, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
@@ -72,9 +72,7 @@ export function ProblemDetailPage({ slug }: { slug: string }) {
               )
             }
           >
-            {problem.isPending ? null : notFound ? (
-              '请检查链接，或返回题库选择其它题目。'
-            ) : (
+            {problem.isPending || notFound ? null : (
               <Button variant="secondary" onClick={() => void problem.refetch()}>
                 重试
               </Button>
@@ -102,9 +100,8 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
   const historySearch = useSearch({ from: '/_site/problems/$slug' });
   const navigate = useNavigate({ from: '/problems/$slug' });
 
-  // linear.app 详情页顶栏：面包屑在左（上一级可点，当前项最亮），标识在右。
   const breadcrumb = (
-    <nav aria-label="面包屑" className="flex h-7 min-w-0 items-center gap-1.5 text-sm">
+    <nav aria-label="面包屑" className="flex min-h-7 min-w-0 items-center gap-1.5 text-sm">
       <Link
         to="/problems"
         search={{ sort: 'UPDATED_DESC', size: 20 }}
@@ -112,12 +109,9 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       >
         题库
       </Link>
-      <ChevronRight className="text-fg-disabled size-3.5 shrink-0" aria-hidden="true" />
-      <span aria-current="page" className="text-foreground min-w-0 truncate">
+      <ChevronRight className="text-fg-meta size-3.5 shrink-0" aria-hidden="true" />
+      <span aria-current="page" className="text-foreground font-heading min-w-0 break-words">
         {data.title}
-      </span>
-      <span className="text-fg-meta ml-auto shrink-0 pl-3 font-mono text-xs max-sm:hidden">
-        {data.slug}
       </span>
     </nav>
   );
@@ -135,12 +129,10 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       }}
       className="min-h-0 flex-1"
     >
-      <div className="border-border-soft border-b-hairline shrink-0">
-        <TabsList aria-label="题目内容">
-          <TabsTrigger value="statement">题目描述</TabsTrigger>
-          <TabsTrigger value="submissions">提交记录</TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList aria-label="题目内容">
+        <TabsTrigger value="statement">题目描述</TabsTrigger>
+        <TabsTrigger value="submissions">提交记录</TabsTrigger>
+      </TabsList>
       <TabsContent value="statement" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {unavailable ? (
           <p role="alert" className="text-fg-muted p-4">
@@ -210,17 +202,11 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       <Tabs
         value={pane}
         onValueChange={(value) => setPane(String(value))}
-        className="bg-panel h-full min-h-0"
+        className="h-full min-h-0"
       >
         <TabsList aria-label="答题区域">
-          <TabsTrigger value="statement">
-            <BookOpen aria-hidden="true" />
-            题目
-          </TabsTrigger>
-          <TabsTrigger value="code">
-            <Code2 aria-hidden="true" />
-            代码
-          </TabsTrigger>
+          <TabsTrigger value="statement">题目</TabsTrigger>
+          <TabsTrigger value="code">代码</TabsTrigger>
         </TabsList>
         <TabsContent
           keepMounted
@@ -249,26 +235,18 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
   );
 }
 
-// 题面按 linear.app 的 issue 详情排版：24px/600 标题，属性是一排小胶囊，区块标题 15px/600，
-// 正文与管理端编辑器共用排版（所见即所得）。样例是并排的代码块，右上角复制。
 function ProblemStatement({ data }: { data: ProblemDetail }) {
   return (
-    <article className="text-fg-2 @container min-w-0 px-4 pt-4 pb-12 sm:px-8 sm:pt-6">
-      {/* 页面的 h1 已由模板给出（读屏），这里是它的可见形式。 */}
-      <p aria-hidden="true" className="text-foreground font-heading text-2xl leading-[38px]">
-        {data.title}
-      </p>
-      <ul aria-label="题目属性" className="mt-3 flex flex-wrap items-center gap-1.5">
-        <li className={propertyPillClasses}>
+    <article className="text-fg-2 @container min-w-0 px-4 pt-3 pb-12 sm:px-8 sm:pt-4">
+      <ul
+        aria-label="题目属性"
+        className="text-fg-meta flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+      >
+        <li className="inline-flex items-center gap-1.5">
           <DifficultyIcon difficulty={data.difficulty} />
           {difficultyLabel(data.difficulty)}
         </li>
-        <li className={propertyPillClasses}>{codeModeLabels[data.codeMode]}</li>
-        {data.tags.map((tag) => (
-          <li key={tag} className={propertyPillClasses}>
-            {tag}
-          </li>
-        ))}
+        <li>{codeModeLabels[data.codeMode]}</li>
       </ul>
       <SafeMarkdown className="mt-6" value={data.statementMarkdown} />
       <StatementSection title="输入说明">
@@ -290,7 +268,9 @@ function ProblemStatement({ data }: { data: ProblemDetail }) {
               aria-label={`样例 ${sample.ordinal}`}
               className="grid min-w-0 gap-2"
             >
-              <span className="text-fg-meta text-sm">样例 {sample.ordinal}</span>
+              {data.samples.length > 1 ? (
+                <span className="text-fg-meta text-sm">样例 {sample.ordinal}</span>
+              ) : null}
               <div className="grid min-w-0 gap-3 @lg:grid-cols-2">
                 <SampleBlock
                   caption="输入"
@@ -319,9 +299,6 @@ function ProblemStatement({ data }: { data: ProblemDetail }) {
   );
 }
 
-const propertyPillClasses =
-  'bg-surface shadow-ring text-fg-2 inline-flex h-6 items-center gap-1.5 rounded-full px-2 text-xs';
-
 function StatementSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-8">
@@ -333,7 +310,6 @@ function StatementSection({ title, children }: { title: string; children: ReactN
   );
 }
 
-// 只读的样例代码块，与管理端样例编辑块同一外观（比面板亮一档的底、0.5px 边、6px 圆角、12px 等宽）。
 function SampleBlock({
   caption,
   value,
@@ -344,12 +320,12 @@ function SampleBlock({
   copyLabel: string;
 }) {
   return (
-    <div className="bg-surface border-border border-hairline min-w-0 rounded-md">
-      <div className="flex h-8 items-center justify-between gap-2 pr-1.5 pl-4">
+    <div className="min-w-0">
+      <div className="flex h-8 items-center justify-between gap-2">
         <span className="text-fg-meta text-xs">{caption}</span>
         <CopyIconButton value={value} label={copyLabel} />
       </div>
-      <pre className="text-fg-2 overflow-x-auto px-4 pb-3 font-mono text-xs leading-[20px]">
+      <pre className="bg-surface-subtle text-fg-2 overflow-x-auto rounded-md px-4 py-3 font-mono text-xs leading-[20px]">
         <code>{value || ' '}</code>
       </pre>
     </div>
@@ -392,7 +368,7 @@ function ProblemCode({
         : user?.status === 'DISABLED'
           ? '当前账号不可用，代码为只读预览。'
           : !user
-            ? '登录后可编写代码，并在此浏览器保存草稿。'
+            ? null
             : !supported
               ? languages.isPending
                 ? '正在检查可用语言…'
@@ -402,11 +378,6 @@ function ProblemCode({
               : null;
   const header = (
     <>
-      <span className="text-fg-2 font-body inline-flex items-center gap-1.5 text-sm">
-        <Code2 className="size-3.5" aria-hidden="true" />
-        <span className="max-sm:sr-only">代码</span>
-      </span>
-      <span className="text-fg-disabled">·</span>
       {language ? (
         <Select
           value={language.id}
@@ -427,47 +398,46 @@ function ProblemCode({
             ))}
           </SelectContent>
         </Select>
-      ) : (
-        <span>无可用语言</span>
-      )}
-      <span>{codeModeLabels[data.codeMode]}</span>
+      ) : null}
     </>
   );
-  const noticeBar = notice ? (
-    <div
-      className="border-border-soft text-fg-2 border-b-hairline flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 text-xs"
-      role="status"
-    >
-      <span>{notice}</span>
-      {languages.isError ? (
-        <Button size="sm" variant="secondary" onClick={() => void languages.refetch()}>
-          重试可用语言
-        </Button>
-      ) : null}
-      {session.isError ? (
-        <Button size="sm" variant="secondary" onClick={() => void session.refetch()}>
-          重试登录状态
-        </Button>
-      ) : user?.passwordChangeRequired ? (
-        <Link to="/account/password" className={buttonVariants({ size: 'sm' })}>
-          修改密码后继续
-        </Link>
-      ) : !session.isPending && !user ? (
-        <Link
-          to="/login"
-          search={{ returnTo: `/problems/${data.slug}` }}
-          className={buttonVariants({ size: 'sm' })}
-        >
-          登录后编写代码
-        </Link>
-      ) : null}
-    </div>
-  ) : null;
+  const showLogin = !session.isPending && !session.isError && !user;
+  const noticeBar =
+    notice || showLogin ? (
+      <div
+        className="text-fg-2 flex shrink-0 flex-wrap items-center gap-2 px-4 py-2 text-xs"
+        role="status"
+      >
+        {notice ? <span>{notice}</span> : null}
+        {languages.isError ? (
+          <Button size="sm" variant="secondary" onClick={() => void languages.refetch()}>
+            重试可用语言
+          </Button>
+        ) : null}
+        {session.isError ? (
+          <Button size="sm" variant="secondary" onClick={() => void session.refetch()}>
+            重试登录状态
+          </Button>
+        ) : user?.passwordChangeRequired ? (
+          <Link to="/account/password" className={buttonVariants({ size: 'sm' })}>
+            修改密码后继续
+          </Link>
+        ) : showLogin ? (
+          <Link
+            to="/login"
+            search={{ returnTo: `/problems/${data.slug}` }}
+            className={buttonVariants({ size: 'sm' })}
+          >
+            登录后编写代码
+          </Link>
+        ) : null}
+      </div>
+    ) : null;
 
   if (!(editableIdentity && language)) {
     const readOnlyCode = (
       <>
-        <PaneHeader start={header} />
+        {language ? <PaneHeader start={header} /> : null}
         {noticeBar}
         <SourceEditor
           value={language?.starterCode ?? ''}

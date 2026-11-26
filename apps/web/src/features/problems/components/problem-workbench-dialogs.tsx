@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { TextEditor } from '@/components/ui/text-editor';
 import { Text } from '@/components/ui/typography';
 import { editorSyntax } from '@/features/languages/language';
@@ -75,8 +76,8 @@ export function TestDataDialog({
         <DialogHeader>
           <DialogTitle>测试数据</DialogTitle>
           <DialogDescription>
-            一道题只有一份测试数据：上传即替换，替换后旧的标定过期。ZIP 中 .in/.out
-            必须成对、文件名需安全。
+            ZIP 内同名 .in/.out 必须成对，名称以英文字母或数字开头。
+            {testData ? '替换会使旧标定过期。' : null}
           </DialogDescription>
         </DialogHeader>
 
@@ -104,6 +105,7 @@ export function TestDataDialog({
           aria-label="测试数据 ZIP"
           accept=".zip,application/zip"
           className="sr-only"
+          tabIndex={-1}
           disabled={disabled}
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -111,25 +113,6 @@ export function TestDataDialog({
             event.currentTarget.value = '';
           }}
         />
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(event) => {
-            event.preventDefault();
-            if (!disabled) setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          className={cn(
-            'border-border-strong text-fg-meta hover:text-fg-2 hover:bg-surface-hover focus-visible:outline-ring duration-fast disabled:text-fg-disabled grid min-h-28 place-items-center gap-1 rounded-lg border border-dashed px-4 py-6 text-sm transition-colors outline-none focus-visible:outline-1 disabled:cursor-not-allowed disabled:hover:bg-transparent motion-reduce:transition-none',
-            dragging && 'bg-surface-hover text-fg-2',
-          )}
-        >
-          <FileArchive className="size-5" aria-hidden="true" />
-          <span>{testData ? '选择或拖入新的 ZIP 替换' : '选择或拖入 ZIP 上传'}</span>
-        </button>
-
         {blockedReason ? <BlockedReason>{blockedReason}</BlockedReason> : null}
         {isUploading ? <progress className="w-full" aria-label="测试数据正在上传并检查" /> : null}
         {uploadMessage ? (
@@ -143,8 +126,24 @@ export function TestDataDialog({
             <Button variant="secondary" onClick={onCancelUpload}>
               取消上传
             </Button>
-          ) : null}
-          <DialogClose render={<Button variant="secondary" />}>完成</DialogClose>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={disabled}
+              onClick={() => inputRef.current?.click()}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (!disabled) setDragging(true);
+              }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              className={cn(dragging && 'bg-surface-hover')}
+            >
+              <FileArchive aria-hidden="true" />
+              {testData ? '选择或拖入 ZIP 替换' : '选择或拖入 ZIP 上传'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -167,19 +166,17 @@ function LimitInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="bg-surface border-border-soft border-hairline focus-within:outline-ring grid min-w-0 gap-0.5 rounded-lg px-3 py-2 focus-within:outline-1 focus-within:-outline-offset-1">
-      <span className="text-fg-meta text-xs">{label}</span>
-      <span className="flex items-baseline gap-1">
-        <input
-          inputMode="decimal"
-          value={value}
-          disabled={disabled}
-          placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
-          className="text-foreground placeholder:text-fg-disabled w-full min-w-0 bg-transparent text-sm outline-none"
-        />
-        <span className="text-fg-meta text-xs">{unit}</span>
+    <label className="grid min-w-0 gap-1.5">
+      <span className="text-fg-2 text-sm">
+        {label} <span className="text-fg-meta">({unit})</span>
       </span>
+      <Input
+        inputMode="decimal"
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.target.value)}
+      />
     </label>
   );
 }
@@ -225,14 +222,10 @@ export function CalibrationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle>运行{referenceLabel}标定</DialogTitle>
-          <DialogDescription>
-            用{referenceLabel}跑一遍当前测试数据，确认限制可用。{referenceLabel}
-            只在当前页面内存里，标定成功或离开工作台后清空。
-          </DialogDescription>
+          <DialogTitle>标定</DialogTitle>
         </DialogHeader>
         {configuration}
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
           <LimitInput
             label="CPU 时间"
             unit="秒"
@@ -256,15 +249,17 @@ export function CalibrationDialog({
             onChange={(clockSeconds) => onLimitsChange({ ...limits, clockSeconds })}
           />
         </div>
-        <TextEditor
-          language={editorSyntax(languageId)}
-          size="compact"
-          value={referenceSource}
-          readOnly={!editable}
-          placeholder={`粘贴 ${languageName} ${referenceLabel}`}
-          aria-label={`${languageName} ${referenceLabel}编辑器`}
-          onChange={onReferenceSourceChange}
-        />
+        <div className="grid min-w-0 gap-2">
+          <Text size="sm">{referenceLabel}</Text>
+          <TextEditor
+            language={editorSyntax(languageId)}
+            size="compact"
+            value={referenceSource}
+            readOnly={!editable}
+            aria-label={`${languageName} ${referenceLabel}编辑器`}
+            onChange={onReferenceSourceChange}
+          />
+        </div>
         {blockedReason ? <BlockedReason>{blockedReason}</BlockedReason> : null}
         {resultMessage ? (
           <Text size="sm" role="status">
@@ -277,7 +272,6 @@ export function CalibrationDialog({
           </Text>
         ) : null}
         <DialogFooter>
-          <DialogClose render={<Button variant="secondary" />}>关闭</DialogClose>
           <Button
             loading={running}
             disabled={blockedReason !== undefined || !referenceSource.trim()}
@@ -350,7 +344,7 @@ export function PublishDialog({
           <DialogDescription>
             {isPublic
               ? '题目已公开。取消公开后变回私有，已有提交记录保留。'
-              : '公开后学生立即可见；之后的修改也会立即生效。服务端检查是最终公开依据。'}
+              : '公开后学生立即可见。'}
           </DialogDescription>
         </DialogHeader>
 
@@ -431,29 +425,24 @@ export function PublishDialog({
             <RotateCcw aria-hidden="true" />
             重新检查
           </Button>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <DialogClose render={<Button variant="secondary" disabled={acting} />}>
-              取消
-            </DialogClose>
-            {isPublic ? (
-              <Button
-                variant="secondary"
-                loading={acting}
-                disabled={blockedReason !== undefined}
-                onClick={onUnpublish}
-              >
-                取消公开
-              </Button>
-            ) : (
-              <Button
-                loading={acting}
-                disabled={blockedReason !== undefined || !check?.ready}
-                onClick={onPublish}
-              >
-                公开题目
-              </Button>
-            )}
-          </div>
+          {isPublic ? (
+            <Button
+              variant="secondary"
+              loading={acting}
+              disabled={blockedReason !== undefined}
+              onClick={onUnpublish}
+            >
+              取消公开
+            </Button>
+          ) : (
+            <Button
+              loading={acting}
+              disabled={blockedReason !== undefined || !check?.ready}
+              onClick={onPublish}
+            >
+              公开题目
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

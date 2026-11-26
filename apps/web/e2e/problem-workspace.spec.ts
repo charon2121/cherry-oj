@@ -139,7 +139,7 @@ for (const role of ['USER', 'ADMIN'] as const) {
     await expect(page.getByRole('link', { name: /登录后.*(答题|编写)/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: '运行', exact: true })).toBeEnabled();
     await expect(page.getByRole('button', { name: '提交', exact: true })).toBeEnabled();
-    await expect(page.locator('#custom-run-help')).toBeVisible();
+    await expect(page.getByRole('tab', { name: '测试用例', exact: true })).toBeVisible();
 
     const source = 'int answer = 42;';
     await replaceCode(page, source);
@@ -153,7 +153,7 @@ for (const role of ['USER', 'ADMIN'] as const) {
 
     await pressEditorShortcut(page, 'Enter');
     await editor(page).press('F5');
-    await expect(page.locator('#custom-run-help')).toBeVisible();
+    await expect(page.getByRole('tab', { name: '测试用例', exact: true })).toBeVisible();
     expect(
       requests.filter((url) => /\/(?:run|submissions?|judge|sandbox|blobs)(?:[/?]|$)/.test(url)),
     ).toEqual([]);
@@ -263,7 +263,7 @@ test('theme, search, undo and narrow-pane switching preserve the same code', asy
     .toBeLessThanOrEqual(1);
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await expect(editor(page)).toBeVisible();
-  await expect(page.locator('#custom-run-help')).toBeVisible();
+  await expect(page.getByRole('button', { name: '运行', exact: true })).toBeVisible();
 });
 
 test('a touch phone uses the lightweight editor and keeps its draft between panes', async ({

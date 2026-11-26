@@ -101,12 +101,11 @@ function SampleBlock({
   return (
     <section aria-labelledby={headingId} className="group/sample grid min-w-0 gap-2">
       <div className="flex min-h-7 items-center justify-between gap-2">
-        <h3 id={headingId} className="text-fg-meta font-body text-sm">
+        <h3 id={headingId} className={count > 1 ? 'text-fg-meta font-body text-sm' : 'sr-only'}>
           {label}
         </h3>
         {disabled ? null : (
-          // 操作在悬停或键盘聚焦到这一组时才出现，平时不占视觉。
-          <div className="flex gap-0.5 opacity-0 transition-opacity group-focus-within/sample:opacity-100 group-hover/sample:opacity-100 motion-reduce:transition-none">
+          <div className="ml-auto flex gap-0.5 opacity-0 transition-opacity group-focus-within/sample:opacity-100 group-hover/sample:opacity-100 motion-reduce:transition-none [@media(hover:none)]:opacity-100">
             <IconButton
               size="sm"
               label={`上移${label}`}
@@ -151,7 +150,7 @@ function SampleBlock({
       </div>
       <RichMarkdownEditor
         aria-label={`${label}解释`}
-        placeholder="添加解释（可选）"
+        placeholder="样例解释"
         value={sample.explanationMarkdown}
         disabled={disabled}
         onChange={(explanationMarkdown) => onChange({ explanationMarkdown })}

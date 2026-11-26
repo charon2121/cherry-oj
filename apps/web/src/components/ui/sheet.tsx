@@ -17,7 +17,7 @@ function SheetBackdrop({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-backdrop"
       className={cn(
-        'bg-overlay backdrop-blur-overlay-strong duration-fast ease-standard fixed inset-0 z-50 min-h-dvh transition-[opacity,backdrop-filter] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+        'bg-overlay duration-fast ease-standard fixed inset-0 z-50 min-h-dvh transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
         className,
       )}
       {...props}
@@ -66,7 +66,7 @@ function SheetContent({
           <SheetPrimitive.Close
             data-slot="sheet-close"
             aria-label={closeLabel}
-            className="border-border-strong bg-surface-subtle text-foreground hover:bg-accent focus-visible:outline-ring duration-fast absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-sm border transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none"
+            className="text-fg-2 hover:bg-surface-hover focus-visible:outline-ring duration-fast absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-full transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none"
           >
             <X className="size-4" aria-hidden="true" />
           </SheetPrimitive.Close>
@@ -80,7 +80,7 @@ function SheetHeader({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn('border-sidebar-border grid min-w-0 gap-1 border-b p-4 pr-14', className)}
+      className={cn('grid min-w-0 gap-1 p-4 pr-14', className)}
       {...props}
     />
   );

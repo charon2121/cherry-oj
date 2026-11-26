@@ -62,7 +62,7 @@ test('an administrator opens a language from the list, edits its prefix and conf
     .getByRole('region', { name: '语言' })
     .getByRole('listitem')
     .filter({ hasText: 'C++' });
-  await expect(row).toContainText('前缀代码 2 行');
+  await expect(row).toContainText('cpp');
   await row.getByRole('link', { name: 'C++' }).click();
 
   await expect(page).toHaveURL(/\/admin\/languages\/cpp$/);
@@ -77,7 +77,7 @@ test('an administrator opens a language from the list, edits its prefix and conf
   await page.getByRole('textbox', { name: 'C++ 前缀代码' }).click();
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type('using ll = long long;');
-  await expect(page.getByRole('status').filter({ hasText: '未保存' })).toHaveText('3 行 · 未保存');
+  await expect(page.getByRole('status').filter({ hasText: '未保存' })).toHaveText('未保存');
   await page.keyboard.press('ControlOrMeta+s');
 
   // 保存前确认：影响写在确认框里，页面上不常驻说明。
@@ -94,7 +94,7 @@ test('an administrator opens a language from the list, edits its prefix and conf
       expectedUpdatedAt: timestamp,
     });
   await expect(dialog).toHaveCount(0);
-  await expect(page.getByRole('status').filter({ hasText: '行' })).toHaveText('3 行');
+  await expect(page.getByRole('status').filter({ hasText: '未保存' })).toHaveCount(0);
   await expect(save).toBeDisabled();
 });
 

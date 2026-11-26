@@ -30,7 +30,7 @@ function DialogBackdrop({
     <DialogPrimitive.Backdrop
       data-slot="dialog-backdrop"
       className={cn(
-        'bg-overlay backdrop-blur-overlay-strong duration-fast ease-standard fixed inset-0 z-50 min-h-dvh transition-[opacity,backdrop-filter] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 supports-[-webkit-touch-callout:none]:absolute motion-reduce:transition-none',
+        'bg-overlay duration-fast ease-standard fixed inset-0 z-50 min-h-dvh transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 supports-[-webkit-touch-callout:none]:absolute motion-reduce:transition-none',
         className,
       )}
       {...props}

@@ -28,7 +28,6 @@ import {
   listLanguageSettings,
   updateLanguageSetting,
 } from '../api/admin-languages-api';
-import { prefixLineCount } from '../lib/prefix';
 import { useRedirectWhenSignedOut } from './use-redirect-when-signed-out';
 
 // 构图照 linear.app Settings › Templates 的模板编辑页：一列内容，区块标题 15px 加同一行的状态，
@@ -80,16 +79,14 @@ function PrefixEditor({ language }: { language: AdminLanguageSetting }) {
     withResolver: true,
   });
 
-  const lines = prefixLineCount(dirty ? normalized : language.solutionPrefix);
-
   return (
     <section aria-labelledby={headingId}>
       <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
         <h2 id={headingId} className="text-foreground font-heading text-15">
-          前缀代码
+          <span className="md:hidden">{language.displayName} </span>前缀代码
         </h2>
         <Text as="span" size="sm" tone="meta" role="status">
-          {lines} 行{dirty ? ' · 未保存' : ''}
+          {dirty ? '未保存' : null}
         </Text>
       </div>
       <CodeBlockEditor
@@ -210,7 +207,12 @@ export function AdminLanguageEditPage({ languageId }: { languageId: string }) {
   ) : undefined;
 
   return (
-    <DetailPageTemplate title={language?.displayName ?? '语言'} state={state} width="narrow">
+    <DetailPageTemplate
+      title={language?.displayName ?? '语言'}
+      titleVisible={false}
+      state={state}
+      width="narrow"
+    >
       {language ? <PrefixEditor key={language.updatedAt} language={language} /> : null}
     </DetailPageTemplate>
   );
