@@ -33,7 +33,7 @@ export function SourceCopyButton({ value, label = '复制代码' }: { value: str
   );
 }
 
-/** 只有图标的复制按钮（linear.app 代码块右上角）：复制成功后短暂显示对勾，结果同时读给读屏。 */
+/** 仅图标的紧凑复制按钮（用于代码块右上角等场景）：复制成功后短暂显示对勾，并通过读屏状态提示结果。 */
 export function CopyIconButton({ value, label }: { value: string; label: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   useEffect(() => {

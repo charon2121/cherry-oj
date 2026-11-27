@@ -10,7 +10,6 @@ type DialogSize = 'sm' | 'md' | 'lg';
 const dialogSizeClasses: Record<DialogSize, string> = {
   sm: 'max-w-sm',
   md: 'max-w-lg',
-  // linear.app 新建 issue 对话框宽 750px：装得下一段代码编辑器。
   lg: 'max-w-[750px]',
 };
 
@@ -74,7 +73,7 @@ function DialogContent({
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
-            'text-foreground focus-visible:outline-ring border-border bg-surface-raised shadow-dialog duration-fast ease-standard border-hairline pointer-events-auto relative grid max-h-[calc(100dvh-var(--space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-2xl p-5 break-words transition-opacity outline-none focus-visible:outline-1 focus-visible:outline-offset-0 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
+            'text-foreground focus-visible:outline-ring border-border bg-surface-raised shadow-dialog duration-fast ease-standard pointer-events-auto relative grid max-h-[calc(100dvh-var(--space-6))] w-full gap-4 overflow-x-hidden overflow-y-auto rounded-2xl border p-5 break-words transition-[opacity,transform] outline-none focus-visible:outline-1 focus-visible:outline-offset-0 data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0 motion-reduce:transition-none sm:p-6',
             dialogSizeClasses[size],
             className,
           )}
@@ -83,7 +82,7 @@ function DialogContent({
           {children}
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="text-fg-2 hover:bg-surface-hover hover:text-foreground focus-visible:outline-ring duration-fast ease-standard disabled:text-fg-disabled absolute top-3 right-3 inline-flex size-7 items-center justify-center rounded-full transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed motion-reduce:transition-none"
+            className="text-fg-2 hover:bg-surface-hover hover:text-foreground focus-visible:outline-ring duration-fast ease-standard disabled:text-fg-disabled absolute top-3.5 right-3.5 inline-flex size-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 disabled:pointer-events-none disabled:cursor-not-allowed motion-reduce:transition-none"
             aria-label={closeLabel}
           >
             <X className="size-4" aria-hidden="true" />

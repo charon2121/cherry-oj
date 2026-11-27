@@ -101,8 +101,8 @@ test('opens an anonymous application shell without protected-content flash', asy
       viewportHeight: window.innerHeight,
     };
   });
-  expect(userShellSurfaces.headerBorder).toBe('0px');
-  expect(userShellSurfaces.headerBackground).toBe(userShellSurfaces.canvasBackground);
+  expect(userShellSurfaces.headerBorder).toBe('1px');
+  expect(userShellSurfaces.headerBackground).not.toBe('rgba(0, 0, 0, 0)');
   expect(
     Math.abs(userShellSurfaces.mainBottom - userShellSurfaces.viewportHeight),
   ).toBeLessThanOrEqual(1);
@@ -141,18 +141,19 @@ test('keeps login title, form and feedback in one responsive column', async ({ p
   const heading = page.getByRole('heading', { level: 1, name: '登录 Cherry OJ' });
   await expect(heading).toBeVisible();
   await expect(page.locator('main img, main h2')).toHaveCount(0);
-  await expect(page.locator('[data-slot="card"]')).toHaveCount(0);
+  await expect(page.locator('[data-slot="card"]')).toHaveCount(1);
   await expect(page.locator('main').getByRole('link')).toHaveCount(0);
   const desktopGeometry = await page.evaluate(() => {
     const title = document.querySelector('h1');
     const form = document.querySelector('form');
-    if (title === null || form === null) {
+    const card = document.querySelector('[data-slot="card"]');
+    if (title === null || form === null || card === null) {
       throw new Error('Login page regions are missing.');
     }
     return {
+      cardBorder: getComputedStyle(card).borderTopWidth,
       formLeft: form.getBoundingClientRect().left,
       formWidth: form.getBoundingClientRect().width,
-      formBorder: getComputedStyle(form).borderTopWidth,
       pageHeight: document.documentElement.scrollHeight,
       titleLeft: title.getBoundingClientRect().left,
       viewportHeight: window.innerHeight,
@@ -160,7 +161,7 @@ test('keeps login title, form and feedback in one responsive column', async ({ p
   });
   expect(desktopGeometry.titleLeft).toBe(desktopGeometry.formLeft);
   expect(desktopGeometry.formWidth).toBeLessThanOrEqual(512);
-  expect(desktopGeometry.formBorder).toBe('0px');
+  expect(desktopGeometry.cardBorder).toBe('1px');
   expect(desktopGeometry.pageHeight).toBeLessThanOrEqual(desktopGeometry.viewportHeight);
 
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -303,32 +304,34 @@ test('renders the same task-first admin dashboard at both requested routes', asy
 
     const adminShellGeometry = await page.evaluate(() => {
       const main = document.querySelector('#admin-main');
-      if (main === null) throw new Error('Admin shell main is missing.');
+      const header = document.querySelector('header');
+      const sidebar = document.querySelector<HTMLElement>('[data-slot="sidebar"]');
+      if (main === null || header === null || sidebar === null) {
+        throw new Error('Admin shell landmarks are missing.');
+      }
       const contentRegion = main.parentElement;
       if (contentRegion === null) throw new Error('Admin shell content region is missing.');
       const shell = contentRegion.parentElement;
       if (shell === null) throw new Error('Admin shell root is missing.');
       return {
         contentBottom: contentRegion.getBoundingClientRect().bottom,
-        contentBorder: getComputedStyle(contentRegion).borderTopWidth,
-        contentShadow: getComputedStyle(contentRegion).boxShadow,
-        headerHeight: document.querySelector('header')?.getBoundingClientRect().height,
-        sidebarWidth: document
-          .querySelector<HTMLElement>('[data-slot="sidebar"]')
-          ?.getBoundingClientRect().width,
+        headerBorder: getComputedStyle(header).borderBottomWidth,
+        headerHeight: header.getBoundingClientRect().height,
+        sidebarBorder: getComputedStyle(sidebar).borderRightWidth,
+        sidebarWidth: sidebar.getBoundingClientRect().width,
         shellBottom: shell.getBoundingClientRect().bottom,
         templateRows: getComputedStyle(shell).gridTemplateRows.split(' ').length,
         viewportHeight: window.innerHeight,
       };
     });
     expect(adminShellGeometry.templateRows).toBe(1);
-    expect(adminShellGeometry.headerHeight).toBe(44);
-    expect(adminShellGeometry.sidebarWidth).toBe(244);
+    expect(adminShellGeometry.headerHeight).toBe(56);
+    expect(adminShellGeometry.sidebarWidth).toBe(240);
+    expect(adminShellGeometry.headerBorder).toBe('1px');
+    expect(adminShellGeometry.sidebarBorder).toBe('1px');
     expect(
       Math.abs(adminShellGeometry.contentBottom - adminShellGeometry.viewportHeight),
     ).toBeLessThanOrEqual(1);
-    expect(adminShellGeometry.contentBorder).toBe('0px');
-    expect(adminShellGeometry.contentShadow).toBe('none');
     expect(
       Math.abs(adminShellGeometry.shellBottom - adminShellGeometry.viewportHeight),
     ).toBeLessThanOrEqual(1);
@@ -697,13 +700,19 @@ test('lets an admin manage users and reveals a temporary password only once', as
   await expect(navigationTrigger).toBeFocused();
 
   const disabledRowActions = page.getByRole('button', { name: 'disabled-user 的更多操作' });
-  page.once('dialog', (dialog) => dialog.accept());
   await disabledRowActions.click();
   await page.getByRole('menuitem', { name: '恢复' }).click();
+  await page
+    .getByRole('dialog', { name: '恢复账号 disabled-user' })
+    .getByRole('button', { name: '确认恢复' })
+    .click();
   await expect.poll(() => statusChanges).toBe(1);
-  page.once('dialog', (dialog) => dialog.accept());
   await disabledRowActions.click();
   await page.getByRole('menuitem', { name: '重置密码' }).click();
+  await page
+    .getByRole('dialog', { name: '重置 disabled-user 的密码' })
+    .getByRole('button', { name: '确认重置' })
+    .click();
   await expect(page.getByRole('dialog', { name: '一次性临时密码' })).toContainText(
     'Reset-Password-42!',
   );

@@ -179,7 +179,7 @@ test('tabs and history preserve the editor; load requires confirmation and retai
     contentType: 'application/json',
   });
   expect(measurements.height).toBeGreaterThanOrEqual(44);
-  expect(measurements.fontSize).toBe('13px');
+  expect(measurements.fontSize).toBe('14px');
   await page.screenshot({ path: '/tmp/cherry-submission-history-list.png', fullPage: true });
 });
 
@@ -252,6 +252,8 @@ test('history remains reachable at zoom and forced colors', async ({ page }) => 
   await page.getByRole('button', { name: '载入编辑器', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: '取消', exact: true }).click();
+  await page.getByRole('button', { name: /^切换到/ }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'dark');
   await page.getByRole('button', { name: /^切换到/ }).click();
   await expect(page.locator('html')).toHaveAttribute('data-color-scheme', 'light');
   await page.screenshot({ path: '/tmp/cherry-submission-history-zoom-light.png', fullPage: true });

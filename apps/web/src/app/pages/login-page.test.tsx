@@ -15,7 +15,7 @@ const baseProps = {
 };
 
 describe('LoginPageView', () => {
-  it('renders the full-page login hierarchy without an isolated card or extra actions', () => {
+  it('renders the centered card login hierarchy without decorative images or extra links', () => {
     const { container } = render(<LoginPageView {...baseProps} />);
 
     expect(screen.getByRole('heading', { level: 1, name: '登录 Cherry OJ' })).toBeVisible();
@@ -30,7 +30,7 @@ describe('LoginPageView', () => {
     expect(screen.getByRole('button', { name: '登录' })).toBeEnabled();
     expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
     expect(container.querySelector('img')).toBeNull();
-    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
     expect(screen.queryByRole('link')).toBeNull();
   });
 

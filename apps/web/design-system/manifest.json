@@ -1,24 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "cherry-oj-web-design-system",
-  "version": "2.0.0",
-  "provenance": {
-    "source": "OpenDesign curated bundled fixture: design-systems/linear-app",
-    "officialLinearSource": false,
-    "designSource": "Claude Design export: Cherry OJ Design System",
-    "designSourceRootSha256": "68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d",
-    "designSourceFileCount": 99,
-    "sourceTokensSha256": "9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e",
-    "sourceDesignSha256": "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
-    "sourceLicenseSha256": "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da",
-    "license": "Apache-2.0",
-    "licenseFile": "LICENSE.open-design"
-  },
-  "modified": {
-    "for": "Cherry OJ Web",
-    "date": "2026-09-03",
-    "summary": "Owns the executable dual-theme Claude Design implementation and checks inside apps/web without a documentation dependency."
-  },
+  "version": "3.0.0",
   "entrypoints": {
     "documentation": "README.md",
     "tokens": "tokens.css",
@@ -37,16 +20,15 @@
   "files": [
     { "path": "manifest.json", "role": "Web design-system package file registry" },
     { "path": "README.md", "role": "Web design-system maintenance boundary" },
-    { "path": "LICENSE.open-design", "role": "upstream Apache-2.0 license" },
     { "path": "LICENSE.fonts", "role": "Inter and JetBrains Mono OFL-1.1 notices" },
-    { "path": "NOTICE.md", "role": "source attribution and modification notice" },
-    { "path": "tokens.foundation.css", "role": "shared metric source" },
-    { "path": "theme-contract.json", "role": "semantic theme contract" },
-    { "path": "themes.manifest.json", "role": "theme registry and default" },
+    { "path": "NOTICE.md", "role": "third-party font and icon attribution notice" },
+    { "path": "tokens.foundation.css", "role": "shared typography, spacing, radius, and motion tokens" },
+    { "path": "theme-contract.json", "role": "semantic theme and contrast contract" },
+    { "path": "themes.manifest.json", "role": "theme registry and light-first default" },
     { "path": "tokens.css", "role": "generated stable CSS entrypoint", "generated": true },
     { "path": "design-tokens.json", "role": "generated value anchor for Foundation and both themes", "generated": true },
     { "path": "tailwind-v4.css", "role": "theme-neutral Tailwind v4 and shadcn adapter" },
-    { "path": "tools/build.mjs", "role": "deterministic CSS entrypoint builder" },
-    { "path": "tools/check.mjs", "role": "runtime contract, provenance, license, and package verifier" }
+    { "path": "tools/build.mjs", "role": "deterministic CSS and token-anchor builder" },
+    { "path": "tools/check.mjs", "role": "runtime contract, WCAG contrast, and package verifier" }
   ]
 }

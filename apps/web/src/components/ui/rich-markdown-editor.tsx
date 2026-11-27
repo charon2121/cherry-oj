@@ -8,10 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 import { markdownProseClasses } from '@/components/ui/markdown-prose';
 import { cn } from '@/lib/utils';
 
-// 长文本的所见即所得编辑器，交互取自 linear.app 的 issue 描述（docs/design-system/measurements.md）：
-// 没有边框、工具栏和"编辑/预览"切换；输入 ## 即成标题、**…** 即粗体、``` 即代码块、- 即列表。
-// 存储仍是 Markdown（GFM），用户端用 SafeMarkdown 渲染，两边共用 markdownProseClasses（单独成文件，用户端不会
-// 因此加载编辑器），所见即所得。
+// 长文本所见即所得 Markdown 编辑器：无需模式切换，输入 ## 即成标题、**…** 即粗体、``` 即代码块、- 即列表。
+// 底层持久化保持 GFM Markdown，与用户端 SafeMarkdown 共用 markdownProseClasses，保证编辑态与阅读态一致。
 //
 // 往返保真：内容不变，只会规范化写法（例如表格补齐空格、列表符号统一为 -）。不支持的语法（例如 $…$）
 // 按原文保留为普通文本。

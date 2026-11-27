@@ -131,12 +131,10 @@ export function AdminProblemWorkbench({
   return <WorkbenchEditor problem={problem.data} panel={panel} onPanelChange={onPanelChange} />;
 }
 
-// 构图取自 linear.app 的 Issue 详情（docs/design-system/measurements.md「详情页」）：
-// 左边一页到底地写——标题、题面、输入输出、数据范围、提示、样例、起始代码——没有步骤、没有表单标签和
-// 边框；右边一栏属性，点开即在原地改。不属于"写"的动作（测试数据、标定、公开）是属性栏打开的对话框。
+// 题目编辑工作台：左侧文档卡片承载标题、题面、输入输出说明、样例与多语言起始代码，
+// 右侧常驻属性卡片提供难度、可见性、标签与判题准备入口（测试数据、自动出题、标定、公开检查）。
 //
-// 保存：私有题目像 linear.app 一样停止输入后自动保存；已公开题目的修改会立即对学生生效，
-// 所以仍由管理员点"保存"（或 ⌘S）确认，避免写到一半的题面被学生看到。
+// 保存策略：私有题目停止输入后自动保存；已公开题目的修改会立即对学生生效，因此改为手动保存（或 ⌘S）确认。
 function WorkbenchEditor({
   problem,
   panel,
@@ -333,15 +331,15 @@ function WorkbenchEditor({
         </DropdownMenu>
       </HeaderActions>
 
-      <div className="min-w-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-auto w-full max-w-[76rem] min-w-0 flex-1 py-6 lg:grid lg:grid-cols-[minmax(0,1fr)_18.5rem] lg:items-start lg:gap-6">
         <form
-          className="min-w-0 px-4 pt-10 pb-24 sm:px-8 xl:px-14"
+          className="border-border bg-panel shadow-subtle min-w-0 rounded-xl border p-5 pb-16 sm:p-8 xl:p-10"
           onSubmit={(event) => {
             event.preventDefault();
             void form.handleSubmit();
           }}
         >
-          <div className="mx-auto max-w-[43rem] min-w-0">
+          <div className="mx-auto max-w-[44rem] min-w-0">
             <form.Field name="title">
               {(field) => (
                 <textarea
@@ -357,7 +355,7 @@ function WorkbenchEditor({
                     markChanged();
                   }}
                   onKeyDown={(event) => {
-                    // 与 linear.app 一致：在标题里按 Enter 进入正文。
+                    // 在标题里按 Enter 直接将焦点移入正文。
                     if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
                       event.preventDefault();
                       document.getElementById(statementId)?.focus();
@@ -466,7 +464,7 @@ function WorkbenchEditor({
 
         <aside
           aria-label="题目属性"
-          className="min-w-0 px-4 pb-8 lg:sticky lg:top-0 lg:self-start lg:px-6 lg:pt-10"
+          className="border-border bg-panel shadow-subtle mt-6 min-w-0 rounded-xl border p-5 lg:sticky lg:top-6 lg:mt-0"
         >
           <div className="grid gap-6">
             <PropertyGroup title="属性">
@@ -722,7 +720,7 @@ function WorkbenchEditor({
   );
 }
 
-// 区块标题：linear.app 详情页的区块标题 15px/600（"Sub-issues"、"Activity"）。
+// 文档编辑区内的分节标题。
 function EditorSection({
   id,
   title,
@@ -749,8 +747,12 @@ function EditorSection({
 }
 
 function PropertyGroup({ title, children }: { title: string; children: ReactNode }) {
+  const headingId = useId();
   return (
-    <section aria-label={title} className="grid justify-items-start gap-0.5">
+    <section aria-labelledby={headingId} className="grid justify-items-start gap-0.5">
+      <h2 id={headingId} className="text-fg-meta font-body text-cap mb-1 px-1.5">
+        {title}
+      </h2>
       {children}
     </section>
   );

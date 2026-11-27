@@ -2,18 +2,13 @@ import { type ComponentProps } from 'react';
 
 import { cn } from '@/lib/utils';
 
-// Card 系列骨架取自 shadcn base-nova 官方 card：保留官方的七个子组件、`--card-spacing`
-// 间距变量、`size` 尺寸和 CardAction 的网格定位。相对官方只改颜色相关 class：
-//   - 官方 `ring-1 ring-foreground/10` 与 `bg-muted/50` 用透明度叠加承担边界与分层，
-//     design-system.md §4 禁止；改为 border-border 与 surface-subtle 两个语义 token。
-//   - 官方 `cn-font-heading` 是其自带字体工具类，本仓库字体由 foundation token 提供。
 function Card({
   className,
-  bordered = false,
+  bordered = true,
   elevated = false,
   interactive = false,
   padding,
-  radius = 'md',
+  radius = 'xl',
   size = 'default',
   ...props
 }: ComponentProps<'div'> & {
@@ -30,17 +25,15 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        'group/card text-card-foreground duration-base ease-standard flex min-w-0 flex-col overflow-hidden transition-colors motion-reduce:transition-none',
-        // 默认不画框、不铺面。分组用间距和对齐表达——每一个框都是一次"我懒得用对齐解决"。
-        // 需要边界时显式 bordered，需要抬升时显式 elevated，两者都应当罕见。
-        bordered && 'border-border bg-surface-translucent border',
+        'group/card text-card-foreground duration-base ease-standard flex min-w-0 flex-col overflow-hidden transition-[background-color,border-color,box-shadow] motion-reduce:transition-none',
+        bordered && 'border-border bg-panel shadow-subtle border',
         resolvedPadding === 'sm' && 'gap-4 p-4',
-        resolvedPadding === 'md' && 'gap-6 p-6',
-        resolvedPadding === 'lg' && 'gap-8 p-8',
+        resolvedPadding === 'md' && 'gap-5 p-6',
+        resolvedPadding === 'lg' && 'gap-6 p-8',
         radius === 'md' && 'rounded-md',
         radius === 'lg' && 'rounded-lg',
         radius === 'xl' && 'rounded-xl',
-        interactive && 'hover:bg-surface-translucent-hover',
+        interactive && 'hover:border-border-strong hover:shadow-raised',
         elevated && 'shadow-raised',
         className,
       )}
@@ -54,7 +47,7 @@ function CardHeader({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-header"
       className={cn(
-        'group/card-header grid min-w-0 auto-rows-min items-start gap-1 has-data-[slot=card-action]:grid-cols-[minmax(0,1fr)_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]',
+        'group/card-header grid min-w-0 auto-rows-min items-start gap-1.5 has-data-[slot=card-action]:grid-cols-[minmax(0,1fr)_auto] has-data-[slot=card-description]:grid-rows-[auto_auto]',
         className,
       )}
       {...props}
@@ -104,7 +97,7 @@ function CardFooter({ className, ...props }: ComponentProps<'div'>) {
     <div
       data-slot="card-footer"
       className={cn(
-        'border-border flex min-w-0 flex-wrap items-center gap-2 border-t pt-4',
+        'border-border-soft flex min-w-0 flex-wrap items-center gap-2 border-t pt-4',
         className,
       )}
       {...props}
@@ -112,10 +105,8 @@ function CardFooter({ className, ...props }: ComponentProps<'div'>) {
   );
 }
 
-// Panel 是 Cherry OJ 自有概念，官方 registry 没有对应组件：design-system.md §2 要求普通分组
-// 优先用间距、对齐和分隔线，而不是 Card 的抬升面。它是仓库里实际在用的容器（14 处）。
 function Panel({
-  bordered = false,
+  bordered = true,
   className,
   ...props
 }: ComponentProps<'section'> & { bordered?: boolean }) {
@@ -123,9 +114,8 @@ function Panel({
     <section
       data-slot="panel"
       className={cn(
-        // Panel 是"一段内容"，不是"一个盒子"：默认只有内边距，没有框也没有底色。
         'min-w-0 py-5',
-        bordered && 'border-border bg-panel rounded-lg border px-5',
+        bordered && 'border-border bg-panel shadow-subtle rounded-xl border p-5',
         className,
       )}
       {...props}

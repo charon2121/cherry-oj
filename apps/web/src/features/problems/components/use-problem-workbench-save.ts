@@ -29,7 +29,7 @@ type SaveSubmission = {
   values: WorkbenchValues;
 };
 
-// 停止输入多久后自动保存。linear.app 是边写边存；这里留一点间隔，避免每个字都发一次请求。
+// 停止输入后的防抖自动保存延迟，避免每次击键都触发保存请求。
 const AUTOSAVE_DELAY_MS = 800;
 
 function toFormValues(problem: AdminProblem): WorkbenchValues {

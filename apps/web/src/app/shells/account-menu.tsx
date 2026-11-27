@@ -32,10 +32,7 @@ type AccountMenuProps = Readonly<{
   className?: string;
   showAdminEntry?: boolean;
   showSiteEntry?: boolean;
-  /**
-   * `account`（默认）在顶栏显示用户名；`workspace` 放在侧栏左上角，显示产品标记与名称——
-   * linear.app 把工作区菜单放在那里，账号、设置与退出都从它进入。
-   */
+  /** `account`（默认）在顶栏右侧展示当前用户名；`workspace` 在管理侧栏左上角展示站点品牌与账号菜单入口。 */
   trigger?: 'account' | 'workspace';
 }>;
 
@@ -98,13 +95,12 @@ function AccountMenuView({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-foreground px-1x max-w-full justify-start rounded-lg text-sm"
+                className="text-foreground font-heading max-w-full justify-start gap-2 rounded-lg px-2 text-sm"
                 aria-label={triggerLabel}
               />
             }
           >
-            {/* 与品牌标志同一个文件；linear.app 侧栏的工作区图标为 18px。 */}
-            <img src="/brand-mark.svg" alt="" className="size-[18px] shrink-0" />
+            <img src="/brand-mark.svg" alt="" className="size-5 shrink-0" />
             <span className="truncate">Cherry OJ</span>
             {triggerStatus ? (
               <span className={cn('text-fg-meta text-xs', hasLogoutError && 'text-destructive')}>
@@ -244,9 +240,9 @@ function AccountMenu({
         to="/login"
         search={{ returnTo: '/' }}
         className={buttonVariants({
-          variant: 'ghost',
+          variant: 'secondary',
           size: 'sm',
-          className: cn('ml-auto px-3 no-underline', className),
+          className: cn('ml-auto px-3.5 no-underline', className),
         })}
       >
         登录

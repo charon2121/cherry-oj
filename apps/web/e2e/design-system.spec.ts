@@ -162,15 +162,15 @@ for (const [name, setup, expectedTheme, clearsInvalid] of firstPaintCases) {
 }
 
 test('the blocking bootstrap applies a saved theme without the React bundle', async ({ page }) => {
-  await installPreferenceAndFirstFrameProbe(page, { value: lightTheme.id });
+  await installPreferenceAndFirstFrameProbe(page, { value: darkTheme.id });
   await page.route('**/assets/*.js', (route) => route.abort());
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
   const firstFrame = await readFirstFrame(page);
-  expect(firstFrame.themeId).toBe(lightTheme.id);
-  expect(firstFrame.colorScheme).toBe(lightTheme.colorScheme);
-  await expectTheme(page, lightTheme.id);
+  expect(firstFrame.themeId).toBe(darkTheme.id);
+  expect(firstFrame.colorScheme).toBe(darkTheme.colorScheme);
+  await expectTheme(page, darkTheme.id);
   await expect(page.locator('#root')).toBeEmpty();
 });
 
@@ -187,9 +187,9 @@ test('theme changes converge across tabs and unknown values fall back safely', a
   await otherPage.goto('/');
   await otherPage.evaluate(
     ({ storageKey, value }) => window.localStorage.setItem(storageKey, value),
-    { storageKey: themeStorageKey, value: lightTheme.id },
+    { storageKey: themeStorageKey, value: darkTheme.id },
   );
-  await expectTheme(page, lightTheme.id);
+  await expectTheme(page, darkTheme.id);
 
   await otherPage.evaluate(
     ({ storageKey }) => window.localStorage.setItem(storageKey, 'unknown-theme'),
@@ -211,30 +211,30 @@ test('the global theme switcher persists its choice and synchronizes another tab
   await page.goto('/');
   await expectTheme(page, defaultThemeId);
 
-  const switchToLight = page.getByRole('button', { name: `切换到 ${lightTheme.label}` });
-  await switchToLight.focus();
+  const switchToDark = page.getByRole('button', { name: `切换到 ${darkTheme.label}` });
+  await switchToDark.focus();
   await page.keyboard.press('Enter');
 
-  await expectTheme(page, lightTheme.id);
-  await expect(page.getByRole('status')).toHaveText(`已切换到 ${lightTheme.label}`);
+  await expectTheme(page, darkTheme.id);
+  await expect(page.getByRole('status')).toHaveText(`已切换到 ${darkTheme.label}`);
   await expect
     .poll(() =>
       page.evaluate((storageKey) => window.localStorage.getItem(storageKey), themeStorageKey),
     )
-    .toBe(lightTheme.id);
+    .toBe(darkTheme.id);
 
   await page.reload();
-  await expectTheme(page, lightTheme.id);
-  await expect(page.getByRole('button', { name: `切换到 ${darkTheme.label}` })).toBeVisible();
+  await expectTheme(page, darkTheme.id);
+  await expect(page.getByRole('button', { name: `切换到 ${lightTheme.label}` })).toBeVisible();
 
   const otherPage = await context.newPage();
   await mockAnonymousShell(otherPage);
   await otherPage.goto('/');
-  await expectTheme(otherPage, lightTheme.id);
-
-  await page.getByRole('button', { name: `切换到 ${darkTheme.label}` }).click();
-  await expectTheme(page, darkTheme.id);
   await expectTheme(otherPage, darkTheme.id);
+
+  await page.getByRole('button', { name: `切换到 ${lightTheme.label}` }).click();
+  await expectTheme(page, lightTheme.id);
+  await expectTheme(otherPage, lightTheme.id);
 });
 
 test('the theme switcher still applies a choice when preference storage rejects writes', async ({
@@ -261,11 +261,11 @@ test('the theme switcher still applies a choice when preference storage rejects 
   await mockAnonymousShell(page);
   await page.goto('/');
 
-  await page.getByRole('button', { name: `切换到 ${lightTheme.label}` }).click();
+  await page.getByRole('button', { name: `切换到 ${darkTheme.label}` }).click();
 
-  await expectTheme(page, lightTheme.id);
+  await expectTheme(page, darkTheme.id);
   await expect(page.getByRole('status')).toHaveText(
-    `已切换到 ${lightTheme.label}，但浏览器未能记住选择`,
+    `已切换到 ${darkTheme.label}，但浏览器未能记住选择`,
   );
 });
 
@@ -420,7 +420,7 @@ for (const theme of themeRegistry) {
     await page.getByRole('button', { name: '关闭主导航' }).click();
     await expect(page.locator('main')).toBeInViewport();
     await expect(page.getByRole('contentinfo')).toHaveCount(0);
-    await expect(page.locator('header')).toHaveCSS('border-bottom-width', '0px');
+    await expect(page.locator('header')).toHaveCSS('border-bottom-width', /^(0\.5|1)px$/);
 
     await page.goto('/login');
     await expectTheme(page, theme.id);
@@ -445,7 +445,7 @@ test('the 320px admin header keeps navigation, theme, and account actions usable
   await expect(page.getByRole('button', { name: '打开管理导航' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Cherry OJ 管理中心' })).toBeVisible();
   await expect(page.locator('header').getByRole('link', { name: /用户端/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: `切换到 ${lightTheme.label}` })).toBeVisible();
+  await expect(page.getByRole('button', { name: `切换到 ${darkTheme.label}` })).toBeVisible();
   await page.getByRole('button', { name: /账号菜单，root-admin/ }).click();
   await expect(page.getByRole('menuitem', { name: '返回用户端' })).toBeVisible();
 

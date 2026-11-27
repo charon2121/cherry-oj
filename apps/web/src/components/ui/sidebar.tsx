@@ -9,7 +9,7 @@ function Sidebar({ className, ...props }: ComponentProps<'aside'>) {
     <aside
       data-slot="sidebar"
       className={cn(
-        'text-sidebar-foreground w-sidebar bg-background flex min-h-0 flex-col',
+        'text-sidebar-foreground w-sidebar border-border bg-panel flex min-h-0 flex-col border-r',
         className,
       )}
       {...props}
@@ -59,10 +59,8 @@ function SidebarMenuItem({ className, ...props }: ComponentProps<'li'>) {
   return <li data-slot="sidebar-menu-item" className={cn('min-w-0', className)} {...props} />;
 }
 
-// 导航项取自 linear.app 实测：高 28px、13px/500、圆角 8px、灰字；选中态只改背景与前景颜色，
-// **不加粗**——强调只有提亮和变灰两招（design-system.md §7.2 原则 C）。
 const menuItemClasses =
-  'flex min-h-7 w-full min-w-0 items-center gap-2 rounded-lg px-2 text-left text-sm font-body text-fg-meta transition-colors duration-fast hover:bg-surface-translucent-hover hover:text-foreground focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring data-[active]:bg-surface-hover data-[active]:text-foreground motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
+  'flex min-h-9 w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 text-left text-sm font-body text-fg-2 transition-colors duration-fast hover:bg-surface-hover hover:text-foreground focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring data-[active]:bg-brand-soft data-[active]:text-brand motion-reduce:transition-none [&_svg]:size-4 [&_svg]:shrink-0';
 
 type SidebarMenuButtonProps = useRender.ComponentProps<'button'> &
   ComponentProps<'button'> &

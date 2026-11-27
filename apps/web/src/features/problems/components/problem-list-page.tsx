@@ -4,6 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataList, dataListRowLinkClasses } from '@/components/ui/data-list';
 import { ListPageTemplate } from '@/components/ui/page-templates';
@@ -16,7 +17,7 @@ import { ApiError } from '@/lib/api/api-client';
 
 import { listProblems, problemKeys, type ProblemSearch } from '../api/problems-api';
 import { codeModeLabels } from '../lib/code-mode';
-import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
+import { DifficultyBadge, DifficultyIcon, difficultyLabel } from './difficulty-icon';
 
 type Props = {
   search: ProblemSearch;
@@ -82,11 +83,15 @@ export function ProblemListPage({ search, navigate }: Props) {
       ),
       trailing: (
         <>
-          <span className="w-10 shrink-0">{difficultyLabel(problem.difficulty)}</span>
-          <span className="w-40 shrink-0 truncate" title={tags}>
-            {tags}
+          <DifficultyBadge difficulty={problem.difficulty} className="shrink-0" />
+          <span className="flex w-44 shrink-0 items-center gap-1.5 overflow-hidden" title={tags}>
+            {problem.tags.slice(0, 2).map((tag) => (
+              <Badge key={tag} variant="neutral" className="max-w-20 truncate whitespace-nowrap">
+                {tag}
+              </Badge>
+            ))}
           </span>
-          <span className="w-44 shrink-0 truncate" title={languages}>
+          <span className="text-fg-meta w-36 shrink-0 truncate font-mono text-xs" title={languages}>
             {languages}
           </span>
         </>

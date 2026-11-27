@@ -26,7 +26,7 @@ const editorHeights: Record<TextEditorSize, string> = {
   compact: '12rem',
   default: '24rem',
   code: '22rem',
-  // 随内容增高：至少两行，超过约 24 行后在编辑器内滚动（linear.app 代码块按内容高度显示）。
+  // 随内容增高：至少两行，超过约 24 行后在编辑器内滚动。
   auto: 'auto',
 };
 
@@ -56,7 +56,6 @@ function editorTheme(height: string, bare: boolean): Extension {
       height,
       backgroundColor: bare ? 'transparent' : 'var(--ds-surface)',
       color: 'var(--ds-fg)',
-      // linear.app 代码块：12px/20px 等宽。
       fontSize: 'var(--ds-text-xs)',
     },
     '&.cm-focused': { outline: 'none' },
@@ -83,14 +82,14 @@ function editorTheme(height: string, bare: boolean): Extension {
       backgroundColor: 'var(--ds-surface-translucent-hover)',
     },
     '&.cm-focused .cm-activeLineGutter': { color: 'var(--ds-fg-2)' },
-    // 行号与代码同底、没有分隔线，只靠更暗的字色区分（linear.app 代码块）。
+    // 行号与代码共用底色，通过更柔和的字色区分。
     '.cm-gutters': {
       backgroundColor: 'transparent',
       color: 'var(--ds-fg-disabled)',
       border: 'none',
     },
     '.cm-lineNumbers .cm-gutterElement': { paddingInline: '16px 12px', minWidth: '2ch' },
-    // 折叠箭头在短代码里只是噪音（linear.app 代码块只有行号）。
+    // 短代码片段隐藏折叠箭头，减少干扰。
     '.cm-foldGutter': { display: 'none' },
     // 嵌在代码块里时只是一块等宽文本：不要行号，不高亮当前行，左右与块的标题对齐。
     ...(bare
@@ -317,9 +316,8 @@ function TextEditor({
       data-disabled={disabled ? '' : undefined}
       data-invalid={ariaInvalid === true || ariaInvalid === 'true' ? '' : undefined}
       className={cn(
-        // 焦点：边框不变，加一条贴边 1px outline（docs/design-system/measurements.md「表单控件」）。
         appearance === 'boxed'
-          ? 'focus-within:outline-ring border-border bg-surface data-invalid:border-danger-border border-hairline overflow-hidden rounded-md focus-within:outline-1 focus-within:-outline-offset-1'
+          ? 'focus-within:outline-ring border-border-solid bg-surface data-invalid:border-danger-border overflow-hidden rounded-lg border focus-within:outline-1 focus-within:-outline-offset-1'
           : 'min-w-0',
         className,
       )}

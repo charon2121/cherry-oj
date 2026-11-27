@@ -1,9 +1,6 @@
 /*
- * Modified for Cherry OJ on 2026-09-03.
- * Production adapter for the frozen Claude Design Cherry OJ source.
- * Changes: one dual-theme semantic bridge for shadcn and project utilities;
- * Cherry brand, neutral accent, focus, and danger remain separate.
- * See NOTICE.md and LICENSE.open-design in this directory.
+ * Cherry OJ Web Design System — Theme-Neutral Tailwind v4 & shadcn Adapter (v3.0)
+ * Maps semantic --ds-* tokens onto Tailwind utilities and shadcn primitives.
  */
 
 :root {
@@ -328,7 +325,7 @@
 
 @custom-variant dark (&:where([data-color-scheme="dark"], [data-color-scheme="dark"] *));
 
-/* 0.5px hairline（linear.app 实测）。Tailwind 的 border 宽度刻度只有整数像素，这里给出命名工具类。 */
+/* 1px 结构细线工具类，保持跨组件命名兼容。 */
 @utility border-hairline {
   border-width: var(--ds-hairline);
 }
@@ -340,4 +337,7 @@
 }
 @utility border-l-hairline {
   border-left-width: var(--ds-hairline);
+}
+@utility border-r-hairline {
+  border-right-width: var(--ds-hairline);
 }

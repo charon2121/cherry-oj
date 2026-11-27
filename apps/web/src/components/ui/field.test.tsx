@@ -108,8 +108,7 @@ describe('SelectField', () => {
   });
 
   it('shows focus as a 1px inset outline, not a ring or offset outline', () => {
-    // 焦点是贴边的 1px outline（linear.app 实测，design-system.md §8）：outline 不占布局，
-    // 不推挤相邻元素；不叠 ring、不加 offset、不加粗到 2px。forced-colors 下 outline 取系统色。
+    // 焦点采用贴边 1px outline：不占盒模型尺寸、不推挤相邻元素，在 forced-colors 下自动回退系统高亮色。
     render(<SelectField label="难度" value="" onValueChange={() => {}} items={[]} />);
 
     const trigger = screen.getByRole('combobox', { name: '难度' });

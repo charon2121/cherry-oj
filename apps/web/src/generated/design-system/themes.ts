@@ -2,18 +2,18 @@
 
 export const themeRegistry = [
   {
-    id: 'cherry-black',
-    label: 'Cherry Black',
-    colorScheme: 'dark',
-    file: 'themes/cherry-black.css',
-    version: 2,
-  },
-  {
     id: 'pure-white',
     label: 'Pure White',
     colorScheme: 'light',
     file: 'themes/pure-white.css',
-    version: 2,
+    version: 3,
+  },
+  {
+    id: 'cherry-black',
+    label: 'Cherry Black',
+    colorScheme: 'dark',
+    file: 'themes/cherry-black.css',
+    version: 3,
   },
 ] as const;
 
@@ -23,7 +23,7 @@ export type ThemeColorScheme = ThemeDefinition['colorScheme'];
 
 export const themeSelectorAttribute = 'data-theme';
 export const colorSchemeAttribute = 'data-color-scheme';
-export const defaultThemeId: ThemeId = 'cherry-black';
-export const fallbackThemeId: ThemeId = 'cherry-black';
+export const defaultThemeId: ThemeId = 'pure-white';
+export const fallbackThemeId: ThemeId = 'pure-white';
 export const themeStorageKey = 'cherry-oj.theme';
 export const followSystemByDefault = false;

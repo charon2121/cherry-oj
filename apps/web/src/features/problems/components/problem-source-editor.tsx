@@ -70,7 +70,7 @@ export function SourceEditor({
 /** 分栏顶部左侧是状态，右侧是编辑器操作。 */
 export function PaneHeader({ start, children }: { start?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-4">
+    <div className="border-border-soft bg-surface-subtle/60 flex h-11 shrink-0 items-center gap-1.5 border-b pr-2.5 pl-3.5">
       <div className="text-fg-meta flex min-w-0 flex-1 items-center gap-2 text-xs">{start}</div>
       {children}
     </div>
@@ -89,7 +89,10 @@ export function Pane({
   return (
     <section
       aria-label={label}
-      className={cn('flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden', className)}
+      className={cn(
+        'border-border bg-panel shadow-subtle flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border',
+        className,
+      )}
     >
       {children}
     </section>

@@ -1,62 +1,46 @@
 /*
- * Modified for Cherry OJ on 2026-09-03.
- * Rebuilt from the frozen Claude Design Cherry OJ export (frozen 2026-09-03).
- * 2026-10-16: neutral steps, hairline borders and elevation re-measured from linear.app "Dark".
- * Changes: namespaced semantic contract, accessible Cherry interaction
- * mapping, opaque OJ status surfaces, and explicit default fallback.
- * See ../NOTICE.md and ../LICENSE.open-design.
+ * Cherry OJ Web Design System — Cherry Black Theme (Soft Slate Dark)
+ * Deep slate canvas (#0d1015) with crisp elevated card surfaces (#141820).
  */
 
-:root,
 :root[data-theme="cherry-black"] {
   color-scheme: dark;
 
-  /* Preserved, non-component OpenDesign primitives. */
-  --ds-raw-linear-canvas: #08090a;
-  --ds-raw-linear-surface: #191a1b;
-  --ds-raw-linear-fg: #f7f8f8;
-  --ds-raw-linear-fg-2: #d0d6e0;
-  --ds-raw-linear-muted: #8a8f98;
-  --ds-raw-linear-meta: #62666d;
-  --ds-raw-linear-success: #27a644;
-  --ds-raw-linear-warning: #eab308;
-  --ds-raw-linear-danger: #dc2626;
-
   /* Neutral surfaces */
-  --ds-canvas: #09090a;
-  --ds-panel: #121213;
-  --ds-surface: #1a1a1b;
-  --ds-surface-subtle: #141516;
-  --ds-surface-raised: #212122;
-  --ds-surface-hover: #29292b;
-  --ds-surface-translucent: rgba(255, 255, 255, 0.02);
-  --ds-surface-translucent-hover: rgba(255, 255, 255, 0.04);
-  --ds-surface-translucent-selected: rgba(255, 255, 255, 0.05);
+  --ds-canvas: #0d1015;
+  --ds-panel: #141820;
+  --ds-surface: #191e28;
+  --ds-surface-subtle: #11151c;
+  --ds-surface-raised: #1d2330;
+  --ds-surface-hover: #242b3a;
+  --ds-surface-translucent: rgba(255, 255, 255, 0.03);
+  --ds-surface-translucent-hover: rgba(255, 255, 255, 0.05);
+  --ds-surface-translucent-selected: rgba(255, 255, 255, 0.08);
 
   /* Foreground */
-  --ds-fg: #ffffff;
-  --ds-fg-2: #e3e4e6;
-  --ds-fg-muted: #959597;
-  --ds-fg-meta: #929294;
-  --ds-fg-disabled: #62666d;
-  --ds-fg-ghost: #e2e4e7;
+  --ds-fg: #f8fafc;
+  --ds-fg-2: #dce2ec;
+  --ds-fg-muted: #b1bac8;
+  --ds-fg-meta: #8f99aa;
+  --ds-fg-disabled: #556070;
+  --ds-fg-ghost: #dce2ec;
 
   /* Decorative and necessary boundaries */
-  --ds-border-soft: rgba(255, 255, 255, 0.05);
-  --ds-border: rgba(255, 255, 255, 0.08);
-  --ds-border-solid: #212224;
-  --ds-border-strong: #80848d;
-  --ds-line-tertiary: #18191a;
+  --ds-border-soft: rgba(255, 255, 255, 0.06);
+  --ds-border: rgba(255, 255, 255, 0.1);
+  --ds-border-solid: #283040;
+  --ds-border-strong: #7e889a;
+  --ds-line-tertiary: #1d2330;
 
   /* Cherry brand and interaction */
   --ds-brand-surface: #d2042d;
-  --ds-brand-surface-hover: #a80324;
-  --ds-brand-surface-active: #7d0219;
+  --ds-brand-surface-hover: #b50327;
+  --ds-brand-surface-active: #960220;
   --ds-on-brand: #ffffff;
-  --ds-brand-foreground: #ff4d67;
-  --ds-brand-foreground-hover: #ff7088;
-  --ds-brand-soft: #32141d;
-  --ds-on-brand-soft: #ff4d67;
+  --ds-brand-foreground: #ff5c77;
+  --ds-brand-foreground-hover: #ff7a90;
+  --ds-brand-soft: #311520;
+  --ds-on-brand-soft: #ff5c77;
   --ds-link: var(--ds-brand-foreground);
   --ds-link-hover: var(--ds-brand-foreground-hover);
   --ds-focus: var(--ds-fg-2);
@@ -64,44 +48,42 @@
   --ds-selection-foreground: var(--ds-fg);
 
   /* OJ status: text/necessary border, soft surface, solid, on-solid */
-  --ds-success-foreground: #27a644;
-  --ds-success-surface: #14271a;
+  --ds-success-foreground: #4ade80;
+  --ds-success-surface: #112920;
   --ds-success-border: var(--ds-success-foreground);
-  --ds-success-solid: #187a34;
+  --ds-success-solid: #15803d;
   --ds-success-on-solid: #ffffff;
 
-  --ds-warning-foreground: #eab308;
-  --ds-warning-surface: #2c2410;
+  --ds-warning-foreground: #facc15;
+  --ds-warning-surface: #2b2310;
   --ds-warning-border: var(--ds-warning-foreground);
   --ds-warning-solid: #eab308;
-  --ds-warning-on-solid: #08090a;
+  --ds-warning-on-solid: #0d1015;
 
   --ds-danger-foreground: #f97066;
-  --ds-danger-surface: #321619;
+  --ds-danger-surface: #32161b;
   --ds-danger-border: var(--ds-danger-foreground);
   --ds-danger-solid: #dc2626;
   --ds-danger-on-solid: #ffffff;
 
   --ds-info-foreground: #60a5fa;
-  --ds-info-surface: #142236;
+  --ds-info-surface: #142238;
   --ds-info-border: var(--ds-info-foreground);
-  --ds-info-solid: #245ea8;
+  --ds-info-solid: #2563eb;
   --ds-info-on-solid: #ffffff;
 
   --ds-special-foreground: #c084fc;
-  --ds-special-surface: #281a35;
+  --ds-special-surface: #281a38;
   --ds-special-border: var(--ds-special-foreground);
-  --ds-special-solid: #6941c6;
+  --ds-special-solid: #7c3aed;
   --ds-special-on-solid: #ffffff;
 
   /* System and elevation */
-  --ds-overlay: rgba(0, 0, 0, 0.38);
+  --ds-overlay: rgba(5, 8, 15, 0.6);
   --ds-elevation-flat: none;
-  --ds-elevation-subtle: rgba(0, 0, 0, 0.3) 0 0.5px 1px 1px;
-  /* 控件外观：暗色下控件只靠底色分层，不加环（linear.app 实测）。 */
-  --ds-elevation-ring: none;
-  --ds-elevation-inset: rgba(0, 0, 0, 0.2) 0 0 12px 0 inset;
-  /* linear.app 实测的对话框与命令面板阴影：五层，最大 40px，单层都很淡。 */
-  --ds-elevation-dialog: rgba(0, 0, 0, 0.1) 0 4px 40px 0, rgba(0, 0, 0, 0.125) 0 3px 20px 0, rgba(0, 0, 0, 0.125) 0 3px 12px 0, rgba(0, 0, 0, 0.125) 0 2px 8px 0, rgba(0, 0, 0, 0.125) 0 1px 1px 0;
-  --ds-elevation-raised: rgba(0, 0, 0, 0.35) 0 7px 32px, 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --ds-elevation-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.28);
+  --ds-elevation-ring: 0 1px 2px 0 rgba(0, 0, 0, 0.24);
+  --ds-elevation-inset: inset 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+  --ds-elevation-dialog: 0 24px 48px -12px rgba(0, 0, 0, 0.55), 0 4px 12px -2px rgba(0, 0, 0, 0.35);
+  --ds-elevation-raised: 0 8px 24px -4px rgba(0, 0, 0, 0.4), 0 2px 6px -2px rgba(0, 0, 0, 0.28);
 }

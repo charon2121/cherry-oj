@@ -4,12 +4,13 @@ import { useEffect } from 'react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { SourceCopyButton } from '@/components/ui/copy-button';
-import { DataList } from '@/components/ui/data-list';
+import { DataList, dataListRowLinkClasses } from '@/components/ui/data-list';
 import { SelectField } from '@/components/ui/select';
 import { TextEditor } from '@/components/ui/text-editor';
 import { sessionQueryOptions } from '@/features/auth/api/session-query';
 import { editorSyntax, languageName } from '@/features/languages/language';
 import type { ProblemDetail, SubmissionSourceData } from '@/generated/api';
+import { cn } from '@/lib/utils';
 import { verdictLabels } from '@/lib/verdict-labels';
 
 import {
@@ -180,38 +181,64 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
         </div>
       ) : null}
       {shown ? (
-        <>
+        <div className="px-3 pb-3">
           <DataList
             caption="本题提交记录"
-            align="packed"
+            align="spread"
+            rowInteractive
             rows={shown.items}
             rowKey={(row) => row.id}
-            renderRow={(row) => ({
-              title: (
-                <button
-                  type="button"
-                  className="focus-visible:outline-ring block w-full py-2 text-left outline-none focus-visible:outline-1 focus-visible:forced-colors:outline-solid"
-                  onClick={() => change({ historySubmissionId: row.id })}
-                >
-                  <span className="text-foreground block">
-                    {row.verdict
-                      ? `${row.verdict} · ${verdictLabels[row.verdict]}`
-                      : row.status === 'JUDGING'
-                        ? '正在判题'
-                        : '等待判题'}
+            renderRow={(row) => {
+              const label = row.verdict
+                ? `${row.verdict} · ${verdictLabels[row.verdict]}`
+                : row.status === 'JUDGING'
+                  ? '正在判题'
+                  : '等待判题';
+              const lang = languageName(props.problem, row.languageId);
+              const time = new Date(row.createdAt).toLocaleTimeString('zh-CN', {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+              return {
+                leading: (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'block size-2 shrink-0',
+                      row.status !== 'DONE'
+                        ? 'rounded-circle border-warning border bg-transparent'
+                        : row.verdict === 'AC'
+                          ? 'rounded-circle bg-success'
+                          : 'bg-danger rounded-[2px]',
+                    )}
+                  />
+                ),
+                id: row.id.slice(-8),
+                title: (
+                  <button
+                    type="button"
+                    className={cn(
+                      dataListRowLinkClasses,
+                      'font-body cursor-pointer bg-transparent p-0 text-left',
+                    )}
+                    onClick={() => change({ historySubmissionId: row.id })}
+                  >
+                    <span>{label}</span>
+                  </button>
+                ),
+                trailing: (
+                  <span className="font-mono">
+                    {lang} · {time}
                   </span>
-                  <span className="text-fg-meta block font-mono text-xs whitespace-normal">
-                    {row.id.slice(-8)} · {languageName(props.problem, row.languageId)} ·{' '}
-                    {new Date(row.createdAt).toLocaleString()}
-                  </span>
-                </button>
-              ),
-            })}
+                ),
+                meta: <span className="font-mono">{lang}</span>,
+              };
+            }}
           />
           {shown.pagination.totalPages > 1 ? (
             <nav
               aria-label="提交记录分页"
-              className="text-fg-meta flex flex-wrap items-center gap-3 px-4 py-3 text-xs"
+              className="text-fg-meta flex flex-wrap items-center gap-3 px-1 pt-3 text-xs"
             >
               <Button
                 size="sm"
@@ -237,7 +264,7 @@ function OwnedHistory({ userId, ...props }: Props & { userId: string }) {
               </Button>
             </nav>
           ) : null}
-        </>
+        </div>
       ) : null}
     </div>
   );

@@ -288,29 +288,45 @@ export function SubmissionPanel({
 }
 
 export function SubmissionResult({ value }: { value: SubmissionData }) {
+  const finished = value.status === 'DONE';
+  const accepted = finished && value.verdict === 'AC';
   return (
     <section aria-label="本次提交结果" className="space-y-2">
-      {/* 与运行结果同一种总结：判定写代码加名称（design-system.md §5），通过是绿色，其余判定是红色，
-          判题中用次级文字。 */}
-      <p
-        className={cn(
-          'font-heading text-sm',
-          value.status !== 'DONE'
-            ? 'text-fg-2'
-            : value.verdict === 'AC'
-              ? 'text-success'
-              : 'text-danger',
-        )}
-      >
-        {value.status === 'DONE' && value.verdict
-          ? `${value.verdict} · ${verdictLabels[value.verdict]}`
-          : value.status === 'JUDGING'
-            ? value.executedTestcaseCount !== undefined && value.testcaseCount !== undefined
-              ? `正在判题 ${value.executedTestcaseCount} / ${value.testcaseCount}`
-              : '正在判题'
-            : '等待判题'}
-      </p>
+      {/* 判定同时展示缩写与中文名称，并配形状点与有序生命周期阶段，不只靠颜色传达。 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          aria-hidden="true"
+          className={cn(
+            'block size-2 shrink-0',
+            !finished
+              ? 'rounded-circle border-warning border bg-transparent'
+              : accepted
+                ? 'rounded-circle bg-success'
+                : 'bg-danger rounded-[2px]',
+          )}
+        />
+        <p
+          className={cn(
+            'font-heading text-sm',
+            !finished ? 'text-fg-2' : accepted ? 'text-success' : 'text-danger',
+          )}
+        >
+          {finished && value.verdict
+            ? `${value.verdict} · ${verdictLabels[value.verdict]}`
+            : value.status === 'JUDGING'
+              ? value.executedTestcaseCount !== undefined && value.testcaseCount !== undefined
+                ? `正在判题 ${value.executedTestcaseCount} / ${value.testcaseCount}`
+                : '正在判题'
+              : '等待判题'}
+        </p>
+        {!finished ? (
+          <span className="text-fg-meta text-xs">
+            {value.status === 'PENDING' ? '排队中 → 判题 → 完成' : '排队 → 判题中 → 完成'}
+          </span>
+        ) : null}
+      </div>
       <div className="text-fg-meta flex flex-wrap gap-x-3 gap-y-1 font-mono text-xs">
+        <span>#{value.id.slice(-8)}</span>
         {value.passedTestcaseCount !== undefined && value.testcaseCount !== undefined ? (
           <span>
             通过 {value.passedTestcaseCount} / {value.testcaseCount}
@@ -320,7 +336,7 @@ export function SubmissionResult({ value }: { value: SubmissionData }) {
         {value.memoryBytes !== undefined ? <span>内存 {value.memoryBytes / 1024} KiB</span> : null}
       </div>
       {value.message && (value.verdict === 'CE' || value.verdict === 'SE') ? (
-        <pre className="max-h-40 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
+        <pre className="border-border bg-surface-subtle max-h-40 overflow-auto rounded-lg border p-3 font-mono text-xs break-words whitespace-pre-wrap">
           {value.message}
         </pre>
       ) : null}

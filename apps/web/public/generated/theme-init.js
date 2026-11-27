@@ -4,11 +4,11 @@
   'use strict';
 
   const themeColorSchemes = Object.freeze({
-    'cherry-black': 'dark',
     'pure-white': 'light',
+    'cherry-black': 'dark',
   });
-  const defaultTheme = 'cherry-black';
-  const fallbackTheme = 'cherry-black';
+  const defaultTheme = 'pure-white';
+  const fallbackTheme = 'pure-white';
   const storageKey = 'cherry-oj.theme';
   const root = document.documentElement;
   let storedTheme = null;

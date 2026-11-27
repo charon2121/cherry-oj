@@ -62,12 +62,10 @@ const stateAppearances: Record<AsyncStateVariant, AsyncStateAppearance> = {
   },
 };
 
-// 状态不装进框里（linear.app 的空状态：居中的图标、15px 标题、13px 灰色说明与按钮，没有边框和底色）。
-// 错误靠图标颜色与文字表达，不靠整块红底。
 const sizeClassNames: Record<AsyncStateSize, string> = {
   inline: 'py-3',
-  panel: 'p-6',
-  page: 'min-h-64 justify-center px-4 py-12 text-center',
+  panel: 'p-8 text-center',
+  page: 'border-border bg-panel shadow-subtle min-h-64 justify-center rounded-xl border px-6 py-12 text-center',
 };
 
 export function AsyncState(props: AsyncStateProps) {
@@ -114,16 +112,31 @@ export function AsyncState(props: AsyncStateProps) {
         {...settledAnnouncementProps}
         {...restProps}
       >
-        <StateIcon
-          data-slot="async-state-icon"
-          className={cn(
-            size === 'inline' ? 'size-4 shrink-0' : 'size-6 shrink-0',
-            retrying
-              ? 'text-info animate-spin motion-reduce:animate-none'
-              : appearance.iconClassName,
-          )}
-          aria-hidden="true"
-        />
+        {size === 'inline' ? (
+          <StateIcon
+            data-slot="async-state-icon"
+            className={cn(
+              'size-4 shrink-0',
+              retrying
+                ? 'text-info animate-spin motion-reduce:animate-none'
+                : appearance.iconClassName,
+            )}
+            aria-hidden="true"
+          />
+        ) : (
+          <span className="border-border bg-surface-subtle flex size-11 shrink-0 items-center justify-center rounded-xl border">
+            <StateIcon
+              data-slot="async-state-icon"
+              className={cn(
+                'size-5 shrink-0',
+                retrying
+                  ? 'text-info animate-spin motion-reduce:animate-none'
+                  : appearance.iconClassName,
+              )}
+              aria-hidden="true"
+            />
+          </span>
+        )}
         <div className={cn('min-w-0', size !== 'inline' && 'text-center')}>
           <p
             className={cn(

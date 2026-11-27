@@ -21,33 +21,31 @@ type NoticeAppearance = Readonly<{
   className: string;
 }>;
 
-// 官方 alert 只有 default / destructive 两个变体；OJ 的五类状态语义按 design-system.md §5
-// 在其之上扩展，用图标、业务标题与读屏状态名表达语义。
 const noticeAppearances: Record<InlineNoticeVariant, NoticeAppearance> = {
   success: {
     icon: CircleCheckBig,
     label: '成功',
-    className: 'text-success',
+    className: 'border-border bg-success-soft text-success',
   },
   warning: {
     icon: TriangleAlert,
     label: '警告',
-    className: 'text-warning',
+    className: 'border-border bg-warning-soft text-warning',
   },
   danger: {
     icon: CircleAlert,
     label: '错误',
-    className: 'text-danger',
+    className: 'border-border bg-danger-soft text-danger',
   },
   info: {
     icon: Info,
     label: '信息',
-    className: 'text-info',
+    className: 'border-border bg-info-soft text-info',
   },
   special: {
     icon: Sparkles,
     label: '特别提示',
-    className: 'text-special',
+    className: 'border-border bg-special-soft text-special',
   },
 };
 
@@ -96,7 +94,7 @@ export function InlineNotice({
       data-slot="inline-notice"
       data-variant={variant}
       className={cn(
-        'gap-x-3 rounded-none border-0 bg-transparent p-0 has-data-[slot=alert-action]:pr-0',
+        'gap-x-3 rounded-xl border px-4 py-3 has-data-[slot=alert-action]:pr-4',
         appearance.className,
         className,
       )}

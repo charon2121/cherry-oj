@@ -1,9 +1,8 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-// 应用外壳顶栏只有一条（linear.app 的详情页也只有一条：面包屑在左，页面操作在右）。
-// 页面通过这里把"当前对象名"追加到面包屑末尾、把页面级操作放到顶栏右侧，
-// 而不是在主内容里再叠一条自己的顶栏。
+// 应用外壳顶栏插槽：页面通过这里把当前对象名追加到面包屑末尾，并把页面级操作渲染到顶栏右侧，
+// 避免在主内容区重复堆叠第二条顶栏。
 type HeaderSlotValue = Readonly<{
   actionsTarget: HTMLElement | null;
   pageCrumb: string | null;

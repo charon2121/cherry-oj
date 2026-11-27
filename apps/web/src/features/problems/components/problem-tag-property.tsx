@@ -12,8 +12,7 @@ type ProblemTagPropertyProps = Readonly<{
   disabled?: boolean;
 }>;
 
-// 属性栏里的标签（linear.app 的 Labels）：已有标签是小胶囊，悬停出现删除；"添加标签"点开一个
-// 只有输入框的浮层，Enter 或逗号添加，可以连续添加。
+// 题目属性卡片中的标签选择器：已有标签以带框小徽章展示并支持一键移除；点击"添加标签"在弹出框内连续回车录入。
 export function ProblemTagProperty({ value, onChange, disabled = false }: ProblemTagPropertyProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState('');
@@ -50,21 +49,21 @@ export function ProblemTagProperty({ value, onChange, disabled = false }: Proble
   };
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {value.map((tag) => (
         <span
           key={tag}
-          className="text-fg-2 inline-flex min-h-6 max-w-full min-w-0 items-center gap-1 px-1.5 text-xs"
+          className="border-border bg-surface-subtle text-fg-2 inline-flex min-h-6 max-w-full min-w-0 items-center gap-1 rounded-md border px-2 py-0.5 text-xs"
         >
           <span className="min-w-0 wrap-anywhere">{tag}</span>
           {disabled ? null : (
             <button
               type="button"
               aria-label={`删除标签 ${tag}`}
-              className="text-fg-meta hover:text-foreground focus-visible:outline-ring inline-flex size-4 shrink-0 items-center justify-center rounded-full focus-visible:outline-1"
+              className="text-fg-meta hover:text-foreground focus-visible:outline-ring inline-flex size-4 shrink-0 items-center justify-center rounded-sm focus-visible:outline-1"
               onClick={() => onChange(value.filter((item) => item !== tag))}
             >
-              <X className="size-3.5" aria-hidden="true" />
+              <X className="size-3" aria-hidden="true" />
             </button>
           )}
         </span>
@@ -94,7 +93,6 @@ export function ProblemTagProperty({ value, onChange, disabled = false }: Proble
           >
             {value.length === 0 ? '添加标签' : <span className="sr-only">添加标签</span>}
           </PopoverTrigger>
-          {/* 浮层打开即可输入（linear.app 的属性浮层第一行就是输入框）。 */}
           <PopoverContent align="start" className="w-64 gap-0 p-0" initialFocus={inputRef}>
             <input
               ref={inputRef}

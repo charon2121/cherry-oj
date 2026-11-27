@@ -4,19 +4,17 @@ import { cn } from '@/lib/utils';
 
 import { Pill } from './pill';
 
-// 标题、查询和主操作共享一行。筛选项通过留白另起一行，保持即时生效。
+// 列表页顶部工具条：主标题、计数、检索框与主操作位于第一行，下拉/分段筛选位于第二行；
+// 不提供标题时收敛为单行（左侧视图切换，右侧搜索与主操作）。
 type ToolbarProps = Readonly<{
   actions?: ReactNode;
   children?: ReactNode;
   className?: string;
-  /** 计数用准确数字（"1,284 道题"），不要写"很多"。 */
+  /** 计数用准确数字（"本批 20 道题"），不要写模糊词。 */
   count?: ReactNode;
   filters?: ReactNode;
   search?: ReactNode;
-  /**
-   * 不给标题时工具条只有一行：左边视图切换（filters），右边搜索与主操作——linear.app 的
-   * 列表页就是这样，页面名称已经在外壳顶栏的面包屑里，工具条不再重复。
-   */
+  /** 页面名称已在应用顶栏面包屑中展示时可省略。 */
   title?: ReactNode;
   /** 标题层级由页面决定；工具条只负责它的视觉位置。 */
   titleId?: string;
@@ -38,7 +36,7 @@ function Toolbar({
     return (
       <div
         data-slot="toolbar"
-        className={cn('min-h-header flex min-w-0 flex-wrap items-center gap-2 px-4', className)}
+        className={cn('mb-4 flex min-h-9 min-w-0 flex-wrap items-center gap-2.5', className)}
       >
         {filters}
         <div className="flex-1" />
@@ -50,18 +48,25 @@ function Toolbar({
   }
 
   return (
-    <div data-slot="toolbar" className={cn('min-w-0', className)}>
-      <div className="min-h-header flex min-w-0 flex-wrap items-center gap-3 px-4">
-        <span id={titleId} className="font-display font-body text-foreground text-sm">
+    <div data-slot="toolbar" className={cn('mb-4 flex min-w-0 flex-col gap-3', className)}>
+      <div className="flex min-h-9 min-w-0 flex-wrap items-center gap-3">
+        <span
+          id={titleId}
+          className="font-display font-heading text-foreground tracking-heading text-xl"
+        >
           {title}
         </span>
-        {count === undefined ? null : <span className="text-fg-meta text-cap">{count}</span>}
+        {count === undefined ? null : (
+          <span className="bg-surface-subtle text-fg-meta rounded-full px-2.5 py-0.5 text-xs tabular-nums">
+            {count}
+          </span>
+        )}
         <div className="flex-1" />
         {search}
         {actions}
       </div>
       {hasSecondRow ? (
-        <div className="py-2x flex min-w-0 flex-wrap items-center gap-2 px-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {filters}
           {children === undefined ? null : (
             <>

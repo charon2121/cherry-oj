@@ -14,13 +14,13 @@ import { Textarea } from './textarea';
 import { Eyebrow, Heading, Text } from './typography';
 
 const meta = {
-  title: 'Foundation/Source recipes',
+  title: 'Foundation/Component specimen',
   parameters: {
     layout: 'fullscreen',
     docs: {
       description: {
         component:
-          '冻结来源中的 14 个核心配方。通过工具栏切换 Cherry Black 与 Pure White；两者共享结构、密度和状态层级。',
+          'Cherry OJ 设计系统核心原语与卡片样本。支持在 Pure White 与 Cherry Black 双主题之间切换，共享结构、间距与交互语义。',
       },
     },
   },
@@ -52,9 +52,9 @@ export const CompleteSpecimen: Story = {
         <Stack gap={12}>
           <Stack gap={3}>
             <Eyebrow tone="accent">Cherry OJ design system</Eyebrow>
-            <Heading level={2}>克制、紧凑、内容优先</Heading>
+            <Heading level={2}>明快、清晰、内容优先</Heading>
             <Text size="lg" tone="muted" className="max-w-[760px]">
-              来源配方以细边界、轻透明层级和精确排版组织界面；浅色主题只转换语义颜色，不改变布局和交互。
+              浅色优先的冷瓷灰画布配合纯白卡片、圆角矩形控件与语义状态徽章；深色主题共享同一套结构与语义契约。
             </Text>
           </Stack>
 

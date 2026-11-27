@@ -14,9 +14,7 @@ import { useRedirectWhenSignedOut } from './use-redirect-when-signed-out';
 
 const updatedAtFormat = new Intl.DateTimeFormat('zh-CN', { month: 'numeric', day: 'numeric' });
 
-// 构图照题目管理列表（ListPageTemplate + Toolbar + DataList）。语言名只有几个字、条目很少，
-// 按 PROMPT「列表页（行只有几个短字段）」用 column + packed。点一行进入这门语言的前缀编辑页
-// （linear.app Settings › Templates：列表一行一项，点开是单独的编辑页）。
+// 平台语言列表：使用卡片化 DataList 展示已配置语言，点击条目进入对应语言的前缀代码编辑页。
 export function AdminLanguageListPage() {
   const languages = useQuery({
     queryKey: adminLanguageKeys.all,

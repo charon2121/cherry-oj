@@ -4,6 +4,7 @@ import { Check, Copy, Ellipsis, KeyRound, Plus, UserCheck, UserX } from 'lucide-
 import { type FormEvent, useEffect, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -45,7 +46,7 @@ import {
 const PAGE_SIZE = 20;
 
 const columns =
-  'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,22rem)_6rem_6rem_2rem]';
+  'grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:grid-cols-[minmax(0,1fr)_7rem_8rem_2.25rem]';
 
 function roleLabel(role: UserAccountData['role']) {
   return role === 'ADMIN' ? '管理员' : '用户';
@@ -192,10 +193,78 @@ function UserRowActions({
   );
 }
 
+type PendingUserAction =
+  | Readonly<{ kind: 'status'; user: UserAccountData; nextStatus: 'ACTIVE' | 'DISABLED' }>
+  | Readonly<{ kind: 'reset'; user: UserAccountData }>;
+
+function UserActionConfirmDialog({
+  action,
+  loading,
+  onClose,
+  onConfirm,
+}: {
+  action: PendingUserAction | undefined;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isDisable = action?.kind === 'status' && action.nextStatus === 'DISABLED';
+  const isReset = action?.kind === 'reset';
+  const destructive = isDisable || isReset;
+  const title =
+    action === undefined
+      ? ''
+      : action.kind === 'reset'
+        ? `重置 ${action.user.username} 的密码`
+        : isDisable
+          ? `停用账号 ${action.user.username}`
+          : `恢复账号 ${action.user.username}`;
+  const description =
+    action === undefined
+      ? ''
+      : action.kind === 'reset'
+        ? '将生成新的一次性临时密码，并立即结束该账号的全部已登录会话。'
+        : isDisable
+          ? '停用后该账号将无法登录，并立即结束其全部已登录会话。'
+          : '恢复后该账号可重新登录；此前已失效的会话不会自动恢复。';
+  const confirmLabel =
+    action === undefined
+      ? '确认'
+      : action.kind === 'reset'
+        ? '确认重置'
+        : isDisable
+          ? '确认停用'
+          : '确认恢复';
+
+  return (
+    <Dialog open={action !== undefined} onOpenChange={(open) => !open && !loading && onClose()}>
+      <DialogContent size="sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose render={<Button variant="secondary" />} disabled={loading}>
+            取消
+          </DialogClose>
+          <Button
+            variant={destructive ? 'danger' : 'primary'}
+            loading={loading}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function AdminUsersPage({ page }: { page: number }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [temporaryPassword, setTemporaryPassword] = useState<string>();
+  const [pendingAction, setPendingAction] = useState<PendingUserAction>();
   const users = useQuery({
     queryKey: adminUserKeys.list(page, PAGE_SIZE),
     queryFn: ({ signal }) => listUsers(page, PAGE_SIZE, signal),
@@ -217,15 +286,21 @@ export function AdminUsersPage({ page }: { page: number }) {
       user: UserAccountData;
       nextStatus: 'ACTIVE' | 'DISABLED';
     }) => updateUserStatus(user.id, { status: nextStatus, rowVersion: user.rowVersion }),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      setPendingAction(undefined);
+      await refresh();
+    },
+    onError: () => setPendingAction(undefined),
   });
   const reset = useMutation({
     mutationFn: (user: UserAccountData) =>
       resetUserPassword(user.id, { rowVersion: user.rowVersion }),
     onSuccess: async (result) => {
+      setPendingAction(undefined);
       setTemporaryPassword(result.temporaryPassword);
       await refresh();
     },
+    onError: () => setPendingAction(undefined),
   });
   const mutationError = create.error ?? status.error ?? reset.error;
   const unauthenticated = [users.error, mutationError].some(
@@ -244,15 +319,22 @@ export function AdminUsersPage({ page }: { page: number }) {
   ].filter((group) => group.rows.length > 0);
 
   const toggleStatus = (user: UserAccountData) => {
-    const action = user.status === 'ACTIVE' ? '停用' : '恢复';
-    const consequence = user.status === 'ACTIVE' ? '这将结束其全部登录。' : '旧登录不会恢复。';
-    if (window.confirm(`确认${action}用户 ${user.username}？${consequence}`)) {
-      status.mutate({ user, nextStatus: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE' });
-    }
+    setPendingAction({
+      kind: 'status',
+      user,
+      nextStatus: user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE',
+    });
   };
   const resetPassword = (user: UserAccountData) => {
-    if (window.confirm(`确认重置用户 ${user.username} 的密码并结束其全部登录？`))
-      reset.mutate(user);
+    setPendingAction({ kind: 'reset', user });
+  };
+  const confirmPendingAction = () => {
+    if (pendingAction === undefined) return;
+    if (pendingAction.kind === 'reset') {
+      reset.mutate(pendingAction.user);
+      return;
+    }
+    status.mutate({ user: pendingAction.user, nextStatus: pendingAction.nextStatus });
   };
 
   const state = users.isPending ? (
@@ -316,8 +398,7 @@ export function AdminUsersPage({ page }: { page: number }) {
       toolbar={
         <>
           <Toolbar
-            className="mx-1 sm:mx-2 lg:mx-4"
-            filters={<span className="text-fg-2 font-body text-sm md:hidden">账号</span>}
+            filters={<span className="text-foreground font-heading text-lg md:hidden">账号</span>}
             actions={
               <CreateUserDialog
                 creating={create.isPending}
@@ -328,7 +409,7 @@ export function AdminUsersPage({ page }: { page: number }) {
             }
           />
           {mutationError ? (
-            <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-2 mt-2">
+            <div className="mb-4">
               <ErrorNotice message={authErrorMessage(mutationError)} />
             </div>
           ) : null}
@@ -336,15 +417,20 @@ export function AdminUsersPage({ page }: { page: number }) {
             password={temporaryPassword}
             onClose={() => setTemporaryPassword(undefined)}
           />
+          <UserActionConfirmDialog
+            action={pendingAction}
+            loading={status.isPending || reset.isPending}
+            onClose={() => setPendingAction(undefined)}
+            onConfirm={confirmPendingAction}
+          />
         </>
       }
     >
-      <div
-        role="table"
-        aria-label="账号"
-        className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-2 min-w-0"
-      >
-        <div role="row" className={`${columns} text-fg-meta text-cap min-h-8 max-sm:hidden`}>
+      <div role="table" aria-label="账号" className="min-w-0 space-y-4">
+        <div
+          role="row"
+          className={`${columns} text-fg-meta text-cap min-h-8 px-4 font-medium max-sm:hidden`}
+        >
           <span role="columnheader">用户名</span>
           <span role="columnheader">角色</span>
           <span role="columnheader">首次改密</span>
@@ -353,42 +439,61 @@ export function AdminUsersPage({ page }: { page: number }) {
           </span>
         </div>
         {groups.map((group) => (
-          <div role="rowgroup" key={group.key} className="mt-4">
-            <div role="row" className="text-fg-2 font-body mb-1 text-sm">
+          <div
+            role="rowgroup"
+            key={group.key}
+            className="border-border bg-panel shadow-subtle overflow-hidden rounded-xl border"
+          >
+            <div
+              role="row"
+              className="bg-surface-subtle border-border-soft text-fg-2 font-heading flex min-h-10 items-center gap-2 border-b px-4 text-xs"
+            >
               <span role="cell">{group.label}</span>
-            </div>
-            {group.rows.map((user) => (
-              <div
-                role="row"
-                key={user.id}
-                className={`${columns} hover:bg-surface-translucent-hover duration-fast min-h-11 rounded-lg py-1 transition-colors motion-reduce:transition-none`}
+              <span
+                aria-hidden="true"
+                className="bg-panel text-fg-meta shadow-ring rounded-full px-2 py-0.5 text-xs font-normal tabular-nums"
               >
-                <span role="cell" className="min-w-0">
-                  <span className="text-foreground font-body block text-sm wrap-anywhere">
-                    {user.username}
+                {group.rows.length}
+              </span>
+            </div>
+            <div className="divide-border-soft divide-y">
+              {group.rows.map((user) => (
+                <div
+                  role="row"
+                  key={user.id}
+                  className={`${columns} hover:bg-surface-hover duration-fast min-h-12 px-4 py-2 transition-colors motion-reduce:transition-none`}
+                >
+                  <span role="cell" className="min-w-0">
+                    <span className="text-foreground font-body block text-sm wrap-anywhere">
+                      {user.username}
+                    </span>
+                    <span className="text-fg-meta text-cap mt-0.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+                      <span>{roleLabel(user.role)}</span>
+                      {user.passwordChangeRequired ? <span>· 待首次改密</span> : null}
+                    </span>
+                    <span className="sr-only">{group.label}</span>
                   </span>
-                  <span className="text-fg-meta text-cap block sm:hidden">
-                    {roleLabel(user.role)}
-                    {user.passwordChangeRequired ? <span> · 待首次改密</span> : null}
+                  <span role="cell" className="max-sm:hidden">
+                    <Badge variant={user.role === 'ADMIN' ? 'brand' : 'neutral'}>
+                      {roleLabel(user.role)}
+                    </Badge>
                   </span>
-                  <span className="sr-only">{group.label}</span>
-                </span>
-                <span role="cell" className="text-fg-meta text-cap max-sm:hidden">
-                  {roleLabel(user.role)}
-                </span>
-                <span role="cell" className="text-fg-meta text-cap max-sm:hidden">
-                  {user.passwordChangeRequired ? '待首次改密' : null}
-                </span>
-                <span role="cell" className="flex justify-end">
-                  <UserRowActions
-                    user={user}
-                    busy={status.isPending || reset.isPending}
-                    onReset={() => resetPassword(user)}
-                    onToggleStatus={() => toggleStatus(user)}
-                  />
-                </span>
-              </div>
-            ))}
+                  <span role="cell" className="max-sm:hidden">
+                    {user.passwordChangeRequired ? (
+                      <Badge variant="warning">待首次改密</Badge>
+                    ) : null}
+                  </span>
+                  <span role="cell" className="flex justify-end">
+                    <UserRowActions
+                      user={user}
+                      busy={status.isPending || reset.isPending}
+                      onReset={() => resetPassword(user)}
+                      onToggleStatus={() => toggleStatus(user)}
+                    />
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>

@@ -6,12 +6,8 @@ import { cn } from '@/lib/utils';
 
 import { Field, FieldDescription, FieldLabel } from './field';
 
-// 骨架取自 shadcn base-nova 官方 select（Base UI Select primitive）：保留官方的九个子组件、
-// Portal/Positioner/Popup 结构、data-slot 命名与开合动画。相对官方改三类内容：
-//   1. 官方用 shadcn 站点内部的 IconPlaceholder 做图标占位，仓库直接用 lucide 图标；
-//   2. 去掉 `dark:` 分支（design-system.md §4 禁止 theme 分支）；
-//   3. `ring-3 ring-ring/50`、`opacity-50`、`ring-foreground/10` 这类透明度叠加换成语义 token
-//      （§4 禁止透明度承担必要对比，§7 要求焦点是 2px outline + offset）。
+// 基于 Base UI Select 封装的下拉选择器：保留完整的 Portal/Positioner/Popup 结构、
+// 无障碍语义与键盘导航，统一使用设计系统的语义表面、实线描边与焦点轮廓。
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
 const SelectValue = SelectPrimitive.Value;
@@ -27,16 +23,16 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        // linear.app 设置页的下拉按钮：无边、比面板亮一档的底、圆角 8px、13px，高 30–32px。
-        'text-fg-2 data-placeholder:text-muted-foreground bg-surface-raised shadow-ring duration-fast hover:bg-surface-hover focus-visible:outline-ring disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:outline-danger-border py-1x flex w-full min-w-0 items-center justify-between gap-1.5 rounded-lg pr-2 pl-[10px] text-left text-sm transition-[background-color] outline-none select-none focus-visible:outline-1 focus-visible:outline-offset-[-1px] disabled:cursor-not-allowed aria-invalid:outline-1 data-[size=default]:min-h-8 data-[size=sm]:min-h-7 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=size-])]:size-4',
+        'text-foreground data-placeholder:text-muted-foreground bg-surface duration-fast hover:bg-surface-hover focus-visible:outline-ring disabled:bg-surface-translucent disabled:text-fg-disabled aria-invalid:outline-danger-border flex min-w-0 items-center justify-between shadow-xs transition-[background-color,color,border-color,box-shadow] outline-none select-none focus-visible:outline-1 focus-visible:outline-offset-[-1px] disabled:cursor-not-allowed aria-invalid:outline-1 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
+        size === 'default'
+          ? 'border-border-solid min-h-9 w-full gap-2 rounded-lg border pr-2.5 pl-3 text-left text-sm [&_svg:not([class*=size-])]:size-4'
+          : 'border-border-solid font-body h-8 w-auto gap-1.5 rounded-lg border pr-2 pl-2.5 text-left text-xs [&_svg:not([class*=size-])]:size-3.5',
         className,
       )}
       {...props}
     >
       {children}
-      <SelectPrimitive.Icon
-        render={<ChevronDown className="text-muted-foreground pointer-events-none size-4" />}
-      />
+      <SelectPrimitive.Icon render={<ChevronDown className="text-fg-meta pointer-events-none" />} />
     </SelectPrimitive.Trigger>
   );
 }
@@ -45,10 +41,10 @@ function SelectContent({
   className,
   children,
   side = 'bottom',
-  sideOffset = 4,
+  sideOffset = 6,
   align = 'center',
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
@@ -69,7 +65,7 @@ function SelectContent({
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
           className={cn(
-            'text-foreground border-border bg-surface-raised shadow-dialog duration-fast ease-standard border-hairline relative isolate z-50 max-h-(--available-height) w-(--anchor-width) min-w-36 overflow-x-hidden overflow-y-auto rounded-xl p-1 transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            'text-foreground border-border bg-surface-raised shadow-dialog duration-fast ease-standard relative isolate z-50 max-h-(--available-height) min-w-(--anchor-width) overflow-x-hidden overflow-y-auto rounded-xl border p-1 transition-[opacity,transform] data-[ending-style]:scale-98 data-[ending-style]:opacity-0 data-[starting-style]:scale-98 data-[starting-style]:opacity-0 motion-reduce:transition-none',
             className,
           )}
           {...props}
@@ -220,7 +216,6 @@ function SelectField({
           id={triggerId}
           size={compact ? 'sm' : 'default'}
           aria-label={compact ? label : undefined}
-          className={compact ? 'text-fg-2 text-cap w-auto min-w-0 gap-1 py-1 pr-1 pl-2' : undefined}
           {...(description === undefined ? {} : { 'aria-describedby': descriptionId })}
         >
           <SelectValue placeholder={placeholder} />

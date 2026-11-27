@@ -127,7 +127,7 @@ export function CodeEditor({
           </Button>
         </div>
       ) : null}
-      {/* 键盘提示只给读屏：看得见的界面不放功能说明（linear.app 的编辑区没有说明行）。 */}
+      {/* 键盘操作提示仅供屏幕阅读器读取，保持编辑区界面干净。 */}
       <p className="sr-only">Tab 移出编辑器 · Ctrl/Cmd + ] 缩进 · Ctrl/Cmd + F 查找</p>
     </div>
   );

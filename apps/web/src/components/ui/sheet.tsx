@@ -56,8 +56,10 @@ function SheetContent({
           data-slot="sheet-content"
           data-side={side}
           className={cn(
-            'text-sidebar-foreground border-border bg-surface-raised shadow-dialog duration-fast ease-standard pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--space-8)))] flex-col border-r transition-opacity outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
-            side === 'left' ? 'left-0' : 'right-0 border-r-0 border-l',
+            'text-sidebar-foreground border-border bg-surface-raised shadow-dialog duration-base ease-standard pointer-events-auto fixed inset-y-0 flex w-[min(18rem,calc(100vw-var(--space-8)))] flex-col border-r transition-[opacity,transform] outline-none data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 motion-reduce:transition-none',
+            side === 'left'
+              ? 'left-0 data-[ending-style]:-translate-x-4 data-[starting-style]:-translate-x-4'
+              : 'right-0 border-r-0 border-l data-[ending-style]:translate-x-4 data-[starting-style]:translate-x-4',
             className,
           )}
           {...props}
@@ -66,7 +68,7 @@ function SheetContent({
           <SheetPrimitive.Close
             data-slot="sheet-close"
             aria-label={closeLabel}
-            className="text-fg-2 hover:bg-surface-hover focus-visible:outline-ring duration-fast absolute top-3 right-3 inline-flex size-10 items-center justify-center rounded-full transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none"
+            className="text-fg-2 hover:bg-surface-hover focus-visible:outline-ring duration-fast absolute top-3 right-3 inline-flex size-9 items-center justify-center rounded-lg transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none"
           >
             <X className="size-4" aria-hidden="true" />
           </SheetPrimitive.Close>

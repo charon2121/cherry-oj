@@ -19,10 +19,12 @@ import {
   type ThemeStorageListener,
 } from './theme-runtime';
 
-const lightTheme = themeRegistry.find((theme) => theme.colorScheme === 'light');
-if (lightTheme === undefined) throw new Error('The test manifest must contain a light theme.');
-const lightThemeId = lightTheme.id;
-const lightColorScheme = lightTheme.colorScheme;
+const alternateTheme = themeRegistry.find((theme) => theme.id !== defaultThemeId);
+if (alternateTheme === undefined) {
+  throw new Error('The test manifest must contain an alternate theme.');
+}
+const alternateThemeId = alternateTheme.id;
+const alternateColorScheme = alternateTheme.colorScheme;
 
 function createMemoryStorage(initialValue: string | null = null) {
   let value = initialValue;
@@ -65,11 +67,11 @@ describe('theme resolver', () => {
 
 describe('theme DOM and persistence', () => {
   it('updates the selector and its derived color scheme together', () => {
-    const snapshot = applyTheme(document.documentElement, lightThemeId);
+    const snapshot = applyTheme(document.documentElement, alternateThemeId);
 
-    expect(snapshot).toEqual({ themeId: lightThemeId, colorScheme: lightColorScheme });
-    expect(document.documentElement).toHaveAttribute(themeSelectorAttribute, lightThemeId);
-    expect(document.documentElement).toHaveAttribute(colorSchemeAttribute, lightColorScheme);
+    expect(snapshot).toEqual({ themeId: alternateThemeId, colorScheme: alternateColorScheme });
+    expect(document.documentElement).toHaveAttribute(themeSelectorAttribute, alternateThemeId);
+    expect(document.documentElement).toHaveAttribute(colorSchemeAttribute, alternateColorScheme);
   });
 
   it('cleans invalid stored values and falls back safely', () => {
@@ -106,7 +108,7 @@ describe('theme DOM and persistence', () => {
 
 describe('theme controller', () => {
   it('keeps the first-paint DOM theme as its initial snapshot', () => {
-    applyTheme(document.documentElement, lightThemeId);
+    applyTheme(document.documentElement, alternateThemeId);
     const storage = createMemoryStorage(defaultThemeId);
 
     const controller = createThemeController({
@@ -114,7 +116,7 @@ describe('theme controller', () => {
       getStorage: () => storage.storage,
     });
 
-    expect(controller.getSnapshot().themeId).toBe(lightThemeId);
+    expect(controller.getSnapshot().themeId).toBe(alternateThemeId);
   });
 
   it('applies a theme even when persistence fails and reports the failure', () => {
@@ -130,13 +132,13 @@ describe('theme controller', () => {
       getStorage: () => unwritableStorage,
     });
 
-    expect(controller.setTheme(lightThemeId)).toEqual({
-      themeId: lightThemeId,
+    expect(controller.setTheme(alternateThemeId)).toEqual({
+      themeId: alternateThemeId,
       persisted: false,
     });
-    expect(controller.getSnapshot().themeId).toBe(lightThemeId);
-    expect(document.documentElement).toHaveAttribute(themeSelectorAttribute, lightThemeId);
-    expect(document.documentElement).toHaveAttribute(colorSchemeAttribute, lightColorScheme);
+    expect(controller.getSnapshot().themeId).toBe(alternateThemeId);
+    expect(document.documentElement).toHaveAttribute(themeSelectorAttribute, alternateThemeId);
+    expect(document.documentElement).toHaveAttribute(colorSchemeAttribute, alternateColorScheme);
   });
 
   it('persists successful changes', () => {
@@ -146,8 +148,8 @@ describe('theme controller', () => {
       getStorage: () => memory.storage,
     });
 
-    expect(controller.setTheme(lightThemeId).persisted).toBe(true);
-    expect(memory.getValue()).toBe(lightThemeId);
+    expect(controller.setTheme(alternateThemeId).persisted).toBe(true);
+    expect(memory.getValue()).toBe(alternateThemeId);
   });
 
   it('converges on cross-tab changes and cleans unknown values', () => {
@@ -169,8 +171,8 @@ describe('theme controller', () => {
     });
     const stop = controller.start();
 
-    emitStorage({ key: themeStorageKey, newValue: lightThemeId });
-    expect(controller.getSnapshot().themeId).toBe(lightThemeId);
+    emitStorage({ key: themeStorageKey, newValue: alternateThemeId });
+    expect(controller.getSnapshot().themeId).toBe(alternateThemeId);
 
     emitStorage({ key: themeStorageKey, newValue: 'unknown-theme' });
     expect(controller.getSnapshot().themeId).toBe(fallbackThemeId);
@@ -180,7 +182,7 @@ describe('theme controller', () => {
     expect(controller.getSnapshot().themeId).toBe(defaultThemeId);
 
     stop();
-    expect(() => emitStorage({ key: themeStorageKey, newValue: lightThemeId })).toThrow(
+    expect(() => emitStorage({ key: themeStorageKey, newValue: alternateThemeId })).toThrow(
       'Storage listener was not started.',
     );
   });
@@ -207,20 +209,20 @@ describe('theme controller', () => {
 
     emitStorage({
       key: themeStorageKey,
-      newValue: lightThemeId,
+      newValue: alternateThemeId,
       storageArea: sessionMemory.storage,
     });
     expect(controller.getSnapshot().themeId).toBe(defaultThemeId);
 
     emitStorage({
       key: themeStorageKey,
-      newValue: lightThemeId,
+      newValue: alternateThemeId,
       storageArea: localMemory.storage,
     });
-    expect(controller.getSnapshot().themeId).toBe(lightThemeId);
+    expect(controller.getSnapshot().themeId).toBe(alternateThemeId);
 
     emitStorage({ key: null, newValue: null, storageArea: sessionMemory.storage });
-    expect(controller.getSnapshot().themeId).toBe(lightThemeId);
+    expect(controller.getSnapshot().themeId).toBe(alternateThemeId);
   });
 
   it('notifies subscribers only when the resolved theme changes', () => {
@@ -235,8 +237,8 @@ describe('theme controller', () => {
     });
 
     controller.setTheme(defaultThemeId);
-    controller.setTheme(lightThemeId);
-    controller.setTheme(lightThemeId);
+    controller.setTheme(alternateThemeId);
+    controller.setTheme(alternateThemeId);
     unsubscribe();
     controller.setTheme(defaultThemeId);
 

@@ -15,9 +15,8 @@ type CodeBlockEditorProps = Readonly<{
   className?: string;
 }>;
 
-// 可编辑的代码块，样子取自 linear.app 正文里的代码块（docs/design-system/measurements.md「描述编辑器」）：
-// 比面板亮一档的底、0.5px 边、6px 圆角、12px/20px 等宽。只是一块等宽文本——没有行号、语言标签和
-// 复制按钮；需要区分时（样例的输入/输出）顶部放一个小标题。高度随内容增长。
+// 轻量可编辑代码块：带柔和浅底、1px 边框与 8px 圆角，适合样例输入输出、语言前缀与标程编辑，
+// 高度随内容自然增长。
 function CodeBlockEditor({
   caption,
   value,
@@ -32,7 +31,7 @@ function CodeBlockEditor({
     <div
       data-slot="code-block-editor"
       className={cn(
-        'bg-surface border-border border-hairline focus-within:outline-ring flex min-w-0 flex-col rounded-md focus-within:outline-1 focus-within:-outline-offset-1',
+        'bg-surface-subtle border-border focus-within:outline-ring flex min-w-0 flex-col rounded-lg border focus-within:outline-1 focus-within:-outline-offset-1',
         className,
       )}
     >

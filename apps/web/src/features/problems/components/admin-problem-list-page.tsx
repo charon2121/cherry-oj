@@ -4,6 +4,7 @@ import { RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataList, type DataListGroup, dataListRowLinkClasses } from '@/components/ui/data-list';
 import { Cluster } from '@/components/ui/layout';
@@ -20,7 +21,7 @@ import { apiErrorMessage } from '@/lib/api/api-error-message';
 
 import { createProblem, listAdminProblems, problemKeys } from '../api/problems-api';
 import { AdminProblemCreateDialog } from './admin-problem-create-dialog';
-import { DifficultyIcon } from './difficulty-icon';
+import { DifficultyBadge, DifficultyIcon } from './difficulty-icon';
 
 export type AdminProblemSearch = { page: number; q: string; status: 'ALL' | 'ACTIVE' | 'ARCHIVED' };
 
@@ -199,11 +200,14 @@ export function AdminProblemListPage({
           ),
           trailing: (
             <>
-              <span className="w-28 truncate" title={problem.slug}>
+              <span className="w-28 truncate font-mono text-xs" title={problem.slug}>
                 {problem.slug}
               </span>
-              {problem.status === 'ARCHIVED' ? <span>已归档</span> : null}
-              <span>{problem.hasTestData ? '有测试数据' : '没有测试数据'}</span>
+              <DifficultyBadge difficulty={problem.difficulty} />
+              {problem.status === 'ARCHIVED' ? <Badge variant="neutral">已归档</Badge> : null}
+              <Badge variant={problem.hasTestData ? 'success' : 'warning'}>
+                {problem.hasTestData ? '有测试数据' : '没有测试数据'}
+              </Badge>
               <time dateTime={problem.updatedAt} className="w-12 text-right tabular-nums">
                 {updatedAtFormat.format(new Date(problem.updatedAt))}
               </time>

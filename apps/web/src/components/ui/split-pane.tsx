@@ -22,6 +22,8 @@ type SplitPaneProps = Readonly<{
   max?: number;
   /** 记住拖动结果的本机存储键；只是当前浏览器的偏好，读写失败就用默认值。 */
   storageKey?: string;
+  /** `line` 为 1px 细分隔线；`island` 为岛式面板间的可拖拽沟槽。 */
+  variant?: 'line' | 'island';
   className?: string;
 }>;
 
@@ -37,8 +39,7 @@ function readRatio(key: string | undefined, fallback: number, min: number, max: 
   }
 }
 
-// 可拖动的两栏。栏与栏之间是一条 0.5px 分隔线（linear.app 的分栏），线两侧各有一段看不见的抓取区，
-// 悬停或拖动时线加粗提示。分隔条是 role="separator"，可以用方向键、Home/End 调整，不只靠鼠标。
+// 可拖动的双栏布局：分隔条具备完整的 WAI-ARIA window splitter 语义，支持指针拖拽、双击复位与方向键调节。
 function SplitPane({
   orientation,
   first,
@@ -48,12 +49,14 @@ function SplitPane({
   min = 0.25,
   max = 0.75,
   storageKey,
+  variant = 'line',
   className,
 }: SplitPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [ratio, setRatio] = useState(() => readRatio(storageKey, defaultRatio, min, max));
   const [dragging, setDragging] = useState(false);
   const horizontal = orientation === 'horizontal';
+  const island = variant === 'island';
 
   const commit = useCallback(
     (next: number) => {
@@ -88,7 +91,8 @@ function SplitPane({
     event.preventDefault();
   };
 
-  const tracks = `minmax(0, ${ratio}fr) var(--ds-hairline) minmax(0, ${1 - ratio}fr)`;
+  const gutterSize = island ? '0.5rem' : 'var(--ds-hairline)';
+  const tracks = `minmax(0, ${ratio}fr) ${gutterSize} minmax(0, ${1 - ratio}fr)`;
 
   return (
     <div
@@ -105,7 +109,6 @@ function SplitPane({
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- 见上
         tabIndex={0}
         aria-label={label}
-        // 分隔条的方向是那条线本身的方向：左右分栏时是竖线。
         aria-orientation={horizontal ? 'vertical' : 'horizontal'}
         aria-valuemin={Math.round(min * 100)}
         aria-valuemax={Math.round(max * 100)}
@@ -125,22 +128,31 @@ function SplitPane({
         }}
         onDoubleClick={() => commit(defaultRatio)}
         className={cn(
-          'group/split bg-border-soft relative z-10 touch-none outline-none',
-          // 抓取区：线两侧各 4px。
+          'group/split relative z-10 touch-none outline-none',
+          island ? 'flex items-center justify-center bg-transparent' : 'bg-border',
           "after:absolute after:content-['']",
           horizontal
             ? 'cursor-col-resize after:-inset-x-1 after:inset-y-0'
             : 'cursor-row-resize after:inset-x-0 after:-inset-y-1',
         )}
       >
-        {/* 悬停、拖动或键盘聚焦时，线加粗成 2px 提示可以拖。 */}
-        <span
-          aria-hidden="true"
-          className={cn(
-            'bg-border-strong group-data-dragging/split:bg-ring group-focus-visible/split:bg-ring duration-fast absolute opacity-0 transition-opacity group-hover/split:opacity-100 group-focus-visible/split:opacity-100 group-data-dragging/split:opacity-100 motion-reduce:transition-none',
-            horizontal ? 'inset-y-0 -left-px w-0.5' : 'inset-x-0 -top-px h-0.5',
-          )}
-        />
+        {island ? (
+          <span
+            aria-hidden="true"
+            className={cn(
+              'bg-border-strong group-hover/split:bg-ring group-focus-visible/split:bg-ring group-data-dragging/split:bg-ring duration-fast rounded-full transition-colors motion-reduce:transition-none',
+              horizontal ? 'h-8 w-1' : 'h-1 w-8',
+            )}
+          />
+        ) : (
+          <span
+            aria-hidden="true"
+            className={cn(
+              'bg-border-strong group-data-dragging/split:bg-ring group-focus-visible/split:bg-ring duration-fast absolute opacity-0 transition-opacity group-hover/split:opacity-100 group-focus-visible/split:opacity-100 group-data-dragging/split:opacity-100 motion-reduce:transition-none',
+              horizontal ? 'inset-y-0 -left-px w-0.5' : 'inset-x-0 -top-px h-0.5',
+            )}
+          />
+        )}
       </div>
       <div className="flex min-h-0 min-w-0 flex-col">{second}</div>
     </div>

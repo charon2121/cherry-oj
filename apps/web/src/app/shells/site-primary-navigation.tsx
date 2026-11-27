@@ -19,7 +19,9 @@ function SitePrimaryNavigation({
     <nav
       id={id}
       aria-label={variant === 'mobile' ? '移动主导航' : '主导航'}
-      className={cn(variant === 'desktop' ? 'hidden items-center gap-5 sm:flex' : 'grid gap-1 p-3')}
+      className={cn(
+        variant === 'desktop' ? 'hidden items-center gap-1.5 sm:flex' : 'grid gap-1 p-3',
+      )}
     >
       {siteNavigationItems.map((item) => (
         <Link
@@ -33,13 +35,12 @@ function SitePrimaryNavigation({
             'aria-current': 'page',
             className:
               variant === 'mobile'
-                ? 'bg-surface-translucent-selected text-foreground'
-                : 'text-foreground',
+                ? 'bg-brand-soft text-brand font-heading'
+                : 'bg-surface-subtle text-foreground font-heading',
           }}
           className={cn(
-            'font-display focus-visible:outline-ring hover:text-foreground text-cap font-body text-fg-2 duration-fast rounded-xs no-underline transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none',
-            variant === 'mobile' &&
-              'hover:bg-surface-translucent-hover flex min-h-8 w-full items-center px-2 py-1',
+            'font-display focus-visible:outline-ring hover:bg-surface-hover hover:text-foreground font-body text-fg-2 duration-fast rounded-lg px-3 py-1.5 text-sm no-underline transition-colors focus-visible:outline-1 focus-visible:outline-offset-0 motion-reduce:transition-none',
+            variant === 'mobile' && 'flex min-h-9 w-full items-center',
           )}
           onClick={onNavigate}
         >

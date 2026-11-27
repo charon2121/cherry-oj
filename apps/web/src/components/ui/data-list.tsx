@@ -2,44 +2,33 @@ import { type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
-// DataList 是应用工作区的密集列表，构图依据是 linear.app Issues 列表的实测值
-// （docs/design-system/measurements.md）：行 44px、圆角 8px、行间没有分隔线、左右两簇；
-// 分组带 36px、比面板亮一档、圆角 8px。
+// DataList 是结构化业务条目的卡片列表容器：
+//   - 外层采用 1px 边框、圆角卡片与柔和底纹，行间用清晰细分隔线划分；
+//   - 行内分为左簇（图标 / 标识 / 主标题）与右簇（徽章 / 元信息），避免传统表格把空白平均摊给每一列；
+//   - 分组模式下每组独立成卡，顶部带浅底分组标题栏与计数胶囊。
 //
-// 它此前是一个 <table> + 列定义。那是**错误的抽象**：表格会把剩余宽度均分给各列，于是六个字段
-// 摊满整行，中间全是空隙——去掉表头也去不掉表格感，因为表格感来自列均分。参照的一行只有两簇：
-//
-//   [图标] [标识] [标题 ─────────────────────────────────]        [尾部元信息]
-//   └──────── 左簇，gap 9px，标题吃掉剩余宽度 ────────┘        └── 右簇，贴右 ──┘
-//
-// 三条不可协商：
-//   1. 标题是全行最亮的东西（--ds-fg，13px/500），其余一律降到 --ds-fg-meta（标识 13px，
-//      尾部元信息 12px）。
-//   2. 中间的空白是有意的，不是没排满。不要往里塞列。
-//   3. 颜色按屏计量，不按行计量。每行一处饱和色，六行就是六处，密集列表会立刻显廉价。
-//
-// 需要真正的数据表（管理端批量操作、可排序列头）时用 ./table 的 Table 原语，不要把列头加回这里。
+// 需要多列可排序、批量勾选的管理表格时使用 ./table 的 Table 原语。
 
 type DataListStatus = 'done' | 'partial' | 'none';
 
 type DataListItem = Readonly<{
-  /** 行首 16px 图标位：难度、状态、优先级这类有序量放这里，用形状而不是彩色文字承载。 */
+  /** 行首图标或状态位。 */
   leading?: ReactNode;
-  /** 标识。mono、最弱一档灰。 */
+  /** 标识，等宽或次级色。 */
   id?: ReactNode;
-  /** 标题。全行最亮，吃掉所有剩余宽度。 */
+  /** 主标题，全行视觉锚点。 */
   title: ReactNode;
-  /** 右簇。贴右聚拢，内容之间 gap 8px；放不下就先去掉，不要挤压标题。 */
+  /** 右簇，贴右聚拢展示标签、语言或时间等元信息。 */
   trailing?: ReactNode;
-  /** 窄屏折行区：右簇在断点以下隐藏，内容改到这里显示在标题下方。 */
+  /** 窄屏折行区：右簇在断点以下隐藏时改在标题下方展示。 */
   meta?: ReactNode;
 }>;
 
 type DataListGroup<Row> = Readonly<{
   key: string;
-  /** 分组带的标签，例如「未开始」。 */
+  /** 分组标题，例如「私有」或「已公开」。 */
   label: ReactNode;
-  /** 分组计数。参照把它放在标签右侧，用更弱一档灰。 */
+  /** 分组计数。 */
   count?: ReactNode;
   icon?: ReactNode;
   rows: readonly Row[];
@@ -49,16 +38,14 @@ type DataListProps<Row> = Readonly<{
   caption: string;
   className?: string;
   rows?: readonly Row[];
-  /** 分组渲染。给出时代替 rows，每组前渲染一条 36px 的分组带。 */
+  /** 分组渲染。给出时代替 rows，每组渲染为带顶栏的独立卡片。 */
   groups?: readonly DataListGroup<Row>[];
   rowKey: (row: Row) => string;
   renderRow: (row: Row) => DataListItem;
   rowInteractive?: boolean;
   /**
-   * `spread`（默认）把 trailing 推到行的右边缘，适合标题本身很长、能撑满宽度的内容。
-   * `packed` 给标题一个固定宽度，其后的字段因此在各行落在同一个 x 上——**短标题必须用这个**。
-   * 两端对齐会空出整行的一大半（那不是"留白是内容"，是没排好）；而完全紧贴又会让后续字段
-   * 随标题长短参差，比空白更伤扫视。固定标题宽度是这两者之间唯一站得住的解。
+   * `spread`（默认）把 trailing 推到行的右边缘，适合长标题；
+   * `packed` 给标题固定基准宽度，使右侧元信息在各行纵向对齐，同时两端整体自动拉开。
    */
   align?: 'spread' | 'packed';
   'aria-busy'?: boolean | undefined;
@@ -66,20 +53,20 @@ type DataListProps<Row> = Readonly<{
 
 const statusShape: Record<DataListStatus, string> = {
   done: 'rounded-circle bg-success',
-  partial: 'rounded-circle border border-warning bg-transparent',
+  partial: 'rounded-circle border-2 border-warning bg-transparent',
   none: 'rounded-[2px] bg-border-strong',
 };
 
 function DataListStatusDot({ status, label }: { status: DataListStatus; label: string }) {
   return (
     <span className="inline-flex items-center" title={label}>
-      <span aria-hidden="true" className={cn('block size-2 shrink-0', statusShape[status])} />
+      <span aria-hidden="true" className={cn('block size-2.5 shrink-0', statusShape[status])} />
       <span className="sr-only">{label}</span>
     </span>
   );
 }
 
-const gutters = 'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop';
+const rowInnerPadding = 'px-4';
 
 function DataListRow({
   item,
@@ -94,30 +81,29 @@ function DataListRow({
     <li
       data-slot="data-list-row"
       className={cn(
-        'hover:bg-surface-translucent-hover duration-fast ease-standard flex min-h-11 min-w-0 items-center gap-3 rounded-lg transition-colors motion-reduce:transition-none',
-        gutters,
+        'hover:bg-surface-hover duration-fast ease-standard flex min-h-12 min-w-0 items-center justify-between gap-4 py-2.5 transition-colors motion-reduce:transition-none',
+        rowInnerPadding,
         interactive && 'relative',
       )}
     >
-      <div className={cn('flex min-w-0 items-center gap-2', align === 'spread' && 'flex-1')}>
+      <div className={cn('flex min-w-0 items-center gap-2.5', align === 'spread' && 'flex-1')}>
         {item.leading === undefined ? null : (
           <span className="flex size-4 shrink-0 items-center justify-center">{item.leading}</span>
         )}
         {item.id === undefined ? null : (
-          <span className="text-fg-meta shrink-0 truncate text-sm tabular-nums">{item.id}</span>
+          <span className="text-fg-meta shrink-0 truncate font-mono text-xs tabular-nums">
+            {item.id}
+          </span>
         )}
         <span
           className={cn(
             'text-foreground font-body min-w-0 truncate text-sm',
             align === 'spread' && 'flex-1',
-            // 确定宽度，不是 w-full：packed 下父容器是 shrink-to-fit，百分比宽度会解析回
-            // 内容宽度，后续字段就又参差了。窄屏靠 shrink 收缩。
             align === 'packed' && 'w-88 shrink',
           )}
         >
           {item.title}
         </span>
-        {/* 折行区只在右簇被隐藏的断点以下出现，否则同一份信息会在桌面重复两次。 */}
         {item.meta === undefined ? null : (
           <span className="text-fg-meta text-cap flex shrink-0 items-center gap-2 md:hidden">
             {item.meta}
@@ -125,7 +111,7 @@ function DataListRow({
         )}
       </div>
       {item.trailing === undefined ? null : (
-        <div className="text-fg-meta text-cap hidden shrink-0 items-center gap-2 md:flex">
+        <div className="text-fg-meta text-cap hidden shrink-0 items-center gap-2.5 md:flex">
           {item.trailing}
         </div>
       )}
@@ -162,18 +148,31 @@ function DataList<Row>({
       className={cn('min-w-0', groups !== undefined && 'space-y-4', className)}
     >
       {groups === undefined ? (
-        <ul className="min-w-0 px-2">{body(rows ?? [])}</ul>
+        <ul className="border-border bg-panel shadow-subtle divide-border-soft min-w-0 divide-y overflow-hidden rounded-xl border">
+          {body(rows ?? [])}
+        </ul>
       ) : (
         groups.map((group) => (
-          <div key={group.key} className="min-w-0 px-2">
-            <div className={cn('min-h-item flex min-w-0 items-center gap-2 text-sm', gutters)}>
+          <div
+            key={group.key}
+            className="border-border bg-panel shadow-subtle min-w-0 overflow-hidden rounded-xl border"
+          >
+            <div
+              className={cn(
+                'bg-surface-subtle border-border-soft flex min-h-10 min-w-0 items-center gap-2 border-b text-xs',
+                group.rows.length === 0 && 'border-b-0',
+                rowInnerPadding,
+              )}
+            >
               {group.icon}
-              <span className="text-fg-2 font-body">{group.label}</span>
+              <span className="text-fg-2 font-heading">{group.label}</span>
               {group.count === undefined ? null : (
-                <span className="text-fg-meta">{group.count}</span>
+                <span className="bg-panel text-fg-meta shadow-ring rounded-full px-2 py-0.5 text-xs tabular-nums">
+                  {group.count}
+                </span>
               )}
             </div>
-            <ul className="mt-half min-w-0">{body(group.rows)}</ul>
+            <ul className="divide-border-soft min-w-0 divide-y">{body(group.rows)}</ul>
           </div>
         ))
       )}
@@ -182,7 +181,6 @@ function DataList<Row>({
 }
 
 // 加在标题链接上：链接本身是普通链接，命中区借 ::after 扩展到整行。
-// 标题用 --ds-fg（最亮），不是品牌色也不是 fg-2——它是全行的视觉锚点。
 const dataListRowLinkClasses =
   'text-foreground focus-visible:outline-ring rounded-xs no-underline after:absolute after:inset-0 after:content-[""] focus-visible:outline-1 focus-visible:outline-offset-[-1px]';
 

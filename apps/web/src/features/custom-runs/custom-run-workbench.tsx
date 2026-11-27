@@ -235,13 +235,18 @@ export function CustomRunWorkbench({
           onValueChange={(value) => setTab(String(value))}
           className={wide ? 'min-h-0 flex-1' : undefined}
         >
-          <div className="flex shrink-0 flex-wrap items-center gap-x-2">
-            <TabsList aria-label="测试与提交" className={cn('flex-1', !wide && 'px-0')}>
+          <div
+            className={cn(
+              'flex shrink-0 flex-wrap items-center justify-between gap-2',
+              wide && 'border-border-soft bg-surface-subtle/50 min-h-12 border-b px-3 py-1.5',
+            )}
+          >
+            <TabsList aria-label="测试与提交">
               <TabsTrigger value="input">测试用例</TabsTrigger>
               <TabsTrigger value="run">运行结果</TabsTrigger>
               <TabsTrigger value="submission">提交结果</TabsTrigger>
             </TabsList>
-            <div className={cn('flex items-center gap-2', wide && 'pr-2')}>{actions}</div>
+            <div className="flex items-center gap-2">{actions}</div>
           </div>
           {blocked ? (
             <p id="custom-run-help" className={cn('text-fg-meta text-xs', wide && 'px-4 pt-2')}>
@@ -476,7 +481,7 @@ function CaseResult({ item, outcome }: { item: RunCase; outcome: Outcome | undef
   return (
     <section aria-label={`${item.name}结果`} className="@container space-y-4">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        {/* 判定写代码加名称（design-system.md §5）；只有自测才有的两种结论没有代码。 */}
+        {/* 正式判定同时展示缩写与中文名称；仅自测独有的结论直接展示说明。 */}
         <p className={failed(verdict) ? 'text-danger' : 'text-foreground'}>
           {verdict === 'RAN' || verdict === 'UNCHECKED'
             ? caseLabels[verdict]

@@ -76,8 +76,8 @@ Python 与 Java 语法使用官方 CodeMirror 模块，为管理端与触控编�
 
 ### `@tiptap/*`（`react`、`pm`、`core`、`starter-kit`、`markdown`、`extensions`、`extension-table`）
 
-管理端题面、输入输出说明、提示和样例解释的所见即所得编辑器（`components/ui/rich-markdown-editor.tsx`），
-交互取自 linear.app 的 issue 描述：输入 `## `、`- `、` ``` ` 直接成块，没有编辑/预览切换。底层是
+管理端题面、输入输出说明、提示和样例解释的所见即所得编辑器（`components/ui/rich-markdown-editor.tsx`）：
+输入 `## `、`- `、` ``` ` 直接成块，无需编辑/预览模式切换。底层是
 ProseMirror；`@tiptap/markdown` 负责 Markdown 与文档之间的双向转换，因此**存储格式仍是 GFM Markdown**，
 用户端照旧用 `react-markdown` 渲染。往返只规范化写法（表格补齐空格、列表符号统一），不支持的语法按原文
 保留为文字；下划线扩展被关闭，因为 Markdown 无法表达它。
@@ -129,8 +129,8 @@ Base UI 是当前唯一的交互 primitive 基线。设计系统不要求 Radix�
 
 ### Web 本地设计系统代码包
 
-`design-system/` 是 Web 的可执行设计系统真源，持有从已冻结 Claude Design 产物生产化重建的 Foundation、主题源码、主题合同、manifest、
-`tokens.css`、Tailwind/shadcn adapter、本地 build/check、来源说明和许可证。`src/styles/globals.css`
+`design-system/` 是 Web 的可执行设计系统真源，持有原生维护的 Foundation、双主题源码、主题合同、manifest、
+`tokens.css`、Tailwind/shadcn adapter、本地 build/check 与说明文档。`src/styles/globals.css`
 只导入这个 Web 根目录内的 `tokens.css` 与 `tailwind-v4.css`。
 
 安装、开发服务器、检查、生产构建、Storybook 与 E2E 都不读取仓库的设计说明目录；移除设计说明不会
@@ -181,10 +181,10 @@ theme id、color scheme 和主题文件，再生成：
 `node design-system/tools/build.mjs --check`、`node design-system/tools/check.mjs` 和
 `node design-system/tools/check.mjs --self-test` 校验。
 
-HTML 先声明 `cherry-black` / dark 的安全默认值。`theme-init.js` 从 `cherry-oj.theme` 读取显式偏好，
-缺失、空值、未知值或 storage 异常均回退黑色；`data-color-scheme` 只由 manifest metadata 派生。
-`src/lib/theme` 在 React 中复用同一生成 registry，负责 resolver、DOM、持久化与跨标签页同步。当前
-生产页面不提供主题切换器。
+HTML 先声明 `pure-white` / light 的安全默认值。`theme-init.js` 从 `cherry-oj.theme` 读取显式偏好，
+缺失、空值、未知值或 storage 异常均回退浅色 `pure-white`；`data-color-scheme` 只由 manifest metadata 派生。
+`src/lib/theme` 在 React 中复用同一生成 registry，负责 resolver、DOM、持久化与跨标签页同步，供双端导航栏的
+`ThemeSwitcher` 与 Storybook 共用。
 
 ### 设计系统源码门禁
 

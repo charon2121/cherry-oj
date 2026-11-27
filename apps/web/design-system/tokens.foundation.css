@@ -1,9 +1,6 @@
 /*
- * Modified for Cherry OJ on 2026-09-03.
- * Rebuilt from the frozen Claude Design Cherry OJ export (frozen 2026-09-03).
- * Changes: namespaced tokens, CJK fallbacks, dual-theme separation, complete
- * optical scales, production layout metrics, and reduced motion.
- * See NOTICE.md and LICENSE.open-design in this directory.
+ * Cherry OJ Web Design System — Foundation Tokens (v3.0)
+ * Modern light-first card & workspace system tailored for CJK + code readability.
  */
 
 :root {
@@ -12,101 +9,88 @@
   --ds-font-body: "Inter Variable", "Inter", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, sans-serif;
   --ds-font-mono: "Berkeley Mono", "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --ds-font-features: "cv01", "ss03";
-  /* 字重取自 linear.app 实测（docs/design-system/measurements.md）：正文 450，标签、导航与
-   * 行标题 500，详情大标题与区块标题 600。层级仍主要由颜色承担，600 只给标题。 */
+
   --ds-weight-light: 400;
-  --ds-weight-regular: 450;
+  --ds-weight-regular: 400;
   --ds-weight-body: 500;
   --ds-weight-heading: 600;
 
-  /* UI 区间对齐参照的 11/12/13/15/18/20/22/24。最大的变化是 --ds-text-sm 由 14px 降到 13px：
-   * 它是界面主力字号，参照的行文字、导航、按钮全是 13px。display 区间（3xl 起）保留给
-   * 登录页这类营销面，参照的应用界面里不出现。 */
+  /* Type scale: 14px primary UI text and 15px reading prose for comfortable Chinese legibility */
   --ds-text-tiny: 11px;
   --ds-text-micro: 11px;
   --ds-text-xs: 12px;
   --ds-text-cap: 12px;
-  --ds-text-sm: 13px;
+  --ds-text-sm: 14px;
   --ds-text-15: 15px;
   --ds-text-base: 15px;
   --ds-text-17: 18px;
   --ds-text-lg: 18px;
   --ds-text-h3: 20px;
   --ds-text-xl: 22px;
-  --ds-text-2xl: 24px;
-  --ds-text-3xl: 48px;
-  --ds-text-display-lg: 64px;
-  --ds-text-4xl: 72px;
+  --ds-text-2xl: 26px;
+  --ds-text-3xl: 36px;
+  --ds-text-display-lg: 48px;
+  --ds-text-4xl: 56px;
 
-  --ds-leading-body: 1.5;
-  --ds-leading-tight: 1;
-  --ds-leading-heading: 1.2;
-  --ds-leading-h2: 1.2;
-  --ds-leading-label: 1.25;
-  --ds-leading-relaxed: 1.6;
-  /* 字距全部归零。此前全局的负 tracking 来自旧来源包，参照的设计系统里每一档都是 0；
-   * 在 13px 这种小字号上收紧字距会让文字发糊，是"看起来廉价"的一个隐性来源。
-   * eyebrow 保留正字距，它是大写小标签的排版需要。 */
-  --ds-tracking-display: 0em;
-  --ds-tracking-heading: 0em;
+  --ds-leading-body: 1.55;
+  --ds-leading-tight: 1.2;
+  --ds-leading-heading: 1.25;
+  --ds-leading-h2: 1.3;
+  --ds-leading-label: 1.35;
+  --ds-leading-relaxed: 1.65;
+
+  --ds-tracking-display: -0.015em;
+  --ds-tracking-heading: -0.01em;
   --ds-tracking-body: 0em;
   --ds-tracking-caption: 0em;
-  --ds-tracking-eyebrow: 0.08em;
+  --ds-tracking-eyebrow: 0.06em;
 
   /* Spacing */
   --ds-space-px: 1px;
-  /* 分组带与第一行之间的 2px 缝（linear.app 实测）：行悬停底色不与分组带连成一块。 */
   --ds-space-half: 2px;
   --ds-space-1: 4px;
-  --ds-space-1x: 7px;
+  --ds-space-1x: 6px;
   --ds-space-2: 8px;
-  --ds-space-2x: 11px;
+  --ds-space-2x: 10px;
   --ds-space-3: 12px;
   --ds-space-4: 16px;
-  --ds-space-4x: 19px;
+  --ds-space-4x: 18px;
   --ds-space-5: 20px;
   --ds-space-5x: 22px;
   --ds-space-6: 24px;
   --ds-space-7: 28px;
   --ds-space-8: 32px;
-  --ds-space-9: 35px;
+  --ds-space-9: 36px;
   --ds-space-12: 48px;
 
-  --ds-section-y-desktop: 80px;
-  --ds-section-y-tablet: 48px;
-  --ds-section-y-phone: 32px;
+  --ds-section-y-desktop: 64px;
+  --ds-section-y-tablet: 40px;
+  --ds-section-y-phone: 24px;
 
   /* Shape and focus geometry */
-  /* 参照以 3/4px 为主：按钮、输入、导航项、下拉全是 4px，只有对话框到 8-12px。
-   * 大圆角是"消费级应用"的语言，密集工具界面用小圆角。 */
-  --ds-radius-micro: 3px;
-  --ds-radius-xs: 4px;
-  --ds-radius-sm: 4px;
-  --ds-radius-md: 6px;
+  --ds-radius-micro: 4px;
+  --ds-radius-xs: 6px;
+  --ds-radius-sm: 6px;
+  --ds-radius-md: 8px;
   --ds-radius-lg: 8px;
   --ds-radius-xl: 12px;
-  /* linear.app 对话框实测 21px：比浮层的 12px 更圆，一眼区分"模态"与"弹出"。 */
-  --ds-radius-2xl: 21px;
+  --ds-radius-2xl: 16px;
   --ds-radius-pill: 9999px;
   --ds-radius-circle: 50%;
   --ds-radius-image-top: 12px 12px 0 0;
-  --ds-focus-width: 2px;
-  --ds-focus-offset: 2px;
+  --ds-focus-width: 1px;
+  --ds-focus-offset: -1px;
 
-  /* Overlay material.
-   * linear.app 实测的浮层没有 backdrop blur，靠更亮一档的底、0.5px 边和三层小阴影分层。
-   * 键名保留给现有调用处，值归零。 */
-  --ds-overlay-blur: 0px;
-  --ds-overlay-blur-strong: 0px;
-
-  /* 线宽。linear.app 的面板边、顶栏下边与浮层边都是 0.5px。 */
-  --ds-hairline: 0.5px;
+  /* Overlay & border */
+  --ds-overlay-blur: 4px;
+  --ds-overlay-blur-strong: 8px;
+  --ds-hairline: 1px;
 
   /* Motion */
   --ds-motion-fast: 150ms;
   --ds-motion-base: 200ms;
-  --ds-motion-slow: 320ms;
-  --ds-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ds-motion-slow: 280ms;
+  --ds-ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Layout */
   --ds-container-max: 1200px;
@@ -118,12 +102,9 @@
   --ds-breakpoint-tablet: 768px;
   --ds-breakpoint-desktop-sm: 1024px;
   --ds-breakpoint-desktop: 1280px;
-  /* 骨架取自 linear.app 实测：侧栏 244px 与画布同底；主内容是四周留 8px 的内嵌面板，
-   * 面板内顶栏 44px。 */
-  --ds-sidebar-width: 244px;
-  --ds-header-height: 44px;
-  --ds-shell-inset: 8px;
-  /* 36px 的条目高：列表分组带与浮层菜单项（linear.app 实测）。间距刻度的 9 是 35px 光学档，不能借用。 */
+  --ds-sidebar-width: 240px;
+  --ds-header-height: 56px;
+  --ds-shell-inset: 12px;
   --ds-item-height: 36px;
 }
 

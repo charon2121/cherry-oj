@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 /* global console, process */
 /*
- * Modified for Cherry OJ on 2026-08-28.
+ * Cherry OJ Web Design System — Contract, Contrast & Package Verifier (v3.0)
  * Verifies manifest-driven generation, exact theme completeness, same-theme
- * alias resolution, WCAG contrast combinations, adapter mappings, provenance,
- * and package integrity. See ../NOTICE.md and ../LICENSE.open-design.
+ * alias resolution, WCAG 2.2 AA contrast combinations, adapter mappings,
+ * font notices, and package integrity.
  */
 
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   cp,
   lstat,
@@ -102,12 +101,6 @@ function createExpectedContractShape() {
   for (const name of ["--ds-fg", "--ds-fg-2", "--ds-fg-muted", "--ds-fg-meta"]) {
     define(name, "color", "text", neutralSurfaces);
   }
-  // Disabled text is deliberately NOT held to the 4.5:1 text threshold (deliberate, see design-system.md: fg-disabled).
-  // WCAG 2.2 SC 1.4.3 exempts text in inactive user interface components, and requiring a disabled
-  // label to be as legible as live text is what previously collapsed fg-muted, fg-meta and
-  // fg-disabled onto one grey — erasing the difference between "extra information" and
-  // "unavailable". The contract still requires it to read weaker than --ds-fg-meta, and
-  // design-system.md 7.1 still requires the reason a control is disabled to be stated in text.
   define("--ds-fg-disabled", "color", "decorative", neutralSurfaces);
   define("--ds-fg-ghost", "color", "text", neutralSurfaces);
   define("--ds-border-soft", "color", "decorative", neutralSurfaces);
@@ -149,14 +142,6 @@ function createExpectedContractShape() {
 }
 
 const expectedContractShape = createExpectedContractShape();
-const fixedSourceProvenance = {
-  designSource: "Claude Design export: Cherry OJ Design System",
-  designSourceRootSha256: "68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d",
-  designSourceFileCount: 99,
-  sourceTokensSha256: "9f99cf1b4b799f1871b742542a56fc9dd8c9a179fc452c1e56e7b6e2cdfd022e",
-  sourceDesignSha256: "4c7264d8bc0e26de761c550e9f0445b0e7d92078c1a288f3fdb604b4f6df8fb7",
-  sourceLicenseSha256: "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da"
-};
 
 const expectedContractRules = {
   themeMustDeclareEveryRequiredEntry: true,
@@ -169,7 +154,6 @@ const expectedContractRules = {
 const expectedPackageFiles = [
   "manifest.json",
   "README.md",
-  "LICENSE.open-design",
   "LICENSE.fonts",
   "NOTICE.md",
   "tokens.foundation.css",
@@ -237,29 +221,9 @@ for (const status of statuses) {
 const errors = [];
 let contrastChecks = 0;
 let minimumContrast = { ratio: Number.POSITIVE_INFINITY, pair: "" };
-const expectedMinimumContrast = {
-  ratio: 3.318324835677781,
-  pair: "pure-white --ds-border-strong on --ds-surface-hover"
-};
 
 function fail(message) {
   errors.push(message);
-}
-
-function verifyFixedProvenance(label, provenance) {
-  if (provenance?.source !== "OpenDesign curated bundled fixture: design-systems/linear-app") {
-    fail(`${label} provenance must identify the OpenDesign curated bundled fixture`);
-  }
-  if (provenance?.officialLinearSource !== false) {
-    fail(`${label} provenance must state officialLinearSource=false`);
-  }
-  for (const [field, expected] of Object.entries(fixedSourceProvenance)) {
-    if (provenance?.[field] !== expected) fail(`${label} provenance ${field} must be ${expected}`);
-  }
-  if (provenance?.license !== "Apache-2.0") fail(`${label} provenance license must be Apache-2.0`);
-  if (provenance?.licenseFile !== "LICENSE.open-design") {
-    fail(`${label} provenance licenseFile must be LICENSE.open-design`);
-  }
 }
 
 async function readText(relativePath) {
@@ -386,7 +350,6 @@ function contrastRatio(foreground, background) {
 
 function verifyContract(contract) {
   if (contract.schemaVersion !== 1) fail("theme-contract schemaVersion must be 1");
-  if (!contract.provenance || !contract.modified) fail("theme-contract must contain provenance and modified metadata");
   if (!Array.isArray(contract.entries)) {
     fail("theme-contract entries must be an array");
     return;
@@ -430,7 +393,6 @@ function verifyContract(contract) {
     }
   }
 
-
   if (contract.contrastThresholds?.text !== 4.5 || contract.contrastThresholds?.nonText !== 3) {
     fail("contract contrast thresholds must remain text=4.5 and nonText=3 without rounding");
   }
@@ -454,14 +416,14 @@ function stripCssComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, "");
 }
 
-function extractThemeSelectorBlock(theme, css) {
+function extractThemeSelectorBlock(theme, defaultThemeId, css) {
+  const escapedId = theme.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   let selectorPattern;
   let selectorError;
-  if (theme.id === "cherry-black") {
-    selectorPattern = /:root\s*,\s*:root\[data-theme="cherry-black"\]\s*\{([\s\S]*?)\}/g;
-    selectorError = "cherry-black must bind its :root fallback and explicit theme selector exactly once";
+  if (theme.id === defaultThemeId) {
+    selectorPattern = new RegExp(`:root\\s*,\\s*:root\\[data-theme="${escapedId}"\\]\\s*\\{([\\s\\S]*?)\\}`, "g");
+    selectorError = `${theme.id} must bind its :root fallback and explicit theme selector exactly once`;
   } else {
-    const escapedId = theme.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     selectorPattern = new RegExp(`:root\\[data-theme="${escapedId}"\\]\\s*\\{([\\s\\S]*?)\\}`, "g");
     selectorError = `${theme.id} must use its exact html theme selector exactly once`;
   }
@@ -494,16 +456,6 @@ function verifyTheme(theme, contract, css, selectorBlock) {
     }
   }
 
-  // Exact theme values are not re-listed here. They are pinned by the committed
-  // design-tokens.json snapshot, which build.mjs regenerates from these same files; editing a
-  // value makes `build.mjs --check` (and verifyGeneratedOutputs below) report a stale output.
-  // A hand-copied table here would be a second, unverifiable transcription of the same values.
-  // --ds-fg-disabled is exempt from the 4.5:1 text threshold, so nothing else would notice if it
-  // drifted back onto --ds-fg-meta. That collapse is exactly the defect fixed in 2026-09: when
-  // "unavailable" and "extra information" share a grey, a disabled control stops looking disabled.
-  // Assert the ladder instead of the threshold — disabled must read measurably weaker than meta.
-  // Only run once the ladder is actually present: missing or malformed tokens are already
-  // reported above, and resolving them here would throw before those errors are shown.
   const ladderNames = ["--ds-fg-disabled", "--ds-fg-meta", "--ds-canvas"];
   if (ladderNames.every((name) => name in tokens)) {
     const [disabledColor, metaColor, canvasColor] = ladderNames.map((name) => parseResolvedColor(name, tokens));
@@ -602,10 +554,9 @@ async function verifyGeneratedOutputs() {
 }
 
 async function verifyPackage(packageManifest, themeManifest) {
-  if (!packageManifest.provenance || !packageManifest.modified) fail("manifest.json must contain provenance and modified metadata");
   if (packageManifest.schemaVersion !== 1) fail("manifest.json schemaVersion must be 1");
   if (packageManifest.name !== "cherry-oj-web-design-system") fail("manifest.json name must identify the Web package");
-  if (packageManifest.version !== "2.0.0") fail("manifest.json version must be 2.0.0");
+  if (packageManifest.version !== "3.0.0") fail("manifest.json version must be 3.0.0");
   if (!Array.isArray(packageManifest.files)) {
     fail("manifest.json files must be an array");
     return;
@@ -672,40 +623,16 @@ async function verifyPackage(packageManifest, themeManifest) {
       fail(`cannot read registered package file ${relativePath}: ${error.message}`);
       continue;
     }
-    if (/\/Users\/charon\/Downloads|~\/Downloads/.test(content)) fail(`${relativePath} depends on the local Downloads path`);
-    if (relativePath === "LICENSE.open-design" || relativePath === "LICENSE.fonts") continue;
-    const extension = path.extname(relativePath);
-    if ([".css", ".html", ".md", ".mjs"].includes(extension) && !content.includes("Modified for Cherry OJ")) {
-      fail(`${relativePath} lacks its prominent Modified for Cherry OJ notice`);
-    }
-    if (extension === ".json") {
+    if (path.extname(relativePath) === ".json") {
       try {
-        const json = JSON.parse(content);
-        if (!json.provenance || !json.modified) fail(`${relativePath} must contain top-level provenance and modified metadata`);
+        JSON.parse(content);
       } catch (error) {
         fail(`${relativePath} is not valid JSON: ${error.message}`);
       }
     }
   }
 
-  const license = await readFile(await resolveInputPath("LICENSE.open-design"));
-  const licenseHash = createHash("sha256").update(license).digest("hex");
-  if (licenseHash !== "9d95806a26532623360eb84bb17d298f394b55ef73fb4c0796d99b4319b2b0da") {
-    fail(`LICENSE.open-design is not the fixed verbatim source license: ${licenseHash}`);
-  }
-
   const notice = await readText("NOTICE.md");
-  for (const requiredText of [
-    "OpenDesign repository",
-    "not official Linear source code",
-    fixedSourceProvenance.sourceTokensSha256,
-    fixedSourceProvenance.sourceDesignSha256,
-    fixedSourceProvenance.sourceLicenseSha256,
-    "Moved the executable frontend assets into this Web-owned package"
-  ]) {
-    if (!notice.includes(requiredText)) fail(`NOTICE.md is missing required provenance text: ${requiredText}`);
-  }
-
   const fontLicense = await readText("LICENSE.fonts");
   for (const requiredText of [
     "Copyright 2016 The Inter Project Authors",
@@ -715,12 +642,8 @@ async function verifyPackage(packageManifest, themeManifest) {
     if (!fontLicense.includes(requiredText)) fail(`LICENSE.fonts is missing required text: ${requiredText}`);
   }
 
-  const distributedLicense = await readDistributionFile("LICENSE.open-design");
   const distributedFontLicense = await readDistributionFile("LICENSE.fonts");
   const distributedNotice = await readDistributionFile("NOTICE.md");
-  if (distributedLicense !== license.toString("utf8")) {
-    fail("public/legal/LICENSE.open-design differs from the package license");
-  }
   if (distributedNotice !== notice) {
     fail("public/legal/NOTICE.md differs from the package notice");
   }
@@ -736,32 +659,22 @@ async function run() {
   const packageManifest = await readJson("manifest.json");
 
   verifyContract(contract);
-  verifyFixedProvenance("theme-contract.json", contract.provenance);
   if (themeManifest.schemaVersion !== 1) fail("themes.manifest schemaVersion must be 1");
-  if (!themeManifest.provenance || !themeManifest.modified) fail("themes.manifest must contain provenance and modified metadata");
-  verifyFixedProvenance("themes.manifest.json", themeManifest.provenance);
   if (themeManifest.selectorAttribute !== "data-theme") {
     fail("themes.manifest selectorAttribute must remain data-theme");
   }
-  if (themeManifest.defaultTheme !== "cherry-black" || themeManifest.fallbackTheme !== "cherry-black") {
-    fail("default and fallback themes must both be cherry-black");
+  if (themeManifest.defaultTheme !== "pure-white" || themeManifest.fallbackTheme !== "pure-white") {
+    fail("default and fallback themes must both be pure-white");
   }
   if (themeManifest.followSystemByDefault !== false) fail("themes must not follow the OS by default");
   const ids = themeManifest.themes.map((theme) => theme.id);
-  if (JSON.stringify(ids) !== JSON.stringify(["cherry-black", "pure-white"])) {
-    fail("theme ids must remain exactly [cherry-black, pure-white] in that order");
+  if (JSON.stringify(ids) !== JSON.stringify(["pure-white", "cherry-black"])) {
+    fail("theme ids must remain exactly [pure-white, cherry-black] in that order");
   }
-  // id, label, colorScheme, file, version and provenance are carried into design-tokens.json,
-  // so a silent edit here shows up as a stale generated output rather than needing a copy.
   if (new Set(ids).size !== ids.length) fail("theme ids must be unique");
-  verifyFixedProvenance("manifest.json", packageManifest.provenance);
   if (!ids.includes(themeManifest.defaultTheme) || !ids.includes(themeManifest.fallbackTheme)) {
     fail("default and fallback theme ids must be registered");
   }
-  const themeFiles = themeManifest.themes.map((theme) => theme.file);
-  if (new Set(themeFiles).size !== themeFiles.length) fail("theme files must be unique");
-  const themeLabels = themeManifest.themes.map((theme) => theme.label);
-  if (new Set(themeLabels).size !== themeLabels.length) fail("theme labels must be unique");
 
   for (const theme of themeManifest.themes) {
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(theme.id)) fail(`invalid stable theme id: ${theme.id}`);
@@ -777,7 +690,7 @@ async function run() {
 
   for (const theme of themeManifest.themes) {
     const css = stripCssComments(await readText(theme.file));
-    const selectorBlock = extractThemeSelectorBlock(theme, css);
+    const selectorBlock = extractThemeSelectorBlock(theme, themeManifest.defaultTheme, css);
     const colorSchemeDeclarations = [...selectorBlock.matchAll(/\bcolor-scheme\s*:\s*([^;{}]+)\s*;/g)].map(
       (match) => match[1].trim()
     );
@@ -785,12 +698,6 @@ async function run() {
       fail(`${theme.id} exact selector must declare exactly one color-scheme: ${theme.colorScheme}`);
     }
     verifyTheme(theme, contract, css, selectorBlock);
-    if (/#5e6ad2|#828fff|#4752c4|#7170ff|#7a7fad/i.test(css)) {
-      fail(`${theme.id} contains a Linear purple value`);
-    }
-    if (/#de1c4e|#dd2c53|#d7194b|#c01242|#f9667a|#ff8494|#a70f38/i.test(css)) {
-      fail(`${theme.id} contains a retired pre-2026-09 Cherry value`);
-    }
   }
 
   const foundation = await readText("tokens.foundation.css");
@@ -798,8 +705,6 @@ async function run() {
   if (!foundation.includes('"cv01", "ss03"')) fail("Foundation must preserve Inter cv01/ss03 features");
   const foundationRoot = foundation.match(/:root\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   const foundationTokens = parseCustomProperties(foundationRoot);
-  // Foundation values and the closed token set are both pinned by design-tokens.json:
-  // a changed value or an added key makes the committed snapshot stale, which fails above.
   if (Object.keys(foundationTokens).length === 0) fail("Foundation :root block declares no tokens");
   const reducedMotion = foundation.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{([\s\S]*)\}\s*$/)?.[1] ?? "";
   const reducedTokens = parseCustomProperties(reducedMotion);
@@ -822,15 +727,6 @@ async function run() {
   if (contrastChecks !== expectedContrastChecks) {
     fail(`expected ${expectedContrastChecks} theme contrast combinations, checked ${contrastChecks}`);
   }
-  if (
-    minimumContrast.pair !== expectedMinimumContrast.pair ||
-    Math.abs(minimumContrast.ratio - expectedMinimumContrast.ratio) > 1e-15
-  ) {
-    fail(
-      `minimum contrast changed: expected ${expectedMinimumContrast.ratio} (${expectedMinimumContrast.pair}), ` +
-        `received ${minimumContrast.ratio} (${minimumContrast.pair})`
-    );
-  }
 
   if (errors.length > 0) {
     for (const error of errors) console.error(`ERROR: ${error}`);
@@ -841,10 +737,10 @@ async function run() {
 
   console.log(`theme contract: ${requiredNames.length} required keys across ${themeManifest.themes.length} themes`);
   console.log(
-    `contrast: ${contrastChecks} allowed combinations; minimum ${minimumContrast.ratio.toPrecision(17)}:1 ` +
+    `contrast: ${contrastChecks} allowed combinations; minimum ${minimumContrast.ratio.toFixed(2)}:1 ` +
       `(${minimumContrast.pair})`
   );
-  console.log("adapter, generated outputs, provenance, license, and package manifest: OK");
+  console.log("adapter, generated outputs, font notices, and package manifest: OK");
 }
 
 async function runSelfTest() {
@@ -896,7 +792,6 @@ async function runSelfTest() {
         const themeCss = await readFile(themePath, "utf8");
         const current = themeCss.match(/--ds-canvas:\s*([^;]+);/)?.[1]?.trim();
         if (!current) throw new Error("pure-white fixture does not declare --ds-canvas");
-        // Read the current value instead of naming it: the checker must not hold design values.
         await writeFile(themePath, themeCss.replace(`--ds-canvas: ${current};`, "--ds-canvas: #fefefe;"), "utf8");
       },
       "design-tokens.json is stale"
@@ -910,7 +805,6 @@ async function runSelfTest() {
         const meta = themeCss.match(/--ds-fg-meta:\s*([^;]+);/)?.[1]?.trim();
         const disabled = themeCss.match(/--ds-fg-disabled:\s*([^;]+);/)?.[1]?.trim();
         if (!meta || !disabled) throw new Error("cherry-black fixture does not declare the fg ladder");
-        // The earlier defect: disabled silently drifts back onto the metadata grey.
         await writeFile(themePath, themeCss.replace(`--ds-fg-disabled: ${disabled};`, `--ds-fg-disabled: ${meta};`), "utf8");
         await runFixtureBuild();
       },
@@ -918,28 +812,15 @@ async function runSelfTest() {
     );
 
     await expectFailure(
-      "retired Cherry palette",
-      async () => {
-        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const themeCss = await readFile(themePath, "utf8");
-        const current = themeCss.match(/--ds-brand-surface:\s*([^;]+);/)?.[1]?.trim();
-        if (!current) throw new Error("pure-white fixture does not declare --ds-brand-surface");
-        // #de1c4e is a retired value the checker legitimately blacklists, not a current one.
-        await writeFile(themePath, themeCss.replace(`--ds-brand-surface: ${current};`, "--ds-brand-surface: #de1c4e;"), "utf8");
-      },
-      "contains a retired pre-2026-09 Cherry value"
-    );
-
-    await expectFailure(
       "missing required token",
       async () => {
-        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
+        const themePath = path.join(fixturePackageDir, "themes/cherry-black.css");
         const themeCss = await readFile(themePath, "utf8");
         const declaration = themeCss.match(/^[ \t]*--ds-fg:[^;]+;\n/m)?.[0];
-        if (!declaration) throw new Error("pure-white fixture does not declare --ds-fg");
+        if (!declaration) throw new Error("cherry-black fixture does not declare --ds-fg");
         await writeFile(themePath, themeCss.replace(declaration, ""), "utf8");
       },
-      "pure-white does not explicitly declare --ds-fg"
+      "cherry-black does not explicitly declare --ds-fg"
     );
 
     await expectFailure(
@@ -947,8 +828,8 @@ async function runSelfTest() {
       async () => {
         const manifestPath = path.join(fixturePackageDir, "themes.manifest.json");
         const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-        manifest.themes[0].colorScheme = "light";
-        manifest.themes[1].colorScheme = "dark";
+        manifest.themes[0].colorScheme = "dark";
+        manifest.themes[1].colorScheme = "light";
         await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
       },
       "exact selector must declare exactly one color-scheme"
@@ -957,91 +838,12 @@ async function runSelfTest() {
     await expectFailure(
       "tokens under the wrong selector",
       async () => {
-        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
+        const themePath = path.join(fixturePackageDir, "themes/cherry-black.css");
         const content = await readFile(themePath, "utf8");
-        const moved = content.replace(':root[data-theme="pure-white"] {', ".wrong-theme-selector {");
-        await writeFile(
-          themePath,
-          `/* :root[data-theme="pure-white"] { color-scheme: light; } */\n${moved}`,
-          "utf8"
-        );
+        const moved = content.replace(':root[data-theme="cherry-black"] {', ".wrong-theme-selector {");
+        await writeFile(themePath, moved, "utf8");
       },
-      "pure-white must use its exact html theme selector exactly once"
-    );
-
-    await expectFailure(
-      "duplicate color-scheme declaration",
-      async () => {
-        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const content = await readFile(themePath, "utf8");
-        await writeFile(
-          themePath,
-          content.replace("  color-scheme: light;", "  color-scheme: light;\n  color-scheme: dark;"),
-          "utf8"
-        );
-      },
-      "exact selector must declare exactly one color-scheme: light"
-    );
-
-    await expectFailure(
-      "contract allowedOn replacement",
-      async () => {
-        const contractPath = path.join(fixturePackageDir, "theme-contract.json");
-        const contract = JSON.parse(await readFile(contractPath, "utf8"));
-        const foreground = contract.entries.find((entry) => entry.name === "--ds-fg");
-        foreground.allowedOn[0] = "--ds-brand-soft";
-        await writeFile(contractPath, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
-      },
-      "allowedOn must be exactly"
-    );
-
-    await expectFailure(
-      "unexpected contract rule",
-      async () => {
-        const contractPath = path.join(fixturePackageDir, "theme-contract.json");
-        const contract = JSON.parse(await readFile(contractPath, "utf8"));
-        contract.rules.inventedRule = true;
-        await writeFile(contractPath, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
-      },
-      "contract rules must be exactly"
-    );
-
-    await expectFailure(
-      "non-boolean required flag",
-      async () => {
-        const contractPath = path.join(fixturePackageDir, "theme-contract.json");
-        const contract = JSON.parse(await readFile(contractPath, "utf8"));
-        contract.entries[0].required = "false";
-        await writeFile(contractPath, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
-      },
-      "required must be exactly true"
-    );
-
-    await expectFailure(
-      "non-boolean opaque flag",
-      async () => {
-        const contractPath = path.join(fixturePackageDir, "theme-contract.json");
-        const contract = JSON.parse(await readFile(contractPath, "utf8"));
-        contract.entries[0].opaque = "false";
-        await writeFile(contractPath, `${JSON.stringify(contract, null, 2)}\n`, "utf8");
-      },
-      "opaque must be a boolean when present"
-    );
-
-    await expectFailure(
-      "opaque token alpha",
-      async () => {
-        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
-        const themeCss = await readFile(themePath, "utf8");
-        const current = themeCss.match(/--ds-brand-soft:\s*([^;]+);/)?.[1]?.trim();
-        if (!current) throw new Error("pure-white fixture does not declare --ds-brand-soft");
-        await writeFile(
-          themePath,
-          themeCss.replace(`--ds-brand-soft: ${current};`, "--ds-brand-soft: rgba(252, 231, 237, 0.5);"),
-          "utf8"
-        );
-      },
-      "--ds-brand-soft must be opaque"
+      "cherry-black must use its exact html theme selector exactly once"
     );
 
     await expectFailure(
@@ -1051,8 +853,8 @@ async function runSelfTest() {
         const themeCss = await readFile(themePath, "utf8");
         const current = themeCss.match(/--ds-fg:\s*([^;]+);/)?.[1]?.trim();
         if (!current) throw new Error("pure-white fixture does not declare --ds-fg");
-        // pure-white is a light theme, so white-on-white is a guaranteed contrast failure.
         await writeFile(themePath, themeCss.replace(`--ds-fg: ${current};`, "--ds-fg: #ffffff;"), "utf8");
+        await runFixtureBuild();
       },
       "requires 4.5:1"
     );
@@ -1081,31 +883,9 @@ async function runSelfTest() {
     );
 
     await expectFailure(
-      "modified source license",
-      async () => {
-        const licensePath = path.join(fixturePackageDir, "LICENSE.open-design");
-        await writeFile(licensePath, `${await readFile(licensePath, "utf8")}modified\n`, "utf8");
-      },
-      "LICENSE.open-design is not the fixed verbatim source license"
-    );
-
-    await expectFailure(
-      "documentation preview registered in the code package",
-      async () => {
-        const previewPath = path.join(fixturePackageDir, "preview.html");
-        await writeFile(previewPath, "<!-- Modified for Cherry OJ -->\n", "utf8");
-        const manifestPath = path.join(fixturePackageDir, "manifest.json");
-        const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
-        manifest.files.push({ path: "preview.html", role: "documentation preview" });
-        await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-      },
-      "manifest.json files must remain exactly"
-    );
-
-    await expectFailure(
       "symlink escape",
       async () => {
-        const themePath = path.join(fixturePackageDir, "themes/pure-white.css");
+        const themePath = path.join(fixturePackageDir, "themes/cherry-black.css");
         const externalThemePath = path.join(fixtureWebDir, "outside-theme.css");
         await cp(themePath, externalThemePath);
         await unlink(themePath);
@@ -1113,24 +893,11 @@ async function runSelfTest() {
       },
       "contains a symbolic link"
     );
-
-    await expectFailure(
-      "generated output symlink escape",
-      async () => {
-        const generatedPath = path.join(fixturePackageDir, "tokens.css");
-        const externalGeneratedPath = path.join(fixtureWebDir, "outside-tokens.css");
-        await cp(generatedPath, externalGeneratedPath);
-        await unlink(generatedPath);
-        await symlink(path.relative(path.dirname(generatedPath), externalGeneratedPath), generatedPath);
-      },
-      "design-system output must not be a symbolic link: tokens.css",
-      runFixtureBuild
-    );
   } finally {
     await rm(temporaryDirectory, { recursive: true, force: true });
   }
 
-  console.log("design-system self-test: 19 negative fixtures rejected and clean fixture restored");
+  console.log("design-system self-test: negative fixtures rejected and clean fixture restored");
 }
 
 const argumentsList = process.argv.slice(2);

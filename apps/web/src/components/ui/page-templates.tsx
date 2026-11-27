@@ -5,12 +5,10 @@ import { cn } from '@/lib/utils';
 import { Container, Section } from './layout';
 import { Heading } from './typography';
 
-// 第 4 层页面模板。它们不持有业务逻辑、不发请求，只固定三件此前每个页面各自决定的事：
-//   1. 首内容间距（design-system.md §7 的 24px），由模板独占，页面不再自写 pt-*；
-//   2. 每个路由都有可访问的页面名称——需要时可 sr-only，但语义层级不能省；
-//   3. pending / empty / error / unauthorized / not-found 的**位置**固定，内容由页面提供。
-//
-// 模板只管骨架。真实业务差异进内容区，不重新发明视觉语言。
+// 页面级布局模板：不持有业务逻辑、不发请求，统一负责三件事：
+//   1. 页面首屏内边距与水平安全区（gutter）；
+//   2. 每个路由的可访问一级标题（隐藏时以 sr-only 保留在无障碍树中）；
+//   3. 页面级异步状态（加载 / 空 / 错误）的固定挂载位置。
 
 type PageStateProps = Readonly<{
   /** 互斥的页面级状态。给出时代替主内容渲染，位置固定在主内容起点。 */
@@ -45,8 +43,8 @@ function PageTitle({
     );
   }
   return (
-    <div className="mb-4 flex min-w-0 flex-wrap items-center gap-3">
-      <Heading level={1} size="lg" className="min-w-0">
+    <div className="mb-5 flex min-w-0 flex-wrap items-center gap-3">
+      <Heading level={1} size="xl" className="min-w-0">
         {title}
       </Heading>
       {action === undefined ? null : (
@@ -61,21 +59,18 @@ function PageTitle({
 
 type ListPageTemplateProps = BasePageProps &
   Readonly<{
-    /** 工具条紧贴列表，两者之间不留额外间距——来源的列表是一个整体，不是两个卡片。 */
+    /** 页面顶部工具条（筛选、搜索与主操作）。 */
     toolbar?: ReactNode;
     /** 分页 / 游标导航，固定在列表下方。 */
     pagination?: ReactNode;
     /**
-     * `bleed`（默认）让列表铺满主内容区、不套外框——应用工作区的列表页用这个。
-     * `contained` 把内容收进 1200px 居中容器，适合阅读型页面。
-     * `column` 收到约 1024px 并居中，**没有框也没有底色**——它服务于"每行只有几个短字段"
-     * 的列表：这类内容在 1440px 下会空掉整行的一大半，那不是留白是没排好。
-     * 收窄不等于装进卡片：判据是有没有边框和底色，不是有没有居中。
+     * `bleed`（默认）铺满工作区宽度并保留响应式水平边距；
+     * `contained` 收进 1200px 标准容器；
+     * `column` 收进 1088px（68rem）居中内容列，适合中高密度的卡片化数据列表。
      */
     width?: 'contained' | 'bleed' | 'column';
   }>;
 
-// 列表页 = 工具条 + 数据列表 + 分页。这是构图合同里最硬的一条：不用卡片网格代替列表。
 function ListPageTemplate({
   children,
   className,
@@ -88,7 +83,6 @@ function ListPageTemplate({
   width = 'bleed',
 }: ListPageTemplateProps) {
   const gutters = 'px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop';
-  const bleedGutters = width === 'bleed' || width === 'column';
   const body = (
     <>
       <PageTitle title={title} visible={titleVisible} action={titleAction} />
@@ -96,21 +90,17 @@ function ListPageTemplate({
       {state === undefined ? (
         <>
           {children}
-          {pagination === undefined ? null : (
-            <div className={cn(bleedGutters && gutters, 'py-4')}>{pagination}</div>
-          )}
+          {pagination === undefined ? null : <div className="pt-4">{pagination}</div>}
         </>
       ) : (
-        <div className={cn(bleedGutters && gutters)}>{state}</div>
+        <div>{state}</div>
       )}
     </>
   );
 
-  // 铺满：不套 Container 也不套 Section 的上下留白。列表的上边界就是工具条，
-  // 它贴着主内容区顶部，左右贴着边缘。
   if (width === 'bleed') {
     return (
-      <div data-slot="list-page" className={cn('min-w-0', className)}>
+      <div data-slot="list-page" className={cn('min-w-0 py-6', gutters, className)}>
         {body}
       </div>
     );
@@ -120,7 +110,7 @@ function ListPageTemplate({
     return (
       <div
         data-slot="list-page"
-        className={cn('mx-auto max-w-[64rem] min-w-0 pt-6 pb-8', className)}
+        className={cn('mx-auto max-w-[68rem] min-w-0 py-6', gutters, className)}
       >
         {body}
       </div>
@@ -138,10 +128,7 @@ type DetailPageTemplateProps = BasePageProps &
   Readonly<{
     /** 与主内容并列的侧栏（元信息、目录）。窄屏落到主内容之后。 */
     aside?: ReactNode;
-    /**
-     * `narrow`（760px）给只有一列短内容的编辑页，对应 linear.app 设置里的条目编辑页（内容列 750px）；
-     * 铺满 1200px 会让几行代码的编辑框横跨整屏。
-     */
+    /** `narrow`（760px）适合单列聚焦表单或配置编辑页。 */
     width?: 'default' | 'narrow';
   }>;
 
@@ -178,16 +165,14 @@ function DetailPageTemplate({
 
 type WorkbenchPageTemplateProps = BasePageProps &
   Readonly<{
-    /** 编码工作台填满 shell 提供的高度；既有表单工作台保留默认间距。 */
+    /** 编码工作台填满 shell 提供的高度；表单工作台保留标准容器间距。 */
     variant?: 'form' | 'coding';
-    /** 步骤导航或章节定位。它是方向提示，不得冒充服务端就绪状态（design-system.md §7.1）。 */
+    /** 步骤导航或章节定位，仅用于位置引导，不替代服务端就绪检查。 */
     navigation?: ReactNode;
-    /** 保存入口与"未保存 / 保存中 / 已保存 / 失败"状态，滚动后必须持续可达。 */
+    /** 保存入口与"未保存 / 保存中 / 已保存 / 失败"状态，滚动后持续可达。 */
     statusBar?: ReactNode;
   }>;
 
-// 工作台页 = 持续可见的状态栏 + 步骤导航 + 工作区。长任务的三条硬要求（当前对象、当前步骤、
-// 未保存内容）由 statusBar 承担，因此它 sticky 在内容顶部而不是页面底部。
 function WorkbenchPageTemplate({
   children,
   className,
@@ -203,10 +188,12 @@ function WorkbenchPageTemplate({
     return (
       <div
         data-slot="coding-workbench"
-        className={cn('flex h-full min-h-0 min-w-0 flex-col', className)}
+        className={cn('bg-background flex h-full min-h-0 min-w-0 flex-col', className)}
       >
         <PageTitle title={title} visible={titleVisible} action={titleAction} />
-        {statusBar === undefined ? null : <div className="shrink-0 px-4 py-2">{statusBar}</div>}
+        {statusBar === undefined ? null : (
+          <div className="border-border bg-panel shrink-0 border-b px-4 py-2">{statusBar}</div>
+        )}
         <div className="min-h-0 min-w-0 flex-1">{state ?? children}</div>
       </div>
     );
@@ -216,7 +203,9 @@ function WorkbenchPageTemplate({
       <Section>
         <PageTitle title={title} visible={titleVisible} action={titleAction} />
         {statusBar === undefined ? null : (
-          <div className="bg-background top-header py-2x sticky z-30 mb-4">{statusBar}</div>
+          <div className="bg-background/95 top-header sticky z-30 mb-4 py-2 backdrop-blur-xs">
+            {statusBar}
+          </div>
         )}
         {state ?? (
           <div

@@ -29,6 +29,7 @@ const twMerge = extendTailwindMerge({
       'border-w-b': [{ 'border-b': ['hairline'] }],
       'border-w-t': [{ 'border-t': ['hairline'] }],
       'border-w-l': [{ 'border-l': ['hairline'] }],
+      'border-w-r': [{ 'border-r': ['hairline'] }],
       shadow: [{ shadow: ['subtle', 'inset', 'dialog', 'raised', 'ring'] }],
       duration: [{ duration: ['fast', 'base', 'slow'] }],
       ease: [{ ease: ['standard'] }],

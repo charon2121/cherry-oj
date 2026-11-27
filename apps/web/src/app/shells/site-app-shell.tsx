@@ -32,7 +32,7 @@ function SiteAppShell({ children }: SiteAppShellProps) {
       >
         跳到主要内容
       </a>
-      <header className="h-header bg-background sticky top-0 z-40">
+      <header className="h-header border-border bg-panel sticky top-0 z-40 border-b">
         <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop h-full">
           <div className="flex h-full min-w-0 flex-nowrap items-center gap-2 sm:gap-6">
             <AppBrand />

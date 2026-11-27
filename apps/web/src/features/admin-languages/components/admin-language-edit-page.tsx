@@ -3,7 +3,9 @@ import { useBlocker } from '@tanstack/react-router';
 import { useEffect, useId, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { CodeBlockEditor } from '@/components/ui/code-block-editor';
 import {
   Dialog,
@@ -30,9 +32,8 @@ import {
 } from '../api/admin-languages-api';
 import { useRedirectWhenSignedOut } from './use-redirect-when-signed-out';
 
-// 构图照 linear.app Settings › Templates 的模板编辑页：一列内容，区块标题 15px 加同一行的状态，
-// 下面是编辑区，最下方右侧"还原 / 保存"。前缀对所有核心代码题立即生效，所以手动保存、保存前确认；
-// 影响写在确认框里，页面上不常驻说明。返回由外壳面包屑（管理中心 › 语言 › C++）承担。
+// 语言前缀代码编辑页：单列卡片承载代码块与保存动作。前缀对所有核心代码题立即生效，因此需手动保存并二次确认；
+// 返回入口由管理外壳面包屑承担。
 function PrefixEditor({ language }: { language: AdminLanguageSetting }) {
   const headingId = useId();
   const queryClient = useQueryClient();
@@ -81,95 +82,103 @@ function PrefixEditor({ language }: { language: AdminLanguageSetting }) {
 
   return (
     <section aria-labelledby={headingId}>
-      <div className="mb-3 flex flex-wrap items-baseline gap-x-2">
-        <h2 id={headingId} className="text-foreground font-heading text-15">
-          <span className="md:hidden">{language.displayName} </span>前缀代码
-        </h2>
-        <Text as="span" size="sm" tone="meta" role="status">
-          {dirty ? '未保存' : null}
-        </Text>
-      </div>
-      <CodeBlockEditor
-        language={editorSyntax(language.id)}
-        value={draft}
-        readOnly={save.isPending}
-        aria-label={`${language.displayName} 前缀代码`}
-        onChange={(value) => {
-          setDraft(value);
-          if (save.isError && !conflict) save.reset();
-        }}
-      />
-      {save.isError ? (
-        <Text size="sm" className="text-danger mt-3" role="alert">
-          {apiErrorMessage(save.error, '保存失败，请稍后重试。')}
-        </Text>
-      ) : null}
-      <Cluster gap={2} justify="end" className="mt-4">
-        {conflict ? (
+      <Card padding="lg">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <h2 id={headingId} className="text-foreground font-heading text-base">
+            <span className="md:hidden">{language.displayName} </span>前缀代码
+          </h2>
+          {dirty ? (
+            <Badge variant="warning" role="status">
+              未保存
+            </Badge>
+          ) : null}
+        </div>
+        <CodeBlockEditor
+          language={editorSyntax(language.id)}
+          value={draft}
+          readOnly={save.isPending}
+          aria-label={`${language.displayName} 前缀代码`}
+          onChange={(value) => {
+            setDraft(value);
+            if (save.isError && !conflict) save.reset();
+          }}
+        />
+        {save.isError ? (
+          <Text size="sm" className="text-danger mt-3" role="alert">
+            {apiErrorMessage(save.error, '保存失败，请稍后重试。')}
+          </Text>
+        ) : null}
+        <Cluster gap={2} justify="end" className="mt-4">
+          {conflict ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                save.reset();
+                setDraft(language.solutionPrefix);
+                void queryClient.invalidateQueries({ queryKey: adminLanguageKeys.all });
+              }}
+            >
+              放弃改动并重新加载
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              disabled={!dirty || save.isPending}
+              onClick={() => setDraft(language.solutionPrefix)}
+            >
+              还原
+            </Button>
+          )}
           <Button
-            variant="secondary"
-            onClick={() => {
-              save.reset();
-              setDraft(language.solutionPrefix);
-              void queryClient.invalidateQueries({ queryKey: adminLanguageKeys.all });
-            }}
+            disabled={!canSave}
+            aria-keyshortcuts="Meta+S Control+S"
+            title="保存（⌘S）"
+            onClick={() => setConfirming(true)}
           >
-            放弃改动并重新加载
+            保存
           </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            disabled={!dirty || save.isPending}
-            onClick={() => setDraft(language.solutionPrefix)}
-          >
-            还原
-          </Button>
-        )}
-        <Button
-          disabled={!canSave}
-          aria-keyshortcuts="Meta+S Control+S"
-          title="保存（⌘S）"
-          onClick={() => setConfirming(true)}
-        >
-          保存
-        </Button>
-      </Cluster>
+        </Cluster>
 
-      <Dialog open={confirming} onOpenChange={(open) => !save.isPending && setConfirming(open)}>
-        <DialogContent size="sm">
-          <DialogHeader>
-            <DialogTitle>保存 {language.displayName} 前缀代码</DialogTitle>
-            <DialogDescription>
-              所有核心代码题之后的提交、自测与标定立即使用新前缀，已判完的提交不变。已标定的题目会在公开检查里提示重新标定。
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button variant="secondary" disabled={save.isPending} />}>
-              取消
-            </DialogClose>
-            <Button loading={save.isPending} loadingLabel="正在保存…" onClick={() => save.mutate()}>
-              保存
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <Dialog open={confirming} onOpenChange={(open) => !save.isPending && setConfirming(open)}>
+          <DialogContent size="sm">
+            <DialogHeader>
+              <DialogTitle>保存 {language.displayName} 前缀代码</DialogTitle>
+              <DialogDescription>
+                所有核心代码题之后的提交、自测与标定立即使用新前缀，已判完的提交不变。已标定的题目会在公开检查里提示重新标定。
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose render={<Button variant="secondary" disabled={save.isPending} />}>
+                取消
+              </DialogClose>
+              <Button
+                loading={save.isPending}
+                loadingLabel="正在保存…"
+                onClick={() => save.mutate()}
+              >
+                保存
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      <Dialog open={blocker.status === 'blocked'}>
-        <DialogContent size="sm">
-          <DialogHeader>
-            <DialogTitle>离开前确认未保存内容</DialogTitle>
-            <DialogDescription>前缀代码的修改尚未保存，离开后会丢失。</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => blocker.reset?.()}>
-              留在此页
-            </Button>
-            <Button variant="danger" onClick={() => blocker.proceed?.()}>
-              放弃并离开
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <Dialog open={blocker.status === 'blocked'}>
+          <DialogContent size="sm">
+            <DialogHeader>
+              <DialogTitle>离开前确认未保存内容</DialogTitle>
+              <DialogDescription>前缀代码的修改尚未保存，离开后会丢失。</DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => blocker.reset?.()}>
+                留在此页
+              </Button>
+              <Button variant="danger" onClick={() => blocker.proceed?.()}>
+                放弃并离开
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </Card>
     </section>
   );
 }

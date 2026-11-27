@@ -1,10 +1,11 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { RotateCcw, TriangleAlert } from 'lucide-react';
+import { BookOpen, KeyRound, RotateCcw, Server, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   DataList,
   type DataListItem,
@@ -19,6 +20,7 @@ import { judgeNodeKeys, listJudgeNodes } from '@/features/admin-judging/api/judg
 import { adminUserKeys, listUsers } from '@/features/admin-users/api/admin-users-api';
 import { listAdminProblems, problemKeys } from '@/features/problems/api/problems-api';
 import { apiErrorMessage } from '@/lib/api/api-error-message';
+import { cn } from '@/lib/utils';
 
 type TodoRow = Readonly<{
   id: string;
@@ -125,18 +127,16 @@ function DashboardSection({
   ) : (
     (notice ??
     (rows.length === 0 && emptyLabel ? (
-      <Text size="sm" tone="meta" className="py-3">
+      <Text size="sm" tone="meta" className="px-1 py-2">
         {emptyLabel}
       </Text>
     ) : null))
   );
   // 有历史结果时优先展示故障和恢复入口，避免较长的节点列表把它们推到屏幕外。
-  const message = feedback ? (
-    <div className="px-gutter-phone sm:px-gutter-tablet lg:px-gutter-desktop mx-2">{feedback}</div>
-  ) : null;
+  const message = feedback ? <div>{feedback}</div> : null;
 
   return (
-    <section aria-label={label} className="flex min-w-0 flex-col gap-2">
+    <section aria-label={label} className="flex min-w-0 flex-col gap-2.5">
       {rows.length > 0 ? message : null}
       <DataList
         caption={`${label}列表`}
@@ -155,6 +155,44 @@ function DashboardSection({
       />
       {rows.length === 0 ? message : null}
     </section>
+  );
+}
+
+function KpiSummaryCard({
+  icon: Icon,
+  label,
+  tone = 'neutral',
+  value,
+  meta,
+}: {
+  icon: typeof Server;
+  label: string;
+  tone?: 'success' | 'warning' | 'neutral';
+  value: string;
+  meta: string;
+}) {
+  return (
+    <Card padding="sm" className="min-w-0 p-3 sm:p-4">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="text-fg-muted truncate text-xs font-medium">{label}</span>
+        <span
+          className={cn(
+            'hidden size-7 shrink-0 items-center justify-center rounded-lg border sm:flex',
+            tone === 'success' && 'border-success-border bg-success-soft text-success',
+            tone === 'warning' && 'border-warning-border bg-warning-soft text-warning',
+            tone === 'neutral' && 'border-border bg-surface-subtle text-fg-meta',
+          )}
+        >
+          <Icon aria-hidden="true" className="size-3.5" />
+        </span>
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <span className="text-foreground font-heading text-xl tabular-nums sm:text-2xl">
+          {value}
+        </span>
+        <span className="text-fg-meta hidden truncate text-xs sm:inline">{meta}</span>
+      </div>
+    </Card>
   );
 }
 
@@ -213,9 +251,32 @@ function AdminDashboardPage() {
     <ListPageTemplate
       title="总览"
       width="column"
-      toolbar={<Toolbar title="总览" className="mx-1 sm:mx-2 md:hidden" />}
+      toolbar={<Toolbar title="总览" className="md:hidden" />}
     >
-      <Stack gap={4} className="mt-3 md:mt-0">
+      <Stack gap={4}>
+        <div aria-label="平台概览指标" className="grid grid-cols-3 gap-2 sm:gap-4">
+          <KpiSummaryCard
+            icon={Server}
+            label="在线节点"
+            tone={judgeNodes.data ? (onlineNodes > 0 ? 'success' : 'warning') : 'neutral'}
+            value={judgeNodes.data ? String(onlineNodes) : '—'}
+            meta={judgeNodes.data ? `共 ${nodes.length} 台注册` : '读取中'}
+          />
+          <KpiSummaryCard
+            icon={BookOpen}
+            label="私有草稿"
+            tone="neutral"
+            value={problems.data ? String(drafts.length) : '—'}
+            meta={problemsArePaginated ? '当前页待公开' : '待完善并公开'}
+          />
+          <KpiSummaryCard
+            icon={KeyRound}
+            label="待首次改密"
+            tone={users.data && pendingUsers.length > 0 ? 'warning' : 'neutral'}
+            value={users.data ? String(pendingUsers.length) : '—'}
+            meta={usersArePaginated ? '当前页初始账号' : '活跃初始账号'}
+          />
+        </div>
         <DashboardSection
           label="判题节点"
           query={judgeNodes}
@@ -223,7 +284,7 @@ function AdminDashboardPage() {
           count={`${onlineNodes} / ${nodes.length} 在线`}
           notice={
             onlineNodes === 0 ? (
-              <div className="flex items-start gap-2" role="status">
+              <div className="flex items-start gap-2 px-1" role="status">
                 <TriangleAlert
                   className="text-warning mt-half size-4 shrink-0"
                   aria-hidden="true"

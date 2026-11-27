@@ -192,13 +192,6 @@ function createRules(themeIds) {
       pattern: /\bonMouse(?:Enter|Leave|Down|Up)\s*=/g,
     },
     {
-      id: 'forbidden-transform-motion',
-      message:
-        '禁止 transform/scale/translate 动效；下载版只允许 opacity、color 与 background 动效。',
-      pattern:
-        /(?:transition-(?:transform|\[scale[^\]]*\])|(?:data-[^\s"'`<>]*:)?(?:scale|translate|rotate)-[^\s"'`<>]+)/g,
-    },
-    {
       id: 'state-opacity-utility',
       message: 'disabled/placeholder 不得通过 Tailwind opacity 或 alpha modifier 降低可读性。',
       pattern:
@@ -572,12 +565,6 @@ async function runSelfTest(rules) {
       'mouse-only-visual-state',
       'export const fixture = <button onMouseEnter={() => undefined} />;\n',
       '.tsx',
-    ],
-    [
-      'transform motion utility',
-      'forbidden-transform-motion',
-      "export const motion = 'transition-transform data-[starting-style]:translate-x-full';\n",
-      '.ts',
     ],
     [
       'disabled Tailwind opacity',

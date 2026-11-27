@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { type ReactNode, type Ref, useRef, useState } from 'react';
 
 import { AsyncState } from '@/components/ui/async-state';
+import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { CopyIconButton } from '@/components/ui/copy-button';
 import { Container, Section } from '@/components/ui/layout';
@@ -30,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { problemQuery, readyLanguagesQuery } from '../api/problems-api';
 import { useWorkbenchMedia } from '../hooks/use-workbench-media';
 import { codeModeLabels } from '../lib/code-mode';
-import { DifficultyIcon, difficultyLabel } from './difficulty-icon';
+import { DifficultyBadge } from './difficulty-icon';
 import {
   DraftEditor,
   type HistoryEditorHandle,
@@ -109,9 +110,12 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       >
         题库
       </Link>
-      <ChevronRight className="text-fg-meta size-3.5 shrink-0" aria-hidden="true" />
-      <span aria-current="page" className="text-foreground font-heading min-w-0 break-words">
+      <ChevronRight className="text-fg-disabled size-3.5 shrink-0" aria-hidden="true" />
+      <span aria-current="page" className="text-foreground font-body min-w-0 truncate">
         {data.title}
+      </span>
+      <span className="text-fg-meta ml-auto shrink-0 pl-3 font-mono text-xs max-sm:hidden">
+        {data.slug}
       </span>
     </nav>
   );
@@ -129,10 +133,12 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       }}
       className="min-h-0 flex-1"
     >
-      <TabsList aria-label="题目内容">
-        <TabsTrigger value="statement">题目描述</TabsTrigger>
-        <TabsTrigger value="submissions">提交记录</TabsTrigger>
-      </TabsList>
+      <div className="border-border-soft bg-surface-subtle/50 flex h-12 shrink-0 items-center border-b px-3">
+        <TabsList aria-label="题目内容">
+          <TabsTrigger value="statement">题目描述</TabsTrigger>
+          <TabsTrigger value="submissions">提交记录</TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="statement" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {unavailable ? (
           <p role="alert" className="text-fg-muted p-4">
@@ -168,8 +174,7 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
     />
   );
 
-  // 宽屏：左边题目，右边代码与测试上下排，缝隙都能拖。做题时大部分时间在写和测，
-  // 所以默认题目占 42%，代码与测试占得多些；拖过的比例记在本机。
+  // 宽屏岛式工作台：左侧题面卡片，右侧代码卡片与测试卡片上下分布，面板间留出画布沟槽并支持拖拽调节比例。
   if (wide) {
     return (
       <WorkbenchPageTemplate
@@ -178,15 +183,18 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
         titleVisible={false}
         statusBar={breadcrumb}
       >
-        <SplitPane
-          orientation="horizontal"
-          label="调整题目与代码的宽度"
-          storageKey="cherry-oj.problem-split.columns"
-          defaultRatio={0.42}
-          className="h-full"
-          first={<Pane label="题目">{statement}</Pane>}
-          second={code}
-        />
+        <div className="h-full min-h-0 min-w-0 p-2 sm:p-2.5">
+          <SplitPane
+            orientation="horizontal"
+            variant="island"
+            label="调整题目与代码的宽度"
+            storageKey="cherry-oj.problem-split.columns"
+            defaultRatio={0.42}
+            className="h-full"
+            first={<Pane label="题目">{statement}</Pane>}
+            second={code}
+          />
+        </div>
       </WorkbenchPageTemplate>
     );
   }
@@ -202,12 +210,14 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
       <Tabs
         value={pane}
         onValueChange={(value) => setPane(String(value))}
-        className="h-full min-h-0"
+        className="bg-panel h-full min-h-0"
       >
-        <TabsList aria-label="答题区域">
-          <TabsTrigger value="statement">题目</TabsTrigger>
-          <TabsTrigger value="code">代码</TabsTrigger>
-        </TabsList>
+        <div className="border-border-soft bg-surface-subtle/50 flex h-12 shrink-0 items-center border-b px-3">
+          <TabsList aria-label="答题区域">
+            <TabsTrigger value="statement">题目</TabsTrigger>
+            <TabsTrigger value="code">代码</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent
           keepMounted
           value="statement"
@@ -237,16 +247,23 @@ function ProblemWorkbench({ data, unavailable }: { data: ProblemDetail; unavaila
 
 function ProblemStatement({ data }: { data: ProblemDetail }) {
   return (
-    <article className="text-fg-2 @container min-w-0 px-4 pt-3 pb-12 sm:px-8 sm:pt-4">
-      <ul
-        aria-label="题目属性"
-        className="text-fg-meta flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
-      >
-        <li className="inline-flex items-center gap-1.5">
-          <DifficultyIcon difficulty={data.difficulty} />
-          {difficultyLabel(data.difficulty)}
+    <article className="text-fg-2 @container min-w-0 px-4 pt-5 pb-12 sm:px-7 sm:pt-6">
+      {/* 页面级 h1 已由模板向无障碍树提供；此处展示 24px/600 阅读主标题作为题面视觉锚点。 */}
+      <p aria-hidden="true" className="text-foreground font-heading text-2xl leading-[36px]">
+        {data.title}
+      </p>
+      <ul aria-label="题目属性" className="mt-3 flex flex-wrap items-center gap-1.5">
+        <li>
+          <DifficultyBadge difficulty={data.difficulty} />
         </li>
-        <li>{codeModeLabels[data.codeMode]}</li>
+        <li>
+          <Badge variant="neutral">{codeModeLabels[data.codeMode]}</Badge>
+        </li>
+        {data.tags.map((tag) => (
+          <li key={tag}>
+            <Badge variant="neutral">{tag}</Badge>
+          </li>
+        ))}
       </ul>
       <SafeMarkdown className="mt-6" value={data.statementMarkdown} />
       <StatementSection title="输入说明">
@@ -322,10 +339,10 @@ function SampleBlock({
   return (
     <div className="min-w-0">
       <div className="flex h-8 items-center justify-between gap-2">
-        <span className="text-fg-meta text-xs">{caption}</span>
+        <span className="text-fg-meta text-xs font-medium">{caption}</span>
         <CopyIconButton value={value} label={copyLabel} />
       </div>
-      <pre className="bg-surface-subtle text-fg-2 overflow-x-auto rounded-md px-4 py-3 font-mono text-xs leading-[20px]">
+      <pre className="border-border bg-surface-subtle text-fg-2 overflow-x-auto rounded-lg border px-4 py-3 font-mono text-xs leading-[20px]">
         <code>{value || ' '}</code>
       </pre>
     </div>
@@ -498,6 +515,7 @@ function ProblemCode({
             layout: (editor: ReactNode, submission: ReactNode) => (
               <SplitPane
                 orientation="vertical"
+                variant="island"
                 label="调整代码与测试区的高度"
                 storageKey="cherry-oj.problem-split.rows"
                 defaultRatio={0.62}

@@ -28,7 +28,7 @@ function AdminAppShell() {
         </a>
 
         <Sidebar aria-label="管理导航" className="hidden md:flex">
-          <div className="h-header flex shrink-0 items-center gap-1 px-3">
+          <div className="h-header border-border-soft flex shrink-0 items-center gap-1 border-b px-3">
             <AccountMenu className="min-w-0 flex-1" showSiteEntry trigger="workspace" />
             <ThemeSwitcher />
           </div>
@@ -37,8 +37,8 @@ function AdminAppShell() {
           </nav>
         </Sidebar>
 
-        <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--layout-header)_minmax(0,1fr)] md:overflow-hidden">
-          <header className="bg-background sticky top-0 z-40">
+        <div className="bg-background grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--layout-header)_minmax(0,1fr)] md:overflow-hidden">
+          <header className="border-border bg-panel sticky top-0 z-40 border-b">
             <Container className="h-full max-w-none">
               <div className="flex h-full min-w-0 flex-nowrap items-center gap-2">
                 <Button

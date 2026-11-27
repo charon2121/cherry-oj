@@ -21,10 +21,11 @@ function Pill({
   ...props
 }: PillProps) {
   const classes = cn(
-    'inline-flex min-h-7 max-w-full items-center gap-1x rounded-full px-[10px] font-display text-xs font-body text-fg-meta transition-colors duration-fast ease-standard focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring motion-reduce:transition-none',
+    'border-border-solid bg-surface inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-lg border px-2.5 font-display text-xs font-body text-fg-muted transition-[background-color,color,border-color,box-shadow] duration-fast ease-standard focus-visible:outline-1 focus-visible:outline-offset-0 focus-visible:outline-ring motion-reduce:transition-none',
     dot && 'pl-2',
-    selected && 'bg-surface-hover text-foreground forced-colors:outline-1',
-    onClick && !selected && 'cursor-pointer hover:text-foreground',
+    selected &&
+      'border-border-strong bg-surface-subtle text-foreground shadow-ring forced-colors:outline-1',
+    onClick && !selected && 'cursor-pointer hover:bg-surface-hover hover:text-foreground',
     !onClick && 'cursor-default',
     className,
   );
@@ -34,7 +35,7 @@ function Pill({
       {dot ? (
         <span
           aria-hidden="true"
-          className={cn('rounded-circle bg-brand-surface size-[6px] shrink-0', dotClassName)}
+          className={cn('rounded-circle bg-brand-surface size-2 shrink-0', dotClassName)}
         />
       ) : null}
       <span className="min-w-0 break-words">{children}</span>
