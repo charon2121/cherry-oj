@@ -38,8 +38,7 @@
 - [`status.md`](./status.md)：各模块当前是可用实现还是骨架。
   根目录 `AGENTS.md` 只留每次都必须遵守的部分，展开的规范在这里按需读。
 
-[`design-system/`](./design-system/) 保存设计系统的可执行文档包。其中 Foundation 与主题 CSS 是数值
-真源，theme contract 是语义和对比合同；机器快照、组件 HTML 和 preview 是派生或评审材料。
+[`design-system/`](./design-system/README.md) 保存面向开发者与智能体的设计系统说明与组件契约（`PROMPT.md` 与 `components.manifest.json`）；Web 可执行设计系统真源位于 `apps/web/design-system/`。
 
 ## 协议
 

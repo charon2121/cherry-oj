@@ -23,7 +23,7 @@
 
 - 组件里的编辑器值是当前会话副本，**不把整段源码塞进 Query cache 或全局 store**。
 - 主题只存 key 为 `cherry-oj.theme` 的 theme id，由生成 registry 校验，首屏脚本与 `src/lib/theme`
-  统一解析；无效值和存储异常安全回退默认黑色。
+  统一解析；无效值和存储异常安全回退默认浅色主题 `pure-white`。
 - **鉴权令牌和用户源码不使用 `localStorage`。**
 - 能从其它状态算出来的值不单独存储，在使用处派生。
 - 初期不引入 Zustand、Redux Toolkit 或 TanStack Store。只有出现上述边界无法自然承载的跨页面纯

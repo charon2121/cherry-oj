@@ -35,8 +35,7 @@
 - **UI 与样式**：Tailwind CSS、shadcn/ui、Base UI、Lucide React、
   class-variance-authority、`clsx`、`tailwind-merge`。
 - **编辑与内容**：Monaco Editor、react-markdown、remark-gfm、rehype-sanitize。
-- **组件工作台**：Storybook 与 `@storybook/addon-a11y`；UI 视觉方向为
-  Linear-inspired Focused Workspace。
+- **组件工作台**：Storybook 与 `@storybook/addon-a11y`；UI 视觉方向为浅色优先的现代卡片与岛式编码工作台（Modern Crisp Card & Island Workspace）。
 - **测试**：Vitest、React Testing Library、user-event、MSW、Playwright。
 - **代码质量**：EditorConfig、ESLint Flat Config、typescript-eslint、React Hooks、jsx-a11y、
   simple-import-sort、Prettier、prettier-plugin-tailwindcss。
@@ -99,18 +98,13 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 ### 2.4 设计系统
 
 - Web 视觉唯一规范是 [`design-system.md`](./design-system.md) 与其
-  [`design-system/`](./design-system/) 文档包。采用 **Linear-inspired Focused Workspace**：冷静灰阶、
-  紧凑但不拥挤的信息密度和克制的层级；借鉴 Linear fixture 的结构，不复制其品牌资产。
-- `cherry-black` 是固定默认主题；`pure-white` 是完整浅色主题。缺失、空值和未知 theme id 回退默认
-  黑色，不自动跟随操作系统。未来主题必须完整实现 theme contract，组件不得增加 theme-id 分支。
-- 应用框架固定为退后的导航侧栏、统一的 location bar、按页面变化的 view bar 和获得主要对比度的
-  工作区。侧栏必须比正文区域更安静，导航不能与用户当前任务争夺注意力。
-- 列表行、工具栏和表单采用紧凑尺寸；层级优先使用明暗、细边框和对齐表达，普通内容不依赖阴影，
-  也不把每个区块都包装成 Card。
+  [`design-system/`](./design-system/README.md) 说明目录。采用浅色优先的 **Modern Crisp Card & Island Workspace**：冷瓷灰画布衬托纯白圆角卡片、`1px` 清晰实线边界、针对中文阅读优化的 `14px/15px` 排版尺度与语义状态徽章。
+- `pure-white`（浅色）是固定默认主题与安全回退主题；`cherry-black` 是完整柔和板岩暗色主题。缺失、空值和未知 theme id 一律回退默认 `pure-white`，不自动跟随操作系统。未来主题必须完整实现 65 键 theme contract，组件不得增加 theme-id 分支。
+- 用户端采用 `56px` 实色顶栏与主画布；宽屏做题页采用三岛可拖拽分栏（题面岛、代码岛、测试与提交岛）。管理端采用 `240px` 固定侧栏、顶栏面包屑与冷灰画布上的卡片化列表或文档+属性双卡工作台。
+- 列表与表单在画布上以圆角带框卡片清晰收拢边界，控件采用 `36px`（表单）/ `32px`（工具栏）圆角矩形与分段控制器 `Tabs`。
 - `apps/web/design-system/` 持有 Web 可执行的 Foundation、主题 CSS、theme contract、manifest、
-  Tailwind adapter、生成与校验工具、来源和许可证。业务组件只使用其中的 `--ds-*` semantic token 或
-  Tailwind alias；禁止 raw 颜色、primitive palette、主题 selector 和 theme-id 分支。
-- [`design-system.md`](./design-system.md) 与 [`design-system/`](./design-system/) 是供人阅读和评审的
+  Tailwind adapter、生成与校验工具和说明。业务组件只使用其中的语义工具类；禁止 raw 颜色、primitive palette、主题 selector 和 theme-id 分支。
+- [`design-system.md`](./design-system.md) 与 [`design-system/`](./design-system/README.md) 是供人阅读和评审的
   设计说明，不参与 `npm ci`、dev、check、build、Storybook 或 E2E。删除该文档目录不影响 Web；普通
   CI 不做跨树 drift、copy、prebuild 或 symlink。
 - 只有真正修改主题、token、adapter 或合同的 WORK/TASK 才同时更新代码侧与设计说明，并分别验证两侧；
@@ -118,12 +112,12 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - 代码侧 `themes.manifest.json` 通过 `apps/web/scripts/generate-design-system.mjs` 生成只含主题 metadata 的
   `src/generated/design-system/themes.ts` 和首屏脚本 `public/generated/theme-init.js`。生成物禁止手改；
   使用 `npm run generate:design-system` 更新，使用 `npm run generate:design-system:check` 检查漂移。
-- HTML 先声明默认 `cherry-black` / dark color scheme，`theme-init.js` 在 React 启动前读取
-  `cherry-oj.theme`。缺失、空值、未知值或存储读取失败均回退 `cherry-black`；`pure-white` 只有显式
-  有效偏好才启用，且不自动跟随操作系统。
+- HTML 先声明默认 `pure-white` / light color scheme，`theme-init.js` 在 React 启动前读取
+  `cherry-oj.theme`。缺失、空值、未知值或存储读取失败均回退 `pure-white`；`cherry-black` 在显式
+  有效偏好时启用，且不自动跟随操作系统。
 - `src/lib/theme` 是 resolver、DOM 属性、持久化、跨标签页同步和 React 消费 API 的唯一入口。
-  `data-theme` 是选择真源，`data-color-scheme` 只由 manifest metadata 派生；生产页面当前不提供主题
-  切换器，setter 仅供 Storybook、测试和后续获批的产品功能使用。
+  `data-theme` 是选择真源，`data-color-scheme` 只由 manifest metadata 派生；用户端顶栏与管理端侧栏/移动顶栏
+  统一挂载 `ThemeSwitcher`，在两个正式登记主题间无闪烁切换并同步多标签页状态。
 - `primary` 是 Cherry 品牌实心 surface；shadcn `accent` 是中性 hover；`destructive` 和 danger 独立。
   品牌与危险不得共用同一个语义 token。
 - UI 分为 design tokens、基础组件、OJ 业务组件与页面模板四层。页面从题库列表、题目工作台、
@@ -136,8 +130,8 @@ TanStack 工具采用 headless 模式，只提供行为、状态和类型，不�
 - 视觉参考见 Storybook（`cd apps/web && npm run storybook`），它渲染的是真实组件；前端架构与工程
   规则以本文为准。Storybook 不反向定义 token。
 
-> **产品边界：** 设计系统运行时与主题设置 API 是前端基建，不等于用户已经获得主题切换功能。生产
-> 导航当前不提供切换入口；若要让用户主动选择主题，需在独立产品工作中定义入口、文案和验收。
+> **产品边界：** 主题切换严格限定在 `themes.manifest.json` 已登记的正式主题（`cherry-black` 与
+> `pure-white`）之间循环切换，不提供“旧系统/新系统”开关或未登记的自定义配色。
 
 ### 2.5 测试与工程质量
 
@@ -218,8 +212,8 @@ Query key factory、失效范围、重试策略和 loader 预取规则见
   草稿属于当前浏览器，不代表提交或跨设备同步，也不抵御同设备开发者工具访问。
 - 用户端题目页复用 `GET /api/auth/session` 的现有 Query；15 秒及窗口恢复时重新确认会话，
   网络失败保留已有文本并暂停编辑；确认失效后隐藏旧账号内容。普通用户和管理员均可编写代码。
-- Monaco 本地异步加载，C++ ACM 起始代码来自题目；手机触控回退 CodeMirror。后台仍使用
-  `TextEditor`。本轮运行、提交为禁用能力且显示“暂未开放”，不发请求或展示模拟判题结果。
+- Monaco 本地异步加载，各语言 ACM / CORE 起始代码来自题目语言配置；手机触控回退 CodeMirror。后台仍使用
+  `TextEditor`。自测与正式提交在工作台底栏就近触发并支持键盘快捷键。
 
 ### 4.5 提交与判题轮询
 

@@ -1,430 +1,105 @@
-# Cherry OJ Web 设计系统
-
-> **状态：已确认的长期规范。** 本文与 [`design-system/`](./design-system/) 共同定义 Cherry OJ
-> 后续 Web 组件、业务组件和页面的视觉与交互合同。
->
-> **系统的来历要说准确，因为说错过。** token 结构、主题合同、Tailwind adapter 与校验器由
-> 2026-08-28 建立；Claude Design 下载版 2026-09-03 引入并冻结，颜色与光学间距派生自它；
-> 排版刻度与本文 §7.2 的结构原则来自 2026-09-04 对一份 Figma 社区还原的实测；2026-10-16 改以
-> **linear.app 真实页面**的实测为准，骨架、字重、线宽、浮层材质与暗色明度台阶据此重定，数值记录在
-> [`design-system/measurements.md`](./design-system/measurements.md)。
->
-> **那个冻结下载版不是设计依据。** 它是二手还原，其 readme 断言过两条被实测推翻的规则——
-> blur 从不使用、焦点用 2px outline——两条都曾被写进本文并已废除。它现在只承担许可、来源与
-> 组件追溯，见 [`design-system/NOTICE.md`](./design-system/NOTICE.md)。
->
-> 本系统不是 Linear 官方设计系统，也不隶属于它。
-
-## 1. 权威关系
-
-只有三层，每层回答一个不同的问题，依赖方向不能倒置：
-
-1. **凭什么是这样** —— [`design-system/measurements.md`](./design-system/measurements.md)
-   记录参照的实测数值：骨架尺寸、排版刻度、行内构造、对齐方式、控件描边、浮层材质。
-   它只记事实不记规则，因此可以被复查、也可以被新的实测推翻。
-2. **应该怎么用** —— 本文规定结构原则（§7.2）、构图合同（§7.3）、消费规则、组件合同和例外流程；
-   [`components.manifest.json`](./design-system/components.manifest.json) 保存逐组件合同。
-3. **实际是什么** —— `apps/web/design-system/` 是唯一可执行真源，持有全部 Foundation、主题、
-   manifest、合同、Tailwind adapter、生成器与校验器。
-
-[`design-system/source/claude-design-v1/`](./design-system/source/claude-design-v1/) **不在这条链上**。
-它是许可与来源证据：颜色与光学间距派生自它，`source-lock.json` 锁定其 99 文件与逐文件摘要，
-`components.manifest.json` 的 `sourceRefs` 指向它做组件追溯。**不要把它当设计依据。**
-
-**设计值只有一处手写定义**，在 `apps/web/design-system/` 的 `tokens.foundation.css` 与 `themes/*.css`。
-其余出现该值的地方必须是生成物（`tokens.css`、`design-tokens.json`）或冻结来源。文档不复述具体值——
-复述出来的那一份迟早会和真源对不上，早先就是这样：同一个品牌色散落在 7 个文件里，
-其中两个还是负责检查它对不对的校验器。
-
-`docs/design-system/` 不参与构建，也不持有任何设计值；删除它不得影响 Web 的 `npm ci`、开发服务器、
-检查、生产构建、Storybook 或 E2E。它自身唯一的检查命令见
-[`design-system/README.md`](./design-system/README.md)。
-
-组件生产参考入口是 Storybook（`cd apps/web && npm run storybook`），它渲染真实组件并覆盖两个主题和
-a11y。实现验收对照 §7.2 的九条原则与 §7.3 的构图合同**在截图上逐条判定**，不能只看 token 是否
-通过校验——四轮返工里，每一轮的 token 校验都是通过的。
-
-## 2. 设计方向
-
-Cherry OJ 采用下载版定义的 instrument panel / Focused Workspace：近黑或纯白画布、冷灰层级、紧凑但
-可读的信息密度、精确对齐、细 hairline、克制圆角和几乎不打扰的状态变化。它服务于“读题—编码—提交—
-诊断”这一长时间专注流程，不复制来源 demo 的营销功能、Linear 商标、Logo 或产品文案。
-
-所有界面遵守以下原则：
-
-- 导航退后，当前任务获得主要对比度。用对齐、间距和文字层级组织普通分组，独立输入控件与浮层各自保留必要边界。
-- Foundation 使用本地 Inter Variable、中文系统字体回退、本地 JetBrains Mono，并保留已合法安装的
-  Berkeley Mono 为第一首选；工作字重为 450（正文）/500（标签、导航、行标题）/600（标题），禁止 700。
-- 间距以 8px 为基础，7/11/19/22px 只用于来源明确的光学校准；圆角完整覆盖 3/4/6/8/12/21px、pill
-  和 circle；按钮一律胶囊，输入框与下拉 8px，浮层 12px，对话框 21px。桌面管理端保留 244px 侧栏和 44px 顶栏，
-  导航与内容使用同一画布，以栏宽与内边距区分区域。
-- 只允许 opacity、color、background-color 使用 150/200/320ms 与标准 easing；禁止 transform、bounce、
-  spring、parallax 和装饰性入场动画，reduced-motion 下时长归零。
-- 不使用 gradient、photo、illustration、texture、noise 或 pattern；空间由留白/留黑、明度台阶和
-  对齐建立，不靠大面积装饰。任何元素都不使用 backdrop blur，阴影用于独立浮层。
-- 品牌、危险和 OJ 状态是不同语义。Cherry 品牌色可以表示主操作和品牌链接，不能代替 destructive。
-- 页面由稳定的 shell、列表、工作台和详情模板组合；真实业务差异进入内容区，不重新发明视觉语言。
-
-## 3. 主题模型
-
-### 3.1 已登记主题
-
-| Theme ID       | Color scheme | 定位                                                                              |
-| -------------- | ------------ | --------------------------------------------------------------------------------- |
-| `cherry-black` | dark         | 默认主题；精确承接 Claude Design 下载版暗色视觉，在生产可访问性边界内适配交互状态 |
-| `pure-white`   | light        | 同一系统的正式浅色主题；结构与非颜色 token 完全同构，以冷灰/白重新建立层级        |
-
-主题选择只由 `<html data-theme="…">` 表达。缺失、空值、`cherry-black` 和未知 theme id 都回退到
-`:root` 的 `cherry-black`；`pure-white` 必须显式选择。默认不跟随操作系统。
-`data-color-scheme` 如为 Tailwind 兼容而存在，只能由 theme manifest 派生，不能单独持久化或成为第二真源。
-
-当前主题文件为：
-
-- `apps/web/design-system/themes/cherry-black.css`
-- `apps/web/design-system/themes/pure-white.css`
-
-`cherry-black` 以近黑画布、略亮的 surface 和接近白但不是纯白的主文字建立层级；`pure-white` 以纯白
-画布/抬升面和三档冷灰 panel/subtle/hover 建立同样的层级。**具体值只以主题 CSS 为准，本文不复述。**
-
-### 3.2 扩展新主题
-
-新增主题是“实现同一合同”，不是在组件中增加模式：
-
-1. 明确主题扩展的范围与代价，把 `apps/web/design-system/` 与本文纳入同步和验证。
-2. 在 `apps/web/design-system/` 新增完整 theme CSS，并在 `themes.manifest.json` 登记稳定 id、label、
-   color scheme、文件、provenance 和版本；不得只覆盖相对默认主题的差值。
-3. 运行 `node design-system/tools/build.mjs` 重新生成 `tokens.css` 与 `design-tokens.json`，
-   再运行 `build.mjs --check`、`check.mjs` 与 `check.mjs --self-test`。新主题的每个值都会进入
-   生成的值锚点，这是它被记录下来的方式；不要手抄进任何文档或校验器。
-4. 用同一组件矩阵验证桌面、320px、键盘、长中文和 reduced-motion。
-
-新增完整主题不应修改 Tailwind adapter、组件或页面。删除/改义合同字段、改变默认主题或改变组件默认行为
-属于破坏性变更，必须先说明影响与取舍并取得用户批准。
-
-## 4. Token 消费规则
-
-Foundation token 与主题 token 分层：字体、字号、间距、圆角、布局和 motion 全主题共享；颜色、focus、
-selection、overlay、status 与 elevation 由每个主题完整实现。Token 统一使用 `--ds-*`；本文档包说明这些
-语义，Web 实际解析和校验 `apps/web/design-system/` 中的实现。
-
-下载版核心组件明确依赖三档透明 surface（2% rest、4% hover、5% selected）、ghost 实线边界、tertiary
-分隔线和 subtle/inset/dialog elevation。它们分别映射为 `surface-translucent*`、`border-solid`、
-`line-tertiary` 与 `elevation-subtle/inset/dialog`，必须由两个主题完整实现，不能在组件里重新写 rgba 或 shadow。
-
-组件和页面必须：
-
-- 只消费代码侧设计系统提供的语义 token 或稳定 Tailwind alias；本文档中的
-  Tailwind adapter 唯一真源是 `apps/web/design-system/tailwind-v4.css`；
-- 不写 raw hex/OKLCH，不读取 primitive palette，不出现主题 selector，也不按 theme id 分支；
-- 不用承担必要对比的动态 `color-mix()`；disabled/placeholder 使用专门 token，不再叠 opacity；
-- 只把 `border`/`border-soft` 当装饰分隔，控件或状态识别使用 `border-strong` 或对应 status border；
-- 让同一组件在所有 manifest 主题中保持相同 anatomy、size、variant、state 和键盘行为。
-
-Tailwind/shadcn 只做一次 theme-neutral 映射：
-
-- `primary` 是品牌实心 surface，只与 `primary-foreground` 配对；普通品牌文字使用 `brand`。
-- shadcn `accent` 是中性 hover surface，不是 Cherry 品牌色。
-- `destructive` 只映射 danger solid，并与 `destructive-foreground` 配对；普通危险文字使用 danger。
-- `ring` 映射主题 focus；`input`/`border-strong` 承担必要控件边界。
-- 新组件优先不写 `dark:`；兼容代码确有需要时，只能消费由 manifest 派生的 color scheme，不能枚举主题。
-
-## 5. 品牌、危险与 OJ 状态
-
-品牌角色拆为 `brand-surface`、hover/active、`on-brand`、`brand-foreground`、`brand-soft` 和
-`on-brand-soft`。实心 CTA 使用来源 Cherry；为确保白字在全部按钮状态可读，hover/active 使用同色族
-更深的两档。暗色品牌文字与链接使用亮 Cherry，hover 再亮一档；pure-white 的文字与链接使用可达对比的
-深 Cherry。暗色亮粉不得直接搬到白底正文或必要图标。具体值见主题 CSS。
-
-**品牌标志**是 `apps/web/public/brand-mark.svg`：品牌红圆角方块上，一个"通过"的勾，勾的最低点挂着
-一颗樱桃（2026-10-17 选定）。同一个文件既是 favicon，也是应用里的标志（`app-brand.tsx` 20px 与字标并排，
-管理端侧栏的账号菜单 18px），不另画副本、不改色、不加描边或阴影，两个主题都用它。favicon 读不到 CSS
-变量，所以它自带颜色，是设计系统检查里登记的唯一 SVG/hex 例外；品牌色变了要同步改这个文件。
-
-**焦点不用品牌色。** Cherry 与危险红太接近，品牌色焦点会被读成"出错"；焦点统一使用中性高对比的
-次亮前景色（`--ds-focus` 指向 `--ds-fg-2`）。这是与 linear.app（品牌紫焦点）有意的偏离。
-
-`success`、`warning`、`danger`、`info`、`special` 每类状态都完整实现：
-
-- `foreground`：状态文字与必要图标；
-- `surface`：不透明的 soft 背景；
-- `border`：状态需要边界识别时使用；
-- `solid` / `on-solid`：实心状态面与其前景的固定配对。
-
-Submission 生命周期与 verdict 是两套状态机，不能把 `Pending` / `Judging` 当 verdict，也不能把 CE/SE
-当 HTTP 错误。所有 verdict 必须穷尽 `contracts/verdict.json`，同时显示 code、可读名称以及稳定图标或
-形状；不得只靠颜色。Cherry magenta 与 danger red 接近，因此破坏性动作还必须使用危险/删除图标、
-明确动词，并在高风险操作中提供确认。
-
-## 6. 组件合同
-
-组件分四层：
-
-1. design token 与 Tailwind/shadcn adapter；
-2. button、field、link、badge、card/panel、dialog/popover、typography、layout 等基础组件；
-3. verdict、Submission lifecycle、editor workspace、problem filter/table、inline notice 等 OJ 业务组件；
-4. app shell、题库列表、题目工作台、提交详情和管理表格等页面模板。
-
-新组件必须在 [`components.manifest.json`](./design-system/components.manifest.json) 的合同范围内设计，至少
-说明 anatomy、size、variant、state、semantic token、键盘行为和禁止组合。所有交互组件覆盖
-default、hover、pressed、focus-visible、disabled 和 loading；disabled 不响应，loading 保持尺寸并提供
-可读状态。页面还必须明确 pending、empty、error、unauthorized、not-found 和 success。
-
-**基础组件不自己造。** 新增第 2 层基础组件前先查 shadcn registry：
-`https://ui.shadcn.com/r/styles/base-nova/<name>.json` 返回 200 即官方有实现，必须以官方实现为骨架，
-只把其中的颜色与尺寸 class 换成本仓库语义 token，并按需追加 OJ 语义变体；官方的 DOM 结构、属性接口
-与可访问性行为不重写。返回 404 才允许手写，并在组件清单中记下这个依据。
-
-已知官方没有对应实现的是 `link`、`typography` 和 `layout`——shadcn 的定位是交互组件，排版与布局原语
-它一向不提供。第 3、4 层的 OJ 业务组件和页面模板本就没有官方对应，按本文合同自行设计。
-
-视觉参考见 Storybook（`cd apps/web && npm run storybook`）与冻结来源的 20 张 specimen 卡片
-[`guidelines/`](./design-system/source/claude-design-v1/guidelines/)；
-它们用于评审，不是 token 或组件行为的真源。
-
-冻结来源的核心配方为 Button、IconButton、Pill、Input、SearchInput、Textarea、Container、Stack、
-NavBar、Badge、Card、Eyebrow、Heading 与 Text。生产实现保留其 anatomy、精确密度、surface、圆角和状态层级，
-同时把原型中的 clickable span、随机 id、鼠标状态、inline style 与手写 SVG 转换成原生语义、`useId`、CSS
-状态、共享 class 与 Lucide。Dialog、Popover、Sheet、Sidebar、Select、Notice 和 TextEditor 属于 Cherry OJ
-扩展，但必须使用同一套视觉语法；浮层使用 `elevation-dialog`，普通内容 Card 不默认抬升。
-
-### 6.1 长内容与编辑器选择
-
-多行输入不能只按“后台页面”或“看起来像文本”选择组件。先判断内容是否短、是否有结构/语法，以及用户
-是否需要搜索、行号、稳定撤销和大段编辑：
-
-- `Input` 只承载单行值；`Textarea` 只用于短而简单的多行纯文本，例如备注、拒绝原因或几行补充说明。
-  不把它用于题面、长 Markdown、长样例、代码或预计需要持续滚动编辑的内容。
-- 长 Markdown、长纯文本和后台代码使用项目统一的 `TextEditor`/`MarkdownEditor`。当前基线采用
-  CodeMirror 6；项目维护 React 适配、Cherry 主题、有限扩展与可访问性合同，不 fork、复制或自行维护
-  上游编辑器内核。
-- 按用户指定在题目编码区采用 `CodeEditor`（Monaco 0.56，本地异步 ESM/C++/worker），
-  手机触控端回退 CodeMirror `TextEditor size="fill"`。后台基础 Markdown/C++ 录入仍使用 CodeMirror。
-  新增 Monaco 使用点须在 DESIGN 中说明收益、移动端边界和 bundle 代价，不扩散为普通长文本组件。
-- 用户答题页面使用 `WorkbenchPageTemplate variant="coding"`，顶部是面包屑一行。宽屏用 `SplitPane`
-  分成题目｜代码与测试（右侧再上下分），栏间只有 0.5px 分隔线，可拖动、可用键盘调整，比例记在本机，
-  默认题目占 42% 宽；每栏顶部是 44px 的 `PaneHeader`，栏内用胶囊 `Tabs` 切换，各栏独立滚动。
-  窄屏以 Tabs 切换题目和代码，隐藏区域保持挂载但不可聚焦。默认 `form` 工作台保持原布局。题目详情
-  shell 填满视口，其余用户端路由使用文档滚动。运行、提交与结果呈现的交互约定见
-  [`design-system/PROMPT.md`](./design-system/PROMPT.md)「交互与文案约定」。
-- JSON、CSV、逗号分隔文本等序列化格式不是普通运营人员的默认表单。可重复业务对象必须用结构化字段、
-  列表或卡片编辑，序号和序列化由系统生成；原始格式只可作为明确的高级导入/导出能力。
-
-编辑器必须完整实现 Field 合同：可见 label、required、description、error、唯一可访问名称、focus-visible、
-disabled/read-only/loading 和错误关联。多个编辑器不能都叫“Editor content”。编辑器默认不得形成 Tab 键
-陷阱，中文输入法组合期间不得触发值回写、保存或校验打断输入；两个主题、320px、200% 缩放、
-forced-colors 和 reduced-motion 都必须验收。
-
-编辑器主题只消费 `--ds-*` 语义 token 和生成主题 registry 提供的 color scheme，不写 raw color、主题 id
-分支或第三套编辑器主题真源。Markdown 预览继续把内容视为不可信输入并净化，不能因为编辑器提供高亮就
-放开原始 HTML。长编辑器应使用有界默认高度和“展开编辑”，避免随全文无限增高；窄屏使用编辑/预览切换，
-不能把分屏硬压成两列。
-
-## 7. 页面结构、间距与滚动
-
-页面进入后应直接呈现当前任务，不在真实操作组件之前重复展示“栏目眉题 + 页面标题 + 页面描述”式介绍区：
-
-- 列表页以筛选器、列表或空/错状态开始，管理页以创建表单、工作面板或数据表开始；不得为填充首屏而补写
-  宣传文案、接口连通状态或没有操作价值的占位内容。
-- 本规则只禁止通用页面介绍。题目名称、版本名称等业务对象标题，表单/面板/区段标题，登录身份标题，以及
-  403、404、loading、empty、error 等状态标题仍须保留。
-- 每个路由仍需有可访问的页面名称。若界面不需要显示页面标题，使用文档标题或 `sr-only` 的一级标题，
-  不得为了视觉规则移除语义层级。
-
-Shell 导航底部到页面第一个可见主内容的垂直距离统一为 `--ds-space-6`（24px），手机、平板与桌面一致。
-页面通过共享 `Section` 布局原语消费该间距，不得用 `py-*`、断点 class 或私有 magic number 重写顶部
-距离。页面底部留白可由模板按内容密度决定，但必须使用既有间距 token；确需偏离 24px 的新模板必须先在
-对应 DESIGN 中说明任务原因并经过评审。
-
-跨用户端与管理端的入口属于账号上下文切换，统一放在头像菜单中：用户端管理员菜单显示“管理中心”，管理端
-头像菜单显示“返回用户端”；管理端顶部导航不得再并列放置独立返回按钮。
-
-管理端桌面布局使用视口内滚动：顶部导航和左侧菜单保持原位，只有中间主内容区产生纵向滚动。左侧菜单自身
-内容超出可用高度时可在菜单内部滚动。手机端继续使用 Sheet 承载管理导航，页面维持浏览器文档滚动，不能把
-桌面侧栏的滚动模型套到移动端。
-
-### 7.1 长任务工作台
-
-需要数分钟以上才能完成、包含三个及以上依赖阶段的工作，不能把后端字段和接口按实现顺序铺成一个超长
-表单。页面应按使用者目标建立步骤或可定位章节，并持续表达：当前对象、当前步骤、已完成内容、未保存
-内容、下一步和阻塞原因。步骤导航是方向提示，不得用前端完成度冒充服务端最终就绪状态。
-
-以下模式禁止作为长任务的默认实现：
-
-- 把“创建新对象”和“管理已有对象”两个主任务长期并排或上下堆在同一首屏；短创建流程使用明确入口和
-  Dialog/专页，列表首屏仍服务于查找与管理。
-- 只有页面顶部一个保存按钮，滚动后既看不到操作也看不到保存状态；长工作台必须让保存入口和“未保存、
-  保存中、已保存、失败/冲突”状态持续可达，并在离开时保护真实未保存内容。
-- 直到页面底部才告诉用户发布/提交缺什么；就绪摘要应在导航或上下文栏持续可见，最终检查项能定位到
-  对应步骤。
-- 让用户靠点击禁用按钮猜测依赖；禁用控件旁必须有持久、可读的原因，tooltip 不能是唯一解释。
-- 把 ns、bytes、hash、ordinal、内部状态码等系统事实作为默认主输入/主文案；界面使用人的单位和语言，
-  精确底层值放技术详情，并在请求边界无损换算。
-- 把保存、发布、可见性切换、创建修订、归档和删除放在同一操作组；普通编辑、生命周期和危险操作必须
-  分层，危险操作使用项目 Dialog 明确对象、影响、可逆性和结果不明时的恢复方式。
+# Cherry OJ 设计系统规范（v3.0）
 
-分步工作台仍需保证未显示步骤的表单状态不会因卸载丢失；当前步骤应进入可验证的 URL 状态，刷新、前进
-后退和直接访问能恢复。是否自动保存必须结合并发版本、敏感内容和服务端契约决定，不能把“现代”当作
-理由：若采用明确保存，应提供快捷键、持续状态和离开保护；若采用自动保存，应提供队列、冲突和失败恢复。
-
-题目工作台是这条规则的一个实例：一页到底按章节编写（标题、题面、输入输出说明、样例、起始代码），属性
-在右栏原地修改，测试数据、标定与公开是从属性栏打开、可用 `?panel=` 直达的对话框。私有题目停止输入后
-自动保存（保存中再改会在本次完成后接着保存，失败时停下等待处理）；已公开题目的修改立即对学生生效，
-因此保留明确保存与 ⌘S。长文本用所见即所得编辑器，但存储仍是 Markdown，与用户端渲染共用同一套正文排版。
-保存成功后**不把服务端返回的内容写回编辑区**（服务端会规范化首尾空白，写回会冲掉输入、让光标回跳），
-只记下已保存的快照用于判断"未保存"。样例与起始代码是随内容增高的代码块，并排时等高、内容从顶部开始。
-
-### 7.2 结构原则：用位置说话，不用装饰说话
+> **适用范围**：`apps/web` 全量界面（公开站点、题库与做题工作台、认证流程、管理中心）。
+> **唯一真源**：所有 Foundation 与主题色值仅在 `apps/web/design-system/` 中手写一次；本文定义视觉架构、语义契约、构图规范与可访问性门禁，不重复抄写具体色值。
 
-框、线、ring 都是在用**画边界**说"这些是一组""这个是激活的"。对齐用**摆位置**说同样的话。
-每加一个框，都是一次"我懒得用对齐解决这个问题"。本节九条都是这一条的推论，逐条可判定。
-
-**A. 分组靠间距，不靠容器。** 一屏里"框"的数量应当接近 0。需要框之前先问：能不能用间距解决？
-**间距必须有明显档位差**——组内 8px、组间 24px 才看得出分组；如果是 8 和 12，看不出来就只能加框，
-而那个框是间距没拉开的补丁。hairline 留给可拖动的分栏等需要明确边界的控件。顶栏和列表用留白与对齐分组。
-`Card` 与 `Panel` 默认无框无底色，`bordered` 是显式例外。
-
-**B. 状态只改颜色，不加东西。** hover、selected、focus、disabled、错误——全部通过改变颜色表达，
-不通过增加边框、ring 或阴影表达。理由不只是好看：**加东西会改变元素的尺寸或占位**，一个 hover 时
-长出 1px 边框的按钮会把相邻元素推开 1px，而对齐是这套系统唯一的结构手段，经不起这个推挤。
+## 1. 设计定位与架构分层
 
-**C. 强调只有"提亮"和"变灰"两招。** 不用加粗强调（600 只给标题），不用放大字号强调
-（界面主力统一 13px），不用颜色强调（颜色留给状态）。列表行里最亮的必须是标题。
-
-**D. 尺寸档位必须少。** 这是对齐的前提：档位一多就不知道该跟谁对齐。控件高度收敛到少数几档，
-图标只有 14px 和 16px 两种。**新增组件不得发明新高度**，必须落在既有档位上。
-
-**E. 对齐的是可见内容的边缘，不是容器的 padding。** 当一行的最左边有平时不可见的元素
-（复选框、状态点占位）时，容器 padding 要相应回补，让**文字与图标的左边缘**跨行、跨区块对齐。
-判据：截图后，工具条标题、分组带标签、行首图标的左边缘应当在同一条竖线上。
-
-**F. 空白是内容——但不是任何空白都算。** 列表下方的大片空白是对的，不该用卡片网格填满；
-"这一屏太空了"不是问题，"这一屏太满了"才是。
-
-**行内的空白要先确认不是排布错了。** 把几个短字段推到行的两端，中间空掉一大半——那不是留白，
-是排布选错了。判据：这一行的内容本来就撑不满，还是被人为推开的？前者接受，后者收窄容器并
-让字段紧跟标题（见 §7.3 的行排布）。拿这条规则给排错的行背书，会让同一个问题一直存在。
-
-**G. 颜色只干两件事**：层级（亮/灰）与状态（成功/失败/警告）。不干分组（那是间距的活）、
-不干强调（那是明度的活）、不干装饰（不存在）。品牌色只用于"这是主操作"和"这是当前项"。
-
-**H. 动效只做颜色。** 因为状态变化只改颜色，所以过渡也只需要颜色——这既便宜又流畅。
-不做位移和缩放，它们会破坏对齐感。浮层出现可以用透明度加极小位移，因为它本就来自另一层。
-
-**I. 浮层靠亮度和小阴影分层。** Dialog、Popover、Sheet、Select、DropdownMenu 使用不透明的
-`surface-raised` 底、**0.5px 边框、12px 圆角与三层小阴影**，不使用 backdrop blur。
-阴影只用于浮层。
-
-### 7.3 构图合同
-
-前七节规定用什么材料，本节规定**怎么把材料拼成一个页面**。缺这一层时，每个页面只能从零件
-现拼，而现拼必然拼出不同的东西——这就是此前四轮返工里"token 全对但看起来不像"的机制性原因。
-
-本节每条都必须能对着一张截图或一次 grep 判定真假。写不出判据的想法不进本节。
-逐条的执行提示词见 [`design-system/PROMPT.md`](./design-system/PROMPT.md)。
-
-**先选模板。** 页面不再自己拼列表和工具条：列表页用 `ListPageTemplate` + `Toolbar` +
-`DataList`，详情页用 `DetailPageTemplate`，长任务用 `WorkbenchPageTemplate`。模板独占首内容
-间距与页面语义标题，页面不再自写 `pt-*` 或 `sr-only` 的一级标题。
-
-**列表页 = 工具条 + 数据列表 + 分页。**
-
-- 工具条第一行：标题、准确计数、搜索；第二行：过滤器与 toolbar 按钮。
-- **过滤即时生效，不放「筛选」提交按钮**；文本输入回车即应用，下拉选中即应用。
-  确需显式提交时，先说明该查询为何昂贵以及交互代价。
-- 数据列表是**对齐的列**，不是卡片网格，不是 `flex-wrap`。列宽由列定义声明并跨行共享。
-- **声明列宽必须配 `table-fixed`。** `table-layout: auto` 会把列宽降级成"建议"，
-  内容一长就撑开，列边缘跨行对不齐。度量值与标识列固定一行、超出省略。
-- 行高 44px，交互行圆角 8px。组标题与行左边缘对齐，组间留白。
-
-**分组优先用间距、对齐和分隔线**，不要每个分组都套一个 Card。Card 是半透明的
-（2% 填充 + 1px 边界），不是不透明大块；只有浮层默认抬升。
-
-**文字四档各司其职**，一屏只用两档即为层级塌陷：主标题、正文/行标题、次要说明与占位、
-标识与时间戳。`fg-disabled` 是第五个前景色但**不参与这个排序**——它表达"不可用"，
-是全系统唯一豁免 4.5:1 的前景色，禁止当作"更浅的第五档正文"使用（见 §5）。
-
-**状态用形状而不只用颜色**：8px 实心圆表示完成、8px 空心圆表示进行中、2px 圆角方块表示
-未开始。难度这类有序量用颜色区分并保留文字。不要把一行信息全做成同色 Badge。
-
-**度量值用 mono 并给准确数字**（`42 ms`、`14 / 14`、`23%`、题目标识），不写"很快""大量"。
-
-**列表行标题用前景色，不用品牌色。** 品牌红只出现在主按钮、focus、正文链接和活动态；
-一屏几十行标题全是 Cherry 就成了 §2 明确禁止的大面积色块。
-
-**窄屏降级是折行，不是裁切也不是横向滚动。** 次要列在断点以下整列隐藏，内容折进第一个主列
-下方的 metadata 行；关键列（状态、标识、主标题）任何宽度下都在。
-
-**验收不看 token 校验。** 改动外观时用同画面截图对照；怀疑有偏差时逐元素 dump 计算样式再
-diff——它能指到具体是哪个元素的哪个属性变了，而截图只能告诉你"有问题"。
-
-## 8. 可访问性与响应式
-
-- 普通文字、metadata、placeholder 与其所有允许背景的对比度至少 `4.5:1`；必要控件边界、图标和
-  focus 至少 `3:1`，验收不四舍五入。
-- 正文链接保持 underline。**焦点是一条 1px、贴边（offset -1px）、focus 色的 outline**，所有控件一致
-  （linear.app 实测）；outline 不占布局，不推挤相邻元素。不叠加 ring、不加正 offset、不用光晕。
-  这是有意放弃 WCAG 2.2 SC 2.4.13（AAA，要求 2px 周长）以换取视觉一致性；SC 2.4.7（AA，焦点可见）
-  与 SC 1.4.11（焦点指示器 3:1 对比）仍然满足，focus 色对相邻色的对比度必须实测达标。
-- 交互使用语义 HTML、可访问名称、正确 label 和错误关联；键盘操作与指针操作能力一致。
-- 320px 下不允许关键操作或状态被裁切；长中文不能破坏按钮尺寸、表格可读性或工作台主流程。
-- `prefers-reduced-motion` 下禁用非必要位移与平滑滚动；forced-colors 使用系统色，它是环境适配而不是
-  新主题。
-
-## 9. 例外与变更流程
-
-没有“只在这个页面写一个颜色”的快速例外。若现有语义不足：
-
-1. 先说明用户语义、允许 surface、对比类别和为什么现有 token 不能表达；
-2. 评估两个主题、全部组件消费者和未来主题兼容性；
-3. 需要新增/改义合同、改变默认主题或组件默认行为时，先说明方案与取舍并获人工批准；
-4. 在同一改动中修改 `apps/web/design-system/` 的主题、adapter 与合同并重新生成值锚点，
-   同时更新本文与组件合同的说明；不能只修调用处，也不能把设计值再复制到文档或校验器里。
-
-紧急兼容代码也不得引入 raw color 或 theme-id 分支；确需临时例外时使用写清原因和退出条件的 TODO，
-有现成工作记录时链接移除计划，不为注释强制创建 TASK。
-
-## 10. 当前实现边界
-
-Web 的 Foundation 已登记默认 `cherry-black`、显式 `pure-white`、未知值回退、manifest 派生 color
-scheme、首屏防闪和主题偏好合同。可执行资产与内部合同位于 `apps/web/design-system/`；
-Web 的 install/check/dev/build/Storybook/E2E 不读取 `docs/`。这条不是声明而是被验证过的事实：
-曾把 `docs/` 整个移出仓库后重跑全套命令，check、build、Storybook 与 E2E 均通过。
-`contracts/web-api.openapi.json` 的 OpenAPI 生成检查仍是 Web 明确保留的 monorepo 契约依赖，
-不属于设计文档依赖。
-
-设计值的漂移由生成的值锚点 `design-tokens.json` 检测：改动任何主题或 Foundation 值都会让
-`build.mjs --check` 失败，必须显式重新生成。校验器本身不持有任何设计值——它校验的是合同结构、
-主题同构、对比度、废弃旧值、来源与生成物一致性。
-
-共享 UI 与 Storybook 已迁移到 14 个来源核心配方及同语法生产扩展。切换入口只在这两个正式主题间
-工作，沿用同一偏好 key 和无闪烁首屏流程，不新增“旧系统/新系统”开关。
-
-**已解决**：前景色四档已恢复，两个主题的全部允许 surface 上均 ≥4.5:1；
-`fg-disabled` 移出正文约束，成为独立的第五个前景色，"不可用"重新可辨。
-`data-table-list` 与 `app-shell-navigation` 已有实现（`DataList`、`app/shells/`）；
-业务层不再直接消费 `--ds-*`，由 lint 拦截。
-
-**已按 linear.app 实测重做的页面**（2026-10-16/17）：管理端外壳、题库列表与管理端题目列表
-（`ListPageTemplate`）、成员管理（Settings › Members）、管理端题目编辑（Issue 详情：左正文右属性栏）、
-用户端做题页（§6.1）。页面与 Linear 页面的对应关系见 `PROMPT.md` 的「页面对照表」。
-
-**已知缺口，不要当成已完成。** `editor-workspace`、`submission-lifecycle`、`verdict` 已有实现
-（做题页、`submission-panel.tsx`、`custom-run-workbench.tsx`），但还没有对照
-`components.manifest.json` 的合同逐项核对。其余页面是否符合 §7.3 构图合同，改到时先对照再动手。
-
-## 11. 评审清单
-
-- 使用的是 semantic token，而不是 raw 颜色、primitive 或主题 id 吗？
-- `primary`、中性 `accent`、`brand` 与 `danger` 是否各司其职且成对使用？
-- 两个登记主题是否覆盖相同组件状态，并通过全部允许 surface 的对比要求？
-- 状态和 verdict 是否有文字、code、图标或形状等非颜色信息？
-- 是否覆盖键盘、320px、长中文、loading/error/disabled 和 reduced-motion？
-- 若引入新语义，是否已走例外流程并同步合同、主题、adapter、参考与校验？
-- 新增或改动设计值后，是否重新生成了 `design-tokens.json`，并且值没有被复制到文档或校验器里？
-- 普通 Web 命令是否仍完全不读取、复制或链接设计文档目录？
-- 页面是否直接进入任务、保留语义标题，并统一使用 24px 的首内容间距？
-- 用的是页面模板还是从零件现拼？列边缘能在截图上连成竖线吗（声明列宽是否配了 `table-fixed`）？
-- 这一屏用了几档文字色？`fg-disabled` 有没有被当成"更浅的第五档正文"？
-- 过滤是即时生效还是需要点提交按钮？窄屏的降级是折行还是裁切？
-- 新增的 Tailwind alias 是否已在 `extendTailwindMerge` 登记（漏登记会让样式静默消失）？
-- 管理端桌面是否只滚动主内容区，跨端入口是否只出现在头像菜单？
+Cherry OJ 采用**浅色优先、明快现代的卡片化工具界面（Modern Crisp Card & Island Workspace）**：
+
+- **清晰的空间边界**：以冷瓷灰画布衬托纯白圆角卡片与 `1px` 实线边框，摒弃无边界纯黑极简主义带来的视觉粘连，让题面阅读、表单录入、表格扫视与代码调试各自拥有明确边界。
+- **中文友好的阅读尺度**：针对中文笔画密度标定 `14px` 标准界面字号与 `15px` 长文阅读字号，正文字重回归 `400` 常规体，标题使用 `600` 半粗体拉开层级。
+- **单一可执行真源**：`apps/web/design-system/` 持有 `tokens.foundation.css`、`themes/*.css`、`theme-contract.json`、Tailwind v4 适配器与门禁脚本；`docs/design-system/` 仅存放面向人与智能体的设计说明与组件契约（[`PROMPT.md`](./design-system/PROMPT.md)、[`components.manifest.json`](./design-system/components.manifest.json)），不参与构建输入。
+
+UI 代码按四层单向依赖组织：
+
+1. **Token 与主题层**（`apps/web/design-system/`）：Foundation 尺度 + 双主题语义映射。
+2. **基础组件层**（`apps/web/src/components/ui/`）：基于 Base UI 与 shadcn 骨架封装的无业务语义原语。
+3. **业务组件层**（`apps/web/src/features/*/components/`）：难度徽章、判题状态、自测工作台、代码编辑器适配等 OJ 专属组合件。
+4. **页面模板与外壳层**（`page-templates.tsx`、`apps/web/src/app/shells/`）：统一接管顶栏、侧栏、首屏留白、水平安全区与异步状态挂载位。
+
+---
+
+## 2. 双主题同构契约（Light-First）
+
+系统内置并正式登记两套完整主题，通过 `themes.manifest.json` 生成首屏零闪烁初始化脚本与运行时注册表：
+
+- **`pure-white`（默认主题与安全回退主题，`light`）**：冷瓷灰主画布搭配纯白面板与卡片，高对比深板岩文字阶梯，适合长时间题面阅读与日常刷题。当本地存储缺失、为空、未知或不可读时，一律安全回退到 `pure-white`。
+- **`cherry-black`（暗色主题，`dark`）**：柔和深板岩画布搭配抬升一档的暗色卡片面板，避免纯黑底色导致的眩光与层次丢失，满足夜间编码偏好。
+
+### 跨主题硬性约束
+
+1. **65 键完全同构**：每个已登记主题必须完整定义 `theme-contract.json` 中的全部 65 个语义 token，不得遗漏或私自扩充仅单主题生效的变量。
+2. **零主题分支**：组件与业务代码中严禁出现 `.dark`、`dark:*`、硬编码主题 ID 判断、原始十六进制/RGB/HSL/OKLCH 色值、`--ds-raw-*` 或 `color-mix()`。主题切换只改变根节点 `data-theme` 与派生的 `data-color-scheme`，DOM 结构、圆角、字号与布局保持 100% 一致。
+3. **组件外禁直连 `--ds-*`**：`src/features/`、`src/app/`、`src/routes/` 统一消费 Tailwind 语义工具类（如 `bg-background`、`bg-panel`、`text-foreground`、`border-border`），仅 `src/components/ui/` 与样式适配层可引用底层 CSS 变量。
+
+---
+
+## 3. 排版与空间尺度
+
+### 3.1 字体栈
+
+- **界面与标题（`--ds-font-sans` / `--ds-font-display`）**：本地打包 `Inter Variable`，中文自动回退系统无衬线字体（PingFang SC / Microsoft YaHei UI / Noto Sans CJK SC）。
+- **代码与判题指标（`--ds-font-mono`）**：本地打包 `JetBrains Mono Variable`（优先兼容已安装的 Berkeley Mono），所有编号、耗时、内存、提交短哈希与时间戳开启 `tabular-nums` 等宽数字对齐。
+
+### 3.2 字号与字重阶梯
+
+| 角色 | Token / 工具类 | 尺寸与字重 | 典型用途 |
+| --- | --- | --- | --- |
+| 辅助元信息 / 徽章 | `text-xs` / `text-cap` | `12px–13px` / `400–500` | 标签徽章、列表尾部元信息、快捷键、分组顶栏 |
+| 标准界面正文 | `text-sm` | `14px` / `400` | 按钮、输入框、下拉项、导航项、列表主标题、表单说明 |
+| 题面阅读正文 | `text-base` / `markdownProseClasses` | `15px` / `400`（行高 `24px`） | 题目描述、输入输出说明、提示与 Markdown 长文 |
+| 卡片与分节标题 | `text-15` / `text-base font-heading` | `15px–16px` / `600` | 题面分节标题、工作台子块标题、导览卡片标题 |
+| 页面主标题 | `Heading size="xl"` | `20px` / `600` | 列表页 Toolbar 标题、登录与改密卡片标题 |
+| 题面与导览大标题 | `text-2xl` | `24px` / `600` | 做题页题面主标题、后台 KPI 指标核心数值、首页主标题 |
+
+### 3.3 布局骨架常量
+
+- **全局顶栏高度（`--ds-header-height`）**：`56px`，固定 `1px` 底边框与纯实色面板背景。
+- **管理侧栏宽度（`--ds-sidebar-width`）**：`240px`，桌面端常驻左侧，窄屏收纳进抽屉（`Sheet`）。
+- **标准线条宽度（`--ds-hairline`）**：统一为 `1px`，保证在 1x 普通显示器与 2x Retina 屏幕上呈现一致的锐利边缘。
+- **响应式水平安全区**：手机 `16px`、平板 `24px`、桌面 `32px`，由页面模板与 `Container` 统一持有，业务内容不再重复叠加外层水平边距。
+
+---
+
+## 4. 表面、卡片与交互原语
+
+1. **画布与卡片分层**：页面根容器使用 `--ds-canvas`（`bg-background`）；承载内容集合的卡片、列表外框、侧栏与顶栏使用 `--ds-panel`（`bg-panel`）配 `border-border` 与 `shadow-subtle`；卡片内部的分组带、代码块底色与分段槽使用 `--ds-surface-subtle`（`bg-surface-subtle`）。
+2. **圆角体系**：徽章与小标签 `6px`（`rounded-md`）；按钮、输入框、下拉触发器、属性按钮与代码块 `8px`（`rounded-lg`）；卡片、数据列表外框、浮层菜单与岛式工作台面板 `12px`（`rounded-xl`）；模态对话框 `16px`（`rounded-2xl`）。
+3. **控件尺寸**：表单标准输入框、下拉框与主操作按钮高度为 `36px`（`min-h-9`）；工具栏紧凑筛选、次级动作与行内小按钮高度为 `32px`（`h-8`）。
+4. **分段控制器 `Tabs`**：标签切换统一采用浅底圆角托盘（`bg-surface-subtle p-1 rounded-lg`）配抬升激活滑块（`data-active:bg-panel data-active:shadow-ring rounded-md`），让当前激活视图一目了然。
+5. **克制动效**：常规悬停与状态切换使用 `150ms` 颜色/阴影过渡；弹出菜单、对话框与侧边抽屉允许 `150ms–200ms` 的透明度配合微幅缩放/位移过渡（如 `scale-98`），并在 `prefers-reduced-motion: reduce` 下全部归零。
+
+---
+
+## 5. 品牌色、语义状态与判题表达
+
+1. **樱桃红品牌色（`primary` / `brand`）**：专用于站点品牌标识、页面核心主操作按钮（登录、提交代码、新建题目、保存配置）与管理侧栏当前激活导航态。破坏性操作（删除、停用、放弃修改）必须使用独立的 `danger` / `destructive` 语义色，严禁与品牌色混用。
+2. **题目难度双重编码（`DifficultyBadge` / `DifficultyIcon`）**：难度同时使用递增条形图（简单 1 格、中等 2 格、困难 3 格、未评级 0 格）与柔和语义色徽章（绿 `success`、琥珀 `warning`、红 `danger`、中性 `neutral`），兼顾快速扫视与无障碍辨识。
+3. **提交生命周期与 Verdict 分离**：
+   - 未完成态（`PENDING` / `JUDGING`）展示有序阶段文本与进度计数，不伪造最终判定码。
+   - 已完成态必须穷尽 `contracts/verdict.json` 中的全部合法值（含 `AC`、`WA`、`TLE`、`MLE`、`OLE`、`CE`、`RE`、`RAN`、`SE`），同时输出**稳定英文缩写 + 中文名称 + 形状/状态点**，绝不单独依赖红绿文字传达结果。
+
+---
+
+## 6. 核心页面构图规范
+
+1. **双端应用外壳与首页导览**：
+   - 用户端采用 `56px` 顶栏 + 主内容画布；首页以导览卡片网格呈现核心工作流入口。
+   - 管理端采用左侧固定侧栏 + 顶部面包屑与操作槽 + 冷灰画布工作区；后台总览顶部展示核心 KPI 指标卡，下方按任务优先级排列带框分组列表。
+2. **聚焦认证卡片**：登录页与修改密码页采用窄容器居中卡片（最大宽度约 `440px–460px`），标题、说明、表单字段、全宽主按钮与内联错误提示收纳于同一张卡片内，保证在 `1280×720` 标准视口与 `320px` 窄屏下均完整可达且无横向滚动。
+3. **卡片化列表与管理表（`ListPageTemplate` + `Toolbar` + `DataList`）**：
+   - 工具条第一行放置页面标题、准确计数胶囊、搜索框与主操作按钮，第二行放置即时生效的筛选器。
+   - 列表整体包裹在圆角带框卡片内，行间以 `1px` 柔和分隔线切分；分组列表每组独立成卡并带浅底分组标题栏。整行点击通过标题内真实 `<Link>` 或 `<button>` 的 `::after` 伪元素扩展热区，不使用 `<div onClick>`。
+4. **工作台构图**：
+   - **做题页（`WorkbenchPageTemplate variant="coding"`）**：桌面宽屏采用**三岛可拖拽分栏**——左侧题面与提交记录岛、右上代码编辑岛、右下测试用例与运行/提交结果岛，三张圆角带框面板悬浮在画布之上，通过 `SplitPane variant="island"` 沟槽手柄自由调节宽高比例；窄屏自动切换为顶栏 `Tabs` 单栏视图并保持编辑器挂载状态。
+   - **后台出题工作台（`AdminProblemWorkbench`）**：左侧文档卡片专注题面、样例与多语言模板撰写，右侧粘性属性卡片集中承载难度、可见性、标签与测试数据/标定/公开检查入口。
+
+---
+
+## 7. 可访问性与工程门禁
+
+1. **对比度硬门禁**：`apps/web/design-system/tools/check.mjs` 自动校验两套主题共 **296 组**语义配对——正文文本对比度 `>= 4.5:1`，大号标题、控件边界、焦点环与必要图标对比度 `>= 3.0:1`，禁止使用 `opacity` 降低禁用态或占位符对比度。
+2. **不抖动焦点环**：键盘 `:focus-visible` 统一使用 `1px` 贴边或内缩 `outline`（`--ds-focus`），不改变盒模型尺寸、不推挤相邻元素，并在操作系统 `forced-colors: active` 高对比模式下自动回退系统高亮色。
+3. **窄屏与缩放韧性**：所有页面在 `320px` 视口宽度与 `200%` 缩放等价宽度（`640px`）下不得产生横向滚动条，主操作与导航入口必须保持可触达。
+4. **日常验证命令**：修改任何设计 token、基础组件或页面样式后，必须通过 `cd apps/web && npm run check:design-system`、`npm run check` 与 Playwright 关键链路回归。

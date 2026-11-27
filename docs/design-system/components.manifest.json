@@ -1,82 +1,46 @@
 {
   "schemaVersion": 1,
   "provenance": {
-    "designSource": "Claude Design export: Cherry OJ Design System",
-    "designSourceRootSha256": "68d93dd52ee2c7e9da3b058156ead5e2a789f82f56a2ead28beb9a3f676f9e7d",
-    "sourceFixture": "OpenDesign curated bundled fixture: design-systems/linear-app",
-    "sourceFiles": [
-      "source/claude-design-v1/components"
-    ],
-    "license": "Apache-2.0",
-    "officialLinearArtifact": false
+    "designSystem": "Cherry OJ Native Design System v3.0 (Modern Light-First Card & Island Workspace)",
+    "executableRoot": "../../apps/web/design-system",
+    "license": "Proprietary / Repository License"
   },
-  "modified": {
-    "for": "Cherry OJ",
-    "date": "2026-09-03",
-    "summary": [
-      "Rebuilt the 14 frozen Claude Design core recipes as production React components",
-      "Retained the same anatomy and density in a complete light theme",
-      "Adapted prototype mouse state, random ids, inline styles, and SVG paths to accessible production primitives",
-      "Kept Cherry OJ overlays, feedback, editor, and workflow extensions on the same visual grammar"
-    ]
-  },
-  "contractVersion": "2.0.0",
+  "contractVersion": "3.0.0",
   "themeCoverage": "all-registered",
   "sourceOfTruth": "../design-system.md",
   "reference": {
     "kind": "storybook",
     "command": "cd apps/web && npm run storybook",
-    "note": "视觉参考由 Storybook 承担，它渲染的是 apps/web/src/components/ui 下的真实组件；不再维护手写 HTML 参考页。",
-    "sourceRefs": "每个组件的 sourceRefs 指向冻结来源中该组件的视觉与构图依据，路径相对本目录。空数组表示来源中确无对应物（Cherry OJ 自有扩展），不是遗漏。"
+    "note": "视觉与交互参考由 Storybook 承担，直接渲染 apps/web/src/components/ui 下的真实生产组件。"
   },
   "globalRules": {
+    "defaultTheme": "pure-white",
     "themeBranching": "forbidden",
     "rawColors": "forbidden",
-    "focus": "Use --ds-focus on :focus-visible with a two-pixel outline and two-pixel offset.",
-    "status": "Pair every color with a code, label, icon, shape, or explicit action text.",
-    "motion": "Animate only opacity, color, and background with 150/200ms foundation durations; transform, scale, spring, parallax, blur, and height animation are forbidden.",
-    "icons": "Use Lucide React; decorative icons are aria-hidden and icon-only controls require an accessible name."
+    "focus": "Use --ds-focus on :focus-visible with a 1px outline and -1px/0px offset so focus never shifts layout.",
+    "status": "Pair every semantic color with a readable code, Chinese label, icon, or distinct geometric shape.",
+    "motion": "Use 150ms/200ms foundation durations; subtle scale/translate transitions are reserved for overlays and collapse to 0s under prefers-reduced-motion.",
+    "icons": "Use Lucide React; decorative icons are aria-hidden and icon-only controls require an accessible Chinese name."
   },
   "components": [
     {
       "id": "button",
       "category": "action",
-      "anatomy": [
-        "control",
-        "label",
-        "optional-icon",
-        "optional-progress-label"
-      ],
-      "sizes": [
-        "sm",
-        "md",
-        "lg"
-      ],
-      "variants": [
-        "primary",
-        "secondary",
-        "ghost",
-        "subtle",
-        "toolbar",
-        "danger"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "pressed",
-        "focus-visible",
-        "disabled",
-        "loading"
-      ],
+      "anatomy": ["control", "label", "optional-icon", "optional-progress-label"],
+      "sizes": ["sm", "md", "lg"],
+      "variants": ["primary", "secondary", "ghost", "subtle", "toolbar", "danger"],
+      "states": ["default", "hover", "pressed", "focus-visible", "disabled", "loading"],
       "tokenReferences": [
         "--ds-brand-surface",
         "--ds-brand-surface-hover",
         "--ds-brand-surface-active",
         "--ds-on-brand",
+        "--ds-surface",
+        "--ds-surface-hover",
+        "--ds-surface-subtle",
         "--ds-surface-translucent",
-        "--ds-surface-translucent-hover",
-        "--ds-surface-translucent-selected",
         "--ds-fg",
+        "--ds-fg-2",
         "--ds-fg-disabled",
         "--ds-border-solid",
         "--ds-elevation-subtle",
@@ -93,84 +57,50 @@
         "Never use brand styling for a destructive action",
         "Loading preserves width and exposes readable status text"
       ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/controls/Button.prompt.md",
-        "source/claude-design-v1/components/controls/controls.card.html"
-      ]
+      "implementation": "apps/web/src/components/ui/button.tsx"
     },
     {
       "id": "pill",
       "category": "filter",
-      "anatomy": [
-        "optional-dot",
-        "label"
-      ],
-      "sizes": [
-        "sm"
-      ],
-      "variants": [
-        "static",
-        "interactive"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "selected",
-        "focus-visible"
-      ],
+      "anatomy": ["optional-dot", "label"],
+      "sizes": ["sm"],
+      "variants": ["static", "interactive"],
+      "states": ["default", "hover", "selected", "focus-visible"],
       "tokenReferences": [
-        "--ds-surface-translucent",
+        "--ds-surface",
+        "--ds-surface-hover",
         "--ds-surface-translucent-selected",
         "--ds-fg",
         "--ds-fg-2",
         "--ds-border-solid",
+        "--ds-border-strong",
         "--ds-focus"
       ],
       "keyboard": [
-        "Interactive pills render a native button",
+        "Interactive pills render a native button with aria-pressed",
         "Enter and Space activate"
       ],
       "constraints": [
         "Never attach button behavior to a span",
         "Dots are decorative unless a visible label explains their meaning"
       ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/controls/Pill.prompt.md",
-        "source/claude-design-v1/components/controls/controls.card.html"
-      ]
+      "implementation": "apps/web/src/components/ui/pill.tsx"
     },
     {
       "id": "field",
       "category": "form",
-      "anatomy": [
-        "label",
-        "control",
-        "optional-description",
-        "optional-error"
-      ],
-      "sizes": [
-        "md"
-      ],
-      "variants": [
-        "input",
-        "search",
-        "textarea",
-        "select"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "focus-visible",
-        "disabled",
-        "invalid"
-      ],
+      "anatomy": ["label", "control", "optional-description", "optional-error"],
+      "sizes": ["sm", "md"],
+      "variants": ["input", "search", "textarea", "select"],
+      "states": ["default", "hover", "focus-visible", "disabled", "invalid"],
       "tokenReferences": [
+        "--ds-surface",
+        "--ds-surface-hover",
         "--ds-surface-translucent",
-        "--ds-surface-translucent-hover",
         "--ds-fg",
         "--ds-fg-meta",
         "--ds-fg-disabled",
-        "--ds-border",
+        "--ds-border-solid",
         "--ds-focus",
         "--ds-danger-foreground",
         "--ds-danger-border"
@@ -184,43 +114,21 @@
         "Placeholder is not a label",
         "Do not lower placeholder or disabled text opacity"
       ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/forms/Input.prompt.md",
-        "source/claude-design-v1/components/forms/SearchInput.prompt.md",
-        "source/claude-design-v1/components/forms/Textarea.prompt.md",
-        "source/claude-design-v1/components/forms/forms.card.html"
-      ]
+      "implementation": "apps/web/src/components/ui/field.tsx"
     },
     {
       "id": "card-panel",
       "category": "surface",
-      "anatomy": [
-        "optional-header",
-        "content",
-        "optional-footer"
-      ],
-      "sizes": [
-        "sm",
-        "md",
-        "lg"
-      ],
-      "variants": [
-        "card",
-        "panel",
-        "raised",
-        "interactive"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "focus-visible",
-        "selected"
-      ],
+      "anatomy": ["optional-header", "content", "optional-footer"],
+      "sizes": ["sm", "md", "lg"],
+      "variants": ["card", "panel", "raised", "interactive"],
+      "states": ["default", "hover", "focus-visible", "selected"],
       "tokenReferences": [
         "--ds-panel",
-        "--ds-surface-translucent",
-        "--ds-surface-translucent-hover",
+        "--ds-surface",
+        "--ds-surface-hover",
         "--ds-border",
+        "--ds-elevation-subtle",
         "--ds-elevation-raised",
         "--ds-focus"
       ],
@@ -229,37 +137,18 @@
         "The whole card is not made clickable with a generic div"
       ],
       "constraints": [
-        "Nested content surfaces stay opaque",
+        "Cards sit on --ds-canvas with crisp 1px --ds-border and subtle elevation",
         "Decorative borders do not carry selection alone"
       ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/surfaces/Card.prompt.md",
-        "source/claude-design-v1/components/surfaces/surfaces.card.html",
-        "source/claude-design-v1/guidelines/elevation.card.html"
-      ]
+      "implementation": "apps/web/src/components/ui/card.tsx"
     },
     {
       "id": "container-stack",
       "category": "layout",
-      "anatomy": [
-        "container",
-        "one-dimensional-stack"
-      ],
-      "sizes": [
-        "narrow-760",
-        "default-1200",
-        "wide-1440"
-      ],
-      "variants": [
-        "row",
-        "column",
-        "wrapped"
-      ],
-      "states": [
-        "desktop",
-        "tablet",
-        "phone"
-      ],
+      "anatomy": ["container", "one-dimensional-stack"],
+      "sizes": ["narrow-760", "default-1200", "wide-1440"],
+      "variants": ["row", "column", "wrapped"],
+      "states": ["desktop", "tablet", "phone"],
       "tokenReferences": [
         "--ds-container-max",
         "--ds-container-gutter-desktop",
@@ -273,435 +162,22 @@
         "Use Stack for one-dimensional relationships",
         "Responsive gutters remain tokenized"
       ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/layout/Container.prompt.md",
-        "source/claude-design-v1/components/layout/Stack.prompt.md",
-        "source/claude-design-v1/components/layout/layout.card.html",
-        "source/claude-design-v1/guidelines/spacing-scale.card.html",
-        "source/claude-design-v1/guidelines/spacing-rhythm.card.html"
-      ]
+      "implementation": "apps/web/src/components/ui/layout.tsx"
     },
     {
       "id": "badge",
       "category": "feedback",
-      "anatomy": [
-        "code-or-label",
-        "optional-count"
-      ],
-      "sizes": [
-        "sm"
-      ],
-      "variants": [
-        "neutral",
-        "brand",
-        "success",
-        "warning",
-        "danger",
-        "info",
-        "special"
-      ],
-      "states": [
-        "default",
-        "selected"
-      ],
+      "anatomy": ["optional-icon", "code-or-label", "optional-count"],
+      "sizes": ["sm"],
+      "variants": ["neutral", "brand", "success", "warning", "danger", "info", "special"],
+      "states": ["default", "selected"],
       "tokenReferences": [
-        "--ds-surface-translucent-selected",
+        "--ds-surface-subtle",
+        "--ds-border",
         "--ds-fg-2",
         "--ds-brand-soft",
+        "--ds-brand-border",
         "--ds-on-brand-soft",
-        "--ds-success-surface",
-        "--ds-success-foreground",
-        "--ds-warning-surface",
-        "--ds-warning-foreground",
-        "--ds-danger-surface",
-        "--ds-danger-foreground",
-        "--ds-info-surface",
-        "--ds-info-foreground",
-        "--ds-special-surface",
-        "--ds-special-foreground"
-      ],
-      "keyboard": [
-        "A badge is non-interactive; filters use buttons or links"
-      ],
-      "constraints": [
-        "Verdict badges always show stable code and readable name",
-        "Color never carries meaning alone"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/surfaces/Badge.prompt.md",
-        "source/claude-design-v1/components/surfaces/surfaces.card.html"
-      ]
-    },
-    {
-      "id": "link",
-      "category": "navigation",
-      "anatomy": [
-        "label",
-        "optional-external-indicator"
-      ],
-      "sizes": [
-        "inline",
-        "standalone"
-      ],
-      "variants": [
-        "brand",
-        "muted"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "focus-visible",
-        "visited"
-      ],
-      "tokenReferences": [
-        "--ds-link",
-        "--ds-link-hover",
-        "--ds-fg-muted",
-        "--ds-focus"
-      ],
-      "keyboard": [
-        "Tab focuses",
-        "Enter follows"
-      ],
-      "constraints": [
-        "Inline links keep a visible underline",
-        "Buttons are not styled as navigation links"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/guidelines/colors-cherry.card.html",
-        "source/claude-design-v1/guidelines/colors-text.card.html"
-      ]
-    },
-    {
-      "id": "icon-slot",
-      "category": "primitive",
-      "anatomy": [
-        "lucide-icon",
-        "optional-label"
-      ],
-      "sizes": [
-        "sm",
-        "md",
-        "lg"
-      ],
-      "variants": [
-        "decorative",
-        "informative",
-        "icon-button"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "focus-visible",
-        "disabled"
-      ],
-      "tokenReferences": [
-        "--ds-fg",
-        "--ds-fg-muted",
-        "--ds-focus"
-      ],
-      "keyboard": [
-        "Decorative icons are skipped",
-        "Icon-only buttons use a native button and an accessible name"
-      ],
-      "constraints": [
-        "Do not hand-draw replacement icons",
-        "Necessary icons meet non-text contrast on every allowed surface"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/controls/IconButton.prompt.md",
-        "source/claude-design-v1/readme.md"
-      ]
-    },
-    {
-      "id": "typography",
-      "category": "foundation",
-      "anatomy": [
-        "eyebrow",
-        "display",
-        "heading",
-        "body",
-        "metadata",
-        "code"
-      ],
-      "sizes": [
-        "tiny",
-        "micro",
-        "xs",
-        "cap",
-        "sm",
-        "md",
-        "base",
-        "lg",
-        "h3",
-        "xl",
-        "2xl",
-        "3xl",
-        "display-lg",
-        "4xl"
-      ],
-      "variants": [
-        "strong",
-        "default",
-        "muted",
-        "meta",
-        "accent",
-        "mono"
-      ],
-      "states": [
-        "default",
-        "selection"
-      ],
-      "tokenReferences": [
-        "--ds-fg",
-        "--ds-fg-2",
-        "--ds-fg-muted",
-        "--ds-fg-meta",
-        "--ds-selection-surface",
-        "--ds-selection-foreground",
-        "--ds-font-display",
-        "--ds-font-body",
-        "--ds-font-mono"
-      ],
-      "keyboard": [],
-      "constraints": [
-        "Chinese uses the system CJK fallback",
-        "Metadata is not made fainter with opacity"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/typography/Eyebrow.prompt.md",
-        "source/claude-design-v1/components/typography/Heading.prompt.md",
-        "source/claude-design-v1/components/typography/Text.prompt.md",
-        "source/claude-design-v1/components/typography/typography.card.html",
-        "source/claude-design-v1/guidelines/type-display.card.html",
-        "source/claude-design-v1/guidelines/type-headings.card.html",
-        "source/claude-design-v1/guidelines/type-body.card.html",
-        "source/claude-design-v1/guidelines/type-small.card.html",
-        "source/claude-design-v1/guidelines/type-weights.card.html",
-        "source/claude-design-v1/guidelines/type-mono.card.html",
-        "source/claude-design-v1/guidelines/type-opentype.card.html"
-      ]
-    },
-    {
-      "id": "nav-bar",
-      "category": "navigation",
-      "anatomy": [
-        "brand",
-        "navigation-links",
-        "optional-actions"
-      ],
-      "sizes": [
-        "56px"
-      ],
-      "variants": [
-        "site",
-        "application"
-      ],
-      "states": [
-        "default",
-        "current",
-        "hover",
-        "focus-visible"
-      ],
-      "tokenReferences": [
-        "--ds-header-height",
-        "--ds-panel",
-        "--ds-border-soft",
-        "--ds-fg",
-        "--ds-fg-2",
-        "--ds-focus"
-      ],
-      "keyboard": [
-        "Navigation links follow DOM order",
-        "The current link exposes aria-current"
-      ],
-      "constraints": [
-        "The brand remains typographic",
-        "At narrow widths the product shell supplies a semantic menu trigger"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/components/navigation/NavBar.prompt.md",
-        "source/claude-design-v1/components/navigation/navbar.card.html"
-      ]
-    },
-    {
-      "id": "app-shell-navigation",
-      "category": "layout",
-      "anatomy": [
-        "brand",
-        "primary-navigation",
-        "search",
-        "account-actions",
-        "content"
-      ],
-      "sizes": [
-        "desktop",
-        "phone"
-      ],
-      "variants": [
-        "sidebar",
-        "topbar"
-      ],
-      "states": [
-        "default",
-        "current",
-        "focus-visible",
-        "collapsed"
-      ],
-      "tokenReferences": [
-        "--ds-canvas",
-        "--ds-panel",
-        "--ds-surface-translucent-hover",
-        "--ds-surface-translucent-selected",
-        "--ds-fg",
-        "--ds-fg-muted",
-        "--ds-border",
-        "--ds-focus"
-      ],
-      "keyboard": [
-        "Navigation order follows DOM order",
-        "Current page uses aria-current",
-        "Skip link reaches main content"
-      ],
-      "constraints": [
-        "Navigation remains usable at 320px",
-        "Current state uses text structure as well as surface color"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/ui_kits/app/Sidebar.jsx",
-        "source/claude-design-v1/ui_kits/app/index.html",
-        "source/claude-design-v1/ui_kits/app/README.md"
-      ],
-      "implementation": "apps/web/src/app/shells/"
-    },
-    {
-      "id": "data-table-list",
-      "category": "data-display",
-      "anatomy": [
-        "caption",
-        "header",
-        "status-dot",
-        "rows",
-        "primary-column",
-        "secondary-columns"
-      ],
-      "sizes": [
-        "comfortable",
-        "compact"
-      ],
-      "variants": [
-        "static",
-        "interactive"
-      ],
-      "states": [
-        "default",
-        "hover",
-        "selected",
-        "empty",
-        "loading",
-        "error"
-      ],
-      "tokenReferences": [
-        "--ds-surface",
-        "--ds-surface-subtle",
-        "--ds-surface-hover",
-        "--ds-fg",
-        "--ds-fg-muted",
-        "--ds-border",
-        "--ds-focus"
-      ],
-      "keyboard": [
-        "Rows contain normal links and controls",
-        "Horizontal overflow does not trap focus",
-        "Caption names the data set"
-      ],
-      "constraints": [
-        "Column widths are declared once and shared across rows; the table must use table-fixed so a long cell cannot widen its column.",
-        "Measure and identifier columns stay on one line and truncate; wrapping makes row height track content and the dense list falls apart.",
-        "Rows are separated by a 1px hairline, never by card spacing, and never rendered as a card grid.",
-        "A clickable row is exactly one link placed in the primary column, extended over the row with ::after; never a div with onClick, and never an <a> between <tr> and <td>.",
-        "Row titles use the foreground ladder, not the brand colour: a screenful of Cherry titles is the large colour field the source forbids.",
-        "Narrow screens fold secondary columns under the first primary column; they are never truncated or horizontally scrolled away.",
-        "Status is a shape (filled dot / hollow dot / rounded square) plus readable text, never colour alone."
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/ui_kits/app/ProblemList.jsx"
-      ],
-      "implementation": "apps/web/src/components/ui/data-list.tsx"
-    },
-    {
-      "id": "dialog-popover",
-      "category": "overlay",
-      "anatomy": [
-        "trigger",
-        "title",
-        "description",
-        "content",
-        "actions",
-        "close"
-      ],
-      "sizes": [
-        "sm",
-        "md"
-      ],
-      "variants": [
-        "dialog",
-        "confirmation",
-        "popover"
-      ],
-      "states": [
-        "closed",
-        "open",
-        "focus-visible"
-      ],
-      "tokenReferences": [
-        "--ds-overlay",
-        "--ds-panel",
-        "--ds-fg",
-        "--ds-fg-muted",
-        "--ds-border",
-        "--ds-elevation-dialog",
-        "--ds-focus"
-      ],
-      "keyboard": [
-        "Trigger opens",
-        "Escape closes",
-        "Dialog focus remains inside while open",
-        "Close restores trigger focus"
-      ],
-      "constraints": [
-        "Use explicit labels for destructive confirmation",
-        "Popover uses details-summary or equivalent managed disclosure semantics"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/ui_kits/app/CommandPalette.jsx",
-        "source/claude-design-v1/guidelines/elevation.card.html"
-      ]
-    },
-    {
-      "id": "inline-notice",
-      "category": "feedback",
-      "anatomy": [
-        "status-label",
-        "title",
-        "message",
-        "optional-action"
-      ],
-      "sizes": [
-        "default"
-      ],
-      "variants": [
-        "success",
-        "warning",
-        "danger",
-        "info",
-        "special"
-      ],
-      "states": [
-        "default",
-        "dismissed"
-      ],
-      "tokenReferences": [
         "--ds-success-surface",
         "--ds-success-border",
         "--ds-success-foreground",
@@ -718,42 +194,180 @@
         "--ds-special-border",
         "--ds-special-foreground"
       ],
+      "keyboard": ["A badge is non-interactive; filters use buttons or links"],
+      "constraints": [
+        "Difficulty and verdict badges pair semantic color with bar count, code, or Chinese label",
+        "Color never carries meaning alone"
+      ],
+      "implementation": "apps/web/src/components/ui/badge.tsx"
+    },
+    {
+      "id": "tabs",
+      "category": "navigation",
+      "anatomy": ["root", "list", "trigger", "content"],
+      "sizes": ["default"],
+      "variants": ["segmented"],
+      "states": ["active", "inactive", "focus-visible", "disabled"],
+      "tokenReferences": [
+        "--ds-surface-subtle",
+        "--ds-panel",
+        "--ds-fg",
+        "--ds-fg-muted",
+        "--ds-elevation-ring",
+        "--ds-focus"
+      ],
       "keyboard": [
-        "Actions are normal links or buttons",
-        "New urgent errors use an appropriate live region"
+        "Base UI arrow-key navigation and panel associations",
+        "Keep mounted inactive panels hidden and inert"
       ],
       "constraints": [
-        "A visible status word accompanies color",
+        "Segmented tray uses --ds-surface-subtle with elevated --ds-panel active trigger",
+        "Use semantic token classes without layout-shifting focus rings"
+      ],
+      "implementation": "apps/web/src/components/ui/tabs.tsx"
+    },
+    {
+      "id": "app-shell-navigation",
+      "category": "layout",
+      "anatomy": ["brand", "primary-navigation", "theme-switcher", "account-actions", "content"],
+      "sizes": ["desktop", "phone"],
+      "variants": ["sidebar", "topbar"],
+      "states": ["default", "current", "focus-visible", "collapsed"],
+      "tokenReferences": [
+        "--ds-canvas",
+        "--ds-panel",
+        "--ds-surface-subtle",
+        "--ds-surface-hover",
+        "--ds-brand-soft",
+        "--ds-brand-foreground",
+        "--ds-fg",
+        "--ds-fg-2",
+        "--ds-border",
+        "--ds-focus"
+      ],
+      "keyboard": [
+        "Navigation order follows DOM order",
+        "Current page uses aria-current",
+        "Skip link reaches main content"
+      ],
+      "constraints": [
+        "Navigation remains usable at 320px without horizontal overflow",
+        "Topbar height is 56px and desktop admin sidebar width is 240px"
+      ],
+      "implementation": "apps/web/src/app/shells/"
+    },
+    {
+      "id": "data-table-list",
+      "category": "data-display",
+      "anatomy": [
+        "caption",
+        "optional-group-header",
+        "leading-slot",
+        "optional-id",
+        "title-slot",
+        "trailing-cluster",
+        "mobile-meta-slot"
+      ],
+      "sizes": ["default-48px"],
+      "variants": ["spread", "packed"],
+      "states": ["default", "hover", "focus-visible", "busy"],
+      "tokenReferences": [
+        "--ds-panel",
+        "--ds-surface-subtle",
+        "--ds-surface-hover",
+        "--ds-border",
+        "--ds-border-soft",
+        "--ds-elevation-subtle",
+        "--ds-fg",
+        "--ds-fg-2",
+        "--ds-fg-meta",
+        "--ds-focus"
+      ],
+      "keyboard": [
+        "Rows contain normal links and buttons",
+        "Horizontal overflow does not trap focus",
+        "Caption names the data set via aria-label"
+      ],
+      "constraints": [
+        "Lists are framed in rounded 1px bordered --ds-panel cards with --ds-border-soft inter-row dividers.",
+        "Grouped lists render each group as a distinct card with a --ds-surface-subtle header bar and count pill.",
+        "A clickable row uses one semantic link or button in the title slot extended over the row with ::after, never a div with onClick.",
+        "Narrow screens fold the trailing cluster into the inline meta slot without clipping or horizontal overflow."
+      ],
+      "implementation": "apps/web/src/components/ui/data-list.tsx"
+    },
+    {
+      "id": "dialog-popover",
+      "category": "overlay",
+      "anatomy": ["trigger", "title", "description", "content", "actions", "close"],
+      "sizes": ["sm", "md", "lg"],
+      "variants": ["dialog", "confirmation", "popover", "sheet"],
+      "states": ["closed", "open", "focus-visible"],
+      "tokenReferences": [
+        "--ds-overlay",
+        "--ds-surface-raised",
+        "--ds-fg",
+        "--ds-fg-muted",
+        "--ds-border",
+        "--ds-elevation-dialog",
+        "--ds-focus"
+      ],
+      "keyboard": [
+        "Trigger opens",
+        "Escape closes",
+        "Dialog focus remains inside while open",
+        "Close restores trigger focus"
+      ],
+      "constraints": [
+        "Use explicit labels for destructive confirmation",
+        "Overlays use Base UI managed disclosure and focus-trap semantics"
+      ],
+      "implementation": "apps/web/src/components/ui/dialog.tsx"
+    },
+    {
+      "id": "inline-notice",
+      "category": "feedback",
+      "anatomy": ["icon", "title", "message", "optional-action"],
+      "sizes": ["default"],
+      "variants": ["neutral", "success", "warning", "danger", "info"],
+      "states": ["default"],
+      "tokenReferences": [
+        "--ds-surface-subtle",
+        "--ds-border",
+        "--ds-success-surface",
+        "--ds-success-border",
+        "--ds-success-foreground",
+        "--ds-warning-surface",
+        "--ds-warning-border",
+        "--ds-warning-foreground",
+        "--ds-danger-surface",
+        "--ds-danger-border",
+        "--ds-danger-foreground",
+        "--ds-info-surface",
+        "--ds-info-border",
+        "--ds-info-foreground"
+      ],
+      "keyboard": [
+        "Actions are normal links or buttons",
+        "Urgent errors use an appropriate live region"
+      ],
+      "constraints": [
+        "Rendered as a soft-tinted bordered callout card with icon and text",
         "Do not use brand color as a danger substitute"
       ],
-      "sourceRefs": []
+      "implementation": "apps/web/src/components/ui/inline-notice.tsx"
     },
     {
       "id": "async-state",
       "category": "feedback",
-      "anatomy": [
-        "title",
-        "message",
-        "optional-action",
-        "optional-progress-label"
-      ],
-      "sizes": [
-        "inline",
-        "panel",
-        "page"
-      ],
-      "variants": [
-        "empty",
-        "loading",
-        "error",
-        "unauthorized"
-      ],
-      "states": [
-        "default",
-        "retrying"
-      ],
+      "anatomy": ["icon-badge", "title", "message", "optional-action", "optional-progress-label"],
+      "sizes": ["inline", "panel", "page"],
+      "variants": ["empty", "loading", "error", "unauthorized"],
+      "states": ["default", "retrying"],
       "tokenReferences": [
-        "--ds-surface",
+        "--ds-panel",
+        "--ds-surface-subtle",
+        "--ds-border",
         "--ds-fg",
         "--ds-fg-muted",
         "--ds-danger-foreground",
@@ -765,28 +379,22 @@
         "Loading status is announced without moving focus"
       ],
       "constraints": [
-        "Skeletons are decorative and cannot replace an accessible progress label",
+        "Page-level states sit inside a clean bordered panel card",
         "Error details remain selectable text"
       ],
-      "sourceRefs": []
+      "implementation": "apps/web/src/components/ui/async-state.tsx"
     },
     {
       "id": "editor-workspace",
       "category": "oj-workflow",
       "anatomy": [
-        "problem-context",
-        "language-context",
-        "editor",
-        "local-draft-status",
-        "unavailable-run-submit"
+        "problem-breadcrumb-bar",
+        "statement-and-history-island",
+        "code-editor-island",
+        "custom-run-and-submission-island"
       ],
-      "sizes": [
-        "desktop-split",
-        "phone-tabs"
-      ],
-      "variants": [
-        "practice"
-      ],
+      "sizes": ["desktop-island-split", "phone-tabs"],
+      "variants": ["practice"],
       "states": [
         "loading",
         "read-only",
@@ -794,6 +402,8 @@
         "saved",
         "save-error",
         "conflict",
+        "running",
+        "submitting",
         "editor-error"
       ],
       "tokenReferences": [
@@ -803,98 +413,32 @@
         "--ds-surface-subtle",
         "--ds-fg",
         "--ds-fg-muted",
+        "--ds-border",
+        "--ds-border-soft",
         "--ds-border-strong",
         "--ds-brand-surface",
         "--ds-on-brand",
         "--ds-focus"
       ],
       "keyboard": [
-        "Tab leaves the editor; Ctrl/Cmd+] indents; Ctrl/Cmd+F searches",
-        "Narrow-screen tabs use arrow keys and preserve mounted editors",
-        "Hidden mobile panels are inert; desktop panels are independent regions"
+        "Tab leaves the editor; Ctrl/Cmd+] indents; Ctrl/Cmd+F searches; Mod+Enter runs; Mod+Shift+Enter submits",
+        "SplitPane island separators adjust via pointer drag, double-click reset, arrow keys, and Home/End",
+        "Hidden mobile panels are inert; desktop islands are independent scrollable regions"
       ],
       "constraints": [
-        "Run and submit are disabled with a readable explanation",
-        "Desktop CodeEditor uses locally bundled async Monaco; mobile touch uses TextEditor",
-        "Parent owns source identity; dispose editor/model on identity change; theme changes preserve undo",
-        "Drafts are per account/problem/version/language and remain in this browser"
-      ],
-      "sourceRefs": [
-        "source/claude-design-v1/ui_kits/app/ProblemView.jsx"
+        "Desktop renders three independent rounded bordered --ds-panel islands over --ds-canvas separated by interactive 8px gutters",
+        "Desktop CodeEditor uses locally bundled async Monaco; mobile touch uses CodeMirror TextEditor",
+        "Drafts are isolated per account/problem/language in browser storage"
       ],
       "implementation": "apps/web/src/features/problems/components/problem-detail-page.tsx"
     },
     {
-      "id": "submission-lifecycle",
-      "category": "oj-workflow",
-      "anatomy": [
-        "submission-id",
-        "current-stage",
-        "ordered-stages",
-        "timestamps",
-        "optional-details"
-      ],
-      "sizes": [
-        "compact",
-        "default"
-      ],
-      "variants": [
-        "queued",
-        "judging",
-        "finished",
-        "failed"
-      ],
-      "states": [
-        "pending",
-        "current",
-        "complete",
-        "error"
-      ],
-      "tokenReferences": [
-        "--ds-fg",
-        "--ds-fg-muted",
-        "--ds-info-foreground",
-        "--ds-success-foreground",
-        "--ds-danger-foreground",
-        "--ds-border-strong"
-      ],
-      "keyboard": [
-        "Optional details use a disclosure control",
-        "Updates use polite announcements unless action is required"
-      ],
-      "constraints": [
-        "Stage name is always visible",
-        "Order and labels carry progress without color"
-      ],
-      "sourceRefs": []
-    },
-    {
       "id": "verdict",
       "category": "oj-workflow",
-      "anatomy": [
-        "stable-code",
-        "localized-name",
-        "optional-resource-facts"
-      ],
-      "sizes": [
-        "badge",
-        "row",
-        "result-panel"
-      ],
-      "variants": [
-        "AC",
-        "WA",
-        "TLE",
-        "MLE",
-        "OLE",
-        "CE",
-        "RE",
-        "RAN",
-        "SE"
-      ],
-      "states": [
-        "final"
-      ],
+      "anatomy": ["status-shape", "stable-code", "localized-name", "optional-resource-facts"],
+      "sizes": ["badge", "row", "result-panel"],
+      "variants": ["AC", "WA", "TLE", "MLE", "OLE", "CE", "RE", "RAN", "SE"],
+      "states": ["final"],
       "tokenReferences": [
         "--ds-success-foreground",
         "--ds-success-surface",
@@ -907,56 +451,13 @@
         "--ds-special-foreground",
         "--ds-special-surface"
       ],
-      "keyboard": [
-        "If interactive, the verdict is contained in a normal link or button"
-      ],
+      "keyboard": ["If interactive, the verdict is contained in a normal link or button"],
       "constraints": [
         "Never communicate verdict by color alone",
         "OLE, RAN, and SE are first-class states",
-        "Resource units are explicit: ns and bytes"
+        "Resource units are explicit: ns and bytes in contracts, formatted clearly in UI"
       ],
-      "sourceRefs": [
-        "source/claude-design-v1/guidelines/colors-status.card.html"
-      ]
-    },
-    {
-      "id": "tabs",
-      "category": "navigation",
-      "anatomy": [
-        "root",
-        "list",
-        "trigger",
-        "content"
-      ],
-      "sizes": [
-        "default"
-      ],
-      "variants": [
-        "line"
-      ],
-      "states": [
-        "active",
-        "inactive",
-        "focus-visible",
-        "disabled"
-      ],
-      "tokenReferences": [
-        "--ds-fg",
-        "--ds-fg-muted",
-        "--ds-focus",
-        "--ds-border-soft"
-      ],
-      "keyboard": [
-        "Base UI arrow-key navigation and panel associations",
-        "Keep mounted inactive panels hidden and inert"
-      ],
-      "constraints": [
-        "Structure follows shadcn base-nova tabs registry (HTTP 200 checked 2026-09-07)",
-        "Use semantic token classes; no focus shadow or size change"
-      ],
-      "sourceRefs": [],
-      "implementation": "apps/web/src/components/ui/tabs.tsx",
-      "officialRegistry": "https://ui.shadcn.com/r/styles/base-nova/tabs.json"
+      "implementation": "apps/web/src/features/submissions/submission-panel.tsx"
     }
   ]
 }
